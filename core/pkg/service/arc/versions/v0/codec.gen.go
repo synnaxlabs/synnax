@@ -12,7 +12,7 @@
 package v0
 
 import (
-	"github.com/synnaxlabs/arc/program"
+	program "github.com/synnaxlabs/arc/program/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 

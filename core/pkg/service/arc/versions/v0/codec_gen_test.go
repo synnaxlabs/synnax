@@ -19,9 +19,10 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/compiler"
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
 	ir "github.com/synnaxlabs/arc/ir/versions/v0"
-	"github.com/synnaxlabs/arc/program"
+	program "github.com/synnaxlabs/arc/program/versions/v0"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
@@ -99,25 +100,30 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				Text:    text.Text{Raw: "test_45"},
-				Program: new(program.Program{}),
+				Text: text.Text{Raw: "test_45"},
+				Program: new(program.Program{
+					Output: compiler.Output{
+						WASM:              []byte{47, 48, 49},
+						OutputMemoryBases: map[string]uint32{"test_48": 49},
+					},
+				}),
 				Status: new(status.Status[v0.StatusDetails]{
-					Key:         "test_48",
-					Name:        "test_49",
+					Key:         "test_50",
+					Name:        "test_51",
 					Variant:     status.Variant("success"),
-					Message:     "test_51",
-					Description: "test_52",
-					Time:        telem.TimeStamp(54),
+					Message:     "test_53",
+					Description: "test_54",
+					Time:        telem.TimeStamp(56),
 					Details:     v0.StatusDetails{Running: true},
 					Labels: []label.Label{
 						{
-							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839"),
-							Name: "test_58",
+							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b"),
+							Name: "test_60",
 							Color: color.Color{
-								R: 61,
-								G: 62,
-								B: 63,
-								A: 63.5,
+								R: 63,
+								G: 64,
+								B: 65,
+								A: 65.5,
 							},
 						},
 					},
@@ -195,25 +201,30 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 				},
 			},
 		},
-		Text:    text.Text{Raw: "test_45"},
-		Program: new(program.Program{}),
+		Text: text.Text{Raw: "test_45"},
+		Program: new(program.Program{
+			Output: compiler.Output{
+				WASM:              []byte{47, 48, 49},
+				OutputMemoryBases: map[string]uint32{"test_48": 49},
+			},
+		}),
 		Status: new(status.Status[v0.StatusDetails]{
-			Key:         "test_48",
-			Name:        "test_49",
+			Key:         "test_50",
+			Name:        "test_51",
 			Variant:     status.Variant("success"),
-			Message:     "test_51",
-			Description: "test_52",
-			Time:        telem.TimeStamp(54),
+			Message:     "test_53",
+			Description: "test_54",
+			Time:        telem.TimeStamp(56),
 			Details:     v0.StatusDetails{Running: true},
 			Labels: []label.Label{
 				{
-					Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839"),
-					Name: "test_58",
+					Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b"),
+					Name: "test_60",
 					Color: color.Color{
-						R: 61,
-						G: 62,
-						B: 63,
-						A: 63.5,
+						R: 63,
+						G: 64,
+						B: 65,
+						A: 65.5,
 					},
 				},
 			},
@@ -289,25 +300,30 @@ func FuzzDecodeArc(f *testing.F) {
 					},
 				},
 			},
-			Text:    text.Text{Raw: "test_45"},
-			Program: new(program.Program{}),
+			Text: text.Text{Raw: "test_45"},
+			Program: new(program.Program{
+				Output: compiler.Output{
+					WASM:              []byte{47, 48, 49},
+					OutputMemoryBases: map[string]uint32{"test_48": 49},
+				},
+			}),
 			Status: new(status.Status[v0.StatusDetails]{
-				Key:         "test_48",
-				Name:        "test_49",
+				Key:         "test_50",
+				Name:        "test_51",
 				Variant:     status.Variant("success"),
-				Message:     "test_51",
-				Description: "test_52",
-				Time:        telem.TimeStamp(54),
+				Message:     "test_53",
+				Description: "test_54",
+				Time:        telem.TimeStamp(56),
 				Details:     v0.StatusDetails{Running: true},
 				Labels: []label.Label{
 					{
-						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839"),
-						Name: "test_58",
+						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b"),
+						Name: "test_60",
 						Color: color.Color{
-							R: 61,
-							G: 62,
-							B: 63,
-							A: 63.5,
+							R: 63,
+							G: 64,
+							B: 65,
+							A: 65.5,
 						},
 					},
 				},

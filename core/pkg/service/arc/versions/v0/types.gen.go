@@ -14,7 +14,7 @@ package v0
 import (
 	"github.com/google/uuid"
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
-	"github.com/synnaxlabs/arc/program"
+	program "github.com/synnaxlabs/arc/program/versions/v0"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	"github.com/synnaxlabs/x/validate"
