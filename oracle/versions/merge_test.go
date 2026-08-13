@@ -116,6 +116,42 @@ New struct {
 		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
 	})
 
+	It("Should carry live-owned action declarations through the merge", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string {
+        @doc value "names the channel."
+    }
+
+    @go marshal
+}
+`)
+		liveSource := `Channel struct {
+    name string {
+        @doc value "names the channel."
+    }
+
+    action Rename {
+        name string {
+            @doc value "is the new name."
+        }
+
+        @doc value "renames the channel."
+    }
+
+    @go marshal
+}
+`
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+		Expect(merged).To(ContainSubstring("action Rename {"))
+		Expect(merged).To(ContainSubstring("is the new name."))
+		Expect(merged).To(ContainSubstring("renames the channel."))
+		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+	})
+
 	It("Should overwrite version-owned drift with chain resolution", func(
 		ctx SpecContext,
 	) {

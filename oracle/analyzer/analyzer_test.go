@@ -181,6 +181,45 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
+		It("Should reject an action declared in a version file", func(
+			ctx SpecContext,
+		) {
+			diag := analyzeAt(ctx, `
+Entry struct {
+	key uuid @key
+
+	action Rename {
+		name string
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"actions are live-owned",
+			))
+		})
+
+		It("Should accept an action declared in a live schema", func(
+			ctx SpecContext,
+		) {
+			diag := analyzeAt(ctx, `
+Entry struct {
+	key uuid @key
+
+	action Rename {
+		name string
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/channel.oracle", "channel")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
 		It("Should accept marshal tags in a version file", func(ctx SpecContext) {
 			diag := analyzeAt(ctx, `
 Entry struct {

@@ -12,6 +12,7 @@ package analyzer
 import (
 	"strings"
 
+	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/x/diagnostics"
 )
@@ -32,6 +33,32 @@ func validateImportPlacement(c *analysisCtx) {
 			c.report(diagnostics.Errorf(imp,
 				"%s may only import its own resource's version files, not %q",
 				c.namespace, path,
+			))
+		}
+	}
+}
+
+// validateNoVersionFileActions rejects action declarations in version files. Actions
+// are wire mutations, not persisted content, so they are live-owned: sync carries them
+// from the live schema and never projects them from the chain.
+func validateNoVersionFileActions(c *analysisCtx) {
+	if _, _, inVersionFile := paths.VersionFile(c.filePath); !inVersionFile {
+		return
+	}
+	for _, def := range c.ast.AllDefinition() {
+		sd := def.StructDef()
+		if sd == nil {
+			continue
+		}
+		full, ok := sd.(*parser.StructFullContext)
+		if !ok || full.StructBody() == nil {
+			continue
+		}
+		for _, ad := range full.StructBody().AllActionDef() {
+			c.report(diagnostics.Errorf(ad,
+				"actions are live-owned; declare %q in the live schema, not a "+
+					"version file",
+				ad.IDENT().GetText(),
 			))
 		}
 	}

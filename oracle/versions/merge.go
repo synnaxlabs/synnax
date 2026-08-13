@@ -97,6 +97,12 @@ func MergeLive(
 			}
 			return nil
 		},
+		ExtraBodyBlocks: func(name string) []string {
+			if ex, ok := lc.extras[name]; ok {
+				return ex.actionBlocks
+			}
+			return nil
+		},
 	}
 
 	imports := set.New(lc.imports...)
@@ -325,6 +331,9 @@ type declExtras struct {
 	typeLines  []string
 	fieldLines map[string][]string
 	valueLines map[string][]string
+	// actionBlocks are the declaration's action definitions, verbatim. Actions are
+	// live-owned: they are wire mutations, not persisted content.
+	actionBlocks []string
 }
 
 // liveContent is the live-owned content extracted from an existing live file.
@@ -441,26 +450,8 @@ func extractLive(source string) (*liveContent, error) {
 				for _, d := range body.AllDomain() {
 					liveOwned(d, addType)
 				}
-				// Action extras register under the composite "Type.action"
-				// key the renderer scopes them by.
 				for _, ad := range body.AllActionDef() {
-					aex := &declExtras{
-						fieldLines: make(map[string][]string),
-						valueLines: make(map[string][]string),
-					}
-					lc.extras[name+"."+ad.IDENT().GetText()] = aex
-					ab := ad.ActionBody()
-					if ab == nil {
-						continue
-					}
-					for _, fd := range ab.AllFieldDef() {
-						collectField(fd, aex)
-					}
-					for _, d := range ab.AllDomain() {
-						liveOwned(d, func(line string) {
-							aex.typeLines = append(aex.typeLines, line)
-						})
-					}
+					ex.actionBlocks = append(ex.actionBlocks, text(ad))
 				}
 			case *parser.StructAliasContext:
 				if body := s.AliasBody(); body != nil {

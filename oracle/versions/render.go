@@ -47,6 +47,10 @@ type RenderOptions struct {
 	// ExtraValueLines returns extra domain-expression lines appended to the
 	// named enum value's domain body. Nil appends nothing.
 	ExtraValueLines func(typeName, valueName string) []string
+	// ExtraBodyBlocks returns verbatim multi-line blocks (live-owned action
+	// definitions) rendered inside the named struct's body, between its fields
+	// and its domains. Nil renders nothing.
+	ExtraBodyBlocks func(typeName string) []string
 }
 
 // Render renders declarations into version-file source text. The output is
@@ -142,26 +146,16 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	for _, field := range f.Fields {
 		r.renderField(t.Name, field)
 	}
-	for _, action := range f.Actions {
-		r.line("")
-		r.renderAction(t.Name, action)
+	if r.opts.ExtraBodyBlocks != nil {
+		for _, block := range r.opts.ExtraBodyBlocks(t.Name) {
+			r.line("")
+			// Blocks splice verbatim; the caller's formatter pass re-indents.
+			for _, line := range strings.Split(block, "\n") {
+				r.line(strings.TrimRight(line, " \t"))
+			}
+		}
 	}
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
-	r.indent--
-	r.line("}")
-}
-
-// renderAction renders one struct action. Extra lines scope under the
-// composite "Type.action" key so action fields never collide with same-named
-// struct fields.
-func (r *renderer) renderAction(typeName string, a resolution.Action) {
-	scoped := typeName + "." + a.Name
-	r.line("action " + a.Name + " {")
-	r.indent++
-	for _, field := range a.Fields {
-		r.renderField(scoped, field)
-	}
-	r.renderDomains(a.Domains, r.extraTypeLines(scoped))
 	r.indent--
 	r.line("}")
 }

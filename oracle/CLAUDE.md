@@ -40,10 +40,12 @@ or generator logic and schemas disagree.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,
-  `@validate`, `@index`, `@pb`, wire-only types like `APIChannel`). Edit shapes in
-  version files; edit live-only concerns in the live file. A hand edit to version-owned
-  live content is overwritten by the next sync, and the `versions` gate errors on the
-  drift naming the version files as authority.
+  `@validate`, `@index`, `@pb`, wire-only types like `APIChannel`, and `action`
+  declarations — actions are wire mutations, not persisted content, so the analyzer
+  rejects them in version files). Edit shapes in version files; edit live-only concerns
+  in the live file. A hand edit to version-owned live content is overwritten by the
+  next sync, and the `versions` gate errors on the drift naming the version files as
+  authority.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
   artifacts: arc `Program` has no versions directory, so its Go types live at the
   package root and every version referencing it takes the one live shape.
