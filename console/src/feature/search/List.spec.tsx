@@ -53,10 +53,11 @@ const searchInput = (): HTMLInputElement => {
 };
 
 describe("Search.List", () => {
-  it("shows the empty state when no resource matches the query", async () => {
-    await renderSearch();
+  it("shows the empty state once the search answers with nothing", async () => {
+    await renderSearch({});
     fireEvent.change(searchInput(), { target: { value: uniqueName("no_such") } });
-    await waitFor(() => expect(screen.getByText("No resources found")).toBeTruthy());
+    expect(screen.queryByText("No resources found")).toBeNull();
+    await screen.findByText("No resources found");
   });
 
   it("finds a live resource by name and renders its search item", async () => {

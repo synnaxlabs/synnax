@@ -53,6 +53,7 @@ export const { use, useEnsure, useTombstone, useResult, createSelector } =
       client.arcs.onChange({ key, includeStatus }, handler),
     getCached: ({ client, query: { key, includeStatus } }) =>
       client.arcs.getCached({ key, includeStatus }),
+    awaitCreation: true,
   });
 
 // useAllNodes returns every graph node of the Arc with the given key as diagram

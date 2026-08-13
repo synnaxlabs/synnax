@@ -108,6 +108,27 @@ describe("useCreateEmpty", () => {
     });
   });
 
+  it("should keep the pending group when the parent's children change under it", async () => {
+    const { parentID, editable } = await setup();
+    // The answer this creation triggers carries the parent's whole membership, and
+    // the cluster has never heard of the group being named.
+    const sibling = await client.groups.create({
+      parent: parentID,
+      name: uniqueName("sibling"),
+    });
+    await screen.findByText(sibling.name);
+    const stillEditing = document.getElementById(editable.id);
+    if (stillEditing == null) throw new Error("the pending group left the tree");
+    const name = uniqueName("grp");
+    await act(async () => {
+      commitTextEdit(stillEditing, name);
+    });
+    await waitFor(async () => {
+      const children = await client.ontology.children.retrieve({ ids: parentID });
+      expect(children.map((c) => c.name)).toContain(name);
+    });
+  });
+
   it("should not create a group and should remove the placeholder when the rename is escaped", async () => {
     const { parentID, child, editable } = await setup();
     const placeholderID = editable.id;
