@@ -8,6 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { InlineCode } from "@/components/text/InlineCode";
 import { Divider, Icon, Text, Flex } from "@synnaxlabs/pluto";
 const { next, prev, nextURL, prevURL } = Astro.props;
 ---
@@ -24,7 +25,9 @@ const { next, prev, nextURL, prevURL } = Astro.props;
                             <Text.Text level="small" color={7} weight={400}>
                                 Previous
                             </Text.Text>
-                            <Text.Text>{prev}</Text.Text>
+                            <Text.Text>
+                                <InlineCode text={prev} />
+                            </Text.Text>
                         </Flex.Box>
                     </>
                 )
@@ -38,7 +41,9 @@ const { next, prev, nextURL, prevURL } = Astro.props;
                             <Text.Text level="small" color={8} weight={400}>
                                 Next
                             </Text.Text>
-                            <Text.Text>{next}</Text.Text>
+                            <Text.Text>
+                                <InlineCode text={next} />
+                            </Text.Text>
                         </Flex.Box>
                         <Icon.Caret.Right />
                     </>
@@ -69,6 +74,15 @@ const { next, prev, nextURL, prevURL } = Astro.props;
         .pluto-text {
             color: var(--pluto-gray-l9);
             font-weight: 400;
+        }
+
+        code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: inherit;
+            font-size: inherit;
+            line-height: inherit;
         }
         .pluto-icon {
             transition: all 0.2s ease;
