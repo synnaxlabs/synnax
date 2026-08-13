@@ -14,7 +14,6 @@ import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
-import { Session } from "@/session";
 import {
   captureBrowserDownloads,
   removeFilePickers,
@@ -54,19 +53,13 @@ describe("Project.useExport", () => {
     vi.restoreAllMocks();
   });
 
-  it("downloads the selected project as a zip named after it", async () => {
+  it("downloads the project as a zip named after it", async () => {
     const downloads = captureBrowserDownloads();
     const { proj, logName } = await createProjectWithPanel();
-    const { result } = await renderHookWithConsole(
-      () => Project.useExportSelectedProject(),
-      {
-        client,
-        preloadedState: {
-          [Session.Project.SLICE_NAME]: { version: 0, selected: proj.key },
-        },
-      },
-    );
-    act(() => result.current());
+    const { result } = await renderHookWithConsole(() => Project.useExport(), {
+      client,
+    });
+    act(() => result.current(proj.key));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${proj.name}.zip`);
     // Zip entry names are stored uncompressed, so the archive names its own files.
@@ -75,19 +68,5 @@ describe("Project.useExport", () => {
     expect(archive).toContain("manifest.json");
     expect(archive).toContain(`${logName}.json`);
     expect(archive).toContain("Main.json");
-  });
-
-  it("downloads a non-selected project by key", async () => {
-    const downloads = captureBrowserDownloads();
-    const { proj } = await createProjectWithPanel();
-    const { result } = await renderHookWithConsole(() => Project.useExport(), {
-      client,
-      preloadedState: {
-        [Session.Project.SLICE_NAME]: { version: 0, selected: "other" },
-      },
-    });
-    act(() => result.current(proj.key));
-    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
-    expect(downloads.anchors[0].download).toBe(`${proj.name}.zip`);
   });
 });

@@ -43,11 +43,11 @@ const browserAccept = (filters?: FileFilter[]): string | undefined => {
 };
 
 /**
- * Resolves a settle callback after the user appears to have dismissed a file
- * picker but the `cancel` event never fired (older browsers, sandboxed
- * iframes). Listens for the window regaining focus once, then waits for
- * `change` to fire on its own before falling back to null. Idempotent with
- * the change/cancel listeners — first to settle wins.
+ * Resolves a settle callback after the user appears to have dismissed a file picker but
+ * the `cancel` event never fired (older browsers, sandboxed iframes). Listens for the
+ * window regaining focus once, then waits for `change` to fire on its own before
+ * falling back to null. Idempotent with the change/cancel listeners — first to settle
+ * wins.
  */
 const settleOnFocusReturn = (settle: () => void): void => {
   const handler = () => setTimeout(settle, 500);
@@ -108,10 +108,10 @@ const pickFilesBrowser = ({
   });
 
 /**
- * Opens a native file picker and returns the selected files as a uniform
- * { name, read } shape. On Tauri this uses the OS dialog and reads via the
- * filesystem plugin; in the browser it uses an <input type="file"> and reads
- * via File.text(). Returns null if the user cancels or selects nothing.
+ * Opens a native file picker and returns the selected files as a uniform { name, read }
+ * shape. On Tauri this uses the OS dialog and reads via the filesystem plugin; in the
+ * browser it uses an <input type="file"> and reads via File.text(). Returns null if the
+ * user cancels or selects nothing.
  */
 export const pickFiles = (params: PickFilesParams): Promise<PickedFile[] | null> =>
   Session.Runtime.ENGINE === "tauri"
@@ -187,11 +187,10 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
   });
 
 /**
- * Opens a native directory picker and returns the directory's name plus every
- * file under it, recursively. On Tauri this walks the directory via the
- * filesystem plugin; in the browser it uses
- * `<input type="file" webkitdirectory>`. Each file's `path` is relative to the
- * picked root in forward-slash form. Returns null if the user cancels.
+ * Opens a native directory picker and returns the directory's name plus every file
+ * under it, recursively. On Tauri this walks the directory via the filesystem plugin;
+ * in the browser it uses `<input type="file" webkitdirectory>`. Each file's `path` is
+ * relative to the picked root in forward-slash form. Returns null if the user cancels.
  */
 export const pickDirectory = (
   params: PickDirectoryParams = {},

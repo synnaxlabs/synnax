@@ -141,19 +141,17 @@ describe("Runtime.useDownload", () => {
       mocks.engine = "tauri";
       saveMock.mockResolvedValue("/home/user/data.csv");
       const stream = createStream();
-      const filters = [{ name: "CSV", extensions: ["csv"] }];
       await act(async () => {
         await result.current.download({
           stream,
           name: "data",
           extension: "csv",
-          filters,
         });
       });
       expect(saveMock).toHaveBeenCalledWith({
         title: "Download data",
         defaultPath: "data.csv",
-        filters,
+        filters: [{ name: "CSV", extensions: ["csv"] }],
       });
       expect(writeFileMock).toHaveBeenCalledWith("/home/user/data.csv", stream);
       const { statuses } = result.current.notifications;
@@ -179,7 +177,7 @@ describe("Runtime.useDownload", () => {
       expect(saveMock).toHaveBeenCalledWith({
         title: "Download new: group?",
         defaultPath: "new_ group_.zip",
-        filters: undefined,
+        filters: [{ name: "ZIP", extensions: ["zip"] }],
       });
     });
 

@@ -13,7 +13,6 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
 
-import { type FileFilter } from "@/platform/runtime/files";
 import { Session } from "@/session";
 
 interface WindowWithShowSaveFilePicker extends Window {
@@ -21,6 +20,14 @@ interface WindowWithShowSaveFilePicker extends Window {
     suggestedName?: string;
   }) => Promise<FileSystemFileHandle>;
 }
+
+export type DownloadExtension = "csv" | "json" | "zip";
+
+const FILTER_NAMES: Record<DownloadExtension, string> = {
+  csv: "CSV",
+  json: "JSON",
+  zip: "ZIP",
+};
 
 export interface DownloadParams {
   /** The stream to download. */
@@ -31,9 +38,7 @@ export interface DownloadParams {
    */
   name: string;
   /** The extension of the file to download, without the leading dot. */
-  extension: string;
-  /** File-type filters for the Tauri save dialog. */
-  filters?: FileFilter[];
+  extension: DownloadExtension;
   onDownloadStart?: () => void;
 }
 
@@ -48,7 +53,6 @@ export const useDownload = (): ((params: DownloadParams) => Promise<void>) => {
       stream,
       name,
       extension,
-      filters,
       onDownloadStart,
     }: DownloadParams): Promise<void> => {
       const nameWithExtension = filename.sanitize(name, `.${extension}`);
@@ -93,7 +97,7 @@ export const useDownload = (): ((params: DownloadParams) => Promise<void>) => {
         const savePath = await save({
           title: `Download ${name}`,
           defaultPath: nameWithExtension,
-          filters,
+          filters: [{ name: FILTER_NAMES[extension], extensions: [extension] }],
         });
         if (savePath == null) {
           await stream.cancel();

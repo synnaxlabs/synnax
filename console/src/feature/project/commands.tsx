@@ -50,20 +50,15 @@ const ImportProjectCommand = Command.create({
   useVisible: useCreateVisible,
 });
 
-export const useExportSelectedProject = (): (() => void) => {
-  const handleExport = useExport();
-  const store = Session.useStore();
-  return useCallback(
-    () => handleExport(Session.Project.selectSelected(store.getState())),
-    [handleExport, store],
-  );
-};
-
 const ExportProjectCommand = Command.create({
   key: "project_export",
   name: "Export current project",
   icon: <PProject.ExportIcon />,
-  useOnSelect: useExportSelectedProject,
+  useOnSelect: () => {
+    const handleExport = useExport();
+    const getSelected = Session.Project.useGetSelected();
+    return useCallback(() => handleExport(getSelected()), [handleExport, getSelected]);
+  },
   useVisible: useViewVisible,
 });
 
