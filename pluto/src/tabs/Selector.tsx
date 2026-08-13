@@ -26,7 +26,7 @@ import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
-import { useCombinedRefs } from "@/hooks";
+import { useCombinedRefs, useResize } from "@/hooks";
 import { Select } from "@/select";
 import { KEY_ATTRIBUTE, KEY_SELECTOR } from "@/tabs/Frame";
 import { Triggers } from "@/triggers";
@@ -57,14 +57,6 @@ export type Align = "center" | "start";
  * overflows; `content` overflows straight away.
  */
 export type Sizing = "elastic" | "fixed" | "content";
-
-/**
- * What the strip does once its tabs no longer fit.
- *
- * - `scroll`: scrolls behind a thin scrollbar.
- * - `fade`: scrolls with no scrollbar, its trailing edge masked to a fade.
- */
-export type Overflow = "scroll" | "fade";
 
 interface VariantDefaults {
   align: Align;
@@ -136,11 +128,20 @@ const getIndicatorOffset = (
     : last.offsetTop + last.offsetHeight;
 };
 
-const mainAxisSize = (el: HTMLElement, horizontal: boolean): number =>
-  horizontal ? el.offsetWidth : el.offsetHeight;
-
 /** Class marking the source tab whose slot is lifted out during a reorder drag. */
 const HAULED_CLASS = CSS.BEM("tabs", "tab", "hauled");
+
+/** Class marking a strip whose tabs overflow, arming the hover scroll thumb. */
+const SCROLLABLE_CLASS = CSS.BEM("tabs", "selector", "scrollable");
+
+/** Classes marking an edge with tabs hidden past it, showing that edge's fade. */
+const CLIPPED_START_CLASS = CSS.BEM("tabs", "selector", "clipped-start");
+const CLIPPED_END_CLASS = CSS.BEM("tabs", "selector", "clipped-end");
+
+/** Class keeping the thumb visible while a drag holds it outside the strip. */
+const THUMB_DRAGGING_CLASS = CSS.BEM("tabs", "thumb", "dragging");
+
+const MIN_THUMB_WIDTH = 24;
 
 const LINE_SCROLL = 16;
 
@@ -159,7 +160,7 @@ const applyReorderPreview = (
   const tabs = Array.from(selector.querySelectorAll<HTMLElement>(KEY_SELECTOR));
   const dragged = tabs.findIndex((t) => t.getAttribute(KEY_ATTRIBUTE) === draggedKey);
   if (dragged === -1) return false;
-  const gap = mainAxisSize(tabs[dragged], horizontal);
+  const gap = horizontal ? tabs[dragged].offsetWidth : tabs[dragged].offsetHeight;
   const axis = horizontal ? "X" : "Y";
   tabs.forEach((tab, i) => {
     if (i === dragged) {
@@ -227,8 +228,6 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
   align?: Align;
   /** sizing decides how tabs claim width. Defaults per variant. */
   sizing?: Sizing;
-  /** overflow decides what the strip does once its tabs no longer fit. */
-  overflow?: Overflow;
   /**
    * haulType enables drag-and-drop reordering by declaring the Haul item type the
    * strip accepts. When set, dragging an accepted item over the strip renders an
@@ -261,7 +260,6 @@ export const Selector = ({
   variant = "default",
   align,
   sizing,
-  overflow = "scroll",
   haulType = "",
   canDrop,
   onDrop,
@@ -277,28 +275,96 @@ export const Selector = ({
   ...rest
 }: SelectorProps): ReactElement => {
   const internalRef = useRef<HTMLDivElement | null>(null);
-  // React registers wheel passively, so onWheel would drop the preventDefault.
-  const attachWheel = useCallback((el: HTMLDivElement | null): void => {
-    el?.addEventListener(
-      "wheel",
-      (e) => {
-        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-        const max = Math.max(el.scrollWidth - el.clientWidth, 0);
-        const delta =
-          e.deltaMode === WheelEvent.DOM_DELTA_PIXEL
-            ? e.deltaY
-            : e.deltaY * LINE_SCROLL;
-        const next = Math.min(Math.max(el.scrollLeft + delta, 0), max);
-        if (next === el.scrollLeft) return;
-        e.preventDefault();
-        el.scrollLeft = next;
-      },
-      { passive: false },
+  const thumbRef = useRef<HTMLDivElement | null>(null);
+  // The thumb is a sibling of the strip anchored on the frame, so it can hang below
+  // the scrollport, which clips its own children. The strip and thumb share the
+  // frame as offset parent, so the offsets compose directly.
+  const updateOverflow = useCallback((): void => {
+    const el = internalRef.current;
+    const thumb = thumbRef.current;
+    if (el == null || thumb == null) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const scrollable = max > 1;
+    el.classList.toggle(SCROLLABLE_CLASS, scrollable);
+    el.classList.toggle(CLIPPED_START_CLASS, scrollable && el.scrollLeft > 1);
+    el.classList.toggle(CLIPPED_END_CLASS, scrollable && el.scrollLeft < max - 1);
+    if (!scrollable) return;
+    const width = Math.max(
+      (el.clientWidth / el.scrollWidth) * el.clientWidth,
+      MIN_THUMB_WIDTH,
     );
+    const offset = (el.scrollLeft / max) * (el.clientWidth - width);
+    thumb.style.width = `${width}px`;
+    // The translate, not left, carries the per-scroll-frame move so it stays off
+    // the layout path.
+    thumb.style.transform = `translateX(${el.offsetLeft + offset}px)`;
+    // Hangs just below the strip; the grab target's upward extension keeps hover
+    // continuous across the gap.
+    thumb.style.top = `${el.offsetTop + el.offsetHeight + 1}px`;
   }, []);
-  const combinedRef = useCombinedRefs(ref, internalRef, attachWheel);
+  // Native listeners: React registers wheel passively, so onWheel would drop the
+  // preventDefault.
+  const attachStrip = useCallback(
+    (el: HTMLDivElement | null): void => {
+      if (el == null) return;
+      el.addEventListener("scroll", updateOverflow, { passive: true });
+      el.addEventListener(
+        "wheel",
+        (e) => {
+          if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+          const max = Math.max(el.scrollWidth - el.clientWidth, 0);
+          const delta =
+            e.deltaMode === WheelEvent.DOM_DELTA_PIXEL
+              ? e.deltaY
+              : e.deltaY * LINE_SCROLL;
+          const next = Math.min(Math.max(el.scrollLeft + delta, 0), max);
+          if (next === el.scrollLeft) return;
+          e.preventDefault();
+          el.scrollLeft = next;
+        },
+        { passive: false },
+      );
+    },
+    [updateOverflow],
+  );
+  const resizeRef = useResize(updateOverflow);
+  // Tabs mount, close, and rename without firing scroll or resize, so re-measure
+  // after every render.
+  useLayoutEffect(updateOverflow);
+  const combinedRef = useCombinedRefs(ref, internalRef, attachStrip, resizeRef);
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
   const horizontal = dir === "x";
+
+  // One closure owns the whole thumb drag; pointer capture routes every move
+  // through the thumb until release.
+  const attachThumb = useCallback((thumb: HTMLDivElement | null): void => {
+    thumbRef.current = thumb;
+    if (thumb == null) return;
+    let drag: { start: number; scroll: number } | null = null;
+    thumb.addEventListener("pointerdown", (e) => {
+      const el = internalRef.current;
+      if (el == null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      thumb.setPointerCapture(e.pointerId);
+      thumb.classList.add(THUMB_DRAGGING_CLASS);
+      drag = { start: e.clientX, scroll: el.scrollLeft };
+    });
+    thumb.addEventListener("pointermove", (e) => {
+      const el = internalRef.current;
+      if (drag == null || el == null) return;
+      const range = el.clientWidth - thumb.offsetWidth;
+      if (range <= 0) return;
+      const max = el.scrollWidth - el.clientWidth;
+      el.scrollLeft = drag.scroll + ((e.clientX - drag.start) * max) / range;
+    });
+    const endDrag = (): void => {
+      thumb.classList.remove(THUMB_DRAGGING_CLASS);
+      drag = null;
+    };
+    thumb.addEventListener("pointerup", endDrag);
+    thumb.addEventListener("pointercancel", endDrag);
+  }, []);
   const defaults = VARIANT_DEFAULTS[variant];
   const resolvedAlign = align ?? (horizontal ? defaults.align : "start");
   const resolvedSizing = sizing ?? defaults.sizing;
@@ -452,25 +518,22 @@ export const Selector = ({
     }
   }, [dragging]);
 
-  const indicatorStyle = useMemo<CSSProperties | undefined>(
-    () =>
-      indicatorOffset == null
-        ? undefined
-        : { [horizontal ? "left" : "top"]: indicatorOffset },
-    [indicatorOffset, horizontal],
-  );
-
-  const ctx = useMemo<ContextValue>(() => ({ size, variant }), [size, variant]);
+  const indicatorStyle: CSSProperties | undefined =
+    indicatorOffset == null
+      ? undefined
+      : { [horizontal ? "left" : "top"]: indicatorOffset };
   // A passive strip registers no drop zone, so it still forwards the consumer's
   // onDragLeave rather than dropping it.
-  const { onDragOver, onDrop: onDropHandler } = dropProps;
-  const dropListeners = useMemo(
-    () =>
-      haulType === ""
-        ? { onDragLeave }
-        : { onDragOver, onDrop: onDropHandler, onDragLeave: handleDragLeave },
-    [haulType, onDragOver, onDropHandler, handleDragLeave, onDragLeave],
-  );
+  const dropListeners =
+    haulType === ""
+      ? { onDragLeave }
+      : {
+          onDragOver: dropProps.onDragOver,
+          onDrop: dropProps.onDrop,
+          onDragLeave: handleDragLeave,
+        };
+
+  const ctx = useMemo<ContextValue>(() => ({ size, variant }), [size, variant]);
 
   return (
     <Context value={ctx}>
@@ -483,7 +546,6 @@ export const Selector = ({
           CSS.BEM("tabs", "selector", variant),
           CSS.BEM("tabs", "selector", "align", resolvedAlign),
           CSS.BEM("tabs", "selector", "sizing", resolvedSizing),
-          CSS.BEM("tabs", "selector", "overflow", overflow),
           className,
         )}
         size={size}
@@ -503,6 +565,9 @@ export const Selector = ({
           />
         )}
       </Flex.Box>
+      {horizontal && (
+        <div ref={attachThumb} aria-hidden className={CSS.BE("tabs", "thumb")} />
+      )}
     </Context>
   );
 };
