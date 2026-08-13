@@ -9,7 +9,6 @@
 
 import { DisconnectedError, type group } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { filename } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
@@ -24,7 +23,8 @@ export const useExportGroup = (): ((group: group.Group) => void) => {
         if (client == null) throw new DisconnectedError();
         await Runtime.downloadStream({
           stream: await client.schematics.symbols.exportGroup(group.key),
-          name: filename.sanitize(group.name, ".zip"),
+          name: group.name,
+          extension: "zip",
           addStatus,
         });
       }, `Failed to export ${group.name}`);
