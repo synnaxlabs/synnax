@@ -15,11 +15,9 @@ import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
 import { renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger, stubGeometry } from "@/testutil";
+import { findDialogTrigger } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 describe("OPC.Device.Select", () => {
   it("should display the selected server in the trigger", async () => {

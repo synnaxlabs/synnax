@@ -438,6 +438,31 @@ describe("cached reads", () => {
       }
     });
 
+    it("serves a record recreated while nothing subscribed to its delete", async () => {
+      const rng = await createRange();
+      const off = client.ranges.onChange(rng.key, () => {});
+      await client.ranges.retrieve(rng.key);
+      await remote.ranges.delete(rng.key);
+      await expect
+        .poll(() => query.Deleted.matches(client.ranges.getCached(rng.key)))
+        .toBe(true);
+      // A surface that tombstones drops its subscriptions, so the recreate
+      // lands with nothing listening and the resubscribe follows it.
+      off();
+      await client.ranges.create({
+        key: rng.key,
+        name: rng.name,
+        timeRange: rng.timeRange,
+      });
+      const off2 = client.ranges.onChange(rng.key, () => {});
+      try {
+        expect(query.isLive(client.ranges.getCached(rng.key))).toBe(true);
+        expect((await client.ranges.retrieve(rng.key)).name).toEqual(rng.name);
+      } finally {
+        off2();
+      }
+    });
+
     it("delivers remote label attachments through composition", async () => {
       const rng = await createRange();
       const lbl = await remote.labels.create({

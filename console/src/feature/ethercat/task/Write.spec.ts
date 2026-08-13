@@ -25,11 +25,9 @@ import {
   clickConfigure,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 let testRack: rack.Rack;
 
@@ -57,7 +55,9 @@ describe("EtherCAT Write", () => {
         createManualOutputChannel(slave.key, 0x7000, 3),
       ],
     });
-    await waitFor(() => expect(screen.getByText("Control")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("Control").length).toBeGreaterThan(0),
+    );
     expect(screen.getByText("0x7000:3")).toBeTruthy();
   });
 

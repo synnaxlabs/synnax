@@ -22,31 +22,25 @@ const notDeployedYet = (name: string) =>
   status.create({ name, variant: "disabled", message: "Not deployed yet" });
 
 export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
-  const tsk = Arc.useRetrieveTask({ arcKey: key });
+  const { data: tsk } = Arc.useResultTask({ arcKey: key });
   const cmd = Task.useCommand();
-  const isRunning = tsk.data?.status?.details.running ?? false;
+  const isRunning = tsk?.status?.details.running ?? false;
+  const taskKey = tsk?.key;
   const handleStartStop = useCallback(() => {
-    if (tsk.data?.key == null) return;
-    cmd.update([{ task: tsk.data.key, type: isRunning ? "stop" : "start" }]);
-  }, [cmd, tsk.data?.key, isRunning]);
-  if (tsk.variant !== "success")
-    return {
-      running: isRunning,
-      taskKey: "",
-      onStartStop: handleStartStop,
-      taskStatus: tsk.status,
-    };
-  if (tsk.data == null)
+    if (taskKey == null) return;
+    cmd.update([{ task: taskKey, type: isRunning ? "stop" : "start" }]);
+  }, [cmd, taskKey, isRunning]);
+  if (tsk == null)
     return {
       running: false,
       taskKey: "",
-      onStartStop: () => {},
+      onStartStop: handleStartStop,
       taskStatus: notDeployedYet(name),
     };
   return {
     running: isRunning,
-    taskKey: tsk.data.key,
+    taskKey: tsk.key,
     onStartStop: handleStartStop,
-    taskStatus: tsk.data.status ?? notDeployedYet(name),
+    taskStatus: tsk.status ?? notDeployedYet(name),
   };
 };

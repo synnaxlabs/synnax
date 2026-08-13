@@ -84,36 +84,34 @@ const ContextMenu = <C extends Channel>({
               Duplicate
             </Menu.Item>
           )}
-          {canRemove && (
-            <Menu.Item itemKey="remove" onClick={handleRemove}>
-              <Icon.Close />
-              Remove
-            </Menu.Item>
-          )}
-          {(canDuplicate || canRemove) && <Menu.Divider />}
+          <Menu.Divider />
           {contextMenuItems?.({ channels, keys }) ?? null}
-          {canDisable && (
-            <Menu.Item itemKey="disable" onClick={handleDisable}>
-              <Icon.Disable />
-              Disable
-            </Menu.Item>
-          )}
           {canEnable && (
             <Menu.Item itemKey="enable" onClick={handleEnable}>
               <Icon.Enable />
               Enable
             </Menu.Item>
           )}
-          {(canDisable || canEnable) && <Menu.Divider />}
-          {canTare && (
-            <>
-              <Menu.Item itemKey="tare" onClick={handleTare}>
-                <Icon.Tare />
-                Tare
-              </Menu.Item>
-              <Menu.Divider />
-            </>
+          {canDisable && (
+            <Menu.Item itemKey="disable" onClick={handleDisable}>
+              <Icon.Disable />
+              Disable
+            </Menu.Item>
           )}
+          {canTare && (
+            <Menu.Item itemKey="tare" onClick={handleTare}>
+              <Icon.Tare />
+              Tare
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {canRemove && (
+            <Menu.Item itemKey="remove" onClick={handleRemove}>
+              <Icon.Close />
+              Remove
+            </Menu.Item>
+          )}
+          <Menu.Divider />
         </>
       )}
       <PlatformContextMenu.ReloadConsoleItem />

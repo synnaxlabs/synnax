@@ -23,18 +23,9 @@ import { Triggers } from "@/triggers";
 
 export const HAUL_TYPE = "tree_item";
 
-export interface HaulData {
-  /** depth is the position of the dragged node in the tree, where 0 is the root. */
-  depth: number;
-}
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, undefined>;
 
-export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, HaulData>;
-
-export const createHaulItem = (key: string, depth: number): HaulItem => ({
-  type: HAUL_TYPE,
-  key,
-  data: { depth },
-});
+export const createHaulItem = (key: string): HaulItem => ({ type: HAUL_TYPE, key });
 
 export const isHaulItem = (item: Haul.Item): item is HaulItem =>
   item.type === HAUL_TYPE;

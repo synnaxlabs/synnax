@@ -39,7 +39,7 @@ const listItem = Component.renderProp(
     const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
     if (entry == null) return null;
     return (
-      <Select.ListItem {...props} highlightHovered align="center" gap="medium">
+      <Select.ListItem {...props} align="center" gap="medium">
         {entry.icon}
         <Text.Text>{entry.name}</Text.Text>
       </Select.ListItem>
@@ -61,7 +61,7 @@ const Content = ({
   );
   const { data, getItem } = List.useStaticData<Theme.Mode, Entry>({ data: OPTIONS });
   return (
-    <Frame className={CSS.B("theme-modal")} bordered rounded={1} pack>
+    <Frame className={CSS.B("theme-modal")} bordered rounded="small" pack>
       <Header hideClose icon={<Icon.DarkMode />}>
         Color theme
       </Header>

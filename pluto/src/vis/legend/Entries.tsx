@@ -111,8 +111,7 @@ const Entry = ({
       </Flex.Box>
       {allowVisibleChange && onVisibleChange != null && (
         <Button.Button
-          className={CSS.B("visible-toggle")}
-          contrast={background}
+          className={CSS(CSS.B("visible-toggle"), CSS.BM("btn", "glyph"))}
           onClick={() => onVisibleChange(key, !visible)}
           onDoubleClick={stopPropagation}
           size="tiny"

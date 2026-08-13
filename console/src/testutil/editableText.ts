@@ -12,17 +12,27 @@ import { fireEvent, waitFor } from "@testing-library/react";
 const EDITABLE_CLASS = "pluto-text--editable";
 const EDITING_SELECTOR = `.${EDITABLE_CLASS}[contenteditable="true"]`;
 
+/** Every editable text element carrying `id`, mirroring how Text.edit resolves one. */
+const editableTexts = (id: string): HTMLElement[] =>
+  Array.from(document.getElementsByClassName(EDITABLE_CLASS)).filter(
+    (el): el is HTMLElement => el.id === id,
+  );
+
 /**
  * Finds the editable text element with the given id — the target of a Text.edit
  * rename flow. Throws when no such element is rendered.
  */
 export const findEditableText = (id: string): HTMLElement => {
-  const el = document.querySelector<HTMLElement>(
-    `#${CSS.escape(id)}.${EDITABLE_CLASS}`,
-  );
+  const [el] = editableTexts(id);
   if (el == null) throw new Error(`editable text element ${id} not found`);
   return el;
 };
+
+/**
+ * Counts the editable text elements carrying `id`. More than one means a Text.edit
+ * rename has an ambiguous target.
+ */
+export const countEditableText = (id: string): number => editableTexts(id).length;
 
 /**
  * Waits until the editable text element with `id` has entered editing mode and

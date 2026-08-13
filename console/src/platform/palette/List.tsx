@@ -43,6 +43,8 @@ export interface List<E extends record.Keyed<string>> extends FC<ListProps<E>> {
 
 export const SYNTHETIC_CLICK_DETAIL = 0;
 
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
+
 export interface ListItemProps extends Select.ListItemProps<string> {}
 
 export const ListItem = ({
@@ -54,13 +56,12 @@ export const ListItem = ({
     (e: React.MouseEvent<HTMLDivElement>) => {
       // Only trigger on the synthetic click, which means we won't accidentally call
       // `onSelect` twice.
-      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect?.(itemKey);
+      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect?.(itemKey, e);
     },
     [onSelect, itemKey],
   );
   return (
     <Select.ListItem
-      highlightHovered
       justify="between"
       align="center"
       onClick={handleClick}
@@ -111,13 +112,13 @@ export const BaseList = <E extends record.Keyed<string>>({
         className={CSS(CSS.BE("palette", "input"))}
         placeholder={inputPlaceholder}
         size="huge"
+        flush
         autoFocus
-        contrast={3}
         onChange={handleSearch}
         borderColor={8}
         value={value}
         autoComplete="off"
-        onKeyDown={Triggers.matchCallback([["Escape"]], close)}
+        onKeyDown={Triggers.matchCallback(ESCAPE_TRIGGERS, close)}
         full="x"
       />
       <Base.Items

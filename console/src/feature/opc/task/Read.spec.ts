@@ -15,11 +15,9 @@ import { describe, expect, it } from "vitest";
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
 import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
-import { getLabeledInput, stubGeometry, uniqueName } from "@/testutil";
+import { getLabeledInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 interface CreateInputChannelOverrides extends Partial<OPC.Task.InputChannel> {}
 
@@ -132,7 +130,9 @@ describe("OPC.Read", () => {
       client,
       params: { deviceKey: dev.key, taskKey },
     });
-    await screen.findByText(new RegExp(tsChannel.nodeName));
+    // The index channel exists by now, so the node id and the resolved channel name
+    // both match.
+    await screen.findAllByText(new RegExp(tsChannel.nodeName));
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
     await waitFor(async () => {
       const afterSecond = await client.devices.retrieve({

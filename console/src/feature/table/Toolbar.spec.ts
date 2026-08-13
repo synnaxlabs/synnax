@@ -18,9 +18,7 @@ import {
   renderTable,
 } from "@/feature/table/testutil";
 import { Session } from "@/session";
-import { getLabeledDialogTrigger, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { getLabeledDialogTrigger, uniqueName } from "@/testutil";
 
 interface RenderToolbarOptions {
   tableState?: Partial<Session.Table.State>;

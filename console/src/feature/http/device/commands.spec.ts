@@ -13,9 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { HTTP } from "@/feature/http";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
 
 const client = createTestClient();
 

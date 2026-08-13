@@ -15,16 +15,9 @@ import { describe, expect, it } from "vitest";
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
 import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
-import {
-  awaitTextEditingElement,
-  commitTextEdit,
-  stubGeometry,
-  uniqueName,
-} from "@/testutil";
+import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const createOutputChannel = (): OPC.Task.OutputChannel => {
   // Underscore-free so the device-properties record keys survive the server's
@@ -107,7 +100,9 @@ describe("OPC.Write", () => {
       client,
       params: { deviceKey: dev.key, taskKey },
     });
-    await screen.findByText(new RegExp(ch.nodeName));
+    // The command channel exists by now, so the node id and the resolved channel
+    // name both match.
+    await screen.findAllByText(new RegExp(ch.nodeName));
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
     await waitFor(async () => {
       const afterSecond = await client.devices.retrieve({

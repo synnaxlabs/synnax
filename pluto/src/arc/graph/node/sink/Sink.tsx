@@ -28,8 +28,7 @@ const FUCHSIA_TEXT = color.setAlpha(FUCHSIA, 1);
 
 export const Symbol = ({ config: { channel, value } }: SymbolProps) => {
   const name =
-    Channel.useRetrieve({ key: channel }, { addStatusOnFailure: false }).data?.name ??
-    "Channel";
+    Channel.useResultName(channel > 0 ? { key: channel } : null).data ?? "Channel";
 
   return (
     <Base

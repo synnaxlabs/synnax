@@ -21,9 +21,9 @@ import {
 import { canDropHaulItem, filterHaulItems } from "@/arc/haul";
 import {
   useAddNode,
+  useAllEdges,
+  useAllNodes,
   useRedo,
-  useSelectAllEdges,
-  useSelectAllNodes,
   useSingleDispatch,
   useUndo,
 } from "@/arc/queries";
@@ -53,7 +53,7 @@ export interface EditorProps extends Omit<
   BaseDiagram.DiagramProps,
   "nodes" | "edges" | "onNodesChange" | "onEdgesChange" | "onChange"
 > {
-  enableTriggers?: boolean | (() => boolean);
+  enableTriggers?: Triggers.Condition;
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
 }
 
@@ -69,9 +69,9 @@ export const Editor = ({
   ...props
 }: EditorProps): ReactElement => {
   const key = useKey();
-  const nodes = useSelectAllNodes();
+  const nodes = useAllNodes();
   const nodesRef = useSyncedRef(nodes);
-  const edges = useSelectAllEdges();
+  const edges = useAllEdges();
   const edgesRef = useSyncedRef(edges);
   const dispatch = useSingleDispatch();
 

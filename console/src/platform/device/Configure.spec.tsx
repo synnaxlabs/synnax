@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createTestDevice } from "@/platform/device/testutil";
+import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import { renderWithConsole, uniqueName } from "@/testutil";
@@ -49,12 +50,14 @@ const nameInput = (): HTMLInputElement => screen.getByRole("textbox");
 describe("device Configure", () => {
   it("should not render the form while the device has not been retrieved", async () => {
     await renderWithConsole(
-      <Device.Configure
-        deviceKey={id.create()}
-        close={vi.fn()}
-        icon={<Icon.Hardware />}
-        initialProperties={{}}
-      />,
+      <Errors.SuspenseBoundary>
+        <Device.Configure
+          deviceKey={id.create()}
+          close={vi.fn()}
+          icon={<Icon.Hardware />}
+          initialProperties={{}}
+        />
+      </Errors.SuspenseBoundary>,
     );
     expect(screen.queryByText(/enter a name so it's easy to look up later/)).toBeNull();
   });

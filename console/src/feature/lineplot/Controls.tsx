@@ -133,6 +133,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
           onChange={handleHoldChange}
           tooltipLocation={location.BOTTOM_LEFT}
           size="small"
+          className={CSS(hold && Vis.CONTROLS_PINNED_CLASS)}
           tooltip={
             <Text.Text level="small" color={11}>
               {`${hold ? "Resume" : "Pause"} live plotting`}

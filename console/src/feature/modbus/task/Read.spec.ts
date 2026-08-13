@@ -19,11 +19,9 @@ import {
   clickConfigure,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { getIconButton, stubGeometry } from "@/testutil";
+import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 describe("Modbus.Read", () => {
   it("should build channels in the form and create them on the cluster on configure", async () => {

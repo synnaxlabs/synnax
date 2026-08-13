@@ -60,21 +60,21 @@ const bindAll = ({
   });
 
 describe("derived", () => {
-  it("composes existing source rows on bind", () => {
+  it("composes existing source entries on bind", () => {
     const tables = newTables();
     tables.tasks.set(task("t1", "one"));
     bindAll(tables);
     expect(tables.composed.get("t1")).toEqual({ key: "t1", name: "one" });
   });
 
-  it("materializes a composed row when the source row is set", () => {
+  it("materializes a composed entry when the source entry is set", () => {
     const tables = newTables();
     bindAll(tables);
     tables.tasks.set(task("t1", "one"));
     expect(tables.composed.get("t1")).toEqual({ key: "t1", name: "one" });
   });
 
-  it("recomposes when a watched table event affects the row", () => {
+  it("recomposes when a watched table event affects the entry", () => {
     const tables = newTables();
     bindAll(tables);
     tables.tasks.set(task("t1", "one"));
@@ -86,7 +86,7 @@ describe("derived", () => {
     });
   });
 
-  it("replaces row identity exactly when composition changes", () => {
+  it("replaces entry identity exactly when composition changes", () => {
     const tables = newTables();
     bindAll(tables);
     tables.tasks.set(task("t1", "one"));
@@ -100,7 +100,7 @@ describe("derived", () => {
     expect(second?.status).toEqual("running");
   });
 
-  it("recomposes every row on an all projection", () => {
+  it("recomposes every entry on an all projection", () => {
     const tables = newTables();
     bindDerived(tables.composed, {
       source: tables.tasks,
@@ -112,7 +112,7 @@ describe("derived", () => {
     expect(tables.composed.get("t2")?.status).toEqual("done");
   });
 
-  it("tombstones the last composed row when the source row is deleted", () => {
+  it("tombstones the last composed entry when the source entry is deleted", () => {
     const tables = newTables();
     bindAll(tables);
     tables.tasks.set(task("t1", "one"));
@@ -124,6 +124,32 @@ describe("derived", () => {
       name: "one",
       status: "running",
     });
+  });
+
+  it("flushes a bulk source write into the derived table as one batch", () => {
+    const tables = newTables();
+    bindAll(tables);
+    const batches = vi.fn();
+    tables.composed.subscribeBatch(batches);
+    tables.tasks.set([task("t1", "one"), task("t2", "two"), task("t3", "three")]);
+    expect(batches).toHaveBeenCalledTimes(1);
+    expect(batches.mock.calls[0][0]).toHaveLength(3);
+  });
+
+  it("recomposes once for a bulk write to a watched table", () => {
+    const tables = newTables();
+    bindAll(tables);
+    tables.tasks.set([task("t1", "one"), task("t2", "two")]);
+    const batches = vi.fn();
+    tables.composed.subscribeBatch(batches);
+    tables.statuses.set([
+      { key: "s1", task: "t1", message: "running" },
+      { key: "s2", task: "t2", message: "done" },
+    ]);
+    expect(batches).toHaveBeenCalledTimes(1);
+    expect(batches.mock.calls[0][0]).toHaveLength(2);
+    expect(tables.composed.get("t1")?.status).toEqual("running");
+    expect(tables.composed.get("t2")?.status).toEqual("done");
   });
 
   it("detaches every subscription through the returned destructor", () => {
@@ -147,13 +173,13 @@ describe("Cache.derive", () => {
       source: tasks,
       compose: (t) => ({ ...t, status: undefined }),
     });
-    const rows = await composed.retrieve(["t1"]);
-    expect(rows).toEqual([{ key: "t1", name: "fetched", status: undefined }]);
+    const entries = await composed.retrieve(["t1"]);
+    expect(entries).toEqual([{ key: "t1", name: "fetched", status: undefined }]);
     expect(fetch).toHaveBeenCalledWith(["t1"]);
     expect(composed.get("t1")?.name).toEqual("fetched");
   });
 
-  it("clears derived rows on cache reset", async () => {
+  it("clears derived entries on cache reset", async () => {
     const cache = newCache();
     const tasks = cache.createTable<string, Task>({ name: "tasks" });
     const composed = cache.derive<string, Task, ComposedTask>({

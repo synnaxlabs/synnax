@@ -17,7 +17,7 @@ import { type FC, type ReactElement } from "react";
 import { type HaulItem } from "@/feature/opc/device/Browser";
 import { Select } from "@/feature/opc/device/Select";
 import * as Device from "@/feature/opc/device/types";
-import { type ChannelKeyAndIDGetter, Form } from "@/feature/opc/task/Form";
+import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opc/task/Form";
 import {
   type InputChannel,
   READ_SCHEMAS,
@@ -115,15 +115,12 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<InputChannel> = ({ channel, key 
   id: Task.getChannelNameID(key),
 });
 
-const TaskForm: FC<Task.FormProps<ReadSchemas>> = () => (
-  <Form
-    convertHaulItemToChannel={convertHaulItemToChannel}
-    getChannelKeyAndID={getChannelKeyAndID}
-    contextMenuItems={Task.readChannelContextMenuItem}
-  >
-    {isIndexItem}
-  </Form>
-);
+const TaskForm: FC<Task.FormProps<ReadSchemas>> = createForm<InputChannel>({
+  convertHaulItemToChannel,
+  getChannelKeyAndID,
+  contextMenuItems: Task.readChannelContextMenuItem,
+  children: isIndexItem,
+});
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
@@ -269,6 +266,7 @@ export const Read = Task.wrapForm({
   type: "opc_read",
   Properties,
   Form: TaskForm,
+  Icon: Icon.Logo.OPC,
   schemas: READ_SCHEMAS,
   getInitialValues,
   onConfigure,

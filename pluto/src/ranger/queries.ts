@@ -7,21 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  label,
-  NotFoundError,
-  type ontology,
-  query,
-  ranger,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
-import { type optional, primitive, verbs } from "@synnaxlabs/x";
+import { label, type ontology, query, ranger } from "@synnaxlabs/client";
+import { primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { type List } from "@/list";
+import { listDefinition, type ListQuery } from "@/ranger/aether/queries";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "range";
@@ -63,7 +57,7 @@ export const useListChildren = Flux.createList<
     return await client.ranges.children.retrieve(key);
   },
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  subscribe: ({ client, query: { key } }, handler) => {
+  onChange: ({ client, query: { key } }, handler) => {
     if (key == null) return () => {};
     return client.ranges.children.onChange(key, handler);
   },
@@ -77,54 +71,40 @@ export type RetrieveParentQuery = {
   id: ontology.ID;
 };
 
-export const {
-  useRetrieve: useRetrieveParent,
-  useRetrieveEffect: useRetrieveParentEffect,
-} = Flux.createRetrieve<RetrieveParentQuery, ranger.Range | null>({
+export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
+  RetrieveParentQuery,
+  ranger.Range | null
+>({
   name: PARENT_RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) =>
     await client.ranges.parent.retrieve(id),
-  subscribe: ({ client, query: { id } }, handler) =>
+  onChange: ({ client, query: { id } }, handler) =>
     client.ranges.parent.onChange(id, handler),
   getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
 });
 
-export const {
-  useRetrieve,
-  useRetrieveObservable,
-  useRetrieveSuspended: useRetrieveSuspense,
-  useEnsureRetrieved,
-  useTombstone,
-} = Flux.createRetrieve<RetrieveQuery, ranger.Range>({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
-  subscribe: ({ client, query: { key } }, handler) =>
-    client.ranges.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
-});
+export const { use, useEnsure, useTombstone, createSelector, useResult } =
+  Flux.createRetrieve<RetrieveQuery, ranger.Range>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
+    onChange: ({ client, query: { key } }, handler) =>
+      client.ranges.onChange(key, handler),
+    getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
+  });
 
 export type RetrieveMultipleQuery = {
   keys: ranger.Key[];
 };
 
-export const {
-  useRetrieve: useRetrieveMultiple,
-  useRetrieveObservable: useRetrieveObservableMultiple,
-} = Flux.createRetrieve<RetrieveMultipleQuery, ranger.Range[]>({
+export const { use: useMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  ranger.Range[]
+>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys } }) => await client.ranges.retrieve(keys),
-  subscribe: ({ client, query: { keys } }, handler) =>
+  onChange: ({ client, query: { keys } }, handler) =>
     client.ranges.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
-  deriveCached: ({ client, query: { keys } }) => {
-    const ranges: ranger.Range[] = [];
-    for (const key of keys) {
-      const cached = client.ranges.getCached(key);
-      if (!query.isLive(cached)) return undefined;
-      ranges.push(cached);
-    }
-    return ranges;
-  },
 });
 
 export const formSchema = z.object({
@@ -146,7 +126,7 @@ export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> =>
   labels: range.labels?.map((l) => l.key) ?? [],
 });
 
-export type FormQuery = optional.Optional<RetrieveQuery, "key">;
+export type FormQuery = RetrieveQuery;
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -159,9 +139,11 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
-    reset(toFormValues(await client.ranges.retrieve(key)));
+  retrieve: async ({ client, query: { key } }) =>
+    toFormValues(await client.ranges.retrieve(key)),
+  getCached: ({ client, query: { key } }) => {
+    const cached = client.ranges.getCached(key);
+    return query.isLive(cached) ? toFormValues(cached) : undefined;
   },
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
@@ -182,31 +164,20 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       parent: value.parent,
     });
   },
-  mountListeners: ({ client, query: { key }, reset }) => {
-    if (key == null) return [];
-    return client.ranges.onChange(key, (result) => {
+  mountListeners: ({ client, query: { key }, reset }) =>
+    client.ranges.onChange(key, (result) => {
       if (query.isLive(result)) reset(toFormValues(result));
-    });
-  },
+    }),
 });
 
-export const useLabels = (
-  key: ranger.Key,
-  opts?: Omit<
-    Flux.UseDirectRetrieveParams<Label.LabelsOfQuery, label.Label[]>,
-    "query"
-  >,
-): Flux.UseDirectRetrieveReturn<label.Label[]> =>
-  Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) }, opts);
+export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
+  Label.useResultLabelsOf(key == null ? null : { id: ranger.ontologyID(key) }).data;
 
-export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
+export { type ListQuery } from "@/ranger/aether/queries";
 
 export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.ranges.retrieve(query),
+  ...listDefinition,
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.ranges.onChange(query, handler),
-  getCached: ({ client, query }) => client.ranges.getCached(query),
 });
 
 export const metaDataFormSchema = z.object({
@@ -231,7 +202,7 @@ export const useListMetaData = Flux.createList<
     const value = await kv.get(key);
     return { key, value, range: rangeKey };
   },
-  subscribe: ({ client, query: { rangeKey } }, handler) =>
+  onChange: ({ client, query: { rangeKey } }, handler) =>
     client.ranges.kv.onChange(rangeKey, handler),
   getCached: ({ client, query: { rangeKey } }) => client.ranges.kv.getCached(rangeKey),
 });
@@ -249,7 +220,6 @@ const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
 export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchema>({
   name: KV_RESOURCE_NAME,
   schema: kvPairFormSchema,
-  retrieve: async () => undefined,
   initialValues: ZERO_KV_PAIR_FORM_VALUES,
   update: async ({ client, value: getPair }) => {
     const { key, value, range } = getPair();
@@ -314,22 +284,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-const requireRange = (client: Client | null, key: ranger.Key): ranger.Range => {
-  const cached = client?.ranges.getCached(key);
-  if (cached == null) throw new NotFoundError(`Range with key ${key} not found`);
-  if (query.Deleted.matches(cached))
-    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
-  return cached;
-};
-
-export interface SelectKeyParams {
+export interface KeyParams {
   key: ranger.Key;
 }
 
-export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, string>(
-  {
-    subscribe: ({ client, args: { key } }, notify) =>
-      client == null ? () => {} : client.ranges.onChange(key, notify),
-    select: ({ client, args: { key } }) => requireRange(client, key).name,
-  },
-);
+export const useName = createSelector(({ name }) => name);

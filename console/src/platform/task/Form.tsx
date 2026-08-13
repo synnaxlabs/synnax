@@ -15,7 +15,6 @@ import {
   Flex,
   type Flux,
   Form as PForm,
-  Icon,
   Input,
   Panel as PlutoPanel,
   Task as PTask,
@@ -26,6 +25,7 @@ import { type FC, useCallback, useEffect, useMemo, useRef } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Controls } from "@/platform/task/controls";
@@ -76,6 +76,8 @@ export interface FormProps<
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
   Form: FC<FormProps<S>>;
+  /** Vendor-specific icon shown on the task's tab name and toolbar button. */
+  Icon: Panel.TabIcon;
   type: z.infer<S["type"]>;
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
@@ -114,6 +116,7 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
+  Icon: TabIcon,
   schemas,
   type,
   getInitialValues,
@@ -121,6 +124,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   showHeader = true,
   showControls = true,
 }: WrapFormParams<S>): Panel.Tab => {
+  const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
   const defaultName = getInitialValues({}).name;
   const useSyncName = (
     form: PForm.ContextValue<PTask.FormSchema<S>>,
@@ -150,16 +154,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const setView = PlutoPanel.useSetCurrentTabView();
     const initialValues = useMemo(() => {
       const base = getInitialValues({ deviceKey, config });
-      return {
+      return PTask.toFormValues({
         ...base,
         name: name ?? base.name,
         key: taskKey,
         rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
-      };
+      });
     }, [deviceKey, config, name, taskKey, rackKey]);
     const confirm = Modals.useConfirm();
-    const { form, status, save } = PTask.createForm({ schemas, initialValues })({
-      query: { key: taskKey },
+    const { form, status, save } = useForm({
+      query: taskKey == null ? null : { key: taskKey },
+      initialValues,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();
         const [newConfig, rackKey] = await onConfigure(client, config, name);
@@ -199,14 +204,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
       },
     });
-    // The effect fires for loading and error results too, which carry no device. Only
-    // a real device answers what rack the task belongs on.
-    Device.useRetrieveEffect({
-      onChange: ({ data }) => {
-        if (data != null) form.set("rackKey", data.rack);
-      },
-      query: deviceKey == null ? undefined : { key: deviceKey },
-    });
+    const { data: deviceRack } = Device.useResultRack(
+      deviceKey == null ? null : { key: deviceKey },
+    );
+    useEffect(() => {
+      if (deviceRack != null) form.set("rackKey", deviceRack);
+    }, [deviceRack]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     useSyncName(form, { deviceKey, taskKey, rackKey, config, name });
@@ -232,11 +235,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               x
               className={CSS.B("task-channel-form-container")}
               bordered
-              rounded
               grow
               empty
             >
-              <Form status={status} onConfigure={save} {...form} />
+              <Errors.SuspenseBoundary>
+                <Form status={status} onConfigure={save} {...form} />
+              </Errors.SuspenseBoundary>
             </Flex.Box>
             {showControls && (
               <Controls.Controls formStatus={status} onConfigure={save} />
@@ -247,10 +251,13 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     );
   };
   Content.displayName = `Form(${Form.displayName ?? Form.name})`;
-  const RemoteName = ({ taskKey }: { taskKey: task.Key }) => {
+  interface RemoteNameProps extends Panel.TabNameProps {
+    taskKey: task.Key;
+  }
+  const RemoteName = ({ taskKey, allowRename }: RemoteNameProps) => {
     const tabKey = PlutoPanel.useTabKey();
-    PTask.useEnsureRetrieved({ key: taskKey });
-    const name = PTask.useSelectName({ key: taskKey });
+    PTask.useEnsure({ key: taskKey });
+    const name = PTask.useName({ key: taskKey });
     const { update } = PTask.useRename();
     const handleChange = useCallback(
       (name: string) => update({ key: taskKey, name }),
@@ -258,16 +265,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     );
     return (
       <>
-        <Icon.Task />
-        <Text.Editable
+        <TabIcon />
+        <Text.MaybeEditable
           id={Panel.tabNameID(tabKey)}
           value={name}
+          disabled={!allowRename}
           onChange={handleChange}
         />
       </>
     );
   };
-  const LocalName = () => {
+  const LocalName = ({ allowRename }: Panel.TabNameProps) => {
     const tabKey = PlutoPanel.useTabKey();
     const { deviceKey, rackKey, config, name } = useFormArgs();
     const setView = PlutoPanel.useSetCurrentTabView();
@@ -280,19 +288,21 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     );
     return (
       <>
-        <Icon.Task />
-        <Text.Editable
+        <TabIcon />
+        <Text.MaybeEditable
           id={Panel.tabNameID(tabKey)}
           value={name ?? defaultName}
+          disabled={!allowRename}
           onChange={handleChange}
         />
       </>
     );
   };
-  const Name: Panel.TabName = () => {
+  const Name: Panel.TabName = ({ allowRename = true }) => {
     const { taskKey } = useFormArgs();
-    if (taskKey != null) return <RemoteName taskKey={taskKey} />;
-    return <LocalName />;
+    if (taskKey != null)
+      return <RemoteName taskKey={taskKey} allowRename={allowRename} />;
+    return <LocalName allowRename={allowRename} />;
   };
-  return { Content, Name, Icon: Icon.Task };
+  return { Content, Name, Icon: TabIcon };
 };

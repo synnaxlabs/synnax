@@ -22,6 +22,7 @@ import {
   Schematic,
   Select,
   Status,
+  Tabs,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -39,7 +40,6 @@ import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
-import { useConfirmDelete } from "@/platform/tree/useConfirmDelete";
 import { Session } from "@/session";
 
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {
@@ -175,8 +175,9 @@ const RemoteSymbolListContextMenu = ({
 }: RemoteSymbolListContextMenuProps): ReactElement => {
   const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
-  const confirmDelete = useConfirmDelete({
-    type: "Schematic.Symbol",
+  const confirmDelete = Modals.useConfirmDelete({
+    type: "Symbol",
+    title: "Schematic.Symbol.Delete",
     icon: "Schematic",
   });
   const openEdit = Symbol.Edit.useModal();
@@ -208,19 +209,23 @@ const RemoteSymbolListContextMenu = ({
   };
   return (
     <ContextMenu.Menu>
-      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      <Menu.Item itemKey="edit" onClick={handleEdit}>
+        <Icon.Edit />
+        Edit
+      </Menu.Item>
       <ContextMenu.RenameItem
         onClick={() => {
           if (item != null) rename.update(item);
         }}
       />
-      <Menu.Item itemKey="edit" onClick={handleEdit}>
-        <Icon.Edit />
-        Edit
-      </Menu.Item>
+      <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => exportSymbol(schematic.symbol.ontologyID(firstKey))}
       />
+      <Menu.Divider />
+      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
@@ -267,7 +272,9 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
           x
           className={CSS.BE("schematic", "symbols", "group")}
           onContextMenu={menuProps.open}
-          emptyContent={<RemoteListEmptyContent groupKey={groupKey} />}
+          emptyContent={
+            listData.answered && <RemoteListEmptyContent groupKey={groupKey} />
+          }
           wrap
         >
           {remoteListItem}
@@ -277,28 +284,21 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
   );
 };
 
-const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null => {
-  const { itemKey } = props;
+interface GroupTabProps {
+  itemKey: group.Key;
+}
+
+const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
   const group = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
-  const { selected, onSelect } = Select.useItemState(itemKey);
   if (group == null) return null;
   const { Icon: GroupIcon } = group;
   return (
-    <Button.Toggle
-      id={itemKey.toString()}
-      size="small"
-      value={selected}
-      onChange={onSelect}
-      className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
-      textColor={selected ? undefined : 9}
-    >
+    <Tabs.Tab itemKey={itemKey}>
       {GroupIcon != null && <GroupIcon />}
       {group.name}
-    </Button.Toggle>
+    </Tabs.Tab>
   );
 };
-
-const groupListItem = Component.renderProp(GroupListItem);
 
 const CreateGroupIcon = Icon.createComposite(Icon.Group, {
   bottomRight: Icon.Add,
@@ -317,14 +317,11 @@ const ImportGroupIcon = Icon.createComposite(Icon.Group, {
 });
 
 export interface ActionsProps {
-  symbolGroupID?: ontology.ID;
+  symbolGroupID: ontology.ID;
   selectedGroup: string;
 }
 
-const Actions = ({
-  symbolGroupID,
-  selectedGroup,
-}: ActionsProps): ReactElement | null => {
+const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement => {
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
@@ -338,7 +335,6 @@ const Actions = ({
 
   const handleCreateGroup = useCallback(() => {
     handleError(async () => {
-      if (symbolGroupID == null) return;
       const result = await rename({
         initialValue: "",
         allowEmpty: false,
@@ -358,14 +354,12 @@ const Actions = ({
   const isRemoteGroup = group.keyZ.safeParse(selectedGroup).success;
 
   const handleCreateSymbol = useCallback(() => {
-    if (!isRemoteGroup || symbolGroupID == null) return;
+    if (!isRemoteGroup) return;
     openEdit({ parent: group.ontologyID(selectedGroup) });
-  }, [isRemoteGroup, openEdit, selectedGroup, symbolGroupID]);
-
-  if (symbolGroupID == null) return null;
+  }, [isRemoteGroup, openEdit, selectedGroup]);
 
   return (
-    <Flex.Box x>
+    <Flex.Box x shrink={0}>
       {hasCreateGroupPermission && (
         <>
           <Button.Button
@@ -444,21 +438,25 @@ const GroupListContextMenu = ({
   if (!isRemoteGroup) return null;
   return (
     <ContextMenu.Menu>
-      <ContextMenu.DeleteItem
-        onClick={() => {
-          if (item != null) deleteSymbolGroup(item);
-        }}
-      />
       <ContextMenu.RenameItem
         onClick={() => {
           if (item != null) rename.update(item);
         }}
       />
+      <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => {
           if (item != null) exportGroup(item);
         }}
       />
+      <Menu.Divider />
+      <ContextMenu.DeleteItem
+        onClick={() => {
+          if (item != null) deleteSymbolGroup(item);
+        }}
+      />
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
@@ -478,22 +476,31 @@ const GroupList = ({
     () => remoteData.retrieve({ parent: symbolGroupID }),
     [remoteData.retrieve, symbolGroupID],
   );
-  const data = List.useCombinedData<group.Key, group.Group>({
+  const listProps = List.useCombinedData<group.Key, group.Group>({
     first: staticData,
     second: remoteData,
   });
   const menuProps = Menu.useContextMenu();
   return (
     <Select.Frame<group.Key, group.Group>
-      {...data}
+      {...listProps}
       value={value}
       onChange={onChange}
       autoSelectOnNone
     >
       <Menu.ContextMenu {...menuProps} menu={groupListContextMenu}>
-        <List.Items onContextMenu={menuProps.open} x gap="small">
-          {groupListItem}
-        </List.Items>
+        <Tabs.Frame x align="center" grow>
+          <Tabs.Selector
+            size="small"
+            sizing="content"
+            overflow="fade"
+            onContextMenu={menuProps.open}
+          >
+            {listProps.data.map((key) => (
+              <GroupTab key={key} itemKey={key} />
+            ))}
+          </Tabs.Selector>
+        </Tabs.Frame>
       </Menu.ContextMenu>
     </Select.Frame>
   );
@@ -563,34 +570,35 @@ export const Symbols = (): ReactElement => {
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
+  const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
-  const symbolGroupID =
-    symbolGroup.data?.key != null ? group.ontologyID(symbolGroup.data.key) : undefined;
+  const symbolGroupID = useMemo(
+    () => (symbolGroup == null ? undefined : group.ontologyID(symbolGroup.key)),
+    [symbolGroup?.key],
+  );
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
       <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>
         <Input.Text
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder={
-            <>
-              <Icon.Search />
-              Search symbols
-            </>
-          }
-          size="small"
+          placeholder="Search symbols..."
+          startContent={<Icon.Search />}
+          flush
+          className={CSS.BE("schematic", "symbols", "search")}
         />
         <GroupList
           value={groupKey}
           onChange={setGroupKey}
           symbolGroupID={symbolGroupID}
         />
-        <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+        {symbolGroupID != null && (
+          <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+        )}
       </Flex.Box>
       {symbolList}
     </Flex.Box>
