@@ -172,6 +172,32 @@ describe("Table Slice", () => {
     });
   });
 
+  describe("setCentered", () => {
+    it("should set the centered flag", () => {
+      const get = renderGetters(store);
+      act(() => {
+        store.dispatch(Table.create({ key: KEY }));
+        store.dispatch(Table.setCentered({ key: KEY, centered: true }));
+      });
+      expect(get.state().centered).toBe(true);
+    });
+
+    it("should toggle the flag when no value is provided", () => {
+      const get = renderGetters(store);
+      act(() => void store.dispatch(Table.create({ key: KEY })));
+      act(() => void store.dispatch(Table.setCentered({ key: KEY })));
+      expect(get.state().centered).toBe(true);
+      act(() => void store.dispatch(Table.setCentered({ key: KEY })));
+      expect(get.state().centered).toBe(false);
+    });
+
+    it("should lazily create the entry when the key does not exist", () => {
+      const get = renderGetters(store);
+      act(() => void store.dispatch(Table.setCentered({ key: KEY })));
+      expect(get.state().centered).toBe(true);
+    });
+  });
+
   describe("remove", () => {
     it("should remove a table by key", () => {
       act(() => void store.dispatch(Table.create({ key: KEY })));
@@ -211,6 +237,7 @@ describe("Table Slice", () => {
       expect(parsed.selectedCells).toEqual([]);
       expect(parsed.lastSelected).toBeNull();
       expect(parsed.hideIndicators).toBe(false);
+      expect(parsed.centered).toBe(false);
     });
   });
 
@@ -233,10 +260,15 @@ describe("Table Slice", () => {
     });
 
     it("should leave other fields untouched", () => {
-      const state = Table.stateZ.parse({ hideIndicators: true, editable: false });
+      const state = Table.stateZ.parse({
+        hideIndicators: true,
+        editable: false,
+        centered: true,
+      });
       const purged = Table.purgeState(state);
       expect(purged.hideIndicators).toBe(true);
       expect(purged.editable).toBe(false);
+      expect(purged.centered).toBe(true);
     });
   });
 

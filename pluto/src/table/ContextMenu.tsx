@@ -27,6 +27,10 @@ export interface DefaultContextMenuProps {
   // item.
   showIndicators?: boolean;
   onShowIndicatorsChange?: (next: boolean) => void;
+  /** Whether the table is centered in its container. */
+  centered?: boolean;
+  /** When defined, surfaces a Center / Align item in the menu. */
+  onCenteredChange?: (next: boolean) => void;
   onAddRow: (index?: number) => void;
   onAddCol: (index?: number) => void;
   onRemoveRow: (indices: number[]) => void;
@@ -52,6 +56,8 @@ export const DefaultContextMenu = ({
   onEditableChange,
   showIndicators = true,
   onShowIndicatorsChange,
+  centered = false,
+  onCenteredChange,
   onAddRow,
   onAddCol,
   onRemoveRow,
@@ -110,6 +116,10 @@ export const DefaultContextMenu = ({
   const handleToggleIndicators = useCallback(
     () => onShowIndicatorsChange?.(!showIndicators),
     [onShowIndicatorsChange, showIndicators],
+  );
+  const handleToggleCentered = useCallback(
+    () => onCenteredChange?.(!centered),
+    [onCenteredChange, centered],
   );
   const showIndicatorToggle = !editable && onShowIndicatorsChange != null;
   return (
@@ -205,6 +215,12 @@ export const DefaultContextMenu = ({
         >
           {showIndicators ? <Icon.Hidden /> : <Icon.Visible />}
           {`${showIndicators ? "Hide" : "Show"} indicators`}
+        </Menu.Item>
+      )}
+      {onCenteredChange != null && (
+        <Menu.Item size="small" itemKey="toggleCentered" onClick={handleToggleCentered}>
+          {centered ? <Icon.Align.Left /> : <Icon.Align.XCenter />}
+          {centered ? "Align table to top left" : "Center table"}
         </Menu.Item>
       )}
       {extra != null && (

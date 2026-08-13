@@ -22,6 +22,9 @@ import { stopPropagation } from "@/util/event";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+/** Pixel size of an indicator strip, mirroring --pluto-table-indicator-size. */
+export const INDICATOR_SIZE = 4.5 * 6;
+
 // getCellColumn maps a 0-based column index to a spreadsheet-style letter
 // ("A", "B", "C", ...). Defined here so consumers building UI chrome (e.g.,
 // breadcrumb labels in a toolbar) can label cells using the same convention

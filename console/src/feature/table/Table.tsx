@@ -31,6 +31,7 @@ const Internal: Panel.Content = () => {
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
   const selected = Session.Table.useSelectSelectedCellKeys();
+  const centered = Session.Table.useSelectCentered();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = Session.useDispatch();
@@ -52,6 +53,11 @@ const Internal: Panel.Content = () => {
   const handleShowIndicatorsChange = useCallback(
     (next: boolean) =>
       dispatch(Session.Table.setHideIndicators({ key, hideIndicators: !next })),
+    [dispatch, key],
+  );
+
+  const handleCenteredChange = useCallback(
+    (next: boolean) => dispatch(Session.Table.setCentered({ key, centered: next })),
     [dispatch, key],
   );
 
@@ -82,6 +88,8 @@ const Internal: Panel.Content = () => {
         onEditableChange={hasUpdatePermission ? handleEditableChange : undefined}
         showIndicators={showIndicators}
         onShowIndicatorsChange={handleShowIndicatorsChange}
+        centered={centered}
+        onCenteredChange={handleCenteredChange}
         onDoubleClick={handleDoubleClick}
         extraMenuItems={<ContextMenu.ReloadConsoleItem />}
       />
@@ -90,10 +98,11 @@ const Internal: Panel.Content = () => {
   );
 };
 
-const TableControls = (): ReactElement | null => {
+const TableControls = (): ReactElement => {
   const key = Base.useKey();
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
+  const centered = Session.Table.useSelectCentered();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const dispatch = Session.useDispatch();
   const handleEdit = useCallback(
@@ -104,13 +113,25 @@ const TableControls = (): ReactElement | null => {
     () => dispatch(Session.Table.setHideIndicators({ key })),
     [dispatch, key],
   );
+  const handleToggleCentered = useCallback(
+    () => dispatch(Session.Table.setCentered({ key })),
+    [dispatch, key],
+  );
   const canEdit = hasUpdatePermission && editable;
   // Hide-indicators only matters outside edit mode; the toggle is irrelevant
   // while editing because indicators are forced visible.
   const showHideToggle = !canEdit;
-  if (!hasUpdatePermission && !showHideToggle) return null;
   return (
     <Vis.Controls x>
+      <Button.Toggle
+        value={centered}
+        onChange={handleToggleCentered}
+        size="small"
+        tooltipLocation={location.BOTTOM_LEFT}
+        tooltip={centered ? "Align table to top left" : "Center table"}
+      >
+        {centered ? <Icon.Align.Left /> : <Icon.Align.XCenter />}
+      </Button.Toggle>
       {showHideToggle && (
         <Button.Toggle
           value={hideIndicators}
