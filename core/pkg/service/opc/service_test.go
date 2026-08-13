@@ -13,35 +13,29 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/opc"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var (
-		otg *ontology.Ontology
-		svc *opc.Service
-	)
+	var svc *opc.Service
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(opc.OpenService(ctx, opc.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 
 	Describe("Stores", func() {
 		It("Should expose one store per OPC UA task type", func() {
-			types := []ontology.ResourceType{}
+			types := []string{}
 			for _, s := range svc.Stores() {
 				types = append(types, s.Type())
 			}
 			Expect(types).To(ConsistOf(
-				ontology.ResourceTypeOpcRead,
-				ontology.ResourceTypeOpcWrite,
-				ontology.ResourceTypeOpcScan,
+				"opc_read",
+				"opc_write",
+				"opc_scan",
 			))
 		})
 	})

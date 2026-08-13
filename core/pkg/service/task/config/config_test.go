@@ -10,75 +10,71 @@
 package config_test
 
 import (
-	"context"
-	"iter"
-	"sync"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// testType is the resource type the suite registers its store under. The record
-// type is the Arc task config, picked because it exercises both the ApplyDefaults
-// and Validate hooks.
-const testType ontology.ResourceType = "arc_task"
+// testType is the task type the suite registers its store under. The record type
+// is the Arc task config, picked because it exercises both the ApplyDefaults and
+// Validate hooks.
+const testType = "arc_task"
 
-var _ = Describe("ConfigService", func() {
-	var (
-		otg *ontology.Ontology
-		svc *config.Service[arctask.Config, *arctask.Config]
-	)
+var _ = Describe("Service", func() {
+	var svc *config.Service[arctask.Config]
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
 				DB:                 db,
-				Ontology:           otg,
 				Type:               testType,
+				SetEntryKey:        (*arctask.Config).SetKey,
 				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
 				ValidateEntry:      (*arctask.Config).Validate,
 			},
 		))
 	})
 
-	Describe("OpenConfigService", func() {
+	Describe("OpenService", func() {
 		It("Should reject a config missing the DB", func(ctx SpecContext) {
 			Expect(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					Ontology: otg,
-					Type:     testType,
+					Type:        testType,
+					SetEntryKey: (*arctask.Config).SetKey,
 				},
 			)).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
-
-		It("Should reject a config missing the ontology", func(ctx SpecContext) {
-			Expect(config.OpenService(
-				ctx,
-				config.ServiceConfig[arctask.Config]{DB: db, Type: testType},
-			)).Error().To(MatchError(ContainSubstring("ontology: must be non-nil")))
 		})
 
 		It("Should reject a config missing the type", func(ctx SpecContext) {
 			Expect(config.OpenService(
 				ctx,
-				config.ServiceConfig[arctask.Config]{DB: db, Ontology: otg},
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					SetEntryKey: (*arctask.Config).SetKey,
+				},
 			)).Error().To(MatchError(ContainSubstring("type: required")))
 		})
+
+		It(
+			"Should reject a config missing the set entry key hook",
+			func(ctx SpecContext) {
+				Expect(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{DB: db, Type: testType},
+				)).Error().To(MatchError(ContainSubstring("set_entry_key: must be non-nil")))
+			},
+		)
 	})
 
 	Describe("Type", func() {
-		It("Should report the configured resource type", func() {
+		It("Should report the configured task type", func() {
 			Expect(svc.Type()).To(Equal(testType))
 		})
 	})
@@ -199,100 +195,22 @@ var _ = Describe("ConfigService", func() {
 				To(MatchError(query.ErrNotFound))
 		})
 	})
-
-	Describe("RetrieveResource", func() {
-		It("Should serve a stored record as a resource", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
-			})).To(Succeed())
-			res := MustSucceed(svc.RetrieveResource(ctx, key.String(), nil))
-			Expect(res.ID).To(Equal(ontology.ID{Type: testType, Key: key.String()}))
-		})
-
-		It("Should return an error for a non-UUID key", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
-				To(MatchError(ContainSubstring("invalid UUID")))
-		})
-
-		It("Should return not found for a missing record", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, uuid.New().String(), nil)).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should resolve resources through the registered ontology", func(
-			ctx SpecContext,
-		) {
-			key := uuid.New()
-			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
-			})).To(Succeed())
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().WhereIDs(ontology.ID{
-				Type: testType,
-				Key:  key.String(),
-			}).Entry(&res).Exec(ctx, nil)).To(Succeed())
-			Expect(res.Name).To(Equal(string(testType)))
-		})
-	})
-
-	Describe("OnChange", func() {
-		It("Should notify on writes and deletes", func(ctx SpecContext) {
-			var (
-				mu      sync.Mutex
-				changes []ontology.Change
-			)
-			disconnect := svc.OnChange(
-				func(_ context.Context, seq iter.Seq[ontology.Change]) {
-					mu.Lock()
-					defer mu.Unlock()
-					for c := range seq {
-						changes = append(changes, c)
-					}
-				})
-			defer disconnect()
-			key := uuid.New()
-			id := ontology.ID{Type: testType, Key: key.String()}
-			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
-			})).To(Succeed())
-			last := func() (c ontology.Change) {
-				mu.Lock()
-				defer mu.Unlock()
-				if len(changes) > 0 {
-					c = changes[len(changes)-1]
-				}
-				return c
-			}
-			Eventually(last).Should(SatisfyAll(
-				HaveField("Variant", change.VariantSet),
-				HaveField("Key", id.String()),
-				HaveField("Value.ID", id),
-			))
-			Expect(svc.Delete(ctx, nil, key)).To(Succeed())
-			Eventually(last).Should(SatisfyAll(
-				HaveField("Variant", change.VariantDelete),
-				HaveField("Key", id.String()),
-			))
-		})
-	})
 })
 
-var _ = Describe("ConfigRegistry", func() {
+var _ = Describe("Registry", func() {
 	var store config.Store
 	BeforeEach(func(ctx SpecContext) {
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		store = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:       db,
-				Ontology: otg,
-				Type:     testType,
+				DB:          db,
+				Type:        testType,
+				SetEntryKey: (*arctask.Config).SetKey,
 			},
 		))
 	})
 
-	Describe("NewConfigRegistry", func() {
+	Describe("NewRegistry", func() {
 		It("Should route each store by its type", func() {
 			reg := MustSucceed(config.NewRegistry(store))
 			Expect(reg.IsZero()).To(BeFalse())

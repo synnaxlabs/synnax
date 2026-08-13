@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,9 +27,6 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to register the config record resource types.
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	alamos.Instrumentation
 }
 
@@ -39,7 +35,6 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -48,14 +43,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("pagerduty.service")
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
 // Service owns the stored configuration records of the PagerDuty alert task type.
 type Service struct {
 	// Alert stores pagerduty_alert task configuration records.
-	Alert  *config.Service[TaskConfig, *TaskConfig]
+	Alert  *config.Service[TaskConfig]
 	closer xio.MultiCloser
 }
 
@@ -73,9 +67,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Alert, err = config.OpenService(
 		ctx, config.ServiceConfig[TaskConfig]{
 			DB:              cfg.DB,
-			Ontology:        cfg.Ontology,
 			Instrumentation: cfg.Instrumentation,
-			Type:            ontology.ResourceTypePagerdutyAlert,
+			Type:            "pagerduty_alert",
+			SetEntryKey:     (*TaskConfig).SetKey,
 		},
 	); !ok(err, s.Alert) {
 		return nil, err

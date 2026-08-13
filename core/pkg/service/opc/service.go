@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,9 +27,6 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to register the config record resource types.
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	alamos.Instrumentation
 }
 
@@ -39,7 +35,6 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -48,18 +43,17 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("opc.service")
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
 // Service owns the stored configuration records of the OPC UA task types.
 type Service struct {
 	// Read stores opc_read task configuration records.
-	Read *config.Service[ReadConfig, *ReadConfig]
+	Read *config.Service[ReadConfig]
 	// Write stores opc_write task configuration records.
-	Write *config.Service[WriteConfig, *WriteConfig]
+	Write *config.Service[WriteConfig]
 	// Scan stores opc_scan task configuration records.
-	Scan   *config.Service[ScanConfig, *ScanConfig]
+	Scan   *config.Service[ScanConfig]
 	closer xio.MultiCloser
 }
 
@@ -77,9 +71,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:                 cfg.DB,
-			Ontology:           cfg.Ontology,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               ontology.ResourceTypeOpcRead,
+			Type:               "opc_read",
+			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Read) {
@@ -88,9 +82,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
 			DB:                 cfg.DB,
-			Ontology:           cfg.Ontology,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               ontology.ResourceTypeOpcWrite,
+			Type:               "opc_write",
+			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Write) {
@@ -99,9 +93,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
 			DB:              cfg.DB,
-			Ontology:        cfg.Ontology,
 			Instrumentation: cfg.Instrumentation,
-			Type:            ontology.ResourceTypeOpcScan,
+			Type:            "opc_scan",
+			SetEntryKey:     (*ScanConfig).SetKey,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

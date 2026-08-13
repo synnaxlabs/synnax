@@ -14,34 +14,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var (
-		otg *ontology.Ontology
-		svc *http.Service
-	)
+	var svc *http.Service
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 
 	Describe("Stores", func() {
 		It("Should expose one store per HTTP task type", func() {
-			types := []ontology.ResourceType{}
+			types := []string{}
 			for _, s := range svc.Stores() {
 				types = append(types, s.Type())
 			}
 			Expect(types).To(ConsistOf(
-				ontology.ResourceTypeHTTPRead,
-				ontology.ResourceTypeHTTPWrite,
-				ontology.ResourceTypeHTTPScan,
+				"http_read",
+				"http_write",
+				"http_scan",
 			))
 		})
 	})

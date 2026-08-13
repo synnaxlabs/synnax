@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,9 +27,6 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to register the config record resource types.
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	alamos.Instrumentation
 }
 
@@ -39,7 +35,6 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -48,24 +43,23 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("ni.service")
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
 // Service owns the stored configuration records of the NI task types.
 type Service struct {
 	// AnalogRead stores ni_analog_read task configuration records.
-	AnalogRead *config.Service[AnalogReadConfig, *AnalogReadConfig]
+	AnalogRead *config.Service[AnalogReadConfig]
 	// AnalogWrite stores ni_analog_write task configuration records.
-	AnalogWrite *config.Service[AnalogWriteConfig, *AnalogWriteConfig]
+	AnalogWrite *config.Service[AnalogWriteConfig]
 	// CounterRead stores ni_counter_read task configuration records.
-	CounterRead *config.Service[CounterReadConfig, *CounterReadConfig]
+	CounterRead *config.Service[CounterReadConfig]
 	// DigitalRead stores ni_digital_read task configuration records.
-	DigitalRead *config.Service[DigitalReadConfig, *DigitalReadConfig]
+	DigitalRead *config.Service[DigitalReadConfig]
 	// DigitalWrite stores ni_digital_write task configuration records.
-	DigitalWrite *config.Service[DigitalWriteConfig, *DigitalWriteConfig]
+	DigitalWrite *config.Service[DigitalWriteConfig]
 	// Scanner stores ni_scanner task configuration records.
-	Scanner *config.Service[ScanConfig, *ScanConfig]
+	Scanner *config.Service[ScanConfig]
 	closer  xio.MultiCloser
 }
 
@@ -83,9 +77,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
 			DB:                 cfg.DB,
-			Ontology:           cfg.Ontology,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               ontology.ResourceTypeNiAnalogRead,
+			Type:               "ni_analog_read",
+			SetEntryKey:        (*AnalogReadConfig).SetKey,
 			ApplyEntryDefaults: (*AnalogReadConfig).ApplyDefaults,
 			ValidateEntry:      (*AnalogReadConfig).Validate,
 		},
@@ -95,9 +89,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
 			DB:                 cfg.DB,
-			Ontology:           cfg.Ontology,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               ontology.ResourceTypeNiAnalogWrite,
+			Type:               "ni_analog_write",
+			SetEntryKey:        (*AnalogWriteConfig).SetKey,
 			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
 			ValidateEntry:      (*AnalogWriteConfig).Validate,
 		},
@@ -107,9 +101,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
 			DB:                 cfg.DB,
-			Ontology:           cfg.Ontology,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               ontology.ResourceTypeNiCounterRead,
+			Type:               "ni_counter_read",
+			SetEntryKey:        (*CounterReadConfig).SetKey,
 			ApplyEntryDefaults: (*CounterReadConfig).ApplyDefaults,
 			ValidateEntry:      (*CounterReadConfig).Validate,
 		},
@@ -119,9 +113,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.DigitalRead, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalReadConfig]{
 			DB:                 cfg.DB,
-			Ontology:           cfg.Ontology,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               ontology.ResourceTypeNiDigitalRead,
+			Type:               "ni_digital_read",
+			SetEntryKey:        (*DigitalReadConfig).SetKey,
 			ApplyEntryDefaults: (*DigitalReadConfig).ApplyDefaults,
 		},
 	); !ok(err, s.DigitalRead) {
@@ -130,9 +124,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.DigitalWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalWriteConfig]{
 			DB:                 cfg.DB,
-			Ontology:           cfg.Ontology,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               ontology.ResourceTypeNiDigitalWrite,
+			Type:               "ni_digital_write",
+			SetEntryKey:        (*DigitalWriteConfig).SetKey,
 			ApplyEntryDefaults: (*DigitalWriteConfig).ApplyDefaults,
 		},
 	); !ok(err, s.DigitalWrite) {
@@ -141,9 +135,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Scanner, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
 			DB:              cfg.DB,
-			Ontology:        cfg.Ontology,
 			Instrumentation: cfg.Instrumentation,
-			Type:            ontology.ResourceTypeNiScanner,
+			Type:            "ni_scanner",
+			SetEntryKey:     (*ScanConfig).SetKey,
 		},
 	); !ok(err, s.Scanner) {
 		return nil, err

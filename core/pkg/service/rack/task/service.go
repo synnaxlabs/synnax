@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,9 +27,6 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to register the config record resource types.
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 	alamos.Instrumentation
 }
 
@@ -39,7 +35,6 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -48,14 +43,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("rack.task.service")
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
 // Service owns the stored configuration records of the rack status task type.
 type Service struct {
 	// Status stores rack_status task configuration records.
-	Status *config.Service[StatusConfig, *StatusConfig]
+	Status *config.Service[StatusConfig]
 	closer xio.MultiCloser
 }
 
@@ -73,9 +67,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.Status, err = config.OpenService(
 		ctx, config.ServiceConfig[StatusConfig]{
 			DB:              cfg.DB,
-			Ontology:        cfg.Ontology,
 			Instrumentation: cfg.Instrumentation,
-			Type:            ontology.ResourceTypeRackStatus,
+			Type:            "rack_status",
+			SetEntryKey:     (*StatusConfig).SetKey,
 		},
 	); !ok(err, s.Status) {
 		return nil, err

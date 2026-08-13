@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,20 +21,18 @@ import (
 var _ = Describe("Service", func() {
 	var svc *task.Service
 	BeforeEach(func(ctx SpecContext) {
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 
 	Describe("Stores", func() {
 		It("Should expose the rack status store", func() {
-			types := []ontology.ResourceType{}
+			types := []string{}
 			for _, s := range svc.Stores() {
 				types = append(types, s.Type())
 			}
-			Expect(types).To(ConsistOf(ontology.ResourceTypeRackStatus))
+			Expect(types).To(ConsistOf("rack_status"))
 		})
 	})
 
