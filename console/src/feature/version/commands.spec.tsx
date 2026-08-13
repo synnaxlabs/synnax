@@ -44,8 +44,7 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Version } from "@/feature/version";
 import { Command } from "@/platform/command";
 
-// Always-visible sentinel proving the command list rendered before asserting the
-// version commands are absent.
+// Proves the list rendered before asserting the version commands are absent.
 const SentinelCommand = Command.create({
   key: "sentinel",
   name: "Sentinel command",

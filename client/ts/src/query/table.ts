@@ -573,7 +573,7 @@ export const createDeleteListener = <
       channel,
       schema,
       onChange: (changed) => {
-        table.delete(changed.map(key));
+        table.delete(changed.map((c) => key(c)));
       },
     }),
   };
