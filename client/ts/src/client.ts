@@ -265,10 +265,17 @@ export default class Synnax extends framer.Client {
       statusStore: this.statuses.store,
     });
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
-    this.schematics = new schematic.Client({
+    this.groups = new group.Client({
       unary,
       ontology: this.ontology,
       cache,
+    });
+    this.schematics = new schematic.Client({
+      unary,
+      file: this.transport.file,
+      ontology: this.ontology,
+      cache,
+      groupStore: this.groups.store,
     });
     this.lineplots = new lineplot.Client({ unary, cache, ontology: this.ontology });
     this.panels = new panel.Client({
@@ -278,11 +285,6 @@ export default class Synnax extends framer.Client {
     });
     this.logs = new log.Client({ unary, cache, ontology: this.ontology });
     this.tables = new table.Client({ unary, cache, ontology: this.ontology });
-    this.groups = new group.Client({
-      unary,
-      ontology: this.ontology,
-      cache,
-    });
     this.imex = new imex.Client({ file: this.transport.file });
   }
 

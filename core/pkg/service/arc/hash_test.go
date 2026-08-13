@@ -77,11 +77,11 @@ var _ = Describe("Hash", func() {
 				To(Equal(MustSucceed(arc.Hash(a))))
 		})
 
-		It("Should trust a non-empty Raw over the document", func() {
+		It("Should ignore a stale Raw and hash the document", func() {
 			a := textArc("a -> b")
 			a.Text.Raw = "a -> c"
 			Expect(MustSucceed(arc.Hash(a))).
-				To(Equal(MustSucceed(arc.Hash(textArc("a -> c")))))
+				To(Equal(MustSucceed(arc.Hash(textArc("a -> b")))))
 		})
 	})
 

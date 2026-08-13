@@ -75,6 +75,11 @@ const selectHideIndicators = (params: KeyedSelectorParams): boolean =>
 
 export const useSelectHideIndicators = createSelector(selectHideIndicators);
 
+const selectCentered = (params: KeyedSelectorParams): boolean =>
+  selectState(params).centered;
+
+export const useSelectCentered = createSelector(selectCentered);
+
 const selectSelectedCellKeys = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedCells;
 

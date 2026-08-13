@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
+	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
@@ -108,11 +109,13 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicCopy = noop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
 
 	// SCHEMATIC SYMBOL
-	t.SchematicCreateSymbol = noop.UnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse]{}
-	t.SchematicRetrieveSymbol = noop.UnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse]{}
-	t.SchematicDeleteSymbol = noop.UnaryServer[schematic.DeleteSymbolRequest, types.Nil]{}
-	t.SchematicRenameSymbol = noop.UnaryServer[schematic.RenameSymbolRequest, types.Nil]{}
-	t.SchematicRetrieveSymbolGroup = noop.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse]{}
+	t.SchematicSymbolCreate = noop.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]{}
+	t.SchematicSymbolRetrieve = noop.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]{}
+	t.SchematicSymbolDelete = noop.UnaryServer[symbol.DeleteRequest, types.Nil]{}
+	t.SchematicSymbolRename = noop.UnaryServer[symbol.RenameRequest, types.Nil]{}
+	t.SchematicSymbolRetrieveGroup = noop.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]{}
+	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
+	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, types.Nil]{}
 
 	// LINE PLOT
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
@@ -160,8 +163,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
 
 	// ARC
-	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, apiarc.DispatchResponse]{}
-	t.ArcDeploy = noop.UnaryServer[apiarc.DeployRequest, apiarc.DeployResponse]{}
+	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, types.Nil]{}
+	t.ArcSetRack = noop.UnaryServer[apiarc.SetRackRequest, apiarc.SetRackResponse]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	layer.BindTo(t)

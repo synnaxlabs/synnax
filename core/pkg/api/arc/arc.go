@@ -83,11 +83,6 @@ func (s *Service) Create(
 	}
 	for i := range req.Arcs {
 		req.Arcs[i].Text = req.Arcs[i].Text.Materialize()
-		hash, err := arc.Hash(req.Arcs[i])
-		if err != nil {
-			return CreateResponse{}, err
-		}
-		req.Arcs[i].Hash = &hash
 	}
 	return CreateResponse(req), nil
 }
@@ -117,12 +112,6 @@ func (s *Service) Delete(
 // edits.
 type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
 
-// DispatchResponse carries the arc's semantic hash after the dispatched actions were
-// applied, letting the editing client refresh its staleness signal without a refetch.
-type DispatchResponse struct {
-	Hash string `json:"hash" msgpack:"hash"`
-}
-
 // Dispatch relays the action sequence to the other clients editing the arc,
 // broadcasting it on the arc collaborative-edit signals channel. The caller must hold
 // update access to the arc.
@@ -130,58 +119,43 @@ func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (DispatchResponse, error) {
+) (types.Nil, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{arc.OntologyID(req.Key)},
 	}); err != nil {
-		return DispatchResponse{}, err
+		return types.Nil{}, err
 	}
-	if err := s.internal.NewWriter(tx).
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions); err != nil {
-		return DispatchResponse{}, err
-	}
-	var updated Arc
-	if err := s.internal.NewRetrieve().
-		Where(arc.MatchKeys(req.Key)).
-		Entry(&updated).
-		Exec(ctx, tx); err != nil {
-		return DispatchResponse{}, err
-	}
-	hash, err := arc.Hash(updated)
-	if err != nil {
-		return DispatchResponse{}, err
-	}
-	return DispatchResponse{Hash: hash}, nil
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
-	// DeployRequest binds the arc to a rack. A zero Rack undeploys the arc.
-	DeployRequest struct {
+	// SetRackRequest binds the arc to a rack. A zero Rack unbinds it.
+	SetRackRequest struct {
 		Key  arc.Key  `json:"key"  msgpack:"key"`
 		Rack rack.Key `json:"rack" msgpack:"rack"`
 	}
-	// DeployResponse carries the deployed task, or a nil Task after an undeploy.
-	DeployResponse struct {
+	// SetRackResponse carries the arc's task, or a nil Task after an unbind.
+	SetRackResponse struct {
 		Task *task.Task `json:"task,omitempty" msgpack:"task,omitempty"`
 	}
 )
 
-// Deploy creates or moves the arc's task so it runs on the requested rack, stamping
-// the arc's current semantic hash into the task config. A zero rack undeploys the arc,
-// deleting its task; undeploying a running arc is rejected.
-func (s *Service) Deploy(
+// SetRack creates or moves the arc's task so it runs on the requested rack. A zero
+// rack unbinds the arc, deleting its task; unbinding a running arc is rejected.
+func (s *Service) SetRack(
 	ctx context.Context,
 	tx gorp.Tx,
-	req DeployRequest,
-) (DeployResponse, error) {
+	req SetRackRequest,
+) (SetRackResponse, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{arc.OntologyID(req.Key)},
 	}); err != nil {
-		return DeployResponse{}, err
+		return SetRackResponse{}, err
 	}
 	taskAction := access.ActionCreate
 	if req.Rack == 0 {
@@ -192,13 +166,13 @@ func (s *Service) Deploy(
 		Action:  taskAction,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
 	}); err != nil {
-		return DeployResponse{}, err
+		return SetRackResponse{}, err
 	}
-	tsk, err := s.internal.NewWriter(tx).Deploy(ctx, req.Key, req.Rack)
+	tsk, err := s.internal.NewWriter(tx).SetRack(ctx, req.Key, req.Rack)
 	if err != nil {
-		return DeployResponse{}, err
+		return SetRackResponse{}, err
 	}
-	return DeployResponse{Task: tsk}, nil
+	return SetRackResponse{Task: tsk}, nil
 }
 
 type (
@@ -258,11 +232,6 @@ func (s *Service) Retrieve(
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
-		hash, err := arc.Hash(res.Arcs[i])
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
-		res.Arcs[i].Hash = &hash
 	}
 
 	// Compile Arcs to modules if requested

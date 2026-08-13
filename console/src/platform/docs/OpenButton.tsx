@@ -21,7 +21,7 @@ export const OpenButton = (): ReactElement => {
       variant="text"
       onClick={handleOpen}
       className={CSS.BE("docs", "open-button")}
-      tooltip="Open Documentation"
+      tooltip="Open documentation"
     >
       <Icon.QuestionMark />
     </Button.Button>
