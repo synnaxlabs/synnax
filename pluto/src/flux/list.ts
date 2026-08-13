@@ -61,6 +61,12 @@ export type UseListReturn<
     options?: AsyncListOptions,
   ) => Promise<void>;
   data: K[];
+  /**
+   * Whether the list has an answer. An unanswered list has the same empty data as a
+   * genuinely empty one, so anything that speaks for the absence of items (empty
+   * content, an empty-state action) must wait for this.
+   */
+  answered: boolean;
   getItem: GetItem<K, E>;
   subscribe: (callback: () => void, key: K) => destructor.Destructor;
 };
@@ -168,7 +174,6 @@ export const createList =
         if (!isLive(cached)) return undefined;
         let items = cached.filter(filterRef.current);
         if (sortRef.current != null) items = [...items].sort(sortRef.current);
-        if (items.length === 0) return undefined;
         items.forEach((v) => dataRef.current.set(v.key, v));
         return items.map((v) => v.key);
       },
@@ -473,7 +478,8 @@ export const createList =
       subscribe,
       getItem,
       ...result,
-      data: result?.data ?? [],
+      data: result.data ?? [],
+      answered: result.data != null,
     };
   };
 

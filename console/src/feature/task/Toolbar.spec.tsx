@@ -131,6 +131,13 @@ describe("task/Toolbar", () => {
     );
   });
 
+  it("withholds the empty message until the task list answers", async () => {
+    const t = await createTask();
+    await renderToolbar();
+    expect(screen.queryByText("No existing tasks.")).toBeNull();
+    await screen.findByText(t.name);
+  });
+
   it("opens the task selector tab from the create action", async () => {
     const { created } = await renderToolbar();
     await waitFor(() => getIconButton(document.body, "add"));

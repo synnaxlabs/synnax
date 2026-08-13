@@ -53,7 +53,7 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
 
-  const { data, getItem, subscribe, retrieve } = Arc.useList({});
+  const { data, getItem, subscribe, retrieve, answered } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: handleRename } = PlatformArc.useRename(getItem);
@@ -93,7 +93,7 @@ const Content = () => {
           >
             <List.Items<arc.Key, arc.Arc>
               full="y"
-              emptyContent={<EmptyContent onCreate={create} />}
+              emptyContent={answered && <EmptyContent onCreate={create} />}
               onContextMenu={menuProps.open}
             >
               {({ key, ...p }) => (
