@@ -217,4 +217,42 @@ describe("Schematic.Symbol.useImportGroup", () => {
       ).toBe(true),
     );
   });
+
+  it("infers membership from the directory for a Core-written manifest", async () => {
+    const picker = interceptFilePicker();
+    const { result } = await renderImportGroup();
+    const groupName = uniqueName("core_grp");
+    const symbolName = uniqueName("sym");
+    const manifest = { version: 2, type: "symbol_group", name: groupName };
+    act(() => result.current.run());
+    await waitFor(() => expect(picker.lastInput()).toBeDefined());
+    picker.selectFiles([
+      fakePickedFile(
+        "manifest.json",
+        JSON.stringify(manifest),
+        `${groupName}/manifest.json`,
+      ),
+      fakePickedFile(
+        `${symbolName}.json`,
+        createLegacySymbolFile(symbolName),
+        `${groupName}/${symbolName}.json`,
+      ),
+    ]);
+    await waitFor(() =>
+      expect(
+        result.current.notifications.statuses.some(
+          (st) =>
+            st.variant === "success" &&
+            st.message === `Successfully imported 1 symbols into group "${groupName}"`,
+        ),
+      ).toBe(true),
+    );
+    const root = await client.schematics.symbols.retrieveGroup();
+    const groups = await client.ontology.children.retrieve({
+      ids: group.ontologyID(root.key),
+    });
+    const created = groups.find((g) => g.name === groupName);
+    if (created == null) throw new Error("imported group not found");
+    expect(await childNames(created.id)).toContain(symbolName);
+  });
 });

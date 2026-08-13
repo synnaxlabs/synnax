@@ -178,7 +178,7 @@ const Diagnostics = (): ReactElement => {
               }}
             >
               <Icon.Edit />
-              Edit Connection
+              Edit connection
             </Button.Button>
           )}
         </Flex.Box>

@@ -170,6 +170,21 @@ describe("Runtime download", () => {
         });
       });
 
+      it("should title the dialog with the raw name and sanitize the file name", async () => {
+        saveMock.mockResolvedValue("/home/user/new_ group_.zip");
+        const addStatus = vi.fn();
+        await Runtime.downloadStream({
+          stream: createStream(),
+          name: "new: group?",
+          extension: "zip",
+          addStatus,
+        });
+        expect(saveMock).toHaveBeenCalledWith({
+          title: "Download new: group?",
+          defaultPath: "new_ group_.zip",
+        });
+      });
+
       it("should cancel the stream when the save dialog is dismissed", async () => {
         saveMock.mockResolvedValue(null);
         let cancelled = false;

@@ -7,10 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const deduplicateFileName = (
-  name: string,
-  existingNames: Set<string>,
-): string => {
+export const deduplicate = (name: string, existingNames: Set<string>): string => {
   if (!existingNames.has(name)) return name;
   let baseName: string;
   let i: number;

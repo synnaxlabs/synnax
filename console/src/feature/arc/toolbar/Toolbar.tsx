@@ -166,7 +166,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
     running,
     onStartStop,
     taskStatus: status,
-  } = PlatformArc.useTask(itemKey, arcItem?.name ?? "");
+  } = Arc.useTaskControls(itemKey, arcItem?.name ?? "");
   let statusMessage = "Stopped";
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";

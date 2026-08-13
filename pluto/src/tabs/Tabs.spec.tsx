@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { type MouseEventHandler, type ReactElement, useEffect, useState } from "react";
 import {
   afterEach,
+  assert,
   beforeEach,
   describe,
   expect,
@@ -51,6 +52,22 @@ const BasicTabs = (props: BasicTabsProps): ReactElement => (
 );
 
 const tab = (name: string): HTMLElement => screen.getByRole("tab", { name });
+
+// jsdom lays nothing out, so the scrollport geometry is stubbed per element.
+const stubStrip = (scrollWidth: number, clientWidth: number): HTMLElement => {
+  const strip = screen.getByRole("tablist");
+  let scrollLeft = 0;
+  Object.defineProperties(strip, {
+    scrollWidth: { value: scrollWidth, configurable: true },
+    clientWidth: { value: clientWidth, configurable: true },
+    scrollLeft: {
+      get: () => scrollLeft,
+      set: (v: number) => (scrollLeft = v),
+      configurable: true,
+    },
+  });
+  return strip;
+};
 
 describe("Tabs", () => {
   describe("Frame", () => {
@@ -493,12 +510,80 @@ describe("Tabs", () => {
       const el = strip({ variant: "default", y: true, align: "center" });
       expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
     });
+  });
 
-    it.each(["scroll", "fade"] as const)("should apply the %s overflow", (overflow) => {
-      const el = strip(overflow === "scroll" ? {} : { overflow });
-      expect(el.classList.contains(`pluto-tabs__selector--overflow-${overflow}`)).toBe(
-        true,
-      );
+  describe("scroll thumb", () => {
+    // The thumb renders as the strip's sibling so it can hang below the scrollport.
+    const thumb = (strip: HTMLElement): HTMLElement => {
+      const el = strip.parentElement?.querySelector<HTMLElement>(".pluto-tabs__thumb");
+      assert(el != null);
+      return el;
+    };
+
+    it("should mark an overflowing strip scrollable", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      fireEvent.scroll(strip);
+      expect(strip.classList.contains("pluto-tabs__selector--scrollable")).toBe(true);
+    });
+
+    it("should not mark a strip whose tabs fit", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(200, 200);
+      fireEvent.scroll(strip);
+      expect(strip.classList.contains("pluto-tabs__selector--scrollable")).toBe(false);
+    });
+
+    it("should mark only the edges with tabs hidden past them", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      const clipped = (edge: string): boolean =>
+        strip.classList.contains(`pluto-tabs__selector--clipped-${edge}`);
+      fireEvent.scroll(strip);
+      expect(clipped("start")).toBe(false);
+      expect(clipped("end")).toBe(true);
+      strip.scrollLeft = 150;
+      fireEvent.scroll(strip);
+      expect(clipped("start")).toBe(true);
+      expect(clipped("end")).toBe(true);
+      strip.scrollLeft = 300;
+      fireEvent.scroll(strip);
+      expect(clipped("start")).toBe(true);
+      expect(clipped("end")).toBe(false);
+    });
+
+    it("should size and place the thumb from the scroll geometry", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      strip.scrollLeft = 150;
+      fireEvent.scroll(strip);
+      // Width covers the visible fraction: 200 / 500 * 200. The offset walks the
+      // free track with scroll progress: (150 / 300) * (200 - 80).
+      expect(thumb(strip).style.width).toEqual("80px");
+      expect(thumb(strip).style.transform).toEqual("translateX(60px)");
+    });
+
+    it("should clamp the thumb to its minimum width", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(4000, 100);
+      fireEvent.scroll(strip);
+      expect(thumb(strip).style.width).toEqual("24px");
+    });
+
+    it("should scroll the strip when the thumb is dragged", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      fireEvent.scroll(strip);
+      const el = thumb(strip);
+      el.setPointerCapture = vi.fn();
+      Object.defineProperty(el, "offsetWidth", { value: 80, configurable: true });
+      fireEvent.pointerDown(el, { pointerId: 1, clientX: 0 });
+      fireEvent.pointerMove(el, { pointerId: 1, clientX: 40 });
+      // 40px over the 120px of free track maps to 100px of the 300px scroll range.
+      expect(strip.scrollLeft).toEqual(100);
+      fireEvent.pointerUp(el, { pointerId: 1 });
+      fireEvent.pointerMove(el, { pointerId: 1, clientX: 80 });
+      expect(strip.scrollLeft).toEqual(100);
     });
   });
 
@@ -578,22 +663,6 @@ describe("Tabs", () => {
   });
 
   describe("wheel scrolling", () => {
-    // jsdom lays nothing out, so the scrollport geometry is stubbed per element.
-    const stubStrip = (scrollWidth: number, clientWidth: number): HTMLElement => {
-      const strip = screen.getByRole("tablist");
-      let scrollLeft = 0;
-      Object.defineProperties(strip, {
-        scrollWidth: { value: scrollWidth, configurable: true },
-        clientWidth: { value: clientWidth, configurable: true },
-        scrollLeft: {
-          get: () => scrollLeft,
-          set: (v: number) => (scrollLeft = v),
-          configurable: true,
-        },
-      });
-      return strip;
-    };
-
     const wheel = (strip: HTMLElement, init: WheelEventInit): Event => {
       const event = createEvent.wheel(strip, { cancelable: true, ...init });
       fireEvent(strip, event);
