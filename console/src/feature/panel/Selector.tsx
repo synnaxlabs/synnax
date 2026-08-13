@@ -157,7 +157,7 @@ const Internal = (): ReactElement => {
         <Tabs.Selector
           size="medium"
           variant="pill"
-          overflow="fade"
+          overflow="scroll"
           onContextMenu={menuProps.open}
         >
           {keys.map((key) => (

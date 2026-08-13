@@ -21,6 +21,7 @@ import {
   Menu,
   Project as PProject,
   Select,
+  Status,
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
@@ -42,7 +43,7 @@ export const Splash = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const openCreate = PlatformProject.useCreateModal();
-  const { data, retrieve, getItem, subscribe, answered } = PProject.useList();
+  const { data, retrieve, getItem, subscribe, answered, status } = PProject.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -133,7 +134,9 @@ export const Splash = (): ReactElement => {
               }
             />
           ) : (
-            <Flex.Box grow />
+            <Flex.Box grow center>
+              <Status.Summary status={status} />
+            </Flex.Box>
           )}
           {hasCreatePermission ? (
             <Button.CreateListItem size="large" onClick={() => openCreate()}>

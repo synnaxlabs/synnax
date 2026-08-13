@@ -30,6 +30,12 @@ describe("project/Splash", () => {
       ).toBeDefined();
       expect(screen.queryByText("New Project")).toBeNull();
     });
+
+    it("should report why the list is empty when it never loaded", async () => {
+      await renderWithConsole(<Project.Splash />);
+      expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
+      expect(screen.queryByText("No projects created.")).toBeNull();
+    });
   });
 
   describe("selecting an existing project", () => {
