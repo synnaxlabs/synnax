@@ -220,6 +220,8 @@ import {
   TbArrowRight,
   TbArrowsSplit,
   TbArrowUp,
+  TbBoxAlignTopLeft,
+  TbBoxModel2,
   TbChartArcs,
   TbCircleDashed,
   TbCircleLetterAFilled,
@@ -431,6 +433,8 @@ export const Align = {
   YCenter: wrapSVGIcon(MdAlignVerticalCenter, "align-y-center"),
   Top: wrapSVGIcon(MdAlignVerticalTop, "align-top"),
   Bottom: wrapSVGIcon(MdAlignVerticalBottom, "align-bottom"),
+  BoxCenter: wrapSVGIcon(TbBoxModel2, "align-box-center"),
+  BoxTopLeft: wrapSVGIcon(TbBoxAlignTopLeft, "align-box-top-left"),
 };
 export const Distribute = {
   X: wrapSVGIcon(MdHorizontalDistribute, "distribute-x"),

@@ -20,7 +20,10 @@ import { Selection } from "@/table/selection";
 export interface RowProps {
   index: number;
   size: number;
-  position: number;
+  /** Canvas x coordinate of the row's first cell. */
+  x: number;
+  /** Canvas y coordinate of the row. */
+  y: number;
   resourceKey: table.Key;
   cells: string[];
   columns: number[];
@@ -35,7 +38,8 @@ export const Row = memo(
   ({
     index,
     size,
-    position,
+    x,
+    y,
     resourceKey,
     cells,
     columns,
@@ -45,7 +49,7 @@ export const Row = memo(
     onSelect,
     onCellSelect,
   }: RowProps): ReactElement => {
-    let xCursor = showIndicator ? 4.5 * 6 : 0;
+    let xCursor = x;
     return (
       <tr className={CSS(CSS.BE("table", "row"))}>
         {showIndicator && (
@@ -67,7 +71,7 @@ export const Row = memo(
               resourceKey={resourceKey}
               cellKey={cellKey}
               x={xPos}
-              y={position}
+              y={y}
               width={columns[i]}
               height={size}
               editable={editable}
