@@ -30,7 +30,7 @@ import {
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
-import { useDownload } from "@/platform/csv/useDownload";
+import { Framer } from "@/platform/framer";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -140,7 +140,7 @@ interface DownloadButtonProps {
 }
 
 const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
-  const downloadCSV = useDownload();
+  const downloadCSV = Framer.useDownloadCSV();
   const { get } = Form.useContext();
   const handleClick = () => {
     const timeRange = get<TimeRange>("timeRange").value;

@@ -16,19 +16,18 @@ import { Runtime } from "@/platform/runtime";
 export const useExportGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const addStatus = Status.useAdder();
+  const download = Runtime.useDownload();
   return useCallback(
     (group: group.Group) => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
-        await Runtime.downloadStream({
+        await download({
           stream: await client.schematics.symbols.exportGroup(group.key),
           name: group.name,
           extension: "zip",
-          addStatus,
         });
       }, `Failed to export ${group.name}`);
     },
-    [client, handleError, addStatus],
+    [client, handleError, download],
   );
 };

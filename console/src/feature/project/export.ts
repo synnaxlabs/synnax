@@ -20,7 +20,7 @@ import { Session } from "@/session";
 export const useExport = (): ((key: project.Key) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const addStatus = Status.useAdder();
+  const download = Runtime.useDownload();
   return useCallback(
     (key: project.Key) => {
       let name = "project"; // default name for error message
@@ -28,15 +28,14 @@ export const useExport = (): ((key: project.Key) => void) => {
         if (client == null) throw new DisconnectedError();
         const proj = await client.projects.retrieve(key);
         name = proj.name;
-        await Runtime.downloadStream({
+        await download({
           stream: await client.projects.export(proj.key),
           name,
           extension: "zip",
-          addStatus,
         });
       }, `Failed to export ${name}`);
     },
-    [client, handleError, addStatus],
+    [client, handleError, download],
   );
 };
 

@@ -49,7 +49,7 @@ export const fetchFileData = async (
 export const use = (): ((id: ontology.ID) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const addStatus = Status.useAdder();
+  const download = Runtime.useDownload();
   return useCallback(
     (id: ontology.ID) => {
       let name: string | undefined;
@@ -61,17 +61,16 @@ export const use = (): ((id: ontology.ID) => void) => {
           // Response, not Blob.stream(): jsdom implements only the former.
           const stream = new Response(file.data).body;
           if (stream == null) throw new Error("failed to open envelope stream");
-          await Runtime.downloadStream({
+          await download({
             stream,
             name,
             extension: "json",
             filters: FILTERS,
-            addStatus,
           });
         },
         `Failed to export ${name ?? id.type}`,
       );
     },
-    [client, handleError, addStatus],
+    [client, handleError, download],
   );
 };
