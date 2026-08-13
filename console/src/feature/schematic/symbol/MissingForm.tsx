@@ -76,7 +76,7 @@ export const MissingForm = (): ReactElement => {
             />
           )}
           <Button.Button
-            variant="outlined"
+            variant="filled"
             onClick={handleCreate}
             disabled={createGroupKey == null}
           >

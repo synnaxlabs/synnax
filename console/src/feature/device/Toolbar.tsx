@@ -19,8 +19,11 @@ const Content = (): ReactElement => {
   const { data: groupID } = Device.useRetrieveGroupID({});
   return (
     <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
+      <Toolbar.Header>
+        <Toolbar.Title>
+          <Icon.Device />
+          Devices
+        </Toolbar.Title>
       </Toolbar.Header>
       <Tree.Tree root={groupID} />
     </Toolbar.Content>

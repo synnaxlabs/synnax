@@ -16,11 +16,6 @@ import { type List } from "@/list";
 import { Dialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
-import {
-  transformDialogVariant,
-  transformTriggerVariant,
-  type Variant,
-} from "@/select/variant";
 
 export interface MultipleProps<
   K extends record.Key,
@@ -28,7 +23,7 @@ export interface MultipleProps<
 >
   extends
     Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
-    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
+    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions" | "footer">,
     Omit<BaseDialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<
       MultipleTriggerProps<K, E>,
@@ -39,7 +34,8 @@ export interface MultipleProps<
   renderTag?: MultipleTriggerProps<K, E>["children"];
   triggerProps?: MultipleTriggerProps<K, E>;
   dialogProps?: BaseDialog.FrameProps;
-  variant?: Variant;
+  variant?: BaseDialog.FrameProps["variant"];
+  preview?: boolean;
 }
 
 export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undefined>({
@@ -60,15 +56,17 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   children,
   renderTag,
   actions,
+  footer,
   allowNone,
   replaceOnSingle,
   triggerProps,
   virtual = true,
   dialogProps,
   variant = "connected",
+  preview,
   ...rest
 }: MultipleProps<K, E>): ReactElement => (
-  <BaseDialog.Frame variant={transformDialogVariant(variant)} {...rest}>
+  <BaseDialog.Frame variant={variant} {...rest}>
     <Frame<K, E>
       multiple
       value={value}
@@ -87,7 +85,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         icon={icon}
         placeholder={`Select ${plural(resourceName)}`}
         disabled={disabled}
-        variant={transformTriggerVariant(variant)}
+        preview={preview}
         {...triggerProps}
       >
         {renderTag}
@@ -97,6 +95,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         emptyContent={emptyContent}
         status={status}
         actions={actions}
+        footer={footer}
         resourceName={resourceName}
         {...dialogProps}
       >

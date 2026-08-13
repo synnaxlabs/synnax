@@ -14,5 +14,5 @@
 }
 
 .console-cluster-list__header {
-    padding: 0.666rem;
+    padding: calc(2rem / 3);
 }

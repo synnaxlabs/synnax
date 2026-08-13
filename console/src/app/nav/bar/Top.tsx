@@ -45,7 +45,6 @@ const BottomToggleButton = (): ReactElement => {
       onMouseLeave={onMouseLeave}
       justify="center"
       size="small"
-      contrast={2}
       color={9}
       weight={450}
       triggerIndicator={Toolbars.BOTTOM.trigger}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -17,14 +17,18 @@ export interface BooleanProps
   extends Omit<InputProps<boolean>, "onClick">, Omit<Button.ExtensionProps, "variant"> {
   inputType: "switch" | "checkbox";
   onClick?: (e: React.MouseEvent<HTMLElement>) => void;
+  /** When set, replaces the box indicator with this glyph in the checked state. */
+  checkedIcon?: ReactNode;
+  /** Glyph shown in the unchecked state when {@link checkedIcon} is set. */
+  uncheckedIcon?: ReactNode;
 }
 
 const parseTextColor = (
-  variant: Button.Variant,
+  preview: boolean | undefined,
   textColor: Button.ButtonProps["color"],
   value: boolean,
 ): Button.ButtonProps["color"] => {
-  if (variant === "preview" && value === true) return "var(--pluto-primary-z)";
+  if (preview === true && value === true) return "var(--pluto-primary-z)";
   return textColor;
 };
 
@@ -35,12 +39,13 @@ export const Boolean = ({
   ref,
   className,
   value,
-  ghost,
+  reveal,
   disabled,
   onChange,
   inputType,
   size,
   variant = "text",
+  preview,
   style,
   color,
   borderColor,
@@ -50,15 +55,25 @@ export const Boolean = ({
   background,
   textColor,
   onClick,
+  checkedIcon,
+  uncheckedIcon,
+  tooltip,
+  tooltipLocation,
+  hideTooltip,
   ...rest
 }: BooleanProps): ReactElement => (
   <Button.Button
     el="label"
-    variant={variant}
-    className={CSS(CSS.BE("input", inputType), className)}
-    ghost={ghost}
+    variant={variant === "shadow" ? "outlined" : variant}
+    className={CSS(
+      CSS.BE("input", inputType),
+      checkedIcon != null && CSS.M("icon"),
+      className,
+    )}
+    reveal={reveal}
     disabled={disabled}
     size={size}
+    preview={preview}
     preventClick
     style={style}
     color={color}
@@ -67,10 +82,13 @@ export const Boolean = ({
     bordered={bordered}
     rounded={rounded}
     background={background}
-    textColor={parseTextColor(variant, textColor, value)}
+    textColor={parseTextColor(preview, textColor, value)}
     onClick={onClick}
+    tooltip={tooltip}
+    tooltipLocation={tooltipLocation}
+    hideTooltip={hideTooltip}
   >
-    {variant !== "preview" ? (
+    {preview !== true ? (
       <>
         <input
           className={CSS.BE("input", inputType, "input")}
@@ -86,7 +104,9 @@ export const Boolean = ({
           onClick={onClick}
           {...rest}
         />
-        <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick} />
+        <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick}>
+          {value ? checkedIcon : uncheckedIcon}
+        </span>
       </>
     ) : value ? (
       "True"

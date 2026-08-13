@@ -20,6 +20,7 @@ export const DISPLAY = [
   "note",
   "tag",
   "tabs",
+  "schematic",
   "flex",
   "breadcrumb",
   "divider",

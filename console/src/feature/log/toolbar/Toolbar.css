@@ -16,10 +16,6 @@
         width: 66px;
     }
 
-    .console-log-toolbar__tabs {
-        border-bottom: none;
-    }
-
     .console-log__toolbar-properties {
         padding: 2rem;
         gap: 5rem;
@@ -31,7 +27,7 @@
         overflow: auto;
 
         .console-log__channel-row {
-            padding: 0.2rem 3rem 0.2rem 1rem;
+            padding: 0.25rem 3rem 0.25rem 1rem;
             min-height: unset;
             cursor: default;
 
@@ -58,7 +54,7 @@
 
             .console-log__channel-tz .pluto-btn {
                 /* Force alignment with Float channel "Precision" selector */
-                padding-inline: 2.2rem;
+                padding-inline: round(2.2rem, 1px);
             }
         }
     }

@@ -17,7 +17,11 @@ import { context, type Flux, type Icon, Panel, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-export interface TabName extends FC<record.Empty> {}
+export interface TabNameProps {
+  /** Whether the render site permits renaming the tab in place. Defaults to true. */
+  allowRename?: boolean;
+}
+export interface TabName extends FC<TabNameProps> {}
 export interface TabIcon extends Icon.FC {}
 export interface Toolbar extends FC<record.Empty> {}
 export interface Content extends FC<record.Empty> {}
@@ -36,8 +40,8 @@ export interface UseTombstone {
 export interface Tab {
   Content: Content;
   Name: TabName;
-  /** Represents the tab as a glyph alone. Rendered inside the tab's panel and
-   * tab scope. */
+  /** Represents the tab as a glyph alone, e.g. on the bottom toolbar button.
+   * Rendered inside the tab's panel and tab scope. */
   Icon: TabIcon;
   Toolbar?: Toolbar;
   /**
@@ -171,7 +175,7 @@ export const createEditableTabName = (
   service: EditableTabNameService,
   icon: Icon.ReactElement,
 ): TabName => {
-  const Name: TabName = () => {
+  const Name: TabName = ({ allowRename = true }) => {
     const tabKey = Panel.useTabKey();
     const { key } = Panel.useSelectTabResource();
     service.useEnsureRetrieved({ key });
@@ -180,9 +184,10 @@ export const createEditableTabName = (
     return (
       <>
         {icon}
-        <Text.Editable
+        <Text.MaybeEditable
           id={tabNameID(tabKey)}
           value={name}
+          disabled={!allowRename}
           onChange={(name) => update({ key, name })}
         />
       </>

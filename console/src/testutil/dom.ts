@@ -55,6 +55,21 @@ export const getIconButton = (
 };
 
 /**
+ * Returns the pluto toggle button in container. Toggles carry no accessible name, and
+ * their icon is decoration that changes with the design, so the toggle class is the
+ * only stable handle.
+ */
+export const getToggleButton = (container: ParentNode): HTMLButtonElement => {
+  const button = container.querySelector<HTMLButtonElement>("button.pluto-btn-toggle");
+  if (button == null) throw new Error("no toggle button");
+  return button;
+};
+
+/** Reports whether a pluto toggle button is in its on state. */
+export const isToggled = (button: Element): boolean =>
+  button.classList.contains("pluto--selected");
+
+/**
  * Finds the text input whose pluto node placeholder (a rendered sibling element, not
  * an HTML placeholder attribute) contains the given text.
  */

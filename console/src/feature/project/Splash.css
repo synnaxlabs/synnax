@@ -9,13 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-project-splash {
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-    box-shadow: var(--pluto-shadow-v0);
-}
-
 .console-project-splash__content {
     cursor: default;
 }

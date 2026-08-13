@@ -116,8 +116,11 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => (
   <Toolbar.Content>
-    <Toolbar.Header padded>
-      <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Status />
+        Statuses
+      </Toolbar.Title>
       <Actions />
     </Toolbar.Header>
     <List />
@@ -132,18 +135,18 @@ const Actions = (): ReactElement | null => {
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create status" onClick={() => openCreate()}>
-          <Icon.Add />
+      {hasRetrievePermission && (
+        <Toolbar.Action tooltip="Open Status Explorer" onClick={openExplorer}>
+          <Icon.Explore />
         </Toolbar.Action>
       )}
-      {hasRetrievePermission && (
+      {hasCreatePermission && (
         <Toolbar.Action
-          tooltip="Open Status Explorer"
-          onClick={openExplorer}
+          tooltip="Create status"
+          onClick={() => openCreate()}
           variant="filled"
         >
-          <Icon.Explore />
+          <Icon.Add />
         </Toolbar.Action>
       )}
     </Toolbar.Actions>

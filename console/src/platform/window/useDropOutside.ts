@@ -78,10 +78,15 @@ const useMacOS = (props: UseDropOutsideProps): void => {
   }, [ctx, resolve]);
 };
 
+// The browser has no desktop to release content over. Its runtime reports no window
+// geometry, so every unclaimed drop would read as one.
 const useWindows = (props: UseDropOutsideProps): void => {
   const ctx = Haul.useContext();
   const resolve = useResolve(props);
-  useEffect(() => ctx?.bind(resolve), [ctx, resolve]);
+  useEffect(() => {
+    if (Session.Runtime.ENGINE !== "tauri") return;
+    return ctx?.bind(resolve);
+  }, [ctx, resolve]);
 };
 
 /**

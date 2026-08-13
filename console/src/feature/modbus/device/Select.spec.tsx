@@ -15,11 +15,9 @@ import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import { renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger, stubGeometry } from "@/testutil";
+import { findDialogTrigger } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 describe("Modbus.Device.Select", () => {
   it("should display the selected server in the trigger", async () => {

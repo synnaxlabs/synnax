@@ -23,11 +23,18 @@ const Content = (): ReactElement => {
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
+      <Toolbar.Header>
+        <Toolbar.Title>
+          <Icon.User />
+          Users
+        </Toolbar.Title>
         {hasCreatePermission && (
           <Toolbar.Actions>
-            <Toolbar.Action onClick={() => openRegister()} tooltip="Create user">
+            <Toolbar.Action
+              onClick={() => openRegister()}
+              tooltip="Create user"
+              variant="filled"
+            >
               <Icon.Add />
             </Toolbar.Action>
           </Toolbar.Actions>

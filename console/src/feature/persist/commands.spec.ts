@@ -14,9 +14,6 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Persist } from "@/feature/persist";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
 
 const CONFIRM_MESSAGE = "Are you sure you want to clear the Console's local storage?";
 

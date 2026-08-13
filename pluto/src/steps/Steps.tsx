@@ -42,6 +42,7 @@ export const Steps = ({
             onClick={() => onChange(step.key)}
             key={step.key}
             variant="outlined"
+            className={CSS(CSS.selected(i === selectedIdx))}
             disabled={i > selectedIdx}
           >
             {i + 1}. {step.title}

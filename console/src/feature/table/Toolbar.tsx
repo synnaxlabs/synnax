@@ -55,13 +55,13 @@ const Internal = (): ReactElement => {
               {name}
             </Breadcrumb.Segment>
             {selectedCellPos != null && (
-              <Breadcrumb.Segment color={8}>
+              <Breadcrumb.Segment color={9}>
                 {Table.getCellColumn(selectedCellPos.x)}
                 {selectedCellPos.y + 1}
               </Breadcrumb.Segment>
             )}
             {liveCellCount > 1 && (
-              <Breadcrumb.Segment color={8}>{liveCellCount} cells</Breadcrumb.Segment>
+              <Breadcrumb.Segment color={9}>{liveCellCount} cells</Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
@@ -73,7 +73,7 @@ const Internal = (): ReactElement => {
           />
         </Flex.Box>
       </Base.Header>
-      <Flex.Box full>
+      <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
         {!editable ? (
           <NotEditableContent name={name} />
         ) : liveCellCount === 0 ? (

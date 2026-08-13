@@ -108,7 +108,7 @@ html {
         --pluto-h3-size: 3.25rem;
         --pluto-h4-size: 2.75rem;
         --pluto-h5-size: 2.5rem;
-        --pluto-p-size: 2.3333rem;
+        --pluto-p-size: round(2.3333rem, 1px);
         --pluto-p-weight: 400;
     }
 }

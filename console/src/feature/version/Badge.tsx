@@ -29,7 +29,6 @@ export const Badge = (): ReactElement => {
       level="small"
       textColor={updateAvailable ? "var(--pluto-secondary-z)" : 9}
       weight={500}
-      contrast={2}
     >
       {`v${version}`}
     </Button.Button>

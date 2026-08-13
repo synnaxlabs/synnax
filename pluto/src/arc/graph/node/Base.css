@@ -18,15 +18,15 @@
     height: fit-content;
 
     &.pluto-arc__handles--left {
-        border-top-left-radius: 1rem;
-        border-bottom-left-radius: 1rem;
+        border-top-left-radius: var(--pluto-border-radius-small);
+        border-bottom-left-radius: var(--pluto-border-radius-small);
         margin-right: -1px;
         z-index: -1;
     }
 
     &.pluto-arc__handles--right {
-        border-top-right-radius: 1rem;
-        border-bottom-right-radius: 1rem;
+        border-top-right-radius: var(--pluto-border-radius-small);
+        border-bottom-right-radius: var(--pluto-border-radius-small);
         margin-left: -1px;
         z-index: -1;
     }

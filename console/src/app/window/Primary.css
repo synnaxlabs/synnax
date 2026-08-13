@@ -14,12 +14,12 @@
     padding-bottom: 1rem;
     /* Hover drawers overshoot the docked footprint: tucked under the top bar, fused
        into the left bar's border, bled past the content padding. */
-    --left-drawer-inset-left: 8.5rem;
-    --left-drawer-inset-top: 6rem;
-    --left-drawer-inset-bottom: 0.5rem;
-    --bottom-drawer-inset-left: calc(8rem - 2px);
-    --bottom-drawer-inset-right: 0.5rem;
-    --bottom-drawer-inset-bottom: 1rem;
+    --console-left-drawer-inset-left: 8.5rem;
+    --console-left-drawer-inset-top: 6rem;
+    --console-left-drawer-inset-bottom: 0.5rem;
+    --console-bottom-drawer-inset-left: calc(8rem - 2px);
+    --console-bottom-drawer-inset-right: 0.5rem;
+    --console-bottom-drawer-inset-bottom: 1rem;
 }
 
 .console-main__column {

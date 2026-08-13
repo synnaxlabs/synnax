@@ -121,12 +121,7 @@ const { actions, reducer } = createSlice({
         ];
         // Skip the no-op reselect fired on every click inside a focused tab's content;
         // a state change here re-renders mid-click and eats checkbox toggles.
-        if (
-          next.length === pan.selectedTabs.length &&
-          next.every((k, i) => k === pan.selectedTabs[i])
-        )
-          return;
-        pan.selectedTabs = next;
+        if (!compare.arraysEqual(pan.selectedTabs, next)) pan.selectedTabs = next;
       },
     ),
     startOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {

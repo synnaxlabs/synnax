@@ -170,18 +170,18 @@ const Actions = (): ReactElement | null => {
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create range" onClick={() => openCreate()}>
-          <Icon.Add />
+      {hasRetrievePermission && (
+        <Toolbar.Action tooltip="Open Range Explorer" onClick={openExplorer}>
+          <Icon.Explore />
         </Toolbar.Action>
       )}
-      {hasRetrievePermission && (
+      {hasCreatePermission && (
         <Toolbar.Action
-          tooltip="Open Range Explorer"
-          onClick={openExplorer}
+          tooltip="Create range"
+          onClick={() => openCreate()}
           variant="filled"
         >
-          <Icon.Explore />
+          <Icon.Add />
         </Toolbar.Action>
       )}
     </Toolbar.Actions>
@@ -190,8 +190,11 @@ const Actions = (): ReactElement | null => {
 
 const Content = (): ReactElement => (
   <Toolbar.Content>
-    <Toolbar.Header padded>
-      <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Range />
+        Ranges
+      </Toolbar.Title>
       <Actions />
     </Toolbar.Header>
     <List />

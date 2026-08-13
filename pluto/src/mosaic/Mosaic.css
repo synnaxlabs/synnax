@@ -13,7 +13,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    box-shadow: var(--pluto-shadow-v2);
+    box-shadow: var(--pluto-shadow-lift);
 
     .pluto-resize-split {
         height: 100%;

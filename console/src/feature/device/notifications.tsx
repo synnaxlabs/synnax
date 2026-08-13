@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Icon, Status } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 import { getIcon, getMake, type Make, useConfigureModal } from "@/feature/device/make";
@@ -28,6 +28,7 @@ export const Notification: Notifications.Notification = ({ status, silence }) =>
     <Status.Notification
       status={status}
       silence={silence}
+      icon={getIcon(make)}
       actions={
         showConfigure ? (
           <Button.Button
@@ -40,12 +41,7 @@ export const Notification: Notifications.Notification = ({ status, silence }) =>
           </Button.Button>
         ) : undefined
       }
-    >
-      <Text.Text>
-        {getIcon(make)}
-        {status.message}
-      </Text.Text>
-    </Status.Notification>
+    />
   );
 };
 Notification.match = (status) => getKeyFromStatus(status) != null;

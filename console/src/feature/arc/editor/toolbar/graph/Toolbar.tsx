@@ -10,13 +10,14 @@
 import "@/feature/arc/editor/toolbar/graph/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
-import { Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
+import { Arc, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Stages } from "@/feature/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/feature/arc/editor/toolbar/graph/Properties";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -27,25 +28,15 @@ const NotEditableContent = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const { canEdit } = Session.Arc.useSelectEditable();
   return (
-    <Flex.Box x gap="small" center>
-      <Text.Text status="disabled">
-        {name} is not editable.
-        {canEdit ? " To make changes," : ""}
-      </Text.Text>
-      {canEdit && (
-        <Text.Text
-          onClick={(e) => {
-            e.stopPropagation();
-            dispatch(Session.Arc.setEditable({ key, editable: true }));
-          }}
-          variant="link"
-          level="p"
-          weight={500}
-        >
-          enable editing.
-        </Text.Text>
-      )}
-    </Flex.Box>
+    <Empty.Action
+      x
+      message={`${name} is not editable.${canEdit ? " To make changes," : ""}`}
+      action={canEdit ? "enable editing." : undefined}
+      onClick={(e) => {
+        e.stopPropagation();
+        dispatch(Session.Arc.setEditable({ key, editable: true }));
+      }}
+    />
   );
 };
 

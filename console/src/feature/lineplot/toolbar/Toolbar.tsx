@@ -55,12 +55,14 @@ const Internal = (): ReactElement => {
     <Base.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>
         <Base.Header>
-          <Base.Title icon={<Icon.LinePlot />}>{name}</Base.Title>
+          <Base.Title>
+            <Icon.LinePlot />
+            {name}
+          </Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("line-plot", "toolbar", "actions")}>
               <Button.Button
                 tooltip="Download as CSV"
-                sharp
                 size="medium"
                 variant="text"
                 onClick={downloadAsCSV}
@@ -74,7 +76,7 @@ const Internal = (): ReactElement => {
               />
             </Flex.Box>
             {hasUpdatePermission && (
-              <Tabs.Selector className={CSS.BE("line-plot", "toolbar", "selector")}>
+              <Tabs.Selector>
                 <Tabs.Tab itemKey="data">Data</Tabs.Tab>
                 <Tabs.Tab itemKey="lines">Lines</Tabs.Tab>
                 <Tabs.Tab itemKey="axes">Axes</Tabs.Tab>

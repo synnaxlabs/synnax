@@ -68,7 +68,7 @@ const Splash = ({ client, status, nav }: SplashProps): ReactElement => {
     connecting &&
     (variant === "error" || details.error != null || details.retry != null);
   return (
-    <Flex.Box y empty className={CSS.B("login")}>
+    <Flex.Box y full empty className={CSS(CSS.B("screen"), CSS.B("login"))}>
       {nav && <LoginNav />}
       <Flex.Box
         y

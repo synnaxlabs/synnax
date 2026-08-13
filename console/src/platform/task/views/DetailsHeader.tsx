@@ -33,9 +33,9 @@ export const DetailsHeader = ({ path, disabled = false }: DetailsHeaderProps) =>
           tooltip="Copy details as JSON"
           tooltipLocation="left"
           variant="text"
+          size="small"
           text={getText}
           successMessage="Copied details to clipboard"
-          contrast={2}
           textColor={9}
         >
           <Icon.JSON />

@@ -42,7 +42,10 @@ const Internal = (): ReactElement => {
     <Base.Content className={CSS.B("log-toolbar")}>
       <Tabs.Frame value={selected} onChange={handleTabSelect} grow>
         <Base.Header>
-          <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
+          <Base.Title>
+            <Icon.Log />
+            {name}
+          </Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
               <Export.ToolbarButton getID={() => log.ontologyID(key)} />
@@ -51,7 +54,7 @@ const Internal = (): ReactElement => {
                 ontologyID={log.ontologyID(key)}
               />
             </Flex.Box>
-            <Tabs.Selector className={CSS.BE("log-toolbar", "tabs")}>
+            <Tabs.Selector>
               <Tabs.Tab itemKey="channels">Channels</Tabs.Tab>
               <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
             </Tabs.Selector>
