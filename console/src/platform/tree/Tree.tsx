@@ -384,12 +384,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       setNodes,
       expand,
       contract,
-      setLoading,
       setResource: placeholders.setItem,
       getResource,
       setSelection: setSelected,
     }),
-    [expand, contract, setLoading, handleError, placeholders, nodesRef, setNodes],
+    [expand, contract, handleError, placeholders, nodesRef, setNodes],
   );
 
   const openTab = Panel.useOpenTab();
