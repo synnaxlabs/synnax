@@ -160,8 +160,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
 
 	// ARC
-	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, apiarc.DispatchResponse]{}
-	t.ArcDeploy = noop.UnaryServer[apiarc.DeployRequest, apiarc.DeployResponse]{}
+	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, types.Nil]{}
+	t.ArcSetRack = noop.UnaryServer[apiarc.SetRackRequest, apiarc.SetRackResponse]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	layer.BindTo(t)

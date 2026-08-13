@@ -222,19 +222,19 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export interface DeployParams {
+export interface SetRackParams {
   key: arc.Key;
-  /** Target rack. Zero undeploys the arc. */
+  /** Target rack. Zero clears the binding, deleting the arc's task. */
   rack: rack.Key;
 }
 
-export const { useUpdate: useDeploy } = Flux.createUpdate<
-  DeployParams,
+export const { useUpdate: useSetRack } = Flux.createUpdate<
+  SetRackParams,
   task.Task | null
 >({
-  name: RESOURCE_NAME,
-  verbs: verbs.DEPLOY,
-  update: async ({ client, data }) => await client.arcs.deploy(data.key, data.rack),
+  name: `${RESOURCE_NAME} rack`,
+  verbs: verbs.SET,
+  update: async ({ client, data }) => await client.arcs.setRack(data.key, data.rack),
 });
 
 export type RetrieveTaskParams = {

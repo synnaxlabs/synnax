@@ -19,7 +19,7 @@ import { createConsoleWrapper, uniqueName } from "@/testutil";
 const createDeployed = async (): Promise<{ a: arc.Arc; tsk: task.Task }> => {
   const rck = await client.racks.create({ name: uniqueName("rack") });
   const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
-  const tsk = await client.arcs.deploy(a.key, rck.key);
+  const tsk = await client.arcs.setRack(a.key, rck.key);
   if (tsk == null) throw new Error("expected a deployment task");
   return { a, tsk };
 };
@@ -89,7 +89,7 @@ describe("arc useDrifted", () => {
     const { a, tsk } = await createDeployed();
     await setRunning(tsk);
     const other = await client.racks.create({ name: uniqueName("rack") });
-    await client.arcs.deploy(a.key, other.key);
+    await client.arcs.setRack(a.key, other.key);
     const { result } = await renderDrifted(a);
     await waitFor(() => expect(result.current.task.running).toBe(true));
     await waitFor(() => expect(result.current.drifted).toBe(true));

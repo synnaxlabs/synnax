@@ -405,14 +405,14 @@ describe("Arc queries", () => {
     });
   });
 
-  describe("useDeploy", () => {
-    it("creates the deployment task stamped with the arc's hash", async () => {
+  describe("useSetRack", () => {
+    it("creates the task stamped with the arc's hash", async () => {
       const testRack = await client.racks.create({ name: `rack_${id.create()}` });
       const created = await client.arcs.create({
         name: `arc_deploy_${id.create()}`,
         mode: "text",
       });
-      const { result } = renderHook(() => Arc.useDeploy(), { wrapper });
+      const { result } = renderHook(() => Arc.useSetRack(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({ key: created.key, rack: testRack.key });
@@ -429,14 +429,14 @@ describe("Arc queries", () => {
       expect(tsk.config.hash).not.toEqual("");
     });
 
-    it("reuses the task across redeploys and rack moves", async () => {
+    it("reuses the task across rebinds and rack moves", async () => {
       const rack1 = await client.racks.create({ name: `rack_${id.create()}` });
       const rack2 = await client.racks.create({ name: `rack_${id.create()}` });
       const created = await client.arcs.create({
         name: `arc_move_${id.create()}`,
         mode: "text",
       });
-      const { result } = renderHook(() => Arc.useDeploy(), { wrapper });
+      const { result } = renderHook(() => Arc.useSetRack(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({ key: created.key, rack: rack1.key });
@@ -462,13 +462,13 @@ describe("Arc queries", () => {
       expect(children[0].id.key).toBe(first.key);
     });
 
-    it("undeploys with a zero rack, deleting the task", async () => {
+    it("clears the rack with a zero rack, deleting the task", async () => {
       const testRack = await client.racks.create({ name: `rack_${id.create()}` });
       const created = await client.arcs.create({
         name: `arc_undeploy_${id.create()}`,
         mode: "text",
       });
-      const { result } = renderHook(() => Arc.useDeploy(), { wrapper });
+      const { result } = renderHook(() => Arc.useSetRack(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({ key: created.key, rack: testRack.key });
