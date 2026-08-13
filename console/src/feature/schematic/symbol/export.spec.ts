@@ -8,17 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { group, schematic } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { client, createSymbolPayload } from "@/feature/schematic/testutil";
 import { Export } from "@/platform/export";
-import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import {
   captureBrowserDownloads,
-  installFakeDirectoryPicker,
   removeFilePickers,
   renderHookWithConsole,
   uniqueName,
@@ -70,82 +67,21 @@ describe("exporting a symbol", () => {
 });
 
 describe("Schematic.Symbol.useExportGroup", () => {
-  it("writes a manifest and one file per symbol into the picked directory", async () => {
+  it("downloads the group as a zip named after the group", async () => {
+    const downloads = captureBrowserDownloads();
     const names = [uniqueName("sym_a"), uniqueName("sym_b")];
-    const { grp, symbols } = await createSymbolGroup(names);
-    const picker = installFakeDirectoryPicker();
+    const { grp } = await createSymbolGroup(names);
     const { result } = await renderHookWithConsole(
-      () => ({
-        run: Schematic.Symbol.useExportGroup(),
-        notifications: Status.useNotifications(),
-      }),
+      () => Schematic.Symbol.useExportGroup(),
       { client },
     );
-    act(() => result.current.run(grp));
-    await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "success" &&
-            st.message === `Exported 2 symbols to exports/${grp.name}`,
-        ),
-      ).toBe(true),
-    );
-    const manifestRaw = picker.files.get("manifest.json");
-    if (manifestRaw == null) throw new Error("manifest.json was not written");
-    const manifest = Schematic.Symbol.groupManifestZ.parse(JSON.parse(manifestRaw));
-    expect(manifest.name).toBe(grp.name);
-    expect(manifest.symbols).toHaveLength(2);
-    for (const symbol of symbols) {
-      const entry = manifest.symbols.find((s) => s.key === symbol.key);
-      if (entry == null) throw new Error(`manifest missing symbol ${symbol.name}`);
-      const written = picker.files.get(entry.file);
-      if (written == null) throw new Error(`symbol file ${entry.file} not written`);
-      expect(JSON.parse(written)).toMatchObject({ name: symbol.name });
-    }
-  });
-
-  it("warns without opening a picker when the group has no symbols", async () => {
-    const { grp } = await createSymbolGroup([]);
-    const { result } = await renderHookWithConsole(
-      () => ({
-        run: Schematic.Symbol.useExportGroup(),
-        notifications: Status.useNotifications(),
-      }),
-      { client },
-    );
-    act(() => result.current.run(grp));
-    await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "warning" &&
-            st.message === "No symbols found in this group to export",
-        ),
-      ).toBe(true),
-    );
-  });
-
-  it("asks before replacing an existing directory and writes on confirm", async () => {
-    const { grp } = await createSymbolGroup([uniqueName("sym")]);
-    const picker = installFakeDirectoryPicker({ preExisted: true });
-    await renderModalOpener(Schematic.Symbol.useExportGroup, [grp], { client });
-    await screen.findByText(`A directory already exists at exports/${grp.name}`);
-    fireEvent.click(findButton("Replace"));
-    await waitFor(() => expect(picker.files.has("manifest.json")).toBe(true));
-  });
-
-  it("writes nothing when the replacement is cancelled", async () => {
-    const { grp } = await createSymbolGroup([uniqueName("sym")]);
-    const picker = installFakeDirectoryPicker({ preExisted: true });
-    await renderModalOpener(Schematic.Symbol.useExportGroup, [grp], { client });
-    await screen.findByText(`A directory already exists at exports/${grp.name}`);
-    fireEvent.click(findButton("Cancel"));
-    await waitFor(() =>
-      expect(
-        screen.queryByText(`A directory already exists at exports/${grp.name}`),
-      ).toBeNull(),
-    );
-    expect(picker.files.size).toBe(0);
+    act(() => result.current(grp));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toBe(`${grp.name}.zip`);
+    // Zip entry names are stored uncompressed, so the archive names its own files.
+    const archive = new TextDecoder().decode(await downloads.blobs[0].arrayBuffer());
+    expect(archive.startsWith("PK")).toBe(true);
+    expect(archive).toContain("manifest.json");
+    names.forEach((name) => expect(archive).toContain(`${name}.json`));
   });
 });

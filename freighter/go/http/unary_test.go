@@ -37,6 +37,8 @@ var (
 	unaryServerJSONOnly         freighter.UnaryServer[test.Request, test.Response]
 	unaryServerMsgpackOnly      freighter.UnaryServer[test.Request, test.Response]
 	unaryServerFailingEncoder   freighter.UnaryServer[test.Request, test.Response]
+	unaryServerMsgpackErrors    freighter.UnaryServer[test.Request, test.Response]
+	unaryServerNoErrorEncoders  freighter.UnaryServer[test.Request, test.Response]
 	unaryClient                 freighter.UnaryClient[test.Request, test.Response]
 	unaryAddr                   address.Address
 	unaryApp                    *fiber.App
@@ -91,6 +93,19 @@ var _ = BeforeSuite(func() {
 		"/encode-failure",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithResponseEncoders(failingEncoder{}),
+	)
+	unaryServerMsgpackErrors = fhttp.NewUnaryServer[test.Request, test.Response](
+		router,
+		"/msgpack-errors",
+		fhttp.WithRequestDecoders(json.Codec),
+		fhttp.WithResponseEncoders(failingEncoder{}),
+		fhttp.WithErrorEncoders(msgpack.Codec),
+	)
+	unaryServerNoErrorEncoders = fhttp.NewUnaryServer[test.Request, test.Response](
+		router,
+		"/no-error-encoders",
+		fhttp.WithRequestDecoders(json.Codec),
+		fhttp.WithErrorEncoders(),
 	)
 	unaryClient = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 	router.BindTo(unaryApp)
@@ -358,6 +373,96 @@ var _ = Describe("Unary", func() {
 				Expect(
 					string(respBody),
 				).To(ContainSubstring(errFailingEncoderEncodeFail.Error()))
+			},
+		)
+
+		It(
+			"should answer with a bare status when the server is given no error encoders",
+			func(ctx context.Context) {
+				unaryServerNoErrorEncoders.BindHandler(
+					func(_ context.Context, _ test.Request) (test.Response, error) {
+						return test.Response{}, test.ErrCustom
+					},
+				)
+				body := MustSucceed(
+					json.Codec.Encode(ctx, test.Request{ID: 12, Message: "err"}),
+				)
+				httpReq := MustSucceed(http.NewRequestWithContext(
+					ctx,
+					http.MethodPost,
+					"http://"+unaryAddr.String()+"/no-error-encoders",
+					bytes.NewReader(body),
+				))
+				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+				Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
+				// Fiber writes the status text, so the body carries no error payload.
+				Expect(io.ReadAll(httpRes.Body)).To(BeEquivalentTo("Bad Request"))
+			},
+		)
+
+		It(
+			"should encode handler errors with the configured error encoder",
+			func(ctx context.Context) {
+				unaryServerMsgpackErrors.BindHandler(
+					func(_ context.Context, _ test.Request) (test.Response, error) {
+						return test.Response{}, test.ErrCustom
+					},
+				)
+				body := MustSucceed(
+					json.Codec.Encode(ctx, test.Request{ID: 11, Message: "err"}),
+				)
+				httpReq := MustSucceed(http.NewRequestWithContext(
+					ctx,
+					http.MethodPost,
+					"http://"+unaryAddr.String()+"/msgpack-errors",
+					bytes.NewReader(body),
+				))
+				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+				httpReq.Header.Set(fiber.HeaderAccept, "application/x-fail")
+				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+				Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
+				Expect(
+					httpRes.Header.Get(fiber.HeaderContentType),
+				).To(Equal("application/msgpack"))
+				var pld errors.Payload
+				respBody := MustSucceed(io.ReadAll(httpRes.Body))
+				Expect(msgpack.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+				Expect(errors.Decode(ctx, pld)).To(MatchError(test.ErrCustom))
+			},
+		)
+
+		It(
+			"should encode handler errors as JSON when the response encoder carries no error payload",
+			func(ctx context.Context) {
+				unaryServerFailingEncoder.BindHandler(
+					func(_ context.Context, _ test.Request) (test.Response, error) {
+						return test.Response{}, test.ErrCustom
+					},
+				)
+				body := MustSucceed(
+					json.Codec.Encode(ctx, test.Request{ID: 10, Message: "err"}),
+				)
+				httpReq := MustSucceed(http.NewRequestWithContext(
+					ctx,
+					http.MethodPost,
+					"http://"+unaryAddr.String()+"/encode-failure",
+					bytes.NewReader(body),
+				))
+				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+				httpReq.Header.Set(fiber.HeaderAccept, "application/x-fail")
+				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+				Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
+				Expect(
+					httpRes.Header.Get(fiber.HeaderContentType),
+				).To(Equal("application/json"))
+				var pld errors.Payload
+				respBody := MustSucceed(io.ReadAll(httpRes.Body))
+				Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+				Expect(errors.Decode(ctx, pld)).To(MatchError(test.ErrCustom))
 			},
 		)
 	})

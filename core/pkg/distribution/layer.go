@@ -49,7 +49,8 @@ type LayerConfig struct {
 	// GorpCodec sets the codec used to encode/decode data structures within the cluster
 	// metadata DB.
 	//
-	// [OPTIONAL] - Defaults to orc.NewCodec(msgpack.Codec)
+	// [OPTIONAL] - Defaults to encoding.NewDecodeFallbackCodec(orc.Codec,
+	// msgpack.Codec)
 	GorpCodec encoding.Codec
 	// AspenTransport is the network transport used for key-value gossip and cluster
 	// topology information.
@@ -140,7 +141,9 @@ type Layer struct {
 // None of the services in the Layer should be used after Close is called. It is the
 // caller's responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(LayerConfig{GorpCodec: orc.NewCodec(msgpack.Codec)}, cfgs...)
+	cfg, err := config.New(LayerConfig{
+		GorpCodec: encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+	}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
