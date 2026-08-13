@@ -14,7 +14,7 @@ package v1
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
+	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -69,7 +69,7 @@ func (o *OutputChannel) ApplyDefaults() {
 
 // ReadConfig configures an OPC UA read task.
 type ReadConfig struct {
-	common.BaseReadConfig
+	config.BaseRead
 	// SampleRate is the per-channel hardware sample rate, in hertz.
 	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
 	// StreamRate is the rate at which samples are streamed to Synnax, in hertz.
@@ -95,7 +95,7 @@ func (r *ReadConfig) ApplyDefaults() {
 	if r.ArraySize == 0 {
 		r.ArraySize = 1
 	}
-	r.BaseReadConfig.ApplyDefaults()
+	r.BaseRead.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -103,7 +103,7 @@ func (r *ReadConfig) ApplyDefaults() {
 
 // WriteConfig configures an OPC UA write task.
 type WriteConfig struct {
-	common.BaseWriteConfig
+	config.BaseWrite
 	// Channels are the OPC UA nodes the task drives.
 	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
@@ -117,10 +117,10 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures an OPC UA scan task, which carries no settings.
 type ScanConfig struct {
-	common.BaseScanConfig
+	config.BaseScan
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
-	s.BaseScanConfig.ApplyDefaults()
+	s.BaseScan.ApplyDefaults()
 }

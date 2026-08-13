@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -77,11 +77,8 @@ var _ = Describe("ImEx", Ordered, func() {
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
-		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		configs := MustSucceed(common.NewConfigRegistry(pd.Stores()...))
+		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+		configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 		imexSvc = imex.NewService()
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,

@@ -17,7 +17,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
+	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -4325,14 +4325,14 @@ func (u *DOChannel) UnmarshalJSON(data []byte) error {
 // AnalogReadConfig configures an NI analog read task. Each channel carries its own
 // device.
 type AnalogReadConfig struct {
-	common.BaseReadConfig
+	config.BaseRead
 	// Channels are the analog input channels the task acquires.
 	Channels []AIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AnalogReadConfig) ApplyDefaults() {
-	a.BaseReadConfig.ApplyDefaults()
+	a.BaseRead.ApplyDefaults()
 	for i := range a.Channels {
 		a.Channels[i].ApplyDefaults()
 	}
@@ -4351,14 +4351,14 @@ func (a AnalogReadConfig) Validate() error {
 // CounterReadConfig configures an NI counter read task. Each channel carries its own
 // device.
 type CounterReadConfig struct {
-	common.BaseReadConfig
+	config.BaseRead
 	// Channels are the counter input channels the task acquires.
 	Channels []CIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CounterReadConfig) ApplyDefaults() {
-	c.BaseReadConfig.ApplyDefaults()
+	c.BaseRead.ApplyDefaults()
 	for i := range c.Channels {
 		c.Channels[i].ApplyDefaults()
 	}
@@ -4376,7 +4376,7 @@ func (c CounterReadConfig) Validate() error {
 
 // WriteConfig carries the configuration fields shared by NI write tasks.
 type WriteConfig struct {
-	common.BaseWriteConfig
+	config.BaseWrite
 	// StateRate is the rate at which output state is reported to Synnax, in hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 }
@@ -4415,7 +4415,7 @@ func (a AnalogWriteConfig) Validate() error {
 
 // DigitalReadConfig configures an NI digital read task.
 type DigitalReadConfig struct {
-	common.BaseReadConfig
+	config.BaseRead
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the digital input channels the task acquires.
@@ -4424,7 +4424,7 @@ type DigitalReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DigitalReadConfig) ApplyDefaults() {
-	d.BaseReadConfig.ApplyDefaults()
+	d.BaseRead.ApplyDefaults()
 }
 
 // DigitalWriteConfig configures an NI digital write task.
@@ -4441,10 +4441,10 @@ func (d *DigitalWriteConfig) ApplyDefaults() {
 
 // ScanConfig configures the NI device scanner task, which carries no settings.
 type ScanConfig struct {
-	common.BaseScanConfig
+	config.BaseScan
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
-	s.BaseScanConfig.ApplyDefaults()
+	s.BaseScan.ApplyDefaults()
 }

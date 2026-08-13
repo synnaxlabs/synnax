@@ -37,7 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/set"
@@ -117,7 +117,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	var (
 		svc     *task.Service
 		imexSvc *imex.Service
-		configs common.ConfigRegistry
+		configs config.Registry
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -151,43 +151,43 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
-		var stores []common.ConfigStore
+		var stores []config.Store
 		stores = append(
 			stores,
 			MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
-				DB: db, Ontology: otg,
+				DB: db,
 			})).Stores()...)
 		stores = append(
 			stores,
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
-				DB: db, Ontology: otg,
+				DB: db,
 			})).Stores()...)
 		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
-			DB: db, Ontology: otg,
+			DB: db,
 		})).Stores()...)
 		stores = append(stores, MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
-			DB: db, Ontology: otg,
+			DB: db,
 		})).Stores()...)
 		stores = append(stores, MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
-			DB: db, Ontology: otg,
+			DB: db,
 		})).Stores()...)
 		stores = append(stores, MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-			DB: db, Ontology: otg,
+			DB: db,
 		})).Stores()...)
 		stores = append(stores, MustOpen(opc.OpenService(ctx, opc.ServiceConfig{
-			DB: db, Ontology: otg,
+			DB: db,
 		})).Stores()...)
 		stores = append(
 			stores,
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
-				DB: db, Ontology: otg,
+				DB: db,
 			})).Stores()...)
 		stores = append(
 			stores,
 			MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
-				DB: db, Ontology: otg,
+				DB: db,
 			})).Stores()...)
-		configs = MustSucceed(common.NewConfigRegistry(stores...))
+		configs = MustSucceed(config.NewRegistry(stores...))
 		imexSvc = imex.NewService()
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
@@ -204,11 +204,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	// Scan and rack status task configs are created by the driver on rack boot, and
 	// arc task configs deploy from Arc; the released Console never exported any of
 	// them, so they carry no legacy fixture.
-	neverExported := func(t ontology.ResourceType) bool {
-		return strings.HasSuffix(string(t), "_scan") ||
-			t == ontology.ResourceTypeNiScanner ||
-			t == ontology.ResourceTypeRackStatus ||
-			t == ontology.ResourceTypeArcTask
+	neverExported := func(t string) bool {
+		return strings.HasSuffix(t, "_scan") ||
+			t == "ni_scanner" ||
+			t == "rack_status" ||
+			t == arctask.Type
 	}
 
 	It("covers every registered config type with a fixture", func() {
@@ -274,7 +274,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			var legacy map[string]any
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())
 			delete(legacy, "type")
-			store := MustBeOk(configs.Store(ontology.ResourceType(env.Type)))
+			store := MustBeOk(configs.Store(env.Type))
 			expected := MustSucceed(store.Normalize(0, legacy))
 			expectSubset(
 				"config",

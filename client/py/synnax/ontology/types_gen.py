@@ -15,69 +15,23 @@ from typing import Literal
 
 RESOURCE_TYPE_ARC: Literal["arc"] = "arc"
 
-RESOURCE_TYPE_ARC_TASK: Literal["arc_task"] = "arc_task"
-
 RESOURCE_TYPE_BUILTIN: Literal["builtin"] = "builtin"
 
 RESOURCE_TYPE_CHANNEL: Literal["channel"] = "channel"
 
 RESOURCE_TYPE_DEVICE: Literal["device"] = "device"
 
-RESOURCE_TYPE_ETHERCAT_READ: Literal["ethercat_read"] = "ethercat_read"
-
-RESOURCE_TYPE_ETHERCAT_SCAN: Literal["ethercat_scan"] = "ethercat_scan"
-
-RESOURCE_TYPE_ETHERCAT_WRITE: Literal["ethercat_write"] = "ethercat_write"
-
 RESOURCE_TYPE_FRAMER: Literal["framer"] = "framer"
 
 RESOURCE_TYPE_GROUP: Literal["group"] = "group"
 
-RESOURCE_TYPE_HTTP_READ: Literal["http_read"] = "http_read"
-
-RESOURCE_TYPE_HTTP_SCAN: Literal["http_scan"] = "http_scan"
-
-RESOURCE_TYPE_HTTP_WRITE: Literal["http_write"] = "http_write"
-
 RESOURCE_TYPE_LABEL: Literal["label"] = "label"
-
-RESOURCE_TYPE_LABJACK_READ: Literal["labjack_read"] = "labjack_read"
-
-RESOURCE_TYPE_LABJACK_SCAN: Literal["labjack_scan"] = "labjack_scan"
-
-RESOURCE_TYPE_LABJACK_WRITE: Literal["labjack_write"] = "labjack_write"
 
 RESOURCE_TYPE_LINEPLOT: Literal["lineplot"] = "lineplot"
 
 RESOURCE_TYPE_LOG: Literal["log"] = "log"
 
-RESOURCE_TYPE_MODBUS_READ: Literal["modbus_read"] = "modbus_read"
-
-RESOURCE_TYPE_MODBUS_SCAN: Literal["modbus_scan"] = "modbus_scan"
-
-RESOURCE_TYPE_MODBUS_WRITE: Literal["modbus_write"] = "modbus_write"
-
-RESOURCE_TYPE_NI_ANALOG_READ: Literal["ni_analog_read"] = "ni_analog_read"
-
-RESOURCE_TYPE_NI_ANALOG_WRITE: Literal["ni_analog_write"] = "ni_analog_write"
-
-RESOURCE_TYPE_NI_COUNTER_READ: Literal["ni_counter_read"] = "ni_counter_read"
-
-RESOURCE_TYPE_NI_DIGITAL_READ: Literal["ni_digital_read"] = "ni_digital_read"
-
-RESOURCE_TYPE_NI_DIGITAL_WRITE: Literal["ni_digital_write"] = "ni_digital_write"
-
-RESOURCE_TYPE_NI_SCANNER: Literal["ni_scanner"] = "ni_scanner"
-
 RESOURCE_TYPE_NODE: Literal["node"] = "node"
-
-RESOURCE_TYPE_OPC_READ: Literal["opc_read"] = "opc_read"
-
-RESOURCE_TYPE_OPC_SCAN: Literal["opc_scan"] = "opc_scan"
-
-RESOURCE_TYPE_OPC_WRITE: Literal["opc_write"] = "opc_write"
-
-RESOURCE_TYPE_PAGERDUTY_ALERT: Literal["pagerduty_alert"] = "pagerduty_alert"
 
 RESOURCE_TYPE_PANEL: Literal["panel"] = "panel"
 
@@ -86,8 +40,6 @@ RESOURCE_TYPE_POLICY: Literal["policy"] = "policy"
 RESOURCE_TYPE_PROJECT: Literal["project"] = "project"
 
 RESOURCE_TYPE_RACK: Literal["rack"] = "rack"
-
-RESOURCE_TYPE_RACK_STATUS: Literal["rack_status"] = "rack_status"
 
 RESOURCE_TYPE_RANGE: Literal["range"] = "range"
 
@@ -112,43 +64,19 @@ RESOURCE_TYPE_VIEW: Literal["view"] = "view"
 
 ResourceType = Literal[
     "arc",
-    "arc_task",
     "builtin",
     "channel",
     "device",
-    "ethercat_read",
-    "ethercat_scan",
-    "ethercat_write",
     "framer",
     "group",
-    "http_read",
-    "http_scan",
-    "http_write",
     "label",
-    "labjack_read",
-    "labjack_scan",
-    "labjack_write",
     "lineplot",
     "log",
-    "modbus_read",
-    "modbus_scan",
-    "modbus_write",
-    "ni_analog_read",
-    "ni_analog_write",
-    "ni_counter_read",
-    "ni_digital_read",
-    "ni_digital_write",
-    "ni_scanner",
     "node",
-    "opc_read",
-    "opc_scan",
-    "opc_write",
-    "pagerduty_alert",
     "panel",
     "policy",
     "project",
     "rack",
-    "rack_status",
     "range",
     "range-alias",
     "role",

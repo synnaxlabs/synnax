@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
+	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -40,6 +41,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/zip"
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
@@ -268,25 +270,34 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// SCHEMATIC SYMBOL
-		SchematicCreateSymbol: http.NewUnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse](
+		SchematicSymbolCreate: http.NewUnaryServer[symbol.CreateRequest, symbol.CreateResponse](
 			router,
 			"/api/v1/schematic/symbol/create",
 		),
-		SchematicRetrieveSymbol: http.NewUnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse](
+		SchematicSymbolRetrieve: http.NewUnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse](
 			router,
 			"/api/v1/schematic/symbol/retrieve",
 		),
-		SchematicDeleteSymbol: http.NewUnaryServer[schematic.DeleteSymbolRequest, types.Nil](
+		SchematicSymbolDelete: http.NewUnaryServer[symbol.DeleteRequest, types.Nil](
 			router,
 			"/api/v1/schematic/symbol/delete",
 		),
-		SchematicRenameSymbol: http.NewUnaryServer[schematic.RenameSymbolRequest, types.Nil](
+		SchematicSymbolRename: http.NewUnaryServer[symbol.RenameRequest, types.Nil](
 			router,
 			"/api/v1/schematic/symbol/rename",
 		),
-		SchematicRetrieveSymbolGroup: http.NewUnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse](
+		SchematicSymbolRetrieveGroup: http.NewUnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse](
 			router,
 			"/api/v1/schematic/symbol/retrieve-group",
+		),
+		SchematicSymbolExportGroup: http.NewUnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
+			router,
+			"/api/v1/schematic/symbol/group/export",
+			http.WithResponseEncoders(zip.Encoder),
+		),
+		SchematicSymbolDeleteGroup: http.NewUnaryServer[symbol.DeleteGroupRequest, types.Nil](
+			router,
+			"/api/v1/schematic/symbol/group/delete",
 		),
 
 		// LINE PLOT
@@ -476,13 +487,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/retrieve",
 		),
-		ArcDispatch: http.NewUnaryServer[arc.DispatchRequest, arc.DispatchResponse](
+		ArcDispatch: http.NewUnaryServer[arc.DispatchRequest, types.Nil](
 			router,
 			"/api/v1/arc/dispatch",
 		),
-		ArcDeploy: http.NewUnaryServer[arc.DeployRequest, arc.DeployResponse](
+		ArcSetRack: http.NewUnaryServer[arc.SetRackRequest, arc.SetRackResponse](
 			router,
-			"/api/v1/arc/deploy",
+			"/api/v1/arc/set-rack",
 		),
 		ArcLSP: http.NewStreamServer[arc.LSPMessage, arc.LSPMessage](
 			router,

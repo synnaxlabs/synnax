@@ -16,7 +16,7 @@
 
 #include "client/cpp/arc/types.gen.h"
 #include "client/cpp/status/json.gen.h"
-#include "client/cpp/task/common/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "arc/cpp/graph/json.gen.h"
@@ -44,7 +44,6 @@ inline Arc Arc::parse(x::json::Parser parser) {
         .mode = parser.field<std::string>("mode"),
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
-        .hash = parser.field<std::optional<std::string>>("hash"),
         .program = parser.field<std::optional<::arc::program::Program>>("program"),
         .status = parser.field<std::optional<Status>>("status"),
     };
@@ -57,7 +56,6 @@ inline x::json::json Arc::to_json() const {
     j["mode"] = this->mode;
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
-    j["hash"] = this->hash;
     if (this->program.has_value()) j["program"] = this->program->to_json();
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
@@ -65,9 +63,9 @@ inline x::json::json Arc::to_json() const {
 
 inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
     TaskConfig result;
-    static_cast<::synnax::task::common::BasePersistConfig &>(
+    static_cast<::synnax::task::config::BasePersist &>(
         result
-    ) = ::synnax::task::common::BasePersistConfig::parse(parser);
+    ) = ::synnax::task::config::BasePersist::parse(parser);
     result.arc_key = parser.field<Key>("arc_key");
     result.hash = parser.field<std::string>("hash", "");
     result.execution_mode = parser.field<std::string>("execution_mode", "AUTO");
@@ -79,7 +77,7 @@ inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
 
 inline x::json::json TaskConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BasePersistConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
         j[k] = v;
     j["arc_key"] = this->arc_key.to_json();
     j["hash"] = this->hash;

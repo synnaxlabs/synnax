@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -51,7 +51,7 @@ var _ = Describe("Task", Ordered, func() {
 		rackService *rack.Service
 		testRack    *rack.Rack
 		stat        *status.Service
-		configs     common.ConfigRegistry
+		configs     config.Registry
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -85,15 +85,9 @@ var _ = Describe("Task", Ordered, func() {
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
-		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
-		configs = MustSucceed(common.NewConfigRegistry(
+		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+		configs = MustSucceed(config.NewRegistry(
 			append(pd.Stores(), at.Stores()...)...,
 		))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
@@ -308,23 +302,13 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Config storage", func() {
-		recordKey := func(ctx context.Context, t *task.Task) uuid.UUID {
-			parents := MustSucceed(otg.RetrieveParents(tx, t.OntologyID()))
-			for _, p := range parents[t.OntologyID()] {
-				if p.Type == ontology.ResourceType(t.Type) {
-					return MustSucceed(uuid.Parse(p.Key))
-				}
-			}
-			Fail("no config record parented to task")
-			return uuid.Nil
-		}
 		It("Should reject a task with an unregistered type", func(ctx SpecContext) {
 			t := &task.Task{Type: "made_up", Rack: testRack.Key, Name: "Bad"}
 			Expect(w.Create(ctx, t)).To(MatchError(validate.ErrValidation))
 			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("made_up")))
 		})
 		It(
-			"Should store the config as a record parented to the task",
+			"Should store the config as a record under the task's key",
 			func(ctx SpecContext) {
 				t := &task.Task{
 					Type:   testType,
@@ -334,13 +318,13 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				store := MustBeOk(configs.Store(testType))
-				data := MustSucceed(store.Read(ctx, tx, recordKey(ctx, t)))
+				data := MustSucceed(store.Read(ctx, tx, t.Key))
 				Expect(data).To(HaveKeyWithValue("routing_key", "rk-stored"))
 				Expect(t.Config).To(HaveKeyWithValue("routing_key", "rk-stored"))
 			},
 		)
 		It(
-			"Should reuse the record when a task is re-configured",
+			"Should overwrite the record when a task is re-configured",
 			func(ctx SpecContext) {
 				t := &task.Task{
 					Type:   testType,
@@ -349,10 +333,11 @@ var _ = Describe("Task", Ordered, func() {
 					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				original := recordKey(ctx, t)
 				t.Config = msgpack.EncodedJSON{"routing_key": "rk-2"}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				Expect(recordKey(ctx, t)).To(Equal(original))
+				store := MustBeOk(configs.Store(testType))
+				data := MustSucceed(store.Read(ctx, tx, t.Key))
+				Expect(data).To(HaveKeyWithValue("routing_key", "rk-2"))
 			},
 		)
 		It(
@@ -365,13 +350,12 @@ var _ = Describe("Task", Ordered, func() {
 					Config: msgpack.EncodedJSON{"routing_key": "rk-keep"},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				key := recordKey(ctx, t)
 				changed := *t
-				changed.Type = string(ontology.ResourceTypeArcTask)
+				changed.Type = arc.TaskType
 				changed.Config = msgpack.EncodedJSON{"text": math.NaN()}
 				Expect(w.Create(ctx, &changed)).To(MatchError(validate.ErrValidation))
 				store := MustBeOk(configs.Store(testType))
-				data := MustSucceed(store.Read(ctx, tx, key))
+				data := MustSucceed(store.Read(ctx, tx, t.Key))
 				Expect(data).To(HaveKeyWithValue("routing_key", "rk-keep"))
 			},
 		)
@@ -404,11 +388,10 @@ var _ = Describe("Task", Ordered, func() {
 					Config: msgpack.EncodedJSON{"routing_key": "rk-del"},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				key := recordKey(ctx, t)
 				Expect(w.Delete(ctx, t.Key, false)).To(Succeed())
 				store := MustBeOk(configs.Store(testType))
 				Expect(
-					store.Read(ctx, tx, key),
+					store.Read(ctx, tx, t.Key),
 				).Error().To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -426,8 +409,10 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(copied.Config).To(
 					HaveKeyWithValue("routing_key", "rk-copy"),
 				)
-				copiedRecord := recordKey(ctx, &copied)
-				Expect(copiedRecord).ToNot(Equal(recordKey(ctx, t)))
+				Expect(copied.Key).ToNot(Equal(t.Key))
+				store := MustBeOk(configs.Store(testType))
+				data := MustSucceed(store.Read(ctx, tx, copied.Key))
+				Expect(data).To(HaveKeyWithValue("routing_key", "rk-copy"))
 			},
 		)
 		It(
@@ -444,14 +429,11 @@ var _ = Describe("Task", Ordered, func() {
 					WhereIDs(t.OntologyID()).
 					Exists(ctx, tx)).To(BeTrue())
 				parents := MustSucceed(otg.RetrieveParents(tx, t.OntologyID()))
-				Expect(parents[t.OntologyID()]).To(HaveLen(1))
-				Expect(parents[t.OntologyID()][0].Type).To(
-					Equal(ontology.ResourceType(testType)),
-				)
+				Expect(parents[t.OntologyID()]).To(BeEmpty())
 			},
 		)
 		It(
-			"Should give a regular task both a group and a record parent",
+			"Should give a regular task a group parent",
 			func(ctx SpecContext) {
 				t := &task.Task{
 					Type: testType,
@@ -460,7 +442,10 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				parents := MustSucceed(otg.RetrieveParents(tx, t.OntologyID()))
-				Expect(parents[t.OntologyID()]).To(HaveLen(2))
+				Expect(parents[t.OntologyID()]).To(HaveLen(1))
+				Expect(parents[t.OntologyID()][0].Type).To(
+					Equal(ontology.ResourceTypeGroup),
+				)
 			},
 		)
 	})

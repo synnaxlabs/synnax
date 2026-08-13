@@ -18,7 +18,7 @@
 
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/status/types.gen.h"
-#include "client/cpp/task/common/types.gen.h"
+#include "client/cpp/task/config/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -64,7 +64,7 @@ struct StatusDetails {
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief TaskConfig configures an Arc task, which runs a compiled Arc module.
-struct TaskConfig : public ::synnax::task::common::BasePersistConfig {
+struct TaskConfig : public ::synnax::task::config::BasePersist {
     /// @brief arc_key is the key of the Arc module the task executes.
     Key arc_key;
     /// @brief hash is the semantic hash of the Arc module at deploy time.
@@ -97,10 +97,6 @@ struct Arc {
     ::arc::graph::Graph graph = {};
     /// @brief text is the text-based Arc source code.
     ::arc::text::Text text = {};
-    /// @brief hash is the server-computed hash of the module's semantic content. Edits
-    /// that
-    /// cannot change compiled behavior, like node moves, do not change it.
-    std::optional<std::string> hash;
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;

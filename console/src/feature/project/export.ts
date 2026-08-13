@@ -15,7 +15,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { filename } from "@synnaxlabs/x";
 
 import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
@@ -85,7 +85,7 @@ export const export_ = (
     const panels = await retrievePanels(client, targetKey);
     const directory = await Runtime.pickWritableDirectory({
       title: `Select a location to export ${name}`,
-      subdirectory: strings.sanitizeFileName(name),
+      subdirectory: filename.sanitize(name),
     });
     if (directory == null) return;
     if (
@@ -111,9 +111,7 @@ export const export_ = (
         .filter(({ type }) => EXPORTABLE_TYPES.has(type))
         .map(async (id) => {
           const file = await Export.fetchFileData(client, id);
-          const fileName = strings.sanitizeFileName(
-            strings.deduplicateFileName(file.name, namesSet),
-          );
+          const fileName = filename.sanitize(filename.deduplicate(file.name, namesSet));
           namesSet.add(fileName);
           fileInfos.push({ data: file.data, name: fileName });
         }),

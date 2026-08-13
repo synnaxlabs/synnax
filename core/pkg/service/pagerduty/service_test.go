@@ -13,32 +13,33 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var (
-		otg *ontology.Ontology
-		svc *pd.Service
-	)
+	var svc *pd.Service
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
+	})
+
+	Describe("OpenService", func() {
+		It("Should reject a config missing the DB", func(ctx SpecContext) {
+			Expect(pd.OpenService(ctx, pd.ServiceConfig{})).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
 	})
 
 	Describe("Stores", func() {
 		It("Should expose the alert store", func() {
-			types := []ontology.ResourceType{}
+			types := []string{}
 			for _, s := range svc.Stores() {
 				types = append(types, s.Type())
 			}
-			Expect(types).To(ConsistOf(ontology.ResourceTypePagerdutyAlert))
+			Expect(types).To(ConsistOf("pagerduty_alert"))
 		})
 	})
 
