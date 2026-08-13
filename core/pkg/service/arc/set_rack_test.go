@@ -252,6 +252,32 @@ var _ = Describe("Task sync", func() {
 	)
 
 	It(
+		"Should hash the stored doc when an overwrite carries a mismatched raw",
+		func(ctx SpecContext) {
+			deployed := arc.Arc{
+				Name: "lying-raw",
+				Mode: arc.ModeText,
+				Text: newText("a -> b"),
+			}
+			w := svc.NewWriter(tx)
+			Expect(w.Create(ctx, &deployed)).To(Succeed())
+			tsk := MustSucceed(w.SetRack(ctx, deployed.Key, testRack.Key))
+			before := retrieveTask(ctx, tsk.Key)
+			lying := newText("a -> b")
+			lying.Raw = "a -> c"
+			edited := arc.Arc{
+				Key:  deployed.Key,
+				Name: deployed.Name,
+				Mode: arc.ModeText,
+				Text: lying,
+			}
+			Expect(w.Create(ctx, &edited)).To(Succeed())
+			Expect(retrieveTask(ctx, tsk.Key).Config["hash"]).
+				To(Equal(before.Config["hash"]))
+		},
+	)
+
+	It(
 		"Should restore the deployed config when an edit is undone",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)

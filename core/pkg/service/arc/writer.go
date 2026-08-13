@@ -228,22 +228,24 @@ func (w Writer) SetRack(
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	return w.writeTask(ctx, a, rackKey, existing)
+	hash, err := Hash(a)
+	if err != nil {
+		return nil, err
+	}
+	return w.writeTask(ctx, a, rackKey, existing, hash)
 }
 
-// writeTask creates or overwrites the arc's task on rackKey. The arc's semantic hash
-// is stamped into the config, so the task's config hash tracks the arc's content and
-// the task drift mechanism reports arc content drift with no extra machinery.
+// writeTask creates or overwrites the arc's task on rackKey. hash is the arc's
+// semantic hash, stamped into the config so the task's config hash tracks the arc's
+// content and the task drift mechanism reports arc content drift with no extra
+// machinery.
 func (w Writer) writeTask(
 	ctx context.Context,
 	a Arc,
 	rackKey rack.Key,
 	existing []task.Key,
+	hash string,
 ) (*task.Task, error) {
-	hash, err := Hash(a)
-	if err != nil {
-		return nil, err
-	}
 	tsk := task.Task{
 		Rack:   rackKey,
 		Name:   a.Name,
@@ -253,11 +255,11 @@ func (w Writer) writeTask(
 	if len(existing) > 0 {
 		tsk.Key = existing[0]
 	}
-	if err = w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
+	if err := w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
 		return nil, err
 	}
 	if len(existing) == 0 {
-		if err = w.otgWriter.DefineRelationships(
+		if err := w.otgWriter.DefineRelationships(
 			ctx,
 			OntologyID(a.Key),
 			ontology.RelationshipTypeParentOf,
@@ -288,7 +290,7 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	if err != nil || tsk.Config["hash"] == hash {
 		return err
 	}
-	_, err = w.writeTask(ctx, a, tsk.Rack, existing)
+	_, err = w.writeTask(ctx, a, tsk.Rack, existing, hash)
 	return err
 }
 
