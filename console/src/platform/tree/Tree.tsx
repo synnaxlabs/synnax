@@ -264,7 +264,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (parent: ontology.ID) => {
       if (client == null) return;
       const key = ontology.idToString(parent);
-      if (watchedRef.current.has(key)) return;
+      // An already-watched parent has nothing to wait for, and no fetch will come
+      // along to end the wait.
+      if (watchedRef.current.has(key)) {
+        if (loadingRef.current === key) setLoading(false);
+        return;
+      }
       // Subscribe before fetching. A change landing between the two would
       // otherwise reach neither the answer nor the tree.
       watchedRef.current.set(

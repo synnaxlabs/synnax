@@ -148,6 +148,48 @@ describe("Tree.Tree", () => {
     await screen.findByText(lateUnderSecond.name);
   });
 
+  it("should stop a row loading when it is expanded again", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const parent = await client.groups.create({
+      parent: group.ontologyID(container.key),
+      name: uniqueName("parent"),
+    });
+    await client.groups.create({
+      parent: group.ontologyID(parent.key),
+      name: uniqueName("child"),
+    });
+    const SPINNING = "spinning";
+    const items: Tree.Items = {
+      group: Tree.createItem({
+        type: "group",
+        ContextMenu: ({ selection: { ids }, state }: Tree.ContextMenuProps) => (
+          <button onClick={() => state.expand(ontology.idToString(ids[0]))}>
+            expand again
+          </button>
+        ),
+        Content: ({ resource, loading, onDoubleClick, icon: _, ...rest }) => (
+          <PTree.Item {...rest} onDoubleClick={onDoubleClick}>
+            {resource.name}
+            {loading && <span>{SPINNING}</span>}
+          </PTree.Item>
+        ),
+      }),
+    };
+    await renderTree(group.ontologyID(container.key), items);
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await waitFor(() => expect(screen.queryByText(SPINNING)).toBeNull());
+    fireEvent.contextMenu(getTreeRow(parent.name));
+    fireEvent.click(await screen.findByText("expand again"));
+    // Expanding an expanded row starts no fetch, so nothing else will ever end
+    // the wait it just started.
+    await act(async () => {});
+    expect(screen.queryByText(SPINNING)).toBeNull();
+  });
+
   it("should keep loaded children when the root id is rebuilt on every render", async () => {
     const container = await client.groups.create({
       parent: ontology.ROOT_ID,
