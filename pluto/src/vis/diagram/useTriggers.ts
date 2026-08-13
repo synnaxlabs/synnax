@@ -18,7 +18,7 @@ const CONFIG: Triggers.ModeConfig<Mode> = {
   all: [["Control", "A"]],
   copy: [["Control", "C"]],
   paste: [["Control", "V"]],
-  clear: [["Escape"]],
+  clear: [Triggers.ESCAPE],
   undo: [Triggers.UNDO],
   redo: [Triggers.REDO],
   default: [],

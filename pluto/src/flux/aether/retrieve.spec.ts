@@ -222,4 +222,21 @@ describe("flux.Retrieve", () => {
     await flush();
     expect(harness.retrieve).toHaveBeenCalledTimes(2);
   });
+
+  it("keeps the later refetch when two resolve out of order", async () => {
+    const observer = create();
+    observer.update(CLIENT, { key: "a" });
+    await flush();
+    let resolveFirst: (data: Data) => void = () => {};
+    harness.retrieve.mockImplementationOnce(
+      async () => await new Promise<Data>((resolve) => (resolveFirst = resolve)),
+    );
+    observer.refetch();
+    harness.retrieve.mockResolvedValueOnce({ key: "a", name: "second" });
+    observer.refetch();
+    await flush();
+    resolveFirst({ key: "a", name: "first" });
+    await flush();
+    expect(observer.value).toEqual({ key: "a", name: "second" });
+  });
 });

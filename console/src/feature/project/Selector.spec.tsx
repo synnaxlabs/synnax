@@ -20,8 +20,7 @@ import { createConsoleWrapper, getBySelector, renderWithConsole } from "@/testut
 
 const client: Synnax = createTestClient();
 
-// The selector's dialog list is virtualized and renders no rows under jsdom's
-// zero-size layout.
+const TRIGGER = ".console-project-selector__trigger";
 
 describe("Project.Selector", () => {
   it("renders nothing when the user lacks retrieve permission", async () => {
@@ -33,7 +32,7 @@ describe("Project.Selector", () => {
         },
       },
     });
-    expect(container.querySelector(".console-trigger")).toBeNull();
+    expect(container.querySelector(TRIGGER)).toBeNull();
   });
 
   it("switches the active project on selection", async () => {
@@ -51,11 +50,8 @@ describe("Project.Selector", () => {
     });
     const { container } = render(<Project.Selector />, { wrapper });
 
-    // The trigger renders the active project's avatar, not its name.
-    const trigger = await waitFor(() => getBySelector(container, ".console-trigger"));
+    const trigger = await waitFor(() => getBySelector(container, TRIGGER));
     fireEvent.click(trigger);
-    // The dialog's list is virtualized and every project in the cluster is a
-    // candidate, so search the target down rather than scrolling to it.
     const search = await screen.findByPlaceholderText("Search projects...");
     fireEvent.change(search, { target: { value: target.name } });
     fireEvent.click(await screen.findByText(target.name));

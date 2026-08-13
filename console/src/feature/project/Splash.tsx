@@ -33,10 +33,7 @@ import { Project as PlatformProject } from "@/platform/project";
 import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
 
-/**
- * Full-window project picker shown when the session has no active project.
- * Selecting a row activates it; the pinned footer opens the create modal.
- */
+/** Full-window project picker shown when the session has no active project. */
 export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const logout = Session.useLogout();

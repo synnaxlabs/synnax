@@ -12,6 +12,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Panel, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
+import { Palette } from "@/app/palette";
 import { useSelectorVisible } from "@/app/vis/Selector";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";
@@ -19,16 +20,22 @@ import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 
 const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
-  ["Control", "P"],
-  ["Control", "Shift", "P"],
+  Palette.SEARCH_TRIGGER,
+  Palette.COMMAND_TRIGGER,
   ["Control", "MouseLeft"],
-  ["Control", "W"],
+  Panel.CLOSE_TRIGGER,
 ];
 
 export const PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_ON,
   preventDefaultOptions: { double: true },
 };
+
+const OVERLAY_TRIGGERS: Triggers.Trigger[] = [Panel.OVERLAY_TRIGGER];
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
+const CLOSE_TRIGGERS: Triggers.Trigger[] = [Panel.CLOSE_TRIGGER];
+const RENAME_TRIGGERS: Triggers.Trigger[] = [PlatformPanel.RENAME_TRIGGER];
+const CREATE_TAB_TRIGGERS: Triggers.Trigger[] = [["Control", "T"]];
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
@@ -46,7 +53,7 @@ export const use = (): void => {
   const createTabEnabled = useSelectorVisible();
   const openSelector = Selector.useOpenTab();
   Triggers.use({
-    triggers: [Panel.OVERLAY_TRIGGER],
+    triggers: OVERLAY_TRIGGERS,
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
@@ -63,7 +70,7 @@ export const use = (): void => {
     ),
   });
   Triggers.use({
-    triggers: [["Escape"]],
+    triggers: ESCAPE_TRIGGERS,
     double: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
@@ -74,7 +81,7 @@ export const use = (): void => {
     ),
   });
   Triggers.use({
-    triggers: [["Control", "W"]],
+    triggers: CLOSE_TRIGGERS,
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
@@ -112,7 +119,7 @@ export const use = (): void => {
     ),
   });
   Triggers.use({
-    triggers: [["Control", "E"]],
+    triggers: RENAME_TRIGGERS,
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
@@ -125,7 +132,7 @@ export const use = (): void => {
     ),
   });
   Triggers.use({
-    triggers: [["Control", "T"]],
+    triggers: CREATE_TAB_TRIGGERS,
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
