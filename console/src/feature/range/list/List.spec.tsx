@@ -30,13 +30,14 @@ import {
 const client = createTestClient();
 
 const Harness = (): ReactElement => {
-  const { data, getItem, subscribe, retrieve } = Ranger.useList({});
+  const { data, getItem, subscribe, retrieve, answered } = Ranger.useList({});
   return (
     <Range.List.List
       data={data}
       getItem={getItem}
       subscribe={subscribe}
       retrieve={retrieve}
+      answered={answered}
       enableSearch
       enableFilters
       enableAddButton

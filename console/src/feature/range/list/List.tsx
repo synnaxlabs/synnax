@@ -36,7 +36,7 @@ export interface ListProps
   extends
     Pick<
       Flux.UseListReturn<PList.PagerParams, ranger.Key, ranger.Range>,
-      "data" | "getItem" | "subscribe" | "retrieve"
+      "data" | "getItem" | "subscribe" | "retrieve" | "answered"
     >,
     Pick<ItemProps, "showParent" | "showLabels" | "showTimeRange" | "showFavorite"> {
   enableSearch?: boolean;
@@ -63,6 +63,7 @@ export const List = ({
   getItem,
   subscribe,
   retrieve,
+  answered,
   enableSearch = false,
   enableFilters = false,
   enableAddButton = false,
@@ -150,7 +151,7 @@ export const List = ({
         )}
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
         <PList.Items<string>
-          emptyContent={emptyContent}
+          emptyContent={answered && emptyContent}
           grow
           onContextMenu={menuProps.open}
         >
