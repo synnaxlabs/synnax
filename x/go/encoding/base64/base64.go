@@ -19,6 +19,5 @@ import (
 // MustDecode decodes the given Base64-encoded string and panics if it fails. MustDecode
 // is intended for initialization of static variables.
 func MustDecode(s string) string {
-	msg := lo.Must(base64.StdEncoding.DecodeString(s))
-	return string(msg)
+	return string(lo.Must(base64.StdEncoding.DecodeString(s)))
 }

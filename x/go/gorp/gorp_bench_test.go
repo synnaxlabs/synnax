@@ -17,7 +17,7 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/gorp/testutil"
 )
 
 // benchEntry uses a numeric (int32) key, exercising big-endian byte reversal
@@ -54,7 +54,7 @@ func (e benchLargeEntry) SetOptions() []any { return nil }
 
 func setupBenchDB(b *testing.B) *gorp.DB {
 	b.Helper()
-	db := gorp.Wrap(memkv.New())
+	db := OpenGorpMsgpackDB()
 	b.Cleanup(func() {
 		if err := db.Close(); err != nil {
 			b.Fatal(err)
