@@ -85,6 +85,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 		ImEx:     imex.NewService(),
 	}))

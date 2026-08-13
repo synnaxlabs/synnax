@@ -21,6 +21,7 @@ export * from "@/debounce";
 export * from "@/deep";
 export * from "@/destructor";
 export * from "@/errors";
+export * from "@/filename";
 export * from "@/fmt";
 export * from "@/id";
 export * from "@/instance";
