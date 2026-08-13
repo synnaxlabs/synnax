@@ -13,7 +13,7 @@ package v0
 
 import (
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
+	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,7 +42,7 @@ func (e ExecutionMode) IsValid() bool {
 
 // Config configures an Arc task, which runs a compiled Arc module.
 type Config struct {
-	common.BasePersistConfig
+	config.BasePersist
 	// ArcKey is the key of the Arc module the task executes.
 	ArcKey arc.Key `json:"arc_key" msgpack:"arc_key"`
 	// ExecutionMode overrides the runtime's automatic loop mode selection.

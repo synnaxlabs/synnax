@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "client/cpp/synnax.h"
-#include "client/cpp/task/common/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/write_task.h"
@@ -24,7 +24,7 @@
 
 namespace driver::ethercat {
 /// @brief configuration for EtherCAT write tasks.
-struct WriteTaskConfig : ::synnax::task::common::BasePersistConfig {
+struct WriteTaskConfig : ::synnax::task::config::BasePersist {
     /// @brief network interface name for the EtherCAT master.
     /// Dynamically populated from device properties.
     std::string interface_name;
@@ -44,7 +44,7 @@ struct WriteTaskConfig : ::synnax::task::common::BasePersistConfig {
     std::unordered_map<std::string, slave::Properties> device_cache;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        ::synnax::task::common::BasePersistConfig(std::move(other)),
+        ::synnax::task::config::BasePersist(std::move(other)),
         interface_name(std::move(other.interface_name)),
         channels(std::move(other.channels)),
         state_channels(std::move(other.state_channels)),
@@ -60,8 +60,8 @@ struct WriteTaskConfig : ::synnax::task::common::BasePersistConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg
     ):
-        ::synnax::task::common::BasePersistConfig(
-            ::synnax::task::common::BasePersistConfig::parse(cfg)
+        ::synnax::task::config::BasePersist(
+            ::synnax::task::config::BasePersist::parse(cfg)
         ),
         state_rate(x::telem::Rate(cfg.field<float>("state_rate", 1.0f))),
         execution_rate(x::telem::Rate(cfg.field<float>("execution_rate", 1000.0f))) {

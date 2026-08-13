@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
-	"github.com/synnaxlabs/x/config"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -79,16 +79,16 @@ type ServiceConfig struct {
 	// Configs routes task types to the store that owns their configuration records.
 	//
 	// [OPTIONAL]
-	Configs common.ConfigRegistry
+	Configs config.Registry
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 
-// Override implements config.Config.
+// Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
@@ -104,7 +104,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements xconfig.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
 	validate.NotNil(v, "db", c.DB)
@@ -134,7 +134,7 @@ func OpenService(
 	ctx context.Context,
 	configs ...ServiceConfig,
 ) (s *Service, err error) {
-	cfg, err := config.New(ServiceConfig{}, configs...)
+	cfg, err := xconfig.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -29,7 +29,7 @@ cc_library(
         "//client/cpp/errors",
         "//client/cpp/ontology",
         "//client/cpp/status",
-        "//client/cpp/task/common",
+        "//client/cpp/task/config",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",

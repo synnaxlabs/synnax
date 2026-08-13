@@ -17,7 +17,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
+	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -560,7 +560,7 @@ func (u *OutputChannel) UnmarshalJSON(data []byte) error {
 
 // ReadConfig configures a LabJack read task.
 type ReadConfig struct {
-	common.BaseReadConfig
+	config.BaseRead
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the input channels the task acquires.
@@ -575,7 +575,7 @@ type ReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
-	r.BaseReadConfig.ApplyDefaults()
+	r.BaseRead.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -593,7 +593,7 @@ func (r ReadConfig) Validate() error {
 
 // WriteConfig configures a LabJack write task.
 type WriteConfig struct {
-	common.BaseWriteConfig
+	config.BaseWrite
 	// StateRate is the rate at which output state is reported to Synnax, in hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 	// Channels are the output channels the task drives.
@@ -609,5 +609,5 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures a LabJack scan task, which carries no settings.
 type ScanConfig struct {
-	common.KeyedConfig
+	config.Keyed
 }

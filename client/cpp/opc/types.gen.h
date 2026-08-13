@@ -17,7 +17,7 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/common/types.gen.h"
+#include "client/cpp/task/config/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -50,7 +50,7 @@ struct BaseChannel {
 };
 
 /// @brief ScanConfig configures an OPC UA scan task, which carries no settings.
-struct ScanConfig : public ::synnax::task::common::KeyedConfig {
+struct ScanConfig : public ::synnax::task::config::Keyed {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -78,7 +78,7 @@ struct OutputChannel : public BaseChannel {
 };
 
 /// @brief ReadConfig configures an OPC UA read task.
-struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
+struct ReadConfig : public ::synnax::task::config::BaseRead {
     /// @brief device is the key of the device representing the OPC UA server.
     ::synnax::device::Key device = "";
     /// @brief array_mode is true when each read returns an array of samples per node.
@@ -94,7 +94,7 @@ struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
 };
 
 /// @brief WriteConfig configures an OPC UA write task.
-struct WriteConfig : public ::synnax::task::common::BaseWriteConfig {
+struct WriteConfig : public ::synnax::task::config::BaseWrite {
     /// @brief channels are the OPC UA nodes the task drives.
     std::vector<OutputChannel> channels;
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package common_test
+package config_test
 
 import (
 	"testing"
@@ -26,9 +26,9 @@ var _ = BeforeSuite(func() {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 })
 
-func TestCommon(t *testing.T) {
+func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Task Common Suite")
+	RunSpecs(t, "Service Task Config Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -17,30 +17,29 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// KeyedConfig is the base for every stored task configuration record.
-type KeyedConfig struct {
+// Keyed is the base for every stored task configuration record.
+type Keyed struct {
 	// Key is the unique identifier for the stored configuration record.
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
-// BaseStartConfig carries the configuration fields shared by every task.
-type BaseStartConfig struct {
-	KeyedConfig
+// BaseStart carries the configuration fields shared by every task.
+type BaseStart struct {
+	Keyed
 	// AutoStart is true when the task should start as soon as it is configured.
 	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
 }
 
-// BasePersistConfig carries the configuration fields shared by tasks that write
-// telemetry.
-type BasePersistConfig struct {
-	BaseStartConfig
+// BasePersist carries the configuration fields shared by tasks that write telemetry.
+type BasePersist struct {
+	BaseStart
 	// DataSavingDisabled is true when task telemetry is not persisted to disk.
 	DataSavingDisabled bool `json:"data_saving_disabled" msgpack:"data_saving_disabled"`
 }
 
-// BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
-type BaseReadConfig struct {
-	BasePersistConfig
+// BaseRead carries the configuration fields shared by hardware acquisition tasks.
+type BaseRead struct {
+	BasePersist
 	// SampleRate is the per-channel hardware sample rate, in hertz.
 	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
 	// StreamRate is the rate at which samples are streamed to Synnax, in hertz.
@@ -48,7 +47,7 @@ type BaseReadConfig struct {
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseReadConfig) ApplyDefaults() {
+func (b *BaseRead) ApplyDefaults() {
 	if b.SampleRate == 0 {
 		b.SampleRate = 10
 	}
@@ -57,9 +56,9 @@ func (b *BaseReadConfig) ApplyDefaults() {
 	}
 }
 
-// BaseWriteConfig carries the configuration fields shared by hardware control tasks.
-type BaseWriteConfig struct {
-	BasePersistConfig
+// BaseWrite carries the configuration fields shared by hardware control tasks.
+type BaseWrite struct {
+	BasePersist
 	// Device is the key of the device the task writes to.
 	Device device.Key `json:"device" msgpack:"device"`
 }

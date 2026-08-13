@@ -58,7 +58,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskcommon "github.com/synnaxlabs/synnax/pkg/service/task/common"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -582,7 +582,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(),
 	)
-	taskConfigs, err := taskcommon.NewConfigRegistry(configStores...)
+	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
 		return nil, err
 	}

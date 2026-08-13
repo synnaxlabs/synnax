@@ -14,13 +14,13 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = KeyedConfig{}
+var _ gorp.Entry[uuid.UUID] = Keyed{}
 
 // GorpKey implements gorp.Entry.
-func (c KeyedConfig) GorpKey() uuid.UUID { return c.Key }
+func (c Keyed) GorpKey() uuid.UUID { return c.Key }
 
 // SetOptions implements gorp.Entry.
-func (KeyedConfig) SetOptions() []any { return nil }
+func (Keyed) SetOptions() []any { return nil }
 
 // SetKey sets the key of the stored configuration record.
-func (c *KeyedConfig) SetKey(key uuid.UUID) { c.Key = key }
+func (c *Keyed) SetKey(key uuid.UUID) { c.Key = key }

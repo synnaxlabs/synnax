@@ -163,8 +163,10 @@ KeyedConfig struct {
 
     @doc value  "is the base for every stored task configuration record."
     @go version 0
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go output  "core/pkg/service/task/config"
+    @go name    "Keyed"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "Keyed"
     @pb omit
 }
 
@@ -175,8 +177,10 @@ BaseStartConfig struct extends KeyedConfig {
 
     @doc value  "carries the configuration fields shared by every task."
     @go version 0
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseStart"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseStart"
     @pb omit
 }
 
@@ -187,8 +191,10 @@ BasePersistConfig struct extends BaseStartConfig {
 
     @doc value  "carries the configuration fields shared by tasks that write telemetry."
     @go version 0
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go output  "core/pkg/service/task/config"
+    @go name    "BasePersist"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BasePersist"
     @pb omit
 }
 
@@ -204,8 +210,10 @@ BaseReadConfig struct extends BasePersistConfig {
 
     @doc value  "carries the configuration fields shared by hardware acquisition tasks."
     @go version 0
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseRead"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseRead"
     @pb omit
 }
 
@@ -216,7 +224,9 @@ BaseWriteConfig struct extends BasePersistConfig {
 
     @doc value  "carries the configuration fields shared by hardware control tasks."
     @go version 0
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseWrite"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseWrite"
     @pb omit
 }

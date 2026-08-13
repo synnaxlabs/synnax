@@ -18,7 +18,7 @@
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/http/types.gen.h"
-#include "client/cpp/task/common/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -137,9 +137,9 @@ inline x::json::json ReadEndpoint::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::task::common::BasePersistConfig &>(
+    static_cast<::synnax::task::config::BasePersist &>(
         result
-    ) = ::synnax::task::common::BasePersistConfig::parse(parser);
+    ) = ::synnax::task::config::BasePersist::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(1));
     result.endpoints = parser.field<std::vector<ReadEndpoint>>(
@@ -151,7 +151,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BasePersistConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["rate"] = this->rate;
@@ -249,9 +249,9 @@ inline x::json::json WriteEndpoint::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::task::common::BaseStartConfig &>(
+    static_cast<::synnax::task::config::BaseStart &>(
         result
-    ) = ::synnax::task::common::BaseStartConfig::parse(parser);
+    ) = ::synnax::task::config::BaseStart::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.endpoints = parser.field<std::vector<WriteEndpoint>>(
         "endpoints",
@@ -262,7 +262,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BaseStartConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BaseStart::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["endpoints"] = x::json::to_array(this->endpoints);
@@ -271,15 +271,15 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::task::common::KeyedConfig &>(
+    static_cast<::synnax::task::config::Keyed &>(
         result
-    ) = ::synnax::task::common::KeyedConfig::parse(parser);
+    ) = ::synnax::task::config::Keyed::parse(parser);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::KeyedConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::Keyed::to_json().items())
         j[k] = v;
     return j;
 }

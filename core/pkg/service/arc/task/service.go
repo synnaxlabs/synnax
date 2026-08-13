@@ -14,8 +14,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
-	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -34,9 +34,9 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 
-// Override implements config.Config.
+// Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -44,7 +44,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements xconfig.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("arc.task.service")
 	validate.NotNil(v, "db", c.DB)
@@ -55,7 +55,7 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the Arc task type.
 type Service struct {
 	// Config stores arc_task task configuration records.
-	Config *common.ConfigService[Config, *Config]
+	Config *config.Service[Config, *Config]
 	closer xio.MultiCloser
 }
 
@@ -63,20 +63,22 @@ type Service struct {
 // If error is nil, the service is ready for use and must be closed by calling Close
 // to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := xconfig.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	base := common.ConfigServiceConfig{
-		DB:              cfg.DB,
-		Ontology:        cfg.Ontology,
-		Instrumentation: cfg.Instrumentation,
-	}
-	if s.Config, err = common.OpenConfigService[Config](
-		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeArcTask},
+	if s.Config, err = config.OpenService(
+		ctx, config.ServiceConfig[Config]{
+			DB:                 cfg.DB,
+			Ontology:           cfg.Ontology,
+			Instrumentation:    cfg.Instrumentation,
+			Type:               ontology.ResourceTypeArcTask,
+			ApplyEntryDefaults: (*Config).ApplyDefaults,
+			ValidateEntry:      (*Config).Validate,
+		},
 	); !ok(err, s.Config) {
 		return nil, err
 	}
@@ -88,6 +90,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) Close() error { return s.closer.Close() }
 
 // Stores returns the config stores the service owns, for registry assembly.
-func (s *Service) Stores() []common.ConfigStore {
-	return []common.ConfigStore{s.Config}
+func (s *Service) Stores() []config.Store {
+	return []config.Store{s.Config}
 }

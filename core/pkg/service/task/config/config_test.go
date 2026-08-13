@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package common_test
+package config_test
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -35,32 +35,44 @@ const testType ontology.ResourceType = "arc_task"
 var _ = Describe("ConfigService", func() {
 	var (
 		otg *ontology.Ontology
-		svc *common.ConfigService[arctask.Config, *arctask.Config]
+		svc *config.Service[arctask.Config, *arctask.Config]
 	)
 	BeforeEach(func(ctx SpecContext) {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		svc = MustOpen(common.OpenConfigService[arctask.Config](
+		svc = MustOpen(config.OpenService(
 			ctx,
-			common.ConfigServiceConfig{DB: db, Ontology: otg, Type: testType},
+			config.ServiceConfig[arctask.Config]{
+				DB:                 db,
+				Ontology:           otg,
+				Type:               testType,
+				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+				ValidateEntry:      (*arctask.Config).Validate,
+			},
 		))
 	})
 
 	Describe("OpenConfigService", func() {
 		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(common.OpenConfigService[arctask.Config](
-				ctx, common.ConfigServiceConfig{Ontology: otg, Type: testType},
+			Expect(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					Ontology: otg,
+					Type:     testType,
+				},
 			)).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 
 		It("Should reject a config missing the ontology", func(ctx SpecContext) {
-			Expect(common.OpenConfigService[arctask.Config](
-				ctx, common.ConfigServiceConfig{DB: db, Type: testType},
+			Expect(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{DB: db, Type: testType},
 			)).Error().To(MatchError(ContainSubstring("ontology: must be non-nil")))
 		})
 
 		It("Should reject a config missing the type", func(ctx SpecContext) {
-			Expect(common.OpenConfigService[arctask.Config](
-				ctx, common.ConfigServiceConfig{DB: db, Ontology: otg},
+			Expect(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{DB: db, Ontology: otg},
 			)).Error().To(MatchError(ContainSubstring("type: required")))
 		})
 	})
@@ -267,32 +279,36 @@ var _ = Describe("ConfigService", func() {
 })
 
 var _ = Describe("ConfigRegistry", func() {
-	var store common.ConfigStore
+	var store config.Store
 	BeforeEach(func(ctx SpecContext) {
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		store = MustOpen(common.OpenConfigService[arctask.Config](
+		store = MustOpen(config.OpenService(
 			ctx,
-			common.ConfigServiceConfig{DB: db, Ontology: otg, Type: testType},
+			config.ServiceConfig[arctask.Config]{
+				DB:       db,
+				Ontology: otg,
+				Type:     testType,
+			},
 		))
 	})
 
 	Describe("NewConfigRegistry", func() {
 		It("Should route each store by its type", func() {
-			reg := MustSucceed(common.NewConfigRegistry(store))
+			reg := MustSucceed(config.NewRegistry(store))
 			Expect(reg.IsZero()).To(BeFalse())
 			Expect(MustBeOk(reg.Store(testType))).To(BeIdenticalTo(store))
 			Expect(reg.Types()).To(ConsistOf(testType))
 		})
 
 		It("Should reject two stores declaring the same type", func() {
-			Expect(common.NewConfigRegistry(store, store)).Error().
+			Expect(config.NewRegistry(store, store)).Error().
 				To(MatchError(ContainSubstring("registered twice")))
 		})
 	})
 
 	Describe("Store", func() {
 		It("Should return false for an unclaimed type", func() {
-			reg := MustSucceed(common.NewConfigRegistry(store))
+			reg := MustSucceed(config.NewRegistry(store))
 			_, ok := reg.Store("unclaimed")
 			Expect(ok).To(BeFalse())
 		})
@@ -300,7 +316,7 @@ var _ = Describe("ConfigRegistry", func() {
 
 	Describe("IsZero", func() {
 		It("Should report true for a never-constructed registry", func() {
-			Expect(common.ConfigRegistry{}.IsZero()).To(BeTrue())
+			Expect(config.Registry{}.IsZero()).To(BeTrue())
 		})
 	})
 })
