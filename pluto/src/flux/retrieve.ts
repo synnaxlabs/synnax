@@ -15,7 +15,14 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { compare, type destructor, type state, TimeSpan } from "@synnaxlabs/x";
-import { useCallback, useMemo, useReducer, useRef, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
 import { type flux } from "@/flux/aether";
@@ -56,12 +63,6 @@ export interface CreateRetrieveParams<
   Query extends query.Params,
   Data extends query.Data,
 > extends flux.Definition<Query, Data> {
-  /**
-   * Builds the answer synchronously from records already cached under other
-   * queries. Consulted only when `getCached` misses, so suspending reads
-   * resolve without a fetch. Returns undefined to fall through to `retrieve`.
-   */
-  deriveCached?: (params: RetrieveParams<Query>) => Data | undefined;
   /**
    * Holds the previous answer whenever the next one compares equal, so readers
    * re-render only on changes the answer expresses. Defaults to element-wise
@@ -349,7 +350,6 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
     retrieve,
     onChange,
     getCached,
-    deriveCached,
     equal,
     normalizeQuery,
   }: Context<Query, Data>,
@@ -377,14 +377,10 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   // A replay resumes through the promise the suspended attempt holds. Serving it the
   // answer the fetch just put in the cache would skip the `use` call React needs to
   // find the end of the recorded hook list.
-  if (pending.promise == null) {
-    if (cached !== undefined) {
-      if (Deleted.matches<Data>(cached))
-        throw new DeletedError(`${name} was deleted`, cached.corpse);
-      return cached;
-    }
-    const derived = deriveCached?.(params);
-    if (derived != null) return derived;
+  if (pending.promise == null && cached !== undefined) {
+    if (Deleted.matches<Data>(cached))
+      throw new DeletedError(`${name} was deleted`, cached.corpse);
+    return cached;
   }
   return suspendOnFetch(
     params,
@@ -424,7 +420,6 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     retrieve,
     onChange,
     getCached,
-    deriveCached,
     equal,
     normalizeQuery,
   }: Context<Query, Data>,
@@ -444,6 +439,22 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
 
   const hold = useHeldResult<Data>();
 
+  // A render React discards must not fetch, and nothing dedupes one once the
+  // in-flight entry clears, so the cold path starts its fetch after commit.
+  // A settled failure does not block the fetch: each new mount gets one fresh
+  // attempt (deps hold within a mount, so a failure cannot loop).
+  useEffect(() => {
+    if (client == null || memoQuery == null || cached !== undefined) return;
+    const local = localFor(locals, client);
+    const params = { client, query: memoQuery };
+    const settled = local.settled.get(query.hash(memoQuery));
+    if (settled != null && "data" in settled) return;
+    ensureFetch(
+      params,
+      fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+    ).then(bump, bump);
+  }, [client, memoQuery, cached]);
+
   if (client == null)
     return hold(["disabled", client], () => nullClientResult<Data>(`retrieve ${name}`));
   if (memoQuery == null)
@@ -462,12 +473,6 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
   }
 
   const local = localFor(locals, client);
-  const params = { client, query: memoQuery };
-  const derived = deriveCached?.(params);
-  if (derived != null)
-    return hold(["derived", derived], () =>
-      successResult(`retrieved ${name}`, derived),
-    );
   const settled = local.settled.get(query.hash(memoQuery));
   if (settled != null)
     return hold(["settled", settled], () =>
@@ -475,10 +480,6 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
         ? successResult(`retrieved ${name}`, settled.data)
         : errorResult(`retrieve ${name}`, settled.error),
     );
-  ensureFetch(
-    params,
-    fetchParamsFor({ name, retrieve, onChange, getCached, local }),
-  ).then(bump, bump);
   return hold(["loading", memoQuery], () => loadingResult<Data>(`retrieving ${name}`));
 };
 
@@ -489,7 +490,6 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
     retrieve,
     onChange,
     getCached,
-    deriveCached,
     normalizeQuery,
   }: Context<Query, Data>,
   query: Query,
@@ -511,7 +511,6 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
         throw new DeletedError(`${name} was deleted`, cached.corpse);
       return;
     }
-    if (deriveCached?.(params) != null) return;
   }
   suspendOnFetch(
     params,
@@ -651,7 +650,6 @@ const createResultSelector = <
     retrieve,
     onChange,
     getCached,
-    deriveCached,
     equal = answersEqual,
     normalizeQuery,
   } = context;
@@ -701,6 +699,21 @@ const createResultSelector = <
       sliceEqual,
     );
     const hold = useHeldResult<Selected>();
+    // A render React discards must not fetch, and nothing dedupes one once the
+    // in-flight entry clears, so the cold path starts its fetch after commit.
+    // A settled failure does not block the fetch: each new mount gets one fresh
+    // attempt (deps hold within a mount, so a failure cannot loop).
+    useEffect(() => {
+      if (client == null || memoQuery == null || slice.kind !== "none") return;
+      const local = localFor(locals, client);
+      const params = { client, query: memoQuery };
+      const settled = local.settled.get(query.hash(memoQuery));
+      if (settled != null && "data" in settled) return;
+      ensureFetch(
+        params,
+        fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+      ).then(bump, bump);
+    }, [client, memoQuery, slice]);
     if (client == null)
       return hold(["disabled", client], () =>
         nullClientResult<Selected>(`retrieve ${name}`),
@@ -721,12 +734,6 @@ const createResultSelector = <
         ),
       );
     const local = localFor(locals, client);
-    const params = { client, query: memoQuery };
-    const derived = deriveCached?.(params);
-    if (derived != null)
-      return hold(["derived", derived], () =>
-        successResult(`retrieved ${name}`, select(derived, memoQuery)),
-      );
     const settled = local.settled.get(query.hash(memoQuery));
     if (settled != null)
       return hold(["settled", settled], () =>
@@ -734,10 +741,6 @@ const createResultSelector = <
           ? successResult(`retrieved ${name}`, select(settled.data, memoQuery))
           : errorResult(`retrieve ${name}`, settled.error),
       );
-    ensureFetch(
-      params,
-      fetchParamsFor({ name, retrieve, onChange, getCached, local }),
-    ).then(bump, bump);
     return hold(["loading", memoQuery], () =>
       loadingResult<Selected>(`retrieving ${name}`),
     );

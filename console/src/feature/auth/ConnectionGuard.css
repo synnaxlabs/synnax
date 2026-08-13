@@ -62,10 +62,3 @@
     --pluto-orbital-size: 45rem;
     --pluto-loading-delay: 0ms;
 }
-
-/* Opaque core so ring arcs passing behind the planet are occluded instead of
-   shining through the countdown. */
-.pluto-orbital__stage .console-shell__mark-ring {
-    margin: 0;
-    background: var(--pluto-gray-l0);
-}

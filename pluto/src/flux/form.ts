@@ -9,7 +9,14 @@
 
 import { type query, type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor, state, TimeSpan } from "@synnaxlabs/x";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type z } from "zod";
 
 import {
@@ -214,7 +221,7 @@ export const createForm = <
     const readQuery = useRef(memoQuery);
     const valuesRef = useRef(values);
     valuesRef.current = values;
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (readQuery.current === memoQuery) return;
       readQuery.current = memoQuery;
       form.reset(valuesRef.current);

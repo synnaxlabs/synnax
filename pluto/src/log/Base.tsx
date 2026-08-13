@@ -34,7 +34,7 @@ type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
   selectAll: [["Control", "A"]],
-  clearSelection: [["Escape"]],
+  clearSelection: [Triggers.ESCAPE],
   togglePause: [PAUSE_TRIGGER],
   default: [],
   defaultMode: "default",
