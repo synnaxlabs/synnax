@@ -478,6 +478,17 @@ func (b *tableBuilder) addSurface(
 		ct := copyType(def.Type, ns, rewriter(ns, pinRewrites(definer.Pins)))
 		ct.Name = name
 		ct.QualifiedName = ns + "." + name
+		// A redeclaration without its own @doc inherits the chain-resolved doc,
+		// matching the live projection. The domain map is shared with the cached
+		// definer declaration, so clone before stamping.
+		if doc.Get(ct.Domains) == "" && def.Doc != "" {
+			domains := maps.Clone(ct.Domains)
+			if domains == nil {
+				domains = make(map[string]resolution.Domain, 1)
+			}
+			domains["doc"] = docDomain(def.Doc)
+			ct.Domains = domains
+		}
 		if err := b.table.Add(ct); err != nil {
 			return errors.Wrapf(
 				err, "failed to register %s v%d as %s", livePath, n, ns,

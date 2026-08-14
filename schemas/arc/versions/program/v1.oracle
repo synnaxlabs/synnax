@@ -6,7 +6,6 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
 // Tombstone: arc stopped storing compiled programs at its v1, so nothing persists this
 // resource at v1 or later. The live schema is hand-owned; v0 stays frozen for the
 // program bytes arc v0 records embed.

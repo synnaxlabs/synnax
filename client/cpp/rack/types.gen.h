@@ -30,11 +30,9 @@ namespace synnax::rack {
 struct StatusDetails;
 struct Rack;
 
-/// @brief Key is a composite identifier for a rack. The high 16 bits contain the node
-/// key, and the low 16 bits contain the local sequential key. Racks are leased to
-/// specific nodes because task configuration signals are passed through gossip
-/// operations, which can take 15s+ to propagate through a large cluster. This structure
-/// minimizes hops and configuration latency.
+/// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
+/// key, and the low 16 bits contain the local sequential key. A rack is leased to the
+/// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
 
 /// @brief StatusDetails is the rack-specific detail payload carried in a rack Status.

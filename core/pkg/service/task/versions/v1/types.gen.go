@@ -23,7 +23,14 @@ type Key = v0.Key
 
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails = v0.StatusDetails
+
+// Status is task-specific status information including execution state and
+// task-specific data.
 type Status = status.Status[StatusDetails]
+
+// Task is an executable unit of work in the Driver system. Tasks represent specific
+// hardware operations such as reading sensor data, writing control signals, or scanning
+// for devices.
 type Task struct {
 	// Key is the composite identifier for this task.
 	Key Key `json:"key" msgpack:"key"`

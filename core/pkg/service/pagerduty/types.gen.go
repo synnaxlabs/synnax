@@ -11,14 +11,17 @@
 
 package pagerduty
 
-import "github.com/synnaxlabs/synnax/pkg/service/task/common"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+)
 
 // Alert maps a Synnax status to a PagerDuty event routing rule.
 type Alert struct {
 	// Key uniquely identifies the alert within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Status is the key of the Synnax status the alert watches.
-	Status string `json:"status" msgpack:"status"`
+	Status status.Key `json:"status" msgpack:"status"`
 	// TreatErrorAsCritical maps the error variant to PagerDuty critical instead of
 	// error.
 	TreatErrorAsCritical bool `json:"treat_error_as_critical" msgpack:"treat_error_as_critical"`

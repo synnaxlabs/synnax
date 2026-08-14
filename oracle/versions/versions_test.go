@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	. "github.com/synnaxlabs/x/testutil"
@@ -436,6 +437,29 @@ Key = int64 {
 				To(Equal("unique channel identifier"))
 			Expect(MustSucceed(r.Surface(ctx, live, 2))["Key"].Doc).
 				To(Equal("now numeric"))
+		})
+	})
+
+	Describe("SurfaceInto", func() {
+		It("Should stamp the chain-resolved doc onto a docless redeclaration", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/synnax/versions/channel/v0.oracle": `
+Key = uuid {
+	@doc value "unique channel identifier"
+}
+`,
+				"schemas/synnax/versions/channel/v1.oracle": `
+Key = string
+`,
+			})
+			table := resolution.NewTable()
+			Expect(r.SurfaceInto(
+				ctx, table, "schemas/synnax/channel", 1, "channel@v1",
+			)).To(Succeed())
+			t := MustBeOk(table.Get("channel@v1.Key"))
+			Expect(doc.Get(t.Domains)).To(Equal("unique channel identifier"))
 		})
 	})
 })

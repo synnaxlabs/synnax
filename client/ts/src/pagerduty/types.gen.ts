@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 
+import { status } from "@/status";
 import { task } from "@/task";
 
 /** Alert maps a Synnax status to a PagerDuty event routing rule. */
@@ -18,7 +19,7 @@ export const alertZ = z.object({
   /** key uniquely identifies the alert within the task. */
   key: z.string().default(""),
   /** status is the key of the Synnax status the alert watches. */
-  status: z.string().default(""),
+  status: status.keyZ.default(""),
   /**
    * treatErrorAsCritical maps the error variant to PagerDuty critical instead of error.
    */
