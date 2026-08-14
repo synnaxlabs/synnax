@@ -257,8 +257,42 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 		}
 		f.Defined = append(f.Defined, t)
 	}
+	if f.Tombstone() {
+		if n != chain.Current() {
+			return nil, errors.Newf(
+				"%s is empty, but the chain continues to v%d; only the last "+
+					"version file may be a tombstone", filePath, chain.Current(),
+			)
+		}
+		if n == chain.First() {
+			return nil, errors.Newf(
+				"%s is empty and the chain's only version; delete the chain "+
+					"directory instead of ending an empty chain", filePath,
+			)
+		}
+	}
 	r.files[key] = f
 	return f, nil
+}
+
+// Tombstone reports whether the file declares nothing: no types and no alias lines. An
+// empty file ends its chain — the resource left the persisted world at this version.
+// Only the chain's last version file may be one.
+func (f *File) Tombstone() bool { return len(f.Defined) == 0 && len(f.Aliases) == 0 }
+
+// Ended reports whether livePath's chain has ended: its last version file is a
+// tombstone. An ended chain keeps every earlier version frozen, has no current version,
+// and leaves the live schema hand-owned.
+func (r *Resolver) Ended(ctx context.Context, livePath string) (bool, error) {
+	chain, ok := r.chains[livePath]
+	if !ok {
+		return false, errors.Newf("no version chain for %s", livePath)
+	}
+	f, err := r.File(ctx, livePath, chain.Current())
+	if err != nil {
+		return false, err
+	}
+	return f.Tombstone(), nil
 }
 
 // declarationOrder lists the file's top-level declaration names in source
@@ -273,8 +307,8 @@ func declarationOrder(ast parser.ISchemaContext) []string {
 	return names
 }
 
-// declaredAliases extracts the file's chain-alias lines from the parse tree:
-// alias declarations whose declared target text names an earlier version.
+// declaredAliases extracts the file's chain-alias lines from the parse tree: alias
+// declarations whose declared target text names an earlier version.
 func declaredAliases(ast parser.ISchemaContext, n int) map[string]Alias {
 	aliases := make(map[string]Alias)
 	for _, def := range ast.AllDefinition() {
@@ -299,8 +333,8 @@ func declaredAliases(ast parser.ISchemaContext, n int) map[string]Alias {
 	return aliases
 }
 
-// Surface resolves livePath's complete namespace at version n: every name
-// present at n mapped to its defining declaration and chain-resolved doc.
+// Surface resolves livePath's complete namespace at version n: every name present at n
+// mapped to its defining declaration and chain-resolved doc.
 func (r *Resolver) Surface(
 	ctx context.Context, livePath string, n int,
 ) (map[string]Definition, error) {
@@ -340,8 +374,8 @@ func (r *Resolver) surface(
 		surf[t.Name] = d
 	}
 	for name, a := range f.Aliases {
-		// An alias may target any version that carries the name; intermediate
-		// alias lines follow transitively to the defining version.
+		// An alias may target any version that carries the name; intermediate alias
+		// lines follow transitively to the defining version.
 		definer, def, err := r.followAlias(ctx, livePath, n, name, a)
 		if err != nil {
 			return nil, err
@@ -358,8 +392,8 @@ func (r *Resolver) surface(
 	return surf, nil
 }
 
-// followAlias resolves an alias line to its defining version and declaration,
-// following intermediate alias lines transitively. Callers hold r.mu.
+// followAlias resolves an alias line to its defining version and declaration, following
+// intermediate alias lines transitively. Callers hold r.mu.
 func (r *Resolver) followAlias(
 	ctx context.Context,
 	livePath string,
@@ -402,19 +436,18 @@ func findDefined(f *File, name string) (resolution.Type, bool) {
 	return resolution.Type{}, false
 }
 
-// tableBuilder accumulates one version file's resolution table, tracking
-// which surface namespaces are already registered.
+// tableBuilder accumulates one version file's resolution table, tracking which surface
+// namespaces are already registered.
 type tableBuilder struct {
 	r     *Resolver
 	table *resolution.Table
 	done  set.Set[string]
 }
 
-// addSurface registers livePath's surface at version n into the table under
-// namespace ns, then recursively registers the transitive pinned surfaces the
-// copied declarations reference. Synthetic support types (inline union variant
-// payloads) from every contributing definer file are copied alongside the
-// surface members.
+// addSurface registers livePath's surface at version n into the table under namespace
+// ns, then recursively registers the transitive pinned surfaces the copied declarations
+// reference. Synthetic support types (inline union variant payloads) from every
+// contributing definer file are copied alongside the surface members.
 func (b *tableBuilder) addSurface(
 	ctx context.Context, livePath string, n int, ns string,
 ) error {
@@ -483,11 +516,10 @@ func (b *tableBuilder) addSurface(
 	return nil
 }
 
-// addLive copies the live shapes a version file resolves against, so a
-// frozen surface built from it resolves them too. Live types carry no
-// version, so they register under their own namespace unchanged. The live
-// path is marked imported so a later import of the same schema resolves to
-// these copies instead of redeclaring every type.
+// addLive copies the live shapes a version file resolves against, so a frozen surface
+// built from it resolves them too. Live types carry no version, so they register under
+// their own namespace unchanged. The live path is marked imported so a later import of
+// the same schema resolves to these copies instead of redeclaring every type.
 func (b *tableBuilder) addLive(f *File) error {
 	for i, ns := range f.Live {
 		if b.done.Contains(ns) {
@@ -507,10 +539,9 @@ func (b *tableBuilder) addLive(f *File) error {
 	return nil
 }
 
-// SurfaceInto registers livePath's surface at version n into table under
-// namespace ns, plus every transitive pinned dependency surface under its
-// DepNS namespace. Namespaces already present in the table are not
-// re-registered.
+// SurfaceInto registers livePath's surface at version n into table under namespace ns,
+// plus every transitive pinned dependency surface under its DepNS namespace. Namespaces
+// already present in the table are not re-registered.
 func (r *Resolver) SurfaceInto(
 	ctx context.Context,
 	table *resolution.Table,
@@ -530,10 +561,10 @@ func (r *Resolver) SurfaceInto(
 	return b.addSurface(ctx, livePath, n, ns)
 }
 
-// DepNS is the internal namespace a pinned dependency surface registers
-// under. The livePath-based form keeps same-named resources from different
-// domains distinct; "@" never appears in schema identifiers, so these names
-// cannot collide with user namespaces.
+// DepNS is the internal namespace a pinned dependency surface registers under. The
+// livePath-based form keeps same-named resources from different domains distinct; "@"
+// never appears in schema identifiers, so these names cannot collide with user
+// namespaces.
 func DepNS(livePath string, n int) string {
 	return strings.TrimPrefix(livePath, "schemas/") + "@v" + strconv.Itoa(n)
 }

@@ -142,14 +142,23 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 	resp.Files = append(resp.Files, unversionedResp.Files...)
+	// Ended chains have no current-surface entries, so pathMap can be empty while
+	// frozen packages still need regeneration.
 	if len(pathMap) == 0 {
+		frozen, err := chainFrozenFiles(
+			context.Background(), req, p.Options.FileNamePattern,
+		)
+		if err != nil {
+			return nil, err
+		}
+		resp.Files = append(resp.Files, frozen...)
 		return resp, nil
 	}
 	pathFilter := func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok }
-	// Transient types — those outside the current version file at a versioned
-	// path — stay at the package root, generating real declarations merged
-	// into the root alias file. Referenced enums that live in the version
-	// layout must not be re-declared there.
+	// Transient types — those outside the current version file at a versioned path —
+	// stay at the package root, generating real declarations merged into the root alias
+	// file. Referenced enums that live in the version layout must not be re-declared
+	// there.
 	transientGen := &framework.Generator{
 		Domain:      "go",
 		FilePattern: p.Options.FileNamePattern,

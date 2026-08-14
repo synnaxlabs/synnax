@@ -11,8 +11,14 @@
 
 package program
 
-import "github.com/synnaxlabs/arc/program/versions"
+import (
+	"github.com/synnaxlabs/arc/compiler"
+	"github.com/synnaxlabs/arc/ir"
+)
 
 // Program is a compiled Arc program combining the intermediate representation with
 // WebAssembly bytecode, ready for execution.
-type Program = versions.Program
+type Program struct {
+	ir.IR
+	compiler.Output
+}

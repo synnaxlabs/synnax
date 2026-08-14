@@ -104,4 +104,56 @@ Channel struct {
 		}
 		Expect(current).To(ContainSubstring("func (c Channel) EncodeOrc"))
 	})
+
+	It("Should keep frozen codecs generating for an ended chain", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/thing/v0.oracle", `
+Thing struct {
+	key uuid @key
+	name string
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/thing/v1.oracle", "// gone\n")
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), `
+@go output "core/thing"
+
+Thing struct {
+	key uuid @key
+	name string
+}
+`,
+			"schemas/synnax/thing.oracle", "thing",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{
+			Resolutions: table, RepoRoot: root, Versions: resolver,
+		}
+		resp := MustSucceed(marshal.New(marshal.Options{
+			FileNamePattern:     "codec.gen.go",
+			TestFileNamePattern: "codec_gen_test.go",
+			RequireVersioned:    true,
+		}).Generate(req))
+		var frozen string
+		for _, f := range resp.Files {
+			Expect(f.Path).ToNot(ContainSubstring("versions/v1"))
+			if f.Path == "core/thing/versions/v0/codec.gen.go" {
+				frozen = string(f.Content)
+			}
+		}
+		Expect(frozen).To(ContainSubstring("func (t Thing) EncodeOrc"))
+	})
 })

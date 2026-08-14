@@ -28,6 +28,12 @@ func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if cur.Tombstone() {
+		return "", errors.Newf(
+			"%s's chain ended at v%d; declare members in a new version file to "+
+				"revive it", chain.LivePath(), current,
+		)
+	}
 	surf, err := r.Surface(ctx, chain.LivePath(), current)
 	if err != nil {
 		return "", err

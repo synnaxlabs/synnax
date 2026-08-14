@@ -296,6 +296,51 @@ B struct {
 		})
 	})
 
+	Describe("Ended", func() {
+		It("Should report a chain ended by an empty tombstone file", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
+				"schemas/x/versions/telem/v1.oracle": "// gone\n",
+			})
+			Expect(r.Ended(ctx, "schemas/x/telem")).To(BeTrue())
+		})
+
+		It("Should report a chain with a declaring last version as live", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
+			})
+			Expect(r.Ended(ctx, "schemas/x/telem")).To(BeFalse())
+		})
+
+		It("Should reject a tombstone before the chain's last version", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
+				"schemas/x/versions/telem/v1.oracle": "// gone\n",
+				"schemas/x/versions/telem/v2.oracle": "TimeStamp = int64\n",
+			})
+			Expect(r.File(ctx, "schemas/x/telem", 1)).Error().To(MatchError(
+				ContainSubstring("only the last version file may be a tombstone"),
+			))
+		})
+
+		It("Should reject a chain whose only version is a tombstone", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/telem/v0.oracle": "// gone\n",
+			})
+			Expect(r.Ended(ctx, "schemas/x/telem")).Error().To(MatchError(
+				ContainSubstring("delete the chain directory"),
+			))
+		})
+	})
+
 	Describe("Surface", func() {
 		It("Should map every name to its defining version", func(ctx SpecContext) {
 			r := resolverFor(map[string]string{

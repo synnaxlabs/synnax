@@ -78,6 +78,19 @@ Channel struct {
 		Expect(out).To(ContainSubstring("Channel = v1.Channel"))
 	})
 
+	It("Should reject scaffolding an ended chain", func(ctx SpecContext) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", "// gone\n")
+		chains := MustSucceed(versions.Discover(root))
+		r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		Expect(versions.Scaffold(ctx, r, chains["schemas/synnax/channel"])).
+			Error().To(MatchError(ContainSubstring("chain ended at v1")))
+	})
+
 	It("Should redeclare omit-transient declarations in full", func(ctx SpecContext) {
 		write("schemas/synnax/versions/channel/v0.oracle", `
 Channel struct {

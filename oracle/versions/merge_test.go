@@ -217,6 +217,20 @@ Channel struct {
 		Expect(merged).To(ContainSubstring("Channel struct"))
 	})
 
+	It("Should leave the live source of an ended chain hand-owned", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", "// gone\n")
+		r, chain := resolver()
+		Expect(versions.MergeLive(ctx, r, chain, "Channel struct {\n}\n")).
+			To(Equal(""))
+	})
+
 	It("Should resolve docs through alias lines to the definer", func(
 		ctx SpecContext,
 	) {

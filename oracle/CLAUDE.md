@@ -49,8 +49,14 @@ or generator logic and schemas disagree.
   sync, and the `versions` gate errors on the drift naming the version files as
   authority.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
-  artifacts: arc `Program` has no versions directory, so its Go types live at the
-  package root and every version referencing it takes the one live shape.
+  artifacts. A resource that stops being persisted ENDS its chain with a tombstone: an
+  empty v(N+1).oracle (header and a comment only) records that everything was removed
+  at N+1. An ended chain keeps every earlier version frozen (packages, codecs, fixture
+  tests keep regenerating), has no current version, and its live file goes back to
+  being hand-owned — sync no longer projects it. Nothing current may hold a stored
+  reference into an ended chain; `oracle migrate` refuses it; declare members in a new
+  version file to revive it. Example: arc `Program` ended at v1 — arc v0 records embed
+  its v0 bytes, and arc v1+ resolve the live shape at read time.
 - **Imports split on the persistence boundary.** A stored reference (part of the
   record's persisted bytes, e.g. a range's color) imports a pinned version file
   (`import "schemas/x/versions/color/v0"`). A resolved reference (read-time materialized

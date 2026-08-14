@@ -458,6 +458,24 @@ func (g VersionsGate) checkPinCurrency(
 				if !ok {
 					continue
 				}
+				if ended, err := resolver.Ended(ctx, depLive); err == nil && ended {
+					r.fail(Finding{
+						Path:     chain.FilePath(chain.Current()) + ".oracle",
+						Severity: SeverityError,
+						Message: fmt.Sprintf(
+							"%s's current surface stores %s, but %s's chain "+
+								"ended at v%d; nothing may persist an ended "+
+								"resource",
+							chain.LivePath(), ns, depLive, depChain.Current(),
+						),
+						FixHint: fmt.Sprintf(
+							"drop the stored reference, or revive %s by "+
+								"declaring members in a new version file",
+							depLive,
+						),
+					})
+					continue
+				}
 				if pv != depChain.Current() &&
 					!pinAliasCurrent(
 						ctx, resolver, depLive, pv, depChain.Current(),

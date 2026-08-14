@@ -37,7 +37,7 @@ func chainPredecessors(
 		return nil, err
 	}
 	for origPath, e := range entries {
-		if e.version == e.chain.First() {
+		if e.ended || e.version == e.chain.First() {
 			continue
 		}
 		f, err := req.Versions.File(ctx, e.livePath, e.version)
@@ -63,6 +63,9 @@ type chainEntry struct {
 	livePath string
 	version  int
 	chain    versions.Chain
+	// ended marks a chain whose last version file is a tombstone: every real
+	// version is frozen and no current package exists.
+	ended bool
 }
 
 // chainEntries maps every chain-covered versioned Go output path to its
@@ -82,38 +85,51 @@ func chainEntries(
 		if !ok {
 			continue
 		}
+		ended, err := req.Versions.Ended(ctx, livePath)
+		if err != nil {
+			return nil, err
+		}
 		out[goPath] = chainEntry{
 			resource: chain.Resource,
 			livePath: livePath,
 			version:  chain.Current(),
 			chain:    chain,
+			ended:    ended,
 		}
 	}
 	return out, nil
 }
 
-// memberGoPath returns the @go output path a chain's current-surface members
-// occupy in the live table.
+// memberGoPath returns the @go output path a chain's surface members occupy
+// in the live table. An ended chain's tombstone surface is empty, so the walk
+// falls back through earlier versions: the frozen packages still anchor to
+// the live schema's output path.
 func memberGoPath(
 	ctx context.Context,
 	req *plugin.Request,
 	livePath string,
 	chain versions.Chain,
 ) (string, bool, error) {
-	surf, err := req.Versions.Surface(ctx, livePath, chain.Current())
-	if err != nil {
-		return "", false, err
-	}
-	for _, t := range req.Resolutions.Types {
-		if t.FilePath != livePath+".oracle" {
+	for _, v := range slices.Backward(chain.Numbers) {
+		surf, err := req.Versions.Surface(ctx, livePath, v)
+		if err != nil {
+			return "", false, err
+		}
+		if len(surf) == 0 {
 			continue
 		}
-		if _, member := surf[t.Name]; !member {
-			continue
+		for _, t := range req.Resolutions.Types {
+			if t.FilePath != livePath+".oracle" {
+				continue
+			}
+			if _, member := surf[t.Name]; !member {
+				continue
+			}
+			if p := output.GetPath(t, "go"); p != "" {
+				return p, true, nil
+			}
 		}
-		if p := output.GetPath(t, "go"); p != "" {
-			return p, true, nil
-		}
+		return "", false, nil
 	}
 	return "", false, nil
 }
@@ -153,10 +169,14 @@ func chainFrozenFiles(
 type ChainPath struct {
 	// LivePath is the resource's live import path ("schemas/x/telem").
 	LivePath string
-	// Current is the chain's current version.
+	// Current is the chain's current version. For an ended chain it is the
+	// tombstone: every version below it is frozen, and no package generates
+	// for it.
 	Current int
 	// Numbers holds the chain's declared versions, ascending.
 	Numbers []int
+	// Ended marks a chain whose last version file is a tombstone.
+	Ended bool
 }
 
 // ChainPaths maps every chain-covered versioned Go output path to its chain.
@@ -173,16 +193,17 @@ func ChainPaths(
 			LivePath: e.livePath,
 			Current:  e.version,
 			Numbers:  e.chain.Numbers,
+			Ended:    e.ended,
 		}
 	}
 	return out, nil
 }
 
-// ChainFrozenTable builds the resolution table for one frozen version
-// package: livePath's surface at k under its DepNS namespace, transitive
-// pinned surfaces alongside, and @go output annotations resolving every type
-// to its frozen versions/vN directory (or its live root, for hand-written
-// types). The returned namespace qualifies the package's own types.
+// ChainFrozenTable builds the resolution table for one frozen version package:
+// livePath's surface at k under its DepNS namespace, transitive pinned surfaces
+// alongside, and @go output annotations resolving every type to its frozen versions/vN
+// directory (or its live root, for hand-written types). The returned namespace
+// qualifies the package's own types.
 func ChainFrozenTable(
 	ctx context.Context,
 	req *plugin.Request,
@@ -250,8 +271,8 @@ func frozenFile(
 		}
 	}
 	vkPath := versioning.VersionedPath(origPath, k)
-	// A fully hand-written frozen package (every declaration @go hand) keeps
-	// its historical files; there is nothing to generate.
+	// A fully hand-written frozen package (every declaration @go hand) keeps its
+	// historical files; there is nothing to generate.
 	if len(structs)+len(enums)+len(typedefs)+len(unions) == 0 {
 		return plugin.File{}, nil
 	}

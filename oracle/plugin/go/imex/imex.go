@@ -120,6 +120,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				"%s declares @go imex without a version chain", typ.QualifiedName,
 			)
 		}
+		if ended, err := req.Versions.Ended(
+			ctx, livePathForChain,
+		); err != nil {
+			return nil, err
+		} else if ended {
+			return nil, errors.Newf(
+				"%s declares @go imex, but its version chain ended",
+				typ.QualifiedName,
+			)
+		}
 		version := chain.Current()
 		if prev, dup := declared[outputPath]; dup {
 			return nil, errors.Newf(

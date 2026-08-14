@@ -43,6 +43,11 @@ func (p *Plugin) chainFiles(req *plugin.Request) ([]plugin.File, error) {
 			if i == 0 || k > cp.Current {
 				continue
 			}
+			// A tombstone has no package: nothing migrates into an ended chain's final
+			// version.
+			if cp.Ended && k == cp.Current {
+				continue
+			}
 			file, ok, err := chainFile(
 				ctx, req, origPath, cp.LivePath, cp.Numbers[i-1], k,
 			)

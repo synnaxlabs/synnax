@@ -29,7 +29,7 @@ import (
 // from the chain's current surface, live-owned content (outputs, language bindings,
 // validation tags, wire-only declarations) carried from the existing live source. The
 // result is formatter-canonical and carries the repository license header. It returns
-// "" for a history-only chain with no live source.
+// "" for an ended or history-only chain, whose live source is hand-owned.
 func MergeLive(
 	ctx context.Context, r *Resolver, chain Chain, source string,
 ) (string, error) {
@@ -38,7 +38,9 @@ func MergeLive(
 	if err != nil {
 		return "", err
 	}
-	if len(surf) == 0 && strings.TrimSpace(source) == "" {
+	// An empty current surface means the chain ended (or never had a live schema):
+	// nothing projects, and the live file stays hand-owned.
+	if len(surf) == 0 {
 		return "", nil
 	}
 	cur, err := r.File(ctx, livePath, chain.Current())
