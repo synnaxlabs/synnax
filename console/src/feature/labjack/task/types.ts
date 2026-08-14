@@ -28,34 +28,33 @@ export const DEVICE_CJC_SOURCE = "TEMPERATURE_DEVICE_K";
 
 export const AIR_CJC_SOURCE = "TEMPERATURE_AIR_K";
 
-export type InputChannel = labjack.InputChannel;
-export type InputChannelType = labjack.InputChannelType;
-export const INPUT_CHANNEL_SCHEMAS = labjack.INPUT_CHANNEL_SCHEMAS;
+export type ReadChannel = labjack.ReadChannel;
+export type ReadChannelType = labjack.ReadChannelType;
+export const READ_CHANNEL_SCHEMAS = labjack.READ_CHANNEL_SCHEMAS;
 
-// The scale union has no schema default, so AI and TC seed it explicitly.
-const INPUT_CHANNEL_SEEDS: Record<InputChannelType, object> = {
-  AI: { type: "AI", scale: NO_SCALE },
-  DI: { type: "DI" },
-  TC: { type: "TC", scale: NO_SCALE },
+// The scale union has no schema default, so analog and thermocouple seed it
+// explicitly.
+const READ_CHANNEL_SEEDS: Record<ReadChannelType, object> = {
+  analog: { type: "analog", scale: NO_SCALE },
+  digital: { type: "digital" },
+  thermocouple: { type: "thermocouple", scale: NO_SCALE },
 };
 
-export const createInputChannel = <T extends InputChannelType>(
+export const createReadChannel = <T extends ReadChannelType>(
   type: T,
-): Extract<InputChannel, { type: T }> =>
-  INPUT_CHANNEL_SCHEMAS[type].parse(INPUT_CHANNEL_SEEDS[type]);
+): Extract<ReadChannel, { type: T }> =>
+  READ_CHANNEL_SCHEMAS[type].parse(READ_CHANNEL_SEEDS[type]);
 
-export const outputChannelZ = labjack.outputChannelZ;
-export type OutputChannel = labjack.OutputChannel;
-export type OutputChannelType = labjack.OutputChannelType;
-export const OUTPUT_CHANNEL_SCHEMAS = labjack.OUTPUT_CHANNEL_SCHEMAS;
+export const writeChannelZ = labjack.writeChannelZ;
+export type WriteChannel = labjack.WriteChannel;
+export type WriteChannelType = labjack.WriteChannelType;
+export const WRITE_CHANNEL_SCHEMAS = labjack.WRITE_CHANNEL_SCHEMAS;
 
-export const createOutputChannel = <T extends OutputChannelType>(
+export const createWriteChannel = <T extends WriteChannelType>(
   type: T,
-): Extract<OutputChannel, { type: T }> => OUTPUT_CHANNEL_SCHEMAS[type].parse({ type });
+): Extract<WriteChannel, { type: T }> => WRITE_CHANNEL_SCHEMAS[type].parse({ type });
 
-export type Channel = InputChannel | OutputChannel;
-
-export type ChannelType = Channel["type"];
+export type Channel = ReadChannel | WriteChannel;
 
 const deployPortZ = z.string().min(1, "Port must be specified");
 
@@ -98,13 +97,13 @@ export interface ReadConfig extends labjack.ReadConfig {}
 
 export const readConfigZ = labjack.readConfigZ;
 
-const deployInputChannelZ = z.union([
-  labjack.inputChannelAIZ.extend({
+const deployReadChannelZ = z.union([
+  labjack.analogReadChannelZ.extend({
     range: z.number().positive().default(10),
     port: deployAIPortZ,
   }),
-  labjack.inputChannelDIZ.extend({ port: deployDigitalPortZ }),
-  labjack.inputChannelTcZ.extend({
+  labjack.digitalReadChannelZ.extend({ port: deployDigitalPortZ }),
+  labjack.thermocoupleReadChannelZ.extend({
     port: deployAIPortZ,
     cjcSource: z.string().min(1, "CJC Source must be specified"),
   }),
@@ -114,7 +113,7 @@ export const deployReadConfigZ = labjack.readConfigZ
   .extend({
     device: Task.deviceKeyZ,
     channels: z
-      .array(deployInputChannelZ)
+      .array(deployReadChannelZ)
       .check(Task.validateReadChannels)
       .check(validateUniquePorts),
     sampleRate: z.number().positive().max(50000),
@@ -143,15 +142,15 @@ export interface WriteConfig extends labjack.WriteConfig {}
 
 export const writeConfigZ = labjack.writeConfigZ;
 
-const deployOutputChannelZ = z.union([
-  labjack.outputChannelAOZ.extend({ port: deployAOPortZ }),
-  labjack.outputChannelDOZ.extend({ port: deployDigitalPortZ }),
+const deployWriteChannelZ = z.union([
+  labjack.analogWriteChannelZ.extend({ port: deployAOPortZ }),
+  labjack.digitalWriteChannelZ.extend({ port: deployDigitalPortZ }),
 ]);
 
 export const deployWriteConfigZ = labjack.writeConfigZ.extend({
   device: Task.deviceKeyZ,
   channels: z
-    .array(deployOutputChannelZ)
+    .array(deployWriteChannelZ)
     .check(Task.validateWriteChannels)
     .check(validateUniquePorts),
   stateRate: z.number().positive().max(50000),

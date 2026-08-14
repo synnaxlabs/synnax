@@ -15,7 +15,7 @@ import * as Device from "@/feature/labjack/device/types";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,
-  type InputChannelType,
+  type ReadChannelType,
   type Scale,
   SCALE_SCHEMAS,
   type ScaleType,
@@ -176,16 +176,16 @@ interface FormProps {
   deviceModel: Device.Model;
 }
 
-export const FORMS: Record<InputChannelType, FC<FormProps>> = {
-  AI: ({ path }) => (
+export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
+  analog: ({ path }) => (
     <>
       <Divider.Divider x padded="bottom" />
       <MaxVoltageField path={path} />
       <CustomScaleForm prefix={path} />
     </>
   ),
-  DI: () => null,
-  TC: ({ path, deviceModel }) => (
+  digital: () => null,
+  thermocouple: ({ path, deviceModel }) => (
     <>
       <Divider.Divider x padded="bottom" />
       <Flex.Box x>

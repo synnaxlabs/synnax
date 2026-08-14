@@ -27,7 +27,7 @@ const client = createTestClient();
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(OPC.Task.Write, options);
 
-const createOutputChannel = (): OPC.Task.OutputChannel => {
+const createWriteChannel = (): OPC.Task.WriteChannel => {
   // Underscore-free so the device-properties record keys survive the server's
   // snake-to-camel decode untouched.
   const nodeName = uniqueName("node").replace(/_/g, "");
@@ -44,7 +44,7 @@ const createOutputChannel = (): OPC.Task.OutputChannel => {
 
 const createWriteConfig = (
   device: string,
-  channels: OPC.Task.OutputChannel[],
+  channels: OPC.Task.WriteChannel[],
 ): OPC.Task.WritePayload["config"] => ({
   ...OPC.Task.WRITE_SCHEMAS.config.parse({}),
   device,
@@ -64,8 +64,8 @@ const createDraft = async (client: Synnax, config: OPC.Task.WritePayload["config
 describe("OPC.Write", () => {
   it("should create command and index channels on deploy", async () => {
     const dev = await createOPCDevice(client);
-    const chA = createOutputChannel();
-    const chB = createOutputChannel();
+    const chA = createWriteChannel();
+    const chB = createWriteChannel();
     const draft = await createDraft(client, createWriteConfig(dev.key, [chA, chB]));
     const { container } = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(new RegExp(chA.nodeName));
@@ -100,7 +100,7 @@ describe("OPC.Write", () => {
 
   it("should reuse existing command channels when redeploying", async () => {
     const dev = await createOPCDevice(client);
-    const ch = createOutputChannel();
+    const ch = createWriteChannel();
     const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
     const first = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(new RegExp(ch.nodeName));
@@ -140,7 +140,7 @@ describe("OPC.Write", () => {
 
   it("should rename and remove a channel through the context menu", async () => {
     const dev = await createOPCDevice(client);
-    const ch = createOutputChannel();
+    const ch = createWriteChannel();
     const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
     await renderWrite({ client, taskKey: draft.key });
     fireEvent.contextMenu(await screen.findByText(new RegExp(ch.nodeName)));

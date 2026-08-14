@@ -10,30 +10,30 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import { type InputChannelType } from "@/feature/labjack/task/types";
+import { type ReadChannelType } from "@/feature/labjack/task/types";
 
-export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
+export interface ReadChannelTypeEntry extends record.KeyedNamed<ReadChannelType> {}
 
-const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
-  { key: "AI", name: "Analog Input" },
-  { key: "DI", name: "Digital Input" },
-  { key: "TC", name: "Thermocouple" },
+const READ_CHANNEL_TYPES: ReadChannelTypeEntry[] = [
+  { key: "analog", name: "Analog Input" },
+  { key: "digital", name: "Digital Input" },
+  { key: "thermocouple", name: "Thermocouple" },
 ];
 
-export type SelectInputChannelTypeFieldProps = Form.SelectFieldProps<
-  InputChannelType,
-  InputChannelTypeEntry
+export type SelectReadChannelTypeFieldProps = Form.SelectFieldProps<
+  ReadChannelType,
+  ReadChannelTypeEntry
 >;
 
-export const SelectInputChannelTypeField = Form.buildSelectField<
-  InputChannelType,
-  InputChannelTypeEntry
+export const SelectReadChannelTypeField = Form.buildSelectField<
+  ReadChannelType,
+  ReadChannelTypeEntry
 >({
   fieldKey: "type",
   fieldProps: { label: "Channel Type" },
   inputProps: {
     allowNone: false,
     resourceName: "channel type",
-    data: INPUT_CHANNEL_TYPES,
+    data: READ_CHANNEL_TYPES,
   },
 });

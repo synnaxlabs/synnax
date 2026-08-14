@@ -11,30 +11,30 @@ import { modbus } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import { type InputChannelType } from "@/feature/modbus/task/types";
+import { type ReadChannelType } from "@/feature/modbus/task/types";
 
-export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
+export interface ReadChannelTypeEntry extends record.KeyedNamed<ReadChannelType> {}
 
-const NAMES: Record<InputChannelType, string> = {
-  coil_input: "Coil",
+const NAMES: Record<ReadChannelType, string> = {
+  coil: "Coil",
   discrete_input: "Discrete",
-  holding_register_input: "Holding Register",
-  register_input: "Register",
+  holding_register: "Holding Register",
+  input_register: "Register",
 };
 
-const DATA: InputChannelTypeEntry[] = modbus.INPUT_CHANNEL_TYPES.map((key) => ({
+const DATA: ReadChannelTypeEntry[] = modbus.READ_CHANNEL_TYPES.map((key) => ({
   key,
   name: NAMES[key],
 }));
 
-export interface SelectInputChannelTypeFieldProps extends Omit<
-  Form.SelectFieldProps<InputChannelType, InputChannelTypeEntry>,
+export interface SelectReadChannelTypeFieldProps extends Omit<
+  Form.SelectFieldProps<ReadChannelType, ReadChannelTypeEntry>,
   "data" | "entryRenderKey" | "columns"
 > {}
 
-export const SelectInputChannelTypeField = Form.buildSelectField<
-  InputChannelType,
-  InputChannelTypeEntry
+export const SelectReadChannelTypeField = Form.buildSelectField<
+  ReadChannelType,
+  ReadChannelTypeEntry
 >({
   fieldKey: "type",
   fieldProps: {

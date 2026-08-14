@@ -20,9 +20,9 @@ import * as Device from "@/feature/opc/device/types";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opc/task/Form";
 import {
   deployReadConfigZ,
-  type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
+  type ReadChannel,
   type ReadConfig,
   type ReadSchemas,
 } from "@/feature/opc/task/types";
@@ -92,7 +92,7 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: HaulItem): InputChannel => ({
+const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
   key: data.nodeId,
   nodeName: data.name,
   nodeId: data.nodeId,
@@ -103,12 +103,12 @@ const convertHaulItemToChannel = ({ data }: HaulItem): InputChannel => ({
   name: "",
 });
 
-const getChannelKeyAndID: ChannelKeyAndIDGetter<InputChannel> = ({ channel, key }) => ({
+const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }) => ({
   key: channel,
   id: Task.getChannelNameID(key),
 });
 
-const TaskForm: FC = createForm<InputChannel>({
+const TaskForm: FC = createForm<ReadChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,
@@ -212,7 +212,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     taskName: name,
   });
 
-  const toCreate: InputChannel[] = [];
+  const toCreate: ReadChannel[] = [];
   for (const ch of config.channels) {
     const exKey = getChannelByNodeID(device.properties, ch.nodeId);
     if (!exKey) {

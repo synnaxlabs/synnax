@@ -20,17 +20,17 @@ import {
   ZERO_PROPERTIES,
 } from "@/feature/labjack/device/types";
 import {
-  createInputChannel,
-  createOutputChannel,
-  type InputChannel,
-  type OutputChannel,
+  createReadChannel,
+  createWriteChannel,
+  type ReadChannel,
+  type WriteChannel,
 } from "@/feature/labjack/task/types";
 
-type AIChannel = Extract<InputChannel, { type: "AI" }>;
-type DIChannel = Extract<InputChannel, { type: "DI" }>;
-type TCChannel = Extract<InputChannel, { type: "TC" }>;
-type AOChannel = Extract<OutputChannel, { type: "AO" }>;
-type DOChannel = Extract<OutputChannel, { type: "DO" }>;
+type AnalogReadChannel = Extract<ReadChannel, { type: "analog" }>;
+type DigitalReadChannel = Extract<ReadChannel, { type: "digital" }>;
+type ThermocoupleReadChannel = Extract<ReadChannel, { type: "thermocouple" }>;
+type AnalogWriteChannel = Extract<WriteChannel, { type: "analog" }>;
+type DigitalWriteChannel = Extract<WriteChannel, { type: "digital" }>;
 
 /** Builds a cluster-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
@@ -70,44 +70,59 @@ export const createLabJackDevice = async (
   );
 };
 
-/** Builds an analog input channel on the given port. */
-export const createAIChannel = (
+/** Builds an analog read channel on the given port. */
+export const createAnalogReadChannel = (
   port: string,
-  overrides: Partial<AIChannel> = {},
-): AIChannel => ({ ...createInputChannel("AI"), key: id.create(), port, ...overrides });
-
-/** Builds a digital input channel on the given port. */
-export const createDIChannel = (
-  port: string,
-  overrides: Partial<DIChannel> = {},
-): DIChannel => ({ ...createInputChannel("DI"), key: id.create(), port, ...overrides });
-
-/** Builds a thermocouple input channel on the given port. */
-export const createTCChannel = (
-  port: string,
-  overrides: Partial<TCChannel> = {},
-): TCChannel => ({ ...createInputChannel("TC"), key: id.create(), port, ...overrides });
-
-/** Builds an analog output channel on the given port. */
-export const createAOChannel = (
-  port: string,
-  overrides: Partial<AOChannel> = {},
-): AOChannel => ({
-  ...createOutputChannel("AO"),
+  overrides: Partial<AnalogReadChannel> = {},
+): AnalogReadChannel => ({
+  ...createReadChannel("analog"),
   key: id.create(),
   port,
   ...overrides,
-  type: "AO",
 });
 
-/** Builds a digital output channel on the given port. */
-export const createDOChannel = (
+/** Builds a digital read channel on the given port. */
+export const createDigitalReadChannel = (
   port: string,
-  overrides: Partial<DOChannel> = {},
-): DOChannel => ({
-  ...createOutputChannel("DO"),
+  overrides: Partial<DigitalReadChannel> = {},
+): DigitalReadChannel => ({
+  ...createReadChannel("digital"),
   key: id.create(),
   port,
   ...overrides,
-  type: "DO",
+});
+
+/** Builds a thermocouple read channel on the given port. */
+export const createThermocoupleReadChannel = (
+  port: string,
+  overrides: Partial<ThermocoupleReadChannel> = {},
+): ThermocoupleReadChannel => ({
+  ...createReadChannel("thermocouple"),
+  key: id.create(),
+  port,
+  ...overrides,
+});
+
+/** Builds an analog write channel on the given port. */
+export const createAnalogWriteChannel = (
+  port: string,
+  overrides: Partial<AnalogWriteChannel> = {},
+): AnalogWriteChannel => ({
+  ...createWriteChannel("analog"),
+  key: id.create(),
+  port,
+  ...overrides,
+  type: "analog",
+});
+
+/** Builds a digital write channel on the given port. */
+export const createDigitalWriteChannel = (
+  port: string,
+  overrides: Partial<DigitalWriteChannel> = {},
+): DigitalWriteChannel => ({
+  ...createWriteChannel("digital"),
+  key: id.create(),
+  port,
+  ...overrides,
+  type: "digital",
 });

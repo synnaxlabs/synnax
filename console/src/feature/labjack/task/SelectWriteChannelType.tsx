@@ -7,28 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/labjack/task/SelectOutputChannelType.css";
+import "@/feature/labjack/task/SelectWriteChannelType.css";
 
 import { Select } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import { type OutputChannelType } from "@/feature/labjack/task/types";
+import { type WriteChannelType } from "@/feature/labjack/task/types";
 import { CSS } from "@/platform/css";
 
-export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
+export interface WriteChannelTypeEntry extends record.KeyedNamed<WriteChannelType> {}
 
-const DATA: OutputChannelType[] = ["AO", "DO"];
+const DATA: WriteChannelType[] = ["analog", "digital"];
 
-export interface SelectOutputChannelTypeProps extends Omit<
-  Select.ButtonsProps<OutputChannelType>,
+export interface SelectWriteChannelTypeProps extends Omit<
+  Select.ButtonsProps<WriteChannelType>,
   "keys"
 > {}
 
-export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
+export const SelectWriteChannelType = (props: SelectWriteChannelTypeProps) => (
   <Select.Buttons {...props} keys={DATA}>
-    <Select.Button itemKey="AO" className={CSS.BE("labjack-output-type", "ao")}>
+    <Select.Button itemKey="analog" className={CSS.BE("labjack-write-type", "ao")}>
       Analog
     </Select.Button>
-    <Select.Button itemKey="DO">Digital</Select.Button>
+    <Select.Button itemKey="digital">Digital</Select.Button>
   </Select.Buttons>
 );

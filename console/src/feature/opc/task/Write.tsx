@@ -18,9 +18,9 @@ import * as Device from "@/feature/opc/device/types";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opc/task/Form";
 import {
   deployWriteConfigZ,
-  type OutputChannel,
   WRITE_SCHEMAS,
   WRITE_TYPE,
+  type WriteChannel,
   type WriteSchemas,
 } from "@/feature/opc/task/types";
 import { ContextMenu } from "@/platform/context-menu";
@@ -34,7 +34,7 @@ const Properties = () => (
   </>
 );
 
-const convertHaulItemToChannel = ({ data }: HaulItem): OutputChannel => ({
+const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel => ({
   key: data.nodeId,
   nodeName: data.name,
   nodeId: data.nodeId,
@@ -44,7 +44,7 @@ const convertHaulItemToChannel = ({ data }: HaulItem): OutputChannel => ({
   dataType: data.dataType,
 });
 
-const getChannelKeyAndID: ChannelKeyAndIDGetter<OutputChannel> = ({
+const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
   cmdChannel,
   key,
 }) => ({
@@ -52,7 +52,7 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<OutputChannel> = ({
   id: Task.getChannelNameID(key, "cmd"),
 });
 
-interface ContextMenuItemProps extends Task.ContextMenuItemProps<OutputChannel> {}
+interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
   if (keys.length !== 1) return null;
@@ -70,7 +70,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const TaskForm: FC = createForm<OutputChannel>({
+const TaskForm: FC = createForm<WriteChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems,
@@ -98,7 +98,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   });
   try {
     dev = { ...dev, properties: Device.migrateProperties(dev.properties) };
-    const commandsToCreate: OutputChannel[] = [];
+    const commandsToCreate: WriteChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);
       if (!key) {

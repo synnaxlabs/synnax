@@ -39,7 +39,7 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           disabled: false,
-          type: "AI",
+          type: "analog",
           name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: "none" },
@@ -49,7 +49,7 @@ describe("readConfigZ", () => {
           key: "2",
           channel: 2,
           disabled: false,
-          type: "DI",
+          type: "digital",
           name: "Test_DI_Channel",
           port: "DIO0",
         },
@@ -79,7 +79,7 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           disabled: false,
-          type: "AI",
+          type: "analog",
           name: "Test_AI_Channel_1",
           port: "AIN0",
           scale: { type: "none" },
@@ -89,7 +89,7 @@ describe("readConfigZ", () => {
           key: "2",
           channel: 2,
           disabled: false,
-          type: "AI",
+          type: "analog",
           name: "Test_AI_Channel_2",
           port: "AIN0", // Duplicate port
           scale: { type: "none" },
@@ -116,7 +116,7 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           disabled: false,
-          type: "AI",
+          type: "analog",
           name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: "none" },
@@ -143,7 +143,7 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           disabled: false,
-          type: "AI",
+          type: "analog",
           name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: "none" },
@@ -170,7 +170,7 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           disabled: false,
-          type: "AI",
+          type: "analog",
           name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: "none" },
@@ -193,7 +193,7 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           disabled: false,
-          type: "AI",
+          type: "analog",
           name: "ai_with_scale",
           port: "AIN0",
           scale: { type: "linear", slope: 2.5, offset: 0.5 },
@@ -216,7 +216,7 @@ describe("readConfigZ", () => {
           key: "1",
           channel: 1,
           disabled: false,
-          type: "AI",
+          type: "analog",
           name: "ai_with_map_scale",
           port: "AIN0",
           scale: {
@@ -251,7 +251,7 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           disabled: false,
-          type: "AO",
+          type: "analog",
           cmdChannelName: "Test_AO_Channel",
           stateChannelName: "",
           port: "DAC0",
@@ -261,7 +261,7 @@ describe("writeConfigZ", () => {
         {
           key: "2",
           disabled: false,
-          type: "DO",
+          type: "digital",
           cmdChannelName: "Test_DO_Channel",
           stateChannelName: "",
           port: "DIO0",
@@ -283,7 +283,7 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           disabled: false,
-          type: "AO",
+          type: "analog",
           port: "DAC0",
           cmdChannel: 1,
           stateChannel: 2,
@@ -291,7 +291,7 @@ describe("writeConfigZ", () => {
         {
           key: "2",
           disabled: false,
-          type: "AO",
+          type: "analog",
           port: "DAC0", // Duplicate port
           cmdChannel: 3,
           stateChannel: 4,
@@ -315,7 +315,7 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           disabled: false,
-          type: "AO",
+          type: "analog",
           port: "DAC0",
           cmdChannel: 1,
           stateChannel: 2,
@@ -323,7 +323,7 @@ describe("writeConfigZ", () => {
         {
           key: "2",
           disabled: false,
-          type: "DO",
+          type: "digital",
           port: "DIO0",
           cmdChannel: 1, // Duplicate command channel
           stateChannel: 3,
@@ -347,7 +347,7 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           disabled: false,
-          type: "AO",
+          type: "analog",
           port: "DAC0",
           cmdChannel: 1,
           stateChannel: 2,
@@ -355,7 +355,7 @@ describe("writeConfigZ", () => {
         {
           key: "2",
           disabled: false,
-          type: "DO",
+          type: "digital",
           port: "DIO0",
           cmdChannel: 3,
           stateChannel: 2, // Duplicate state channel
@@ -379,7 +379,7 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           disabled: false,
-          type: "AO",
+          type: "analog",
           port: "DAC0",
           cmdChannel: 1,
           stateChannel: 2,
@@ -406,7 +406,7 @@ describe("writeConfigZ", () => {
         {
           key: "1",
           enabled: true,
-          type: "AO",
+          type: "analog",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
@@ -416,7 +416,7 @@ describe("writeConfigZ", () => {
 
     const result = writeConfigZ.safeParse(v0Config);
     expect(result.success).toBe(true);
-    const [ch] = result.data?.channels as LabJack.Task.OutputChannel[];
+    const [ch] = result.data?.channels as LabJack.Task.WriteChannel[];
     expect(ch.cmdChannel).toBe(0);
     expect(ch.stateChannel).toBe(0);
     expect(ch).not.toHaveProperty("cmdKey");

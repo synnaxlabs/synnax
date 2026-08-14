@@ -14,8 +14,8 @@ import { type ReactElement, useCallback } from "react";
 import {
   type ChannelMode,
   type ChannelSchemas,
-  type InputChannel,
-  type OutputChannel,
+  type ReadChannel,
+  type WriteChannel,
 } from "@/feature/ethercat/task/types";
 
 interface ChannelModeEntry extends record.KeyedNamed<ChannelMode> {}
@@ -48,7 +48,7 @@ export const SelectChannelModeField = ({
       const prevType = get(fieldPath).value;
       if (prevType === value) return;
       const parentPath = fieldPath.slice(0, fieldPath.lastIndexOf("."));
-      const prevParent = get<InputChannel | OutputChannel>(parentPath).value;
+      const prevParent = get<ReadChannel | WriteChannel>(parentPath).value;
       const next = schemas[value].parse({ type: value });
       set(parentPath, {
         ...next,
