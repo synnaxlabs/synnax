@@ -11,12 +11,11 @@ proof of what released Consoles wrote.
 
 The fixtures were validated mechanically against the zod schemas at that commit: every
 fixture parses, and every one except the HTTP pair round-trips byte-identical through
-the schema. HTTP released two shapes for headers, query params, and enum values:
-records through 0.53.1 and lists from 0.53.2 on. `http_read.json` freezes the record
-era, `http_read_list.json` the list era, and `http_write.json` the write shape at its
-0.53.1 introduction (record headers and query params, list enum values); the legacy
-rewrite's `RecordToList` covers the record shapes and passes list shapes through
-untouched.
+the schema. HTTP released two shapes for headers, query params, and enum values: records
+through 0.53.1 and lists from 0.53.2 on. `http_read.json` freezes the record era,
+`http_read_list.json` the list era, and `http_write.json` the write shape at its 0.53.1
+introduction (record headers and query params, list enum values); the legacy rewrite's
+`RecordToList` covers the record shapes and passes list shapes through untouched.
 
 A task type with more than one released shape carries one extra fixture per older shape,
 suffixed with the shape's distinguishing trait:
@@ -24,10 +23,10 @@ suffixed with the shape's distinguishing trait:
 - `ni_analog_read_config_device.json` freezes the earlier analog read shape: the device
   at the config level instead of on each channel, the kebab-case `strainConfig` and
   lowercase `strain` units Consoles 0.36 through 0.44 wrote, and the
-  `ai_frequency_voltage` type name. That spelling has driver provenance, not Console:
-  no released Console or Python client wrote it, only the released Driver's parser
-  accepted it. It also exercises the `Chan` and `BuiltIn` cold-junction sources, which
-  the newer fixture does not carry.
+  `ai_frequency_voltage` type name. That spelling has driver provenance, not Console: no
+  released Console or Python client wrote it, only the released Driver's parser accepted
+  it. It also exercises the `Chan` and `BuiltIn` cold-junction sources, which the newer
+  fixture does not carry.
 - `labjack_write_cmd_key.json` freezes the earlier write shape, which keyed channels
   with `cmdKey` and `stateKey` instead of `cmdChannel` and `stateChannel`.
 

@@ -70,17 +70,9 @@
       "channel": 1040,
       "custom_scale": {
         "pre_scaled_units": "Amps",
-        "pre_scaled_vals": [
-          0.001,
-          0.002,
-          0.004
-        ],
+        "pre_scaled_vals": [0.001, 0.002, 0.004],
         "scaled_units": "amps-custom",
-        "scaled_vals": [
-          1.5,
-          3.5,
-          7.5
-        ],
+        "scaled_vals": [1.5, 3.5, 7.5],
         "type": "table"
       },
       "device": "fixture-ni-dev-2",
@@ -105,22 +97,14 @@
       "device": "fixture-ni-dev-3",
       "disabled": false,
       "electrical_units": "VoltsPerVolt",
-      "electrical_vals": [
-        -1.5,
-        0.5,
-        2.5
-      ],
+      "electrical_vals": [-1.5, 0.5, 2.5],
       "key": "ch-ai-force-bridge-table",
       "max_val": 50.5,
       "min_val": -50.5,
       "name": "fixture_ai_force_bridge_table",
       "nominal_bridge_resistance": 120.5,
       "physical_units": "KilogramForce",
-      "physical_vals": [
-        -10.5,
-        5.5,
-        20.5
-      ],
+      "physical_vals": [-10.5, 5.5, 20.5],
       "port": 7,
       "type": "ai_force_bridge_table",
       "units": "Pounds",
@@ -260,22 +244,14 @@
       "device": "fixture-ni-dev-6",
       "disabled": false,
       "electrical_units": "mVoltsPerVolt",
-      "electrical_vals": [
-        -0.5,
-        1.5,
-        3.5
-      ],
+      "electrical_vals": [-0.5, 1.5, 3.5],
       "key": "ch-ai-pressure-bridge-table",
       "max_val": 315.5,
       "min_val": -15.5,
       "name": "fixture_ai_pressure_bridge_table",
       "nominal_bridge_resistance": 120.25,
       "physical_units": "PoundsPerSquareInch",
-      "physical_vals": [
-        -5.5,
-        15.5,
-        35.5
-      ],
+      "physical_vals": [-5.5, 15.5, 35.5],
       "port": 14,
       "type": "ai_pressure_bridge_table",
       "units": "Bar",
@@ -344,22 +320,14 @@
       "device": "fixture-ni-dev-8",
       "disabled": true,
       "electrical_units": "VoltsPerVolt",
-      "electrical_vals": [
-        -2.5,
-        0.25,
-        2.75
-      ],
+      "electrical_vals": [-2.5, 0.25, 2.75],
       "key": "ch-ai-torque-bridge-table",
       "max_val": 90.5,
       "min_val": -90.5,
       "name": "fixture_ai_torque_bridge_table",
       "nominal_bridge_resistance": 350.5,
       "physical_units": "FootPounds",
-      "physical_vals": [
-        -45.5,
-        4.5,
-        50.5
-      ],
+      "physical_vals": [-45.5, 4.5, 50.5],
       "port": 18,
       "type": "ai_torque_bridge_table",
       "units": "InchOunces",

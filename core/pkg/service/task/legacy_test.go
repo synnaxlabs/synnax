@@ -303,7 +303,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				"expected",
 				fixture+".json",
 			)
-			goldenBytes := MustSucceed(json.MarshalIndent(canonical, "", "  "))
+			// The trailing newline keeps regenerated goldens Prettier-clean.
+			goldenBytes := append(
+				MustSucceed(json.MarshalIndent(canonical, "", "  ")), '\n',
+			)
 			if os.Getenv("UPDATE_LEGACY_GOLDENS") != "" {
 				Expect(os.WriteFile(goldenPath, goldenBytes, 0o644)).To(Succeed())
 			} else {
