@@ -36,22 +36,23 @@ Choose a name and select **Text** for the editor mode.
 
 Copy this code into the editor:
 
-```arc
+```arc channels="data_channel, data_scaled"
 import time
 
 func scale_reading(value f64) f64 {
     return value * 2.0
 }
 
-func output_reading() {
+func create_reading() {
     count f64 $= 10
     count += 1
-    tank_pressure = count
+    data_channel = count
 }
+// Drive data writes
+time.interval{period=200ms} -> create_reading{}
 
-tank_pressure -> scale_reading{} -> pressure_scaled
-
-time.interval{period=200ms} -> output_reading{}
+// React on every channel write
+data_channel -> scale_reading{} -> data_scaled
 ```
 
 This program has two parts that work together:
@@ -112,11 +113,11 @@ func scale_reading(value f64) f64 {
 
 ### Stateful Variables
 
-```arc
+```arc channels="count_chan"
 func output_reading() {
     count f64 $= 10
     count += 1
-    tank_pressure = count
+    count_chan = count
 }
 ```
 
@@ -133,7 +134,7 @@ page covers persistence and reset behavior in more depth.
 
 ### Flow Statements
 
-```arc
+```arc channels="tank_pressure, pressure_scaled"
 tank_pressure -> scale_reading{} -> pressure_scaled
 ```
 
@@ -182,7 +183,7 @@ You can stop execution at any time with the **Pause** button.
 Here's a more practical example that triggers a notification when pressure exceeds a
 limit. This builds on our previous example by adding alarm logic:
 
-```arc
+```arc channels="tank_pressure"
 import status
 import time
 

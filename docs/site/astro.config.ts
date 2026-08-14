@@ -14,7 +14,7 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig } from "astro/config";
 
-import { theme } from "./src/util/shiki";
+import { symbols, theme } from "./src/util/shiki";
 
 // https://astro.build/config
 export default defineConfig({
@@ -29,6 +29,7 @@ export default defineConfig({
     shikiConfig: {
       theme,
       langs: [arcGrammar],
+      transformers: [symbols],
     },
   },
   redirects: {

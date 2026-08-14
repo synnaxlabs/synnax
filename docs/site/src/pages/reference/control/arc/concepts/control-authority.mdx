@@ -24,7 +24,7 @@ values take effect. Without it, writers would overwrite each other unpredictably
 The `authority` keyword sets a program's authority level. Place it before any `func`,
 `sequence`, or flow declarations:
 
-```arc
+```arc channels="press_vlv_cmd, ox_pt_1, start_cmd", bodies="main"
 authority 200
 
 sequence main {
@@ -44,7 +44,7 @@ Authority values range from 0 to 255. Higher values take precedence over lower o
 
 For different channels, use the grouped form:
 
-```arc
+```arc channels="press_vlv_cmd, vent_vlv_cmd"
 authority (
     200
     press_vlv_cmd 100
@@ -81,7 +81,7 @@ Use
 [`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
 inside stages to change authority during execution:
 
-```arc
+```arc channels="sensor, output, press_vlv_cmd, start_cmd", bodies="escalate, done"
 import control
 import time
 
@@ -136,7 +136,7 @@ schematic controls all participate in the same authority system.
 A common pattern is starting at moderate authority and escalating when an emergency is
 detected:
 
-```arc
+```arc channels="sensor, output, emergency_condition, press_vlv_cmd, vent_vlv_cmd, start_cmd", bodies="emergency, main"
 import control
 
 authority 100
@@ -171,7 +171,7 @@ capability.
 Setting authority to 0 gives a program the lowest possible priority. Any other writer
 takes precedence:
 
-```arc
+```arc channels="press_vlv_cmd, done_condition, start_cmd", bodies="main, yield"
 import control
 
 authority 200

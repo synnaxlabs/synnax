@@ -27,7 +27,7 @@ for batch processing and aggregation.
 A channel in Arc references a channel that exists in your Synnax cluster. You don't
 declare channels. Just use them by name:
 
-```arc
+```arc channels="tank_pressure, pressure_scaled, valve_cmd"
 // Read from a pressure transducer and scale it into another channel
 tank_pressure -> scale{factor=2.0} -> pressure_scaled
 // Write a fixed value to a valve command
@@ -57,7 +57,7 @@ statements) or an **imperative context** (inside a function body).
 
 In flow statements, channels are **event-driven data sources**:
 
-```arc
+```arc channels="sensor, actuator"
 sensor -> controller{} -> actuator
 ```
 
@@ -94,7 +94,7 @@ You can also bind a channel, or an expression over channels, to a
 
 Channels can be passed to functions as input parameters:
 
-```arc
+```arc channels="tank_pressure, pressure_high"
 func monitor{sensor chan f64, limit f64} () u8 {
     return sensor > limit
 }
@@ -115,7 +115,7 @@ syntax inside a function.
 
 <Fragment slot="flow">
 
-```arc
+```arc channels="sensor, output_channel"
 stage control {
     sensor -> scale{factor=2.0} -> output_channel
 }
@@ -150,6 +150,7 @@ with buffered data.
 ```arc
 // Literal
 data := [1.0, 2.0, 3.0]
+
 // Empty (requires type annotation)
 buffer series f64 := []
 ```
@@ -159,9 +160,9 @@ buffer series f64 := []
 ```arc
 data := [10.0, 20.0, 30.0, 40.0]
 
-first := data[0] // 10.0
-last := data[3] // 40.0
-middle := data[1: 3] // [20.0, 30.0]
+first := data[0]  // 10.0
+mid := data[1: 3] // [20.0, 30.0]
+last := data[3]   // 40.0
 ```
 
 Out-of-bounds access causes a runtime error.
@@ -181,14 +182,17 @@ Arithmetic and comparison operators work element-wise on series:
 
 ```arc
 data := [1.0, 2.0, 3.0]
+
 // Scalar operations (broadcast)
-scaled := data * 2.0 // [2.0, 4.0, 6.0]
+scaled := data * 2.0  // [2.0, 4.0, 6.0]
 offset := data + 10.0 // [11.0, 12.0, 13.0]
+
 // Series operations (must be equal length)
 other := [4.0, 5.0, 6.0]
 sum := data + other // [5.0, 7.0, 9.0]
+
 // Comparisons return series u8
-mask := data > 2.0 // [0, 0, 1]
+mask := data > 2.0  // [0, 0, 1]
 ```
 
 Binary operations between two series require them to have equal length. Mismatched

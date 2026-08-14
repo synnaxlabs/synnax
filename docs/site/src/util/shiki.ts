@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { tokens } from "@synnaxlabs/arc";
-import { createCssVariablesTheme } from "shiki";
+import { type Token, tokens } from "@synnaxlabs/arc";
+import { type ShikiTransformer, createCssVariablesTheme, splitTokens } from "shiki";
 
-const arcRules = Object.values(tokens).flatMap(({ scopes, light, dark }) =>
-  scopes.map((scope) => ({
-    scope,
-    settings: { foreground: `light-dark(${light}, ${dark})` },
-  })),
+const color = ({ light, dark }: Token): string => `light-dark(${light}, ${dark})`;
+
+const arcRules = Object.values(tokens).flatMap((token) =>
+  token.scopes.map((scope) => ({ scope, settings: { foreground: color(token) } })),
 );
 
 /**
@@ -24,3 +23,46 @@ const arcRules = Object.values(tokens).flatMap(({ scopes, light, dark }) =>
  */
 export const theme = createCssVariablesTheme({ variablePrefix: "--astro-code-" });
 theme.tokenColors = [...(theme.tokenColors ?? []), ...arcRules];
+
+const VARIABLE_COLOR = color(tokens.variable);
+// Stage and sequence names take the function color, as the analyzer reports them as
+// functions.
+const ROLES = { channels: color(tokens.channel), bodies: color(tokens.function) };
+const ROLES_META = new RegExp(`(${Object.keys(ROLES).join("|")})="([^"]*)"`, "g");
+
+/**
+ * Experimental. Colors the identifiers named in a fence's `channels="a, b"` metadata as
+ * channels, and those in `bodies="c, d"` as stage or sequence names. The grammar cannot
+ * tell either from a plain variable, so the author declares them.
+ */
+export const symbols: ShikiTransformer = {
+  name: "arc-symbols",
+  tokens(lines) {
+    const raw: string = this.options.meta?.__raw ?? "";
+    const declared = new Map<string, string>();
+    for (const [, role, names] of raw.matchAll(ROLES_META))
+      names
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .forEach((name) => declared.set(name, ROLES[role as keyof typeof ROLES]));
+    if (declared.size === 0) return;
+    // Shiki emits `a=pressure_1` as one token, since a run of same-colored tokens is
+    // merged. Split the run at every name so each gets its own color.
+    const pattern = new RegExp(`\\b(?:${[...declared.keys()].join("|")})\\b`, "g");
+    const breaks = [...this.source.matchAll(pattern)].flatMap(({ 0: name, index }) => [
+      index,
+      index + name.length,
+    ]);
+    const split = splitTokens(lines, breaks);
+    split.forEach((line) =>
+      line.forEach((token) => {
+        // A name inside a string or comment keeps that color.
+        if (token.color !== VARIABLE_COLOR) return;
+        const role = declared.get(token.content);
+        if (role != null) token.color = role;
+      }),
+    );
+    return split;
+  },
+};

@@ -40,10 +40,10 @@ A sequence may have different control authorities for different channels. For ex
 an emergency stage in Arc can escalate authority on critical channels while leaving
 others at normal priority:
 
-```arc
+```arc channels="press_vlv_cmd, vent_vlv_cmd"
 stage emergency {
-    set_authority{value=255, channel=press_vlv_cmd}
-    set_authority{value=100, channel=vent_vlv_cmd}
+    control.set_authority{value=255, channel=press_vlv_cmd}
+    control.set_authority{value=100, channel=vent_vlv_cmd}
     0 -> press_vlv_cmd
     1 -> vent_vlv_cmd
 }
@@ -70,9 +70,9 @@ sequence main {
 
 **Dynamic changes** adjust authority at runtime using `set_authority` inside stages:
 
-```arc
+```arc channels="press_vlv_cmd"
 stage escalate {
-    set_authority{value=255}
+    control.set_authority{value=255}
     1 -> press_vlv_cmd
 }
 ```

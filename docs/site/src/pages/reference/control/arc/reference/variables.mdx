@@ -140,7 +140,7 @@ rebind it to another channel of the same type.
 
 A short local name for a long or deeply namespaced channel.
 
-```arc
+```arc channels="cpu, sy_node_1_metrics_cpu", bodies="throttle"
 cpu := sy_node_1_metrics_cpu
 cpu > 90.0 => throttle
 ```
@@ -153,7 +153,7 @@ cpu > 90.0 => throttle
 Command an actuator through an alias; on a fault, rebind it to the backup. Writes stay
 wired to the alias and follow whichever channel is bound.
 
-```arc
+```arc channels="pump, pump_a_cmd, pump_b_cmd, run_cmd, pump_a_fault",bodies="backup"
 stage main {
     pump := pump_a_cmd
 
@@ -179,7 +179,7 @@ stage main {
 Read and write the same channel: watch an operator-writable setpoint and write a safe
 limit back when it exceeds a bound.
 
-```arc
+```arc channels="setpoint, setpoint_cmd", bodies="clamp, watch"
 setpoint := setpoint_cmd
 
 sequence guard {
@@ -201,7 +201,7 @@ sequence guard {
 Point the same routine at a chosen unit; rebind the alias to switch targets without
 rewiring the flow.
 
-```arc
+```arc channels="dut, dut_a_cmd, dut_b_cmd, run_cmd, use_b", bodies="on_b"
 stage main {
     dut := dut_a_cmd // default target
 
@@ -238,7 +238,7 @@ the variable follows the new rule from its next trigger onward.
 A status label that reflects the current stage and the live reading, logged as it
 streams.
 
-```arc
+```arc channels="ai_0, log"
 stage monitor {
     reactive_expr := "Nominal: " + str(ai_0)
 
@@ -267,7 +267,7 @@ stage monitor {
 A proportional command whose gain changes with the phase, feeding the proportional valve
 directly.
 
-```arc
+```arc channels="pressure, setpoint, valve_cmd"
 stage control {
     // proportional command; the gain changes with the phase
     command := coarse_gain * (setpoint - pressure)
@@ -294,7 +294,7 @@ stage control {
 Read a scaled sensor; on a fault, reassign the same variable to a backup probe.
 Downstream flows stay wired to the variable.
 
-```arc
+```arc channels="probe_a, probe_b, probe_a_fault, temperature"
 stage monitor {
     temp := probe_a * 0.1 - 40.0
 
