@@ -19,6 +19,7 @@ import { type InternalControlsProps } from "@/os/Controls/types";
 
 export const Windows = ({
   disabled = [],
+  maximized = false,
   onMinimize,
   onMaximize,
   onClose,
@@ -40,14 +41,14 @@ export const Windows = ({
       onClick={onMaximize}
       disabled={disabled.includes("maximize")}
     >
-      <Icon.Box />
+      {maximized ? <Icon.Boxes /> : <Icon.Box />}
     </Button>
     <Button
       onClick={onClose}
       className={CSS.BM("windows-control", "close")}
       disabled={disabled.includes("close")}
     >
-      <Icon.Close />
+      <Icon.CloseThin />
     </Button>
   </Flex.Box>
 );
@@ -61,6 +62,7 @@ const Button = ({
     <BaseButton.Button
       className={CSS(CSS.B("windows-control"), className)}
       tabIndex={-1}
+      variant="text"
       {...rest}
     />
   ) : null;

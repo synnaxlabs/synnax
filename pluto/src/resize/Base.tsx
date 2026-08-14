@@ -47,7 +47,15 @@ export const Base = ({
   }, [decimal, size, dir, propsStyle]);
   return (
     <Flex.Box
-      className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), CSS.dir(dir), className)}
+      className={CSS(
+        CSS.B("resize"),
+        CSS.loc(parsedLocation),
+        CSS.dir(dir),
+        // The container owns the divider; the handle is a transparent hit target that
+        // only paints while hovered or dragged.
+        !hideHandle && CSS.bordered(location.swap(parsedLocation)),
+        className,
+      )}
       full={direction.swap(dir)}
       style={style}
       ref={ref}
@@ -58,11 +66,7 @@ export const Base = ({
       {children}
       {!hideHandle && (
         <div
-          className={CSS(
-            CSS.BE("resize", "handle"),
-            CSS.bordered(location.swap(parsedLocation)),
-            Cursor.DRAG_CLASS,
-          )}
+          className={CSS(CSS.BE("resize", "handle"), Cursor.DRAG_CLASS)}
           onPointerDown={onPointerDown}
         />
       )}
