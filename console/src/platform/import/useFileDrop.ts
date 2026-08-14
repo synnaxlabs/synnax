@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/client";
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -56,6 +56,7 @@ interface IngestContext {
   client: Client | null;
   fileIngesters: FileIngesters;
   ingestDirectory: DirectoryIngester;
+  projectKey: project.Key;
   store: Store;
 }
 
@@ -63,7 +64,7 @@ interface IngestContext {
 // brings its own panels, so it opens no tab here.
 const ingestEntry = async (
   entry: FileSystemEntry,
-  { client, fileIngesters, ingestDirectory, store }: IngestContext,
+  { client, fileIngesters, ingestDirectory, projectKey, store }: IngestContext,
 ): Promise<void | ontology.ID> => {
   if (isDirectory(entry)) {
     const files = await readDirectory(entry);
@@ -82,7 +83,7 @@ const ingestEntry = async (
   return await ingestComponent(await readJSON(file), fileIngesters, {
     name: trimFileName(file.name),
     client,
-    projectKey: Session.Project.selectSelected(store.getState()),
+    projectKey,
     fileName: file.name,
   });
 };
@@ -116,6 +117,9 @@ export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop =>
   return useCallback(
     ({ nodeKey, location, event }: FileDropProps) => {
       const entries = captureEntries(event.dataTransfer);
+      // A dropped project selects itself once imported, so every file in the drop takes
+      // the project open when it landed instead of whichever one wins the race.
+      const projectKey = Session.Project.selectSelected(store.getState());
       const placement =
         nodeKey != null && location != null ? { leaf: nodeKey, location } : undefined;
       handleError(async () => {
@@ -126,6 +130,7 @@ export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop =>
                 client,
                 fileIngesters,
                 ingestDirectory,
+                projectKey,
                 store,
               });
             } catch (e) {

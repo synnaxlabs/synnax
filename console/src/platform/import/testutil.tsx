@@ -52,14 +52,18 @@ export const createJSONFile = (name: string, contents: unknown): File =>
 
 /**
  * Builds the FileSystemFileEntry surface the drop path reads. jsdom cannot construct
- * one, so the sanctioned casts to the DOM types live here.
+ * one, so the sanctioned casts to the DOM types live here. Pass `until` to hold the
+ * read open, which orders one entry of a drop against the others.
  */
-export const fakeFileEntry = (file: File): FileSystemEntry =>
+export const fakeFileEntry = (file: File, until?: Promise<void>): FileSystemEntry =>
   ({
     isFile: true,
     isDirectory: false,
     name: file.name,
-    file: (resolve: (file: File) => void) => resolve(file),
+    file: (resolve: (file: File) => void) => {
+      if (until == null) resolve(file);
+      else void until.then(() => resolve(file));
+    },
   }) as unknown as FileSystemEntry;
 
 /** Builds the FileSystemDirectoryEntry surface the drop path reads. */
@@ -71,7 +75,7 @@ export const fakeDirectoryEntry = (name: string, files: File[]): FileSystemEntry
     name,
     createReader: () => ({
       readEntries: (resolve: (entries: FileSystemEntry[]) => void) => {
-        resolve(read ? [] : files.map(fakeFileEntry));
+        resolve(read ? [] : files.map((file) => fakeFileEntry(file)));
         read = true;
       },
     }),

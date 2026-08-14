@@ -133,6 +133,44 @@ describe("Import.useFileDrop", () => {
     );
   });
 
+  // A dropped project selects itself once imported, and the drop's other files import
+  // alongside it. A file that finishes reading after the switch still belongs to the
+  // project that was open when the drop landed.
+  it("imports every file into the project open when the drop landed", async () => {
+    let releaseFile = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      releaseFile = resolve;
+    });
+    const imported = uuid.create();
+    const log = vi.fn();
+    const ingestDirectory = vi.fn<Import.DirectoryIngester>(
+      async (_name, _files, { store }) => {
+        store.dispatch(Session.Project.select(imported));
+      },
+    );
+    const { result, store } = await renderFileDrop({
+      fileIngesters: { log },
+      ingestDirectory,
+    });
+    const open = Session.Project.selectSelected(store.getState());
+    act(() =>
+      result.current({
+        nodeKey: panel.ROOT_NODE_KEY,
+        location: "center",
+        event: fakeFileDropEvent([
+          fakeDirectoryEntry("my-project", [createJSONFile("panels.json", [])]),
+          fakeFileEntry(createJSONFile("widget.json", { type: "log" }), held),
+        ]),
+      }),
+    );
+    await waitFor(() =>
+      expect(Session.Project.selectSelected(store.getState())).toBe(imported),
+    );
+    releaseFile();
+    await waitFor(() => expect(log).toHaveBeenCalledTimes(1));
+    expect(log.mock.calls[0][1]).toMatchObject({ projectKey: open });
+  });
+
   it("ignores items the drag carries that are not files", async () => {
     const log = vi.fn();
     let statuses: Status.NotificationSpec[] = [];
