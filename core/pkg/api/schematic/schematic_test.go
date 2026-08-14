@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package schematic
+package schematic_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -47,10 +48,13 @@ var _ = Describe("Service", func() {
 				grantOn(ctx, author.OntologyID(), access.ActionRetrieve,
 					schematic.OntologyID(s.Key), schematic.OntologyID(missing))
 				res := MustSucceed(
-					apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-						Keys:                []schematic.Key{s.Key, missing},
-						IgnoreNotFoundError: true,
-					}),
+					apiSvc.Retrieve(
+						authedCtx(ctx, author),
+						apischematic.RetrieveRequest{
+							Keys:                []schematic.Key{s.Key, missing},
+							IgnoreNotFoundError: true,
+						},
+					),
 				)
 				Expect(res.Schematics).To(HaveLen(1))
 				Expect(res.Schematics[0].Key).To(Equal(s.Key))
@@ -61,10 +65,13 @@ var _ = Describe("Service", func() {
 			"Should return an empty result when every requested key is missing",
 			func(ctx SpecContext) {
 				res := MustSucceed(
-					apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
-						Keys:                []schematic.Key{uuid.New()},
-						IgnoreNotFoundError: true,
-					}),
+					apiSvc.Retrieve(
+						authedCtx(ctx, author),
+						apischematic.RetrieveRequest{
+							Keys:                []schematic.Key{uuid.New()},
+							IgnoreNotFoundError: true,
+						},
+					),
 				)
 				Expect(res.Schematics).To(BeEmpty())
 			},
@@ -77,15 +84,24 @@ var _ = Describe("Service", func() {
 				"Should reject the request with access.ErrDenied when the subject has no policy",
 				func(ctx SpecContext) {
 					s := createSchematic(ctx, "no-policy")
-					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-						Key:         s.Key,
-						DispatchKey: "sess-1",
-						Actions: []schematic.Action{
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
-								Key: "n1",
-							}),
-						},
-					})).Error().To(MatchError(access.ErrDenied))
+					Expect(
+						apiSvc.Dispatch(
+							authedCtx(ctx, author),
+							db,
+							apischematic.DispatchRequest{
+								Key:         s.Key,
+								DispatchKey: "sess-1",
+								Actions: []schematic.Action{
+									schematic.NewRemoveNodeAction(
+										schematic.RemoveNodePayload{
+											Key: "n1",
+										},
+									),
+								},
+							},
+						),
+					).Error().
+						To(MatchError(access.ErrDenied))
 				},
 			)
 
@@ -94,18 +110,25 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					s := createSchematic(ctx, "with-policy")
 					grantUpdateOn(ctx, author.OntologyID(), s.OntologyID())
-					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-						Key:         s.Key,
-						DispatchKey: "sess-1",
-						Actions: []schematic.Action{
-							schematic.NewSetNodeAction(schematic.SetNodePayload{
-								Node: schematic.Node{
-									Key:      "n1",
-									Position: spatial.XY{X: 1, Y: 2},
+					Expect(
+						apiSvc.Dispatch(
+							authedCtx(ctx, author),
+							db,
+							apischematic.DispatchRequest{
+								Key:         s.Key,
+								DispatchKey: "sess-1",
+								Actions: []schematic.Action{
+									schematic.NewSetNodeAction(schematic.SetNodePayload{
+										Node: schematic.Node{
+											Key:      "n1",
+											Position: spatial.XY{X: 1, Y: 2},
+										},
+									}),
 								},
-							}),
-						},
-					})).Error().To(Succeed())
+							},
+						),
+					).Error().
+						To(Succeed())
 					var res schematic.Schematic
 					Expect(schematicSvc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
@@ -121,15 +144,24 @@ var _ = Describe("Service", func() {
 					a := createSchematic(ctx, "policy-target")
 					b := createSchematic(ctx, "no-policy-target")
 					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
-					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-						Key:         b.Key,
-						DispatchKey: "sess-1",
-						Actions: []schematic.Action{
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
-								Key: "n1",
-							}),
-						},
-					})).Error().To(MatchError(access.ErrDenied))
+					Expect(
+						apiSvc.Dispatch(
+							authedCtx(ctx, author),
+							db,
+							apischematic.DispatchRequest{
+								Key:         b.Key,
+								DispatchKey: "sess-1",
+								Actions: []schematic.Action{
+									schematic.NewRemoveNodeAction(
+										schematic.RemoveNodePayload{
+											Key: "n1",
+										},
+									),
+								},
+							},
+						),
+					).Error().
+						To(MatchError(access.ErrDenied))
 				},
 			)
 		})
@@ -140,31 +172,44 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					s := createSchematic(ctx, "multi-action")
 					grantUpdateOn(ctx, author.OntologyID(), s.OntologyID())
-					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-						Key:         s.Key,
-						DispatchKey: "sess-1",
-						Actions: []schematic.Action{
-							schematic.NewSetNodeAction(schematic.SetNodePayload{
-								Node: schematic.Node{
-									Key:      "n1",
-									Position: spatial.XY{X: 1, Y: 2},
+					Expect(
+						apiSvc.Dispatch(
+							authedCtx(ctx, author),
+							db,
+							apischematic.DispatchRequest{
+								Key:         s.Key,
+								DispatchKey: "sess-1",
+								Actions: []schematic.Action{
+									schematic.NewSetNodeAction(schematic.SetNodePayload{
+										Node: schematic.Node{
+											Key:      "n1",
+											Position: spatial.XY{X: 1, Y: 2},
+										},
+									}),
+									schematic.NewSetNodeAction(schematic.SetNodePayload{
+										Node: schematic.Node{
+											Key:      "n2",
+											Position: spatial.XY{X: 3, Y: 4},
+										},
+									}),
+									schematic.NewAddEdgeAction(
+										schematic.AddEdgePayload{Edge: schematic.Edge{
+											Key: "e1",
+											Source: schematic.Handle{
+												Node:  "n1",
+												Param: "out",
+											},
+											Target: schematic.Handle{
+												Node:  "n2",
+												Param: "in",
+											},
+										}},
+									),
 								},
-							}),
-							schematic.NewSetNodeAction(schematic.SetNodePayload{
-								Node: schematic.Node{
-									Key:      "n2",
-									Position: spatial.XY{X: 3, Y: 4},
-								},
-							}),
-							schematic.NewAddEdgeAction(
-								schematic.AddEdgePayload{Edge: schematic.Edge{
-									Key:    "e1",
-									Source: schematic.Handle{Node: "n1", Param: "out"},
-									Target: schematic.Handle{Node: "n2", Param: "in"},
-								}},
-							),
-						},
-					})).Error().To(Succeed())
+							},
+						),
+					).Error().
+						To(Succeed())
 					var res schematic.Schematic
 					Expect(schematicSvc.NewRetrieve().
 						Where(schematic.MatchKeys(s.Key)).
@@ -184,15 +229,24 @@ var _ = Describe("Service", func() {
 							Copy(ctx, s.Key, "snap", true, &snap),
 					).To(Succeed())
 					grantUpdateOn(ctx, author.OntologyID(), snap.OntologyID())
-					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-						Key:         snap.Key,
-						DispatchKey: "sess-1",
-						Actions: []schematic.Action{
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
-								Key: "n1",
-							}),
-						},
-					})).Error().To(MatchError(validate.ErrValidation))
+					Expect(
+						apiSvc.Dispatch(
+							authedCtx(ctx, author),
+							db,
+							apischematic.DispatchRequest{
+								Key:         snap.Key,
+								DispatchKey: "sess-1",
+								Actions: []schematic.Action{
+									schematic.NewRemoveNodeAction(
+										schematic.RemoveNodePayload{
+											Key: "n1",
+										},
+									),
+								},
+							},
+						),
+					).Error().
+						To(MatchError(validate.ErrValidation))
 				},
 			)
 
@@ -205,15 +259,24 @@ var _ = Describe("Service", func() {
 						author.OntologyID(),
 						schematic.OntologyID(missing),
 					)
-					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-						Key:         missing,
-						DispatchKey: "sess-1",
-						Actions: []schematic.Action{
-							schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
-								Key: "n1",
-							}),
-						},
-					})).Error().To(MatchError(query.ErrNotFound))
+					Expect(
+						apiSvc.Dispatch(
+							authedCtx(ctx, author),
+							db,
+							apischematic.DispatchRequest{
+								Key:         missing,
+								DispatchKey: "sess-1",
+								Actions: []schematic.Action{
+									schematic.NewRemoveNodeAction(
+										schematic.RemoveNodePayload{
+											Key: "n1",
+										},
+									),
+								},
+							},
+						),
+					).Error().
+						To(MatchError(query.ErrNotFound))
 				},
 			)
 		})
@@ -231,15 +294,22 @@ var _ = Describe("Service", func() {
 						},
 					)
 					DeferCleanup(disconnect)
-					Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
-						Key:         s.Key,
-						DispatchKey: "session-marker-xyz",
-						Actions: []schematic.Action{
-							schematic.NewSetNodeAction(schematic.SetNodePayload{
-								Node: schematic.Node{Key: "n1"},
-							}),
-						},
-					})).Error().To(Succeed())
+					Expect(
+						apiSvc.Dispatch(
+							authedCtx(ctx, author),
+							db,
+							apischematic.DispatchRequest{
+								Key:         s.Key,
+								DispatchKey: "session-marker-xyz",
+								Actions: []schematic.Action{
+									schematic.NewSetNodeAction(schematic.SetNodePayload{
+										Node: schematic.Node{Key: "n1"},
+									}),
+								},
+							},
+						),
+					).Error().
+						To(Succeed())
 					var got scopedAction
 					Eventually(seen).Should(Receive(&got))
 					Expect(got.Key).To(Equal(s.Key))

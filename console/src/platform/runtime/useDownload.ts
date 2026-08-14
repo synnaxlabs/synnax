@@ -21,14 +21,6 @@ interface WindowWithShowSaveFilePicker extends Window {
   }) => Promise<FileSystemFileHandle>;
 }
 
-export type DownloadExtension = "csv" | "json" | "zip";
-
-const FILTER_NAMES: Record<DownloadExtension, string> = {
-  csv: "CSV",
-  json: "JSON",
-  zip: "ZIP",
-};
-
 export interface DownloadParams {
   /** The stream to download. */
   stream: ReadableStream<Uint8Array>;
@@ -37,8 +29,8 @@ export interface DownloadParams {
    * form names the file.
    */
   name: string;
-  /** The extension of the file to download. */
-  extension: DownloadExtension;
+  /** The extension of the file to download, without a leading dot. */
+  extension: string;
   /** A callback to invoke when the download starts. */
   onDownloadStart?: () => void;
 }
@@ -86,10 +78,12 @@ export const useDownload = (): ((params: DownloadParams) => Promise<void>) => {
           addFinishStatus(fileHandle.name);
           return;
         } catch (error) {
-          if (error instanceof DOMException && error.name === "AbortError") {
-            await stream.cancel();
-            return;
-          }
+          // A rejection before pipeTo starts leaves the response stream open, so
+          // cancel unconditionally. After a pipeTo failure the stream is locked and
+          // this cancel rejects; ignoring it is correct because pipeTo has already
+          // cancelled the source.
+          await stream.cancel().catch(() => {});
+          if (error instanceof DOMException && error.name === "AbortError") return;
           throw errors.fromUnknown(error);
         }
       // Case 2: we use Tauri's stream writer, where at least we don't have to load
@@ -98,7 +92,7 @@ export const useDownload = (): ((params: DownloadParams) => Promise<void>) => {
         const savePath = await save({
           title: `Download ${name}`,
           defaultPath: nameWithExtension,
-          filters: [{ name: FILTER_NAMES[extension], extensions: [extension] }],
+          filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
         });
         if (savePath == null) {
           await stream.cancel();

@@ -9,6 +9,7 @@
 
 import { DisconnectedError, type framer } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
@@ -21,11 +22,14 @@ export const useDownloadCSV = (): ((params: DownloadCSVParams) => void) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const download = Runtime.useDownload();
-  return ({ name, onDownloadStart, ...readParams }: DownloadCSVParams) => {
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      const stream = await client.read({ ...readParams, responseType: "csv" });
-      await download({ stream, name, extension: "csv", onDownloadStart });
-    }, `Failed to download CSV data for ${name}`);
-  };
+  return useCallback(
+    ({ name, onDownloadStart, ...readParams }: DownloadCSVParams) => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const stream = await client.read({ ...readParams, responseType: "csv" });
+        await download({ stream, name, extension: "csv", onDownloadStart });
+      }, `Failed to download CSV data for ${name}`);
+    },
+    [client, handleError, download],
+  );
 };

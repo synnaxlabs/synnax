@@ -55,8 +55,17 @@ describe("dataTransferItem", () => {
     const fileEntry = {
       isFile: true,
       isDirectory: false,
+      name: "a.json",
       file: (resolve: (f: File) => void) =>
         resolve(jsonFile('{"type":"log"}', "a.json")),
+    };
+    // Binary junk Finder writes into browsed directories; parsing it would throw.
+    const junkEntry = {
+      isFile: true,
+      isDirectory: false,
+      name: ".DS_Store",
+      file: (resolve: (f: File) => void) =>
+        resolve(new File(["\x00\x01"], ".DS_Store")),
     };
     let readCount = 0;
     const directoryEntry = {
@@ -65,7 +74,7 @@ describe("dataTransferItem", () => {
       name: "my-directory",
       createReader: () => ({
         readEntries: (resolve: (entries: unknown[]) => void) =>
-          resolve(readCount++ === 0 ? [fileEntry] : []),
+          resolve(readCount++ === 0 ? [fileEntry, junkEntry] : []),
       }),
     };
     const item = fakeDataTransferItem({ entry: directoryEntry });
@@ -77,7 +86,7 @@ describe("dataTransferItem", () => {
     expect(ingestDirectory).toHaveBeenCalledTimes(1);
     expect(ingestDirectory.mock.calls[0][0]).toEqual("my-directory");
     expect(ingestDirectory.mock.calls[0][1]).toEqual([
-      { name: "a.json", data: { type: "log" } },
+      { name: "a.json", path: "a.json", data: { type: "log" } },
     ]);
   });
 });

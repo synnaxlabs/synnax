@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package panel
+package panel_test
 
 import (
 	"testing"
@@ -16,6 +16,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -42,7 +46,7 @@ var (
 	rbacSvc  *rbac.Service
 	panelSvc *panel.Service
 	userSvc  *user.Service
-	apiSvc   *Service
+	apiSvc   *apipanel.Service
 	author   user.User
 	parentID ontology.ID
 )
@@ -78,7 +82,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	apiSvc = &Service{access: rbacSvc, internal: panelSvc}
+	apiSvc = MustSucceed(apipanel.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service:      &service.Layer{Panel: panelSvc, RBAC: rbacSvc},
+	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
 	)

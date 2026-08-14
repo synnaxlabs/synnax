@@ -13,9 +13,11 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 type Writer struct {
@@ -67,6 +69,9 @@ func (w Writer) Create(
 			return err
 		}
 	}
+	if err := w.syncTaskEdges(ctx, p.Key, Node{}, p.Root); err != nil {
+		return err
+	}
 	// Notify last: a create rejected by ontology validation must not be broadcast.
 	w.dispatcher.Notify(
 		ctx, p.Key, "", []Action{NewCreateAction(CreatePayload{Panel: *p})},
@@ -95,18 +100,71 @@ func (w Writer) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
+	var prev, next Node
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
 		ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-			next, err := Reduce(p, acts...)
+			prev = p.Root
+			reduced, err := Reduce(p, acts...)
 			if err != nil {
-				return next, err
+				return reduced, err
 			}
-			return next, validateTree(next.Root)
+			next = reduced.Root
+			return reduced, validateTree(reduced.Root)
 		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err := w.syncTaskEdges(ctx, key, prev, next); err != nil {
 		return err
 	}
 	w.dispatcher.Notify(ctx, key, dispatchKey, acts)
 	return nil
+}
+
+// syncTaskEdges makes the panel the ontology parent of every task next's resource tabs
+// reference and removes the edge for every task only prev references. The edges make a
+// panel's tasks ontology descendants of its project, so a project export carries them.
+// Every referenced task must exist in the ontology.
+func (w Writer) syncTaskEdges(ctx context.Context, key Key, prev, next Node) error {
+	prevTasks, nextTasks := set.New[ontology.ID](), set.New[ontology.ID]()
+	collectTaskRefs(prev, prevTasks)
+	collectTaskRefs(next, nextTasks)
+	id := OntologyID(key)
+	if added := nextTasks.Difference(prevTasks); len(added) > 0 {
+		if err := w.otg.DefineRelationships(
+			ctx, id, ontology.RelationshipTypeParentOf, lo.Keys(added)...,
+		); err != nil {
+			return err
+		}
+	}
+	removed := prevTasks.Difference(nextTasks)
+	if len(removed) == 0 {
+		return nil
+	}
+	rels := lo.Map(
+		lo.Keys(removed),
+		func(task ontology.ID, _ int) ontology.Relationship {
+			return ontology.Relationship{
+				From: id, Type: ontology.RelationshipTypeParentOf, To: task,
+			}
+		},
+	)
+	return w.otg.DeleteRelationships(ctx, rels...)
+}
+
+// collectTaskRefs adds the ID of every task the tree's resource tabs reference to ids.
+func collectTaskRefs(n Node, ids set.Set[ontology.ID]) {
+	switch v := n.Variant.(type) {
+	case NodeLeaf:
+		for _, t := range v.Tabs {
+			if r, ok := t.Variant.(TabResource); ok &&
+				r.Resource.Type == ontology.ResourceTypeTask {
+				ids.Add(r.Resource)
+			}
+		}
+	case NodeSplit:
+		collectTaskRefs(v.First, ids)
+		collectTaskRefs(v.Last, ids)
+	}
 }
 
 // Delete deletes the panels with the given keys and removes their ontology entries.

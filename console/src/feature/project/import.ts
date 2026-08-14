@@ -20,9 +20,10 @@ import {
   schematic,
   type Synnax,
   table,
+  ValidationError,
 } from "@synnaxlabs/client";
 import { Access, type Status } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { errors, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Import } from "@/platform/import";
@@ -164,38 +165,41 @@ const parentDirOf = (path: string): string =>
 
 const baseNameOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 
-// A member is every .json file in the bundle except the root manifest and the
-// reserved legacy tiling file. Nested files keep their names: reservations apply at
-// the root alone.
+// A member is every .json file in the bundle except the root manifest and the reserved
+// legacy tiling file. Nested files keep their names: reservations apply at the root
+// alone.
 const isMember = (path: string): boolean =>
   path.endsWith(".json") && path !== MANIFEST_FILE_NAME && path !== LAYOUT_FILE_NAME;
 
 // Rewrites each resource tab's bundle path to the ontology ID minted for that member,
-// leaving every other field for panelZ to validate on create.
+// leaving every other field for panelZ to validate on create. Tabs referencing a
+// skipped member are dropped.
 const resolveNode = (
   node: unknown,
   refs: Map<string, ontology.ID>,
+  skipped: Set<string>,
   panelName: string,
 ): unknown => {
   const n = z.record(z.string(), z.unknown()).parse(node);
   if (n.variant !== "leaf")
     return {
       ...n,
-      first: resolveNode(n.first, refs, panelName),
-      last: resolveNode(n.last, refs, panelName),
+      first: resolveNode(n.first, refs, skipped, panelName),
+      last: resolveNode(n.last, refs, skipped, panelName),
     };
   const tabs = z.array(z.record(z.string(), z.unknown())).parse(n.tabs ?? []);
   return {
     ...n,
-    tabs: tabs.map((tab) => {
-      if (tab.variant !== "resource") return tab;
+    tabs: tabs.flatMap((tab) => {
+      if (tab.variant !== "resource") return [tab];
       const path = z.string().parse(tab.resource);
+      if (skipped.has(path)) return [];
       const id = refs.get(path);
       if (id == null)
         throw new Error(
           `Panel ${panelName} references ${path}, which is not in the bundle`,
         );
-      return { ...tab, resource: id };
+      return [{ ...tab, resource: id }];
     }),
   };
 };
@@ -236,13 +240,28 @@ const ingestBundle = async (
   const isPanelEnvelope = (data: unknown): boolean =>
     typeof data === "object" && data != null && "type" in data && data.type === "panel";
   const refs = new Map<string, ontology.ID>();
+  // HACK: the Core exports members it cannot yet import back (tasks register only an
+  // exporter), so a member rejected for a missing importer is skipped and every panel
+  // tab referencing it is dropped. Server-side project import removes this.
+  const skipped = new Set<string>();
   for (const member of members.filter(({ data }) => !isPanelEnvelope(data))) {
     const path = pathOf(member);
-    const id = await client.imex.import(JSON.stringify(member.data), {
-      encoding: "JSON",
-      fileName: baseNameOf(path),
-      parent: projectID,
-    });
+    let id: ontology.ID;
+    try {
+      id = await client.imex.import(JSON.stringify(member.data), {
+        encoding: "JSON",
+        fileName: baseNameOf(path),
+        parent: projectID,
+      });
+    } catch (error) {
+      if (
+        !ValidationError.matches(error) ||
+        !String(error).includes("no importer registered")
+      )
+        throw errors.fromUnknown(error);
+      skipped.add(path);
+      continue;
+    }
     refs.set(path, id);
     const dir = parentDirOf(path);
     if (dir !== "")
@@ -255,7 +274,7 @@ const ingestBundle = async (
     await client.panels.create({
       key: uuid.create(),
       name,
-      root: panel.nodeZ.parse(resolveNode(envelope.root, refs, name)),
+      root: panel.nodeZ.parse(resolveNode(envelope.root, refs, skipped, name)),
       parent: await groupFor(parentDirOf(path)),
     });
   }
@@ -324,11 +343,13 @@ export const import_ = ({
     if (directory == null) return;
     name = directory.name;
     const fileData = await Promise.all(
-      directory.files.map(async (file): Promise<Import.File> => ({
-        name: file.name,
-        path: file.path,
-        data: JSON.parse(await file.read()),
-      })),
+      directory.files
+        .filter((file) => Import.isParsableFile(file.path ?? file.name))
+        .map(async (file): Promise<Import.File> => ({
+          name: file.name,
+          path: file.path,
+          data: JSON.parse(await file.read()),
+        })),
     );
     await ingest(name, fileData, { client, fileIngesters, openTab, store });
   }, `Failed to import ${name}`);

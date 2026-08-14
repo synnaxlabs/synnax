@@ -96,6 +96,12 @@ var _ = Describe("Export", func() {
 			ctx, to, ontology.RelationshipTypeParentOf, child,
 		)).To(Succeed())
 	}
+	addToGroup := func(ctx SpecContext, child, to ontology.ID) {
+		GinkgoHelper()
+		Expect(otg.NewWriter(nil).DefineRelationships(
+			ctx, to, ontology.RelationshipTypeParentOf, child,
+		)).To(Succeed())
+	}
 	resourceTab := func(id ontology.ID) panel.Tab {
 		return panel.Tab{Variant: panel.TabResource{
 			TabBase:  panel.TabBase{Key: uuid.New()},
@@ -183,6 +189,37 @@ var _ = Describe("Export", func() {
 		root := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(root["tabs"]).To(ConsistOf(HaveKeyWithValue("resource", "Kept.json")))
 		Expect(members).ToNot(ContainElement(lp.OntologyID()))
+	})
+
+	It("Should export a panel's ontology children beside it", func(ctx SpecContext) {
+		proj := createProject(ctx, "Panel Children")
+		l := createLog(ctx, proj.Key, "Sequence")
+		p := createPanel(
+			ctx, "Controls", proj.OntologyID(), leaf(resourceTab(l.OntologyID())),
+		)
+		moveToGroup(ctx, l.OntologyID(), proj.OntologyID(), p.OntologyID())
+		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		Expect(files).To(HaveKey("Sequence.json"))
+		root := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(root["tabs"]).To(ConsistOf(
+			HaveKeyWithValue("resource", "Sequence.json"),
+		))
+		Expect(members).To(ConsistOf(l.OntologyID(), p.OntologyID()))
+	})
+
+	It("Should place a document with two parent groups once", func(ctx SpecContext) {
+		proj := createProject(ctx, "Dual Parent")
+		first := createGroup(ctx, "First", proj.OntologyID())
+		second := createGroup(ctx, "Second", proj.OntologyID())
+		l := createLog(ctx, proj.Key, "Shared")
+		moveToGroup(ctx, l.OntologyID(), proj.OntologyID(), first.OntologyID())
+		addToGroup(ctx, l.OntologyID(), second.OntologyID())
+		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		// The manifest plus one placement: the first parent keeps the document, and
+		// the other group drops as empty.
+		Expect(files).To(HaveLen(2))
+		Expect(members).To(HaveLen(2))
+		Expect(members).To(ContainElement(l.OntologyID()))
 	})
 
 	It("Should error when two members in one directory collide", func(

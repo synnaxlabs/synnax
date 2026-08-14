@@ -511,15 +511,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Task) {
 		return nil, err
 	}
-	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
-		Instrumentation: cfg.Child("panel"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-		Signals:         l.Signals,
-	}); !ok(err, l.Panel) {
-		return nil, err
-	}
 	if l.Arc, err = arc.OpenService(
 		ctx,
 		arc.ServiceConfig{

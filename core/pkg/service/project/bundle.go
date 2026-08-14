@@ -12,6 +12,7 @@ package project
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/encoding"
@@ -19,18 +20,16 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/set"
 )
 
-// legacyLayoutFileName is reserved so a stable-release project directory migrated in
-// place keeps working.
-const legacyLayoutFileName = "LAYOUT.json"
-
-type manifest struct {
-	Version uint8  `json:"version"`
-	Type    string `json:"type"`
-	Name    string `json:"name"`
-}
+const (
+	// legacyLayoutFileName is reserved so a stable-release project directory migrated
+	// in place keeps working.
+	legacyLayoutFileName = "LAYOUT.json"
+	manifestVersion      = 1
+	manifestType         = "project"
+)
 
 // Export serializes the project identified by key and its ontology descendants as a
 // bundle: one envelope per member document and panel, group children as directories,
@@ -40,10 +39,12 @@ type manifest struct {
 // extension every file takes.
 //
 // A child that is not a panel, a group, or a type the leaf registry exports is skipped,
-// along with every panel tab that references it. A group with no exported descendants
-// is dropped. It returns query.ErrNotFound if no project has key, and a validation
-// error if two members in one directory resolve to the same file name or a member
-// claims a reserved root file name.
+// along with every panel tab that references it. A panel's ontology children — the
+// tasks its tabs reference — export into the panel's directory. A member with multiple
+// parents in the project keeps its first placement and is skipped on later encounters,
+// and a group with no exported descendants is dropped. It returns query.ErrNotFound if
+// no project has key, and a validation error if two members in one directory resolve
+// to the same file name or a member claims a reserved root file name.
 func (s *Service) Export(
 	ctx context.Context,
 	key Key,
@@ -57,19 +58,17 @@ func (s *Service) Export(
 		return nil, nil, err
 	}
 	w := &bundleWalk{
-		svc:  s,
-		ext:  encoder.Extension(),
-		refs: map[ontology.ID]string{},
+		svc:     s,
+		ext:     encoder.Extension(),
+		visited: set.New[ontology.ID](),
+		refs:    map[ontology.ID]string{},
 	}
-	manifestFileName := "manifest" + w.ext
-	reserved := map[string]string{
-		filename.Fold(manifestFileName):     manifestFileName,
-		filename.Fold(legacyLayoutFileName): legacyLayoutFileName,
-	}
-	if err := w.directory(ctx, OntologyID(key), "", reserved); err != nil {
+	manifestFileName := imex.ManifestBaseName + w.ext
+	claims := imex.NewClaims(manifestFileName, legacyLayoutFileName)
+	if err := w.directory(ctx, OntologyID(key), "", claims); err != nil {
 		return nil, nil, err
 	}
-	files := make(zip.Files, len(w.refs)+len(w.panelIDs)+1)
+	files := make(zip.Files, len(w.refs)+len(w.panels)+1)
 	for id, path := range w.refs {
 		env, err := s.cfg.ImEx.Export(ctx, id)
 		if err != nil {
@@ -82,16 +81,16 @@ func (s *Service) Export(
 	if err := w.encodePanels(ctx, files, encoder); err != nil {
 		return nil, nil, err
 	}
-	manifest, err := encoder.Encode(ctx, manifest{
-		Version: 1,
-		Type:    "project",
+	manifest, err := encoder.Encode(ctx, imex.Manifest{
+		Version: manifestVersion,
+		Type:    manifestType,
 		Name:    proj.Name,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 	files[manifestFileName] = manifest
-	return files, w.members, nil
+	return files, w.members(), nil
 }
 
 // bundleWalk accumulates the bundle's members while directory recurses through the
@@ -100,26 +99,45 @@ type bundleWalk struct {
 	svc *Service
 	// ext is the extension the encoder gives every member file.
 	ext string
+	// visited holds every resource the walk already placed, so a resource with
+	// multiple parents in the project is placed only once.
+	visited set.Set[ontology.ID]
 	// refs maps each member document to its path from the bundle root. Panel encoding
 	// resolves resource tabs through it.
 	refs map[ontology.ID]string
-	// panelIDs and panelPaths pair each member panel with its path from the bundle
-	// root.
-	panelIDs   []ontology.ID
-	panelPaths []string
-	// members holds the ID of every resource that shaped the artifact, for access
-	// enforcement by the caller.
-	members []ontology.ID
+	// panels pairs each member panel with its path from the bundle root.
+	panels []bundlePanel
+	// groups holds every group that contributed a directory to the artifact.
+	groups []ontology.ID
+}
+
+// bundlePanel pairs a member panel with its path from the bundle root.
+type bundlePanel struct {
+	id   ontology.ID
+	path string
+}
+
+// members returns the ID of every resource that shaped the artifact, for access
+// enforcement by the caller.
+func (w *bundleWalk) members() []ontology.ID {
+	members := make([]ontology.ID, 0, len(w.refs)+len(w.panels)+len(w.groups))
+	for id := range w.refs {
+		members = append(members, id)
+	}
+	for _, p := range w.panels {
+		members = append(members, p.id)
+	}
+	return append(members, w.groups...)
 }
 
 // directory walks the children of parent into the directory at prefix ("" for the
-// bundle root, "a/b/" otherwise). reserved maps folded file names no member in this
-// directory may claim to their display form.
+// bundle root, "a/b/" otherwise). claims tracks the file names taken in this
+// directory.
 func (w *bundleWalk) directory(
 	ctx context.Context,
 	parent ontology.ID,
 	prefix string,
-	reserved map[string]string,
+	claims *imex.Claims,
 ) error {
 	var children []ontology.Resource
 	if err := w.svc.cfg.Ontology.NewRetrieve().
@@ -129,67 +147,58 @@ func (w *bundleWalk) directory(
 		Exec(ctx, nil); err != nil {
 		return err
 	}
-	// claimed maps each folded file name to the resource that took it.
-	claimed := make(map[string]string, len(children))
-	claim := func(resourceName, fileName string) error {
-		folded := filename.Fold(fileName)
-		if display, ok := reserved[folded]; ok {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"%q takes the reserved file name %q; rename it and export again",
-				resourceName, display,
-			)
-		}
-		if prev, ok := claimed[folded]; ok {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"%q and %q both export to %q; rename one and export again",
-				prev, resourceName, prefix+fileName,
-			)
-		}
-		claimed[folded] = resourceName
-		return nil
-	}
 	for _, child := range children {
+		if w.visited.Contains(child.ID) {
+			continue
+		}
 		switch {
 		case child.ID.Type == ontology.ResourceTypeGroup:
 			dirName, err := filename.Sanitize(child.Name, "")
 			if err != nil {
 				return err
 			}
-			before := len(w.refs) + len(w.panelIDs)
-			if err = w.directory(ctx, child.ID, prefix+dirName+"/", nil); err != nil {
+			w.visited.Add(child.ID)
+			before := len(w.refs) + len(w.panels)
+			err = w.directory(ctx, child.ID, prefix+dirName+"/", imex.NewClaims())
+			if err != nil {
 				return err
 			}
 			// An empty group is dropped: it claims no name and enforces no access.
-			if len(w.refs)+len(w.panelIDs) == before {
+			if len(w.refs)+len(w.panels) == before {
 				continue
 			}
-			if err = claim(child.Name, dirName); err != nil {
+			if err = claims.Claim(child.Name, dirName, prefix+dirName); err != nil {
 				return err
 			}
-			w.members = append(w.members, child.ID)
+			w.groups = append(w.groups, child.ID)
 		case child.ID.Type == ontology.ResourceTypePanel:
 			fileName, err := filename.Sanitize(child.Name, w.ext)
 			if err != nil {
 				return err
 			}
-			if err = claim(child.Name, fileName); err != nil {
+			if err = claims.Claim(child.Name, fileName, prefix+fileName); err != nil {
 				return err
 			}
-			w.panelIDs = append(w.panelIDs, child.ID)
-			w.panelPaths = append(w.panelPaths, prefix+fileName)
-			w.members = append(w.members, child.ID)
+			w.visited.Add(child.ID)
+			w.panels = append(w.panels, bundlePanel{
+				id:   child.ID,
+				path: prefix + fileName,
+			})
+			// A panel's ontology children — the tasks its tabs reference — export
+			// into the panel's directory.
+			if err = w.directory(ctx, child.ID, prefix, claims); err != nil {
+				return err
+			}
 		case w.svc.cfg.ImEx.ExporterRegistered(child.ID.Type):
 			fileName, err := filename.Sanitize(child.Name, w.ext)
 			if err != nil {
 				return err
 			}
-			if err = claim(child.Name, fileName); err != nil {
+			if err = claims.Claim(child.Name, fileName, prefix+fileName); err != nil {
 				return err
 			}
+			w.visited.Add(child.ID)
 			w.refs[child.ID] = prefix + fileName
-			w.members = append(w.members, child.ID)
 		}
 	}
 	return nil
@@ -200,10 +209,14 @@ func (w *bundleWalk) encodePanels(
 	files zip.Files,
 	encoder encoding.FileEncoder,
 ) error {
-	if len(w.panelIDs) == 0 {
+	if len(w.panels) == 0 {
 		return nil
 	}
-	keys, err := panel.KeysFromOntologyIDs(w.panelIDs)
+	ids := make([]ontology.ID, len(w.panels))
+	for i, p := range w.panels {
+		ids[i] = p.id
+	}
+	keys, err := panel.KeysFromOntologyIDs(ids)
 	if err != nil {
 		return err
 	}
@@ -227,7 +240,7 @@ func (w *bundleWalk) encodePanels(
 		if err != nil {
 			return err
 		}
-		if files[w.panelPaths[i]], err = encoder.Encode(ctx, env); err != nil {
+		if files[w.panels[i].path], err = encoder.Encode(ctx, env); err != nil {
 			return err
 		}
 	}

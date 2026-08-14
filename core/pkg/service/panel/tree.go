@@ -331,8 +331,9 @@ func removeTab(root *Node, tabKey uuid.UUID) (Tab, bool) {
 	return removed, true
 }
 
-// collapseEmptyLeaves rewrites the tree bottom-up, replacing every split that has
-// exactly one empty-leaf side with its surviving sibling subtree.
+// collapseEmptyLeaves rewrites the tree bottom-up, replacing every split that has an
+// empty-leaf side with its other side. A split of two empty leaves becomes one empty
+// leaf, so emptiness propagates up through nested splits.
 func collapseEmptyLeaves(root *Node) {
 	*root = collapseNode(*root)
 }
@@ -344,10 +345,10 @@ func collapseNode(n Node) Node {
 	}
 	split.First = collapseNode(split.First)
 	split.Last = collapseNode(split.Last)
-	if isEmptyLeaf(split.First) && !isEmptyLeaf(split.Last) {
+	if isEmptyLeaf(split.First) {
 		return split.Last
 	}
-	if isEmptyLeaf(split.Last) && !isEmptyLeaf(split.First) {
+	if isEmptyLeaf(split.Last) {
 		return split.First
 	}
 	return Node{Variant: split}

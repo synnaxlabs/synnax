@@ -18,12 +18,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
@@ -44,6 +47,8 @@ var (
 	writer     panel.Writer
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
+	taskSvc    *task.Service
+	testRack   rack.Rack
 	parentID   ontology.ID
 	tx         gorp.Tx
 )
@@ -98,6 +103,25 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  sigs,
 	}))
 	writer = svc.NewWriter(nil)
+	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:           node.DB,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+		HostProvider: node.Cluster,
+	}))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Rack:     rackSvc,
+		Status:   statusSvc,
+		Search:   searchIdx,
+		ImEx:     imex.NewService(),
+	}))
+	testRack = rack.Rack{Name: "Panel Test Rack"}
+	Expect(rackSvc.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,

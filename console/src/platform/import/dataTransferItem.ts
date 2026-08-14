@@ -12,6 +12,7 @@ import { type Synnax } from "@synnaxlabs/client";
 
 import { ingestComponent } from "@/platform/import/import";
 import { type DirectoryIngester, type FileIngesters } from "@/platform/import/ingester";
+import { isParsableFile } from "@/platform/import/parsableFile";
 import { trimFileName } from "@/platform/import/trimFileName";
 import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
@@ -104,11 +105,13 @@ export const dataTransferItem = async (
 
   // Handling a directory transfer, importing a directory containing multiple files
   const parsedFiles = await Promise.all(
-    entry.files.map(async ({ file, path }) => {
-      const buffer = await file.arrayBuffer();
-      const data = new TextDecoder().decode(buffer);
-      return { name: file.name, path, data: JSON.parse(data) };
-    }),
+    entry.files
+      .filter(({ path }) => isParsableFile(path))
+      .map(async ({ file, path }) => {
+        const buffer = await file.arrayBuffer();
+        const data = new TextDecoder().decode(buffer);
+        return { name: file.name, path, data: JSON.parse(data) };
+      }),
   );
   await ingestDirectory(entry.name, parsedFiles, {
     client,

@@ -15,8 +15,11 @@ import { Runtime } from "@/platform/runtime";
 
 export interface Params {
   id: ontology.ID;
-  /** The resource name. It names the exported file. */
-  name: string;
+  /**
+   * The resource name. It names the exported file. When absent, the name is retrieved
+   * from the ontology, so callers without a locally-loaded name can still export.
+   */
+  name?: string;
 }
 
 /**
@@ -29,14 +32,18 @@ export const use = (): (({ id, name }: Params) => void) => {
   const download = Runtime.useDownload();
   return useCallback(
     ({ id, name }: Params) => {
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        await download({
-          stream: await client.imex.export(id, { encoding: "JSON" }),
-          name,
-          extension: "json",
-        });
-      }, `Failed to export ${name}`);
+      handleError(
+        async () => {
+          if (client == null) throw new DisconnectedError();
+          const resolved = name ?? (await client.ontology.retrieve(id)).name;
+          await download({
+            stream: await client.imex.export(id, { encoding: "JSON" }),
+            name: resolved,
+            extension: "json",
+          });
+        },
+        `Failed to export ${name ?? "the selected resource"}`,
+      );
     },
     [client, handleError, download],
   );

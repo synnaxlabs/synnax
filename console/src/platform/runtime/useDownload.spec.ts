@@ -120,18 +120,38 @@ describe("Runtime.useDownload", () => {
       expect(result.current.notifications.statuses).toHaveLength(0);
     });
 
-    it("should rethrow non-abort picker errors", async () => {
+    it("should cancel the stream and rethrow non-abort picker errors", async () => {
       installSaveFilePicker(vi.fn().mockRejectedValue(new Error("disk on fire")));
+      let cancelled = false;
       const { result } = await renderDownload();
       await act(async () => {
         await expect(
           result.current.download({
-            stream: createStream(),
+            stream: createStream({ onCancel: () => (cancelled = true) }),
             name: "data",
             extension: "csv",
           }),
         ).rejects.toThrow("disk on fire");
       });
+      expect(cancelled).toBe(true);
+    });
+
+    it("should cancel the stream when opening the file for writing fails", async () => {
+      const handle = fakeSaveFileHandle("chosen.csv");
+      vi.spyOn(handle, "createWritable").mockRejectedValue(new Error("denied"));
+      installSaveFilePicker(vi.fn().mockResolvedValue(handle));
+      let cancelled = false;
+      const { result } = await renderDownload();
+      await act(async () => {
+        await expect(
+          result.current.download({
+            stream: createStream({ onCancel: () => (cancelled = true) }),
+            name: "data",
+            extension: "csv",
+          }),
+        ).rejects.toThrow("denied");
+      });
+      expect(cancelled).toBe(true);
     });
   });
 

@@ -76,8 +76,8 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	return encoding.SugarEncodingError(value, zw.Close())
 }
 
-// validateEntryName returns an error wrapping validate.ErrValidation when name is not
-// a relative forward-slash path of non-empty segments: an empty name, a backslash, a
+// validateEntryName returns an error wrapping validate.ErrValidation when name is not a
+// relative forward-slash path of non-empty segments: an empty name, a backslash, a
 // leading, trailing, or doubled slash, or a "." or ".." segment. It names the offender
 // itself rather than going through encoding.SugarEncodingError, which reports the whole
 // file map and drops the reason.

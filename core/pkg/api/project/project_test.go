@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package project
+package project_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -31,7 +32,7 @@ var _ = Describe("Export", func() {
 				log.OntologyID(l.Key),
 			)
 			Expect(MustSucceed(apiSvc.Export(
-				authedCtx(ctx, author), ExportRequest{Key: proj.Key},
+				authedCtx(ctx, author), apiproject.ExportRequest{Key: proj.Key},
 			))).To(SatisfyAll(HaveKey("manifest.json"), HaveKey("Metrics.json")))
 		},
 	)
@@ -40,7 +41,7 @@ var _ = Describe("Export", func() {
 	) {
 		proj := createProject(ctx, "ungranted-project")
 		Expect(apiSvc.Export(
-			authedCtx(ctx, author), ExportRequest{Key: proj.Key},
+			authedCtx(ctx, author), apiproject.ExportRequest{Key: proj.Key},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 	It("Should reject the request when retrieve is not granted on a member", func(
@@ -50,7 +51,7 @@ var _ = Describe("Export", func() {
 		createLog(ctx, proj.Key, "Metrics")
 		grantRetrieveOn(ctx, author.OntologyID(), project.OntologyID(proj.Key))
 		Expect(apiSvc.Export(
-			authedCtx(ctx, author), ExportRequest{Key: proj.Key},
+			authedCtx(ctx, author), apiproject.ExportRequest{Key: proj.Key},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 })

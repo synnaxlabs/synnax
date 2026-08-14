@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package arc
+package arc_test
 
 import (
 	"testing"
@@ -16,7 +16,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -50,7 +54,7 @@ var (
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
 	arcSvc   *arc.Service
-	apiSvc   *Service
+	apiSvc   *apiarc.Service
 	author   user.User
 	rackSvc  *rack.Service
 	testRack *rack.Rack
@@ -133,7 +137,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	apiSvc = &Service{internal: arcSvc, access: rbacSvc, status: statusSvc}
+	apiSvc = MustSucceed(apiarc.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service:      &service.Layer{Arc: arcSvc, Status: statusSvc, RBAC: rbacSvc},
+	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
 	)

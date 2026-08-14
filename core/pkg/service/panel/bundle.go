@@ -12,7 +12,6 @@ package panel
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -57,16 +56,12 @@ type bundleSplit struct {
 func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 	root := stripNonMemberTabs(p.Root, refs)
 	collapseEmptyLeaves(&root)
-	wire, err := bundleNode(root, refs)
-	if err != nil {
-		return imex.Envelope{}, err
-	}
 	env := imex.Envelope{
 		Version: bundleVersion,
 		Type:    string(ontology.ResourceTypePanel),
 		Name:    p.Name,
 	}
-	if err = imex.Encode(&env, bundleBody{Root: wire}); err != nil {
+	if err := imex.Encode(&env, bundleBody{Root: bundleNode(root, refs)}); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
@@ -98,9 +93,9 @@ func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 }
 
 // bundleNode converts a node to its bundle wire form, rewriting each resource tab's
-// target to its path from refs. n is a tree stripNonMemberTabs already filtered, so a
-// target absent from refs is a programmer error, not bad input.
-func bundleNode(n Node, refs map[ontology.ID]string) (any, error) {
+// target to its path from refs. A resource tab whose target refs does not name is
+// skipped, the same rule stripNonMemberTabs applies.
+func bundleNode(n Node, refs map[ontology.ID]string) any {
 	switch v := n.Variant.(type) {
 	case NodeLeaf:
 		tabs := make([]any, 0, len(v.Tabs))
@@ -110,34 +105,24 @@ func bundleNode(n Node, refs map[ontology.ID]string) (any, error) {
 				tabs = append(tabs, t)
 				continue
 			}
-			path, ok := refs[r.Resource]
-			if !ok {
-				return nil, errors.Newf("no bundle path for resource %s", r.Resource)
+			if path, ok := refs[r.Resource]; ok {
+				tabs = append(tabs, bundleTabResource{
+					TabBase:  r.TabBase,
+					Variant:  TabTypeResource,
+					Resource: path,
+				})
 			}
-			tabs = append(tabs, bundleTabResource{
-				TabBase:  r.TabBase,
-				Variant:  TabTypeResource,
-				Resource: path,
-			})
 		}
-		return bundleLeaf{Variant: NodeTypeLeaf, Tabs: tabs}, nil
+		return bundleLeaf{Variant: NodeTypeLeaf, Tabs: tabs}
 	case NodeSplit:
-		first, err := bundleNode(v.First, refs)
-		if err != nil {
-			return nil, err
-		}
-		last, err := bundleNode(v.Last, refs)
-		if err != nil {
-			return nil, err
-		}
 		return bundleSplit{
 			Variant:   NodeTypeSplit,
 			Direction: v.Direction,
 			Size:      v.Size,
-			First:     first,
-			Last:      last,
-		}, nil
+			First:     bundleNode(v.First, refs),
+			Last:      bundleNode(v.Last, refs),
+		}
 	default:
-		return nil, nil
+		return nil
 	}
 }

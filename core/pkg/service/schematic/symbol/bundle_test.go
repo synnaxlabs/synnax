@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/encoding"
@@ -42,7 +43,7 @@ type failEncoder struct{ onManifest bool }
 var _ encoding.FileEncoder = failEncoder{}
 
 func (e failEncoder) refuses(value any) bool {
-	_, isManifest := value.(symbol.GroupManifest)
+	_, isManifest := value.(imex.Manifest)
 	return isManifest == e.onManifest
 }
 
@@ -97,9 +98,9 @@ var _ = Describe("ExportGroup", func() {
 	fileNames := func(files zip.Files) []string {
 		return slices.Collect(maps.Keys(files))
 	}
-	manifestOf := func(files zip.Files) symbol.GroupManifest {
+	manifestOf := func(files zip.Files) imex.Manifest {
 		GinkgoHelper()
-		var m symbol.GroupManifest
+		var m imex.Manifest
 		Expect(json.Unmarshal(files["manifest.json"], &m)).To(Succeed())
 		return m
 	}
@@ -115,7 +116,7 @@ var _ = Describe("ExportGroup", func() {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
 		Expect(manifestOf(exportFiles(ctx, g.Key))).To(Equal(
-			symbol.GroupManifest{Version: 2, Type: "symbol_group", Name: "Valves"},
+			imex.Manifest{Version: 2, Type: "symbol_group", Name: "Valves"},
 		))
 	})
 	It("Should write each member as its leaf export envelope", func(ctx SpecContext) {

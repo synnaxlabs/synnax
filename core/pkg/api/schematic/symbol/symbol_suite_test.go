@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package symbol
+package symbol_test
 
 import (
 	"testing"
@@ -16,6 +16,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -24,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -44,7 +49,7 @@ var (
 	groupSvc  *group.Service
 	symbolSvc *symbol.Service
 	userSvc   *user.Service
-	apiSvc    *Service
+	apiSvc    *apisymbol.Service
 	author    user.User
 )
 
@@ -81,7 +86,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		ImEx:     imex.NewService(),
 	}))
-	apiSvc = &Service{internal: symbolSvc, access: rbacSvc}
+	apiSvc = MustSucceed(apisymbol.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service: &service.Layer{
+			Schematic: &schematic.Service{Symbol: symbolSvc},
+			RBAC:      rbacSvc,
+		},
+	}))
 	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",

@@ -115,6 +115,38 @@ var _ = Describe("EncodeBundle", func() {
 		))
 	})
 
+	It("Should collapse a split whose both sides were emptied", func() {
+		first, second := tab(uuid.New()), tab(uuid.New())
+		p := panel.Panel{
+			Name: "Controls",
+			Root: splitNode(
+				spatial.DirectionX, 0.5, leafNode(first), leafNode(second),
+			),
+		}
+		root := rootOf(MustSucceed(panel.EncodeBundle(p, nil)))
+		Expect(root).To(HaveKeyWithValue("variant", "leaf"))
+		Expect(root["tabs"]).To(BeEmpty())
+	})
+
+	It("Should collapse nested splits emptied by stripping", func() {
+		member, s1, s2 := tab(uuid.New()), tab(uuid.New()), tab(uuid.New())
+		refs := map[ontology.ID]string{mustResource(member): "kept.json"}
+		p := panel.Panel{
+			Name: "Controls",
+			Root: splitNode(
+				spatial.DirectionY,
+				0.5,
+				splitNode(spatial.DirectionX, 0.5, leafNode(s1), leafNode(s2)),
+				leafNode(member),
+			),
+		}
+		root := rootOf(MustSucceed(panel.EncodeBundle(p, refs)))
+		Expect(root).To(HaveKeyWithValue("variant", "leaf"))
+		Expect(root["tabs"]).To(ConsistOf(
+			HaveKeyWithValue("resource", "kept.json"),
+		))
+	})
+
 	It("Should reject a panel without a name", func() {
 		Expect(panel.EncodeBundle(panel.Panel{Root: leafNode()}, nil)).Error().
 			To(MatchError(ContainSubstring("name must be a non-empty string")))

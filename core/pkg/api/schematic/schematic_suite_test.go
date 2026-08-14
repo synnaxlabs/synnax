@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package schematic
+package schematic_test
 
 import (
 	"testing"
@@ -16,6 +16,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -46,7 +50,7 @@ var (
 	otg          *ontology.Ontology
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
-	apiSvc       *Service
+	apiSvc       *apischematic.Service
 	proj         project.Project
 	author       user.User
 )
@@ -97,7 +101,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		ImEx:     imex.NewService(),
 	}))
-	apiSvc = &Service{internal: schematicSvc, access: rbacSvc}
+	apiSvc = MustSucceed(apischematic.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service:      &service.Layer{Schematic: schematicSvc, RBAC: rbacSvc},
+	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",
 	}))
