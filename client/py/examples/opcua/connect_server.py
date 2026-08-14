@@ -149,7 +149,7 @@ if response in ("", "y", "yes"):
                 password=TLS_AUTH_PASSWORD,
             )
 
-        device = sy.opc.Device(**device_kwargs)
+        device = sy.opcua.Device(**device_kwargs)
         created_device = client.devices.create(device)
 
         print("✓ Device connected successfully!")

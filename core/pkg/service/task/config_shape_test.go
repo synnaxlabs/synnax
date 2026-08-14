@@ -94,7 +94,7 @@ var _ = Describe("Config record shapes", func() {
 		Entry(nil, "../labjack/versions"),
 		Entry(nil, "../modbus/versions"),
 		Entry(nil, "../ni/versions"),
-		Entry(nil, "../opc/versions"),
+		Entry(nil, "../opcua/versions"),
 		Entry(nil, "../pagerduty/versions"),
 		Entry(nil, "../arc/task/versions"),
 		Entry(nil, "../rack/task/versions"),

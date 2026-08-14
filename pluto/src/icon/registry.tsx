@@ -258,7 +258,7 @@ import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
 import { NI } from "@/icon/NI";
-import { OPC } from "@/icon/OPC";
+import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
 import { Pump } from "@/icon/Pump";
 import { Valve } from "@/icon/Valve";
@@ -364,7 +364,7 @@ export const Logo = {
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
   Modbus,
   NI,
-  OPC,
+  OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,

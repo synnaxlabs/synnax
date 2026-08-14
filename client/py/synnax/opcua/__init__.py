@@ -7,23 +7,44 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Deprecated: use synnax.opc instead."""
-
-import warnings
-from typing import Any
-
-warnings.warn(
-    "synnax.opcua is deprecated and will be removed in a future version. "
-    "Use synnax.opc instead.",
-    FutureWarning,
-    stacklevel=2,
+from synnax.opcua.types import (
+    MAKE,
+    MODEL,
+    Device,
+    ReadTask,
+    SecurityMode,
+    SecurityPolicy,
+    WriteTask,
 )
+from synnax.opcua.types_gen import (
+    BaseChannel,
+    ReadChannel,
+    ReadConfig,
+    ScanConfig,
+    WriteChannel,
+    WriteConfig,
+)
+from x.deprecation import deprecated_getattr
 
-from synnax import opc as _opc
-from synnax.opc import *  # noqa: E402, F403
-from synnax.opc import __all__ as __all__  # noqa: F401
+_DEPRECATED: dict[str, str | tuple[str, str]] = {
+    "Channel": "ReadChannel",
+    "WriteTaskConfig": "WriteConfig",
+}
 
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
-def __getattr__(name: str) -> Any:
-    """Resolves names synnax.opc only serves through its deprecation shim."""
-    return getattr(_opc, name)
+__all__ = [
+    "BaseChannel",
+    "Device",
+    "MAKE",
+    "MODEL",
+    "ReadChannel",
+    "ReadConfig",
+    "ReadTask",
+    "ScanConfig",
+    "SecurityMode",
+    "SecurityPolicy",
+    "WriteChannel",
+    "WriteConfig",
+    "WriteTask",
+]

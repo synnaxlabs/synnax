@@ -79,7 +79,7 @@ my_array_1 = client.channels.create(
 # Array mode is more efficient for high-rate data collection when the OPC UA server
 # provides data in array format with a consistent size.
 # In this mode, each sample from the server contains an entire array of values.
-tsk = sy.opc.ReadTask(
+tsk = sy.opcua.ReadTask(
     name="OPC UA Py - Read Task (Array)",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
@@ -88,12 +88,12 @@ tsk = sy.opc.ReadTask(
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_array_0 and my_array_1 in the OPC UA server
-        sy.opc.ReadChannel(
+        sy.opcua.ReadChannel(
             channel=my_array_0.key,
             node_id="NS=2;I=2",  # my_array_0
             data_type="float32",
         ),
-        sy.opc.ReadChannel(
+        sy.opcua.ReadChannel(
             channel=my_array_1.key,
             node_id="NS=2;I=3",  # my_array_1
             data_type="float32",

@@ -34,7 +34,7 @@
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
 #include "driver/ni/ni.h"
-#include "driver/opc/opc.h"
+#include "driver/opcua/opcua.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {

@@ -9,7 +9,7 @@
 
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
-import { OPC } from "@/feature/opc";
+import { OPCUA } from "@/feature/opcua";
 import { type Command } from "@/platform/command";
 
 export * from "@/feature/device/link";
@@ -22,5 +22,5 @@ export * from "@/platform/device/external";
 export const COMMANDS: Command.Command[] = [
   ...HTTP.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
-  ...OPC.Device.COMMANDS,
+  ...OPCUA.Device.COMMANDS,
 ];

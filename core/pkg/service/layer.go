@@ -43,7 +43,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/opc"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -182,8 +182,8 @@ type Layer struct {
 	Device *device.Service
 	// NI owns the stored configuration records of the NI task types.
 	NI *ni.Service
-	// OPC owns the stored configuration records of the OPC UA task types.
-	OPC *opc.Service
+	// OPCUA owns the stored configuration records of the OPC UA task types.
+	OPCUA *opcua.Service
 	// LabJack owns the stored configuration records of the LabJack task types.
 	LabJack *labjack.Service
 	// Modbus owns the stored configuration records of the Modbus task types.
@@ -520,10 +520,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.NI) {
 		return nil, err
 	}
-	if l.OPC, err = opc.OpenService(ctx, opc.ServiceConfig{
-		Instrumentation: cfg.Child("opc"),
+	if l.OPCUA, err = opcua.OpenService(ctx, opcua.ServiceConfig{
+		Instrumentation: cfg.Child("opcua"),
 		DB:              cfg.Distribution.DB,
-	}); !ok(err, l.OPC) {
+	}); !ok(err, l.OPCUA) {
 		return nil, err
 	}
 	if l.LabJack, err = labjack.OpenService(ctx, labjack.ServiceConfig{
@@ -569,7 +569,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	configStores := slices.Concat(
-		l.NI.Stores(), l.OPC.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
+		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(),
 	)
