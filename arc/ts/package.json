@@ -9,10 +9,7 @@
       "default": "./dist/arc.js"
     }
   },
-  "files": [
-    "dist",
-    "syntaxes"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "check-types": "tsc --noEmit"

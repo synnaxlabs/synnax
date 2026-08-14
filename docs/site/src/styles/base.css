@@ -42,7 +42,7 @@ html {
     --astro-code-foreground: var(--pluto-text-color);
     --astro-code-token-comment: var(--pluto-gray-l7);
     --astro-code-token-string-expression: var(--pluto-secondary-m1);
-    --astro-code-token-function: #556bf8;
+    --astro-code-token-function: light-dark(#3774d0, #556bf8);
     --astro-code-token-punctuation: var(--pluto-text-color);
     --astro-code-token-keyword: #cc255f;
     --astro-code-token-constant: var(--pluto-text-color);
