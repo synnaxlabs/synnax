@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import io
 import json
 import os
 import random
@@ -40,27 +39,6 @@ from framework.run_dir import resolve_results_path
 __all__ = ["ProjectClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
-
-# Playwright has expect_file_chooser for <input type="file"> but no analogue
-# for the File System Access API's showSaveFilePicker, which is what the real
-# browser-mode export uses to stream the bundle zip to disk. This snippet
-# installs an in-memory mock that captures the archive's bytes into
-# window.__synnaxExportedArchives keyed by the suggested file name; production
-# export code runs unchanged. The Python side reads the bytes back and
-# extracts a real on-disk directory the import test can consume verbatim.
-_INSTALL_SAVE_FILE_PICKER_MOCK_JS = """
-window.__synnaxExportedArchives = {};
-window.showSaveFilePicker = async ({ suggestedName }) => ({
-    name: suggestedName,
-    createWritable: async () => {
-        const chunks = [];
-        return new WritableStream({
-            write(chunk) { chunks.push(...new Uint8Array(chunk)); },
-            close() { window.__synnaxExportedArchives[suggestedName] = chunks; },
-        });
-    },
-});
-"""
 
 
 class ProjectClient:
@@ -578,7 +556,6 @@ class ProjectClient:
         """
         page_item = self._find_page(name)
         self.ctx_menu.open_on(page_item)
-        self.layout.page.evaluate("delete window.showSaveFilePicker")
 
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
@@ -591,18 +568,6 @@ class ProjectClient:
         with open(save_path, "r", encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
             return result
-
-    def _install_save_file_picker_mock(self) -> None:
-        """Replace window.showSaveFilePicker with an in-memory capture."""
-        self.layout.page.evaluate(_INSTALL_SAVE_FILE_PICKER_MOCK_JS)
-
-    def _drain_exported_archives(self) -> dict[str, bytes]:
-        """Read and clear archives captured by the showSaveFilePicker mock."""
-        raw: dict[str, list[int]] = self.layout.page.evaluate(
-            "() => { const a = window.__synnaxExportedArchives || {};"
-            " window.__synnaxExportedArchives = {}; return a; }"
-        )
-        return {name: bytes(data) for name, data in raw.items()}
 
     def import_page(self, json_path: str, name: str) -> None:
         """Import a component via the real "Import component(s)" command palette flow.
@@ -662,33 +627,28 @@ class ProjectClient:
     def export_project(self, name: str) -> str:
         """Export a project via the real Export context menu action.
 
-        Installs an in-memory mock of ``window.showSaveFilePicker`` so the
-        real export code path runs unchanged but the downloaded bundle zip
-        lands in an in-page map instead of the OS save dialog. Waits for the
-        production "Downloaded {name} to ..." success notification, which
-        fires only after the stream completes, then extracts the archive
-        into a real directory under the results dir.
+        The browser runs without the File System Access pickers (see the case
+        launch args), so the export falls back to a plain download, which
+        Playwright captures. Saves the bundle zip under the results dir and
+        extracts it into a real directory the import test can consume.
         """
-        self._install_save_file_picker_mock()
         self.layout.show_resource_toolbar("project")
         project_item = self.get_item(name)
         project_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(project_item, "Export")
+        with self.layout.page.expect_download(timeout=10000) as download_info:
+            self.ctx_menu.action(project_item, "Export")
+        zip_path = resolve_results_path(f"{name}_export.zip")
+        download_info.value.save_as(zip_path)
 
         if not self.notifications.wait_for(f"Downloaded {name}"):
             raise AssertionError(
                 f"Export of project {name!r} did not emit a success notification"
             )
-        archives = self._drain_exported_archives()
-        if not archives:
-            raise AssertionError("no archive captured by the save picker mock")
-        archive = next(iter(archives.values()))
-
         export_dir = resolve_results_path(f"{name}_export")
         if os.path.isdir(export_dir):
             shutil.rmtree(export_dir)
         os.makedirs(export_dir)
-        with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+        with zipfile.ZipFile(zip_path) as zf:
             zf.extractall(export_dir)
 
         self.notifications.close_all()

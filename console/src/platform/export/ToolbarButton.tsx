@@ -9,7 +9,7 @@
 
 import { Button, Icon } from "@synnaxlabs/pluto";
 
-import { type Params,use } from "@/platform/export/use";
+import { type Params, use } from "@/platform/export/use";
 
 export interface ToolbarButtonProps extends Omit<
   Button.ButtonProps,
