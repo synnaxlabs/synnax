@@ -27,6 +27,7 @@ import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
 import { SelectOutputChannelTypeField } from "@/feature/modbus/task/SelectOutputChannelTypeField";
 import {
+  deployWriteConfigZ,
   OUTPUT_CHANNEL_SCHEMAS,
   type OutputChannel,
   type OutputChannelType,
@@ -40,13 +41,6 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "Modbus Write Task",
-  icon: <Icon.Logo.Modbus />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -152,7 +146,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const Form: FC<Task.FormProps<WriteSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.List<OutputChannel>
     createChannel={getOpenChannel}
     listItem={listItem}
@@ -233,9 +227,24 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.Modbus,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "modbus_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "Modbus Write Task",
+  icon: <Icon.Logo.Modbus />,
+  useOnSelect: useCreateWrite,
 });

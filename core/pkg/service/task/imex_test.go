@@ -12,6 +12,7 @@ package task_test
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -87,7 +88,7 @@ var _ = Describe("ImEx", Ordered, func() {
 			"Should export a task's config flat with version, type, and name",
 			func(ctx SpecContext) {
 				t := &task.Task{
-					Key:  task.NewKey(testRack.Key, 0),
+					Rack: testRack.Key,
 					Name: "Exported Task",
 					Type: "opc_read",
 					Config: msgpack.EncodedJSON{
@@ -97,7 +98,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
-				env := MustSucceed(svc.Export(ctx, t.Key.OntologyID()))
+				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
 				Expect(env.Version).To(Equal(task.Version))
 				Expect(env.Type).To(Equal("opc_read"))
 				Expect(env.Name).To(Equal("Exported Task"))
@@ -107,7 +108,8 @@ var _ = Describe("ImEx", Ordered, func() {
 					json.Unmarshal(MustSucceed(json.Marshal(env)), &body),
 				).To(Succeed())
 				// The driver reads the file as its config, so config fields sit flat at
-				// the top level rather than nested under a "config" key.
+				// the
+				// top level rather than nested under a "config" key.
 				Expect(body).ToNot(HaveKey("config"))
 				Expect(body["sample_rate"]).To(BeEquivalentTo(25))
 				Expect(body["type"]).To(Equal("opc_read"))
@@ -117,7 +119,7 @@ var _ = Describe("ImEx", Ordered, func() {
 		)
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := task.NewKey(testRack.Key, 9999).OntologyID()
+			id := task.OntologyID(uuid.New())
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})

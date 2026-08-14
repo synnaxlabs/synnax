@@ -506,15 +506,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
+		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.Task) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
-		ctx,
-		l.Signals,
-		signals.GorpPublisherConfigPureNumeric(l.Task.Observe(), telem.Uint64T),
-	); !ok(err, closer) {
+	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
+		Instrumentation: cfg.Child("panel"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Signals:         l.Signals,
+	}); !ok(err, l.Panel) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(
@@ -526,6 +529,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Search:          l.Search,
 			Channel:         l.Channel,
 			Task:            l.Task,
+			Status:          l.Status,
 			Signals:         l.Signals,
 			ImEx:            l.ImEx,
 		},

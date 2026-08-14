@@ -38,10 +38,9 @@ describe("OPC Write Task Types", () => {
     const config = {
       channels: [
         {
-          channel: 432,
-          cmdChannel: 0,
+          cmdChannel: 432,
           dataType: "float",
-          enabled: true,
+          disabled: false,
           key: "432",
           nodeId: "1",
           name: "test",
@@ -67,7 +66,7 @@ describe("OPC Read Task Config Validation", () => {
       nodeId: `ns=1;s=n${i}`,
       nodeName: `n${i}`,
       channel: 0,
-      enabled: true,
+      disabled: false,
       useAsIndex: false,
       dataType: "float32",
       name: "",
@@ -82,7 +81,7 @@ describe("OPC Read Task Config Validation", () => {
   });
 
   it("should reject a node ID used by multiple channels", () => {
-    const result = OPC.Task.READ_SCHEMAS.config.safeParse(
+    const result = OPC.Task.deployReadConfigZ.safeParse(
       createConfig([{ nodeId: "ns=1;s=dup" }, { nodeId: "ns=1;s=dup" }]),
     );
     expect(result.success).toBe(false);
@@ -92,7 +91,7 @@ describe("OPC Read Task Config Validation", () => {
   });
 
   it("should reject multiple channels marked as index", () => {
-    const result = OPC.Task.READ_SCHEMAS.config.safeParse(
+    const result = OPC.Task.deployReadConfigZ.safeParse(
       createConfig([{ useAsIndex: true }, { useAsIndex: true }]),
     );
     expect(result.success).toBe(false);
@@ -111,11 +110,41 @@ describe("OPC Read Task Config Validation", () => {
       arraySize: 100,
       channels: [],
     };
-    const result = OPC.Task.READ_SCHEMAS.config.safeParse(config);
+    const result = OPC.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
     expect(
       result.error?.issues.some(({ message }) =>
         message.includes("Sample rate must be greater than or equal to the array size"),
+      ),
+    ).toBe(true);
+  });
+
+  it("should reject a non-positive array size", () => {
+    const config = {
+      device: "dev",
+      arrayMode: true,
+      sampleRate: 50,
+      arraySize: 0,
+      channels: [],
+    };
+    const result = OPC.Task.deployReadConfigZ.safeParse(config);
+    expect(result.success).toBe(false);
+    expect(
+      result.error?.issues.some(({ message }) =>
+        message.includes("Array size must be a positive integer"),
+      ),
+    ).toBe(true);
+  });
+
+  it("should reject a stream rate outside of (0, 10000]", () => {
+    const result = OPC.Task.deployReadConfigZ.safeParse({
+      ...(createConfig([{}]) as object),
+      streamRate: 20000,
+    });
+    expect(result.success).toBe(false);
+    expect(
+      result.error?.issues.some(({ message }) =>
+        message.includes("Stream rate must be between 0 and 10000"),
       ),
     ).toBe(true);
   });
@@ -128,11 +157,11 @@ describe("OPC Write Task Config Validation", () => {
       nodeId: `ns=1;s=n${i}`,
       nodeName: `n${i}`,
       cmdChannel,
-      enabled: true,
+      disabled: false,
       dataType: "float32",
       name: "",
     });
-    const result = OPC.Task.WRITE_SCHEMAS.config.safeParse({
+    const result = OPC.Task.deployWriteConfigZ.safeParse({
       device: "dev",
       channels: [channel(0, 55), channel(1, 55)],
     });
@@ -160,5 +189,21 @@ describe("Scanned Nodes", () => {
       connection: OPC.Device.ZERO_CONNECTION_CONFIG,
     });
     expect(result?.channels[0].key).toBe("ns=2;s=A");
+  });
+});
+
+describe("draft configs", () => {
+  // Drafts persist server-side before configuration, so the shape schema must
+  // accept every zero config; retrieve parses with it.
+  it("should accept the zero read config", () => {
+    expect(
+      OPC.Task.READ_SCHEMAS.config.safeParse(OPC.Task.ZERO_READ_PAYLOAD.config).success,
+    ).toBe(true);
+  });
+  it("should accept the zero write config", () => {
+    expect(
+      OPC.Task.WRITE_SCHEMAS.config.safeParse(OPC.Task.ZERO_WRITE_PAYLOAD.config)
+        .success,
+    ).toBe(true);
   });
 });

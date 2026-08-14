@@ -21,10 +21,12 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"go.uber.org/zap"
 )
@@ -271,6 +273,13 @@ func convertNode(
 		}
 		resourceType, ok := migratableLayoutTypes[layout.Type]
 		if !ok {
+			tab, err := convertTaskTab(ctx, tx, t.TabKey)
+			if err != nil {
+				return nil, err
+			}
+			if tab != nil {
+				tabs = append(tabs, *tab)
+			}
 			continue
 		}
 		id := ontology.ID{Type: resourceType, Key: t.TabKey}
@@ -292,6 +301,120 @@ func convertNode(
 		return nil, nil
 	}
 	return &Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: tabs}}}, nil
+}
+
+// convertTaskTab converts a legacy task layout tab into a resource tab pointing at
+// the task's re-keyed UUID. Legacy task layouts were keyed by the task's uint64 key,
+// so a tab is a task tab exactly when its key is in the staging map written by the
+// task re-key migration; other tab keys are dropped.
+func convertTaskTab(ctx context.Context, tx gorp.Tx, tabKey string) (*Tab, error) {
+	val, closer, err := tx.Get(ctx, []byte(task.LegacyKeyKVPrefix+tabKey))
+	if err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	key := string(val)
+	if err := closer.Close(); err != nil {
+		return nil, err
+	}
+	return &Tab{Variant: TabResource{
+		TabBase:  TabBase{Key: uuid.New()},
+		Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+	}}, nil
+}
+
+// MigrateTaskTabKeys converts every panel view tab holding a legacy uint64 task key
+// into a resource tab pointing at the UUID minted by the task re-key migration, then
+// drains the staging map.
+func MigrateTaskTabKeys(
+	ctx context.Context,
+	tx gorp.Tx,
+	_ alamos.Instrumentation,
+) error {
+	mapping := make(map[string]string)
+	var stagedKeys [][]byte
+	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(task.LegacyKeyKVPrefix)))
+	if err != nil {
+		return err
+	}
+	for iter.First(); iter.Valid(); iter.Next() {
+		key := bytes.Clone(iter.Key())
+		stagedKeys = append(stagedKeys, key)
+		legacy := strings.TrimPrefix(string(key), task.LegacyKeyKVPrefix)
+		mapping[legacy] = string(iter.Value())
+	}
+	if err := errors.Combine(iter.Error(), iter.Close()); err != nil {
+		return err
+	}
+	if len(mapping) == 0 {
+		return nil
+	}
+	var panels []Panel
+	if err := gorp.NewRetrieve[Key, Panel]().
+		Entries(&panels).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	w := gorp.WrapWriter[Key, Panel](tx)
+	for _, p := range panels {
+		if !convertNodeTaskTabs(&p.Root, mapping) {
+			continue
+		}
+		if err := w.Set(ctx, p); err != nil {
+			return err
+		}
+	}
+	for _, key := range stagedKeys {
+		if err := tx.Delete(ctx, key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// convertNodeTaskTabs converts legacy-keyed task view tabs under n into resource
+// tabs, reporting whether anything changed.
+func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
+	switch v := n.Variant.(type) {
+	case NodeSplit:
+		first := convertNodeTaskTabs(&v.First, mapping)
+		last := convertNodeTaskTabs(&v.Last, mapping)
+		if !first && !last {
+			return false
+		}
+		n.Variant = v
+		return true
+	case NodeLeaf:
+		changed := false
+		for i := range v.Tabs {
+			tab := &v.Tabs[i]
+			view, ok := tab.Variant.(TabView)
+			if !ok {
+				continue
+			}
+			legacy, ok := view.Args["taskKey"].(string)
+			if !ok {
+				continue
+			}
+			key, ok := mapping[legacy]
+			if !ok {
+				continue
+			}
+			tab.Variant = TabResource{
+				TabBase:  view.TabBase,
+				Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+			}
+			changed = true
+		}
+		if !changed {
+			return false
+		}
+		n.Variant = v
+		return true
+	}
+	return false
 }
 
 // convertDirection parses a legacy mosaic split direction, defaulting to x when the
@@ -319,5 +442,16 @@ var projectLayoutsMigration = gorp.NewMigration(
 	"v56_migrate_project_layouts_to_panels", migrateProjectLayouts(),
 )
 
+// taskTabKeysMigration re-keys task view tabs from the legacy-to-UUID mapping staged
+// by the task re-key migration. It runs after the project-layouts migration so
+// converted tabs are re-keyed in the same pass.
+var taskTabKeysMigration = gorp.NewMigration(
+	"v56_task_tab_uuid_keys", MigrateTaskTabKeys,
+)
+
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{codecMigration, projectLayoutsMigration}
+var Migrations = []migrate.Migration{
+	codecMigration,
+	projectLayoutsMigration,
+	taskTabKeysMigration,
+}

@@ -31,6 +31,7 @@ describe("readStatusDataZ", () => {
 
 describe("readConfigZ", () => {
   const readConfigZ = LabJack.Task.READ_SCHEMAS.config;
+  const deployReadConfigZ = LabJack.Task.deployReadConfigZ;
   it("should validate a valid read configuration", () => {
     const validConfig = {
       ...Task.ZERO_BASE_CONFIG,
@@ -94,7 +95,7 @@ describe("readConfigZ", () => {
       streamRate: 500,
     };
 
-    const result = readConfigZ.safeParse(configWithDuplicatePorts);
+    const result = deployReadConfigZ.safeParse(configWithDuplicatePorts);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -122,7 +123,7 @@ describe("readConfigZ", () => {
       streamRate: 500,
     };
 
-    const result = readConfigZ.safeParse(configWithInvalidSampleRate);
+    const result = deployReadConfigZ.safeParse(configWithInvalidSampleRate);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -150,7 +151,7 @@ describe("readConfigZ", () => {
       streamRate: 60000, // Exceeds the max of 50000
     };
 
-    const result = readConfigZ.safeParse(configWithInvalidStreamRate);
+    const result = deployReadConfigZ.safeParse(configWithInvalidStreamRate);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -179,7 +180,7 @@ describe("readConfigZ", () => {
       streamRate: 200, // streamRate > sampleRate will violate the refinement
     };
 
-    const result = readConfigZ.safeParse(configWithInvalidStreamRateRefinement);
+    const result = deployReadConfigZ.safeParse(configWithInvalidStreamRateRefinement);
     expect(result.success).toBe(false);
   });
 
@@ -211,6 +212,10 @@ describe("readConfigZ", () => {
 
 describe("writeConfigZ", () => {
   const writeConfigZ = LabJack.Task.WRITE_SCHEMAS.config;
+  const deployWriteConfigZ = LabJack.Task.deployWriteConfigZ;
+  // Deploy validates form values, which are always shape-parsed first.
+  const deployParse = (config: unknown) =>
+    deployWriteConfigZ.safeParse(writeConfigZ.parse(config));
   it("should validate a valid write configuration", () => {
     const validConfig = {
       ...LabJack.Task.ZERO_WRITE_PAYLOAD.config,
@@ -273,7 +278,7 @@ describe("writeConfigZ", () => {
       stateRate: 1000,
     };
 
-    const result = writeConfigZ.safeParse(configWithDuplicatePorts);
+    const result = deployParse(configWithDuplicatePorts);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -312,7 +317,7 @@ describe("writeConfigZ", () => {
       stateRate: 1000,
     };
 
-    const result = writeConfigZ.safeParse(configWithDuplicateCmdKeys);
+    const result = deployParse(configWithDuplicateCmdKeys);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -349,7 +354,7 @@ describe("writeConfigZ", () => {
       stateRate: 1000,
     };
 
-    const result = writeConfigZ.safeParse(configWithDuplicateStateKeys);
+    const result = deployParse(configWithDuplicateStateKeys);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -376,7 +381,7 @@ describe("writeConfigZ", () => {
       stateRate: 60000, // Exceeds the max of 50000
     };
 
-    const result = writeConfigZ.safeParse(configWithInvalidStateRate);
+    const result = deployParse(configWithInvalidStateRate);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -447,5 +452,23 @@ describe("writeConfigZ", () => {
       expect(ch).not.toHaveProperty("cmdKey");
       expect(ch).not.toHaveProperty("stateKey");
     });
+  });
+});
+
+describe("draft configs", () => {
+  // Drafts persist server-side before configuration, so the shape schema must
+  // accept every zero config; retrieve parses with it.
+  it("should accept the zero read config", () => {
+    expect(
+      LabJack.Task.READ_SCHEMAS.config.safeParse(LabJack.Task.ZERO_READ_PAYLOAD.config)
+        .success,
+    ).toBe(true);
+  });
+  it("should accept the zero write config", () => {
+    expect(
+      LabJack.Task.WRITE_SCHEMAS.config.safeParse(
+        LabJack.Task.ZERO_WRITE_PAYLOAD.config,
+      ).success,
+    ).toBe(true);
   });
 });

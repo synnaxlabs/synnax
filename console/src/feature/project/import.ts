@@ -30,6 +30,9 @@ import { type Panel } from "@/platform/panel";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
+//NOTE: All client/console side project import code is TEMPORARY and will be replaced by
+//server-side project import before we release.
+
 /** The panel documents file inside an interim (pre-manifest) project export. */
 export const PANELS_FILE_NAME = "PANELS.json";
 

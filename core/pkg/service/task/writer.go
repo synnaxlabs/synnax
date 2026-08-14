@@ -13,11 +13,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -25,20 +27,29 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	rack      rack.Writer
 	group     group.Group
 	status    status.Writer[StatusDetails]
 	table     *gorp.Table[Key, Task]
 }
 
-func resolveStatus(t *Task, provided *Status) *Status {
+// resolveStatus returns the status to persist for t. Without a provided status, a
+// task created for the first time provably has no live instance, so it gets a quiet
+// "has not been deployed" placeholder; an existing task may be running, so its
+// placeholder stays a "status unknown" warning.
+func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	if provided == nil {
+		message := fmt.Sprintf("%s status unknown", t.Name)
+		variant := status.VariantWarning
+		if !existed {
+			message = fmt.Sprintf("%s has not been deployed", t.Name)
+			variant = status.VariantDisabled
+		}
 		return &Status{
 			Key:     t.OntologyID().String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
-			Message: fmt.Sprintf("%s status unknown", t.Name),
-			Variant: status.VariantWarning,
+			Message: message,
+			Variant: variant,
 			Details: StatusDetails{Task: t.Key},
 		}
 	}
@@ -48,35 +59,47 @@ func resolveStatus(t *Task, provided *Status) *Status {
 	return provided
 }
 
-// healStatus restores a task's status row if it has gone missing (e.g. deleted
-// out-of-band) without clobbering a live one. Tasks are re-created on every scan cycle,
-// so on a no-op update the default "unknown" status must not overwrite a status the
-// driver has already reported; it is only written when no row exists.
-func (w Writer) healStatus(ctx context.Context, stat *Status) error {
-	if exists, err := gorp.NewRetrieve[string, Status]().
+// healStatus returns the task's effective status, writing stat first if no row exists.
+// Tasks are re-created on every scan cycle, so on a no-op update the placeholder must
+// not overwrite a status the driver has already reported.
+func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
+	var existing Status
+	err := gorp.NewRetrieve[string, Status]().
 		Where(gorp.MatchKeys[string, Status](stat.Key)).
-		Exists(ctx, w.tx); err != nil || exists {
-		return err
+		Entry(&existing).
+		Exec(ctx, w.tx)
+	if err == nil {
+		return &existing, nil
 	}
-	return w.status.Set(ctx, stat)
+	if !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	if err := w.status.Set(ctx, stat); err != nil {
+		return nil, err
+	}
+	return stat, nil
 }
 
-// Create creates or updates a task. If a status is provided on the task,
-// it will be used instead of the default "unknown" status.
+// Create creates or updates a task. A provided status is persisted as given. Without
+// one, a new task gets a "has not been deployed" placeholder, and an existing task
+// keeps its reported status (healed to "status unknown" if the row is missing).
 func (w Writer) Create(ctx context.Context, t *Task) error {
-	if !t.Key.IsValid() {
-		localKey, err := w.rack.NewTaskKey(ctx, t.Rack())
-		if err != nil {
-			return err
-		}
-		t.Key = NewKey(t.Rack(), localKey)
+	if t.Key == uuid.Nil {
+		t.Key = uuid.New()
+	}
+	var err error
+	if t.ConfigHash, err = hashConfig(t.Config); err != nil {
+		return err
 	}
 	providedStatus := t.Status // Preserve before clearing for Gorp
 	t.Status = nil             // Status stored separately, not in Gorp
+	existed := false
 	if err := w.table.NewCreate().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
+			existed = true
 			if existing.Snapshot {
 				creating.Config = existing.Config
+				creating.ConfigHash = existing.ConfigHash
 			}
 			return creating, nil
 		}).
@@ -84,14 +107,15 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	stat := resolveStatus(t, providedStatus)
+	stat := resolveStatus(t, providedStatus, existed)
 	if providedStatus != nil {
 		if err := w.status.Set(ctx, stat); err != nil {
 			return err
 		}
-	} else if err := w.healStatus(ctx, stat); err != nil {
+	} else if stat, err = w.healStatus(ctx, stat); err != nil {
 		return err
 	}
+	t.Status = stat
 	// We don't create ontology resources for internal tasks.
 	if t.Internal {
 		return nil
@@ -130,10 +154,10 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otgWriter.DeleteResources(ctx, key.OntologyID()); err != nil {
+	if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, key.OntologyID().String())
+	return w.status.Delete(ctx, OntologyID(key).String())
 }
 
 func (w Writer) Copy(
@@ -142,13 +166,9 @@ func (w Writer) Copy(
 	name string,
 	snapshot bool,
 ) (Task, error) {
-	localKey, err := w.rack.NewTaskKey(ctx, key.Rack())
-	if err != nil {
-		return Task{}, err
-	}
-	newKey := NewKey(key.Rack(), localKey)
+	newKey := uuid.New()
 	var res Task
-	if err = w.table.NewUpdate().
+	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Change(func(_ gorp.Context, t Task) Task {
 			t.Key = newKey
@@ -160,10 +180,10 @@ func (w Writer) Copy(
 		Exec(ctx, w.tx); err != nil {
 		return Task{}, err
 	}
-	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
+	if err := w.status.Set(ctx, resolveStatus(&res, nil, false)); err != nil {
 		return Task{}, err
 	}
-	if err = w.otgWriter.DefineResources(ctx, newKey.OntologyID()); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
 	return res, nil

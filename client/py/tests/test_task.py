@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -19,7 +19,8 @@ import synnax as sy
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax):
         task = client.tasks.create(name="test", type="test")
-        assert task.key != 0
+        assert isinstance(task.key, UUID)
+        assert task.rack != 0
 
     def test_create_multiple(self, client: sy.Synnax):
         t1 = sy.Task(name="test1", type="test")
@@ -55,7 +56,7 @@ class TestTaskClient:
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
                         details=sy.task.StatusDetails(
-                            task=int(cmd["task"]),
+                            task=cmd["task"],
                             running=False,
                             cmd=cmd["key"],
                         ),
@@ -70,62 +71,23 @@ class TestTaskClient:
         tsk.execute_command_sync("test", {"key": "value"})
         t.join()
 
-    def test_task_configure_success(self, client: sy.Synnax):
-        """Should not throw an error when the task is configured successfully."""
-
-        def driver(ev: threading.Event):
-            with client.open_streamer("sy_task_set") as s:
-                ev.set()
-                f = s.read(timeout=2)
-                key = f["sy_task_set"][0]
-                client.statuses.set(
-                    sy.Status(
-                        key=str(sy.task.ontology_id(int(key))),
-                        variant=sy.status.VARIANT_SUCCESS,
-                        message="Task configured.",
-                        details=sy.task.StatusDetails(task=int(key), running=False),
-                    )
-                )
-
-        tsk = sy.Task()
-        ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
-        ev.wait()
+    def test_task_configure_saves_without_ack(self, client: sy.Synnax):
+        """Should save the task without waiting for a driver acknowledgement."""
+        tsk = sy.Task(name="test", type="test", config={"rate": 50})
         client.tasks.configure(tsk)
-        t.join()
+        res = client.tasks.retrieve(key=tsk.key)
+        assert res.key == tsk.key
+        assert res.rack != 0
+        assert res.config == {"rate": 50}
 
-    def test_task_configure_invalid_config(self, client: sy.Synnax):
-        """Should throw an error when the driver responds with an error"""
-
-        def driver(ev: threading.Event):
-            with client.open_streamer("sy_task_set") as s:
-                ev.set()
-                f = s.read(timeout=1)
-                key = f["sy_task_set"][0]
-                client.statuses.set(
-                    sy.Status(
-                        key=str(sy.task.ontology_id(int(key))),
-                        variant=sy.status.VARIANT_ERROR,
-                        message="Invalid Configuration.",
-                        details=sy.task.StatusDetails(task=int(key), running=False),
-                    )
-                )
-
-        tsk = sy.Task()
-        ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
-        ev.wait()
-        with pytest.raises(sy.ConfigurationError, match="Invalid Configuration."):
-            client.tasks.configure(tsk)
-        t.join()
-
-    def test_task_configure_timeout(self, client: sy.Synnax):
-        """Should throw an error when the task is not configured within the timeout."""
-        tsk = sy.Task()
-        with pytest.raises(TimeoutError):
-            client.tasks.configure(tsk, timeout=0.1)
+    def test_task_configure_updates_config(self, client: sy.Synnax):
+        """Should overwrite the stored config when configured again."""
+        tsk = sy.Task(name="test", type="test", config={"rate": 50})
+        client.tasks.configure(tsk)
+        tsk.config = {"rate": 100}
+        client.tasks.configure(tsk)
+        res = client.tasks.retrieve(key=tsk.key)
+        assert res.config == {"rate": 100}
 
     def test_list_tasks(self, client: sy.Synnax):
         """Should list all tasks on the default rack."""

@@ -37,7 +37,7 @@ protected:
         rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
         task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "OPC UA Scan Task Test",
             .type = "opc_scan",
         };

@@ -26,6 +26,7 @@ import {
   ANALOG_READ_TYPE,
   analogReadConfigZ,
   type AnalogReadSchemas,
+  deployAnalogReadConfigZ,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
@@ -33,19 +34,12 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const AnalogReadSelectable = Selector.createSelectable({
-  type: ANALOG_READ_TYPE,
-  title: "NI Analog Read Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(ANALOG_READ_TYPE),
-});
-
 const Properties = () => (
   <>
     <Task.Fields.SampleRate />
     <Flex.Box x grow>
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
+      <Task.Fields.DataSaving polarity="disabled" />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>
@@ -57,11 +51,11 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
-  const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
+  const { port, type, channel, disabled } = PForm.useFieldValue<AIChannel>(path);
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
-  const canTare = enabled && isRunning;
+  const canTare = !disabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
     <Task.Views.ListAndDetailsChannelItem
@@ -73,6 +67,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       hasTareButton={hasTareButton}
       channel={channel}
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
+      polarity="disabled"
       portMaxChars={2}
     />
   );
@@ -90,7 +85,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const Form: FC<Task.FormProps<AnalogReadSchemas>> = () => {
+const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
   const listItem = useCallback(
     ({ key, ...rest }: Task.ChannelListItemProps) => (
@@ -105,6 +100,7 @@ const Form: FC<Task.FormProps<AnalogReadSchemas>> = () => {
       createChannel={createAIChannel}
       onTare={handleTare}
       allowTare={allowTare}
+      polarity="disabled"
       contextMenuItems={Task.readChannelContextMenuItem}
     />
   );
@@ -219,9 +215,24 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
 export const AnalogRead = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.NI,
   schemas: ANALOG_READ_SCHEMAS,
+  deployConfigZ: deployAnalogReadConfigZ,
   type: "ni_analog_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateAnalogRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const analogReadIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const AnalogReadSelectable = Selector.createSelectable({
+  type: ANALOG_READ_TYPE,
+  title: "NI Analog Read Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateAnalogRead,
 });

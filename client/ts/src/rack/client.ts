@@ -260,16 +260,8 @@ export class Client extends query.Retriever<
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, taskCounter, embedded }) =>
-          new Rack(
-            key,
-            name,
-            this.cfg.tasks,
-            status,
-            integrations,
-            taskCounter,
-            embedded,
-          ),
+        ({ key, name, status, integrations, embedded }) =>
+          new Rack(key, name, this.cfg.tasks, status, integrations, embedded),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -333,7 +325,6 @@ export class Rack {
   name: string;
   status?: Status;
   integrations: string[];
-  taskCounter: number;
   embedded: boolean;
   private readonly tasks: task.Client;
 
@@ -343,7 +334,6 @@ export class Rack {
     taskClient: task.Client,
     status?: Status,
     integrations: string[] = [],
-    taskCounter: number = 0,
     embedded: boolean = false,
   ) {
     this.key = key;
@@ -351,7 +341,6 @@ export class Rack {
     this.tasks = taskClient;
     this.status = status;
     this.integrations = integrations;
-    this.taskCounter = taskCounter;
     this.embedded = embedded;
   }
 
@@ -369,10 +358,7 @@ export class Rack {
     task: task.New<Schemas>,
     schemas?: Schemas,
   ): Promise<task.Task<Schemas>> {
-    task.key = (
-      (BigInt(this.key) << 32n) +
-      (BigInt(task.key ?? 0) & 0xffffffffn)
-    ).toString();
+    task.rack = this.key;
     return await this.tasks.create(task, schemas as Required<Schemas>);
   }
 
@@ -386,7 +372,6 @@ export class Rack {
       name: this.name,
       status: this.status,
       integrations: this.integrations,
-      taskCounter: this.taskCounter,
       embedded: this.embedded,
     };
   }

@@ -125,12 +125,16 @@ export type Channel = InputChannel | OutputChannel;
 
 export type ChannelMode = Channel["type"];
 
-const readConfigZ = Task.baseReadConfigZ
-  .omit({ device: true })
+const readConfigZ = Task.baseReadConfigZ.omit({ device: true }).extend({
+  sampleRate: z.number(),
+  streamRate: z.number(),
+  channels: z.array(inputChannelZ),
+});
+
+export const deployReadConfigZ = readConfigZ
   .extend({
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
-    channels: z.array(inputChannelZ),
   })
   .check(Task.validateStreamRate);
 
@@ -165,8 +169,10 @@ export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const ZERO_READ_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "EtherCAT Read Task",
   config: ZERO_READ_CONFIG,
+  configHash: "",
   type: "ethercat_read",
   internal: false,
   snapshot: false,
@@ -175,9 +181,14 @@ export const ZERO_READ_PAYLOAD = {
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = Task.baseConfigZ.omit({ device: true }).extend({
+  stateRate: z.number(),
+  executionRate: z.number(),
+  channels: z.array(outputChannelZ),
+});
+
+export const deployWriteConfigZ = writeConfigZ.extend({
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
-  channels: z.array(outputChannelZ),
 });
 
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}
@@ -210,8 +221,10 @@ export interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "EtherCAT Write Task",
   config: ZERO_WRITE_CONFIG,
+  configHash: "",
   type: "ethercat_write",
   internal: false,
   snapshot: false,

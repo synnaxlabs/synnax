@@ -213,7 +213,7 @@ class TestArcTask:
             type="arc",
             config=task.to_payload().config,
         )
-        assert created.key != 0
+        assert created.key is not None
         assert created.name == task_name
         assert created.type == "arc"
         assert created.config["arc_key"] == str(arc.key)

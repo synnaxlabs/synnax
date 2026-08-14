@@ -96,7 +96,7 @@ describe("HTTP Task Types", () => {
         rate: 0,
         endpoints: [],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -106,7 +106,7 @@ describe("HTTP Task Types", () => {
         rate: -1,
         endpoints: [],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -272,7 +272,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
@@ -633,7 +633,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -682,7 +682,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -724,7 +724,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -756,7 +756,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -781,7 +781,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -798,7 +798,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
@@ -960,5 +960,22 @@ describe("HTTP Scan Task", () => {
     it("should accept undefined", () => {
       expect(HTTP.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
     });
+  });
+});
+
+describe("draft configs", () => {
+  // Drafts persist server-side before configuration, so the shape schema must
+  // accept every zero config; retrieve parses with it.
+  it("should accept the zero read config", () => {
+    expect(
+      HTTP.Task.READ_SCHEMAS.config.safeParse(HTTP.Task.ZERO_READ_PAYLOAD.config)
+        .success,
+    ).toBe(true);
+  });
+  it("should accept the zero write config", () => {
+    expect(
+      HTTP.Task.WRITE_SCHEMAS.config.safeParse(HTTP.Task.ZERO_WRITE_PAYLOAD.config)
+        .success,
+    ).toBe(true);
   });
 });

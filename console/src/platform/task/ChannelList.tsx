@@ -22,14 +22,18 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { useIsSnapshot } from "@/platform/task/Form";
-import { type Channel } from "@/platform/task/types";
+import {
+  type Channel,
+  type DisabledChannel,
+  type Polarity,
+} from "@/platform/task/types";
 
-export interface ContextMenuItemProps<C extends Channel> {
+export interface ContextMenuItemProps<C extends Channel | DisabledChannel> {
   keys: string[];
   channels: C[];
 }
 
-interface ContextMenuProps<C extends Channel> extends Pick<
+interface ContextMenuProps<C extends Channel | DisabledChannel> extends Pick<
   Form.UseFieldListReturn<C["key"], C>,
   "data" | "remove"
 > {
@@ -39,16 +43,18 @@ interface ContextMenuProps<C extends Channel> extends Pick<
   onSelect: (keys: string[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
   path: string;
+  polarity?: Polarity;
   contextMenuItems?: Component.RenderProp<ContextMenuItemProps<C>>;
 }
 
-const ContextMenu = <C extends Channel>({
+const ContextMenu = <C extends Channel | DisabledChannel>({
   allowTare,
   keys,
   onDuplicate,
   onSelect,
   onTare,
   path,
+  polarity = "enabled",
   remove,
   contextMenuItems,
 }: ContextMenuProps<C>) => {
@@ -62,17 +68,22 @@ const ContextMenu = <C extends Channel>({
     const allChannels = get<C[]>(path).value;
     onDuplicate?.(allChannels, keys);
   };
-  const handleDisable = () =>
-    keys.forEach((key) => set(`${path}.${key}.enabled`, false));
-  const handleEnable = () => keys.forEach((key) => set(`${path}.${key}.enabled`, true));
+  const isEnabled = (c: C) =>
+    polarity === "enabled" ? (c as Channel).enabled : !(c as DisabledChannel).disabled;
+  const setEnabled = (key: string, enabled: boolean) =>
+    polarity === "enabled"
+      ? set(`${path}.${key}.enabled`, enabled)
+      : set(`${path}.${key}.disabled`, !enabled);
+  const handleDisable = () => keys.forEach((key) => setEnabled(key, false));
+  const handleEnable = () => keys.forEach((key) => setEnabled(key, true));
   const handleTare = useCallback(
     () => onTare?.(keys, channels),
     [onTare, keys, channels],
   );
   const canDuplicate = onDuplicate != null && keys.length > 0;
   const canRemove = keys.length > 0;
-  const canDisable = channels.some(({ enabled }) => enabled);
-  const canEnable = channels.some(({ enabled }) => !enabled);
+  const canDisable = channels.some(isEnabled);
+  const canEnable = channels.some((c) => !isEnabled(c));
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
     <PlatformContextMenu.Menu>
@@ -121,7 +132,7 @@ const ContextMenu = <C extends Channel>({
 
 export interface ChannelListItemProps extends List.ItemProps<string> {}
 
-export interface ChannelListProps<C extends Channel>
+export interface ChannelListProps<C extends Channel | DisabledChannel>
   extends
     Omit<ContextMenuProps<C>, "keys">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
@@ -132,7 +143,7 @@ export interface ChannelListProps<C extends Channel>
   selected: string[];
 }
 
-export const ChannelList = <C extends Channel>({
+export const ChannelList = <C extends Channel | DisabledChannel>({
   listItem,
   emptyContent,
   header,

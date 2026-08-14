@@ -10,7 +10,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Task } from "@/platform/task";
+import { Actions } from "@/platform/task/controls/Actions";
 import { renderWithConsole } from "@/testutil";
 
 describe("Controls.Actions", () => {
@@ -19,9 +19,9 @@ describe("Controls.Actions", () => {
     const actionsClick = vi.fn();
     await renderWithConsole(
       <div onClick={parentClick}>
-        <Task.Controls.Actions onClick={actionsClick}>
+        <Actions onClick={actionsClick}>
           <span>content</span>
-        </Task.Controls.Actions>
+        </Actions>
       </div>,
     );
     fireEvent.click(screen.getByText("content"));
@@ -33,9 +33,9 @@ describe("Controls.Actions", () => {
     const parentClick = vi.fn();
     await renderWithConsole(
       <div onClick={parentClick}>
-        <Task.Controls.Actions>
+        <Actions>
           <span>content</span>
-        </Task.Controls.Actions>
+        </Actions>
       </div>,
     );
     fireEvent.click(screen.getByText("content"));

@@ -112,9 +112,9 @@ describe("task ontology", () => {
       const { store } = await renderTaskTree(t);
       fireEvent.doubleClick(await findTreeRow(t.name));
       const tab = await resolveFocusedTab(store, client);
-      if (tab.variant !== "view") throw new Error("expected a tab");
-      expect(tab.type).toBe(NI.Task.ANALOG_READ_TYPE);
-      expect(tab.args).toEqual({ taskKey: t.key });
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.type).toBe("task");
+      expect(tab.resource.key).toBe(t.key);
     });
   });
 
@@ -148,10 +148,9 @@ describe("task ontology", () => {
       await renderMenu(props);
       fireEvent.click(await screen.findByText("Edit configuration"));
       await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
-      expect(openTab.mock.calls[0][0]).toEqual({
-        variant: "view",
-        type: NI.Task.ANALOG_READ_TYPE,
-        args: { taskKey: t.key },
+      expect(openTab.mock.calls[0][0]).toMatchObject({
+        variant: "resource",
+        resource: { type: "task", key: t.key },
       });
     });
 

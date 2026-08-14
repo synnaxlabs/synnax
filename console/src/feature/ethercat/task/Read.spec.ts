@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, task } from "@synnaxlabs/client";
+import { type rack, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -21,8 +22,8 @@ import {
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  clickDeploy,
+  deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
@@ -35,14 +36,42 @@ beforeAll(async () => {
   testRack = await client.racks.create({ name: uniqueName("ecat_rack") });
 });
 
-const renderRead = async (config?: unknown) =>
-  await renderTaskFormTab(EtherCAT.Task.Read, EtherCAT.Task.READ_TYPE, {
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = EtherCAT.Task.ZERO_READ_PAYLOAD;
+
+const createDraft = async (
+  client: Synnax,
+  config: EtherCAT.Task.ReadPayload["config"],
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.READ_SCHEMAS);
+
+const renderRead = async (config: EtherCAT.Task.ReadPayload["config"]) => {
+  const draft = await createDraft(client, config);
+  const statuses: Status.NotificationSpec[] = [];
+  const rendered = await renderTaskFormTab(EtherCAT.Task.Read, {
     client,
-    params: config == null ? {} : { config },
+    taskKey: draft.key,
+    onStatuses: (next) => {
+      statuses.length = 0;
+      statuses.push(...next);
+    },
   });
+  return { ...rendered, draft, statuses };
+};
+
+const awaitStatus = async (
+  statuses: Status.NotificationSpec[],
+  pattern: RegExp,
+): Promise<void> => {
+  await waitFor(() => {
+    const matched = statuses.some(
+      (s) => pattern.test(s.description ?? "") || pattern.test(s.message),
+    );
+    expect(matched).toBe(true);
+  });
+};
 
 describe("EtherCAT Read", () => {
-  it("should render channels parsed from an args config with their port labels", async () => {
+  it("should render channels from the task row's config with their port labels", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
@@ -114,7 +143,7 @@ describe("EtherCAT Read", () => {
     await waitFor(() => expect(screen.getByText(slave.name)).toBeTruthy());
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create the index and data channels, update the slave, and save the task", async () => {
       const identifier = createIdentifier();
       const namedChannel = uniqueName("ecat_named");
@@ -123,21 +152,21 @@ describe("EtherCAT Read", () => {
         network: "eth0",
         pdos: createPDOs(),
       });
-      const rendered = await renderRead({
+      const { container, draft } = await renderRead({
         ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
         channels: [
           createAutoInputChannel(slave.key, "Status"),
           createManualInputChannel(slave.key, 0x6001, 2, { name: namedChannel }),
         ],
       });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: EtherCAT.Task.READ_SCHEMAS,
-      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
       expect(created.type).toBe(EtherCAT.Task.READ_TYPE);
-      expect(task.rackKey(created.key)).toBe(testRack.key);
+      expect(created.rack).toBe(testRack.key);
       const [auto, manual] = created.config.channels;
       expect(auto.channel).not.toBe(0);
       expect(manual.channel).not.toBe(0);
@@ -162,7 +191,7 @@ describe("EtherCAT Read", () => {
       expect(index.isIndex).toBe(true);
     });
 
-    it("should reuse the existing index and channels when reconfigured", async () => {
+    it("should reuse the existing index and channels when redeployed", async () => {
       const slave = await createSlaveDevice(client, testRack.key, {
         identifier: createIdentifier(),
         network: "eth0",
@@ -173,33 +202,34 @@ describe("EtherCAT Read", () => {
         channels: [createAutoInputChannel(slave.key, "Status")],
       };
       const first = await renderRead(config);
-      await clickConfigure();
-      const firstKey = await awaitTaskKey(first);
-      const firstTask = await client.tasks.retrieve({
-        key: firstKey,
-        schemas: EtherCAT.Task.READ_SCHEMAS,
-      });
+      const firstTask = await deployAndAwaitTask(
+        client,
+        first.container,
+        first.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
       first.unmount();
 
       const second = await renderRead(config);
-      await clickConfigure();
-      const secondKey = await awaitTaskKey(second);
-      const secondTask = await client.tasks.retrieve({
-        key: secondKey,
-        schemas: EtherCAT.Task.READ_SCHEMAS,
-      });
+      const secondTask = await deployAndAwaitTask(
+        client,
+        second.container,
+        second.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
       expect(secondTask.config.channels[0].channel).toBe(
         firstTask.config.channels[0].channel,
       );
     });
 
     it("should surface an error when the task has no channels", async () => {
-      await renderRead();
-      await clickConfigure();
-      fireEvent.click(await screen.findByText(/Failed to/));
-      await waitFor(() =>
-        expect(screen.getByText(/No channels configured/)).toBeTruthy(),
-      );
+      const { container, statuses } = await renderRead({
+        ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
+        channels: [],
+      });
+      await clickDeploy(container);
+      await awaitStatus(statuses, /Failed to/);
+      await awaitStatus(statuses, /No channels configured/);
     });
 
     it("should surface an error when a slave is not configured", async () => {
@@ -209,13 +239,13 @@ describe("EtherCAT Read", () => {
         { identifier: createIdentifier(), network: "eth0", pdos: createPDOs() },
         false,
       );
-      await renderRead({
+      const { container, statuses } = await renderRead({
         ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
         channels: [createAutoInputChannel(slave.key, "Status")],
       });
-      await clickConfigure();
-      fireEvent.click(await screen.findByText(/Failed to/));
-      await waitFor(() => expect(screen.getByText(/is not configured/)).toBeTruthy());
+      await clickDeploy(container);
+      await awaitStatus(statuses, /Failed to/);
+      await awaitStatus(statuses, /is not configured/);
     });
   });
 });

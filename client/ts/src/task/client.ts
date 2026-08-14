@@ -10,9 +10,11 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
+  binary,
   caseconv,
   type CrudeTimeSpan,
   deep,
+  type destructor,
   id,
   primitive,
   type record,
@@ -49,15 +51,33 @@ export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
+export const setSignalZ = payloadZ().omit({ config: true, status: true });
+export interface SetSignal extends z.infer<typeof setSignalZ> {}
+
+export interface DriftedParams extends Pick<
+  Payload,
+  "configHash" | "rack" | "status"
+> {}
+
+/**
+ * Reports whether a task's live instance has drifted from its stored task: the task is
+ * running and the stored config or rack differs from what the instance was deployed
+ * with. Tasks that are not running never drift. Both hashes are server-assigned, so
+ * this compares two given values and never hashes a config. A status with an empty
+ * deployed hash never drifts: the deployed config is unknown, not different.
+ * @param task - The stored task's hash, rack, and status.
+ * @returns True when a redeploy (start) would change the running instance.
+ */
+export const drifted = (task: DriftedParams): boolean => {
+  const details = task.status?.details;
+  if (details == null || !details.running || details.configHash === "") return false;
+  return details.configHash !== task.configHash || details.rack !== task.rack;
+};
+
 // Temporary hack that filters the set of commands that should change the
 // status of a task to loading.
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
-
-export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
-
-export const newKey = (rackKey: RackKey, taskKey: number = 0): Key =>
-  ((BigInt(rackKey) << 32n) + BigInt(taskKey)).toString();
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.parents.retrieve({ ids: ontologyID(taskKey) });
@@ -94,11 +114,13 @@ export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends 
 
 export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
+  readonly rack: RackKey;
   name: string;
   internal: boolean;
   type: z.infer<S["type"]>;
   snapshot: boolean;
   config: z.infer<S["config"]>;
+  readonly configHash: string;
   status?: Status<S["statusData"]>;
 
   readonly schemas: S;
@@ -124,16 +146,28 @@ export class Task<S extends Schemas = Schemas> {
   }
 
   constructor(
-    { key, type, name, config, internal = false, snapshot = false, status }: Payload<S>,
+    {
+      key,
+      rack,
+      type,
+      name,
+      config,
+      configHash = "",
+      internal = false,
+      snapshot = false,
+      status,
+    }: Payload<S>,
     schemas?: S,
     frameClient?: framer.Client,
     ontologyClient?: ontology.Client,
     rangeClient?: ranger.Client,
   ) {
     this.key = key;
+    this.rack = rack;
     this.name = name;
     this.type = type;
     this.config = config;
+    this.configHash = configHash;
     this.schemas =
       schemas ??
       ({
@@ -155,9 +189,11 @@ export class Task<S extends Schemas = Schemas> {
   get payload(): Payload<S> {
     return {
       key: this.key,
+      rack: this.rack,
       name: this.name,
       type: this.type,
       config: this.config,
+      configHash: this.configHash,
       status: this.status,
       internal: this.internal,
       snapshot: this.snapshot,
@@ -173,6 +209,7 @@ export class Task<S extends Schemas = Schemas> {
       ...params,
       frameClient: this.frameClient,
       task: this.key,
+      configHash: this.configHash,
     });
   }
 
@@ -183,6 +220,7 @@ export class Task<S extends Schemas = Schemas> {
       ...params,
       frameClient: this.frameClient,
       task: this.key,
+      configHash: this.configHash,
       name: this.name,
       statusDataZ: this.schemas.statusData,
     });
@@ -263,7 +301,7 @@ const singleQueryZ = z
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
     z.strictObject({ type: z.string(), rack: rackKeyZ.optional() }),
-    z.union([z.string(), z.number()]).transform((key) => ({ key })),
+    keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
 
@@ -289,7 +327,7 @@ const requestFilter = (
     if (keySet != null && !keySet.has(t.key)) return false;
     if (nameSet != null && !nameSet.has(t.name)) return false;
     if (typeSet != null && !typeSet.has(t.type)) return false;
-    if (req.rack != null && rackKey(t.key) !== req.rack) return false;
+    if (req.rack != null && t.rack !== req.rack) return false;
     if (req.internal != null && t.internal !== req.internal) return false;
     if (req.snapshot != null && t.snapshot !== req.snapshot) return false;
     return true;
@@ -323,9 +361,7 @@ const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean =
   if (primitive.isNonZero(query.keys)) return t.key === query.keys[0];
   if (primitive.isNonZero(query.names)) return t.name === query.names[0];
   if (primitive.isNonZero(query.types))
-    return (
-      t.type === query.types[0] && (query.rack == null || rackKey(t.key) === query.rack)
-    );
+    return t.type === query.types[0] && (query.rack == null || t.rack === query.rack);
   return false;
 };
 
@@ -357,7 +393,29 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) => await this.fetchThrough({ keys }),
       listen: [
-        query.createFetchListener(SET_CHANNEL_NAME, keyZ),
+        {
+          bind: (table) => ({
+            channel: SET_CHANNEL_NAME,
+            schema: setSignalZ,
+            // The set signal omits config: a changed hash makes the cached one stale.
+            onChange: async (changed: SetSignal[]) => {
+              const stale: Key[] = [];
+              table.batch(() =>
+                changed.forEach((sig) => {
+                  const cached = table.get(sig.key);
+                  if (cached == null || cached.configHash !== sig.configHash) {
+                    stale.push(sig.key);
+                    return;
+                  }
+                  table.set(sig.key, (prev) =>
+                    prev == null ? undefined : this.sugar({ ...prev.payload, ...sig }),
+                  );
+                }),
+              );
+              if (stale.length > 0) await table.retrieve(stale, { refresh: true });
+            },
+          }),
+        },
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
@@ -369,12 +427,22 @@ export class Client extends query.Retriever<
           commands.forEach((changed) =>
             statusStore.set(statusKey(changed.task), (prev) => {
               if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
+              // Carry the last known deploy info forward: zeroing it would make this
+              // optimistic status claim the task deployed with an empty config/rack.
+              const latest = this.latestStatusOf(changed.task);
               return status.create<StatusDetailsZodObject>({
                 key: statusKey(changed.task),
                 name: "Task Status",
                 variant: "loading",
                 message: `Running ${changed.type} command...`,
-                details: { task: changed.task, running: true, cmd: "", data: {} },
+                details: {
+                  task: changed.task,
+                  running: true,
+                  cmd: "",
+                  configHash: latest?.details.configHash ?? "",
+                  rack: latest?.details.rack ?? 0,
+                  data: {},
+                },
               });
             }),
           ),
@@ -436,13 +504,26 @@ export class Client extends query.Retriever<
     return isSingle ? sugared[0] : sugared;
   }
 
+  /**
+   * Forgets the tasks locally without deleting them on the cluster, for callers
+   * whose own endpoint already deleted them. Keeps a later retrieve from serving
+   * a deleted task while the delete signal is still in flight.
+   */
+  dropCached(keys: Key | Key[]): void {
+    this.dropLocal(array.toArray(keys));
+  }
+
+  private dropLocal(keys: Key[]): destructor.Destructor[] {
+    return [
+      this.cfg.ontology.cache.deleteResources(ontologyID(keys)),
+      this.store.delete(keys),
+      this.cfg.statusStore.delete(keys.map((k) => statusKey(k))),
+    ];
+  }
+
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-      this.cfg.statusStore.delete(keysArr.map((k) => statusKey(k))),
-    ];
+    const drop = () => this.dropLocal(keysArr);
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -604,13 +685,15 @@ export class Client extends query.Retriever<
   ): Task<S>[] | Task<S> {
     const isSingle = !Array.isArray(payloads);
     const res = array.toArray(payloads).map(
-      ({ key, name, type, config, status, internal, snapshot }) =>
+      ({ key, rack, name, type, config, configHash, status, internal, snapshot }) =>
         new Task(
           {
             key,
+            rack,
             name,
             type,
             config,
+            configHash,
             internal,
             snapshot,
             status,
@@ -624,6 +707,15 @@ export class Client extends query.Retriever<
     return isSingle ? res[0] : res;
   }
 
+  /**
+   * Fills a command's config hash from the cached task row. A command that carries
+   * the hash lets the Driver reuse its live instance instead of redeploying.
+   */
+  private stampConfigHash(cmd: NewCommand): NewCommand {
+    if (cmd.configHash != null) return cmd;
+    return { ...cmd, configHash: this.store.get(cmd.task)?.configHash };
+  }
+
   async executeCommand(params: ExecuteCommandParams): Promise<string>;
 
   async executeCommand(params: ExecuteCommandsParams): Promise<string[]>;
@@ -632,8 +724,14 @@ export class Client extends query.Retriever<
     params: ExecuteCommandParams | ExecuteCommandsParams,
   ): Promise<string | string[]> {
     if ("commands" in params)
-      return await executeCommands({ ...params, frameClient: this.cfg.framer });
-    return await executeCommand({ ...params, frameClient: this.cfg.framer });
+      return await executeCommands({
+        commands: params.commands.map((c) => this.stampConfigHash(c)),
+        frameClient: this.cfg.framer,
+      });
+    return await executeCommand({
+      ...this.stampConfigHash(params),
+      frameClient: this.cfg.framer,
+    });
   }
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
@@ -656,6 +754,7 @@ export class Client extends query.Retriever<
       };
       return await executeCommandsSync({
         ...params,
+        commands: params.commands.map((c) => this.stampConfigHash(c)),
         frameClient: this.cfg.framer,
         name: retrieveNames,
       });
@@ -669,6 +768,7 @@ export class Client extends query.Retriever<
       frameClient: this.cfg.framer,
       name: retrieveName,
       ...params,
+      configHash: params.configHash ?? this.store.get(params.task)?.configHash,
     });
   }
 }
@@ -698,6 +798,7 @@ interface ExecuteCommandInternalParams {
   task: Key;
   type: string;
   args?: {};
+  configHash?: string;
 }
 
 const executeCommand = async ({
@@ -705,13 +806,24 @@ const executeCommand = async ({
   task,
   type,
   args,
+  configHash,
 }: ExecuteCommandInternalParams): Promise<string> =>
-  (await executeCommands({ frameClient, commands: [{ args, task, type }] }))[0];
+  (
+    await executeCommands({
+      frameClient,
+      commands: [{ args, task, type, configHash }],
+    })
+  )[0];
 
 export interface NewCommand {
   task: Key;
   type: string;
   args?: {};
+  /**
+   * The config hash the sender wants running. Left unset, the client fills it from
+   * its cached task row.
+   */
+  configHash?: string;
 }
 
 interface ExecuteCommandsInternalParams {
@@ -725,7 +837,11 @@ const executeCommands = async ({
 }: ExecuteCommandsInternalParams): Promise<string[]> => {
   if (frameClient == null) throw new Error("Task not created");
   const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
-  const cmds = commands.map((c) => ({ ...c, key: id.create() }));
+  const cmds = commands.map((c) => ({
+    ...c,
+    configHash: c.configHash ?? "",
+    key: id.create(),
+  }));
   await w.write(COMMAND_CHANNEL_NAME, cmds);
   await w.close();
   return cmds.map((c) => c.key);
@@ -736,6 +852,7 @@ interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodN
     Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
     TaskExecuteCommandSyncParams {
   task: Key;
+  configHash?: string;
 }
 
 const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
@@ -746,11 +863,12 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   name: taskName,
   statusDataZ,
   args,
+  configHash,
 }: ExecuteCommandSyncInternalParams<StatusData>): Promise<Status<StatusData>> =>
   (
     await executeCommandsSync({
       frameClient,
-      commands: [{ args, task, type }],
+      commands: [{ args, task, type, configHash }],
       timeout,
       statusDataZ,
       name: taskName,
@@ -789,14 +907,16 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   try {
     while (true) {
       const frame = await Promise.race([streamer.read(), timeoutPromise]);
-      const parseResult = statusZ(statusDataZ).safeParse(
-        frame.at(-1)[status.SET_CHANNEL_NAME],
-      );
-      if (!parseResult.success) continue;
-      const state = parseResult.data;
-      if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
-      states = [...states.filter((s) => s.key !== state.key), state];
-      if (states.length === cmdKeys.length) return states;
+      // A frame can hold statuses for other tasks and racks, which have a different
+      // shape and fail to parse.
+      for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
+        const res = statusZ(statusDataZ).safeParse(binary.JSON_CODEC.decodeString(str));
+        if (!res.success) continue;
+        const state = res.data;
+        if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
+        states = [...states.filter((s) => s.key !== state.key), state];
+        if (states.length === cmdKeys.length) return states;
+      }
     }
   } finally {
     clearTimeout(timeoutID);

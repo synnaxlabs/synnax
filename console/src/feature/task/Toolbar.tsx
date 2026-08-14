@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { task, UnexpectedError } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -24,6 +24,7 @@ import {
   Synnax,
   Task,
   Text,
+  Tooltip,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
@@ -69,7 +70,6 @@ const Content = () => {
   const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
   const addStatus = Status.useAdder();
-  const confirm = Modals.useConfirm();
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
@@ -81,26 +81,7 @@ const Content = () => {
   });
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
-  const { update: rename } = Task.useRename({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<Task.UseRenameParams>) => {
-        const { key, name } = data;
-        const tsk = getItem(key);
-        if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
-        if (tsk.status?.details.running === true) {
-          const confirmed = await confirm({
-            message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
-            description: `This will cause ${tsk.name} to stop and be reconfigured.`,
-            cancel: { label: "Cancel" },
-            confirm: { label: "Rename", variant: "error" },
-          });
-          if (!confirmed) return false;
-        }
-        return data;
-      },
-      [],
-    ),
-  });
+  const { update: rename } = Task.useRename();
 
   const { update: handleDelete } = Task.useDelete({
     beforeUpdate: useCallback(
@@ -140,17 +121,8 @@ const Content = () => {
     [setDataSaving],
   );
   const handleEdit = useCallback(
-    (key: task.Key) => {
-      const task = getItem(key);
-      if (task == null)
-        return addStatus({
-          variant: "error",
-          message: "Failed to open task details",
-          description: `Task with key ${key} not found`,
-        });
-      openTab({ variant: "view", type: task.type, args: { taskKey: task.key } });
-    },
-    [selected, addStatus, openTab, getItem],
+    (key: task.Key) => openTab({ variant: "resource", resource: task.ontologyID(key) }),
+    [openTab],
   );
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
@@ -262,6 +234,7 @@ const TaskListItem = ({
   const icon = getIcon(task_?.type ?? "");
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
+  const isDrifted = task_ != null && task.drifted(task_.payload);
   if (!isRunning && variant === "success") variant = "info";
   const handleStartStopClick = useCallback(
     () => onStopStart(isRunning ? "stop" : "start", itemKey),
@@ -295,6 +268,14 @@ const TaskListItem = ({
               overflow="ellipsis"
               weight={500}
             />
+            {isDrifted && (
+              <Tooltip.Dialog>
+                <Text.Text level="small">Configuration changed since deploy</Text.Text>
+                <Text.Text level="small" status="warning">
+                  <Icon.Refresh />
+                </Text.Text>
+              </Tooltip.Dialog>
+            )}
           </Flex.Box>
         </Flex.Box>
         <Text.Text level="small" color={10}>
@@ -304,12 +285,13 @@ const TaskListItem = ({
       {hasUpdatePermission && (
         <Button.Button
           variant="outlined"
-          status={isLoading ? "loading" : undefined}
+          size="small"
+          status={isLoading ? "loading" : isRunning ? "error" : undefined}
           onClick={handleStartStopClick}
           onDoubleClick={stopPropagation}
           tooltip={`${isRunning ? "Stop" : "Start"} ${task_?.name ?? ""}`}
         >
-          {isRunning ? <Icon.Pause /> : <Icon.Play />}
+          {isRunning ? <Icon.Stop /> : <Icon.Play />}
         </Button.Button>
       )}
     </Select.ListItem>
@@ -348,6 +330,9 @@ const ContextMenu = ({
     ({ status }) => status?.details.running === false,
   );
   const canStop = selectedTasks.some(({ status }) => status?.details.running === true);
+  const redeployKeys = selectedTasks
+    .filter((t) => t.status?.details.running === true && task.drifted(t.payload))
+    .map(({ key }) => key);
   const someSelected = selectedTasks.length > 0;
   const isSingle = selectedTasks.length === 1;
 
@@ -403,8 +388,18 @@ const ContextMenu = ({
           )}
           {canStop && (
             <Menu.Item itemKey="stop" onClick={() => onStop(keys)}>
-              <Icon.Pause />
+              <Icon.Stop />
               Stop
+            </Menu.Item>
+          )}
+          {redeployKeys.length > 0 && (
+            <Menu.Item
+              className={CSS.BE("task", "redeploy-item")}
+              itemKey="redeploy"
+              onClick={() => onStart(redeployKeys)}
+            >
+              <Icon.Refresh />
+              Redeploy
             </Menu.Item>
           )}
         </>

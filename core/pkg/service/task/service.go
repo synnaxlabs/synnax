@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	"github.com/synnaxlabs/x/config"
@@ -63,6 +65,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
+	// Signals is used to propagate task changes through the Synnax signals' channel
+	// communication mechanism.
+	//
+	// [OPTIONAL]
+	Signals *signals.Provider
 	// ImEx is the import/export registry the task service registers itself with as the
 	// exporter for task resources during OpenService.
 	//
@@ -86,6 +93,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
@@ -168,6 +176,17 @@ func OpenService(
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
+	if cfg.Signals != nil {
+		pubCfg := signals.GorpPublisherConfigUUID[Task](s.table.Observe())
+		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
+			t.Config, t.Status = nil, nil
+			return signals.MarshalJSON[Key, Task](t)
+		}
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, pubCfg); !ok(err, sig) {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
@@ -202,7 +221,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        tx,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		otg:       s.cfg.Ontology,
-		rack:      s.cfg.Rack.NewWriter(tx),
 		group:     s.group,
 		status:    status.NewWriter[StatusDetails](s.cfg.Status, tx),
 		table:     s.table,
@@ -225,15 +243,37 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
 	}
 	statuses := make([]Status, len(tasks))
+	keys := make([]string, len(tasks))
 	for i, tsk := range tasks {
+		keys[i] = tsk.OntologyID().String()
+	}
+	// A silent rack does not undo the deploy the Driver reported, so its config hash
+	// and rack are carried across rather than rebuilt.
+	var reported []Status
+	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
+		Where(status.MatchKeys[StatusDetails](keys...)).
+		Entries(&reported).
+		Exec(ctx, nil); err != nil {
+		s.cfg.L.Error("failed to retrieve statuses on suspect rack", zap.Error(err))
+	}
+	deployed := make(map[string]StatusDetails, len(reported))
+	for _, stat := range reported {
+		deployed[stat.Key] = stat.Details
+	}
+	for i, tsk := range tasks {
+		details := StatusDetails{Task: tsk.Key, Running: false}
+		if prev, ok := deployed[keys[i]]; ok {
+			details.ConfigHash = prev.ConfigHash
+			details.Rack = prev.Rack
+		}
 		statuses[i] = Status{
-			Key:         tsk.OntologyID().String(),
+			Key:         keys[i],
 			Time:        telem.Now(),
 			Name:        tsk.Name,
 			Variant:     rackStat.Variant,
 			Message:     rackStat.Message,
 			Description: rackStat.Description,
-			Details:     StatusDetails{Task: tsk.Key, Running: false},
+			Details:     details,
 		}
 	}
 	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).
