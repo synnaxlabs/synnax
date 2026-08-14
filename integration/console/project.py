@@ -604,13 +604,12 @@ class ProjectClient:
     def import_project_from_directory(self, directory_path: str) -> None:
         """Import a project via the real "Import a project" command flow.
 
-        Opens the command palette, fulfills the resulting directory chooser
-        with ``directory_path`` (Playwright walks it and uploads each file
-        with its webkitRelativePath set), then waits for the project
-        selector to display the imported project's name. A bundle directory
-        holds a ``manifest.json`` whose ``name`` names the project; a legacy
-        directory holds ``LAYOUT.json`` or ``PANELS.json`` and names the
-        project after its basename.
+        Opens the command palette, fulfills the resulting directory chooser with
+        ``directory_path`` (Playwright walks it and uploads each file with its
+        webkitRelativePath set), then waits for the project selector to display the
+        imported project's name. A bundle directory holds a ``manifest.json`` whose
+        ``name`` names the project; a legacy directory holds ``LAYOUT.json`` or
+        ``PANELS.json`` and names the project after its basename.
         """
         expected_name = os.path.basename(directory_path.rstrip(os.sep))
         manifest_path = os.path.join(directory_path, "manifest.json")
@@ -627,10 +626,10 @@ class ProjectClient:
     def export_project(self, name: str) -> str:
         """Export a project via the real Export context menu action.
 
-        The browser runs without the File System Access pickers (see the case
-        launch args), so the export falls back to a plain download, which
-        Playwright captures. Saves the bundle zip under the results dir and
-        extracts it into a real directory the import test can consume.
+        The browser runs without the File System Access pickers (see the case launch
+        args), so the export falls back to a plain download, which Playwright captures.
+        Saves the bundle zip under the results dir and extracts it into a real directory
+        the import test can consume.
         """
         self.layout.show_resource_toolbar("project")
         project_item = self.get_item(name)
