@@ -290,7 +290,7 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 		Expect(edge1.Kind).To(Equal(ir.EdgeKindContinuous))
 
 		edge2 := MustBeOk(lo.Find(mod.Edges, func(e ir.Edge) bool {
-			return e.Source == (ir.Handle{Node: calcNode.Key, Param: "output"})
+			return e.Source == ir.Handle{Node: calcNode.Key, Param: "output"}
 		}))
 		Expect(edge2.Target.Node).To(Equal(writeNode.Key))
 		Expect(edge2.Kind).To(Equal(ir.EdgeKindContinuous))

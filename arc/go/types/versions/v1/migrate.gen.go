@@ -37,10 +37,6 @@ func autoMigrateFunctionProperties(ctx context.Context, old v0.FunctionPropertie
 	}, nil
 }
 
-func autoMigrateKind(_ context.Context, old v0.Kind) (Kind, error) {
-	return Kind(old), nil
-}
-
 func autoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
 	typeVal, err := MigrateType(ctx, old.Type)
 	if err != nil {
@@ -93,4 +89,8 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 		Constraint:         constraint,
 		ChanDirection:      old.ChanDirection,
 	}, nil
+}
+
+func autoMigrateKind(_ context.Context, old v0.Kind) (Kind, error) {
+	return Kind(old), nil
 }
