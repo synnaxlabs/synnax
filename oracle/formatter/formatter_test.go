@@ -389,6 +389,23 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("// Copyright 2026"))
 			Expect(result).To(ContainSubstring("import \"common.oracle\""))
 		})
+
+		It("should keep a blank line splitting the leading comments", func() {
+			source := "// Copyright 2026\n// Licensed.\n\n// Tombstone: removed.\n"
+			result := format(source)
+			Expect(result).To(Equal(source))
+			Expect(format(result)).To(Equal(result))
+		})
+
+		It("should collapse repeated blank lines between leading comments", func() {
+			result := format("// Copyright 2026\n\n\n\n// Tombstone: removed.\n")
+			Expect(result).To(Equal("// Copyright 2026\n\n// Tombstone: removed.\n"))
+		})
+
+		It("should leave glued leading comments glued", func() {
+			source := "// Copyright 2026\n// Tombstone: removed.\n"
+			Expect(format(source)).To(Equal(source))
+		})
 	})
 
 	Describe("Blank Lines", func() {

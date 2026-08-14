@@ -107,10 +107,17 @@ func (f *formatter) emitLeadingComments() bool {
 	f.tokens.Fill()
 	allTokens := f.tokens.GetAllTokens()
 	var emitted bool
+	prevEndLine := 0
 	for _, tok := range allTokens {
 		if tok.GetChannel() == hiddenChan {
 			if tok.GetTokenType() == commentLine || tok.GetTokenType() == commentBlk {
+				// A blank line splitting the leading comments (the copyright
+				// header vs. a following note) is meaningful; keep exactly one.
+				if emitted && tok.GetLine() > prevEndLine+1 {
+					f.newline()
+				}
 				f.writeLine(tok.GetText())
+				prevEndLine = tok.GetLine() + strings.Count(tok.GetText(), "\n")
 				f.lastTokenIdx = tok.GetTokenIndex()
 				emitted = true
 			}

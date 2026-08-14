@@ -11,11 +11,13 @@
 
 package v0
 
-import "github.com/synnaxlabs/arc/compiler"
-
 // Program is the persisted shape of a compiled Arc program: the compiled output only.
-// Stored arc v0 records embed a hand-written Orc envelope over these fields; the
-// intermediate representation never reached the stored bytes.
+// Stored arc v0 records embed this layout; the intermediate representation never
+// reached the stored bytes.
 type Program struct {
-	compiler.Output
+	// WASM is compiled WebAssembly bytecode for sandboxed execution.
+	WASM []byte `json:"wasm" msgpack:"wasm"`
+	// OutputMemoryBases contains memory base addresses for multi-output functions,
+	// mapping function keys to their base addresses.
+	OutputMemoryBases map[string]uint32 `json:"output_memory_bases,omitzero" msgpack:"output_memory_bases,omitzero"`
 }

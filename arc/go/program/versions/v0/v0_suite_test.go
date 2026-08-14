@@ -7,6 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Tombstone: arc stopped storing compiled programs at its v1, so nothing persists this
-// resource at v1 or later. The live schema is hand-owned; v0 stays frozen for the
-// program bytes arc v0 records embed.
+package v0_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestProgramV0(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Program v0 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
