@@ -210,8 +210,18 @@ var _ = Describe("Ontology", func() {
 	})
 })
 
-var _ = Describe("RetrieveParents", func() {
-	It("Should return the parents of each ID keyed by child", func(ctx SpecContext) {
+var _ = Describe("ParentsTraverser", func() {
+	retrieveParents := func(ctx SpecContext, id ontology.ID) []ontology.ID {
+		GinkgoHelper()
+		var parents []ontology.Resource
+		Expect(otg.NewRetrieve().
+			WhereIDs(id).
+			TraverseTo(ontology.ParentsTraverser).
+			Entries(&parents).
+			Exec(ctx, tx)).To(Succeed())
+		return ontology.ResourceIDs(parents)
+	}
+	It("Should return the parents of the given ID", func(ctx SpecContext) {
 		w := otg.NewWriter(tx)
 		parentA := newSampleType("rp-parent-a")
 		parentB := newSampleType("rp-parent-b")
@@ -230,12 +240,9 @@ var _ = Describe("RetrieveParents", func() {
 		Expect(w.DefineRelationships(
 			ctx, parentA, ontology.RelationshipTypeParentOf, childTwo,
 		)).To(Succeed())
-		parents := MustSucceed(
-			otg.RetrieveParents(tx, childOne, childTwo, orphan),
-		)
-		Expect(parents[childOne]).To(ConsistOf(parentA, parentB))
-		Expect(parents[childTwo]).To(ConsistOf(parentA))
-		Expect(parents).ToNot(HaveKey(orphan))
+		Expect(retrieveParents(ctx, childOne)).To(ConsistOf(parentA, parentB))
+		Expect(retrieveParents(ctx, childTwo)).To(ConsistOf(parentA))
+		Expect(retrieveParents(ctx, orphan)).To(BeEmpty())
 	})
 	It("Should ignore non-parent relationships", func(ctx SpecContext) {
 		w := otg.NewWriter(tx)
@@ -245,8 +252,6 @@ var _ = Describe("RetrieveParents", func() {
 		Expect(w.DefineRelationships(
 			ctx, labeler, "labeled_by", labeled,
 		)).To(Succeed())
-		Expect(
-			MustSucceed(otg.RetrieveParents(tx, labeled)),
-		).ToNot(HaveKey(labeled))
+		Expect(retrieveParents(ctx, labeled)).To(BeEmpty())
 	})
 })

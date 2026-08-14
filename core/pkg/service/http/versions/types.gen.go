@@ -108,5 +108,5 @@ type WriteEndpoint = v2.WriteEndpoint
 // value is written to an endpoint's command channel.
 type WriteConfig = v2.WriteConfig
 
-// ScanConfig configures an HTTP scan task, which carries no settings.
+// ScanConfig configures an HTTP scan task.
 type ScanConfig = v2.ScanConfig

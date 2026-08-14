@@ -105,7 +105,7 @@ func (w *WriteConfig) ApplyDefaults() {
 	}
 }
 
-// ScanConfig configures an OPC UA scan task, which carries no settings.
+// ScanConfig configures an OPC UA scan task.
 type ScanConfig struct {
 	config.BaseScan
 }

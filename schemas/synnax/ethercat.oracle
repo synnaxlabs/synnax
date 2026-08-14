@@ -164,7 +164,7 @@ WriteConfig struct extends task.BasePersistConfig {
 }
 
 ScanConfig struct extends task.BaseScanConfig {
-    @doc value  "configures an EtherCAT scan task, which carries no settings."
+    @doc value  "configures an EtherCAT scan task."
     @go version 1
     @go marshal
     @go migrate

@@ -1481,7 +1481,11 @@ DigitalWriteConfig struct extends WriteConfig {
 }
 
 ScanConfig struct extends task.BaseScanConfig {
-    @doc value  "configures the NI device scanner task, which carries no settings."
+    ignored_models string[] = ["^cRIO.*", "^nown.*"] {
+        @doc value "are regex patterns matching the device models the scan skips."
+    }
+
+    @doc value  "configures the NI device scanner task."
     @go version 2
     @go marshal
     @go migrate

@@ -81,5 +81,5 @@ type ReadConfig = versions.ReadConfig
 // WriteConfig configures a Modbus write task.
 type WriteConfig = versions.WriteConfig
 
-// ScanConfig configures a Modbus scan task, which carries no settings.
+// ScanConfig configures a Modbus scan task.
 type ScanConfig = versions.ScanConfig

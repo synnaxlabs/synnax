@@ -360,7 +360,7 @@ func (w *WriteConfig) ApplyDefaults() {
 	}
 }
 
-// ScanConfig configures a Modbus scan task, which carries no settings.
+// ScanConfig configures a Modbus scan task.
 type ScanConfig struct {
 	config.BaseScan
 }

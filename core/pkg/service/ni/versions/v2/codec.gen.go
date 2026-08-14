@@ -3251,6 +3251,13 @@ func (sc ScanConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(sc.Key[:])
 	w.Float64(float64(sc.Rate))
 	w.Bool(sc.Disabled)
+	w.Bool(sc.IgnoredModels != nil)
+	if sc.IgnoredModels != nil {
+		w.Uint32(uint32(len(sc.IgnoredModels)))
+		for i := range sc.IgnoredModels {
+			w.String(sc.IgnoredModels[i])
+		}
+	}
 	return nil
 }
 
@@ -3269,6 +3276,24 @@ func (sc *ScanConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	if sc.Disabled, err = r.Bool(); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			sc.IgnoredModels = make([]string, n)
+			for i := range sc.IgnoredModels {
+				if sc.IgnoredModels[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
