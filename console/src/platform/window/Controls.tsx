@@ -47,6 +47,7 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
     <OS.Controls
       disabled={disabled}
       focused={window?.focus}
+      maximized={window?.maximized}
       onClose={handleClose}
       onFullscreen={handleFullscreen}
       onMaximize={handleMaximize}

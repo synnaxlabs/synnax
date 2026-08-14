@@ -245,6 +245,7 @@ import {
   TbVariable,
 } from "react-icons/tb";
 import {
+  VscChromeRestore,
   VscSplitHorizontal,
   VscSplitVertical,
   VscSymbolConstant,
@@ -347,6 +348,7 @@ export const Resources = wrapSVGIcon(AiFillFolder, "resources");
 export const Group = wrapSVGIcon(AiFillFolder, "group");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
+export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
 export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
@@ -615,6 +617,7 @@ const icons = {
   Group,
   Project,
   Box,
+  Boxes,
   Python,
   TypeScript,
   CPlusPlus,
