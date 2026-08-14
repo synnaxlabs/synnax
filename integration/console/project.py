@@ -297,15 +297,16 @@ class ProjectClient:
             container.wait_for(state="attached", timeout=2000)
         except PlaywrightTimeoutError:
             return False
-        prev_scroll = -1
+        # The list is virtualized, so the wheel is the only way to reach detached
+        # rows. The rendered text stops changing once the list hits bottom.
+        container.hover()
+        prev_rows: str | None = None
         for _ in range(50):
-            curr_scroll = container.evaluate(
-                "el => ({ top: el.scrollTop, height: el.scrollHeight })"
-            )
-            if prev_scroll != -1 and curr_scroll["top"] == prev_scroll:
+            curr_rows = container.inner_text()
+            if prev_rows is not None and curr_rows == prev_rows:
                 break
-            prev_scroll = curr_scroll["top"]
-            container.evaluate("el => el.scrollTop += 200")
+            prev_rows = curr_rows
+            self.layout.page.mouse.wheel(0, 200)
             self.layout.page.wait_for_timeout(100)
             try:
                 page_item.wait_for(state="attached", timeout=300)
