@@ -336,6 +336,7 @@ export const Mosaic = ({
 }: MosaicProps): ReactElement | null => {
   const dispatch = useSingleDispatch();
   const key = Scope.use();
+  const client = Synnax.use();
   const { dispatch: dispatchTo } = useDispatch();
 
   // A tab dropped from another panel is removed there and inserted here: the two
@@ -347,7 +348,11 @@ export const Mosaic = ({
       const source = parseTabDragPayload(data);
       if (source == null || source.panel === key) {
         dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location }));
-        onSelect?.(tabKey);
+        // Another client can close the tab mid-drag, leaving the move a no-op and
+        // the key naming a tab this panel no longer holds.
+        const cached = client?.panels.getCached(key);
+        if (query.isLive(cached) && panel.findTab(cached.root, tabKey) != null)
+          onSelect?.(tabKey);
         return;
       }
       dispatchTo({
@@ -362,7 +367,7 @@ export const Mosaic = ({
       dispatchTo({ key: source.panel, actions: panel.removeTab({ key: tabKey }) });
       onSelect?.(tabKey);
     },
-    [dispatch, dispatchTo, key, onSelect],
+    [client, dispatch, dispatchTo, key, onSelect],
   );
 
   const handleResize = useCallback(
