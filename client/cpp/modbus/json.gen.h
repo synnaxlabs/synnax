@@ -44,8 +44,8 @@ inline x::json::json RegisterValue::to_json() const {
     return j;
 }
 
-inline BaseInputChannel BaseInputChannel::parse(x::json::Parser parser) {
-    return BaseInputChannel{
+inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
+    return BaseReadChannel{
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
@@ -57,7 +57,7 @@ inline BaseInputChannel BaseInputChannel::parse(x::json::Parser parser) {
     };
 }
 
-inline x::json::json BaseInputChannel::to_json() const {
+inline x::json::json BaseReadChannel::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
@@ -67,8 +67,8 @@ inline x::json::json BaseInputChannel::to_json() const {
     return j;
 }
 
-inline BaseOutputChannel BaseOutputChannel::parse(x::json::Parser parser) {
-    return BaseOutputChannel{
+inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
+    return BaseWriteChannel{
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
@@ -80,7 +80,7 @@ inline BaseOutputChannel BaseOutputChannel::parse(x::json::Parser parser) {
     };
 }
 
-inline x::json::json BaseOutputChannel::to_json() const {
+inline x::json::json BaseWriteChannel::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
@@ -97,10 +97,10 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ) = ::synnax::task::config::BaseRead::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.channels = [&] {
-        std::vector<InputChannel> result;
+        std::vector<ReadChannel> result;
         if (parser.has("channels"))
             parser.iter("channels", [&result](x::json::Parser &p) {
-                result.push_back(parse_input_channel(p));
+                result.push_back(parse_read_channel(p));
             });
         return result;
     }();
@@ -127,10 +127,10 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
         result
     ) = ::synnax::task::config::BaseWrite::parse(parser);
     result.channels = [&] {
-        std::vector<OutputChannel> result;
+        std::vector<WriteChannel> result;
         if (parser.has("channels"))
             parser.iter("channels", [&result](x::json::Parser &p) {
-                result.push_back(parse_output_channel(p));
+                result.push_back(parse_write_channel(p));
             });
         return result;
     }();
@@ -165,50 +165,50 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
-inline InputChannelCoilInput InputChannelCoilInput::parse(x::json::Parser parser) {
-    InputChannelCoilInput result;
-    static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+inline CoilReadChannel CoilReadChannel::parse(x::json::Parser parser) {
+    CoilReadChannel result;
+    static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json InputChannelCoilInput::to_json() const {
+inline x::json::json CoilReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseInputChannel::to_json().items())
+    for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     j["type"] = this->type;
     return j;
 }
 
-inline InputChannelDiscreteInput
-InputChannelDiscreteInput::parse(x::json::Parser parser) {
-    InputChannelDiscreteInput result;
-    static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+inline DiscreteInputReadChannel
+DiscreteInputReadChannel::parse(x::json::Parser parser) {
+    DiscreteInputReadChannel result;
+    static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json InputChannelDiscreteInput::to_json() const {
+inline x::json::json DiscreteInputReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseInputChannel::to_json().items())
+    for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     j["type"] = this->type;
     return j;
 }
 
-inline InputChannelHoldingRegisterInput
-InputChannelHoldingRegisterInput::parse(x::json::Parser parser) {
-    InputChannelHoldingRegisterInput result;
-    static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+inline HoldingRegisterReadChannel
+HoldingRegisterReadChannel::parse(x::json::Parser parser) {
+    HoldingRegisterReadChannel result;
+    static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     static_cast<RegisterValue &>(result) = RegisterValue::parse(parser);
     result.string_length = parser.field<std::int32_t>("string_length", 0);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json InputChannelHoldingRegisterInput::to_json() const {
+inline x::json::json HoldingRegisterReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseInputChannel::to_json().items())
+    for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterValue::to_json().items())
         j[k] = v;
@@ -217,19 +217,19 @@ inline x::json::json InputChannelHoldingRegisterInput::to_json() const {
     return j;
 }
 
-inline InputChannelRegisterInput
-InputChannelRegisterInput::parse(x::json::Parser parser) {
-    InputChannelRegisterInput result;
-    static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+inline InputRegisterReadChannel
+InputRegisterReadChannel::parse(x::json::Parser parser) {
+    InputRegisterReadChannel result;
+    static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     static_cast<RegisterValue &>(result) = RegisterValue::parse(parser);
     result.string_length = parser.field<std::int32_t>("string_length", 0);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json InputChannelRegisterInput::to_json() const {
+inline x::json::json InputRegisterReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseInputChannel::to_json().items())
+    for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterValue::to_json().items())
         j[k] = v;
@@ -238,33 +238,33 @@ inline x::json::json InputChannelRegisterInput::to_json() const {
     return j;
 }
 
-inline OutputChannelCoilOutput OutputChannelCoilOutput::parse(x::json::Parser parser) {
-    OutputChannelCoilOutput result;
-    static_cast<BaseOutputChannel &>(result) = BaseOutputChannel::parse(parser);
+inline CoilWriteChannel CoilWriteChannel::parse(x::json::Parser parser) {
+    CoilWriteChannel result;
+    static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json OutputChannelCoilOutput::to_json() const {
+inline x::json::json CoilWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseOutputChannel::to_json().items())
+    for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     j["type"] = this->type;
     return j;
 }
 
-inline OutputChannelHoldingRegisterOutput
-OutputChannelHoldingRegisterOutput::parse(x::json::Parser parser) {
-    OutputChannelHoldingRegisterOutput result;
-    static_cast<BaseOutputChannel &>(result) = BaseOutputChannel::parse(parser);
+inline HoldingRegisterWriteChannel
+HoldingRegisterWriteChannel::parse(x::json::Parser parser) {
+    HoldingRegisterWriteChannel result;
+    static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
     static_cast<RegisterValue &>(result) = RegisterValue::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json OutputChannelHoldingRegisterOutput::to_json() const {
+inline x::json::json HoldingRegisterWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseOutputChannel::to_json().items())
+    for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: RegisterValue::to_json().items())
         j[k] = v;
@@ -272,33 +272,33 @@ inline x::json::json OutputChannelHoldingRegisterOutput::to_json() const {
     return j;
 }
 
-inline InputChannel parse_input_channel(x::json::Parser parser) {
+inline ReadChannel parse_read_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "coil_input") return InputChannelCoilInput::parse(parser);
+    if (discriminator == "coil") return CoilReadChannel::parse(parser);
     if (discriminator == "discrete_input")
-        return InputChannelDiscreteInput::parse(parser);
-    if (discriminator == "holding_register_input")
-        return InputChannelHoldingRegisterInput::parse(parser);
-    if (discriminator == "register_input")
-        return InputChannelRegisterInput::parse(parser);
-    parser.field_err("type", "unknown InputChannel type: " + discriminator);
+        return DiscreteInputReadChannel::parse(parser);
+    if (discriminator == "holding_register")
+        return HoldingRegisterReadChannel::parse(parser);
+    if (discriminator == "input_register")
+        return InputRegisterReadChannel::parse(parser);
+    parser.field_err("type", "unknown ReadChannel type: " + discriminator);
     return {};
 }
 
-inline x::json::json to_json(const InputChannel &value) {
+inline x::json::json to_json(const ReadChannel &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
-inline OutputChannel parse_output_channel(x::json::Parser parser) {
+inline WriteChannel parse_write_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "coil_output") return OutputChannelCoilOutput::parse(parser);
-    if (discriminator == "holding_register_output")
-        return OutputChannelHoldingRegisterOutput::parse(parser);
-    parser.field_err("type", "unknown OutputChannel type: " + discriminator);
+    if (discriminator == "coil") return CoilWriteChannel::parse(parser);
+    if (discriminator == "holding_register")
+        return HoldingRegisterWriteChannel::parse(parser);
+    parser.field_err("type", "unknown WriteChannel type: " + discriminator);
     return {};
 }
 
-inline x::json::json to_json(const OutputChannel &value) {
+inline x::json::json to_json(const WriteChannel &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

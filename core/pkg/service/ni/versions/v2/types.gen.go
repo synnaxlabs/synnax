@@ -405,36 +405,36 @@ func (t ThermocoupleType) IsValid() bool {
 type CJCType string
 
 const (
-	CJCTypeBuiltIn  CJCType = "built_in"
-	CJCTypeConstVal CJCType = "const_val"
-	CJCTypeChan     CJCType = "chan"
+	BuiltInCJCType  CJCType = "built_in"
+	ConstValCJCType CJCType = "const_val"
+	ChanCJCType     CJCType = "chan"
 )
 
 type CJCVariant interface {
 	isCJCVariant()
 }
 
-// CJCBuiltIn reads the reference temperature from the device's own sensor.
-type CJCBuiltIn struct {
+// BuiltInCJC reads the reference temperature from the device's own sensor.
+type BuiltInCJC struct {
 }
 
-func (CJCBuiltIn) isCJCVariant() {}
+func (BuiltInCJC) isCJCVariant() {}
 
-// CJCConstVal uses a fixed reference temperature.
-type CJCConstVal struct {
+// ConstValCJC uses a fixed reference temperature.
+type ConstValCJC struct {
 	// Val is the reference temperature, in the channel's units.
 	Val float64 `json:"val" msgpack:"val"`
 }
 
-func (CJCConstVal) isCJCVariant() {}
+func (ConstValCJC) isCJCVariant() {}
 
-// CJCChan reads the reference temperature from another channel.
-type CJCChan struct {
+// ChanCJC reads the reference temperature from another channel.
+type ChanCJC struct {
 	// Port is the port of the channel that measures the reference.
 	Port int32 `json:"port" msgpack:"port"`
 }
 
-func (CJCChan) isCJCVariant() {}
+func (ChanCJC) isCJCVariant() {}
 
 // CJC is the cold-junction compensation for a thermocouple. The source selects where
 // the reference temperature comes from.
@@ -449,12 +449,12 @@ func (u CJC) MarshalJSON() ([]byte, error) {
 	}
 	var t CJCType
 	switch u.Variant.(type) {
-	case CJCBuiltIn:
-		t = CJCTypeBuiltIn
-	case CJCConstVal:
-		t = CJCTypeConstVal
-	case CJCChan:
-		t = CJCTypeChan
+	case BuiltInCJC:
+		t = BuiltInCJCType
+	case ConstValCJC:
+		t = ConstValCJCType
+	case ChanCJC:
+		t = ChanCJCType
 	default:
 		return nil, errors.Newf("CJC: nil or unknown variant %T", u.Variant)
 	}
@@ -487,20 +487,20 @@ func (u *CJC) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case CJCTypeBuiltIn:
-		var v CJCBuiltIn
+	case BuiltInCJCType:
+		var v BuiltInCJC
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CJCTypeConstVal:
-		var v CJCConstVal
+	case ConstValCJCType:
+		var v ConstValCJC
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CJCTypeChan:
-		var v CJCChan
+	case ChanCJCType:
+		var v ChanCJC
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -569,6 +569,20 @@ func (c ChargeUnits) IsValid() bool {
 	}
 }
 
+type ScaleType string
+
+const (
+	LinearScaleType     ScaleType = "linear"
+	MapScaleType        ScaleType = "map"
+	TableScaleType      ScaleType = "table"
+	PolynomialScaleType ScaleType = "polynomial"
+	NoneScaleType       ScaleType = "none"
+)
+
+type ScaleVariant interface {
+	isScaleVariant()
+}
+
 // LinearScale maps raw values to engineering units with a slope and intercept.
 type LinearScale struct {
 	// Slope is the multiplier applied to the raw value.
@@ -580,6 +594,8 @@ type LinearScale struct {
 	// ScaledUnits are the units of the value after scaling.
 	ScaledUnits string `json:"scaled_units" msgpack:"scaled_units"`
 }
+
+func (LinearScale) isScaleVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LinearScale) ApplyDefaults() {
@@ -618,6 +634,8 @@ type MapScale struct {
 	ScaledUnits string `json:"scaled_units" msgpack:"scaled_units"`
 }
 
+func (MapScale) isScaleVariant() {}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MapScale) ApplyDefaults() {
 	if m.PreScaledMax == 0 {
@@ -654,6 +672,8 @@ type TableScale struct {
 	ScaledUnits string `json:"scaled_units" msgpack:"scaled_units"`
 }
 
+func (TableScale) isScaleVariant() {}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TableScale) ApplyDefaults() {
 	if t.PreScaledUnits == "" {
@@ -672,10 +692,6 @@ func (t TableScale) Validate() error {
 	return v.Error()
 }
 
-// NoneScale applies no scaling; the raw value is used directly.
-type NoneScale struct {
-}
-
 // PolynomialScale maps raw values to engineering units with a polynomial.
 type PolynomialScale struct {
 	// ForwardCoeffs are the coefficients mapping pre-scaled to scaled values.
@@ -687,6 +703,8 @@ type PolynomialScale struct {
 	// ScaledUnits are the units of the value after scaling.
 	ScaledUnits string `json:"scaled_units" msgpack:"scaled_units"`
 }
+
+func (PolynomialScale) isScaleVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PolynomialScale) ApplyDefaults() {
@@ -706,101 +724,11 @@ func (p PolynomialScale) Validate() error {
 	return v.Error()
 }
 
-type ScaleType string
-
-const (
-	ScaleTypeLinear     ScaleType = "linear"
-	ScaleTypeMap        ScaleType = "map"
-	ScaleTypeTable      ScaleType = "table"
-	ScaleTypePolynomial ScaleType = "polynomial"
-	ScaleTypeNone       ScaleType = "none"
-)
-
-type ScaleVariant interface {
-	isScaleVariant()
+// NoneScale applies no scaling; the raw value is used directly.
+type NoneScale struct {
 }
 
-type ScaleLinear struct {
-	LinearScale
-}
-
-func (ScaleLinear) isScaleVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleLinear) ApplyDefaults() {
-	s.LinearScale.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s ScaleLinear) Validate() error {
-	v := validate.New("ScaleLinear")
-	v.Exec(s.LinearScale.Validate)
-	return v.Error()
-}
-
-type ScaleMap struct {
-	MapScale
-}
-
-func (ScaleMap) isScaleVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleMap) ApplyDefaults() {
-	s.MapScale.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s ScaleMap) Validate() error {
-	v := validate.New("ScaleMap")
-	v.Exec(s.MapScale.Validate)
-	return v.Error()
-}
-
-type ScaleTable struct {
-	TableScale
-}
-
-func (ScaleTable) isScaleVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleTable) ApplyDefaults() {
-	s.TableScale.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s ScaleTable) Validate() error {
-	v := validate.New("ScaleTable")
-	v.Exec(s.TableScale.Validate)
-	return v.Error()
-}
-
-type ScalePolynomial struct {
-	PolynomialScale
-}
-
-func (ScalePolynomial) isScaleVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScalePolynomial) ApplyDefaults() {
-	s.PolynomialScale.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s ScalePolynomial) Validate() error {
-	v := validate.New("ScalePolynomial")
-	v.Exec(s.PolynomialScale.Validate)
-	return v.Error()
-}
-
-type ScaleNone struct {
-	NoneScale
-}
-
-func (ScaleNone) isScaleVariant() {}
+func (NoneScale) isScaleVariant() {}
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale struct {
@@ -814,16 +742,16 @@ func (u Scale) MarshalJSON() ([]byte, error) {
 	}
 	var t ScaleType
 	switch u.Variant.(type) {
-	case ScaleLinear:
-		t = ScaleTypeLinear
-	case ScaleMap:
-		t = ScaleTypeMap
-	case ScaleTable:
-		t = ScaleTypeTable
-	case ScalePolynomial:
-		t = ScaleTypePolynomial
-	case ScaleNone:
-		t = ScaleTypeNone
+	case LinearScale:
+		t = LinearScaleType
+	case MapScale:
+		t = MapScaleType
+	case TableScale:
+		t = TableScaleType
+	case PolynomialScale:
+		t = PolynomialScaleType
+	case NoneScale:
+		t = NoneScaleType
 	default:
 		return nil, errors.Newf("Scale: nil or unknown variant %T", u.Variant)
 	}
@@ -856,32 +784,32 @@ func (u *Scale) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case ScaleTypeLinear:
-		var v ScaleLinear
+	case LinearScaleType:
+		var v LinearScale
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case ScaleTypeMap:
-		var v ScaleMap
+	case MapScaleType:
+		var v MapScale
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case ScaleTypeTable:
-		var v ScaleTable
+	case TableScaleType:
+		var v TableScale
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case ScaleTypePolynomial:
-		var v ScalePolynomial
+	case PolynomialScaleType:
+		var v PolynomialScale
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case ScaleTypeNone:
-		var v ScaleNone
+	case NoneScaleType:
+		var v NoneScale
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -896,16 +824,16 @@ func (u *Scale) UnmarshalJSON(data []byte) error {
 // schema-declared defaults.
 func (u *Scale) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
-	case ScaleLinear:
+	case LinearScale:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case ScaleMap:
+	case MapScale:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case ScaleTable:
+	case TableScale:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case ScalePolynomial:
+	case PolynomialScale:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
@@ -915,13 +843,13 @@ func (u *Scale) ApplyDefaults() {
 // violates its schema constraints.
 func (u Scale) Validate() error {
 	switch variant := u.Variant.(type) {
-	case ScaleLinear:
+	case LinearScale:
 		return variant.Validate()
-	case ScaleMap:
+	case MapScale:
 		return variant.Validate()
-	case ScaleTable:
+	case TableScale:
 		return variant.Validate()
-	case ScalePolynomial:
+	case PolynomialScale:
 		return variant.Validate()
 	}
 	return nil
@@ -1157,7 +1085,7 @@ type CustomScale struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomScale) ApplyDefaults() {
 	if c.CustomScale.Variant == nil {
-		c.CustomScale.Variant = ScaleNone{}
+		c.CustomScale.Variant = NoneScale{}
 	}
 	c.CustomScale.ApplyDefaults()
 }
@@ -1189,36 +1117,36 @@ type BaseAIChannel struct {
 type AIChannelType string
 
 const (
-	AIChannelTypeAIVoltage                   AIChannelType = "ai_voltage"
-	AIChannelTypeAIAccel                     AIChannelType = "ai_accel"
-	AIChannelTypeAIBridge                    AIChannelType = "ai_bridge"
-	AIChannelTypeAICurrent                   AIChannelType = "ai_current"
-	AIChannelTypeAIForceBridgeTable          AIChannelType = "ai_force_bridge_table"
-	AIChannelTypeAIForceBridgeTwoPointLin    AIChannelType = "ai_force_bridge_two_point_lin"
-	AIChannelTypeAIForceIEPE                 AIChannelType = "ai_force_iepe"
-	AIChannelTypeAIMicrophone                AIChannelType = "ai_microphone"
-	AIChannelTypeAIPressureBridgeTable       AIChannelType = "ai_pressure_bridge_table"
-	AIChannelTypeAIPressureBridgeTwoPointLin AIChannelType = "ai_pressure_bridge_two_point_lin"
-	AIChannelTypeAIResistance                AIChannelType = "ai_resistance"
-	AIChannelTypeAIRTD                       AIChannelType = "ai_rtd"
-	AIChannelTypeAIStrainGauge               AIChannelType = "ai_strain_gauge"
-	AIChannelTypeAITempBuiltin               AIChannelType = "ai_temp_builtin"
-	AIChannelTypeAIThermocouple              AIChannelType = "ai_thermocouple"
-	AIChannelTypeAITorqueBridgeTable         AIChannelType = "ai_torque_bridge_table"
-	AIChannelTypeAITorqueBridgeTwoPointLin   AIChannelType = "ai_torque_bridge_two_point_lin"
-	AIChannelTypeAIVelocityIEPE              AIChannelType = "ai_velocity_iepe"
-	AIChannelTypeAIAccel4WireDCVoltage       AIChannelType = "ai_accel_4_wire_dc_voltage"
-	AIChannelTypeAIAccelCharge               AIChannelType = "ai_accel_charge"
-	AIChannelTypeAICharge                    AIChannelType = "ai_charge"
-	AIChannelTypeAICurrentRMS                AIChannelType = "ai_current_rms"
-	AIChannelTypeAIForceBridgePolynomial     AIChannelType = "ai_force_bridge_polynomial"
-	AIChannelTypeAIFreqVoltage               AIChannelType = "ai_freq_voltage"
-	AIChannelTypeAIPressureBridgePolynomial  AIChannelType = "ai_pressure_bridge_polynomial"
-	AIChannelTypeAIThermistorIex             AIChannelType = "ai_thermistor_iex"
-	AIChannelTypeAIThermistorVex             AIChannelType = "ai_thermistor_vex"
-	AIChannelTypeAITorqueBridgePolynomial    AIChannelType = "ai_torque_bridge_polynomial"
-	AIChannelTypeAIVoltageRMS                AIChannelType = "ai_voltage_rms"
-	AIChannelTypeAIVoltageWithExcit          AIChannelType = "ai_voltage_with_excit"
+	AIVoltageChannelType                   AIChannelType = "ai_voltage"
+	AIAccelChannelType                     AIChannelType = "ai_accel"
+	AIBridgeChannelType                    AIChannelType = "ai_bridge"
+	AICurrentChannelType                   AIChannelType = "ai_current"
+	AIForceBridgeTableChannelType          AIChannelType = "ai_force_bridge_table"
+	AIForceBridgeTwoPointLinChannelType    AIChannelType = "ai_force_bridge_two_point_lin"
+	AIForceIEPEChannelType                 AIChannelType = "ai_force_iepe"
+	AIMicrophoneChannelType                AIChannelType = "ai_microphone"
+	AIPressureBridgeTableChannelType       AIChannelType = "ai_pressure_bridge_table"
+	AIPressureBridgeTwoPointLinChannelType AIChannelType = "ai_pressure_bridge_two_point_lin"
+	AIResistanceChannelType                AIChannelType = "ai_resistance"
+	AIRTDChannelType                       AIChannelType = "ai_rtd"
+	AIStrainGaugeChannelType               AIChannelType = "ai_strain_gauge"
+	AITempBuiltinChannelType               AIChannelType = "ai_temp_builtin"
+	AIThermocoupleChannelType              AIChannelType = "ai_thermocouple"
+	AITorqueBridgeTableChannelType         AIChannelType = "ai_torque_bridge_table"
+	AITorqueBridgeTwoPointLinChannelType   AIChannelType = "ai_torque_bridge_two_point_lin"
+	AIVelocityIEPEChannelType              AIChannelType = "ai_velocity_iepe"
+	AIAccel4WireDCVoltageChannelType       AIChannelType = "ai_accel_4_wire_dc_voltage"
+	AIAccelChargeChannelType               AIChannelType = "ai_accel_charge"
+	AIChargeChannelType                    AIChannelType = "ai_charge"
+	AICurrentRMSChannelType                AIChannelType = "ai_current_rms"
+	AIForceBridgePolynomialChannelType     AIChannelType = "ai_force_bridge_polynomial"
+	AIFreqVoltageChannelType               AIChannelType = "ai_freq_voltage"
+	AIPressureBridgePolynomialChannelType  AIChannelType = "ai_pressure_bridge_polynomial"
+	AIThermistorIexChannelType             AIChannelType = "ai_thermistor_iex"
+	AIThermistorVexChannelType             AIChannelType = "ai_thermistor_vex"
+	AITorqueBridgePolynomialChannelType    AIChannelType = "ai_torque_bridge_polynomial"
+	AIVoltageRMSChannelType                AIChannelType = "ai_voltage_rms"
+	AIVoltageWithExcitChannelType          AIChannelType = "ai_voltage_with_excit"
 )
 
 type AIChannelVariant interface {
@@ -1804,7 +1732,7 @@ func (a *AIThermocoupleChannel) ApplyDefaults() {
 		a.ThermocoupleType = ThermocoupleTypeJ
 	}
 	if a.Cjc.Variant == nil {
-		a.Cjc.Variant = CJCBuiltIn{}
+		a.Cjc.Variant = BuiltInCJC{}
 	}
 	a.MinMaxVal.ApplyDefaults()
 }
@@ -2445,65 +2373,65 @@ func (u AIChannel) MarshalJSON() ([]byte, error) {
 	var t AIChannelType
 	switch u.Variant.(type) {
 	case AIVoltageChannel:
-		t = AIChannelTypeAIVoltage
+		t = AIVoltageChannelType
 	case AIAccelChannel:
-		t = AIChannelTypeAIAccel
+		t = AIAccelChannelType
 	case AIBridgeChannel:
-		t = AIChannelTypeAIBridge
+		t = AIBridgeChannelType
 	case AICurrentChannel:
-		t = AIChannelTypeAICurrent
+		t = AICurrentChannelType
 	case AIForceBridgeTableChannel:
-		t = AIChannelTypeAIForceBridgeTable
+		t = AIForceBridgeTableChannelType
 	case AIForceBridgeTwoPointLinChannel:
-		t = AIChannelTypeAIForceBridgeTwoPointLin
+		t = AIForceBridgeTwoPointLinChannelType
 	case AIForceIEPEChannel:
-		t = AIChannelTypeAIForceIEPE
+		t = AIForceIEPEChannelType
 	case AIMicrophoneChannel:
-		t = AIChannelTypeAIMicrophone
+		t = AIMicrophoneChannelType
 	case AIPressureBridgeTableChannel:
-		t = AIChannelTypeAIPressureBridgeTable
+		t = AIPressureBridgeTableChannelType
 	case AIPressureBridgeTwoPointLinChannel:
-		t = AIChannelTypeAIPressureBridgeTwoPointLin
+		t = AIPressureBridgeTwoPointLinChannelType
 	case AIResistanceChannel:
-		t = AIChannelTypeAIResistance
+		t = AIResistanceChannelType
 	case AIRTDChannel:
-		t = AIChannelTypeAIRTD
+		t = AIRTDChannelType
 	case AIStrainGaugeChannel:
-		t = AIChannelTypeAIStrainGauge
+		t = AIStrainGaugeChannelType
 	case AITempBuiltinChannel:
-		t = AIChannelTypeAITempBuiltin
+		t = AITempBuiltinChannelType
 	case AIThermocoupleChannel:
-		t = AIChannelTypeAIThermocouple
+		t = AIThermocoupleChannelType
 	case AITorqueBridgeTableChannel:
-		t = AIChannelTypeAITorqueBridgeTable
+		t = AITorqueBridgeTableChannelType
 	case AITorqueBridgeTwoPointLinChannel:
-		t = AIChannelTypeAITorqueBridgeTwoPointLin
+		t = AITorqueBridgeTwoPointLinChannelType
 	case AIVelocityIEPEChannel:
-		t = AIChannelTypeAIVelocityIEPE
+		t = AIVelocityIEPEChannelType
 	case AIAccel4WireDCVoltageChannel:
-		t = AIChannelTypeAIAccel4WireDCVoltage
+		t = AIAccel4WireDCVoltageChannelType
 	case AIAccelChargeChannel:
-		t = AIChannelTypeAIAccelCharge
+		t = AIAccelChargeChannelType
 	case AIChargeChannel:
-		t = AIChannelTypeAICharge
+		t = AIChargeChannelType
 	case AICurrentRMSChannel:
-		t = AIChannelTypeAICurrentRMS
+		t = AICurrentRMSChannelType
 	case AIForceBridgePolynomialChannel:
-		t = AIChannelTypeAIForceBridgePolynomial
+		t = AIForceBridgePolynomialChannelType
 	case AIFreqVoltageChannel:
-		t = AIChannelTypeAIFreqVoltage
+		t = AIFreqVoltageChannelType
 	case AIPressureBridgePolynomialChannel:
-		t = AIChannelTypeAIPressureBridgePolynomial
+		t = AIPressureBridgePolynomialChannelType
 	case AIThermistorIexChannel:
-		t = AIChannelTypeAIThermistorIex
+		t = AIThermistorIexChannelType
 	case AIThermistorVexChannel:
-		t = AIChannelTypeAIThermistorVex
+		t = AIThermistorVexChannelType
 	case AITorqueBridgePolynomialChannel:
-		t = AIChannelTypeAITorqueBridgePolynomial
+		t = AITorqueBridgePolynomialChannelType
 	case AIVoltageRMSChannel:
-		t = AIChannelTypeAIVoltageRMS
+		t = AIVoltageRMSChannelType
 	case AIVoltageWithExcitChannel:
-		t = AIChannelTypeAIVoltageWithExcit
+		t = AIVoltageWithExcitChannelType
 	default:
 		return nil, errors.Newf("AIChannel: nil or unknown variant %T", u.Variant)
 	}
@@ -2536,181 +2464,181 @@ func (u *AIChannel) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case AIChannelTypeAIVoltage:
+	case AIVoltageChannelType:
 		var v AIVoltageChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIAccel:
+	case AIAccelChannelType:
 		var v AIAccelChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIBridge:
+	case AIBridgeChannelType:
 		var v AIBridgeChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAICurrent:
+	case AICurrentChannelType:
 		var v AICurrentChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIForceBridgeTable:
+	case AIForceBridgeTableChannelType:
 		var v AIForceBridgeTableChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIForceBridgeTwoPointLin:
+	case AIForceBridgeTwoPointLinChannelType:
 		var v AIForceBridgeTwoPointLinChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIForceIEPE:
+	case AIForceIEPEChannelType:
 		var v AIForceIEPEChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIMicrophone:
+	case AIMicrophoneChannelType:
 		var v AIMicrophoneChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIPressureBridgeTable:
+	case AIPressureBridgeTableChannelType:
 		var v AIPressureBridgeTableChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIPressureBridgeTwoPointLin:
+	case AIPressureBridgeTwoPointLinChannelType:
 		var v AIPressureBridgeTwoPointLinChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIResistance:
+	case AIResistanceChannelType:
 		var v AIResistanceChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIRTD:
+	case AIRTDChannelType:
 		var v AIRTDChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIStrainGauge:
+	case AIStrainGaugeChannelType:
 		var v AIStrainGaugeChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAITempBuiltin:
+	case AITempBuiltinChannelType:
 		var v AITempBuiltinChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIThermocouple:
+	case AIThermocoupleChannelType:
 		var v AIThermocoupleChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAITorqueBridgeTable:
+	case AITorqueBridgeTableChannelType:
 		var v AITorqueBridgeTableChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAITorqueBridgeTwoPointLin:
+	case AITorqueBridgeTwoPointLinChannelType:
 		var v AITorqueBridgeTwoPointLinChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIVelocityIEPE:
+	case AIVelocityIEPEChannelType:
 		var v AIVelocityIEPEChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIAccel4WireDCVoltage:
+	case AIAccel4WireDCVoltageChannelType:
 		var v AIAccel4WireDCVoltageChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIAccelCharge:
+	case AIAccelChargeChannelType:
 		var v AIAccelChargeChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAICharge:
+	case AIChargeChannelType:
 		var v AIChargeChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAICurrentRMS:
+	case AICurrentRMSChannelType:
 		var v AICurrentRMSChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIForceBridgePolynomial:
+	case AIForceBridgePolynomialChannelType:
 		var v AIForceBridgePolynomialChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIFreqVoltage:
+	case AIFreqVoltageChannelType:
 		var v AIFreqVoltageChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIPressureBridgePolynomial:
+	case AIPressureBridgePolynomialChannelType:
 		var v AIPressureBridgePolynomialChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIThermistorIex:
+	case AIThermistorIexChannelType:
 		var v AIThermistorIexChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIThermistorVex:
+	case AIThermistorVexChannelType:
 		var v AIThermistorVexChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAITorqueBridgePolynomial:
+	case AITorqueBridgePolynomialChannelType:
 		var v AITorqueBridgePolynomialChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIVoltageRMS:
+	case AIVoltageRMSChannelType:
 		var v AIVoltageRMSChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIVoltageWithExcit:
+	case AIVoltageWithExcitChannelType:
 		var v AIVoltageWithExcitChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
@@ -3152,17 +3080,17 @@ type BaseCIChannel struct {
 type CIChannelType string
 
 const (
-	CIChannelTypeCIFrequency       CIChannelType = "ci_frequency"
-	CIChannelTypeCIEdgeCount       CIChannelType = "ci_edge_count"
-	CIChannelTypeCIPeriod          CIChannelType = "ci_period"
-	CIChannelTypeCIPulseWidth      CIChannelType = "ci_pulse_width"
-	CIChannelTypeCISemiPeriod      CIChannelType = "ci_semi_period"
-	CIChannelTypeCITwoEdgeSep      CIChannelType = "ci_two_edge_sep"
-	CIChannelTypeCIVelocityLinear  CIChannelType = "ci_velocity_linear"
-	CIChannelTypeCIVelocityAngular CIChannelType = "ci_velocity_angular"
-	CIChannelTypeCIPositionLinear  CIChannelType = "ci_position_linear"
-	CIChannelTypeCIPositionAngular CIChannelType = "ci_position_angular"
-	CIChannelTypeCIDutyCycle       CIChannelType = "ci_duty_cycle"
+	CIFrequencyChannelType       CIChannelType = "ci_frequency"
+	CIEdgeCountChannelType       CIChannelType = "ci_edge_count"
+	CIPeriodChannelType          CIChannelType = "ci_period"
+	CIPulseWidthChannelType      CIChannelType = "ci_pulse_width"
+	CISemiPeriodChannelType      CIChannelType = "ci_semi_period"
+	CITwoEdgeSepChannelType      CIChannelType = "ci_two_edge_sep"
+	CIVelocityLinearChannelType  CIChannelType = "ci_velocity_linear"
+	CIVelocityAngularChannelType CIChannelType = "ci_velocity_angular"
+	CIPositionLinearChannelType  CIChannelType = "ci_position_linear"
+	CIPositionAngularChannelType CIChannelType = "ci_position_angular"
+	CIDutyCycleChannelType       CIChannelType = "ci_duty_cycle"
 )
 
 type CIChannelVariant interface {
@@ -3707,27 +3635,27 @@ func (u CIChannel) MarshalJSON() ([]byte, error) {
 	var t CIChannelType
 	switch u.Variant.(type) {
 	case CIFrequencyChannel:
-		t = CIChannelTypeCIFrequency
+		t = CIFrequencyChannelType
 	case CIEdgeCountChannel:
-		t = CIChannelTypeCIEdgeCount
+		t = CIEdgeCountChannelType
 	case CIPeriodChannel:
-		t = CIChannelTypeCIPeriod
+		t = CIPeriodChannelType
 	case CIPulseWidthChannel:
-		t = CIChannelTypeCIPulseWidth
+		t = CIPulseWidthChannelType
 	case CISemiPeriodChannel:
-		t = CIChannelTypeCISemiPeriod
+		t = CISemiPeriodChannelType
 	case CITwoEdgeSepChannel:
-		t = CIChannelTypeCITwoEdgeSep
+		t = CITwoEdgeSepChannelType
 	case CIVelocityLinearChannel:
-		t = CIChannelTypeCIVelocityLinear
+		t = CIVelocityLinearChannelType
 	case CIVelocityAngularChannel:
-		t = CIChannelTypeCIVelocityAngular
+		t = CIVelocityAngularChannelType
 	case CIPositionLinearChannel:
-		t = CIChannelTypeCIPositionLinear
+		t = CIPositionLinearChannelType
 	case CIPositionAngularChannel:
-		t = CIChannelTypeCIPositionAngular
+		t = CIPositionAngularChannelType
 	case CIDutyCycleChannel:
-		t = CIChannelTypeCIDutyCycle
+		t = CIDutyCycleChannelType
 	default:
 		return nil, errors.Newf("CIChannel: nil or unknown variant %T", u.Variant)
 	}
@@ -3760,67 +3688,67 @@ func (u *CIChannel) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case CIChannelTypeCIFrequency:
+	case CIFrequencyChannelType:
 		var v CIFrequencyChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCIEdgeCount:
+	case CIEdgeCountChannelType:
 		var v CIEdgeCountChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCIPeriod:
+	case CIPeriodChannelType:
 		var v CIPeriodChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCIPulseWidth:
+	case CIPulseWidthChannelType:
 		var v CIPulseWidthChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCISemiPeriod:
+	case CISemiPeriodChannelType:
 		var v CISemiPeriodChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCITwoEdgeSep:
+	case CITwoEdgeSepChannelType:
 		var v CITwoEdgeSepChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCIVelocityLinear:
+	case CIVelocityLinearChannelType:
 		var v CIVelocityLinearChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCIVelocityAngular:
+	case CIVelocityAngularChannelType:
 		var v CIVelocityAngularChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCIPositionLinear:
+	case CIPositionLinearChannelType:
 		var v CIPositionLinearChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCIPositionAngular:
+	case CIPositionAngularChannelType:
 		var v CIPositionAngularChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case CIChannelTypeCIDutyCycle:
+	case CIDutyCycleChannelType:
 		var v CIDutyCycleChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
@@ -3944,9 +3872,9 @@ type BaseAOChannel struct {
 type AOChannelType string
 
 const (
-	AOChannelTypeAOCurrent AOChannelType = "ao_current"
-	AOChannelTypeAOFuncGen AOChannelType = "ao_func_gen"
-	AOChannelTypeAOVoltage AOChannelType = "ao_voltage"
+	AOCurrentChannelType AOChannelType = "ao_current"
+	AOFuncGenChannelType AOChannelType = "ao_func_gen"
+	AOVoltageChannelType AOChannelType = "ao_voltage"
 )
 
 type AOChannelVariant interface {
@@ -4055,11 +3983,11 @@ func (u AOChannel) MarshalJSON() ([]byte, error) {
 	var t AOChannelType
 	switch u.Variant.(type) {
 	case AOCurrentChannel:
-		t = AOChannelTypeAOCurrent
+		t = AOCurrentChannelType
 	case AOFuncGenChannel:
-		t = AOChannelTypeAOFuncGen
+		t = AOFuncGenChannelType
 	case AOVoltageChannel:
-		t = AOChannelTypeAOVoltage
+		t = AOVoltageChannelType
 	default:
 		return nil, errors.Newf("AOChannel: nil or unknown variant %T", u.Variant)
 	}
@@ -4092,19 +4020,19 @@ func (u *AOChannel) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case AOChannelTypeAOCurrent:
+	case AOCurrentChannelType:
 		var v AOCurrentChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AOChannelTypeAOFuncGen:
+	case AOFuncGenChannelType:
 		var v AOFuncGenChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case AOChannelTypeAOVoltage:
+	case AOVoltageChannelType:
 		var v AOVoltageChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
@@ -4146,18 +4074,8 @@ func (u AOChannel) Validate() error {
 	return nil
 }
 
-type DIChannelType string
-
-const (
-	DIChannelTypeDigitalInput DIChannelType = "digital_input"
-)
-
-type DIChannelVariant interface {
-	isDIChannelVariant()
-}
-
-// DigitalInputChannel carries the fields of an NI digital input channel.
-type DigitalInputChannel struct {
+// DIChannel is a digital input channel the task acquires from.
+type DIChannel struct {
 	// Key uniquely identifies the channel within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
@@ -4172,78 +4090,8 @@ type DigitalInputChannel struct {
 	Line int32 `json:"line" msgpack:"line"`
 }
 
-func (DigitalInputChannel) isDIChannelVariant() {}
-
-// DIChannel is a digital input channel the task acquires from.
-type DIChannel struct {
-	Variant DIChannelVariant
-}
-
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u DIChannel) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t DIChannelType
-	switch u.Variant.(type) {
-	case DigitalInputChannel:
-		t = DIChannelTypeDigitalInput
-	default:
-		return nil, errors.Newf("DIChannel: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
-}
-
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *DIChannel) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type DIChannelType `json:"type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case DIChannelTypeDigitalInput:
-		var v DigitalInputChannel
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("DIChannel: unknown type %q", disc.Type)
-	}
-	return nil
-}
-
-type DOChannelType string
-
-const (
-	DOChannelTypeDigitalOutput DOChannelType = "digital_output"
-)
-
-type DOChannelVariant interface {
-	isDOChannelVariant()
-}
-
-// DOChannelDigitalOutput carries the fields of an NI digital output channel.
-type DOChannelDigitalOutput struct {
+// DOChannel is a digital output channel the task drives.
+type DOChannel struct {
 	// Key uniquely identifies the channel within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Disabled is true when the channel is excluded from the task.
@@ -4260,66 +4108,6 @@ type DOChannelDigitalOutput struct {
 	Port int32 `json:"port" msgpack:"port"`
 	// Line is the digital line within the port the channel writes to.
 	Line int32 `json:"line" msgpack:"line"`
-}
-
-func (DOChannelDigitalOutput) isDOChannelVariant() {}
-
-// DOChannel is a digital output channel the task drives.
-type DOChannel struct {
-	Variant DOChannelVariant
-}
-
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u DOChannel) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t DOChannelType
-	switch u.Variant.(type) {
-	case DOChannelDigitalOutput:
-		t = DOChannelTypeDigitalOutput
-	default:
-		return nil, errors.Newf("DOChannel: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
-}
-
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *DOChannel) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type DOChannelType `json:"type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case DOChannelTypeDigitalOutput:
-		var v DOChannelDigitalOutput
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("DOChannel: unknown type %q", disc.Type)
-	}
-	return nil
 }
 
 // AnalogReadConfig configures an NI analog read task. Each channel carries its own

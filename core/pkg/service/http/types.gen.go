@@ -89,17 +89,17 @@ type WriteFieldVariant = versions.WriteFieldVariant
 type WriteFieldType = versions.WriteFieldType
 
 const (
-	// WriteFieldTypeStatic places a fixed value in the request body.
-	WriteFieldTypeStatic WriteFieldType = versions.WriteFieldTypeStatic
-	// WriteFieldTypeGenerated places a freshly generated UUID or timestamp in the body.
-	WriteFieldTypeGenerated WriteFieldType = versions.WriteFieldTypeGenerated
+	// StaticWriteFieldType places a fixed value in the request body.
+	StaticWriteFieldType WriteFieldType = versions.StaticWriteFieldType
+	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the body.
+	GeneratedWriteFieldType WriteFieldType = versions.GeneratedWriteFieldType
 )
 
-// WriteFieldStatic places a fixed value in the request body.
-type WriteFieldStatic = versions.WriteFieldStatic
+// StaticWriteField places a fixed value in the request body.
+type StaticWriteField = versions.StaticWriteField
 
-// WriteFieldGenerated places a freshly generated UUID or timestamp in the body.
-type WriteFieldGenerated = versions.WriteFieldGenerated
+// GeneratedWriteField places a freshly generated UUID or timestamp in the body.
+type GeneratedWriteField = versions.GeneratedWriteField
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
 type WriteEndpoint = versions.WriteEndpoint

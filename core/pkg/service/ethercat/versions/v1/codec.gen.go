@@ -19,25 +19,25 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (bic BaseInputChannel) EncodeOrc(w *orc.Writer) error {
-	w.String(bic.Key)
-	w.String(bic.Name)
-	w.Bool(bic.Disabled)
-	w.Uint32(uint32(bic.Channel))
-	w.String(bic.Device)
+func (brc BaseReadChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(brc.Key)
+	w.String(brc.Name)
+	w.Bool(brc.Disabled)
+	w.Uint32(uint32(brc.Channel))
+	w.String(brc.Device)
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (bic *BaseInputChannel) DecodeOrc(r *orc.Reader) error {
+func (brc *BaseReadChannel) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if bic.Key, err = r.String(); err != nil {
+	if brc.Key, err = r.String(); err != nil {
 		return err
 	}
-	if bic.Name, err = r.String(); err != nil {
+	if brc.Name, err = r.String(); err != nil {
 		return err
 	}
-	if bic.Disabled, err = r.Bool(); err != nil {
+	if brc.Disabled, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -45,37 +45,37 @@ func (bic *BaseInputChannel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		bic.Channel = channel.Key(rawV)
+		brc.Channel = channel.Key(rawV)
 	}
-	if bic.Device, err = r.String(); err != nil {
+	if brc.Device, err = r.String(); err != nil {
 		return err
 	}
 	return nil
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (boc BaseOutputChannel) EncodeOrc(w *orc.Writer) error {
-	w.String(boc.Key)
-	w.String(boc.Name)
-	w.Bool(boc.Disabled)
-	w.Uint32(uint32(boc.CmdChannel))
-	w.Uint32(uint32(boc.StateChannel))
-	w.String(boc.CmdChannelName)
-	w.String(boc.StateChannelName)
-	w.String(boc.Device)
+func (bwc BaseWriteChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(bwc.Key)
+	w.String(bwc.Name)
+	w.Bool(bwc.Disabled)
+	w.Uint32(uint32(bwc.CmdChannel))
+	w.Uint32(uint32(bwc.StateChannel))
+	w.String(bwc.CmdChannelName)
+	w.String(bwc.StateChannelName)
+	w.String(bwc.Device)
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (boc *BaseOutputChannel) DecodeOrc(r *orc.Reader) error {
+func (bwc *BaseWriteChannel) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if boc.Key, err = r.String(); err != nil {
+	if bwc.Key, err = r.String(); err != nil {
 		return err
 	}
-	if boc.Name, err = r.String(); err != nil {
+	if bwc.Name, err = r.String(); err != nil {
 		return err
 	}
-	if boc.Disabled, err = r.Bool(); err != nil {
+	if bwc.Disabled, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -83,131 +83,23 @@ func (boc *BaseOutputChannel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		boc.CmdChannel = channel.Key(rawV)
+		bwc.CmdChannel = channel.Key(rawV)
 	}
 	{
 		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		boc.StateChannel = channel.Key(rawV)
+		bwc.StateChannel = channel.Key(rawV)
 	}
-	if boc.CmdChannelName, err = r.String(); err != nil {
+	if bwc.CmdChannelName, err = r.String(); err != nil {
 		return err
 	}
-	if boc.StateChannelName, err = r.String(); err != nil {
+	if bwc.StateChannelName, err = r.String(); err != nil {
 		return err
 	}
-	if boc.Device, err = r.String(); err != nil {
+	if bwc.Device, err = r.String(); err != nil {
 		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ic InputChannel) EncodeOrc(w *orc.Writer) error {
-	switch v := ic.Variant.(type) {
-	case InputChannelAutomatic:
-		w.String("automatic")
-		if err := v.BaseInputChannel.EncodeOrc(w); err != nil {
-			return err
-		}
-		w.String(v.Pdo)
-	case InputChannelManual:
-		w.String("manual")
-		if err := v.BaseInputChannel.EncodeOrc(w); err != nil {
-			return err
-		}
-		if err := v.PDOAddress.EncodeOrc(w); err != nil {
-			return err
-		}
-	default:
-		return errors.Newf("InputChannel: nil or unknown variant %T", ic.Variant)
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ic *InputChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
-	if err != nil {
-		return err
-	}
-	switch tag {
-	case "automatic":
-		var v InputChannelAutomatic
-		if err := v.BaseInputChannel.DecodeOrc(r); err != nil {
-			return err
-		}
-		if v.Pdo, err = r.String(); err != nil {
-			return err
-		}
-		ic.Variant = v
-	case "manual":
-		var v InputChannelManual
-		if err := v.BaseInputChannel.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err := v.PDOAddress.DecodeOrc(r); err != nil {
-			return err
-		}
-		ic.Variant = v
-	default:
-		return errors.Newf("InputChannel: unknown variant %q", tag)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (oc OutputChannel) EncodeOrc(w *orc.Writer) error {
-	switch v := oc.Variant.(type) {
-	case OutputChannelAutomatic:
-		w.String("automatic")
-		if err := v.BaseOutputChannel.EncodeOrc(w); err != nil {
-			return err
-		}
-		w.String(v.Pdo)
-	case OutputChannelManual:
-		w.String("manual")
-		if err := v.BaseOutputChannel.EncodeOrc(w); err != nil {
-			return err
-		}
-		if err := v.PDOAddress.EncodeOrc(w); err != nil {
-			return err
-		}
-	default:
-		return errors.Newf("OutputChannel: nil or unknown variant %T", oc.Variant)
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (oc *OutputChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
-	if err != nil {
-		return err
-	}
-	switch tag {
-	case "automatic":
-		var v OutputChannelAutomatic
-		if err := v.BaseOutputChannel.DecodeOrc(r); err != nil {
-			return err
-		}
-		if v.Pdo, err = r.String(); err != nil {
-			return err
-		}
-		oc.Variant = v
-	case "manual":
-		var v OutputChannelManual
-		if err := v.BaseOutputChannel.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err := v.PDOAddress.DecodeOrc(r); err != nil {
-			return err
-		}
-		oc.Variant = v
-	default:
-		return errors.Newf("OutputChannel: unknown variant %q", tag)
 	}
 	return nil
 }
@@ -239,6 +131,60 @@ func (pdoa *PDOAddress) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		pdoa.DataType = telem.DataType(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
+	switch v := rc.Variant.(type) {
+	case AutomaticReadChannel:
+		w.String("automatic")
+		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Pdo)
+	case ManualReadChannel:
+		w.String("manual")
+		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.PDOAddress.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("ReadChannel: nil or unknown variant %T", rc.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "automatic":
+		var v AutomaticReadChannel
+		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Pdo, err = r.String(); err != nil {
+			return err
+		}
+		rc.Variant = v
+	case "manual":
+		var v ManualReadChannel
+		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.PDOAddress.DecodeOrc(r); err != nil {
+			return err
+		}
+		rc.Variant = v
+	default:
+		return errors.Newf("ReadChannel: unknown variant %q", tag)
 	}
 	return nil
 }
@@ -298,7 +244,7 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rc.Channels = make([]InputChannel, n)
+			rc.Channels = make([]ReadChannel, n)
 			for i := range rc.Channels {
 				if err = rc.Channels[i].DecodeOrc(r); err != nil {
 					return err
@@ -332,6 +278,60 @@ func (sc *ScanConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	if sc.Disabled, err = r.Bool(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
+	switch v := wc.Variant.(type) {
+	case AutomaticWriteChannel:
+		w.String("automatic")
+		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Pdo)
+	case ManualWriteChannel:
+		w.String("manual")
+		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.PDOAddress.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("WriteChannel: nil or unknown variant %T", wc.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "automatic":
+		var v AutomaticWriteChannel
+		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Pdo, err = r.String(); err != nil {
+			return err
+		}
+		wc.Variant = v
+	case "manual":
+		var v ManualWriteChannel
+		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.PDOAddress.DecodeOrc(r); err != nil {
+			return err
+		}
+		wc.Variant = v
+	default:
+		return errors.Newf("WriteChannel: unknown variant %q", tag)
 	}
 	return nil
 }
@@ -391,7 +391,7 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			wc.Channels = make([]OutputChannel, n)
+			wc.Channels = make([]WriteChannel, n)
 			for i := range wc.Channels {
 				if err = wc.Channels[i].DecodeOrc(r); err != nil {
 					return err

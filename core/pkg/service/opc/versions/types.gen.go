@@ -16,11 +16,11 @@ import "github.com/synnaxlabs/synnax/pkg/service/opc/versions/v1"
 // BaseChannel carries the fields every OPC UA channel shares.
 type BaseChannel = v1.BaseChannel
 
-// InputChannel is a single OPC UA node the task reads from.
-type InputChannel = v1.InputChannel
+// ReadChannel is a single OPC UA node the task reads from.
+type ReadChannel = v1.ReadChannel
 
-// OutputChannel is a single OPC UA node the task drives.
-type OutputChannel = v1.OutputChannel
+// WriteChannel is a single OPC UA node the task drives.
+type WriteChannel = v1.WriteChannel
 
 // ReadConfig configures an OPC UA read task.
 type ReadConfig = v1.ReadConfig

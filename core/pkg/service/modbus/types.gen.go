@@ -16,64 +16,62 @@ import "github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
 type RegisterValue = versions.RegisterValue
 
-// BaseInputChannel carries the fields every Modbus input channel shares.
-type BaseInputChannel = versions.BaseInputChannel
+// BaseReadChannel carries the fields every Modbus read channel shares.
+type BaseReadChannel = versions.BaseReadChannel
 
-// InputChannel is a single Modbus input channel. The type field selects the register
+// ReadChannel is a single Modbus read channel. The type field selects the register
 // space the channel reads from and the fields that accompany it.
-type InputChannel = versions.InputChannel
-type InputChannelVariant = versions.InputChannelVariant
-type InputChannelType = versions.InputChannelType
+type ReadChannel = versions.ReadChannel
+type ReadChannelVariant = versions.ReadChannelVariant
+type ReadChannelType = versions.ReadChannelType
 
 const (
-	// InputChannelTypeCoilInput reads a single bit from a coil.
-	InputChannelTypeCoilInput InputChannelType = versions.InputChannelTypeCoilInput
-	// InputChannelTypeDiscreteInput reads a single bit from a discrete input.
-	InputChannelTypeDiscreteInput InputChannelType = versions.InputChannelTypeDiscreteInput
-	// InputChannelTypeHoldingRegisterInput reads a typed value from one or more holding
+	// CoilReadChannelType reads a single bit from a coil.
+	CoilReadChannelType ReadChannelType = versions.CoilReadChannelType
+	// DiscreteInputReadChannelType reads a single bit from a discrete input.
+	DiscreteInputReadChannelType ReadChannelType = versions.DiscreteInputReadChannelType
+	// HoldingRegisterReadChannelType reads a typed value from one or more holding
 	// registers.
-	InputChannelTypeHoldingRegisterInput InputChannelType = versions.InputChannelTypeHoldingRegisterInput
-	// InputChannelTypeRegisterInput reads a typed value from one or more input
+	HoldingRegisterReadChannelType ReadChannelType = versions.HoldingRegisterReadChannelType
+	// InputRegisterReadChannelType reads a typed value from one or more input
 	// registers.
-	InputChannelTypeRegisterInput InputChannelType = versions.InputChannelTypeRegisterInput
+	InputRegisterReadChannelType ReadChannelType = versions.InputRegisterReadChannelType
 )
 
-// InputChannelCoilInput reads a single bit from a coil.
-type InputChannelCoilInput = versions.InputChannelCoilInput
+// CoilReadChannel reads a single bit from a coil.
+type CoilReadChannel = versions.CoilReadChannel
 
-// InputChannelDiscreteInput reads a single bit from a discrete input.
-type InputChannelDiscreteInput = versions.InputChannelDiscreteInput
+// DiscreteInputReadChannel reads a single bit from a discrete input.
+type DiscreteInputReadChannel = versions.DiscreteInputReadChannel
 
-// InputChannelHoldingRegisterInput reads a typed value from one or more holding
-// registers.
-type InputChannelHoldingRegisterInput = versions.InputChannelHoldingRegisterInput
+// HoldingRegisterReadChannel reads a typed value from one or more holding registers.
+type HoldingRegisterReadChannel = versions.HoldingRegisterReadChannel
 
-// InputChannelRegisterInput reads a typed value from one or more input registers.
-type InputChannelRegisterInput = versions.InputChannelRegisterInput
+// InputRegisterReadChannel reads a typed value from one or more input registers.
+type InputRegisterReadChannel = versions.InputRegisterReadChannel
 
-// BaseOutputChannel carries the fields every Modbus output channel shares.
-type BaseOutputChannel = versions.BaseOutputChannel
+// BaseWriteChannel carries the fields every Modbus write channel shares.
+type BaseWriteChannel = versions.BaseWriteChannel
 
-// OutputChannel is a single Modbus output channel. The type field selects the register
+// WriteChannel is a single Modbus write channel. The type field selects the register
 // space the channel writes to and the fields that accompany it.
-type OutputChannel = versions.OutputChannel
-type OutputChannelVariant = versions.OutputChannelVariant
-type OutputChannelType = versions.OutputChannelType
+type WriteChannel = versions.WriteChannel
+type WriteChannelVariant = versions.WriteChannelVariant
+type WriteChannelType = versions.WriteChannelType
 
 const (
-	// OutputChannelTypeCoilOutput writes a single bit to a coil.
-	OutputChannelTypeCoilOutput OutputChannelType = versions.OutputChannelTypeCoilOutput
-	// OutputChannelTypeHoldingRegisterOutput writes a typed value to one or more
-	// holding registers.
-	OutputChannelTypeHoldingRegisterOutput OutputChannelType = versions.OutputChannelTypeHoldingRegisterOutput
+	// CoilWriteChannelType writes a single bit to a coil.
+	CoilWriteChannelType WriteChannelType = versions.CoilWriteChannelType
+	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
+	// registers.
+	HoldingRegisterWriteChannelType WriteChannelType = versions.HoldingRegisterWriteChannelType
 )
 
-// OutputChannelCoilOutput writes a single bit to a coil.
-type OutputChannelCoilOutput = versions.OutputChannelCoilOutput
+// CoilWriteChannel writes a single bit to a coil.
+type CoilWriteChannel = versions.CoilWriteChannel
 
-// OutputChannelHoldingRegisterOutput writes a typed value to one or more holding
-// registers.
-type OutputChannelHoldingRegisterOutput = versions.OutputChannelHoldingRegisterOutput
+// HoldingRegisterWriteChannel writes a typed value to one or more holding registers.
+type HoldingRegisterWriteChannel = versions.HoldingRegisterWriteChannel
 
 // ReadConfig configures a Modbus read task.
 type ReadConfig = versions.ReadConfig

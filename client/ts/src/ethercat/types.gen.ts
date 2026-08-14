@@ -29,8 +29,8 @@ export const pdoAddressZ = z.object({
 });
 export interface PDOAddress extends z.infer<typeof pdoAddressZ> {}
 
-/** BaseInputChannel carries the fields every EtherCAT input channel shares. */
-export const baseInputChannelZ = z.object({
+/** BaseReadChannel carries the fields every EtherCAT read channel shares. */
+export const baseReadChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(""),
   /** name is the human-readable channel name. */
@@ -42,10 +42,10 @@ export const baseInputChannelZ = z.object({
   /** device is the key of the slave device the channel reads from. */
   device: device.keyZ.default(""),
 });
-export interface BaseInputChannel extends z.infer<typeof baseInputChannelZ> {}
+export interface BaseReadChannel extends z.infer<typeof baseReadChannelZ> {}
 
-/** BaseOutputChannel carries the fields every EtherCAT output channel shares. */
-export const baseOutputChannelZ = z.object({
+/** BaseWriteChannel carries the fields every EtherCAT write channel shares. */
+export const baseWriteChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(""),
   /** name is the human-readable channel name. */
@@ -63,93 +63,89 @@ export const baseOutputChannelZ = z.object({
   /** device is the key of the slave device the channel writes to. */
   device: device.keyZ.default(""),
 });
-export interface BaseOutputChannel extends z.infer<typeof baseOutputChannelZ> {}
+export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
 export const scanConfigZ = task.baseScanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-/** InputChannelAutomatic resolves its PDO address from the slave's discovered PDOs. */
-export const inputChannelAutomaticZ = baseInputChannelZ.extend({
+/** AutomaticReadChannel resolves its PDO address from the slave's discovered PDOs. */
+export const automaticReadChannelZ = baseReadChannelZ.extend({
   type: z.literal("automatic"),
   /** pdo is the name of the PDO entry to resolve on the slave. */
   pdo: z.string().default(""),
 });
-export interface InputChannelAutomatic extends z.infer<typeof inputChannelAutomaticZ> {}
+export interface AutomaticReadChannel extends z.infer<typeof automaticReadChannelZ> {}
 
-/** InputChannelManual specifies its PDO address inline. */
-export const inputChannelManualZ = baseInputChannelZ.extend(pdoAddressZ.shape).extend({
+/** ManualReadChannel specifies its PDO address inline. */
+export const manualReadChannelZ = baseReadChannelZ.extend(pdoAddressZ.shape).extend({
   type: z.literal("manual"),
 });
-export interface InputChannelManual extends z.infer<typeof inputChannelManualZ> {}
+export interface ManualReadChannel extends z.infer<typeof manualReadChannelZ> {}
 
-export const INPUT_CHANNEL_TYPES = ["automatic", "manual"] as const;
-export const inputChannelTypeZ = z.enum(INPUT_CHANNEL_TYPES);
-export type InputChannelType = z.infer<typeof inputChannelTypeZ>;
+export const READ_CHANNEL_TYPES = ["automatic", "manual"] as const;
+export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
+export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
 
 /**
- * InputChannel is a single EtherCAT input channel (TxPDO, slave to master). The type
+ * ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
  * field selects how the PDO entry is addressed.
  */
-export const inputChannelZ = z.discriminatedUnion("type", [
-  inputChannelAutomaticZ,
-  inputChannelManualZ,
+export const readChannelZ = z.discriminatedUnion("type", [
+  automaticReadChannelZ,
+  manualReadChannelZ,
 ]);
-export type InputChannel = InputChannelAutomatic | InputChannelManual;
+export type ReadChannel = AutomaticReadChannel | ManualReadChannel;
 
-export const INPUT_CHANNEL_SCHEMAS: {
-  [K in InputChannelType]: z.ZodType<Extract<InputChannel, { type: K }>>;
+export const READ_CHANNEL_SCHEMAS: {
+  [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
 } = {
-  automatic: inputChannelAutomaticZ,
-  manual: inputChannelManualZ,
+  automatic: automaticReadChannelZ,
+  manual: manualReadChannelZ,
 };
 
-/** OutputChannelAutomatic resolves its PDO address from the slave's discovered PDOs. */
-export const outputChannelAutomaticZ = baseOutputChannelZ.extend({
+/** AutomaticWriteChannel resolves its PDO address from the slave's discovered PDOs. */
+export const automaticWriteChannelZ = baseWriteChannelZ.extend({
   type: z.literal("automatic"),
   /** pdo is the name of the PDO entry to resolve on the slave. */
   pdo: z.string().default(""),
 });
-export interface OutputChannelAutomatic extends z.infer<
-  typeof outputChannelAutomaticZ
-> {}
+export interface AutomaticWriteChannel extends z.infer<typeof automaticWriteChannelZ> {}
 
-/** OutputChannelManual specifies its PDO address inline. */
-export const outputChannelManualZ = baseOutputChannelZ
-  .extend(pdoAddressZ.shape)
-  .extend({
-    type: z.literal("manual"),
-  });
-export interface OutputChannelManual extends z.infer<typeof outputChannelManualZ> {}
+/** ManualWriteChannel specifies its PDO address inline. */
+export const manualWriteChannelZ = baseWriteChannelZ.extend(pdoAddressZ.shape).extend({
+  type: z.literal("manual"),
+});
+export interface ManualWriteChannel extends z.infer<typeof manualWriteChannelZ> {}
 
-export const OUTPUT_CHANNEL_TYPES = ["automatic", "manual"] as const;
-export const outputChannelTypeZ = z.enum(OUTPUT_CHANNEL_TYPES);
-export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
+export const WRITE_CHANNEL_TYPES = ["automatic", "manual"] as const;
+export const writeChannelTypeZ = z.enum(WRITE_CHANNEL_TYPES);
+export type WriteChannelType = z.infer<typeof writeChannelTypeZ>;
 
 /**
- * OutputChannel is a single EtherCAT output channel (RxPDO, master to slave). The type
+ * WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
  * field selects how the PDO entry is addressed.
  */
-export const outputChannelZ = z.discriminatedUnion("type", [
-  outputChannelAutomaticZ,
-  outputChannelManualZ,
+export const writeChannelZ = z.discriminatedUnion("type", [
+  automaticWriteChannelZ,
+  manualWriteChannelZ,
 ]);
-export type OutputChannel = OutputChannelAutomatic | OutputChannelManual;
+export type WriteChannel = AutomaticWriteChannel | ManualWriteChannel;
 
-export const OUTPUT_CHANNEL_SCHEMAS: {
-  [K in OutputChannelType]: z.ZodType<Extract<OutputChannel, { type: K }>>;
+export const WRITE_CHANNEL_SCHEMAS: {
+  [K in WriteChannelType]: z.ZodType<Extract<WriteChannel, { type: K }>>;
 } = {
-  automatic: outputChannelAutomaticZ,
-  manual: outputChannelManualZ,
+  automatic: automaticWriteChannelZ,
+  manual: manualWriteChannelZ,
 };
 
 export const readConfigZ = task.baseReadConfigZ.extend({
-  channels: inputChannelZ.array().default(() => []),
+  channels: readChannelZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 export const writeConfigZ = task.basePersistConfigZ.extend({
   stateRate: z.number().default(25),
   executionRate: z.number().default(1000),
-  channels: outputChannelZ.array().default(() => []),
+  channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

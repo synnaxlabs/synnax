@@ -658,7 +658,7 @@ func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (wf WriteField) EncodeOrc(w *orc.Writer) error {
 	switch v := wf.Variant.(type) {
-	case WriteFieldStatic:
+	case StaticWriteField:
 		w.String("static")
 		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
 			return err
@@ -671,7 +671,7 @@ func (wf WriteField) EncodeOrc(w *orc.Writer) error {
 			}
 			w.WriteWithLen(b)
 		}
-	case WriteFieldGenerated:
+	case GeneratedWriteField:
 		w.String("generated")
 		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
 			return err
@@ -697,7 +697,7 @@ func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
 	}
 	switch tag {
 	case "static":
-		var v WriteFieldStatic
+		var v StaticWriteField
 		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -719,7 +719,7 @@ func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
 		}
 		wf.Variant = v
 	case "generated":
-		var v WriteFieldGenerated
+		var v GeneratedWriteField
 		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
 			return err
 		}

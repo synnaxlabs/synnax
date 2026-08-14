@@ -37,6 +37,20 @@ const (
 	ThermocoupleTypeC ThermocoupleType = versions.ThermocoupleTypeC
 )
 
+// Scale determines how raw sensor values are transformed to engineering units.
+type Scale = versions.Scale
+type ScaleVariant = versions.ScaleVariant
+type ScaleType = versions.ScaleType
+
+const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
+	LinearScaleType ScaleType = versions.LinearScaleType
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = versions.MapScaleType
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = versions.NoneScaleType
+)
+
 // LinearScale maps raw values to engineering units with a slope and offset.
 type LinearScale = versions.LinearScale
 
@@ -46,69 +60,54 @@ type MapScale = versions.MapScale
 // NoneScale applies no scaling; the raw value is used directly.
 type NoneScale = versions.NoneScale
 
-// Scale determines how raw sensor values are transformed to engineering units.
-type Scale = versions.Scale
-type ScaleVariant = versions.ScaleVariant
-type ScaleType = versions.ScaleType
+// BaseReadChannel carries the fields every LabJack read channel shares.
+type BaseReadChannel = versions.BaseReadChannel
 
-const (
-	ScaleTypeLinear ScaleType = versions.ScaleTypeLinear
-	ScaleTypeMap    ScaleType = versions.ScaleTypeMap
-	ScaleTypeNone   ScaleType = versions.ScaleTypeNone
-)
-
-type ScaleLinear = versions.ScaleLinear
-type ScaleMap = versions.ScaleMap
-type ScaleNone = versions.ScaleNone
-
-// BaseInputChannel carries the fields every LabJack input channel shares.
-type BaseInputChannel = versions.BaseInputChannel
-
-// InputChannel is a single LabJack input channel. The type field selects the input mode
+// ReadChannel is a single LabJack read channel. The type field selects the input mode
 // and the fields that accompany it.
-type InputChannel = versions.InputChannel
-type InputChannelVariant = versions.InputChannelVariant
-type InputChannelType = versions.InputChannelType
+type ReadChannel = versions.ReadChannel
+type ReadChannelVariant = versions.ReadChannelVariant
+type ReadChannelType = versions.ReadChannelType
 
 const (
-	// InputChannelTypeAI reads a voltage from an analog input port.
-	InputChannelTypeAI InputChannelType = versions.InputChannelTypeAI
-	// InputChannelTypeDI reads a digital input line.
-	InputChannelTypeDI InputChannelType = versions.InputChannelTypeDI
-	// InputChannelTypeTc reads temperature from a thermocouple.
-	InputChannelTypeTc InputChannelType = versions.InputChannelTypeTc
+	// AnalogReadChannelType reads a voltage from an analog input port.
+	AnalogReadChannelType ReadChannelType = versions.AnalogReadChannelType
+	// DigitalReadChannelType reads a digital input line.
+	DigitalReadChannelType ReadChannelType = versions.DigitalReadChannelType
+	// ThermocoupleReadChannelType reads temperature from a thermocouple.
+	ThermocoupleReadChannelType ReadChannelType = versions.ThermocoupleReadChannelType
 )
 
-// InputChannelAI reads a voltage from an analog input port.
-type InputChannelAI = versions.InputChannelAI
+// AnalogReadChannel reads a voltage from an analog input port.
+type AnalogReadChannel = versions.AnalogReadChannel
 
-// InputChannelDI reads a digital input line.
-type InputChannelDI = versions.InputChannelDI
+// DigitalReadChannel reads a digital input line.
+type DigitalReadChannel = versions.DigitalReadChannel
 
-// InputChannelTc reads temperature from a thermocouple.
-type InputChannelTc = versions.InputChannelTc
+// ThermocoupleReadChannel reads temperature from a thermocouple.
+type ThermocoupleReadChannel = versions.ThermocoupleReadChannel
 
-// BaseOutputChannel carries the fields every LabJack output channel shares.
-type BaseOutputChannel = versions.BaseOutputChannel
+// BaseWriteChannel carries the fields every LabJack write channel shares.
+type BaseWriteChannel = versions.BaseWriteChannel
 
-// OutputChannel is a single LabJack output channel. The type field selects the output
+// WriteChannel is a single LabJack write channel. The type field selects the output
 // mode.
-type OutputChannel = versions.OutputChannel
-type OutputChannelVariant = versions.OutputChannelVariant
-type OutputChannelType = versions.OutputChannelType
+type WriteChannel = versions.WriteChannel
+type WriteChannelVariant = versions.WriteChannelVariant
+type WriteChannelType = versions.WriteChannelType
 
 const (
-	// OutputChannelTypeAO drives an analog output on a DAC port.
-	OutputChannelTypeAO OutputChannelType = versions.OutputChannelTypeAO
-	// OutputChannelTypeDO drives a digital output line on a DIO port.
-	OutputChannelTypeDO OutputChannelType = versions.OutputChannelTypeDO
+	// AnalogWriteChannelType drives an analog output on a DAC port.
+	AnalogWriteChannelType WriteChannelType = versions.AnalogWriteChannelType
+	// DigitalWriteChannelType drives a digital output line on a DIO port.
+	DigitalWriteChannelType WriteChannelType = versions.DigitalWriteChannelType
 )
 
-// OutputChannelAO drives an analog output on a DAC port.
-type OutputChannelAO = versions.OutputChannelAO
+// AnalogWriteChannel drives an analog output on a DAC port.
+type AnalogWriteChannel = versions.AnalogWriteChannel
 
-// OutputChannelDO drives a digital output line on a DIO port.
-type OutputChannelDO = versions.OutputChannelDO
+// DigitalWriteChannel drives a digital output line on a DIO port.
+type DigitalWriteChannel = versions.DigitalWriteChannel
 
 // ReadConfig configures a LabJack read task.
 type ReadConfig = versions.ReadConfig

@@ -41,8 +41,8 @@ func (b *BaseChannel) ApplyDefaults() {
 	}
 }
 
-// InputChannel is a single OPC UA node the task reads from.
-type InputChannel struct {
+// ReadChannel is a single OPC UA node the task reads from.
+type ReadChannel struct {
 	BaseChannel
 	// Channel is the Synnax channel that samples are written to.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
@@ -51,20 +51,20 @@ type InputChannel struct {
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannel) ApplyDefaults() {
-	i.BaseChannel.ApplyDefaults()
+func (r *ReadChannel) ApplyDefaults() {
+	r.BaseChannel.ApplyDefaults()
 }
 
-// OutputChannel is a single OPC UA node the task drives.
-type OutputChannel struct {
+// WriteChannel is a single OPC UA node the task drives.
+type WriteChannel struct {
 	BaseChannel
 	// CmdChannel is the Synnax channel commands are read from.
 	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OutputChannel) ApplyDefaults() {
-	o.BaseChannel.ApplyDefaults()
+func (w *WriteChannel) ApplyDefaults() {
+	w.BaseChannel.ApplyDefaults()
 }
 
 // ReadConfig configures an OPC UA read task.
@@ -81,7 +81,7 @@ type ReadConfig struct {
 	// ArraySize is the number of samples in each array when array_mode is true.
 	ArraySize int32 `json:"array_size" msgpack:"array_size"`
 	// Channels are the OPC UA nodes the task acquires.
-	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -105,7 +105,7 @@ func (r *ReadConfig) ApplyDefaults() {
 type WriteConfig struct {
 	config.BaseWrite
 	// Channels are the OPC UA nodes the task drives.
-	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

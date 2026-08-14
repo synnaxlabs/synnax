@@ -142,18 +142,18 @@ export const channelFieldZ = z.object({
 });
 export interface ChannelField extends z.infer<typeof channelFieldZ> {}
 
-/** WriteFieldStatic places a fixed value in the request body. */
-export const writeFieldStaticZ = baseWriteFieldZ.extend({
+/** StaticWriteField places a fixed value in the request body. */
+export const staticWriteFieldZ = baseWriteFieldZ.extend({
   type: z.literal("static"),
   /** jsonType is the JSON type the value is serialized as. */
   jsonType: jsonTypeZ.default("number"),
   /** value is the fixed JSON value placed at the pointer. */
   value: z.unknown(),
 });
-export interface WriteFieldStatic extends z.infer<typeof writeFieldStaticZ> {}
+export interface StaticWriteField extends z.infer<typeof staticWriteFieldZ> {}
 
-/** WriteFieldGenerated places a freshly generated UUID or timestamp in the body. */
-export const writeFieldGeneratedZ = baseWriteFieldZ.extend({
+/** GeneratedWriteField places a freshly generated UUID or timestamp in the body. */
+export const generatedWriteFieldZ = baseWriteFieldZ.extend({
   type: z.literal("generated"),
   /** generator is the generator that produces a fresh value per request. */
   generator: generatorTypeZ.default("uuid"),
@@ -162,7 +162,7 @@ export const writeFieldGeneratedZ = baseWriteFieldZ.extend({
    */
   timeFormat: timeFormatZ.optional(),
 });
-export interface WriteFieldGenerated extends z.infer<typeof writeFieldGeneratedZ> {}
+export interface GeneratedWriteField extends z.infer<typeof generatedWriteFieldZ> {}
 
 export const WRITE_FIELD_TYPES = ["static", "generated"] as const;
 export const writeFieldTypeZ = z.enum(WRITE_FIELD_TYPES);
@@ -173,16 +173,16 @@ export type WriteFieldType = z.infer<typeof writeFieldTypeZ>;
  * whether the value is fixed or generated per request.
  */
 export const writeFieldZ = z.discriminatedUnion("type", [
-  writeFieldStaticZ,
-  writeFieldGeneratedZ,
+  staticWriteFieldZ,
+  generatedWriteFieldZ,
 ]);
-export type WriteField = WriteFieldStatic | WriteFieldGenerated;
+export type WriteField = StaticWriteField | GeneratedWriteField;
 
 export const WRITE_FIELD_SCHEMAS: {
   [K in WriteFieldType]: z.ZodType<Extract<WriteField, { type: K }>>;
 } = {
-  static: writeFieldStaticZ,
-  generated: writeFieldGeneratedZ,
+  static: staticWriteFieldZ,
+  generated: generatedWriteFieldZ,
 };
 
 /** ReadEndpoint is a single HTTP endpoint polled by a read task. */

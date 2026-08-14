@@ -69,6 +69,18 @@ func (t ThermocoupleType) IsValid() bool {
 	}
 }
 
+type ScaleType string
+
+const (
+	LinearScaleType ScaleType = "linear"
+	MapScaleType    ScaleType = "map"
+	NoneScaleType   ScaleType = "none"
+)
+
+type ScaleVariant interface {
+	isScaleVariant()
+}
+
 // LinearScale maps raw values to engineering units with a slope and offset.
 type LinearScale struct {
 	// Slope is the multiplier applied to the raw value.
@@ -76,6 +88,8 @@ type LinearScale struct {
 	// Offset is the offset added after scaling.
 	Offset float64 `json:"offset" msgpack:"offset"`
 }
+
+func (LinearScale) isScaleVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LinearScale) ApplyDefaults() {
@@ -96,6 +110,8 @@ type MapScale struct {
 	ScaledMax float64 `json:"scaled_max" msgpack:"scaled_max"`
 }
 
+func (MapScale) isScaleVariant() {}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MapScale) ApplyDefaults() {
 	if m.PreScaledMax == 0 {
@@ -110,45 +126,7 @@ func (m *MapScale) ApplyDefaults() {
 type NoneScale struct {
 }
 
-type ScaleType string
-
-const (
-	ScaleTypeLinear ScaleType = "linear"
-	ScaleTypeMap    ScaleType = "map"
-	ScaleTypeNone   ScaleType = "none"
-)
-
-type ScaleVariant interface {
-	isScaleVariant()
-}
-
-type ScaleLinear struct {
-	LinearScale
-}
-
-func (ScaleLinear) isScaleVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleLinear) ApplyDefaults() {
-	s.LinearScale.ApplyDefaults()
-}
-
-type ScaleMap struct {
-	MapScale
-}
-
-func (ScaleMap) isScaleVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScaleMap) ApplyDefaults() {
-	s.MapScale.ApplyDefaults()
-}
-
-type ScaleNone struct {
-	NoneScale
-}
-
-func (ScaleNone) isScaleVariant() {}
+func (NoneScale) isScaleVariant() {}
 
 // Scale determines how raw sensor values are transformed to engineering units.
 type Scale struct {
@@ -162,12 +140,12 @@ func (u Scale) MarshalJSON() ([]byte, error) {
 	}
 	var t ScaleType
 	switch u.Variant.(type) {
-	case ScaleLinear:
-		t = ScaleTypeLinear
-	case ScaleMap:
-		t = ScaleTypeMap
-	case ScaleNone:
-		t = ScaleTypeNone
+	case LinearScale:
+		t = LinearScaleType
+	case MapScale:
+		t = MapScaleType
+	case NoneScale:
+		t = NoneScaleType
 	default:
 		return nil, errors.Newf("Scale: nil or unknown variant %T", u.Variant)
 	}
@@ -200,20 +178,20 @@ func (u *Scale) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case ScaleTypeLinear:
-		var v ScaleLinear
+	case LinearScaleType:
+		var v LinearScale
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case ScaleTypeMap:
-		var v ScaleMap
+	case MapScaleType:
+		var v MapScale
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case ScaleTypeNone:
-		var v ScaleNone
+	case NoneScaleType:
+		var v NoneScale
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -228,17 +206,17 @@ func (u *Scale) UnmarshalJSON(data []byte) error {
 // schema-declared defaults.
 func (u *Scale) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
-	case ScaleLinear:
+	case LinearScale:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case ScaleMap:
+	case MapScale:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
 }
 
-// BaseInputChannel carries the fields every LabJack input channel shares.
-type BaseInputChannel struct {
+// BaseReadChannel carries the fields every LabJack read channel shares.
+type BaseReadChannel struct {
 	// Key uniquely identifies the channel within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
@@ -251,21 +229,21 @@ type BaseInputChannel struct {
 	Port string `json:"port" msgpack:"port"`
 }
 
-type InputChannelType string
+type ReadChannelType string
 
 const (
-	InputChannelTypeAI InputChannelType = "AI"
-	InputChannelTypeDI InputChannelType = "DI"
-	InputChannelTypeTc InputChannelType = "TC"
+	AnalogReadChannelType       ReadChannelType = "analog"
+	DigitalReadChannelType      ReadChannelType = "digital"
+	ThermocoupleReadChannelType ReadChannelType = "thermocouple"
 )
 
-type InputChannelVariant interface {
-	isInputChannelVariant()
+type ReadChannelVariant interface {
+	isReadChannelVariant()
 }
 
-// InputChannelAI reads a voltage from an analog input port.
-type InputChannelAI struct {
-	BaseInputChannel
+// AnalogReadChannel reads a voltage from an analog input port.
+type AnalogReadChannel struct {
+	BaseReadChannel
 	Port string `json:"port" msgpack:"port"`
 	// Range is the upper bound of the voltage input range, in volts.
 	Range float64 `json:"range" msgpack:"range"`
@@ -276,40 +254,40 @@ type InputChannelAI struct {
 	Scale Scale `json:"scale" msgpack:"scale"`
 }
 
-func (InputChannelAI) isInputChannelVariant() {}
+func (AnalogReadChannel) isReadChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannelAI) ApplyDefaults() {
-	if i.Port == "" {
-		i.Port = "AIN0"
+func (a *AnalogReadChannel) ApplyDefaults() {
+	if a.Port == "" {
+		a.Port = "AIN0"
 	}
-	if i.Range == 0 {
-		i.Range = 10
+	if a.Range == 0 {
+		a.Range = 10
 	}
-	if i.NegChan == 0 {
-		i.NegChan = 199
+	if a.NegChan == 0 {
+		a.NegChan = 199
 	}
-	i.Scale.ApplyDefaults()
+	a.Scale.ApplyDefaults()
 }
 
-// InputChannelDI reads a digital input line.
-type InputChannelDI struct {
-	BaseInputChannel
+// DigitalReadChannel reads a digital input line.
+type DigitalReadChannel struct {
+	BaseReadChannel
 	Port string `json:"port" msgpack:"port"`
 }
 
-func (InputChannelDI) isInputChannelVariant() {}
+func (DigitalReadChannel) isReadChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannelDI) ApplyDefaults() {
-	if i.Port == "" {
-		i.Port = "DIO4"
+func (d *DigitalReadChannel) ApplyDefaults() {
+	if d.Port == "" {
+		d.Port = "DIO4"
 	}
 }
 
-// InputChannelTc reads temperature from a thermocouple.
-type InputChannelTc struct {
-	BaseInputChannel
+// ThermocoupleReadChannel reads temperature from a thermocouple.
+type ThermocoupleReadChannel struct {
+	BaseReadChannel
 	Port string `json:"port" msgpack:"port"`
 	// ThermocoupleType selects the thermocouple alloy type.
 	ThermocoupleType ThermocoupleType `json:"thermocouple_type" msgpack:"thermocouple_type"`
@@ -332,61 +310,61 @@ type InputChannelTc struct {
 	Scale Scale `json:"scale" msgpack:"scale"`
 }
 
-func (InputChannelTc) isInputChannelVariant() {}
+func (ThermocoupleReadChannel) isReadChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannelTc) ApplyDefaults() {
-	if i.Port == "" {
-		i.Port = "AIN0"
+func (t *ThermocoupleReadChannel) ApplyDefaults() {
+	if t.Port == "" {
+		t.Port = "AIN0"
 	}
-	if i.ThermocoupleType == "" {
-		i.ThermocoupleType = ThermocoupleTypeK
+	if t.ThermocoupleType == "" {
+		t.ThermocoupleType = ThermocoupleTypeK
 	}
-	if i.NegChan == 0 {
-		i.NegChan = 199
+	if t.NegChan == 0 {
+		t.NegChan = 199
 	}
-	if i.CjcSource == "" {
-		i.CjcSource = "TEMPERATURE_DEVICE_K"
+	if t.CjcSource == "" {
+		t.CjcSource = "TEMPERATURE_DEVICE_K"
 	}
-	if i.CjcSlope == 0 {
-		i.CjcSlope = 1
+	if t.CjcSlope == 0 {
+		t.CjcSlope = 1
 	}
-	if i.Units == "" {
-		i.Units = TemperatureUnitsKelvin
+	if t.Units == "" {
+		t.Units = TemperatureUnitsKelvin
 	}
-	i.Scale.ApplyDefaults()
+	t.Scale.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i InputChannelTc) Validate() error {
-	v := validate.New("InputChannelTc")
-	v.Ternaryf("thermocouple_type", !i.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", i.ThermocoupleType)
-	v.Ternaryf("units", !i.Units.IsValid(), "invalid units: %v", i.Units)
+func (t ThermocoupleReadChannel) Validate() error {
+	v := validate.New("ThermocoupleReadChannel")
+	v.Ternaryf("thermocouple_type", !t.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", t.ThermocoupleType)
+	v.Ternaryf("units", !t.Units.IsValid(), "invalid units: %v", t.Units)
 	return v.Error()
 }
 
-// InputChannel is a single LabJack input channel. The type field selects the input mode
+// ReadChannel is a single LabJack read channel. The type field selects the input mode
 // and the fields that accompany it.
-type InputChannel struct {
-	Variant InputChannelVariant
+type ReadChannel struct {
+	Variant ReadChannelVariant
 }
 
 // MarshalJSON encodes the active variant with its "type" tag injected.
-func (u InputChannel) MarshalJSON() ([]byte, error) {
+func (u ReadChannel) MarshalJSON() ([]byte, error) {
 	if u.Variant == nil {
 		return []byte("null"), nil
 	}
-	var t InputChannelType
+	var t ReadChannelType
 	switch u.Variant.(type) {
-	case InputChannelAI:
-		t = InputChannelTypeAI
-	case InputChannelDI:
-		t = InputChannelTypeDI
-	case InputChannelTc:
-		t = InputChannelTypeTc
+	case AnalogReadChannel:
+		t = AnalogReadChannelType
+	case DigitalReadChannel:
+		t = DigitalReadChannelType
+	case ThermocoupleReadChannel:
+		t = ThermocoupleReadChannelType
 	default:
-		return nil, errors.Newf("InputChannel: nil or unknown variant %T", u.Variant)
+		return nil, errors.Newf("ReadChannel: nil or unknown variant %T", u.Variant)
 	}
 	raw, err := json.Marshal(u.Variant)
 	if err != nil {
@@ -405,53 +383,53 @@ func (u InputChannel) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *InputChannel) UnmarshalJSON(data []byte) error {
+func (u *ReadChannel) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		u.Variant = nil
 		return nil
 	}
 	var disc struct {
-		Type InputChannelType `json:"type"`
+		Type ReadChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(data, &disc); err != nil {
 		return err
 	}
 	switch disc.Type {
-	case InputChannelTypeAI:
-		var v InputChannelAI
+	case AnalogReadChannelType:
+		var v AnalogReadChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case InputChannelTypeDI:
-		var v InputChannelDI
+	case DigitalReadChannelType:
+		var v DigitalReadChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case InputChannelTypeTc:
-		var v InputChannelTc
+	case ThermocoupleReadChannelType:
+		var v ThermocoupleReadChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
 	default:
-		return errors.Newf("InputChannel: unknown type %q", disc.Type)
+		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
 	}
 	return nil
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
-func (u *InputChannel) ApplyDefaults() {
+func (u *ReadChannel) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
-	case InputChannelAI:
+	case AnalogReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case InputChannelDI:
+	case DigitalReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case InputChannelTc:
+	case ThermocoupleReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
@@ -459,16 +437,16 @@ func (u *InputChannel) ApplyDefaults() {
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
-func (u InputChannel) Validate() error {
+func (u ReadChannel) Validate() error {
 	switch variant := u.Variant.(type) {
-	case InputChannelTc:
+	case ThermocoupleReadChannel:
 		return variant.Validate()
 	}
 	return nil
 }
 
-// BaseOutputChannel carries the fields every LabJack output channel shares.
-type BaseOutputChannel struct {
+// BaseWriteChannel carries the fields every LabJack write channel shares.
+type BaseWriteChannel struct {
 	// Key uniquely identifies the channel within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Disabled is true when the channel is excluded from the task.
@@ -485,66 +463,66 @@ type BaseOutputChannel struct {
 	Port string `json:"port" msgpack:"port"`
 }
 
-type OutputChannelType string
+type WriteChannelType string
 
 const (
-	OutputChannelTypeAO OutputChannelType = "AO"
-	OutputChannelTypeDO OutputChannelType = "DO"
+	AnalogWriteChannelType  WriteChannelType = "analog"
+	DigitalWriteChannelType WriteChannelType = "digital"
 )
 
-type OutputChannelVariant interface {
-	isOutputChannelVariant()
+type WriteChannelVariant interface {
+	isWriteChannelVariant()
 }
 
-// OutputChannelAO drives an analog output on a DAC port.
-type OutputChannelAO struct {
-	BaseOutputChannel
+// AnalogWriteChannel drives an analog output on a DAC port.
+type AnalogWriteChannel struct {
+	BaseWriteChannel
 	Port string `json:"port" msgpack:"port"`
 }
 
-func (OutputChannelAO) isOutputChannelVariant() {}
+func (AnalogWriteChannel) isWriteChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OutputChannelAO) ApplyDefaults() {
-	if o.Port == "" {
-		o.Port = "DAC0"
+func (a *AnalogWriteChannel) ApplyDefaults() {
+	if a.Port == "" {
+		a.Port = "DAC0"
 	}
 }
 
-// OutputChannelDO drives a digital output line on a DIO port.
-type OutputChannelDO struct {
-	BaseOutputChannel
+// DigitalWriteChannel drives a digital output line on a DIO port.
+type DigitalWriteChannel struct {
+	BaseWriteChannel
 	Port string `json:"port" msgpack:"port"`
 }
 
-func (OutputChannelDO) isOutputChannelVariant() {}
+func (DigitalWriteChannel) isWriteChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OutputChannelDO) ApplyDefaults() {
-	if o.Port == "" {
-		o.Port = "DIO4"
+func (d *DigitalWriteChannel) ApplyDefaults() {
+	if d.Port == "" {
+		d.Port = "DIO4"
 	}
 }
 
-// OutputChannel is a single LabJack output channel. The type field selects the output
+// WriteChannel is a single LabJack write channel. The type field selects the output
 // mode.
-type OutputChannel struct {
-	Variant OutputChannelVariant
+type WriteChannel struct {
+	Variant WriteChannelVariant
 }
 
 // MarshalJSON encodes the active variant with its "type" tag injected.
-func (u OutputChannel) MarshalJSON() ([]byte, error) {
+func (u WriteChannel) MarshalJSON() ([]byte, error) {
 	if u.Variant == nil {
 		return []byte("null"), nil
 	}
-	var t OutputChannelType
+	var t WriteChannelType
 	switch u.Variant.(type) {
-	case OutputChannelAO:
-		t = OutputChannelTypeAO
-	case OutputChannelDO:
-		t = OutputChannelTypeDO
+	case AnalogWriteChannel:
+		t = AnalogWriteChannelType
+	case DigitalWriteChannel:
+		t = DigitalWriteChannelType
 	default:
-		return nil, errors.Newf("OutputChannel: nil or unknown variant %T", u.Variant)
+		return nil, errors.Newf("WriteChannel: nil or unknown variant %T", u.Variant)
 	}
 	raw, err := json.Marshal(u.Variant)
 	if err != nil {
@@ -563,44 +541,44 @@ func (u OutputChannel) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *OutputChannel) UnmarshalJSON(data []byte) error {
+func (u *WriteChannel) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		u.Variant = nil
 		return nil
 	}
 	var disc struct {
-		Type OutputChannelType `json:"type"`
+		Type WriteChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(data, &disc); err != nil {
 		return err
 	}
 	switch disc.Type {
-	case OutputChannelTypeAO:
-		var v OutputChannelAO
+	case AnalogWriteChannelType:
+		var v AnalogWriteChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case OutputChannelTypeDO:
-		var v OutputChannelDO
+	case DigitalWriteChannelType:
+		var v DigitalWriteChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
 	default:
-		return errors.Newf("OutputChannel: unknown type %q", disc.Type)
+		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
 	return nil
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
-func (u *OutputChannel) ApplyDefaults() {
+func (u *WriteChannel) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
-	case OutputChannelAO:
+	case AnalogWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case OutputChannelDO:
+	case DigitalWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
@@ -611,8 +589,8 @@ type ReadConfig struct {
 	config.BaseRead
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
-	// Channels are the input channels the task acquires.
-	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	// Channels are the channels the task acquires.
+	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 	// DeviceScanBacklogWarnOnCount is the device-side scan backlog above which the task
 	// reports a skew warning. Zero lets the driver pick two seconds of scans.
 	DeviceScanBacklogWarnOnCount uint32 `json:"device_scan_backlog_warn_on_count" msgpack:"device_scan_backlog_warn_on_count"`
@@ -644,8 +622,8 @@ type WriteConfig struct {
 	config.BaseWrite
 	// StateRate is the rate at which output state is reported to Synnax, in hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
-	// Channels are the output channels the task drives.
-	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	// Channels are the channels the task drives.
+	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

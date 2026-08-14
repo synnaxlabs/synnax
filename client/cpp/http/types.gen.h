@@ -164,20 +164,20 @@ struct ChannelField {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteFieldStatic places a fixed value in the request body.
-struct WriteFieldStatic : public BaseWriteField {
+/// @brief StaticWriteField places a fixed value in the request body.
+struct StaticWriteField : public BaseWriteField {
     std::string type = "static";
     /// @brief json_type is the JSON type the value is serialized as.
     std::string json_type = JSON_TYPE_NUMBER;
     /// @brief value is the fixed JSON value placed at the pointer.
     x::json::json value;
 
-    static WriteFieldStatic parse(x::json::Parser parser);
+    static StaticWriteField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteFieldGenerated places a freshly generated UUID or timestamp in the body.
-struct WriteFieldGenerated : public BaseWriteField {
+/// @brief GeneratedWriteField places a freshly generated UUID or timestamp in the body.
+struct GeneratedWriteField : public BaseWriteField {
     std::string type = "generated";
     /// @brief generator is the generator that produces a fresh value per request.
     std::string generator = GENERATOR_TYPE_UUID;
@@ -185,13 +185,13 @@ struct WriteFieldGenerated : public BaseWriteField {
     /// iso8601.
     std::optional<std::string> time_format;
 
-    static WriteFieldGenerated parse(x::json::Parser parser);
+    static GeneratedWriteField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief WriteField is an additional body field on a write endpoint. The type field
 /// selects whether the value is fixed or generated per request.
-using WriteField = std::variant<WriteFieldStatic, WriteFieldGenerated>;
+using WriteField = std::variant<StaticWriteField, GeneratedWriteField>;
 
 WriteField parse_write_field(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteField &value);

@@ -48,41 +48,41 @@ type View struct {
 type TabType string
 
 const (
-	TabTypeResource TabType = "resource"
-	TabTypeView     TabType = "view"
+	ResourceTabType TabType = "resource"
+	ViewTabType     TabType = "view"
 )
 
 type TabVariant interface {
 	isTabVariant()
 }
 
-// TabResource is a tab displaying a backing core document.
-type TabResource struct {
+// ResourceTab is a tab displaying a backing core document.
+type ResourceTab struct {
 	TabBase
 	// Resource is the visualization resource displayed by this tab, set via
 	// SetTabResource.
 	Resource ontology.ID `json:"resource" msgpack:"resource"`
 }
 
-func (TabResource) isTabVariant() {}
+func (ResourceTab) isTabVariant() {}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (t TabResource) Validate() error {
-	v := validate.New("TabResource")
-	v.Exec(func() error { return validate.PathedError(t.Resource.Validate(), "resource") })
+func (r ResourceTab) Validate() error {
+	v := validate.New("ResourceTab")
+	v.Exec(func() error { return validate.PathedError(r.Resource.Validate(), "resource") })
 	return v.Error()
 }
 
-// TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
+// ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
 // view has no backing core document: it carries its own type and opaque args. Used for
 // app-views and tools (docs, explorers, task forms, and the selector pickers).
-type TabView struct {
+type ViewTab struct {
 	TabBase
 	View
 }
 
-func (TabView) isTabVariant() {}
+func (ViewTab) isTabVariant() {}
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
 // backing core document, e.g. a line plot) or a view (an inline, self-describing
@@ -101,10 +101,10 @@ func (u Tab) MarshalJSON() ([]byte, error) {
 	}
 	var t TabType
 	switch u.Variant.(type) {
-	case TabResource:
-		t = TabTypeResource
-	case TabView:
-		t = TabTypeView
+	case ResourceTab:
+		t = ResourceTabType
+	case ViewTab:
+		t = ViewTabType
 	default:
 		return nil, errors.Newf("Tab: nil or unknown variant %T", u.Variant)
 	}
@@ -137,14 +137,14 @@ func (u *Tab) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case TabTypeResource:
-		var v TabResource
+	case ResourceTabType:
+		var v ResourceTab
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case TabTypeView:
-		var v TabView
+	case ViewTabType:
+		var v ViewTab
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -159,30 +159,43 @@ func (u *Tab) UnmarshalJSON(data []byte) error {
 // violates its schema constraints.
 func (u Tab) Validate() error {
 	switch variant := u.Variant.(type) {
-	case TabResource:
+	case ResourceTab:
 		return variant.Validate()
 	}
 	return nil
 }
 
-// Leaf is a leaf node in the panel tree displaying a tab strip.
-type Leaf struct {
+type NodeType string
+
+const (
+	LeafNodeType  NodeType = "leaf"
+	SplitNodeType NodeType = "split"
+)
+
+type NodeVariant interface {
+	isNodeVariant()
+}
+
+// LeafNode is a leaf node in the panel tree displaying a tab strip.
+type LeafNode struct {
 	// Tabs is the ordered list of tabs in this leaf.
 	Tabs []Tab `json:"tabs,omitzero" msgpack:"tabs,omitzero"`
 }
 
+func (LeafNode) isNodeVariant() {}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (l Leaf) Validate() error {
-	v := validate.New("Leaf")
+func (l LeafNode) Validate() error {
+	v := validate.New("LeafNode")
 	for i := range l.Tabs {
 		v.Exec(func() error { return validate.PathedError(l.Tabs[i].Validate(), "tabs", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }
 
-// Split is an interior split node dividing its area between two children.
-type Split struct {
+// SplitNode is an interior split node dividing its area between two children.
+type SplitNode struct {
 	// Direction is the axis along which this node is split.
 	Direction spatial.Direction `json:"direction" msgpack:"direction"`
 	// Size is the fraction in [0, 1] of the parent area allocated to first. The
@@ -194,52 +207,15 @@ type Split struct {
 	Last Node `json:"last" msgpack:"last"`
 }
 
+func (SplitNode) isNodeVariant() {}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (s Split) Validate() error {
-	v := validate.New("Split")
+func (s SplitNode) Validate() error {
+	v := validate.New("SplitNode")
 	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
 	v.Exec(func() error { return validate.PathedError(s.First.Validate(), "first") })
 	v.Exec(func() error { return validate.PathedError(s.Last.Validate(), "last") })
-	return v.Error()
-}
-
-type NodeType string
-
-const (
-	NodeTypeLeaf  NodeType = "leaf"
-	NodeTypeSplit NodeType = "split"
-)
-
-type NodeVariant interface {
-	isNodeVariant()
-}
-
-type NodeLeaf struct {
-	Leaf
-}
-
-func (NodeLeaf) isNodeVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (n NodeLeaf) Validate() error {
-	v := validate.New("NodeLeaf")
-	v.Exec(n.Leaf.Validate)
-	return v.Error()
-}
-
-type NodeSplit struct {
-	Split
-}
-
-func (NodeSplit) isNodeVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (n NodeSplit) Validate() error {
-	v := validate.New("NodeSplit")
-	v.Exec(n.Split.Validate)
 	return v.Error()
 }
 
@@ -257,10 +233,10 @@ func (u Node) MarshalJSON() ([]byte, error) {
 	}
 	var t NodeType
 	switch u.Variant.(type) {
-	case NodeLeaf:
-		t = NodeTypeLeaf
-	case NodeSplit:
-		t = NodeTypeSplit
+	case LeafNode:
+		t = LeafNodeType
+	case SplitNode:
+		t = SplitNodeType
 	default:
 		return nil, errors.Newf("Node: nil or unknown variant %T", u.Variant)
 	}
@@ -293,14 +269,14 @@ func (u *Node) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case NodeTypeLeaf:
-		var v NodeLeaf
+	case LeafNodeType:
+		var v LeafNode
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeTypeSplit:
-		var v NodeSplit
+	case SplitNodeType:
+		var v SplitNode
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -315,9 +291,9 @@ func (u *Node) UnmarshalJSON(data []byte) error {
 // violates its schema constraints.
 func (u Node) Validate() error {
 	switch variant := u.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		return variant.Validate()
-	case NodeSplit:
+	case SplitNode:
 		return variant.Validate()
 	}
 	return nil

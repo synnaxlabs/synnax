@@ -33,7 +33,7 @@ RegisterValue struct {
     @go version 1
 }
 
-BaseInputChannel struct {
+BaseReadChannel struct {
     key      string = "" {
         @doc value "uniquely identifies the channel within the task."
         @key
@@ -51,25 +51,25 @@ BaseInputChannel struct {
         @doc value "is the Modbus address the channel reads from."
     }
 
-    @doc value  "carries the fields every Modbus input channel shares."
+    @doc value  "carries the fields every Modbus read channel shares."
     @go version 1
 }
 
-InputChannel union on type extends BaseInputChannel {
-    coil_input {
+ReadChannel union on type extends BaseReadChannel {
+    coil {
         @doc value "reads a single bit from a coil."
     }
     discrete_input {
         @doc value "reads a single bit from a discrete input."
     }
-    holding_register_input extends RegisterValue {
+    holding_register extends RegisterValue {
         string_length int32 = 0 {
             @doc value "is the length, in characters, when data_type is a string."
         }
 
         @doc value "reads a typed value from one or more holding registers."
     }
-    register_input extends RegisterValue {
+    input_register extends RegisterValue {
         string_length int32 = 0 {
             @doc value "is the length, in characters, when data_type is a string."
         }
@@ -78,13 +78,13 @@ InputChannel union on type extends BaseInputChannel {
     }
 
     @doc value  """
-        is a single Modbus input channel. The type field selects the register
+        is a single Modbus read channel. The type field selects the register
         space the channel reads from and the fields that accompany it.
     """
     @go version 1
 }
 
-BaseOutputChannel struct {
+BaseWriteChannel struct {
     key      string = "" {
         @doc value "uniquely identifies the channel within the task."
         @key
@@ -102,20 +102,20 @@ BaseOutputChannel struct {
         @doc value "is the Modbus address the channel writes to."
     }
 
-    @doc value  "carries the fields every Modbus output channel shares."
+    @doc value  "carries the fields every Modbus write channel shares."
     @go version 1
 }
 
-OutputChannel union on type extends BaseOutputChannel {
-    coil_output {
+WriteChannel union on type extends BaseWriteChannel {
+    coil {
         @doc value "writes a single bit to a coil."
     }
-    holding_register_output extends RegisterValue {
+    holding_register extends RegisterValue {
         @doc value "writes a typed value to one or more holding registers."
     }
 
     @doc value  """
-        is a single Modbus output channel. The type field selects the register
+        is a single Modbus write channel. The type field selects the register
         space the channel writes to and the fields that accompany it.
     """
     @go version 1
@@ -125,8 +125,8 @@ ReadConfig struct extends task.BaseReadConfig {
     device   device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
-    channels InputChannel[] {
-        @doc value "are the input channels the task acquires."
+    channels ReadChannel[] {
+        @doc value "are the channels the task acquires."
     }
 
     @doc value  "configures a Modbus read task."
@@ -136,8 +136,8 @@ ReadConfig struct extends task.BaseReadConfig {
 }
 
 WriteConfig struct extends task.BaseWriteConfig {
-    channels OutputChannel[] {
-        @doc value "are the output channels the task drives."
+    channels WriteChannel[] {
+        @doc value "are the channels the task drives."
     }
 
     @doc value  "configures a Modbus write task."

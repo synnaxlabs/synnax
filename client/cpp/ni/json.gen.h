@@ -25,103 +25,6 @@
 
 namespace synnax::ni {
 
-inline LinearScale LinearScale::parse(x::json::Parser parser) {
-    return LinearScale{
-        .slope = parser.field<double>("slope", 1),
-        .y_intercept = parser.field<double>("y_intercept", 0),
-        .pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts"),
-        .scaled_units = parser.field<std::string>("scaled_units", "Volts"),
-    };
-}
-
-inline x::json::json LinearScale::to_json() const {
-    x::json::json j;
-    j["slope"] = this->slope;
-    j["y_intercept"] = this->y_intercept;
-    j["pre_scaled_units"] = this->pre_scaled_units;
-    j["scaled_units"] = this->scaled_units;
-    return j;
-}
-
-inline MapScale MapScale::parse(x::json::Parser parser) {
-    return MapScale{
-        .pre_scaled_min = parser.field<double>("pre_scaled_min", 0),
-        .pre_scaled_max = parser.field<double>("pre_scaled_max", 1),
-        .scaled_min = parser.field<double>("scaled_min", 0),
-        .scaled_max = parser.field<double>("scaled_max", 1),
-        .pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts"),
-        .scaled_units = parser.field<std::string>("scaled_units", "Volts"),
-    };
-}
-
-inline x::json::json MapScale::to_json() const {
-    x::json::json j;
-    j["pre_scaled_min"] = this->pre_scaled_min;
-    j["pre_scaled_max"] = this->pre_scaled_max;
-    j["scaled_min"] = this->scaled_min;
-    j["scaled_max"] = this->scaled_max;
-    j["pre_scaled_units"] = this->pre_scaled_units;
-    j["scaled_units"] = this->scaled_units;
-    return j;
-}
-
-inline TableScale TableScale::parse(x::json::Parser parser) {
-    return TableScale{
-        .pre_scaled_vals = parser.field<std::vector<double>>(
-            "pre_scaled_vals",
-            std::vector<double>{}
-        ),
-        .scaled_vals = parser.field<std::vector<double>>(
-            "scaled_vals",
-            std::vector<double>{}
-        ),
-        .pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts"),
-        .scaled_units = parser.field<std::string>("scaled_units", "Volts"),
-    };
-}
-
-inline x::json::json TableScale::to_json() const {
-    x::json::json j;
-    j["pre_scaled_vals"] = this->pre_scaled_vals;
-    j["scaled_vals"] = this->scaled_vals;
-    j["pre_scaled_units"] = this->pre_scaled_units;
-    j["scaled_units"] = this->scaled_units;
-    return j;
-}
-
-inline NoneScale NoneScale::parse(x::json::Parser) {
-    return NoneScale{};
-}
-
-inline x::json::json NoneScale::to_json() const {
-    x::json::json j;
-    return j;
-}
-
-inline PolynomialScale PolynomialScale::parse(x::json::Parser parser) {
-    return PolynomialScale{
-        .forward_coeffs = parser.field<std::vector<double>>(
-            "forward_coeffs",
-            std::vector<double>{}
-        ),
-        .reverse_coeffs = parser.field<std::vector<double>>(
-            "reverse_coeffs",
-            std::vector<double>{}
-        ),
-        .pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts"),
-        .scaled_units = parser.field<std::string>("scaled_units", "Volts"),
-    };
-}
-
-inline x::json::json PolynomialScale::to_json() const {
-    x::json::json j;
-    j["forward_coeffs"] = this->forward_coeffs;
-    j["reverse_coeffs"] = this->reverse_coeffs;
-    j["pre_scaled_units"] = this->pre_scaled_units;
-    j["scaled_units"] = this->scaled_units;
-    return j;
-}
-
 inline MinMaxVal MinMaxVal::parse(x::json::Parser parser) {
     return MinMaxVal{
         .min_val = parser.field<double>("min_val", 0),
@@ -298,7 +201,7 @@ inline CustomScale CustomScale::parse(x::json::Parser parser) {
     return CustomScale{
         .custom_scale = parser.has("custom_scale")
                           ? parse_scale(parser.child("custom_scale"))
-                          : Scale{ScaleNone{}},
+                          : Scale{NoneScale{}},
     };
 }
 
@@ -403,6 +306,63 @@ inline x::json::json BaseAOChannel::to_json() const {
     j["cmd_channel_name"] = this->cmd_channel_name;
     j["state_channel_name"] = this->state_channel_name;
     j["port"] = this->port;
+    return j;
+}
+
+inline DIChannel DIChannel::parse(x::json::Parser parser) {
+    return DIChannel{
+        .key = parser.field<std::string>("key", ""),
+        .name = parser.field<std::string>("name", ""),
+        .disabled = parser.field<bool>("disabled", false),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
+        .port = parser.field<std::int32_t>("port", 0),
+        .line = parser.field<std::int32_t>("line", 0),
+    };
+}
+
+inline x::json::json DIChannel::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["name"] = this->name;
+    j["disabled"] = this->disabled;
+    j["channel"] = this->channel;
+    j["port"] = this->port;
+    j["line"] = this->line;
+    return j;
+}
+
+inline DOChannel DOChannel::parse(x::json::Parser parser) {
+    return DOChannel{
+        .key = parser.field<std::string>("key", ""),
+        .disabled = parser.field<bool>("disabled", false),
+        .cmd_channel = parser.field<::synnax::channel::Key>(
+            "cmd_channel",
+            ::synnax::channel::Key(0)
+        ),
+        .state_channel = parser.field<::synnax::channel::Key>(
+            "state_channel",
+            ::synnax::channel::Key(0)
+        ),
+        .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
+        .state_channel_name = parser.field<std::string>("state_channel_name", ""),
+        .port = parser.field<std::int32_t>("port", 0),
+        .line = parser.field<std::int32_t>("line", 0),
+    };
+}
+
+inline x::json::json DOChannel::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["disabled"] = this->disabled;
+    j["cmd_channel"] = this->cmd_channel;
+    j["state_channel"] = this->state_channel;
+    j["cmd_channel_name"] = this->cmd_channel_name;
+    j["state_channel_name"] = this->state_channel_name;
+    j["port"] = this->port;
+    j["line"] = this->line;
     return j;
 }
 
@@ -517,14 +477,10 @@ inline DigitalReadConfig DigitalReadConfig::parse(x::json::Parser parser) {
         result
     ) = ::synnax::task::config::BaseRead::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
-    result.channels = [&] {
-        std::vector<DIChannel> result;
-        if (parser.has("channels"))
-            parser.iter("channels", [&result](x::json::Parser &p) {
-                result.push_back(parse_di_channel(p));
-            });
-        return result;
-    }();
+    result.channels = parser.field<std::vector<DIChannel>>(
+        "channels",
+        std::vector<DIChannel>{}
+    );
     return result;
 }
 
@@ -533,26 +489,17 @@ inline x::json::json DigitalReadConfig::to_json() const {
     for (auto &[k, v]: ::synnax::task::config::BaseRead::to_json().items())
         j[k] = v;
     j["device"] = this->device;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->channels)
-            arr.push_back(::synnax::ni::to_json(item));
-        j["channels"] = arr;
-    }
+    j["channels"] = x::json::to_array(this->channels);
     return j;
 }
 
 inline DigitalWriteConfig DigitalWriteConfig::parse(x::json::Parser parser) {
     DigitalWriteConfig result;
     static_cast<WriteConfig &>(result) = WriteConfig::parse(parser);
-    result.channels = [&] {
-        std::vector<DOChannel> result;
-        if (parser.has("channels"))
-            parser.iter("channels", [&result](x::json::Parser &p) {
-                result.push_back(parse_do_channel(p));
-            });
-        return result;
-    }();
+    result.channels = parser.field<std::vector<DOChannel>>(
+        "channels",
+        std::vector<DOChannel>{}
+    );
     return result;
 }
 
@@ -560,12 +507,7 @@ inline x::json::json DigitalWriteConfig::to_json() const {
     x::json::json j;
     for (auto &[k, v]: WriteConfig::to_json().items())
         j[k] = v;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->channels)
-            arr.push_back(::synnax::ni::to_json(item));
-        j["channels"] = arr;
-    }
+    j["channels"] = x::json::to_array(this->channels);
     return j;
 }
 
@@ -584,117 +526,150 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
-inline CJCBuiltIn CJCBuiltIn::parse(x::json::Parser parser) {
-    CJCBuiltIn result;
+inline BuiltInCJC BuiltInCJC::parse(x::json::Parser parser) {
+    BuiltInCJC result;
     result.source = parser.field<std::string>("source");
     return result;
 }
 
-inline x::json::json CJCBuiltIn::to_json() const {
+inline x::json::json BuiltInCJC::to_json() const {
     x::json::json j;
     j["source"] = this->source;
     return j;
 }
 
-inline CJCConstVal CJCConstVal::parse(x::json::Parser parser) {
-    CJCConstVal result;
+inline ConstValCJC ConstValCJC::parse(x::json::Parser parser) {
+    ConstValCJC result;
     result.val = parser.field<double>("val", 0);
     result.source = parser.field<std::string>("source");
     return result;
 }
 
-inline x::json::json CJCConstVal::to_json() const {
+inline x::json::json ConstValCJC::to_json() const {
     x::json::json j;
     j["val"] = this->val;
     j["source"] = this->source;
     return j;
 }
 
-inline CJCChan CJCChan::parse(x::json::Parser parser) {
-    CJCChan result;
+inline ChanCJC ChanCJC::parse(x::json::Parser parser) {
+    ChanCJC result;
     result.port = parser.field<std::int32_t>("port", 0);
     result.source = parser.field<std::string>("source");
     return result;
 }
 
-inline x::json::json CJCChan::to_json() const {
+inline x::json::json ChanCJC::to_json() const {
     x::json::json j;
     j["port"] = this->port;
     j["source"] = this->source;
     return j;
 }
 
-inline ScaleLinear ScaleLinear::parse(x::json::Parser parser) {
-    ScaleLinear result;
-    static_cast<LinearScale &>(result) = LinearScale::parse(parser);
+inline LinearScale LinearScale::parse(x::json::Parser parser) {
+    LinearScale result;
+    result.slope = parser.field<double>("slope", 1);
+    result.y_intercept = parser.field<double>("y_intercept", 0);
+    result.pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts");
+    result.scaled_units = parser.field<std::string>("scaled_units", "Volts");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json ScaleLinear::to_json() const {
+inline x::json::json LinearScale::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: LinearScale::to_json().items())
-        j[k] = v;
+    j["slope"] = this->slope;
+    j["y_intercept"] = this->y_intercept;
+    j["pre_scaled_units"] = this->pre_scaled_units;
+    j["scaled_units"] = this->scaled_units;
     j["type"] = this->type;
     return j;
 }
 
-inline ScaleMap ScaleMap::parse(x::json::Parser parser) {
-    ScaleMap result;
-    static_cast<MapScale &>(result) = MapScale::parse(parser);
+inline MapScale MapScale::parse(x::json::Parser parser) {
+    MapScale result;
+    result.pre_scaled_min = parser.field<double>("pre_scaled_min", 0);
+    result.pre_scaled_max = parser.field<double>("pre_scaled_max", 1);
+    result.scaled_min = parser.field<double>("scaled_min", 0);
+    result.scaled_max = parser.field<double>("scaled_max", 1);
+    result.pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts");
+    result.scaled_units = parser.field<std::string>("scaled_units", "Volts");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json ScaleMap::to_json() const {
+inline x::json::json MapScale::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: MapScale::to_json().items())
-        j[k] = v;
+    j["pre_scaled_min"] = this->pre_scaled_min;
+    j["pre_scaled_max"] = this->pre_scaled_max;
+    j["scaled_min"] = this->scaled_min;
+    j["scaled_max"] = this->scaled_max;
+    j["pre_scaled_units"] = this->pre_scaled_units;
+    j["scaled_units"] = this->scaled_units;
     j["type"] = this->type;
     return j;
 }
 
-inline ScaleTable ScaleTable::parse(x::json::Parser parser) {
-    ScaleTable result;
-    static_cast<TableScale &>(result) = TableScale::parse(parser);
+inline TableScale TableScale::parse(x::json::Parser parser) {
+    TableScale result;
+    result.pre_scaled_vals = parser.field<std::vector<double>>(
+        "pre_scaled_vals",
+        std::vector<double>{}
+    );
+    result.scaled_vals = parser.field<std::vector<double>>(
+        "scaled_vals",
+        std::vector<double>{}
+    );
+    result.pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts");
+    result.scaled_units = parser.field<std::string>("scaled_units", "Volts");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json ScaleTable::to_json() const {
+inline x::json::json TableScale::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: TableScale::to_json().items())
-        j[k] = v;
+    j["pre_scaled_vals"] = this->pre_scaled_vals;
+    j["scaled_vals"] = this->scaled_vals;
+    j["pre_scaled_units"] = this->pre_scaled_units;
+    j["scaled_units"] = this->scaled_units;
     j["type"] = this->type;
     return j;
 }
 
-inline ScalePolynomial ScalePolynomial::parse(x::json::Parser parser) {
-    ScalePolynomial result;
-    static_cast<PolynomialScale &>(result) = PolynomialScale::parse(parser);
+inline PolynomialScale PolynomialScale::parse(x::json::Parser parser) {
+    PolynomialScale result;
+    result.forward_coeffs = parser.field<std::vector<double>>(
+        "forward_coeffs",
+        std::vector<double>{}
+    );
+    result.reverse_coeffs = parser.field<std::vector<double>>(
+        "reverse_coeffs",
+        std::vector<double>{}
+    );
+    result.pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts");
+    result.scaled_units = parser.field<std::string>("scaled_units", "Volts");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json ScalePolynomial::to_json() const {
+inline x::json::json PolynomialScale::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: PolynomialScale::to_json().items())
-        j[k] = v;
+    j["forward_coeffs"] = this->forward_coeffs;
+    j["reverse_coeffs"] = this->reverse_coeffs;
+    j["pre_scaled_units"] = this->pre_scaled_units;
+    j["scaled_units"] = this->scaled_units;
     j["type"] = this->type;
     return j;
 }
 
-inline ScaleNone ScaleNone::parse(x::json::Parser parser) {
-    ScaleNone result;
-    static_cast<NoneScale &>(result) = NoneScale::parse(parser);
+inline NoneScale NoneScale::parse(x::json::Parser parser) {
+    NoneScale result;
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json ScaleNone::to_json() const {
+inline x::json::json NoneScale::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: NoneScale::to_json().items())
-        j[k] = v;
     j["type"] = this->type;
     return j;
 }
@@ -1157,7 +1132,7 @@ inline AIThermocoupleChannel AIThermocoupleChannel::parse(x::json::Parser parser
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.units = parser.field<std::string>("units", "DegC");
     result.thermocouple_type = parser.field<std::string>("thermocouple_type", "J");
-    result.cjc = parser.has("cjc") ? parse_cjc(parser.child("cjc")) : CJC{CJCBuiltIn{}};
+    result.cjc = parser.has("cjc") ? parse_cjc(parser.child("cjc")) : CJC{BuiltInCJC{}};
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -2079,72 +2054,11 @@ inline x::json::json AOVoltageChannel::to_json() const {
     return j;
 }
 
-inline DigitalInputChannel DigitalInputChannel::parse(x::json::Parser parser) {
-    DigitalInputChannel result;
-    result.key = parser.field<std::string>("key", "");
-    result.name = parser.field<std::string>("name", "");
-    result.disabled = parser.field<bool>("disabled", false);
-    result.channel = parser.field<::synnax::channel::Key>(
-        "channel",
-        ::synnax::channel::Key(0)
-    );
-    result.port = parser.field<std::int32_t>("port", 0);
-    result.line = parser.field<std::int32_t>("line", 0);
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json DigitalInputChannel::to_json() const {
-    x::json::json j;
-    j["key"] = this->key;
-    j["name"] = this->name;
-    j["disabled"] = this->disabled;
-    j["channel"] = this->channel;
-    j["port"] = this->port;
-    j["line"] = this->line;
-    j["type"] = this->type;
-    return j;
-}
-
-inline DOChannelDigitalOutput DOChannelDigitalOutput::parse(x::json::Parser parser) {
-    DOChannelDigitalOutput result;
-    result.key = parser.field<std::string>("key", "");
-    result.disabled = parser.field<bool>("disabled", false);
-    result.cmd_channel = parser.field<::synnax::channel::Key>(
-        "cmd_channel",
-        ::synnax::channel::Key(0)
-    );
-    result.state_channel = parser.field<::synnax::channel::Key>(
-        "state_channel",
-        ::synnax::channel::Key(0)
-    );
-    result.cmd_channel_name = parser.field<std::string>("cmd_channel_name", "");
-    result.state_channel_name = parser.field<std::string>("state_channel_name", "");
-    result.port = parser.field<std::int32_t>("port", 0);
-    result.line = parser.field<std::int32_t>("line", 0);
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json DOChannelDigitalOutput::to_json() const {
-    x::json::json j;
-    j["key"] = this->key;
-    j["disabled"] = this->disabled;
-    j["cmd_channel"] = this->cmd_channel;
-    j["state_channel"] = this->state_channel;
-    j["cmd_channel_name"] = this->cmd_channel_name;
-    j["state_channel_name"] = this->state_channel_name;
-    j["port"] = this->port;
-    j["line"] = this->line;
-    j["type"] = this->type;
-    return j;
-}
-
 inline CJC parse_cjc(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("source");
-    if (discriminator == "built_in") return CJCBuiltIn::parse(parser);
-    if (discriminator == "const_val") return CJCConstVal::parse(parser);
-    if (discriminator == "chan") return CJCChan::parse(parser);
+    if (discriminator == "built_in") return BuiltInCJC::parse(parser);
+    if (discriminator == "const_val") return ConstValCJC::parse(parser);
+    if (discriminator == "chan") return ChanCJC::parse(parser);
     parser.field_err("source", "unknown CJC source: " + discriminator);
     return {};
 }
@@ -2155,11 +2069,11 @@ inline x::json::json to_json(const CJC &value) {
 
 inline Scale parse_scale(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "linear") return ScaleLinear::parse(parser);
-    if (discriminator == "map") return ScaleMap::parse(parser);
-    if (discriminator == "table") return ScaleTable::parse(parser);
-    if (discriminator == "polynomial") return ScalePolynomial::parse(parser);
-    if (discriminator == "none") return ScaleNone::parse(parser);
+    if (discriminator == "linear") return LinearScale::parse(parser);
+    if (discriminator == "map") return MapScale::parse(parser);
+    if (discriminator == "table") return TableScale::parse(parser);
+    if (discriminator == "polynomial") return PolynomialScale::parse(parser);
+    if (discriminator == "none") return NoneScale::parse(parser);
     parser.field_err("type", "unknown Scale type: " + discriminator);
     return {};
 }
@@ -2257,28 +2171,6 @@ inline AOChannel parse_ao_channel(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const AOChannel &value) {
-    return std::visit([](const auto &v) { return v.to_json(); }, value);
-}
-
-inline DIChannel parse_di_channel(x::json::Parser parser) {
-    const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "digital_input") return DigitalInputChannel::parse(parser);
-    parser.field_err("type", "unknown DIChannel type: " + discriminator);
-    return {};
-}
-
-inline x::json::json to_json(const DIChannel &value) {
-    return std::visit([](const auto &v) { return v.to_json(); }, value);
-}
-
-inline DOChannel parse_do_channel(x::json::Parser parser) {
-    const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "digital_output") return DOChannelDigitalOutput::parse(parser);
-    parser.field_err("type", "unknown DOChannel type: " + discriminator);
-    return {};
-}
-
-inline x::json::json to_json(const DOChannel &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

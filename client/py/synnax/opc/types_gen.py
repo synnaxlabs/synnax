@@ -49,7 +49,7 @@ class ScanConfig(task.BaseScanConfig):
         return hash(self.key)
 
 
-class InputChannel(BaseChannel):
+class ReadChannel(BaseChannel):
     """Is a single OPC UA node the task reads from.
 
     Attributes:
@@ -64,7 +64,7 @@ class InputChannel(BaseChannel):
         return hash(self.key)
 
 
-class OutputChannel(BaseChannel):
+class WriteChannel(BaseChannel):
     """Is a single OPC UA node the task drives.
 
     Attributes:
@@ -94,7 +94,7 @@ class ReadConfig(task.BaseReadConfig):
     device: device_.Key = ""
     array_mode: bool = False
     array_size: int = Field(default=1, ge=-2147483648, le=2147483647)
-    channels: list[InputChannel] = Field(default_factory=list)
+    channels: list[ReadChannel] = Field(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -107,7 +107,7 @@ class WriteConfig(task.BaseWriteConfig):
         channels: Are the OPC UA nodes the task drives.
     """
 
-    channels: list[OutputChannel] = Field(default_factory=list)
+    channels: list[WriteChannel] = Field(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(self.key)

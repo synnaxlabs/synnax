@@ -35,16 +35,16 @@ export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
 export const scanConfigZ = task.baseScanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-export const inputChannelZ = baseChannelZ.extend({
+export const readChannelZ = baseChannelZ.extend({
   channel: channel.keyZ.default(0),
   useAsIndex: z.boolean().default(false),
 });
-export interface InputChannel extends z.infer<typeof inputChannelZ> {}
+export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
-export const outputChannelZ = baseChannelZ.extend({
+export const writeChannelZ = baseChannelZ.extend({
   cmdChannel: channel.keyZ.default(0),
 });
-export interface OutputChannel extends z.infer<typeof outputChannelZ> {}
+export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
 
 export const readConfigZ = task.baseReadConfigZ
   .omit({ sampleRate: true, streamRate: true })
@@ -54,11 +54,11 @@ export const readConfigZ = task.baseReadConfigZ
     device: device.keyZ.default(""),
     arrayMode: z.boolean().default(false),
     arraySize: z.int32().default(1),
-    channels: inputChannelZ.array().default(() => []),
+    channels: readChannelZ.array().default(() => []),
   });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 export const writeConfigZ = task.baseWriteConfigZ.extend({
-  channels: outputChannelZ.array().default(() => []),
+  channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

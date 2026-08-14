@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	fullyPopulatedBaseInputChannel = v1.BaseInputChannel{
+	fullyPopulatedBaseReadChannel = v1.BaseReadChannel{
 		Key:      "test_1",
 		Name:     "test_2",
 		Disabled: true,
@@ -40,7 +40,7 @@ var (
 		BitLength: 4,
 		DataType:  telem.DataType("test_4"),
 	}
-	fullyPopulatedBaseOutputChannel = v1.BaseOutputChannel{
+	fullyPopulatedBaseWriteChannel = v1.BaseWriteChannel{
 		Key:              "test_1",
 		Name:             "test_2",
 		Disabled:         true,
@@ -53,19 +53,19 @@ var (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("BaseInputChannel", func() {
+	Describe("BaseReadChannel", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.BaseInputChannel) {
+			func(original v1.BaseReadChannel) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.BaseInputChannel
+				var decoded v1.BaseReadChannel
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", fullyPopulatedBaseInputChannel),
-			Entry("zero values", v1.BaseInputChannel{
+			Entry("fully populated", fullyPopulatedBaseReadChannel),
+			Entry("zero values", v1.BaseReadChannel{
 				Key:      "",
 				Name:     "",
 				Disabled: false,
@@ -74,19 +74,19 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("BaseOutputChannel", func() {
+	Describe("BaseWriteChannel", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.BaseOutputChannel) {
+			func(original v1.BaseWriteChannel) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.BaseOutputChannel
+				var decoded v1.BaseWriteChannel
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", fullyPopulatedBaseOutputChannel),
-			Entry("zero values", v1.BaseOutputChannel{
+			Entry("fully populated", fullyPopulatedBaseWriteChannel),
+			Entry("zero values", v1.BaseWriteChannel{
 				Key:              "",
 				Name:             "",
 				Disabled:         false,
@@ -96,48 +96,6 @@ var _ = Describe("Codec", func() {
 				StateChannelName: "",
 				Device:           "",
 			}),
-		)
-	})
-	Describe("InputChannel", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.InputChannel) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.InputChannel
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("automatic variant", v1.InputChannel{Variant: v1.InputChannelAutomatic{
-				BaseInputChannel: fullyPopulatedBaseInputChannel,
-				Pdo:              "test_1",
-			}}),
-			Entry("manual variant", v1.InputChannel{Variant: v1.InputChannelManual{
-				BaseInputChannel: fullyPopulatedBaseInputChannel,
-				PDOAddress:       fullyPopulatedPDOAddress,
-			}}),
-		)
-	})
-	Describe("OutputChannel", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.OutputChannel) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.OutputChannel
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("automatic variant", v1.OutputChannel{Variant: v1.OutputChannelAutomatic{
-				BaseOutputChannel: fullyPopulatedBaseOutputChannel,
-				Pdo:               "test_1",
-			}}),
-			Entry("manual variant", v1.OutputChannel{Variant: v1.OutputChannelManual{
-				BaseOutputChannel: fullyPopulatedBaseOutputChannel,
-				PDOAddress:        fullyPopulatedPDOAddress,
-			}}),
 		)
 	})
 	Describe("PDOAddress", func() {
@@ -158,6 +116,27 @@ var _ = Describe("Codec", func() {
 				BitLength: 0,
 				DataType:  telem.DataType(""),
 			}),
+		)
+	})
+	Describe("ReadChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.ReadChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.ReadChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("automatic variant", v1.ReadChannel{Variant: v1.AutomaticReadChannel{
+				BaseReadChannel: fullyPopulatedBaseReadChannel,
+				Pdo:             "test_1",
+			}}),
+			Entry("manual variant", v1.ReadChannel{Variant: v1.ManualReadChannel{
+				BaseReadChannel: fullyPopulatedBaseReadChannel,
+				PDOAddress:      fullyPopulatedPDOAddress,
+			}}),
 		)
 	})
 	Describe("ReadConfig", func() {
@@ -183,10 +162,10 @@ var _ = Describe("Codec", func() {
 					SampleRate: telem.Rate(4.5),
 					StreamRate: telem.Rate(5.5),
 				},
-				Channels: []v1.InputChannel{
-					{Variant: v1.InputChannelAutomatic{
-						BaseInputChannel: fullyPopulatedBaseInputChannel,
-						Pdo:              "test_7",
+				Channels: []v1.ReadChannel{
+					{Variant: v1.AutomaticReadChannel{
+						BaseReadChannel: fullyPopulatedBaseReadChannel,
+						Pdo:             "test_7",
 					}},
 				},
 			}),
@@ -213,7 +192,7 @@ var _ = Describe("Codec", func() {
 					SampleRate: telem.Rate(4.5),
 					StreamRate: telem.Rate(5.5),
 				},
-				Channels: []v1.InputChannel{},
+				Channels: []v1.ReadChannel{},
 			}),
 		)
 	})
@@ -244,6 +223,27 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("WriteChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.WriteChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.WriteChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("automatic variant", v1.WriteChannel{Variant: v1.AutomaticWriteChannel{
+				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+				Pdo:              "test_1",
+			}}),
+			Entry("manual variant", v1.WriteChannel{Variant: v1.ManualWriteChannel{
+				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+				PDOAddress:       fullyPopulatedPDOAddress,
+			}}),
+		)
+	})
 	Describe("WriteConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.WriteConfig) {
@@ -265,10 +265,10 @@ var _ = Describe("Codec", func() {
 				},
 				StateRate:     telem.Rate(4.5),
 				ExecutionRate: telem.Rate(5.5),
-				Channels: []v1.OutputChannel{
-					{Variant: v1.OutputChannelAutomatic{
-						BaseOutputChannel: fullyPopulatedBaseOutputChannel,
-						Pdo:               "test_7",
+				Channels: []v1.WriteChannel{
+					{Variant: v1.AutomaticWriteChannel{
+						BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+						Pdo:              "test_7",
 					}},
 				},
 			}),
@@ -291,14 +291,14 @@ var _ = Describe("Codec", func() {
 				},
 				StateRate:     telem.Rate(4.5),
 				ExecutionRate: telem.Rate(5.5),
-				Channels:      []v1.OutputChannel{},
+				Channels:      []v1.WriteChannel{},
 			}),
 		)
 	})
 })
 
-func BenchmarkEncodeDecodeBaseInputChannel(b *testing.B) {
-	seed := fullyPopulatedBaseInputChannel
+func BenchmarkEncodeDecodeBaseReadChannel(b *testing.B) {
+	seed := fullyPopulatedBaseReadChannel
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -306,7 +306,7 @@ func BenchmarkEncodeDecodeBaseInputChannel(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.BaseInputChannel
+		var decoded v1.BaseReadChannel
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -314,8 +314,8 @@ func BenchmarkEncodeDecodeBaseInputChannel(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeBaseOutputChannel(b *testing.B) {
-	seed := fullyPopulatedBaseOutputChannel
+func BenchmarkEncodeDecodeBaseWriteChannel(b *testing.B) {
+	seed := fullyPopulatedBaseWriteChannel
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -323,47 +323,7 @@ func BenchmarkEncodeDecodeBaseOutputChannel(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.BaseOutputChannel
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeInputChannel(b *testing.B) {
-	seed := v1.InputChannel{Variant: v1.InputChannelAutomatic{
-		BaseInputChannel: fullyPopulatedBaseInputChannel,
-		Pdo:              "test_1",
-	}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v1.InputChannel
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeOutputChannel(b *testing.B) {
-	seed := v1.OutputChannel{Variant: v1.OutputChannelAutomatic{
-		BaseOutputChannel: fullyPopulatedBaseOutputChannel,
-		Pdo:               "test_1",
-	}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v1.OutputChannel
+		var decoded v1.BaseWriteChannel
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -388,6 +348,26 @@ func BenchmarkEncodeDecodePDOAddress(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
+	seed := v1.ReadChannel{Variant: v1.AutomaticReadChannel{
+		BaseReadChannel: fullyPopulatedBaseReadChannel,
+		Pdo:             "test_1",
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.ReadChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	seed := v1.ReadConfig{
 		BaseRead: config.BaseRead{
@@ -401,10 +381,10 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			SampleRate: telem.Rate(4.5),
 			StreamRate: telem.Rate(5.5),
 		},
-		Channels: []v1.InputChannel{
-			{Variant: v1.InputChannelAutomatic{
-				BaseInputChannel: fullyPopulatedBaseInputChannel,
-				Pdo:              "test_7",
+		Channels: []v1.ReadChannel{
+			{Variant: v1.AutomaticReadChannel{
+				BaseReadChannel: fullyPopulatedBaseReadChannel,
+				Pdo:             "test_7",
 			}},
 		},
 	}
@@ -446,6 +426,26 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeWriteChannel(b *testing.B) {
+	seed := v1.WriteChannel{Variant: v1.AutomaticWriteChannel{
+		BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+		Pdo:              "test_1",
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.WriteChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v1.WriteConfig{
 		BasePersist: config.BasePersist{
@@ -457,10 +457,10 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 		},
 		StateRate:     telem.Rate(4.5),
 		ExecutionRate: telem.Rate(5.5),
-		Channels: []v1.OutputChannel{
-			{Variant: v1.OutputChannelAutomatic{
-				BaseOutputChannel: fullyPopulatedBaseOutputChannel,
-				Pdo:               "test_7",
+		Channels: []v1.WriteChannel{
+			{Variant: v1.AutomaticWriteChannel{
+				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+				Pdo:              "test_7",
 			}},
 		},
 	}
@@ -479,9 +479,9 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	}
 }
 
-func FuzzDecodeBaseInputChannel(f *testing.F) {
+func FuzzDecodeBaseReadChannel(f *testing.F) {
 	{
-		seed := fullyPopulatedBaseInputChannel
+		seed := fullyPopulatedBaseReadChannel
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -489,7 +489,7 @@ func FuzzDecodeBaseInputChannel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.BaseInputChannel{
+		seed := v1.BaseReadChannel{
 			Key:      "",
 			Name:     "",
 			Disabled: false,
@@ -503,7 +503,7 @@ func FuzzDecodeBaseInputChannel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.BaseInputChannel
+		var decoded v1.BaseReadChannel
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -513,7 +513,7 @@ func FuzzDecodeBaseInputChannel(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.BaseInputChannel
+		var redecoded v1.BaseReadChannel
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -524,9 +524,9 @@ func FuzzDecodeBaseInputChannel(f *testing.F) {
 	})
 }
 
-func FuzzDecodeBaseOutputChannel(f *testing.F) {
+func FuzzDecodeBaseWriteChannel(f *testing.F) {
 	{
-		seed := fullyPopulatedBaseOutputChannel
+		seed := fullyPopulatedBaseWriteChannel
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -534,7 +534,7 @@ func FuzzDecodeBaseOutputChannel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.BaseOutputChannel{
+		seed := v1.BaseWriteChannel{
 			Key:              "",
 			Name:             "",
 			Disabled:         false,
@@ -551,7 +551,7 @@ func FuzzDecodeBaseOutputChannel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.BaseOutputChannel
+		var decoded v1.BaseWriteChannel
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -561,97 +561,7 @@ func FuzzDecodeBaseOutputChannel(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.BaseOutputChannel
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeInputChannel(f *testing.F) {
-	{
-		seed := v1.InputChannel{Variant: v1.InputChannelAutomatic{
-			BaseInputChannel: fullyPopulatedBaseInputChannel,
-			Pdo:              "test_1",
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.InputChannel{Variant: v1.InputChannelManual{
-			BaseInputChannel: fullyPopulatedBaseInputChannel,
-			PDOAddress:       fullyPopulatedPDOAddress,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.InputChannel
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v1.InputChannel
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeOutputChannel(f *testing.F) {
-	{
-		seed := v1.OutputChannel{Variant: v1.OutputChannelAutomatic{
-			BaseOutputChannel: fullyPopulatedBaseOutputChannel,
-			Pdo:               "test_1",
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.OutputChannel{Variant: v1.OutputChannelManual{
-			BaseOutputChannel: fullyPopulatedBaseOutputChannel,
-			PDOAddress:        fullyPopulatedPDOAddress,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.OutputChannel
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v1.OutputChannel
+		var redecoded v1.BaseWriteChannel
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -706,6 +616,51 @@ func FuzzDecodePDOAddress(f *testing.F) {
 	})
 }
 
+func FuzzDecodeReadChannel(f *testing.F) {
+	{
+		seed := v1.ReadChannel{Variant: v1.AutomaticReadChannel{
+			BaseReadChannel: fullyPopulatedBaseReadChannel,
+			Pdo:             "test_1",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.ReadChannel{Variant: v1.ManualReadChannel{
+			BaseReadChannel: fullyPopulatedBaseReadChannel,
+			PDOAddress:      fullyPopulatedPDOAddress,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.ReadChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.ReadChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v1.ReadConfig{
@@ -720,10 +675,10 @@ func FuzzDecodeReadConfig(f *testing.F) {
 				SampleRate: telem.Rate(4.5),
 				StreamRate: telem.Rate(5.5),
 			},
-			Channels: []v1.InputChannel{
-				{Variant: v1.InputChannelAutomatic{
-					BaseInputChannel: fullyPopulatedBaseInputChannel,
-					Pdo:              "test_7",
+			Channels: []v1.ReadChannel{
+				{Variant: v1.AutomaticReadChannel{
+					BaseReadChannel: fullyPopulatedBaseReadChannel,
+					Pdo:             "test_7",
 				}},
 			},
 		}
@@ -764,7 +719,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 				SampleRate: telem.Rate(4.5),
 				StreamRate: telem.Rate(5.5),
 			},
-			Channels: []v1.InputChannel{},
+			Channels: []v1.ReadChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -845,6 +800,51 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	})
 }
 
+func FuzzDecodeWriteChannel(f *testing.F) {
+	{
+		seed := v1.WriteChannel{Variant: v1.AutomaticWriteChannel{
+			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+			Pdo:              "test_1",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.WriteChannel{Variant: v1.ManualWriteChannel{
+			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+			PDOAddress:       fullyPopulatedPDOAddress,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.WriteChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.WriteChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v1.WriteConfig{
@@ -857,10 +857,10 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			},
 			StateRate:     telem.Rate(4.5),
 			ExecutionRate: telem.Rate(5.5),
-			Channels: []v1.OutputChannel{
-				{Variant: v1.OutputChannelAutomatic{
-					BaseOutputChannel: fullyPopulatedBaseOutputChannel,
-					Pdo:               "test_7",
+			Channels: []v1.WriteChannel{
+				{Variant: v1.AutomaticWriteChannel{
+					BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+					Pdo:              "test_7",
 				}},
 			},
 		}
@@ -897,7 +897,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			},
 			StateRate:     telem.Rate(4.5),
 			ExecutionRate: telem.Rate(5.5),
-			Channels:      []v1.OutputChannel{},
+			Channels:      []v1.WriteChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

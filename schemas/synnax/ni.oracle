@@ -260,95 +260,80 @@ ChargeUnits enum {
     @go version 2
 }
 
-LinearScale struct {
-    slope            float64 = 1 {
-        @doc value "is the multiplier applied to the raw value."
-    }
-    y_intercept      float64 = 0 {
-        @doc value "is the offset added after scaling."
-    }
-    pre_scaled_units Units = volts {
-        @doc value "are the units of the raw value before scaling."
-    }
-    scaled_units     string = "Volts" {
-        @doc value "are the units of the value after scaling."
-    }
-
-    @doc value  "maps raw values to engineering units with a slope and intercept."
-    @go version 2
-}
-
-MapScale struct {
-    pre_scaled_min   float64 = 0 {
-        @doc value "is the lower bound of the raw input range."
-    }
-    pre_scaled_max   float64 = 1 {
-        @doc value "is the upper bound of the raw input range."
-    }
-    scaled_min       float64 = 0 {
-        @doc value "is the lower bound of the scaled output range."
-    }
-    scaled_max       float64 = 1 {
-        @doc value "is the upper bound of the scaled output range."
-    }
-    pre_scaled_units Units = volts {
-        @doc value "are the units of the raw value before scaling."
-    }
-    scaled_units     string = "Volts" {
-        @doc value "are the units of the value after scaling."
-    }
-
-    @doc value  "maps a raw range linearly onto a scaled range."
-    @go version 2
-}
-
-TableScale struct {
-    pre_scaled_vals  float64[] = [] {
-        @doc value "are the raw breakpoints, monotonically increasing."
-    }
-    scaled_vals      float64[] = [] {
-        @doc value "are the engineering-unit values at each breakpoint."
-    }
-    pre_scaled_units Units = volts {
-        @doc value "are the units of the raw values before scaling."
-    }
-    scaled_units     string = "Volts" {
-        @doc value "are the units of the values after scaling."
-    }
-
-    @doc value  "maps raw values to engineering units via a lookup table."
-    @go version 2
-}
-
-NoneScale struct {
-    @doc value  "applies no scaling; the raw value is used directly."
-    @go version 2
-}
-
-PolynomialScale struct {
-    forward_coeffs   float64[] = [] {
-        @doc value "are the coefficients mapping pre-scaled to scaled values."
-    }
-    reverse_coeffs   float64[] = [] {
-        @doc value "are the coefficients mapping scaled to pre-scaled values."
-    }
-    pre_scaled_units Units = volts {
-        @doc value "are the units of the raw value before scaling."
-    }
-    scaled_units     string = "Volts" {
-        @doc value "are the units of the value after scaling."
-    }
-
-    @doc value  "maps raw values to engineering units with a polynomial."
-    @go version 2
-}
-
 Scale union on type {
-    linear     LinearScale
-    map        MapScale
-    table      TableScale
-    polynomial PolynomialScale
-    none       NoneScale
+    linear {
+        slope            float64 = 1 {
+            @doc value "is the multiplier applied to the raw value."
+        }
+        y_intercept      float64 = 0 {
+            @doc value "is the offset added after scaling."
+        }
+        pre_scaled_units Units = volts {
+            @doc value "are the units of the raw value before scaling."
+        }
+        scaled_units     string = "Volts" {
+            @doc value "are the units of the value after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a slope and intercept."
+    }
+    map {
+        pre_scaled_min   float64 = 0 {
+            @doc value "is the lower bound of the raw input range."
+        }
+        pre_scaled_max   float64 = 1 {
+            @doc value "is the upper bound of the raw input range."
+        }
+        scaled_min       float64 = 0 {
+            @doc value "is the lower bound of the scaled output range."
+        }
+        scaled_max       float64 = 1 {
+            @doc value "is the upper bound of the scaled output range."
+        }
+        pre_scaled_units Units = volts {
+            @doc value "are the units of the raw value before scaling."
+        }
+        scaled_units     string = "Volts" {
+            @doc value "are the units of the value after scaling."
+        }
+
+        @doc value "maps a raw range linearly onto a scaled range."
+    }
+    table {
+        pre_scaled_vals  float64[] = [] {
+            @doc value "are the raw breakpoints, monotonically increasing."
+        }
+        scaled_vals      float64[] = [] {
+            @doc value "are the engineering-unit values at each breakpoint."
+        }
+        pre_scaled_units Units = volts {
+            @doc value "are the units of the raw values before scaling."
+        }
+        scaled_units     string = "Volts" {
+            @doc value "are the units of the values after scaling."
+        }
+
+        @doc value "maps raw values to engineering units via a lookup table."
+    }
+    polynomial {
+        forward_coeffs   float64[] = [] {
+            @doc value "are the coefficients mapping pre-scaled to scaled values."
+        }
+        reverse_coeffs   float64[] = [] {
+            @doc value "are the coefficients mapping scaled to pre-scaled values."
+        }
+        pre_scaled_units Units = volts {
+            @doc value "are the units of the raw value before scaling."
+        }
+        scaled_units     string = "Volts" {
+            @doc value "are the units of the value after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a polynomial."
+    }
+    none {
+        @doc value "applies no scaling; the raw value is used directly."
+    }
 
     @doc value  "determines how raw sensor values are transformed to engineering units."
     @go version 2
@@ -1346,64 +1331,56 @@ AOChannel union on type extends BaseAOChannel {
     @go version 2
 }
 
-DIChannel union on type {
-    digital_input {
-        key      string = "" {
-            @doc value "uniquely identifies the channel within the task."
-            @key
-        }
-        name     string = "" {
-            @doc value "is the human-readable channel name."
-        }
-        disabled bool = false {
-            @doc value "is true when the channel is excluded from acquisition."
-        }
-        channel  channel.Key = 0 {
-            @doc value "is the Synnax channel that raw samples are written to."
-        }
-        port     int32 = 0 {
-            @doc value "is the physical port the channel reads from."
-        }
-        line     int32 = 0 {
-            @doc value "is the digital line within the port the channel reads from."
-        }
-
-        @doc value "carries the fields of an NI digital input channel."
+DIChannel struct {
+    key      string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from acquisition."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel that raw samples are written to."
+    }
+    port     int32 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+    line     int32 = 0 {
+        @doc value "is the digital line within the port the channel reads from."
     }
 
     @doc value  "is a digital input channel the task acquires from."
     @go version 2
 }
 
-DOChannel union on type {
-    digital_output {
-        key                string = "" {
-            @doc value "uniquely identifies the channel within the task."
-            @key
-        }
-        disabled           bool = false {
-            @doc value "is true when the channel is excluded from the task."
-        }
-        cmd_channel        channel.Key = 0 {
-            @doc value "is the Synnax channel commands are read from."
-        }
-        state_channel      channel.Key = 0 {
-            @doc value "is the Synnax channel the output state is written to."
-        }
-        cmd_channel_name   string = "" {
-            @doc value "is the human-readable name of the command channel."
-        }
-        state_channel_name string = "" {
-            @doc value "is the human-readable name of the state channel."
-        }
-        port               int32 = 0 {
-            @doc value "is the physical port the channel writes to."
-        }
-        line               int32 = 0 {
-            @doc value "is the digital line within the port the channel writes to."
-        }
-
-        @doc value "carries the fields of an NI digital output channel."
+DOChannel struct {
+    key                string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    disabled           bool = false {
+        @doc value "is true when the channel is excluded from the task."
+    }
+    cmd_channel        channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+    state_channel      channel.Key = 0 {
+        @doc value "is the Synnax channel the output state is written to."
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
+    port               int32 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
+    line               int32 = 0 {
+        @doc value "is the digital line within the port the channel writes to."
     }
 
     @doc value  "is a digital output channel the task drives."

@@ -49,8 +49,8 @@ inline x::json::json BaseChannel::to_json() const {
     return j;
 }
 
-inline InputChannel InputChannel::parse(x::json::Parser parser) {
-    InputChannel result;
+inline ReadChannel ReadChannel::parse(x::json::Parser parser) {
+    ReadChannel result;
     static_cast<BaseChannel &>(result) = BaseChannel::parse(parser);
     result.channel = parser.field<::synnax::channel::Key>(
         "channel",
@@ -60,7 +60,7 @@ inline InputChannel InputChannel::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json InputChannel::to_json() const {
+inline x::json::json ReadChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseChannel::to_json().items())
         j[k] = v;
@@ -69,8 +69,8 @@ inline x::json::json InputChannel::to_json() const {
     return j;
 }
 
-inline OutputChannel OutputChannel::parse(x::json::Parser parser) {
-    OutputChannel result;
+inline WriteChannel WriteChannel::parse(x::json::Parser parser) {
+    WriteChannel result;
     static_cast<BaseChannel &>(result) = BaseChannel::parse(parser);
     result.cmd_channel = parser.field<::synnax::channel::Key>(
         "cmd_channel",
@@ -79,7 +79,7 @@ inline OutputChannel OutputChannel::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json OutputChannel::to_json() const {
+inline x::json::json WriteChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseChannel::to_json().items())
         j[k] = v;
@@ -103,9 +103,9 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.array_mode = parser.field<bool>("array_mode", false);
     result.array_size = parser.field<std::int32_t>("array_size", 1);
-    result.channels = parser.field<std::vector<InputChannel>>(
+    result.channels = parser.field<std::vector<ReadChannel>>(
         "channels",
-        std::vector<InputChannel>{}
+        std::vector<ReadChannel>{}
     );
     return result;
 }
@@ -128,9 +128,9 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     static_cast<::synnax::task::config::BaseWrite &>(
         result
     ) = ::synnax::task::config::BaseWrite::parse(parser);
-    result.channels = parser.field<std::vector<OutputChannel>>(
+    result.channels = parser.field<std::vector<WriteChannel>>(
         "channels",
-        std::vector<OutputChannel>{}
+        std::vector<WriteChannel>{}
     );
     return result;
 }

@@ -57,34 +57,34 @@ func (bc *BaseChannel) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (ic InputChannel) EncodeOrc(w *orc.Writer) error {
-	w.String(ic.Key)
-	w.String(ic.Name)
-	w.Bool(ic.Disabled)
-	w.String(ic.NodeID)
-	w.String(ic.NodeName)
-	w.String(string(ic.DataType))
-	w.Uint32(uint32(ic.Channel))
-	w.Bool(ic.UseAsIndex)
+func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(rc.Key)
+	w.String(rc.Name)
+	w.Bool(rc.Disabled)
+	w.String(rc.NodeID)
+	w.String(rc.NodeName)
+	w.String(string(rc.DataType))
+	w.Uint32(uint32(rc.Channel))
+	w.Bool(rc.UseAsIndex)
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (ic *InputChannel) DecodeOrc(r *orc.Reader) error {
+func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if ic.Key, err = r.String(); err != nil {
+	if rc.Key, err = r.String(); err != nil {
 		return err
 	}
-	if ic.Name, err = r.String(); err != nil {
+	if rc.Name, err = r.String(); err != nil {
 		return err
 	}
-	if ic.Disabled, err = r.Bool(); err != nil {
+	if rc.Disabled, err = r.Bool(); err != nil {
 		return err
 	}
-	if ic.NodeID, err = r.String(); err != nil {
+	if rc.NodeID, err = r.String(); err != nil {
 		return err
 	}
-	if ic.NodeName, err = r.String(); err != nil {
+	if rc.NodeName, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -92,64 +92,17 @@ func (ic *InputChannel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		ic.DataType = telem.DataType(rawV)
+		rc.DataType = telem.DataType(rawV)
 	}
 	{
 		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		ic.Channel = channel.Key(rawV)
+		rc.Channel = channel.Key(rawV)
 	}
-	if ic.UseAsIndex, err = r.Bool(); err != nil {
+	if rc.UseAsIndex, err = r.Bool(); err != nil {
 		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (oc OutputChannel) EncodeOrc(w *orc.Writer) error {
-	w.String(oc.Key)
-	w.String(oc.Name)
-	w.Bool(oc.Disabled)
-	w.String(oc.NodeID)
-	w.String(oc.NodeName)
-	w.String(string(oc.DataType))
-	w.Uint32(uint32(oc.CmdChannel))
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (oc *OutputChannel) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if oc.Key, err = r.String(); err != nil {
-		return err
-	}
-	if oc.Name, err = r.String(); err != nil {
-		return err
-	}
-	if oc.Disabled, err = r.Bool(); err != nil {
-		return err
-	}
-	if oc.NodeID, err = r.String(); err != nil {
-		return err
-	}
-	if oc.NodeName, err = r.String(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		oc.DataType = telem.DataType(rawV)
-	}
-	{
-		rawV, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		oc.CmdChannel = channel.Key(rawV)
 	}
 	return nil
 }
@@ -221,7 +174,7 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rc.Channels = make([]InputChannel, n)
+			rc.Channels = make([]ReadChannel, n)
 			for i := range rc.Channels {
 				if err = rc.Channels[i].DecodeOrc(r); err != nil {
 					return err
@@ -255,6 +208,53 @@ func (sc *ScanConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	if sc.Disabled, err = r.Bool(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(wc.Key)
+	w.String(wc.Name)
+	w.Bool(wc.Disabled)
+	w.String(wc.NodeID)
+	w.String(wc.NodeName)
+	w.String(string(wc.DataType))
+	w.Uint32(uint32(wc.CmdChannel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if wc.Key, err = r.String(); err != nil {
+		return err
+	}
+	if wc.Name, err = r.String(); err != nil {
+		return err
+	}
+	if wc.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.NodeID, err = r.String(); err != nil {
+		return err
+	}
+	if wc.NodeName, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		wc.DataType = telem.DataType(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		wc.CmdChannel = channel.Key(rawV)
 	}
 	return nil
 }
@@ -302,7 +302,7 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			wc.Channels = make([]OutputChannel, n)
+			wc.Channels = make([]WriteChannel, n)
 			for i := range wc.Channels {
 				if err = wc.Channels[i].DecodeOrc(r); err != nil {
 					return err
