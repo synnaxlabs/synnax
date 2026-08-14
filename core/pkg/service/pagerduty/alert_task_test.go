@@ -117,7 +117,7 @@ var _ = Describe("AlertTask", func() {
 			Type:   pd.AlertTaskType,
 			Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 		}
-		tsk := MustSucceed(factory.ConfigureTask(ctx, t))
+		tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 		Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		return tsk
 	}
@@ -161,11 +161,44 @@ var _ = Describe("AlertTask", func() {
 					Type:   pd.AlertTaskType,
 					Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 				}
-				tsk := MustSucceed(factory.ConfigureTask(ctx, t))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				err := tsk.Exec(ctx, task.Command{Type: "restart"})
 				Expect(err).To(MatchError(driver.ErrUnsupportedCommand))
 			},
+		)
+
+		DescribeTable("Should acknowledge a command that needs no work",
+			func(ctx context.Context, cmdType string, running bool) {
+				t := task.Task{
+					Key:  uuid.New(),
+					Name: "PagerDuty Test",
+					Type: pd.AlertTaskType,
+					Config: MustSucceed(validConfig(
+						pd.AlertConfig{Status: "s1", Enabled: true},
+					).MsgpackEncodedJSON()),
+				}
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				defer func() { Expect(tsk.Stop(false)).To(Succeed()) }()
+				if running {
+					Expect(tsk.Exec(ctx, task.Command{
+						Type: "start",
+						Key:  "cmd-first",
+					})).To(Succeed())
+				}
+				Expect(tsk.Exec(ctx, task.Command{
+					Type: cmdType,
+					Key:  "cmd-again",
+				})).To(Succeed())
+				var stat task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
+				Expect(stat.Details.Running).To(Equal(running))
+			},
+			Entry("start on a running task", "start", true),
+			Entry("stop on a stopped task", "stop", false),
 		)
 	})
 
@@ -175,7 +208,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-error", Enabled: true},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "watched-error", status.VariantError,
 					"Something broke", nil)
@@ -200,7 +233,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-resolve", Enabled: true},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "watched-resolve", status.VariantSuccess,
 					"All good", nil)
@@ -220,7 +253,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-only", Enabled: true},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "unwatched-key", status.VariantError,
 					"Should be ignored", nil)
@@ -236,7 +269,7 @@ var _ = Describe("AlertTask", func() {
 				pd.AlertConfig{Status: "disabled-alert", Enabled: false},
 				pd.AlertConfig{Status: "enabled-alert", Enabled: true},
 			))
-			defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+			defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 			setStatus(ctx, "disabled-alert", status.VariantError,
 				"Should be ignored", nil)
@@ -251,7 +284,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "variant-skip", Enabled: true},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "variant-skip", status.VariantLoading,
 					"Loading...", nil)
@@ -267,7 +300,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-warning", Enabled: true},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "watched-warning", status.VariantWarning,
 					"Watch out", nil)
@@ -285,7 +318,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "watched-info", Enabled: true},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "watched-info", status.VariantInfo, "FYI", nil)
 
@@ -308,7 +341,7 @@ var _ = Describe("AlertTask", func() {
 						TreatErrorAsCritical: true,
 					},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "critical-error", status.VariantError,
 					"Critical failure", nil)
@@ -330,7 +363,7 @@ var _ = Describe("AlertTask", func() {
 						TreatErrorAsCritical: false,
 					},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "normal-error", status.VariantError,
 					"Normal failure", nil)
@@ -356,7 +389,7 @@ var _ = Describe("AlertTask", func() {
 						Class:     "temperature-warning",
 					},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				tx := db.OpenTx()
 				defer func() { Expect(tx.Close()).To(Succeed()) }()
@@ -398,7 +431,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "no-desc", Enabled: true},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "no-desc", status.VariantError, "Simple error", nil)
 
@@ -419,7 +452,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "stop-test", Enabled: true},
 				))
-				Expect(tsk.Stop()).To(Succeed())
+				Expect(tsk.Stop(true)).To(Succeed())
 
 				setStatus(ctx, "stop-test", status.VariantError, "After stop", nil)
 
@@ -435,7 +468,7 @@ var _ = Describe("AlertTask", func() {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "send-failure", Enabled: true},
 				))
-				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "send-failure", status.VariantError,
 					"Trigger send", nil)

@@ -85,7 +85,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
 
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const std::string &cmd_key
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
@@ -95,7 +96,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = configure_write(this->devices, ctx, task);
     else if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->devices, ctx, task);
-    return common::handle_config_err(ctx, task, std::move(res));
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>

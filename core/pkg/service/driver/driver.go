@@ -42,9 +42,16 @@ type Driver struct {
 	streamerRequests confluence.Inlet[framer.StreamerRequest]
 	rack             rack.Rack
 	mu               struct {
-		tasks map[task.Key]Task
+		instances map[task.Key]instance
 		sync.RWMutex
 	}
+}
+
+// instance is a live task and the config hash it was built from. Start commands
+// compare the hash against the stored task to decide whether to rebuild.
+type instance struct {
+	task Task
+	hash string
 }
 
 // commandSink is a confluence sink that processes incoming command frames.
@@ -62,7 +69,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		return nil, err
 	}
 	d = &Driver{cfg: cfg}
-	d.mu.tasks = make(map[task.Key]Task)
+	d.mu.instances = make(map[task.Key]instance)
 	cleanup, ok := service.NewOpener(ctx, &d.closer)
 	defer func() { err = cleanup(err) }()
 
@@ -168,8 +175,14 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				d.cfg.L.Error("failed to unmarshal command", zap.Error(err))
 				continue
 			}
+			if cmd.Type == startCommandType {
+				d.handleStart(ctx, cmd)
+				continue
+			}
+			// Non-start commands go to whichever driver holds the live
+			// instance, even when the stored row has moved to another rack.
 			d.mu.RLock()
-			t, ok := d.mu.tasks[cmd.Task]
+			inst, ok := d.mu.instances[cmd.Task]
 			d.mu.RUnlock()
 			if !ok {
 				var tsk task.Task
@@ -184,43 +197,136 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				}
 				continue
 			}
-			sCtx, cancel := signal.WithTimeout(
-				ctx,
-				d.cfg.TaskTimeout,
-				signal.WithInstrumentation(d.cfg.Instrumentation),
-			)
-			sCtx.Go(
-				func(ctx context.Context) error { return t.Exec(ctx, cmd) },
-				signal.RecoverWithErrOnPanic(),
-			)
-			err := sCtx.Wait()
-			cancel()
-			if err != nil {
-				if errors.Is(err, ErrUnsupportedCommand) {
-					d.cfg.L.Warn(
-						"unsupported command",
-						zap.Stringer("command", cmd),
-						zap.Stringer("task", cmd.Task),
-					)
-					continue
-				}
-				d.cfg.L.Error("failed to execute command",
-					zap.Stringer("command", cmd),
-					zap.Error(err),
-				)
-			}
+			d.exec(ctx, inst.task, cmd)
 		}
 	}
 }
 
-func (d *Driver) handleTaskChange(
+// startCommandType deploys the stored task row before running it.
+const startCommandType = "start"
+
+// handleStart deploys the latest stored config before running the task: when no
+// live instance exists or the stored config differs from the one the instance
+// was built from, the task is rebuilt first, then the start command executes.
+func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
+	var tsk task.Task
+	if err := d.cfg.Task.NewRetrieve().
+		Where(task.MatchKeys(cmd.Task)).
+		Entry(&tsk).
+		Exec(ctx, nil); err != nil {
+		// A not-found task was deleted: a status written now would recreate the
+		// one the delete removed. Other errors answer the start so the sender
+		// does not wait forever.
+		if !errors.Is(err, query.ErrNotFound) {
+			d.cfg.L.Error("failed to retrieve task for start",
+				zap.Stringer("task", cmd.Task),
+				zap.Error(err),
+			)
+			d.ackFailure(ctx, task.Task{Key: cmd.Task}, cmd, err)
+		}
+		return
+	}
+	if tsk.Snapshot {
+		return
+	}
+	if tsk.Rack != d.rack.Key {
+		// The task moved racks: the start deploys it on the new rack, and doubles
+		// as the teardown signal for the instance this driver still holds. The
+		// teardown is silent: the new rack's driver owns status reporting.
+		if d.release(cmd.Task, false) {
+			d.cfg.L.Info("stopped task moved to another rack",
+				zap.Stringer("task", cmd.Task),
+			)
+		}
+		return
+	}
+	d.mu.RLock()
+	inst, ok := d.mu.instances[cmd.Task]
+	d.mu.RUnlock()
+	if !ok || inst.hash != tsk.ConfigHash {
+		if err := d.configure(ctx, tsk, cmd.Key); err != nil {
+			d.cfg.L.Error("failed to configure task",
+				zap.Stringer("task", tsk),
+				zap.Error(err),
+			)
+			// Factories answer their own failures. Neither of these reaches one:
+			// an unhandled type never gets to a factory, and a factory that ran
+			// out of time has no live context to write with.
+			if errors.Is(err, ErrTaskNotHandled) ||
+				errors.Is(err, context.DeadlineExceeded) {
+				d.ackFailure(ctx, tsk, cmd, err)
+			}
+			return
+		}
+		d.mu.RLock()
+		inst, ok = d.mu.instances[cmd.Task]
+		d.mu.RUnlock()
+		if !ok {
+			return
+		}
+	}
+	d.exec(ctx, inst.task, cmd)
+}
+
+// ackFailure acknowledges a start command whose deploy failed without a factory
+// reporting it.
+func (d *Driver) ackFailure(
 	ctx context.Context,
+	t task.Task,
+	cmd task.Command,
+	err error,
+) {
+	details := task.NewStatusDetails(t, false)
+	details.Cmd = cmd.Key
+	if sErr := status.NewWriter[task.StatusDetails](d.cfg.Status, nil).
+		Set(ctx, &status.Status[task.StatusDetails]{
+			Key:     task.OntologyID(t.Key).String(),
+			Name:    t.Name,
+			Time:    telem.Now(),
+			Variant: status.VariantError,
+			Message: err.Error(),
+			Details: details,
+		}); sErr != nil {
+		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
+	}
+}
+
+func (d *Driver) exec(ctx context.Context, t Task, cmd task.Command) {
+	sCtx, cancel := signal.WithTimeout(
+		ctx,
+		d.cfg.TaskTimeout,
+		signal.WithInstrumentation(d.cfg.Instrumentation),
+	)
+	defer cancel()
+	sCtx.Go(
+		func(ctx context.Context) error { return t.Exec(ctx, cmd) },
+		signal.RecoverWithErrOnPanic(),
+	)
+	if err := sCtx.Wait(); err != nil {
+		if errors.Is(err, ErrUnsupportedCommand) {
+			d.cfg.L.Warn(
+				"unsupported command",
+				zap.Stringer("command", cmd),
+				zap.Stringer("task", cmd.Task),
+			)
+			return
+		}
+		d.cfg.L.Error("failed to execute command",
+			zap.Stringer("command", cmd),
+			zap.Error(err),
+		)
+	}
+}
+
+// handleTaskChange stops live instances of deleted tasks. Sets are ignored:
+// configs deploy on start, and a rack move leaves the old live instance running
+// until the task is redeployed.
+func (d *Driver) handleTaskChange(
+	_ context.Context,
 	reader gorp.TxReader[task.Key, task.Task],
 ) {
 	for ch := range reader {
-		if ch.Variant == change.VariantSet && ch.Value.Rack == d.rack.Key {
-			d.configure(ctx, ch.Value)
-		} else {
+		if ch.Variant == change.VariantDelete {
 			d.delete(ch.Key)
 		}
 	}
@@ -244,7 +350,15 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	defer cancel()
 	for _, t := range tasks {
 		sCtx.Go(
-			func(ctx context.Context) error { d.configure(ctx, t); return nil },
+			func(ctx context.Context) error {
+				if err := d.configure(ctx, t, NoCommand); err != nil {
+					d.cfg.L.Error("failed to configure task",
+						zap.Stringer("task", t),
+						zap.Error(err),
+					)
+				}
+				return nil
+			},
 			signal.RecoverWithErrOnPanic(),
 		)
 	}
@@ -253,14 +367,14 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	}
 }
 
-func (d *Driver) configure(ctx context.Context, t task.Task) {
+func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) error {
 	d.mu.Lock()
-	existing, hadExisting := d.mu.tasks[t.Key]
-	delete(d.mu.tasks, t.Key)
+	existing, hadExisting := d.mu.instances[t.Key]
+	delete(d.mu.instances, t.Key)
 	d.mu.Unlock()
 
 	if hadExisting {
-		if err := existing.Stop(); err != nil {
+		if err := existing.task.Stop(false); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t),
 				zap.Error(err),
@@ -275,7 +389,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 
 	sCtx.Go(func(ctx context.Context) error {
 		for _, f := range d.cfg.Factories {
-			newTask, err := f.ConfigureTask(ctx, t)
+			newTask, err := f.ConfigureTask(ctx, t, cmdKey)
 			if errors.Is(err, ErrTaskNotHandled) {
 				continue
 			}
@@ -283,43 +397,48 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 				return err
 			}
 			d.mu.Lock()
-			d.mu.tasks[t.Key] = newTask
+			d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
 			d.mu.Unlock()
 			d.cfg.L.Info("configured task", zap.Stringer("task", t))
 			return nil
 		}
-		d.cfg.L.Warn("no factory handled task", zap.Stringer("task", t))
-		return nil
+		return errors.Wrapf(ErrTaskNotHandled, "task type '%s'", t.Type)
 	}, signal.RecoverWithErrOnPanic())
-	if err := sCtx.Wait(); err != nil {
-		d.cfg.L.Error(
-			"failed to configure task", zap.Stringer("task", t), zap.Error(err),
-		)
-	}
+	return sCtx.Wait()
 }
 
 func (d *Driver) delete(key task.Key) {
+	// The teardown is silent: deleting a task deletes its status, and a terminal
+	// status written afterwards would resurrect it for a task that no longer exists.
+	if d.release(key, false) {
+		d.cfg.L.Info("deleted task", zap.Stringer("task", key))
+	}
+}
+
+// release stops and forgets the live instance for key, reporting whether one
+// existed.
+func (d *Driver) release(key task.Key, sendStatus bool) bool {
 	d.mu.Lock()
-	t, ok := d.mu.tasks[key]
-	delete(d.mu.tasks, key)
+	inst, ok := d.mu.instances[key]
+	delete(d.mu.instances, key)
 	d.mu.Unlock()
 	if !ok {
-		return
+		return false
 	}
-	if err := t.Stop(); err != nil {
+	if err := inst.task.Stop(sendStatus); err != nil {
 		d.cfg.L.Error(
-			"failed to stop task during deletion",
+			"failed to stop task",
 			zap.Stringer("task", key),
 			zap.Error(err),
 		)
 	}
-	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
+	return true
 }
 
 func (d *Driver) Close() error {
 	d.mu.Lock()
-	for key, t := range d.mu.tasks {
-		if err := t.Stop(); err != nil {
+	for key, inst := range d.mu.instances {
+		if err := inst.task.Stop(true); err != nil {
 			d.cfg.L.Error(
 				"failed to stop task during shutdown",
 				zap.Stringer("task", key),
@@ -327,7 +446,7 @@ func (d *Driver) Close() error {
 			)
 		}
 	}
-	clear(d.mu.tasks)
+	clear(d.mu.instances)
 	d.mu.Unlock()
 	if d.streamerRequests != nil {
 		d.streamerRequests.Close()

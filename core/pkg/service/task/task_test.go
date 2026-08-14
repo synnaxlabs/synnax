@@ -469,7 +469,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Status", func() {
 		It(
-			"Should create an unknown status when creating a task",
+			"Should create a not-deployed status when creating a task",
 			func(ctx SpecContext) {
 				m := &task.Task{
 					Rack: testRack.Key,
@@ -482,8 +482,10 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
 					Entry(&taskStatus).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-				Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
+				Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
+				Expect(
+					taskStatus.Message,
+				).To(Equal("Status Test Task has not been deployed"))
 				Expect(taskStatus.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -568,6 +570,8 @@ var _ = Describe("Task", Ordered, func() {
 					Entry(&healed).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(healed.Details.Task).To(Equal(t.Key))
+				Expect(healed.Variant).To(Equal(status.VariantWarning))
+				Expect(healed.Message).To(Equal("Self Heal Task status unknown"))
 			},
 		)
 
@@ -599,7 +603,7 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
-			"Should create an unknown status when copying a task",
+			"Should create a not-deployed status when copying a task",
 			func(ctx SpecContext) {
 				m := &task.Task{
 					Rack: testRack.Key,
@@ -614,8 +618,10 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](copied.OntologyID().String())).
 					Entry(&copiedStatus).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(copiedStatus.Variant).To(Equal(status.VariantWarning))
-				Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
+				Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
+				Expect(
+					copiedStatus.Message,
+				).To(Equal("Copied Task has not been deployed"))
 				Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 			},
 		)
@@ -646,6 +652,42 @@ var _ = Describe("Task", Ordered, func() {
 				}).Should(Succeed())
 			},
 		)
+
+		It(
+			"Should preserve the config hash and rack the Driver reported",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "suspect rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+
+				t := &task.Task{
+					Rack: r.Key,
+					Name: "Test Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+						Details: task.StatusDetails{
+							Running:    true,
+							ConfigHash: "deployed",
+							Rack:       r.Key,
+						},
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					var taskStatus task.Status
+					g.Expect(status.NewRetrieve[task.StatusDetails](stat).
+						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Entry(&taskStatus).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
+					g.Expect(taskStatus.Details.Running).To(BeFalse())
+					g.Expect(taskStatus.Details.ConfigHash).To(Equal("deployed"))
+					g.Expect(taskStatus.Details.Rack).To(Equal(r.Key))
+				}).Should(Succeed())
+			},
+		)
 	})
 
 	Describe("Command", func() {
@@ -664,6 +706,28 @@ var _ = Describe("Task", Ordered, func() {
 					).To(Equal("doc (key=cmd, task=" + k.String() + ")"))
 				},
 			)
+		})
+	})
+
+	Describe("NewStatusDetails", func() {
+		It("Should echo the task's key, config hash, and rack", func() {
+			k := uuid.New()
+			t := task.Task{
+				Key:        k,
+				Rack:       testRack.Key,
+				ConfigHash: "hash1",
+			}
+			Expect(task.NewStatusDetails(t, true)).To(Equal(task.StatusDetails{
+				Task:       k,
+				Running:    true,
+				ConfigHash: "hash1",
+				Rack:       testRack.Key,
+			}))
+		})
+
+		It("Should mark the task as not running when running is false", func() {
+			d := task.NewStatusDetails(task.Task{Key: uuid.New()}, false)
+			Expect(d.Running).To(BeFalse())
 		})
 	})
 

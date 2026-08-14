@@ -34,10 +34,7 @@ inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
 }
 
 /// @brief Creates and configures initial tasks for a factory
-/// @tparam F A factory type that implements the configure_task method with signature:
-///           std::pair<std::unique_ptr<task::Task>, x::errors::Error> configure_task(
-///               const std::shared_ptr<task::Context> &ctx,
-///               const synnax::task::Task &task)
+/// @tparam F A factory type implementing task::Factory::configure_task
 /// @param factory Pointer to the factory instance that will configure the tasks
 /// @param ctx Shared context for task execution
 /// @param rack The rack to create tasks for
@@ -82,7 +79,7 @@ configure_initial_factory_tasks(
                 << " already exists on rack. Skipping creation.";
         return tasks;
     }
-    auto [task, _] = factory->configure_task(ctx, sy_task);
+    auto [task, _] = factory->configure_task(ctx, sy_task, driver::task::NO_COMMAND);
     if (task != nullptr)
         tasks.emplace_back(sy_task, std::move(task));
     else

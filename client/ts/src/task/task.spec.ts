@@ -539,6 +539,42 @@ describe("Task", async () => {
         .toMatchObject({ key, task: t.key, type, args });
       streamer.close();
     });
+    it("should stamp the config hash from the task instance", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      expect(t.configHash).not.toEqual("");
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await t.executeCommand({ type: "start" });
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, configHash: t.configHash });
+      streamer.close();
+    });
+    it("should stamp the config hash from the cached task row", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      await client.tasks.retrieve(t.key);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await client.tasks.executeCommand({ task: t.key, type: "start" });
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, configHash: t.configHash });
+      streamer.close();
+    });
     it("should timeout on a synchronously executed command", async () => {
       const t = await testRack.createTask({
         name: "test",
@@ -804,5 +840,64 @@ describe("Task", async () => {
         off();
       }
     });
+  });
+});
+
+describe("drifted", () => {
+  // Both hashes are server-assigned and opaque here; the client only compares them.
+  const DEPLOYED = "2de66015b3bdded8";
+  const EDITED = "0000000000000000";
+  const newPayload = (overrides: {
+    running?: boolean;
+    taskHash?: string;
+    statusHash?: string;
+    statusRack?: number;
+    hasStatus?: boolean;
+  }): task.Payload => {
+    const key = uuid.create();
+    const {
+      running = true,
+      taskHash = DEPLOYED,
+      statusHash = DEPLOYED,
+      statusRack = 1,
+      hasStatus = true,
+    } = overrides;
+    return {
+      key,
+      rack: 1,
+      name: "test",
+      type: "test",
+      config: { rate: 50, port: 8080, host: "localhost" },
+      configHash: taskHash,
+      internal: false,
+      snapshot: false,
+      status: hasStatus
+        ? task.statusZ().parse({
+            message: "running",
+            variant: "success",
+            details: { task: key, running, configHash: statusHash, rack: statusRack },
+          })
+        : undefined,
+    };
+  };
+
+  it("should not drift when the deployed hash and rack match the task", () => {
+    expect(task.drifted(newPayload({}))).toBe(false);
+  });
+
+  it("should drift when the stored hash differs from the deployed hash", () => {
+    expect(task.drifted(newPayload({ taskHash: EDITED }))).toBe(true);
+  });
+
+  it("should drift when the task moved racks while running", () => {
+    expect(task.drifted(newPayload({ statusRack: 2 }))).toBe(true);
+  });
+
+  it("should never drift when the task is not running", () => {
+    expect(task.drifted(newPayload({ running: false, taskHash: EDITED }))).toBe(false);
+  });
+
+  it("should never drift without a status", () => {
+    expect(task.drifted(newPayload({ hasStatus: false }))).toBe(false);
   });
 });

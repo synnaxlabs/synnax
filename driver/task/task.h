@@ -14,7 +14,9 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -122,6 +124,7 @@ public:
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
+        status.details.rack = this->rack_key_;
         if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
                 status
             );
@@ -129,6 +132,10 @@ public:
             LOG(ERROR) << "[task.context] failed to write task status update: " << err;
     }
 };
+
+/// @brief the cmd_key given to configure_task when no command drives the configure,
+/// as at boot. Nothing is waiting on the outcome.
+inline constexpr auto NO_COMMAND = "";
 
 class Factory {
 public:
@@ -142,9 +149,13 @@ public:
 
     virtual std::string name() { return ""; }
 
+    /// @brief builds a live instance of the task if this factory handles its type.
+    /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot.
+    /// @returns the instance and whether this factory handled the type.
     virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) = 0;
 
     virtual ~Factory() = default;
@@ -177,10 +188,11 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override {
         for (const auto &factory: factories) {
-            auto [t, ok] = factory->configure_task(ctx, task);
+            auto [t, ok] = factory->configure_task(ctx, task, cmd_key);
             if (ok) return {std::move(t), true};
         }
         return {nullptr, false};
@@ -291,21 +303,50 @@ private:
 
     /// @brief an operation to be executed by a worker.
     struct Op {
-        /// @brief types of operations that can be queued.
-        enum class Type { CONFIGURE, COMMAND, SHUTDOWN, REMOVE };
+        /// @brief types of operations that can be queued. RELEASE frees the live
+        /// instance without a terminal status: a successor on another rack owns
+        /// status reporting. A DEPLOY carrying the task body trusts it (boot);
+        /// one without fetches the stored task on the worker, keeping the
+        /// streamer loop off the network.
+        enum class Type { DEPLOY, COMMAND, SHUTDOWN, REMOVE, RELEASE };
         Type type;
         synnax::task::Key task_key;
         synnax::task::Task task;
         synnax::task::Command cmd;
     };
 
-    /// @brief per-task state tracked by the manager.
+    /// @brief per-task state tracked by the manager. Exists exactly while the row is
+    /// on this rack or this driver holds a live instance.
     struct Entry {
-        std::unique_ptr<Task> task;
+        /// @brief guards row and deployed_hash. Always taken after Manager::mu.
+        std::mutex mu;
+        /// @brief the last row seen for this task. Set events omit config, so a
+        /// deploy must fetch the row instead of using this one.
+        synnax::task::Task row;
+        /// @brief the config hash instance was built from. Empty when instance is
+        /// null.
+        std::string deployed_hash;
+        /// @brief the live instance, null when nothing is deployed. Guarded by
+        /// processing: only the claiming worker touches it.
+        std::unique_ptr<Task> instance;
         /// @brief true while a worker is processing an operation for this task.
         std::atomic<bool> processing{false};
         /// @brief when the current operation started (0 if idle).
         std::atomic<x::telem::TimeStamp> op_started{x::telem::TimeStamp(0)};
+        /// @brief the command key driving the current operation, NO_COMMAND when
+        /// none. Guarded by mu.
+        std::string op_cmd;
+        /// @brief the config hash the current operation deploys, or the deployed
+        /// hash for operations that carry no config. Guarded by mu.
+        std::string op_config_hash;
+        /// @brief true once the current operation has been reported as timed out,
+        /// so it is reported once instead of every poll.
+        std::atomic<bool> timed_out{false};
+
+        [[nodiscard]] bool relevant(const synnax::rack::Key rack) {
+            std::lock_guard lock{this->mu};
+            return this->row.rack == rack || this->instance != nullptr;
+        }
     };
 
     /// @brief maps task keys to their state. Uses shared_ptr for stable references.
@@ -347,12 +388,21 @@ private:
     x::errors::Error configure_initial_tasks();
     /// @brief stops all running tasks.
     void stop_all_tasks();
-    /// @brief handles task create/update events.
+    /// @brief refreshes the local row for each changed task. Never deploys or stops;
+    /// a rack move is acted on by the next start command.
     void process_task_set(const x::telem::Series &series);
     /// @brief handles task deletion events.
     void process_task_delete(const x::telem::Series &series);
     /// @brief handles task command events.
     void process_task_cmd(const x::telem::Series &series);
+    /// @brief runs a start command, redeploying first when the config has changed.
+    void process_start(const synnax::task::Command &cmd);
+    /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
+    std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
+    /// @brief drops the entry for key unless it is still relevant or claimed by a
+    /// worker. even_if_processing is for a worker's own entry. Callers must hold
+    /// mu.
+    void remove(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.
@@ -362,6 +412,8 @@ private:
     /// @brief checks for operations that have exceeded op_timeout.
     void monitor_loop();
     /// @brief executes a single operation on an entry.
-    void execute_op(const Op &op, const std::shared_ptr<Entry> &entry) const;
+    void execute_op(const Op &op, const std::shared_ptr<Entry> &entry);
+    /// @brief clears the deployed hash so the next start rebuilds.
+    static void clear_deploy(const std::shared_ptr<Entry> &entry);
 };
 }

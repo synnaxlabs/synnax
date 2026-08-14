@@ -32,6 +32,9 @@ const std::string SET_CHANNEL = "sy_task_set";
 const std::string DELETE_CHANNEL = "sy_task_delete";
 const std::string CMD_CHANNEL = "sy_task_cmd";
 
+/// @brief The command type that deploys a task's stored config and runs it.
+const std::string START_CMD_TYPE = "start";
+
 /// @brief Type alias for the transport used to create a task.
 using CreateClient = freighter::
     UnaryClient<grpc::task::CreateRequest, grpc::task::CreateResponse>;
