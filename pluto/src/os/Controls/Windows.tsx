@@ -48,7 +48,7 @@ export const Windows = ({
       className={CSS.BM("windows-control", "close")}
       disabled={disabled.includes("close")}
     >
-      <Icon.Close />
+      <Icon.CloseThin />
     </Button>
   </Flex.Box>
 );

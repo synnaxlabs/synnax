@@ -99,6 +99,12 @@
     transform: scale(var(--pluto-base-scale));
 }
 
+/* Same reason as boxes: the mark covers 68% of its box. */
+.pluto-icon--close-thin {
+    --pluto-base-scale: 1.15;
+    transform: scale(var(--pluto-base-scale));
+}
+
 .pluto-icon--reset {
     fill: var(--pluto-gray-l11);
 }

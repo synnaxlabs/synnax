@@ -19,6 +19,7 @@ import {
   AiFillWarning,
   AiOutlineBorder,
   AiOutlineCheck,
+  AiOutlineClose,
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
@@ -279,6 +280,7 @@ export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Undo = wrapSVGIcon(MdUndo, "undo");
 export const Redo = wrapSVGIcon(MdRedo, "redo");
 export const Close = wrapSVGIcon(FaXmark, "close");
+export const CloseThin = wrapSVGIcon(AiOutlineClose, "close-thin");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
@@ -583,6 +585,7 @@ const icons = {
   Undo,
   Redo,
   Close,
+  CloseThin,
   Info,
   Warning,
   Check,
