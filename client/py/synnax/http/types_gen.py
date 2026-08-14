@@ -126,7 +126,7 @@ class BaseWriteField(BaseModel):
 
 
 class ScanConfig(task.BaseScanConfig):
-    """Configures an HTTP scan task, which carries no settings."""
+    """Configures an HTTP scan task."""
 
     def __hash__(self) -> int:
         return hash(self.key)

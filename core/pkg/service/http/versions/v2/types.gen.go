@@ -507,7 +507,7 @@ func (w WriteConfig) Validate() error {
 	return v.Error()
 }
 
-// ScanConfig configures an HTTP scan task, which carries no settings.
+// ScanConfig configures an HTTP scan task.
 type ScanConfig struct {
 	config.BaseScan
 }

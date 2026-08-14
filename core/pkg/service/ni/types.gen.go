@@ -730,5 +730,5 @@ type DigitalReadConfig = versions.DigitalReadConfig
 // DigitalWriteConfig configures an NI digital write task.
 type DigitalWriteConfig = versions.DigitalWriteConfig
 
-// ScanConfig configures the NI device scanner task, which carries no settings.
+// ScanConfig configures the NI device scanner task.
 type ScanConfig = versions.ScanConfig

@@ -338,7 +338,7 @@ func (w *WriteConfig) ApplyDefaults() {
 	}
 }
 
-// ScanConfig configures an EtherCAT scan task, which carries no settings.
+// ScanConfig configures an EtherCAT scan task.
 type ScanConfig struct {
 	config.BaseScan
 }

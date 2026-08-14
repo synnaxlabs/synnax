@@ -428,8 +428,13 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(otg.NewRetrieve().
 					WhereIDs(t.OntologyID()).
 					Exists(ctx, tx)).To(BeTrue())
-				parents := MustSucceed(otg.RetrieveParents(tx, t.OntologyID()))
-				Expect(parents[t.OntologyID()]).To(BeEmpty())
+				var parents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(t.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&parents).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(parents).To(BeEmpty())
 			},
 		)
 		It(
@@ -441,11 +446,14 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "Parented Task",
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				parents := MustSucceed(otg.RetrieveParents(tx, t.OntologyID()))
-				Expect(parents[t.OntologyID()]).To(HaveLen(1))
-				Expect(parents[t.OntologyID()][0].Type).To(
-					Equal(ontology.ResourceTypeGroup),
-				)
+				var parents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(t.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&parents).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(parents).To(HaveLen(1))
+				Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeGroup))
 			},
 		)
 	})
@@ -673,6 +681,65 @@ var _ = Describe("Task", Ordered, func() {
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			},
 		)
+
+		It("Should delete the task's config record", func(ctx SpecContext) {
+			m := &task.Task{
+				Type:   testType,
+				Rack:   testRack.Key,
+				Name:   "Config Record Task",
+				Config: msgpack.EncodedJSON{"routing_key": "rk-delete"},
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			store := MustBeOk(configs.Store(testType))
+			Expect(store.Read(ctx, tx, m.Key)).Error().ToNot(HaveOccurred())
+			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
+			Expect(
+				store.Read(ctx, tx, m.Key),
+			).Error().To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("DeleteByRacks", func() {
+		It(
+			"Should delete every task on the rack with its config record",
+			func(ctx SpecContext) {
+				other := &rack.Rack{Name: "Other Rack"}
+				Expect(rackService.NewWriter(tx).Create(ctx, other)).To(Succeed())
+				onRack := &task.Task{
+					Type:     testType,
+					Rack:     testRack.Key,
+					Name:     "Internal Scan Task",
+					Internal: true,
+				}
+				elsewhere := &task.Task{
+					Type: testType,
+					Rack: other.Key,
+					Name: "Untouched Task",
+				}
+				Expect(w.Create(ctx, onRack)).To(Succeed())
+				Expect(w.Create(ctx, elsewhere)).To(Succeed())
+				Expect(w.DeleteByRacks(ctx, testRack.Key)).To(Succeed())
+				store := MustBeOk(configs.Store(testType))
+				Expect(
+					svc.NewRetrieve().Where(task.MatchKeys(onRack.Key)).Exec(ctx, tx),
+				).To(MatchError(query.ErrNotFound))
+				Expect(
+					store.Read(ctx, tx, onRack.Key),
+				).Error().To(MatchError(query.ErrNotFound))
+				Expect(
+					svc.NewRetrieve().
+						Where(task.MatchKeys(elsewhere.Key)).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(store.Read(ctx, tx, elsewhere.Key)).Error().ToNot(HaveOccurred())
+			},
+		)
+
+		It("Should succeed when the rack has no tasks", func(ctx SpecContext) {
+			empty := &rack.Rack{Name: "Empty Rack"}
+			Expect(rackService.NewWriter(tx).Create(ctx, empty)).To(Succeed())
+			Expect(w.DeleteByRacks(ctx, empty.Key)).To(Succeed())
+		})
 	})
 
 	Describe("Status", func() {
