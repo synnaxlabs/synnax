@@ -13,6 +13,8 @@ package pb
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -28,10 +30,11 @@ func CommandToPB(r task.Command) (*Command, error) {
 		return nil, err
 	}
 	pb := &Command{
-		Task: uint64(r.Task),
-		Type: r.Type,
-		Key:  r.Key,
-		Args: argsVal,
+		Type:       r.Type,
+		Key:        r.Key,
+		ConfigHash: r.ConfigHash,
+		Task:       r.Task.String(),
+		Args:       argsVal,
 	}
 	return pb, nil
 }
@@ -42,10 +45,16 @@ func CommandFromPB(pb *Command) (task.Command, error) {
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	parsedTask, err := uuid.Parse(pb.Task)
+	if err != nil {
+		return task.Command{}, err
+	}
+	r.Task = task.Key(parsedTask)
 	r.Args = pb.Args.AsMap()
-	r.Task = task.Key(pb.Task)
 	r.Type = pb.Type
 	r.Key = pb.Key
+	r.ConfigHash = pb.ConfigHash
 	return r, nil
 }
 
@@ -81,9 +90,11 @@ func StatusDetailsToPB(
 	r task.StatusDetails,
 ) (*StatusDetails, error) {
 	pb := &StatusDetails{
-		Task:    uint64(r.Task),
-		Running: r.Running,
-		Cmd:     r.Cmd,
+		Running:    r.Running,
+		Cmd:        r.Cmd,
+		ConfigHash: r.ConfigHash,
+		Rack:       uint32(r.Rack),
+		Task:       r.Task.String(),
 	}
 	if r.Data != nil {
 		var err error
@@ -104,9 +115,16 @@ func StatusDetailsFromPB(
 	if pb == nil {
 		return r, nil
 	}
-	r.Task = task.Key(pb.Task)
+	var err error
+	parsedTask, err := uuid.Parse(pb.Task)
+	if err != nil {
+		return task.StatusDetails{}, err
+	}
+	r.Task = task.Key(parsedTask)
 	r.Running = pb.Running
 	r.Cmd = pb.Cmd
+	r.ConfigHash = pb.ConfigHash
+	r.Rack = rack.Key(pb.Rack)
 	if pb.Data != nil {
 		r.Data = pb.Data.AsMap()
 	}
@@ -153,12 +171,14 @@ func TaskToPB(
 		return nil, err
 	}
 	pb := &Task{
-		Key:      uint64(r.Key),
-		Name:     r.Name,
-		Type:     r.Type,
-		Internal: r.Internal,
-		Snapshot: r.Snapshot,
-		Config:   configVal,
+		Rack:       uint32(r.Rack),
+		Name:       r.Name,
+		Type:       r.Type,
+		ConfigHash: r.ConfigHash,
+		Internal:   r.Internal,
+		Snapshot:   r.Snapshot,
+		Key:        r.Key.String(),
+		Config:     configVal,
 	}
 	if r.Status != nil {
 		var err error
@@ -179,10 +199,17 @@ func TaskFromPB(
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return task.Task{}, err
+	}
+	r.Key = task.Key(parsedKey)
 	r.Config = pb.Config.AsMap()
-	r.Key = task.Key(pb.Key)
+	r.Rack = rack.Key(pb.Rack)
 	r.Name = pb.Name
 	r.Type = pb.Type
+	r.ConfigHash = pb.ConfigHash
 	r.Internal = pb.Internal
 	r.Snapshot = pb.Snapshot
 	if pb.Status != nil {

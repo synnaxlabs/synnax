@@ -38,8 +38,8 @@ export const Select = ({
     (key: device.Key, { set }: Form.ContextValue) => {
       if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
-        const { configured, rack } = await client.devices.retrieve(key);
-        set("rackKey", rack);
+        const { configured, rack } = await client.devices.retrieve({ key });
+        set("rack", rack);
         if (configured) return;
         onConfigure(key);
       }, "Failed to retrieve device");

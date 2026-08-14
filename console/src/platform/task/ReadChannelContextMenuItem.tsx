@@ -12,9 +12,11 @@ import { Component, Menu, Text } from "@synnaxlabs/pluto";
 import { ContextMenu } from "@/platform/context-menu";
 import { type ContextMenuItemProps } from "@/platform/task/ChannelList";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
-import { type ReadChannel } from "@/platform/task/types";
+import { type Channel, type DisabledChannel } from "@/platform/task/types";
 
-export interface ReadChannelContextMenuItemProps extends ContextMenuItemProps<ReadChannel> {}
+export interface ReadChannelContextMenuItemProps extends ContextMenuItemProps<
+  Channel | DisabledChannel
+> {}
 
 export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProps> = ({
   keys,

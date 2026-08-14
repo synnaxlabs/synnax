@@ -14,6 +14,7 @@
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 
+#include "client/cpp/opc/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/write_task.h"
@@ -23,8 +24,6 @@
 
 namespace driver::opc {
 struct OutputChan {
-    /// @brief whether output for the channel is enabled.
-    const bool enabled;
     /// @brief the OPC UA node id.
     types::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
@@ -34,19 +33,15 @@ struct OutputChan {
     /// be provided via the JSON configuration.
     synnax::channel::Channel ch;
 
-    explicit OutputChan(x::json::Parser &parser):
-        enabled(parser.field<bool>("enabled", true)),
-        node(types::NodeId::parse("node_id", parser)),
-        cmd_channel([&parser] {
-            auto ch = parser.field<synnax::channel::Key>("cmd_channel", 0);
-            if (ch == 0) ch = parser.field<synnax::channel::Key>("channel", 0);
-            if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
-            return ch;
-        }()) {}
+    OutputChan(const ::synnax::opc::OutputChannel &parsed, x::json::Parser &parser):
+        node(types::NodeId::parse("node_id", parser)), cmd_channel(parsed.cmd_channel) {
+        if (this->cmd_channel == 0)
+            parser.field_err("cmd_channel", "channel must be specified");
+    }
 };
 
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
-    /// @brief the list of channels to read from the server.
+    /// @brief the enabled channels to write to the server.
     std::unordered_map<synnax::channel::Key, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
     /// Dynamically populated from device properties.
@@ -57,9 +52,10 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         x::json::Parser &parser
     ):
         common::BaseWriteTaskConfig(parser) {
-        parser.iter("channels", [&](x::json::Parser &channel_builder) {
-            auto ch = std::make_unique<OutputChan>(channel_builder);
-            if (ch->enabled) channels[ch->cmd_channel] = std::move(ch);
+        parser.iter("channels", [&](x::json::Parser &cp) {
+            const auto parsed = ::synnax::opc::OutputChannel::parse(cp);
+            if (parsed.disabled) return;
+            channels[parsed.cmd_channel] = std::make_unique<OutputChan>(parsed, cp);
         });
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
@@ -82,7 +78,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             auto it = this->channels.find(sy_ch.key);
             if (it != this->channels.end()) it->second->ch = sy_ch;
         }
-        auto [dev, err] = client->devices.retrieve(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;

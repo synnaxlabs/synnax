@@ -9,21 +9,22 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { READ_TYPE, WRITE_TYPE } from "@/feature/labjack/task/types";
+import { useCreateRead } from "@/feature/labjack/task/Read";
+import { useCreateWrite } from "@/feature/labjack/task/Write";
 import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "labjack_create_read_task",
   name: "Create a LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  type: READ_TYPE,
+  useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "labjack_create_write_task",
   name: "Create a LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  type: WRITE_TYPE,
+  useOnSelect: useCreateWrite,
 });
 
 export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

@@ -170,6 +170,7 @@ import {
   MdShield,
   MdSquare,
   MdSquareFoot,
+  MdStop,
   MdTextFields,
   MdTypeSpecimen,
   MdUndo,
@@ -220,6 +221,8 @@ import {
   TbArrowRight,
   TbArrowsSplit,
   TbArrowUp,
+  TbBoxAlignTopLeft,
+  TbBoxModel2,
   TbChartArcs,
   TbCircleDashed,
   TbCircleLetterAFilled,
@@ -262,6 +265,7 @@ import { Valve } from "@/icon/Valve";
 
 export const Pause = wrapSVGIcon(MdPause, "pause");
 export const Play = wrapSVGIcon(MdPlayArrow, "play");
+export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
@@ -431,6 +435,8 @@ export const Align = {
   YCenter: wrapSVGIcon(MdAlignVerticalCenter, "align-y-center"),
   Top: wrapSVGIcon(MdAlignVerticalTop, "align-top"),
   Bottom: wrapSVGIcon(MdAlignVerticalBottom, "align-bottom"),
+  BoxCenter: wrapSVGIcon(TbBoxModel2, "align-box-center"),
+  BoxTopLeft: wrapSVGIcon(TbBoxAlignTopLeft, "align-box-top-left"),
 };
 export const Distribute = {
   X: wrapSVGIcon(MdHorizontalDistribute, "distribute-x"),
@@ -563,6 +569,7 @@ interface Resolve {
 const icons = {
   Pause,
   Play,
+  Stop,
   Circle,
   Edit,
   EditOff,

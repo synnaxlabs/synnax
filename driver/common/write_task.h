@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include "client/cpp/task/common/json.gen.h"
+
 #include "driver/bypass/pipeline/factory.h"
+#include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
@@ -17,20 +20,16 @@
 #include "driver/task/task.h"
 
 namespace driver::common {
-/// @brief common write task configuration parameters used across multiple drivers.
-struct BaseWriteTaskConfig : BaseTaskConfig {
-    /// @brief the key of the device the task is writing to.
-    const std::string device_key;
-
-    BaseWriteTaskConfig(BaseWriteTaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)), device_key(other.device_key) {}
-
-    BaseWriteTaskConfig(const BaseWriteTaskConfig &) = delete;
-
-    const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
-
+/// @brief common write task configuration shared across hardware control tasks.
+/// Wraps the schema-generated write config (auto_start, data_saving_disabled,
+/// device) so the field set has a single definition in the oracle schema.
+struct BaseWriteTaskConfig : ::synnax::task::common::BaseWriteConfig {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
-        BaseTaskConfig(cfg), device_key(cfg.field<std::string>("device")) {}
+        ::synnax::task::common::BaseWriteConfig(
+            ::synnax::task::common::BaseWriteConfig::parse(cfg)
+        ) {
+        if (this->device.empty()) cfg.field_err("device", "this field is required");
+    }
 };
 
 class Sink : public pipeline::Sink, public pipeline::Source {
@@ -171,7 +170,7 @@ class WriteTask final : public driver::task::Task {
         [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
             if (cfg.subject.key.empty())
-                cfg.subject.key = std::to_string(this->p.state.task.key);
+                cfg.subject.key = this->p.state.task.key.to_string();
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
         }
@@ -263,9 +262,15 @@ public:
 
     /// @brief starts the task.
     /// @param cmd_key - A reference to the command key used to execute the start.
-    /// Will be used internally to communicate the task state.
+    /// Will be used internally to communicate the task state. A task that is
+    /// already running is not restarted: the command is answered with the current
+    /// status.
     bool start(const std::string &cmd_key) {
-        this->stop("", false);
+        if (this->cmd_write_pipe.running()) {
+            this->state.ack(cmd_key, true);
+            return false;
+        }
+        this->state.reset();
         const auto sink_started = !this->state.error(this->sink->internal->start());
         if (sink_started) {
             this->cmd_write_pipe.start();

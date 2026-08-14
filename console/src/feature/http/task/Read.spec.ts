@@ -14,17 +14,15 @@ import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { type Task } from "@/platform/task";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  deployAndAwaitTask,
   renderTaskFormTab,
+  type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
-const renderRead = async (
-  options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
-) => await renderTaskFormTab(HTTP.Task.Read, HTTP.Task.READ_TYPE, options);
+const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
+  await renderTaskFormTab(HTTP.Task.Read, { task: ZERO_DRAFT, ...options });
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an endpoint"));
@@ -51,14 +49,11 @@ const createReadConfig = (
   endpoints,
 });
 
-const configureAndAwaitTask = async (
-  client: Synnax,
-  rendered: Awaited<ReturnType<typeof renderRead>>,
-) => {
-  await clickConfigure();
-  const taskKey = await awaitTaskKey(rendered);
-  return await client.tasks.retrieve({ key: taskKey, schemas: HTTP.Task.READ_SCHEMAS });
-};
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = HTTP.Task.ZERO_READ_PAYLOAD;
+
+const createDraft = async (client: Synnax, config: HTTP.Task.ReadPayload["config"]) =>
+  await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.READ_SCHEMAS);
 
 describe("HTTP Read form", () => {
   it("should show the empty state and add + select an endpoint", async () => {
@@ -132,7 +127,8 @@ describe("HTTP Read form", () => {
     await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(1));
   });
 
-  it("should seed the form from a config passed through view args", async () => {
+  it("should seed the form from the task row's config", async () => {
+    const client = createTestClient();
     const config = createReadConfig("dev_1", [
       {
         ...HTTP.Task.ZERO_READ_ENDPOINT,
@@ -141,11 +137,12 @@ describe("HTTP Read form", () => {
         fields: [createReadField("f1", "/temp")],
       },
     ]);
-    await renderRead({ params: { config } });
+    const draft = await createDraft(client, config);
+    await renderRead({ client, taskKey: draft.key });
     await screen.findByText(/\/seeded/);
   });
 
-  describe("onConfigure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     const client = createTestClient();
 
     it("should create index, data, and virtual channels and persist them to the device", async () => {
@@ -163,8 +160,14 @@ describe("HTTP Read form", () => {
           ],
         },
       ]);
-      const rendered = await renderRead({ client, params: { config } });
-      const created = await configureAndAwaitTask(client, rendered);
+      const draft = await createDraft(client, config);
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.READ_SCHEMAS,
+      );
 
       const updated = await client.devices.retrieve({
         key: dev.key,
@@ -214,8 +217,14 @@ describe("HTTP Read form", () => {
           fields: [createReadField("f1", "/temperature")],
         },
       ]);
-      const rendered = await renderRead({ client, params: { config } });
-      const created = await configureAndAwaitTask(client, rendered);
+      const draft = await createDraft(client, config);
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.READ_SCHEMAS,
+      );
       expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
     });
 
@@ -244,8 +253,9 @@ describe("HTTP Read form", () => {
           fields: [createReadField("f1", "/temperature")],
         },
       ]);
-      const rendered = await renderRead({ client, params: { config } });
-      await configureAndAwaitTask(client, rendered);
+      const draft = await createDraft(client, config);
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      await deployAndAwaitTask(client, container, draft.key, HTTP.Task.READ_SCHEMAS);
       const updated = await client.devices.retrieve({
         key: dev.key,
         schemas: HTTP.Device.SCHEMAS,

@@ -45,6 +45,8 @@ var (
 	channelSvc *channel.Service
 	tx         gorp.Tx
 	taskSvc    *task.Service
+	statusSvc  *status.Service
+	rackSvc    *rack.Service
 	testRack   *rack.Rack
 	imexSvc    *imex.Service
 	arcClock   = telem.Now
@@ -68,7 +70,7 @@ var (
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -84,7 +86,7 @@ var (
 			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               groupSvc,
@@ -110,6 +112,7 @@ var (
 			Ontology:            otg,
 			Channel:             channelSvc,
 			Task:                taskSvc,
+			Status:              statusSvc,
 			Search:              searchIdx,
 			ImEx:                imexSvc,
 			TextSweepQuiescence: 5 * telem.Second,

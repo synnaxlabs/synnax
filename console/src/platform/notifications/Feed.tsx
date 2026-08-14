@@ -60,7 +60,10 @@ export const composeMatchers =
 
 export const createSuppressRoutineForPrefix = (prefix: string): Notification =>
   createSuppressed(
-    composeMatchers(matchPrefix(prefix), matchVariants("success", "loading")),
+    composeMatchers(
+      matchPrefix(prefix),
+      matchVariants("success", "loading", "disabled"),
+    ),
   );
 
 interface FeedProps {

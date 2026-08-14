@@ -491,6 +491,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/dispatch",
 		),
+		ArcSetRack: http.NewUnaryServer[arc.SetRackRequest, arc.SetRackResponse](
+			router,
+			"/api/v1/arc/set-rack",
+		),
 		ArcLSP: http.NewStreamServer[arc.LSPMessage, arc.LSPMessage](
 			router,
 			"/api/v1/arc/lsp",

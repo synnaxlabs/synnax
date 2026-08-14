@@ -9,7 +9,7 @@
 
 import { group, ontology, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -243,6 +243,8 @@ describe("queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: {},
         },
       });
@@ -280,6 +282,7 @@ describe("queries", () => {
         key: id.create(),
         task: testTask.key,
         type: "start",
+        configHash: "",
         args: {},
       };
 
@@ -340,6 +343,8 @@ describe("queries", () => {
           task: testTask.key,
           running: true,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: {},
         },
       });
@@ -418,6 +423,8 @@ describe("queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: { error: "Test error" },
         },
       });
@@ -734,11 +741,11 @@ describe("queries", () => {
       expect(result.current.form.get("name").value).toEqual("testTask");
       expect(result.current.form.get("type").value).toEqual("testType");
       expect(result.current.form.get("config").value).toEqual({});
-      expect(result.current.form.get("rackKey").value).toEqual(0);
+      expect(result.current.form.get("rack").value).toEqual(0);
       expect(result.current.form.get("snapshot").value).toEqual(false);
     });
 
-    it("should honor an initial rackKey when creating a new task", async () => {
+    it("should honor an initial rack when creating a new task", async () => {
       const useForm = Task.createForm({
         schemas: {
           type: z.literal("testType"),
@@ -749,7 +756,7 @@ describe("queries", () => {
           name: "testTask",
           type: "testType",
           config: {},
-          rackKey: testRack.key,
+          rack: testRack.key,
         },
       });
       const { result } = renderHook(() => useForm({ query: null }), {
@@ -758,13 +765,12 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
-      expect(result.current.form.get("rackKey").value).toEqual(testRack.key);
+      expect(result.current.form.get("rack").value).toEqual(testRack.key);
     });
 
-    it("should derive rackKey from the task key even when an initial rackKey is set", async () => {
-      const otherRack = await client.racks.create({ name: "otherRack" });
+    it("should populate rack from the retrieved task", async () => {
       const existing = await testRack.createTask({
-        name: "rackKeyDeriveTask",
+        name: "rackDeriveTask",
         type: "testType",
         config: {},
       });
@@ -775,20 +781,48 @@ describe("queries", () => {
           statusData: z.any().optional(),
         },
         initialValues: {
-          key: existing.key,
-          name: "rackKeyDeriveTask",
+          name: "rackDeriveTask",
           type: "testType",
           config: {},
-          rackKey: otherRack.key,
         },
       });
-      const { result } = renderHook(() => useForm({ query: null }), {
+      const { result } = renderHook(() => useForm({ query: { key: existing.key } }), {
         wrapper,
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
-      expect(result.current.form.get("rackKey").value).toEqual(testRack.key);
+      expect(result.current.form.get("rack").value).toEqual(testRack.key);
+    });
+
+    it("should create a draft task when no rack is set", async () => {
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          name: "draftTask",
+          type: "testType",
+          config: {},
+        },
+      });
+      const { result } = renderHook(() => useForm({ query: null }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const key = result.current.form.get<string>("key").value;
+      expect(key).not.toBeUndefined();
+      const created = await client.tasks.retrieve({ key });
+      expect(created.rack).toEqual(0);
+      expect(created.name).toEqual("draftTask");
     });
 
     it("should retrieve and populate form with existing task", async () => {
@@ -805,7 +839,6 @@ describe("queries", () => {
           statusData: z.any().nullish(),
         },
         initialValues: {
-          key: "0",
           name: "",
           type: "testType",
           config: { setting: "" },
@@ -879,7 +912,6 @@ describe("queries", () => {
           statusData: z.any().optional(),
         },
         initialValues: {
-          key: "0",
           name: "test",
           type: "testType",
           config: { port: 0, host: "" },
@@ -1062,6 +1094,8 @@ describe("queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: { errorCode: 500 },
         },
       });
@@ -1198,6 +1232,8 @@ describe("queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: { errorCode: 500 },
         },
       });
@@ -1215,7 +1251,7 @@ describe("queries", () => {
       expect(result.current.form.get("name").touched).toBe(false);
     });
 
-    it("should not mark form as touched when task data updates from server listener", async () => {
+    it("should not mark form as touched when task metadata updates from server listener", async () => {
       const testTask = await testRack.createTask({
         name: "serverUpdateTask",
         type: "testType",
@@ -1253,12 +1289,51 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.form.get("name").value).toEqual("serverUpdatedName");
-        expect(result.current.form.get("config.setting").value).toEqual(
-          "serverUpdated",
-        );
       });
       expect(result.current.form.get("name").touched).toBe(false);
       expect(result.current.form.get("config.setting").touched).toBe(false);
+    });
+
+    it("should not clobber local config edits when metadata updates from server", async () => {
+      const testTask = await testRack.createTask({
+        name: "lwwTask",
+        type: "testType",
+        config: { setting: "original" },
+      });
+
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("testType"),
+          config: z.object({ setting: z.string() }),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          key: testTask.key,
+          name: "lwwTask",
+          type: "testType",
+          config: { setting: "original" },
+        },
+      });
+
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      act(() => {
+        result.current.form.set("config.setting", "localEdit");
+      });
+
+      await act(async () => {
+        await client.tasks.create({ ...testTask.payload, name: "lwwRenamed" });
+      });
+
+      await waitFor(() => {
+        expect(result.current.form.get("name").value).toEqual("lwwRenamed");
+      });
+      expect(result.current.form.get("config.setting").value).toEqual("localEdit");
+      expect(result.current.form.get("config.setting").touched).toBe(true);
     });
 
     it("should allow new changes after save to mark form as touched again", async () => {
@@ -1352,6 +1427,7 @@ describe("queries", () => {
     });
 
     it("should handle error states in form operations", async () => {
+      const missingKey = uuid.create();
       const useForm = Task.createForm({
         schemas: {
           type: z.literal("testType"),
@@ -1359,7 +1435,7 @@ describe("queries", () => {
           statusData: z.any().optional(),
         },
         initialValues: {
-          key: "999999",
+          key: missingKey,
           name: "errorTask",
           type: "testType",
           config: {},
@@ -1368,7 +1444,7 @@ describe("queries", () => {
 
       const Wrapper = wrapper;
       const Display = (): ReactElement => {
-        useForm({ query: { key: "999999" } });
+        useForm({ query: { key: missingKey } });
         return <div />;
       };
       let utils!: ReturnType<typeof render>;
@@ -1545,7 +1621,14 @@ describe("queries", () => {
           name: "Task Status",
           variant: "success",
           message: "Command executed successfully",
-          details: { task: t.key, running: true, cmd: "", data: {} },
+          details: {
+            task: t.key,
+            running: true,
+            cmd: "",
+            configHash: "",
+            rack: 0,
+            data: {},
+          },
         });
         await client.statuses.set(stat);
       });

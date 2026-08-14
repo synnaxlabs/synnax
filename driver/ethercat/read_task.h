@@ -152,7 +152,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = common::data_saving_writer_mode(data_saving),
+            .mode = common::data_saving_writer_mode(!data_saving_disabled),
         };
     }
 };

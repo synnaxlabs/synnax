@@ -9,6 +9,7 @@
 
 import {
   type framer,
+  type ontology,
   panel,
   query,
   type Synnax as Client,
@@ -17,7 +18,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/pluto";
-import { id, type record, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   fireEvent,
   type RenderResult,
@@ -30,14 +31,14 @@ import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
-import { type Panel } from "@/platform/panel";
-import { type FormViewParams } from "@/platform/task/Form";
+import { type FormTabProps } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
   assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
   createTestStore,
+  getIconButton,
   renderHookWithConsole,
   renderSuspended,
   renderWithConsole,
@@ -90,15 +91,51 @@ export const TaskFormProvider = ({
 };
 TaskFormProvider.displayName = "TaskFormProvider";
 
+export interface CreateTaskStatusOverrides extends Partial<
+  Omit<task.Status, "details">
+> {
+  details?: Partial<task.Status["details"]>;
+}
+
+/** Builds a fully-populated task.Status, merging `overrides` over sane defaults. */
+export const createTaskStatus = (
+  overrides: CreateTaskStatusOverrides = {},
+): task.Status => {
+  const { details, ...rest } = overrides;
+  return {
+    key: id.create(),
+    name: "Task Status",
+    variant: "success",
+    message: "Running smoothly",
+    description: "",
+    time: TimeStamp.now(),
+    ...rest,
+    details: {
+      task: "0",
+      running: false,
+      cmd: "",
+      configHash: "",
+      rack: 0,
+      ...details,
+    },
+  };
+};
+
 /**
  * The default value tree a task form is built around: a persisted-less task with an
  * empty channel list. Specs merge their own top-level fields and `config` over this.
+ * The status mirrors what core writes for a task that has never been deployed.
  */
 export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
+  rack: 0,
   snapshot: false,
-  status: undefined,
+  configHash: "",
+  status: createTaskStatus({
+    variant: "disabled",
+    message: "Test Task has not been deployed",
+  }),
   config: { channels: [] },
 };
 
@@ -139,16 +176,46 @@ export const createSelectedPanel = async (
   return { client, panelKey: doc.key, tabKeys: tabs.map((t) => t.key) };
 };
 
-/** Reads the current view args of the seeded tab from the cached panel doc. */
-export const selectViewArgs = (
+/** Reads the resource ID of a tab from the cached panel doc, or null for none. */
+export const selectTabResource = (
   { client, panelKey, tabKeys }: CreatedPanel,
   tabKey: panel.TabKey = tabKeys[0],
-): record.Unknown | null => {
+): ontology.ID | null => {
   const cached = client.panels.getCached(panelKey);
   if (!query.isLive(cached)) return null;
   const tab = panel.findTab(cached.root, tabKey);
-  return tab?.variant === "view" ? tab.args : null;
+  return tab?.variant === "resource" ? tab.resource : null;
 };
+
+/**
+ * Polls the cached panel doc until a resource tab for a task appears anywhere in it,
+ * then returns the task key it points at. Create-then-open flows insert a new tab
+ * rather than mutating the seeded one, so every leaf tab is scanned.
+ */
+export const awaitTaskResourceTab = async ({
+  client,
+  panelKey,
+}: CreatedPanel): Promise<task.Key> =>
+  await waitFor(() => {
+    const cached = client.panels.getCached(panelKey);
+    if (!query.isLive(cached)) throw new Error("panel doc not found");
+    const doc = cached;
+    const tabs: panel.Tab[] = [];
+    const visit = (node: panel.Node): void => {
+      if (node.variant === "leaf") tabs.push(...node.tabs);
+      else {
+        visit(node.first);
+        visit(node.last);
+      }
+    };
+    visit(doc.root);
+    const match = tabs.find(
+      (t) => t.variant === "resource" && t.resource.type === task.TYPE_ONTOLOGY_ID.type,
+    );
+    if (match == null || match.variant !== "resource")
+      throw new Error("task resource tab not found");
+    return match.resource.key;
+  });
 
 export interface RenderInTaskFormOptions extends RenderWithConsoleOptions {
   values?: TaskFormValues;
@@ -254,11 +321,13 @@ export const renderInTaskFormWithClient = async (
   return { ...result, store: resolvedStore, form: formRef, tabKey, panelKey, wrapper };
 };
 
-export interface RenderTaskFormViewOptions {
+export interface RenderTaskFormTabOptions {
   /** Client backing the console wrapper; falls back to a shared test client. */
   client?: Client | null;
-  /** View params the wrapped form reads (deviceKey, taskKey, rackKey, config). */
-  params?: FormViewParams;
+  /** Key of the task row the form edits. */
+  taskKey?: task.Key;
+  /** Row to create and open when `taskKey` is omitted. */
+  task?: task.New;
   /**
    * When provided, a CaptureStatuses probe is mounted alongside the renderer and this
    * callback receives the notification list on every change.
@@ -266,35 +335,36 @@ export interface RenderTaskFormViewOptions {
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
 }
 
-export interface RenderTaskFormViewResult extends RenderResult, CreatedPanel {
+export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
   store: TestStore;
   tabKey: panel.TabKey;
 }
 
 /**
- * Renders a Task.wrapForm tab the way the panel mosaic does: seeds a panel doc whose
- * single leaf holds a view tab of the given type carrying `params`, then mounts the tab
- * content inside the panel and tab scopes within the full console provider stack.
+ * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
+ * whose single leaf holds a resource tab for the task, then mounts the form inside
+ * the panel and tab scopes within the full console provider stack.
  */
 export const renderTaskFormTab = async (
-  Tab: Panel.Tab,
-  type: string,
-  options: RenderTaskFormViewOptions = {},
-): Promise<RenderTaskFormViewResult> => {
-  const { params = {}, onStatuses } = options;
+  Form: FC<FormTabProps>,
+  options: RenderTaskFormTabOptions = {},
+): Promise<RenderTaskFormTabResult> => {
+  const { onStatuses } = options;
   const client = options.client ?? defaultClient;
+  const taskKey =
+    options.taskKey ??
+    (options.task == null ? "" : (await client.tasks.create(options.task)).key);
   const store = await createTestStore();
   const { wrapper } = await createConsoleWrapper({ client, store });
   const tab: panel.Tab = {
-    variant: "view",
+    variant: "resource",
     key: uuid.create(),
-    type,
-    args: params,
+    resource: task.ontologyID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
   const result = await renderSuspended(
     <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-      <Tab.Content />
+      <Form taskKey={taskKey} />
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
     </PanelScopes>,
     { wrapper },
@@ -303,32 +373,19 @@ export const renderTaskFormTab = async (
 };
 
 /**
- * Waits for the task form's Configure button to leave its loading/disabled state, then
- * clicks it. Pluto buttons swallow clicks while disabled, so clicking without the wait
- * races the form's initial query.
+ * Waits for the task form's start button to leave its loading/disabled state, then
+ * clicks it to run the deploy pipeline. Pluto buttons swallow clicks while disabled,
+ * so clicking without the wait races the form's initial query.
  */
-export const clickConfigure = async (): Promise<void> => {
+export const clickDeploy = async (container: ParentNode): Promise<void> => {
   const button = await waitFor(() => {
-    const b = screen.getByRole("button", { name: /Configure/ });
+    const b = getIconButton(container, "play");
     if (b.classList.contains("pluto--disabled"))
-      throw new Error("configure button is disabled");
+      throw new Error("start button is disabled");
     return b;
   });
   fireEvent.click(button);
 };
-
-/**
- * Polls the panel doc until the save flow writes the created task's key back onto
- * the view tab's args, then returns it.
- */
-export const awaitTaskKey = async (created: CreatedPanel): Promise<task.Key> =>
-  await waitFor(() => {
-    const args = selectViewArgs(created);
-    const taskKey = args?.taskKey;
-    if (taskKey == null || typeof taskKey !== "string")
-      throw new Error("task key not set on view args");
-    return taskKey;
-  });
 
 /**
  * Finds the channel list row showing the given port. The details form for the selected
@@ -388,42 +445,73 @@ export const getLabeledInput = (label: string): HTMLInputElement => {
 
 /**
  * Reads command-channel frames until one carries a command for taskKey, so parallel
- * suites writing their own task commands cannot interfere.
+ * suites writing their own task commands cannot interfere. Rejects after 10 seconds so
+ * a command that never arrives names itself instead of hitting the test timeout.
  */
 export const awaitCommand = async (
   streamer: framer.Streamer,
   taskKey: task.Key,
 ): Promise<task.Command> => {
-  for (;;) {
-    const frame = await streamer.read();
-    for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
-      const cmd = task.commandZ.parse(sample);
-      if (cmd.task === taskKey) return cmd;
+  const read = async (): Promise<task.Command> => {
+    for (;;) {
+      const frame = await streamer.read();
+      for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+        const cmd = task.commandZ.parse(sample);
+        if (cmd.task === taskKey) return cmd;
+      }
     }
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`no command for task ${taskKey} received within 10s`)),
+      TimeSpan.seconds(10).milliseconds,
+    );
+  });
+  try {
+    return await Promise.race([read(), deadline]);
+  } finally {
+    clearTimeout(timer);
   }
 };
 
-export interface CreateTaskStatusOverrides extends Partial<
-  Omit<task.Status, "details">
-> {
-  details?: Partial<task.Status["details"]>;
-}
+/**
+ * Clicks the form's deploy button, waits for the resulting start command, then returns
+ * the persisted task. The streamer opens before the click because deploy saves the task
+ * and issues the command in one pass.
+ */
+export const deployAndAwaitTask = async <S extends task.Schemas = task.Schemas>(
+  client: Client,
+  container: ParentNode,
+  key: task.Key,
+  schemas?: S,
+): Promise<task.Task<S>> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await clickDeploy(container);
+    await awaitCommand(streamer, key);
+  } finally {
+    streamer.close();
+  }
+  return await client.tasks.retrieve({ key, schemas });
+};
 
-/** Builds a fully-populated task.Status, merging `overrides` over sane defaults. */
-export const createTaskStatus = (
-  overrides: CreateTaskStatusOverrides = {},
-): task.Status => {
-  const { details, ...rest } = overrides;
-  return {
-    key: id.create(),
-    name: "Task Status",
-    variant: "success",
-    message: "Running smoothly",
-    description: "",
-    time: TimeStamp.now(),
-    ...rest,
-    details: { task: "0", running: false, cmd: "", ...details },
-  };
+/**
+ * Writes the status a driver reports once a task has stopped. Specs run without a
+ * driver, so a start command otherwise leaves the task mid-start forever and the
+ * form offers no way to deploy again.
+ */
+export const reportTaskStopped = async (
+  client: Client,
+  tsk: task.Payload,
+): Promise<void> => {
+  await client.tasks.create({
+    ...tsk,
+    status: createTaskStatus({
+      message: "Task stopped",
+      details: { task: tsk.key, running: false, configHash: tsk.configHash },
+    }),
+  });
 };
 
 /** Finds the single non-checkbox input rendered by a task form field. */
@@ -439,4 +527,25 @@ export const findFieldInput = (): HTMLInputElement => {
 export const commitFieldInput = (input: HTMLInputElement, value: string): void => {
   fireEvent.change(input, { target: { value } });
   fireEvent.blur(input);
+};
+
+/** Whether the redeploy button is collapsed rather than revealed. */
+export const isRedeployHidden = (): boolean =>
+  screen.getByText("Redeploy").closest("[aria-hidden='true']") != null;
+
+/**
+ * Waits for the redeploy button to be revealed and enabled, then clicks it. The button
+ * stays mounted while hidden and Pluto buttons swallow clicks while disabled, so
+ * clicking without the wait races the drift computation and the form's initial query.
+ */
+export const clickRedeploy = async (): Promise<void> => {
+  const button = await waitFor(() => {
+    if (isRedeployHidden()) throw new Error("redeploy button is hidden");
+    const b = screen.getByText("Redeploy").closest("button");
+    assertDefined(b, "redeploy button not found");
+    if (b.classList.contains("pluto--disabled"))
+      throw new Error("redeploy button is disabled");
+    return b;
+  });
+  fireEvent.click(button);
 };

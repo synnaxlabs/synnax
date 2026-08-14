@@ -16,8 +16,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// Key is a composite identifier for a task. The high 32 bits contain the rack key, and
-// the low 32 bits contain the local task key within that rack.
+// Key is a unique identifier for a task.
 type Key = versions.Key
 
 // StatusDetails contains task-specific status details including execution state.
@@ -40,6 +39,10 @@ type Command struct {
 	Type string `json:"type" msgpack:"type"`
 	// Key is a unique identifier for this command instance.
 	Key string `json:"key" msgpack:"key"`
+	// ConfigHash is the config hash the sender wants running. Empty when the sender
+	// does not know it. The Driver reuses its live instance when the hash matches and
+	// redeploys when it differs.
+	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
 	// Args contains optional arguments for the command.
 	Args msgpack.EncodedJSON `json:"args,omitzero" msgpack:"args,omitzero"`
 }

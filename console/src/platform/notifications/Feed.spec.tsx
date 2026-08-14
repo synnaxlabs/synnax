@@ -167,6 +167,14 @@ describe("Notifications", () => {
       expect(screen.queryByText("Heartbeat ok")).toBeNull();
     });
 
+    it("suppresses a disabled status with a matching key prefix", async () => {
+      await addStatus(
+        { key: "rack.heartbeat", variant: "disabled", message: "Not deployed" },
+        [rackRoutine],
+      );
+      expect(screen.queryByText("Not deployed")).toBeNull();
+    });
+
     it("does not suppress a matching prefix with a non-routine variant", async () => {
       await addStatus(
         { key: "rack.heartbeat", variant: "error", message: "Heartbeat failed" },

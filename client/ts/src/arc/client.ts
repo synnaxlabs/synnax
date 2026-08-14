@@ -27,7 +27,8 @@ import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/type
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { status } from "@/status";
+import { rack } from "@/rack";
+import { type status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -87,29 +88,8 @@ const singleQueryZ = z.union([
   keyZ.transform((key) => ({ key })),
 ]);
 
-export interface CreateParams extends New {
-  /** Rack to deploy the arc on. Ensures a deployment task exists for it. */
-  rack?: number;
-}
-
-const TASK_TYPE = "arc";
-
-const taskStatusDataZ = z.null().optional();
-
-const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
-  status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
-    key: task.statusKey(taskKey),
-    name: "Configuring task",
-    variant: "loading",
-    message: "Configuring task...",
-    details: { task: taskKey, running: false, cmd: "", data: undefined },
-  });
-
-const TASK_SCHEMAS = {
-  type: z.literal(TASK_TYPE),
-  config: z.object({ arcKey: z.string() }),
-  statusData: taskStatusDataZ,
-} as const satisfies task.Schemas;
+const setRackReqZ = z.object({ key: keyZ, rack: rack.keyZ });
+const setRackResZ = z.object({ task: task.payloadZ().nullish() });
 
 /**
  * Client-side matching for a request: key and name sets. Server-computed
@@ -254,32 +234,14 @@ export class Client extends query.Retriever<
     });
   }
 
-  async create(arc: CreateParams, opts?: query.WriteOptions<Arc[]>): Promise<Arc>;
-  async create(arcs: CreateParams[], opts?: query.WriteOptions<Arc[]>): Promise<Arc[]>;
+  async create(arc: New, opts?: query.WriteOptions<Arc[]>): Promise<Arc>;
+  async create(arcs: New[], opts?: query.WriteOptions<Arc[]>): Promise<Arc[]>;
   async create(
-    arcs: CreateParams | CreateParams[],
+    arcs: New | New[],
     opts: query.WriteOptions<Arc[]> = {},
   ): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
-    const params = array.toArray(arcs);
-    // Resolve the deployment task for each arc targeting a rack. A task
-    // previously deployed to a different rack is deleted and recreated only
-    // after the create commits, so a failed create destroys nothing.
-    const taskKeys = new Map<number, task.Key>();
-    const staleTasks = new Map<number, task.Key>();
-    for (let i = 0; i < params.length; i++) {
-      const { rack, key } = params[i];
-      if (rack == null) continue;
-      let taskKey = task.newKey(rack, 0);
-      if (key != null) {
-        const tsk = await this.retrieveTask(key);
-        if (tsk != null)
-          if (task.rackKey(tsk.key) !== rack) staleTasks.set(i, tsk.key);
-          else taskKey = tsk.key;
-      }
-      taskKeys.set(i, taskKey);
-    }
-    const optimistic = params.map((a) => arcZ.parse(a));
+    const optimistic = array.toArray(arcs).map((a) => arcZ.parse(a));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -292,28 +254,43 @@ export class Client extends query.Retriever<
         ),
     });
     this.store.set(res.arcs);
-    for (const [i, taskKey] of taskKeys) {
-      const created = res.arcs[i];
-      const stale = staleTasks.get(i);
-      // Delete before create: a failure in between leaves the arc with no
-      // deployment task rather than two, and a retry heals it.
-      if (stale != null) await this.cfg.tasks.delete([stale]);
-      const newTsk = await this.cfg.tasks.create(
-        {
-          key: taskKey,
-          name: created.name,
-          type: TASK_TYPE,
-          config: { arcKey: created.key },
-          status: configuringStatus(taskKey),
-        },
-        TASK_SCHEMAS,
-      );
-      await this.cfg.ontology.addChildren(
-        ontologyID(created.key),
-        task.ontologyID(newTsk.key),
-      );
-    }
     return isMany ? res.arcs : res.arcs[0];
+  }
+
+  /**
+   * Binds the arc to the given rack, creating its task there or moving the
+   * existing one. A zero rack unbinds the arc, deleting its task. Returns the
+   * task, or null after an unbind.
+   * @throws {ValidationError} when unbinding while the task is running.
+   */
+  async setRack(key: Key, rackKey: rack.Key): Promise<task.Task | null> {
+    if (rackKey === 0) {
+      await this.clearRack(key);
+      return null;
+    }
+    const res = await this.cfg.unary.send(
+      "/arc/set-rack",
+      { key, rack: rackKey },
+      setRackReqZ,
+      setRackResZ,
+    );
+    if (res.task == null) return null;
+    const tsk = this.cfg.tasks.sugar(res.task);
+    this.cfg.tasks.store.set(tsk);
+    return tsk;
+  }
+
+  // clearRack drops the deleted task from the cache so it is not served until
+  // the delete signal lands.
+  private async clearRack(key: Key): Promise<void> {
+    const tsk = await this.retrieveTask(key);
+    await this.cfg.unary.send(
+      "/arc/set-rack",
+      { key, rack: 0 },
+      setRackReqZ,
+      setRackResZ,
+    );
+    if (tsk != null) this.cfg.tasks.dropCached(tsk.key);
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
