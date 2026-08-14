@@ -286,39 +286,21 @@ func (s *Service) handleSubscribe(
 	}
 }
 
-// syncPeers opens a subscription to every peer the host does not already subscribe to,
-// and closes the subscriptions of nodes that have left the cluster.
+// syncPeers opens a subscription to every peer the host does not already subscribe to.
+// Nodes are never removed from the cluster's view, so a subscription is only ever
+// opened here, never closed.
 func (s *Service) syncPeers(ctx context.Context) {
 	host := s.cfg.Cluster.HostKey()
-	current := set.New[node.Key]()
 	for _, n := range s.cfg.Cluster.Nodes() {
-		if n.Key != host {
-			current.Add(n.Key)
-		}
-	}
-	for key := range current {
-		s.mu.Lock()
-		_, ok := s.mu.peers[key]
-		s.mu.Unlock()
-		if !ok {
-			s.addPeer(ctx, key)
-		}
-	}
-	var released []Transfer
-	s.mu.Lock()
-	for key, p := range s.mu.peers {
-		if current.Contains(key) {
+		if n.Key == host {
 			continue
 		}
-		p.stop()
-		delete(s.mu.peers, key)
-		// A departed node releases everything it held, and no further snapshot from it
-		// will ever say so.
-		released = append(released, diff(p.states, nil)...)
-	}
-	s.mu.Unlock()
-	if len(released) > 0 {
-		s.updates.Notify(ctx, Update{Transfers: released})
+		s.mu.Lock()
+		_, ok := s.mu.peers[n.Key]
+		s.mu.Unlock()
+		if !ok {
+			s.addPeer(ctx, n.Key)
+		}
 	}
 }
 
