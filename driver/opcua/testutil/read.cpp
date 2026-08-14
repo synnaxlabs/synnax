@@ -38,7 +38,7 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
     );
 
     if (status != UA_STATUSCODE_GOOD) {
-        return {::x::telem::Series(0), opc::errors::parse(status)};
+        return {::x::telem::Series(0), opcua::errors::parse(status)};
     }
 
     // Convert the value to a telemetry series

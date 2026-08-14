@@ -110,7 +110,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                 return {
                     Connection(nullptr, nullptr, ""),
                     x::errors::Error(
-                        opc::errors::NO_CONNECTION,
+                        opcua::errors::NO_CONNECTION,
                         "circuit breaker open — too many consecutive "
                         "connection failures"
                     )
@@ -134,7 +134,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             return {
                 Connection(nullptr, nullptr, ""),
                 x::errors::Error(
-                    opc::errors::NO_CONNECTION,
+                    opcua::errors::NO_CONNECTION,
                     "circuit breaker open — too many consecutive "
                     "connection failures"
                 )
@@ -175,7 +175,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                 return {
                     Connection(nullptr, nullptr, ""),
                     x::errors::Error(
-                        opc::errors::NO_CONNECTION,
+                        opcua::errors::NO_CONNECTION,
                         "circuit breaker open — connecting thread failed, "
                         "too many consecutive connection failures"
                     )
@@ -342,7 +342,7 @@ x::errors::Error Pool::run_iterate_checked(
     if (session_state != UA_SESSIONSTATE_ACTIVATED) {
         LOG(WARNING) << log_prefix << "Session no longer activated after run_iterate";
         return x::errors::Error(
-            opc::errors::NO_CONNECTION,
+            opcua::errors::NO_CONNECTION,
             "session deactivated during maintenance"
         );
     }

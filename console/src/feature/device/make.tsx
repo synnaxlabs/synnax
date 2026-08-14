@@ -57,7 +57,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const labjack = LabJack.Device.useConfigureModal();
   const modbus = Modbus.Device.useConnectModal();
   const ni = NI.Device.useConfigureModal();
-  const opc = OPCUA.Device.useConnectModal();
+  const opcua = OPCUA.Device.useConnectModal();
   return useCallback(
     (make, deviceKey) => {
       const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
@@ -66,11 +66,11 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
         [LabJack.Device.MAKE]: labjack,
         [Modbus.Device.MAKE]: modbus,
         [NI.Device.MAKE]: ni,
-        [OPCUA.Device.MAKE]: opc,
+        [OPCUA.Device.MAKE]: opcua,
       };
       openers[make]({ deviceKey });
     },
-    [ethercat, http, labjack, modbus, ni, opc],
+    [ethercat, http, labjack, modbus, ni, opcua],
   );
 };
 

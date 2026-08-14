@@ -64,7 +64,7 @@ struct RemoteInfo {
 
 inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
-        opc::INTEGRATION_NAME,
+        opcua::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,

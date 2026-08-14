@@ -17,7 +17,7 @@ cc_library(
         "scan_task.cpp",
     ],
     hdrs = [
-        "opc.h",
+        "opcua.h",
         "read_task.h",
         "scan_task.h",
         "write_task.h",

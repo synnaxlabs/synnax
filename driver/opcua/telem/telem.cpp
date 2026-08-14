@@ -113,7 +113,7 @@ std::pair<UA_Variant, x::errors::Error> series_to_variant(const x::telem::Series
     const auto dt = data_type_to_ua(s.data_type());
     auto sample = s.at(-1);
     const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(sample), dt);
-    return {v, opc::errors::parse(status)};
+    return {v, opcua::errors::parse(status)};
 }
 
 std::pair<size_t, x::errors::Error>

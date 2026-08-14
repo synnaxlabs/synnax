@@ -23,9 +23,9 @@
 
 #include "driver/common/scan_task.h"
 #include "driver/opcua/connection/connection.h"
+#include "driver/opcua/opcua.h"
 #include "driver/opcua/types/types.h"
 #include "driver/task/task.h"
-#include "opc.h"
 
 namespace driver::opcua {
 inline const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
@@ -43,7 +43,7 @@ struct ScanCommandArgs {
     types::NodeId node;
 
     explicit ScanCommandArgs(x::json::Parser &parser):
-        connection(opc::connection::Config(parser.child("connection"))),
+        connection(opcua::connection::Config(parser.child("connection"))),
         node_id(parser.field<std::string>("node_id", "")) {
         if (node_id.empty())
             node = types::NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
