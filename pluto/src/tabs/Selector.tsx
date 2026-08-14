@@ -327,6 +327,17 @@ export const Selector = ({
     },
     [updateOverflow],
   );
+  // A preview shifting tabs toward the end grows the scrollable overflow, so a
+  // measurement taken before the reset reads a strip that only the drag made
+  // scrollable. Clearing and measuring together keeps the two in step wherever a
+  // preview ends.
+  const clearPreview = useCallback(
+    (el: HTMLElement, snap: boolean): void => {
+      resetTabs(el, snap);
+      updateOverflow();
+    },
+    [updateOverflow],
+  );
   const resizeRef = useResize(updateOverflow);
   // Tabs mount, close, and rename without firing scroll or resize, so re-measure
   // after every render.
@@ -459,13 +470,13 @@ export const Selector = ({
       previewRef.current = null;
       if (params.event == null || el == null || onDrop == null) {
         committingRef.current = false;
-        if (el != null) resetTabs(el, false);
+        if (el != null) clearPreview(el, false);
         return [];
       }
       const cursor = { x: params.event.clientX, y: params.event.clientY };
       return onDrop({ ...params, index: getInsertionIndex(el, cursor) });
     },
-    [onDrop],
+    [onDrop, clearPreview],
   );
 
   const dropProps = Haul.useDrop({
@@ -485,11 +496,11 @@ export const Selector = ({
         return;
       setIndicatorOffset(null);
       if (el != null && previewRef.current != null) {
-        resetTabs(el, false);
+        clearPreview(el, false);
         previewRef.current = null;
       }
     },
-    [onDragLeave],
+    [onDragLeave, clearPreview],
   );
 
   // Snap the transforms away the frame a dropped reorder commits, before paint, so the
@@ -498,7 +509,7 @@ export const Selector = ({
     const el = internalRef.current;
     if (el == null || !committingRef.current) return;
     committingRef.current = false;
-    resetTabs(el, true);
+    clearPreview(el, true);
   });
 
   // Cleanup for a drag that ends without dropping here (Escape, dropped outside). The
@@ -513,10 +524,10 @@ export const Selector = ({
     setIndicatorOffset(null);
     const el = internalRef.current;
     if (el != null && previewRef.current != null && !committingRef.current) {
-      resetTabs(el, false);
+      clearPreview(el, false);
       previewRef.current = null;
     }
-  }, [dragging]);
+  }, [dragging, clearPreview]);
 
   const indicatorStyle: CSSProperties | undefined =
     indicatorOffset == null
