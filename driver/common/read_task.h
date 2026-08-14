@@ -11,6 +11,8 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/task/common/json.gen.h"
+
 #include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
@@ -21,39 +23,28 @@
 #include "driver/transform/transform.h"
 
 namespace driver::common {
-/// @brief common read task configuration parameters used across multiple drivers.
-struct BaseReadTaskConfig : BaseTaskConfig {
-    /// @brief sets the sample rate for the task.
-    const x::telem::Rate sample_rate;
-    /// @brief sets the stream rate for the task.
-    const x::telem::Rate stream_rate;
+/// @brief common read task configuration shared across hardware acquisition tasks.
+/// Wraps the schema-generated read config (auto_start, data_saving_disabled,
+/// sample_rate, stream_rate) with the driver-only timing options, so the field set
+/// has a single definition in the oracle schema.
+struct BaseReadTaskConfig : ::synnax::task::common::BaseReadConfig {
     /// @brief timing configuration options for the task.
     TimingConfig timing;
-
-    BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)),
-        sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate),
-        timing(other.timing) {}
-
-    BaseReadTaskConfig(const BaseReadTaskConfig &) = delete;
-
-    const BaseReadTaskConfig &operator=(const BaseReadTaskConfig &) = delete;
 
     explicit BaseReadTaskConfig(
         x::json::Parser &cfg,
         const common::TimingConfig timing_cfg = common::TimingConfig(),
         const bool stream_rate_required = true
     ):
-        BaseTaskConfig(cfg),
-        sample_rate(x::telem::Rate(cfg.field<float>("sample_rate", 0))),
-        stream_rate(x::telem::Rate(cfg.field<float>("stream_rate", 0))),
+        ::synnax::task::common::BaseReadConfig(
+            ::synnax::task::common::BaseReadConfig::parse(cfg)
+        ),
         timing(timing_cfg) {
-        if (sample_rate <= x::telem::Rate(0))
+        if (this->sample_rate <= x::telem::Rate(0))
             cfg.field_err("sample_rate", "must be greater than 0");
-        if (stream_rate_required && stream_rate <= x::telem::Rate(0))
+        if (stream_rate_required && this->stream_rate <= x::telem::Rate(0))
             cfg.field_err("stream_rate", "must be greater than 0");
-        if (stream_rate_required && sample_rate < stream_rate)
+        if (stream_rate_required && this->sample_rate < this->stream_rate)
             cfg.field_err(
                 "sample_rate",
                 "must be greater than or equal to stream rate"

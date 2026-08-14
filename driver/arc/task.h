@@ -16,6 +16,7 @@
 
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/synnax.h"
+#include "client/cpp/task/common/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -36,13 +37,13 @@
 
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
-struct TaskConfig : common::BaseTaskConfig {
+struct TaskConfig : ::synnax::task::common::BaseStartConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)),
+        ::synnax::task::common::BaseStartConfig(std::move(other)),
         arc_key(std::move(other.arc_key)),
         program(std::move(other.program)),
         loop(std::move(other.loop)) {}
@@ -51,7 +52,9 @@ struct TaskConfig : common::BaseTaskConfig {
     const TaskConfig &operator=(const TaskConfig &) = delete;
 
     explicit TaskConfig(x::json::Parser &parser):
-        BaseTaskConfig(parser),
+        ::synnax::task::common::BaseStartConfig(
+            ::synnax::task::common::BaseStartConfig::parse(parser)
+        ),
         arc_key(parser.field<x::uuid::UUID>("arc_key")),
         loop(parser) {}
 
@@ -222,7 +225,7 @@ public:
                             .key = task_meta.key.to_string(),
                             .name = task_meta.name,
                         },
-                    .mode = common::data_saving_writer_mode(cfg.data_saving),
+                    .mode = common::data_saving_writer_mode(!cfg.data_saving_disabled),
                 },
                 std::move(source),
                 x::breaker::default_config("arc_acquisition"),

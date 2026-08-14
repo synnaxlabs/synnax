@@ -53,7 +53,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
-    auto [dev, d_err] = devs->acquire(cfg.device_key);
+    auto [dev, d_err] = devs->acquire(cfg.device);
     if (d_err) return {std::move(result), d_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(

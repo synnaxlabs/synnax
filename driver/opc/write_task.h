@@ -82,7 +82,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             auto it = this->channels.find(sy_ch.key);
             if (it != this->channels.end()) it->second->ch = sy_ch;
         }
-        auto [dev, err] = client->devices.retrieve(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;

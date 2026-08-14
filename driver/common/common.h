@@ -14,25 +14,6 @@
 #include "driver/task/task.h"
 
 namespace driver::common {
-/// @brief a common base configuration for tasks.
-struct BaseTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    bool data_saving;
-    /// @brief whether the task should be auto-started after configuration. This
-    /// includes automatic start on driver start.
-    bool auto_start;
-
-    BaseTaskConfig(BaseTaskConfig &&other) noexcept:
-        data_saving(other.data_saving), auto_start(other.auto_start) {}
-
-    BaseTaskConfig(const BaseTaskConfig &other) = delete;
-    const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
-
-    explicit BaseTaskConfig(x::json::Parser &parser):
-        data_saving(parser.field<bool>("data_saving", true)),
-        auto_start(parser.field<bool>("auto_start", false)) {}
-};
-
 /// @brief a common base configuration result for tasks that is used across various
 /// helper functions.
 struct ConfigureResult {
