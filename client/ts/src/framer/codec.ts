@@ -55,10 +55,14 @@ const unpackBoolBits = (src: Uint8Array, sampleCount: number): ArrayBuffer => {
   return buf;
 };
 
+/** Orders channel keys the way the Core does. The default comparator sorts numbers as
+ * strings and diverges as soon as two keys differ in decimal width. */
+const compareKeys = (a: channel.Key, b: channel.Key): number => a - b;
+
 const sortFramePayloadByKey = (framePayload: Payload): void => {
   const { keys, series } = framePayload;
   if (keys.every((k, i) => i === 0 || keys[i - 1] <= k)) return;
-  const order = keys.map((_, i) => i).sort((a, b) => keys[a] - keys[b]);
+  const order = keys.map((_, i) => i).sort((a, b) => compareKeys(keys[a], keys[b]));
   const orderedKeys = order.map((i) => keys[i]);
   const orderedSeries = order.map((i) => series[i]);
   for (let i = 0; i < keys.length; i++) {
@@ -100,7 +104,7 @@ export class Codec {
   update(keys: channel.Key[], dataTypes: DataType[]): void {
     this.seqNum++;
     const state = {
-      keys,
+      keys: [...keys],
       keyDataTypes: new Map(),
       hasVariableDataTypes: false,
     };
@@ -109,7 +113,9 @@ export class Codec {
       state.keyDataTypes.set(k, dt);
       if (dt.isVariable) state.hasVariableDataTypes = true;
     });
-    state.keys.sort();
+    // Encoder and decoder walk this order positionally when a frame carries every
+    // channel, so it has to match the Core's.
+    state.keys.sort(compareKeys);
     this.states.set(this.seqNum, state);
     this.currState = state;
   }
