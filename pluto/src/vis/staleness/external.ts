@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
-import { Toggle } from "@/schematic/node/common/toggle";
-
-export const VARIANT = "switch" as const;
-
-export const configZ = Toggle.toggleConfigZ.extend({
-  variant: z.literal(VARIANT),
-  scale: z.number().optional(),
-});
-export type Config = z.infer<typeof configZ>;
+export { DEFAULT_TIMEOUT, resolveColor } from "@/vis/staleness/aether/staleness";
+export * from "@/vis/staleness/config";
+export * from "@/vis/staleness/Fields";
+export * from "@/vis/staleness/Provider";
