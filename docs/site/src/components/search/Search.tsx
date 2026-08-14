@@ -23,6 +23,8 @@ import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import z from "zod";
 
+import { codifyHTML } from "@/components/text/InlineCode";
+
 interface SearchResult {
   key: string;
   title: string;
@@ -108,7 +110,11 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
       {...props}
     >
       <Flex.Box direction="y" empty>
-        <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} empty />
+        <Text.Text
+          level="h5"
+          dangerouslySetInnerHTML={{ __html: codifyHTML(title) }}
+          empty
+        />
         {path.length > 0 && (
           <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
             {icon}
