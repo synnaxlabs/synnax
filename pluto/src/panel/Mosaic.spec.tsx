@@ -859,5 +859,90 @@ describe("Panel.Mosaic", () => {
         expect(panel.findTab(fetched.root, second.key)).toBeDefined();
       }, ROUND_TRIP);
     });
+
+    // A drag fires no click, so a tab moved between leaves of one panel reaches its
+    // new leaf unselected unless the drop selects it.
+    it("should select a tab dropped into another leaf of the same panel", async () => {
+      const moved = resourceTab();
+      const stays = resourceTab();
+      const p = await splitPanel(moved, stays, resourceTab(), resourceTab());
+      const onSelect = vi.fn();
+      let utils!: RenderResult;
+      await act(async () => {
+        utils = render(
+          <Haul.Provider>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
+              <Panel.Suspended panelKey={p.key}>
+                <Panel.Mosaic tabName={() => <TabKeyNameProbe />} onSelect={onSelect}>
+                  {children}
+                </Panel.Mosaic>
+              </Panel.Suspended>
+            </Errors.SuspenseBoundary>
+          </Haul.Provider>,
+          { wrapper },
+        );
+      });
+      await waitFor(() => expect(utils.getByText(`name:${moved.key}`)).toBeTruthy());
+
+      const leaves = utils.container.querySelectorAll(".pluto-mosaic__leaf");
+      expect(leaves).toHaveLength(2);
+      await act(async () => {
+        fireEvent.dragStart(utils.getByText(`name:${moved.key}`));
+        drop(leaves[1]);
+      });
+
+      expect(onSelect).toHaveBeenCalledWith(moved.key);
+      await waitFor(async () => {
+        const fetched = await client.panels.retrieve(p.key);
+        expect(panel.leafTabGroups(fetched.root)).toEqual([
+          [stays.key],
+          expect.arrayContaining([moved.key]),
+        ]);
+      }, ROUND_TRIP);
+    });
+
+    // Another client can close the dragged tab before the drop lands. The move is
+    // then a no-op, and naming the tab to a selection handler would name one this
+    // panel no longer holds.
+    it("should not select a dragged tab another client closed mid-drag", async () => {
+      const moved = resourceTab();
+      const stays = resourceTab();
+      const p = await splitPanel(moved, stays, resourceTab(), resourceTab());
+      const onSelect = vi.fn();
+      let utils!: RenderResult;
+      await act(async () => {
+        utils = render(
+          <Haul.Provider>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
+              <Panel.Suspended panelKey={p.key}>
+                <Panel.Mosaic tabName={() => <TabKeyNameProbe />} onSelect={onSelect}>
+                  {children}
+                </Panel.Mosaic>
+              </Panel.Suspended>
+            </Errors.SuspenseBoundary>
+          </Haul.Provider>,
+          { wrapper },
+        );
+      });
+      await waitFor(() => expect(utils.getByText(`name:${moved.key}`)).toBeTruthy());
+
+      const leaves = utils.container.querySelectorAll(".pluto-mosaic__leaf");
+      await act(async () => {
+        fireEvent.dragStart(utils.getByText(`name:${moved.key}`));
+      });
+      await writer.panels.retrieve(p.key);
+      await act(async () => {
+        await writer.panels.dispatch(p.key, [panel.removeTab({ key: moved.key })]);
+      });
+      await waitFor(
+        () => expect(utils.queryByText(`name:${moved.key}`)).toBeNull(),
+        ROUND_TRIP,
+      );
+
+      await act(async () => {
+        drop(leaves[1]);
+      });
+      expect(onSelect).not.toHaveBeenCalled();
+    });
   });
 });
