@@ -57,7 +57,10 @@ describe("LabJack Write", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createDigitalWriteChannel("DIO4"), createAnalogWriteChannel("DAC0")]),
+      createConfig(dev.key, [
+        createDigitalWriteChannel("DIO4"),
+        createAnalogWriteChannel("DAC0"),
+      ]),
     );
     await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
@@ -117,7 +120,10 @@ describe("LabJack Write", () => {
       const dev = await createLabJackDevice(client);
       const draft = await createDraft(
         client,
-        createConfig(dev.key, [createDigitalWriteChannel("DIO4"), createAnalogWriteChannel("DAC0")]),
+        createConfig(dev.key, [
+          createDigitalWriteChannel("DIO4"),
+          createAnalogWriteChannel("DAC0"),
+        ]),
       );
       const { container } = await renderWrite({ client, taskKey: draft.key });
       const created = await deployAndAwaitTask(

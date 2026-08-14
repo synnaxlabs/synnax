@@ -267,12 +267,23 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       stateChannels.forEach((c, i) => {
         const statesToCreateC = stateChannelsToCreate[i];
         const port = statesToCreateC.port;
-        if (!(port in dev.properties[convertWriteChannelTypeToPortType(statesToCreateC.type)].channels))
-          dev.properties[convertWriteChannelTypeToPortType(statesToCreateC.type)].channels[port] = {
+        if (
+          !(
+            port in
+            dev.properties[convertWriteChannelTypeToPortType(statesToCreateC.type)]
+              .channels
+          )
+        )
+          dev.properties[
+            convertWriteChannelTypeToPortType(statesToCreateC.type)
+          ].channels[port] = {
             state: c.key,
             command: 0,
           };
-        else dev.properties[convertWriteChannelTypeToPortType(statesToCreateC.type)].channels[port].state = c.key;
+        else
+          dev.properties[
+            convertWriteChannelTypeToPortType(statesToCreateC.type)
+          ].channels[port].state = c.key;
       });
     }
     if (commandChannelsToCreate.length > 0) {
@@ -298,12 +309,22 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       commandChannels.forEach((c, i) => {
         const cmdToCreate = commandChannelsToCreate[i];
         const port = cmdToCreate.port;
-        if (!(port in dev.properties[convertWriteChannelTypeToPortType(cmdToCreate.type)].channels))
-          dev.properties[convertWriteChannelTypeToPortType(cmdToCreate.type)].channels[port] = {
+        if (
+          !(
+            port in
+            dev.properties[convertWriteChannelTypeToPortType(cmdToCreate.type)].channels
+          )
+        )
+          dev.properties[convertWriteChannelTypeToPortType(cmdToCreate.type)].channels[
+            port
+          ] = {
             state: 0,
             command: c.key,
           };
-        else dev.properties[convertWriteChannelTypeToPortType(cmdToCreate.type)].channels[port].command = c.key;
+        else
+          dev.properties[convertWriteChannelTypeToPortType(cmdToCreate.type)].channels[
+            port
+          ].command = c.key;
       });
     }
   } finally {

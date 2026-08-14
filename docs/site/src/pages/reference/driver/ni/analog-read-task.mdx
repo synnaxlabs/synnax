@@ -314,17 +314,17 @@ For task lifecycle management, see the
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`ai_thermocouple`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithrmcplchan.html))</Text.Text>
 
-| Parameter           | Type   | Required | Default | Description                                                       |
-| ------------------- | ------ | -------- | ------- | ----------------------------------------------------------------- |
-| `channel`           | number | Yes      | -       | Synnax channel key                                                |
-| `device`            | string | Yes      | -       | Device identifier                                                 |
-| `port`              | number | Yes      | -       | Physical port                                                     |
-| `min_val`           | number | No       | `0`     | Minimum temperature                                               |
-| `max_val`           | number | No       | `100`   | Maximum temperature                                               |
-| `units`             | enum   | No       | `DegC`  | `DegC`, `DegF`, `Kelvins`, `DegR`                                 |
-| `thermocouple_type` | enum   | Yes      | -       | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`                            |
+| Parameter           | Type   | Required | Default         | Description                                                                                                                                    |
+| ------------------- | ------ | -------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `channel`           | number | Yes      | -               | Synnax channel key                                                                                                                             |
+| `device`            | string | Yes      | -               | Device identifier                                                                                                                              |
+| `port`              | number | Yes      | -               | Physical port                                                                                                                                  |
+| `min_val`           | number | No       | `0`             | Minimum temperature                                                                                                                            |
+| `max_val`           | number | No       | `100`           | Maximum temperature                                                                                                                            |
+| `units`             | enum   | No       | `DegC`          | `DegC`, `DegF`, `Kelvins`, `DegR`                                                                                                              |
+| `thermocouple_type` | enum   | Yes      | -               | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`                                                                                                         |
 | `cjc`               | object | No       | built-in sensor | Cold junction compensation. One of `{"source": "built_in"}`, `{"source": "const_val", "val": <temp>}`, or `{"source": "chan", "port": <port>}` |
-| `custom_scale`      | object | No       | -       | Custom scaling                                                    |
+| `custom_scale`      | object | No       | -               | Custom scaling                                                                                                                                 |
 
 </ChannelType>
 

@@ -39,10 +39,10 @@ const newTab = (): panel.Tab => ({
   args: {},
 });
 
-const asView = (tab?: panel.Tab | null): panel.TabView | undefined =>
+const asView = (tab?: panel.Tab | null): panel.ViewTab | undefined =>
   tab?.variant === "view" ? tab : undefined;
 
-const newResourceTab = (resource: ontology.ID): panel.TabResource => ({
+const newResourceTab = (resource: ontology.ID): panel.ResourceTab => ({
   variant: "resource",
   key: uuid.create(),
   resource,
@@ -63,7 +63,7 @@ describe("Panel queries", () => {
   const createPanel = async (): Promise<panel.Panel> =>
     await client.panels.create({ name: `panel-${uuid.create()}` });
 
-  const asSplit = (node?: panel.Node): panel.NodeSplit | undefined =>
+  const asSplit = (node?: panel.Node): panel.SplitNode | undefined =>
     node?.variant === "split" ? node : undefined;
 
   const leafTabKeys = (node?: panel.Node): string[] | undefined =>

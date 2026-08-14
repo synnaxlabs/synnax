@@ -132,9 +132,7 @@ describe("getPortLabel", () => {
   });
 
   it("should label automatic channels without a PDO as No PDO", () => {
-    expect(EtherCAT.Task.getPortLabel(createAutoReadChannel("dev", ""))).toBe(
-      "No PDO",
-    );
+    expect(EtherCAT.Task.getPortLabel(createAutoReadChannel("dev", ""))).toBe("No PDO");
   });
 
   it("should label manual channels with a padded hex address", () => {

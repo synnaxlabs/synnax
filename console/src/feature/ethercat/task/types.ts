@@ -28,8 +28,7 @@ export type Channel = ReadChannel | WriteChannel;
 
 export type ChannelMode = Channel["type"];
 
-export type ChannelSchemas =
-  typeof READ_CHANNEL_SCHEMAS | typeof WRITE_CHANNEL_SCHEMAS;
+export type ChannelSchemas = typeof READ_CHANNEL_SCHEMAS | typeof WRITE_CHANNEL_SCHEMAS;
 
 export const READ_TYPE = `${PREFIX}_read`;
 

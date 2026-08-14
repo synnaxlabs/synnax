@@ -29,8 +29,7 @@ const VARIABLE_DENSITY_READ_CHANNEL_TYPES = new Set<ReadChannelType>([
 
 export const isVariableDensityReadChannel = (
   channel: ReadChannel,
-): channel is TypedReadChannel =>
-  VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
+): channel is TypedReadChannel => VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
 
 export type WriteChannel = modbus.WriteChannel;
 export type WriteChannelType = modbus.WriteChannelType;
