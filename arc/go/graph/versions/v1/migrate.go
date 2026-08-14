@@ -23,19 +23,19 @@ import (
 )
 
 // MigrateGraph lifts a v0 graph into the v1 shape, keying every edge and moving each
-// node's type and config into Inputs; arc's generated migrations consume it
+// node's type and config into Inputs; Arc's generated migrations consume it
 // cross-package.
 func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	graph, err := autoMigrateGraph(ctx, old)
 	if err != nil {
 		return Graph{}, err
 	}
-	if graph.Edges, err = lo.MapErr(
+	graph.Edges = lo.Map(
 		old.Edges,
-		func(e irv0.Edge, _ int) (Edge, error) { return migrateEdge(ctx, e) },
-	); err != nil {
-		return Graph{}, err
-	}
+		func(e irv0.Edge, _ int) Edge {
+			return Edge{Edge: e, Key: uuid.NewString()}
+		},
+	)
 	graph.Inputs = make(map[string]msgpack.EncodedJSON, len(old.Nodes))
 	for _, node := range old.Nodes {
 		config := make(msgpack.EncodedJSON, len(node.Config)+1)
@@ -46,20 +46,8 @@ func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	return graph, nil
 }
 
-// migrateEdge lifts a v0 IR edge into the v1 keyed graph edge, assigning a
-// fresh key.
-func migrateEdge(ctx context.Context, old irv0.Edge) (Edge, error) {
-	return autoMigrateEdge(ctx, old)
-}
-
 // MigrateNode lifts a v0 node into the v1 shape, dropping the config and type
 // fields that moved to Graph.Inputs.
 func MigrateNode(ctx context.Context, old v0.Node) (Node, error) {
 	return autoMigrateNode(ctx, old)
-}
-
-// autoMigrateEdge lifts the keyless ir v0 edge into graph's keyed Edge; the
-// cross-resource move has no generated counterpart.
-func autoMigrateEdge(_ context.Context, old irv0.Edge) (Edge, error) {
-	return Edge{Edge: old, Key: uuid.NewString()}, nil
 }
