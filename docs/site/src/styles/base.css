@@ -168,6 +168,10 @@ code {
     border-radius: var(--pluto-border-radius);
 }
 
+a:not(.pluto-btn) code {
+    color: inherit;
+}
+
 /* Summary/details */
 summary {
     width: max-content;
