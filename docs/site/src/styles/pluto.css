@@ -161,8 +161,9 @@ article table code {
     white-space: nowrap;
 }
 
-/* Let nav code chips follow the state colors of the item that holds them. */
+/* Let code chips follow the state colors of the item that holds them. */
 .pluto-tree code,
+.pluto-breadcrumb code,
 .on-this-page-item code {
     color: inherit;
     font-size: inherit;
