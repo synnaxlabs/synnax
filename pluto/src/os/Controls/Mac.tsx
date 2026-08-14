@@ -78,6 +78,8 @@ export const MacOS = ({
   disabled = [],
   className,
   focused = true,
+  // no-op on macOS
+  maximized: _,
   onMinimize,
   onMaximize,
   onFullscreen,
