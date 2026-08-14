@@ -78,7 +78,7 @@ class BaseOutputChannel(BaseModel):
 
 
 class ScanConfig(task.BaseScanConfig):
-    """Configures a Modbus scan task, which carries no settings."""
+    """Configures a Modbus scan task."""
 
     def __hash__(self) -> int:
         return hash(self.key)

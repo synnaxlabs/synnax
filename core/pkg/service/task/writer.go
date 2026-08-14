@@ -14,8 +14,10 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
@@ -228,6 +230,27 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())
+}
+
+// DeleteByRacks deletes every task attached to the given racks, along with each task's
+// config record and status. It is the caller's job to reject the delete when a rack
+// still holds tasks the user must remove first.
+func (w Writer) DeleteByRacks(ctx context.Context, keys ...rack.Key) error {
+	var tasks []Task
+	if err := w.table.NewRetrieve().
+		Where(gorp.Match(func(_ gorp.Context, t *Task) (bool, error) {
+			return lo.Contains(keys, t.Rack), nil
+		})).
+		Entries(&tasks).
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	for _, t := range tasks {
+		if err := w.Delete(ctx, t.Key, true); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w Writer) Copy(

@@ -4439,12 +4439,17 @@ func (d *DigitalWriteConfig) ApplyDefaults() {
 	d.WriteConfig.ApplyDefaults()
 }
 
-// ScanConfig configures the NI device scanner task, which carries no settings.
+// ScanConfig configures the NI device scanner task.
 type ScanConfig struct {
 	config.BaseScan
+	// IgnoredModels are regex patterns matching the device models the scan skips.
+	IgnoredModels []string `json:"ignored_models,omitzero" msgpack:"ignored_models,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
+	if s.IgnoredModels == nil {
+		s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
+	}
 	s.BaseScan.ApplyDefaults()
 }
