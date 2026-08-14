@@ -9,7 +9,7 @@
 
 import { table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { box, xy } from "@synnaxlabs/x";
+import { box, type scale, xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -74,7 +74,7 @@ class ImmediateResizeObserver {
   disconnect(): void {}
 }
 
-describe("Table centering", () => {
+describe("Table", () => {
   let wrapper: React.FC<PropsWithChildren>;
   let key: table.Key;
   let recorder: canvasTest.Recorder;
@@ -132,12 +132,16 @@ describe("Table centering", () => {
       </Table.Suspended>
     );
     const { container } = render(<Wrapped />, { wrapper });
-    const frame = (): HTMLElement => {
-      const el = container.querySelector<HTMLElement>(".pluto-table-frame");
-      if (el == null) throw new Error("the table frame did not render");
+    const query = (selector: string) => (): HTMLElement => {
+      const el = container.querySelector<HTMLElement>(selector);
+      if (el == null) throw new Error(`${selector} did not render`);
       return el;
     };
-    return { frame };
+    return {
+      frame: query(".pluto-table-frame"),
+      scroller: query(".pluto-table-surface__scroll"),
+      probe: query(".pluto-table-surface__canvas"),
+    };
   };
 
   const resizeRow = async (size: number): Promise<void> => {
@@ -185,54 +189,110 @@ describe("Table centering", () => {
       expect(box.dims(b)).toEqual({ width: COL_SIZE, height: rowSize });
     });
 
-  it("leaves an uncentered table untranslated", async () => {
-    const { frame } = renderTable(false);
-    await expectPlacement(frame, xy.ZERO);
+  describe("centering", () => {
+    it("leaves an uncentered table untranslated", async () => {
+      const { frame } = renderTable(false);
+      await expectPlacement(frame, xy.ZERO);
+    });
+
+    it("centers on both axes when the table fits", async () => {
+      const { frame } = renderTable(true);
+      await expectPlacement(frame, expectedOffset(COL_SIZE, ROW_SIZE));
+    });
+
+    it("clamps to zero on an axis the table overflows", async () => {
+      const { frame } = renderTable(true);
+      await resizeRow(SURFACE_HEIGHT * 2);
+      await expectPlacement(
+        frame,
+        { ...expectedOffset(COL_SIZE, SURFACE_HEIGHT * 2), y: 0 },
+        SURFACE_HEIGHT * 2,
+      );
+    });
+
+    it("recenters when the table changes size", async () => {
+      const { frame } = renderTable(true);
+      await expectPlacement(frame, expectedOffset(COL_SIZE, ROW_SIZE));
+      await resizeRow(200);
+      await expectPlacement(frame, expectedOffset(COL_SIZE, 200), 200);
+    });
+
+    it("holds the offset while the pointer is down", async () => {
+      const { frame } = renderTable(true);
+      const settled = expectedOffset(COL_SIZE, ROW_SIZE);
+      await expectPlacement(frame, settled);
+      fireEvent.pointerDown(frame());
+      await resizeRow(200);
+      expect(frame().style.transform).toEqual(
+        `translate(${settled.x}px, ${settled.y}px)`,
+      );
+      // The cell grew but its origin must stay held with the frame.
+      await expectPlacement(frame, settled, 200);
+      fireEvent.pointerUp(window);
+      await expectPlacement(frame, expectedOffset(COL_SIZE, 200), 200);
+    });
+
+    it("releases the held offset on pointer cancellation", async () => {
+      const { frame } = renderTable(true);
+      await expectPlacement(frame, expectedOffset(COL_SIZE, ROW_SIZE));
+      fireEvent.pointerDown(frame());
+      await resizeRow(200);
+      fireEvent.pointerCancel(window);
+      await expectPlacement(frame, expectedOffset(COL_SIZE, 200), 200);
+    });
   });
 
-  it("centers on both axes when the table fits", async () => {
-    const { frame } = renderTable(true);
-    await expectPlacement(frame, expectedOffset(COL_SIZE, ROW_SIZE));
-  });
+  describe("scrolling", () => {
+    const ORIGIN: xy.XY = { x: INDICATOR_SIZE, y: INDICATOR_SIZE };
 
-  it("clamps to zero on an axis the table overflows", async () => {
-    const { frame } = renderTable(true);
-    await resizeRow(SURFACE_HEIGHT * 2);
-    await expectPlacement(
-      frame,
-      { ...expectedOffset(COL_SIZE, SURFACE_HEIGHT * 2), y: 0 },
-      SURFACE_HEIGHT * 2,
-    );
-  });
+    const drawnAt = (): xy.XY => {
+      const applied = recorder.upper2d.calls.findLast((c) => c.op === "applyScale");
+      if (applied == null) throw new Error("no cell draw was recorded");
+      return (applied.args[0] as scale.XY).pos(box.topLeft(lastCellBox()));
+    };
 
-  it("recenters when the table changes size", async () => {
-    const { frame } = renderTable(true);
-    await expectPlacement(frame, expectedOffset(COL_SIZE, ROW_SIZE));
-    await resizeRow(200);
-    await expectPlacement(frame, expectedOffset(COL_SIZE, 200), 200);
-  });
+    const scrollTo = (scroller: () => HTMLElement, to: xy.XY): void => {
+      const el = scroller();
+      el.scrollLeft = to.x;
+      el.scrollTop = to.y;
+      fireEvent.scroll(el);
+    };
 
-  it("holds the offset while the pointer is down", async () => {
-    const { frame } = renderTable(true);
-    const settled = expectedOffset(COL_SIZE, ROW_SIZE);
-    await expectPlacement(frame, settled);
-    fireEvent.pointerDown(frame());
-    await resizeRow(200);
-    expect(frame().style.transform).toEqual(
-      `translate(${settled.x}px, ${settled.y}px)`,
-    );
-    // The cell grew but its origin must stay held with the frame.
-    await expectPlacement(frame, settled, 200);
-    fireEvent.pointerUp(window);
-    await expectPlacement(frame, expectedOffset(COL_SIZE, 200), 200);
-  });
+    const expectDrawnAt = async (expected: xy.XY) =>
+      await waitFor(() => {
+        pumpRender();
+        expect(drawnAt()).toEqual(expected);
+      });
 
-  it("releases the held offset on pointer cancellation", async () => {
-    const { frame } = renderTable(true);
-    await expectPlacement(frame, expectedOffset(COL_SIZE, ROW_SIZE));
-    fireEvent.pointerDown(frame());
-    await resizeRow(200);
-    fireEvent.pointerCancel(window);
-    await expectPlacement(frame, expectedOffset(COL_SIZE, 200), 200);
+    it("measures the region from outside the scroll container", () => {
+      const { scroller, probe } = renderTable(false);
+      expect(scroller().contains(probe())).toBe(false);
+    });
+
+    it("draws values at their layout position before any scroll", async () => {
+      renderTable(false);
+      await expectDrawnAt(ORIGIN);
+    });
+
+    it("shifts drawn values by the scroll offset", async () => {
+      const { scroller } = renderTable(false);
+      await expectDrawnAt(ORIGIN);
+      scrollTo(scroller, { x: 40, y: 120 });
+      await expectDrawnAt({ x: ORIGIN.x - 40, y: ORIGIN.y - 120 });
+    });
+
+    it("keeps clipping to the region the table occupies on screen", async () => {
+      const { scroller } = renderTable(false);
+      await expectDrawnAt(ORIGIN);
+      scrollTo(scroller, { x: 40, y: 120 });
+      await expectDrawnAt({ x: ORIGIN.x - 40, y: ORIGIN.y - 120 });
+      const clip = recorder.scissorCalls.at(-1)?.region;
+      if (clip == null) throw new Error("the table did not clip its draw");
+      expect(box.topLeft(clip)).toEqual(xy.ZERO);
+      expect(box.dims(clip)).toEqual({
+        width: SURFACE_WIDTH,
+        height: SURFACE_HEIGHT,
+      });
+    });
   });
 });

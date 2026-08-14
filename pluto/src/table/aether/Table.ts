@@ -16,6 +16,7 @@ import { render } from "@/vis/render";
 
 export const tableStateZ = z.object({
   region: box.box,
+  scroll: xy.xyZ.default(xy.ZERO),
   clearOverScan: xy.crudeZ.default(0),
   visible: z.boolean().default(true),
   autoRenderInterval: z.number().default(1000),
@@ -70,7 +71,9 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     if (!this.state.visible)
       return () => this.internal.renderCtx.erase(eraseRegion, this.state.clearOverScan);
     const { renderCtx, handleError } = this.internal;
-    const viewportScale = scale.XY.translate(box.topLeft(this.state.region));
+    const viewportScale = scale.XY.translate(
+      xy.sub(box.topLeft(this.state.region), this.state.scroll),
+    );
     const clearScissor = renderCtx.scissor(
       this.state.region,
       xy.construct(this.state.clearOverScan),
