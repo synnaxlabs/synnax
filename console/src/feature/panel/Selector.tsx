@@ -13,7 +13,7 @@ import { panel, query } from "@synnaxlabs/client";
 import {
   Access,
   Button,
-  Component,
+  type Component,
   CSS as PCSS,
   Errors,
   type Flux,
@@ -41,7 +41,12 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
+interface ContextMenuProps extends Menu.ContextMenuMenuProps {
+  /** The strip's panels in render order, so a delete can hand the selection on. */
+  order: panel.Key[];
+}
+
+const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => {
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
@@ -59,10 +64,10 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
           return { name: query.isLive(cached) ? cached.name : "this panel" };
         });
         if (!(await confirm(items))) return false;
-        dispatch(Session.Panel.remove(panelKeys));
+        dispatch(Session.Panel.remove({ keys: panelKeys, order }));
         return data;
       },
-      [client, confirm, dispatch],
+      [client, confirm, dispatch, order],
     ),
   });
   if (keys.length === 0) return null;
@@ -131,8 +136,6 @@ const TabContent = ({ tabKey }: TabProps): ReactElement => {
   );
 };
 
-const contextMenu = Component.renderProp(ContextMenu);
-
 const Internal = (): ReactElement => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
@@ -166,6 +169,10 @@ const Internal = (): ReactElement => {
 
   const handleCreate = useCreate();
   const menuProps = Menu.useContextMenu();
+  const contextMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
+    (props) => <ContextMenu {...props} order={ordered} />,
+    [ordered],
+  );
 
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
@@ -189,7 +196,7 @@ const Internal = (): ReactElement => {
             <Tab key={key} tabKey={key} />
           ))}
         </Tabs.Selector>
-        <Button.Button variant="text" onClick={handleCreate}>
+        <Button.Button variant="text" textColor={9} onClick={handleCreate}>
           <Icon.Add />
           {selected == null && "New Panel"}
         </Button.Button>

@@ -101,6 +101,54 @@ describe("Panel.WINDOW_SYNCHRONIZERS", () => {
     });
   });
 
+  // The closed tab's row lives in the synchronizer: the client holds one version of
+  // the document, so the tree the tab sat in is gone once the change lands.
+  const closeTab = async (
+    store: TestStore,
+    panelKey: panel.Key,
+    tabKeys: panel.TabKey[],
+    closed: panel.TabKey,
+  ): Promise<void> => {
+    act(() => selectTab(store, panelKey, closed));
+    await act(async () => {
+      await createPanel(panelKey, leaf(...tabKeys));
+    });
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        closed,
+      ]);
+    });
+    await act(async () => {
+      await client.panels.dispatch(panelKey, panel.removeTab({ key: closed }));
+    });
+  };
+
+  // Four tabs, closing the second: the neighbor and the row's last tab are
+  // different tabs, so the assertion can tell the two rules apart.
+  it("selects the tab to the right of a closed tab", async () => {
+    const panelKey = uuid.create();
+    const tabs = Array.from({ length: 4 }, () => uuid.create());
+    const { store } = await mount();
+    await closeTab(store, panelKey, tabs, tabs[1]);
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        tabs[2],
+      ]);
+    });
+  });
+
+  it("selects the tab to the left when the closed tab was last", async () => {
+    const panelKey = uuid.create();
+    const tabs = [uuid.create(), uuid.create(), uuid.create()];
+    const { store } = await mount();
+    await closeTab(store, panelKey, tabs, tabs[2]);
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        tabs[1],
+      ]);
+    });
+  });
+
   it("reconciles from the cache when an already-cached panel is selected", async () => {
     const panelKey = uuid.create();
     const tab = uuid.create();
@@ -219,7 +267,7 @@ describe("reconcile panel order and selection", () => {
         violations.push(selected);
     });
     await act(async () => {
-      store.dispatch(Session.Panel.remove(pan.key));
+      store.dispatch(Session.Panel.remove({ keys: pan.key }));
       await client.panels.delete(pan.key);
       // The racing repair retrieve resolves after the delete; give every
       // in-flight repair a full round-trip to land before judging.

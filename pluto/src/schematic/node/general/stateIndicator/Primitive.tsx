@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
+import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -21,6 +22,8 @@ import { Text } from "@/text";
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   matchedOptionKey?: string | null;
+  /** Colors the label while the state channel is stale. */
+  staleColor?: color.Crude;
 }
 
 export const StateIndicator = ({
@@ -30,6 +33,7 @@ export const StateIndicator = ({
   options,
   color: colorVal,
   inlineSize,
+  staleColor,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
   // The matched state's color drives the chassis; the symbol color is the
@@ -61,7 +65,7 @@ export const StateIndicator = ({
         bottom={102}
       />
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text level="p" variant="code">
+        <Text.Text level="p" color={color.cssString(staleColor)} variant="code">
           {label}
         </Text.Text>
       </div>
