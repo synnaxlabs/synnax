@@ -30,7 +30,7 @@ describe("createChannel", () => {
         port: 0,
         name: "",
         type: "digital_input",
-        enabled: true,
+        disabled: false,
       });
     });
     it("should create a new DI channel with the next available line number", () => {
@@ -60,7 +60,7 @@ describe("createChannel", () => {
         cmdChannelName: "",
         stateChannelName: "",
         type: "digital_output",
-        enabled: true,
+        disabled: false,
       });
     });
 

@@ -39,7 +39,7 @@ const Properties = () => (
     <Task.Fields.SampleRate />
     <Flex.Box x grow>
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
+      <Task.Fields.DataSaving polarity="disabled" />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>
@@ -51,11 +51,11 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
-  const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
+  const { port, type, channel, disabled } = PForm.useFieldValue<AIChannel>(path);
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
-  const canTare = enabled && isRunning;
+  const canTare = !disabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
     <Task.Views.ListAndDetailsChannelItem
@@ -67,6 +67,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       hasTareButton={hasTareButton}
       channel={channel}
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
+      polarity="disabled"
       portMaxChars={2}
     />
   );
@@ -99,6 +100,7 @@ const Form: FC = () => {
       createChannel={createAIChannel}
       onTare={handleTare}
       allowTare={allowTare}
+      polarity="disabled"
       contextMenuItems={Task.readChannelContextMenuItem}
     />
   );
