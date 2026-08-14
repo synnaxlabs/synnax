@@ -32,8 +32,8 @@ type Cluster interface {
 	Nodes() node.Group
 	// Node returns the member Node with the given Key.
 	Node(id node.Key) (node.Node, error)
-	// Observable can be used to monitor changes to the cluster state. Be careful not to modify the
-	// contents of the returned State.
+	// Observable can be used to monitor changes to the cluster state. Be careful not to
+	// modify the contents of the returned State.
 	observe.Observable[cluster.Change]
 	// Reader allows reading the current state of the cluster.
 	storex.Reader[cluster.State]

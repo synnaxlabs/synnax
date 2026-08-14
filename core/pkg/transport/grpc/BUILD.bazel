@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
@@ -24,17 +33,17 @@ proto_library(
         "//arc/go/program:program_proto",
         "//arc/go/text:text_proto",
         "//core/pkg/api/channel:channel_proto",
-        "//core/pkg/api/ranger:ranger_proto",
-        "//core/pkg/distribution/ontology:ontology_proto",
         "//core/pkg/service/arc:arc_proto",
         "//core/pkg/service/device:device_proto",
+        "//core/pkg/service/ontology:ontology_proto",
         "//core/pkg/service/rack:rack_proto",
+        "//core/pkg/service/ranger:range_proto",
         "//core/pkg/service/ranger/kv:kv_proto",
+        "//core/pkg/service/status:status_proto",
         "//core/pkg/service/task:task_proto",
         "//core/pkg/service/view:view_proto",
         "//x/go/control:control_proto",
         "//x/go/errors:errors_proto",
-        "//x/go/status:status_proto",
         "//x/go/telem:telem_proto",
         "@protobuf//:empty_proto",
         "@protobuf//:struct_proto",
@@ -52,17 +61,17 @@ cpp_grpc_library(
         "//arc/go/program:program_grpc",
         "//arc/go/text:text_grpc",
         "//core/pkg/api/channel:channel_grpc",
-        "//core/pkg/api/ranger:ranger_grpc",
-        "//core/pkg/distribution/ontology:ontology_grpc",
         "//core/pkg/service/arc:arc_grpc",
         "//core/pkg/service/device:device_grpc",
+        "//core/pkg/service/ontology:ontology_grpc",
         "//core/pkg/service/rack:rack_grpc",
+        "//core/pkg/service/ranger:range_grpc",
         "//core/pkg/service/ranger/kv:kv_grpc",
+        "//core/pkg/service/status:status_grpc",
         "//core/pkg/service/task:task_grpc",
         "//core/pkg/service/view:view_grpc",
         "//x/go/control:control_grpc",
         "//x/go/errors:errors_grpc",
-        "//x/go/status:status_grpc",
         "//x/go/telem:telem_grpc",
     ],
 )

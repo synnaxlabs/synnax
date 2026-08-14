@@ -935,6 +935,9 @@ class DataType(str):
             if result is not None:
                 return result
 
+        if isinstance(value, (bool, np.bool_)):
+            return DataType.BOOL
+
         if isinstance(value, float):
             return DataType.FLOAT64
 
@@ -950,6 +953,9 @@ class DataType(str):
 
             if isinstance(value[0], TimeStamp):
                 return DataType.TIMESTAMP
+
+            if isinstance(value[0], (bool, np.bool_)):
+                return DataType.BOOL
 
             if isinstance(value[0], float):
                 return DataType.FLOAT64
@@ -1048,6 +1054,7 @@ class DataType(str):
     STRING: DataType
     JSON: DataType
     BYTES: DataType
+    BOOL: DataType
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, DTypeLike]
     _FROM_NUMPY: dict[DTypeLike, DataType]
@@ -1070,6 +1077,7 @@ DataType.UINT8 = DataType("uint8")
 DataType.JSON = DataType("json")
 DataType.STRING = DataType("string")
 DataType.BYTES = DataType("bytes")
+DataType.BOOL = DataType("bool")
 DataType.ALL = (
     DataType.UUID,
     DataType.FLOAT64,
@@ -1085,6 +1093,7 @@ DataType.ALL = (
     DataType.STRING,
     DataType.JSON,
     DataType.BYTES,
+    DataType.BOOL,
 )
 
 CrudeTimeStamp: TypeAlias = (
@@ -1112,6 +1121,7 @@ DataType._TO_NUMPY = {
     DataType.UINT32: np.dtype(np.uint32),
     DataType.UINT16: np.dtype(np.uint16),
     DataType.UINT8: np.dtype(np.uint8),
+    DataType.BOOL: np.dtype(np.bool_),
 }
 DataType._FROM_NUMPY = {
     np.dtype(np.float64): DataType.FLOAT64,
@@ -1124,7 +1134,7 @@ DataType._FROM_NUMPY = {
     np.dtype(np.uint32): DataType.UINT32,
     np.dtype(np.uint16): DataType.UINT16,
     np.dtype(np.uint8): DataType.UINT8,
-    np.dtype(np.bool_): DataType.UINT8,
+    np.dtype(np.bool_): DataType.BOOL,
     np.dtype(np.datetime64): DataType.TIMESTAMP,
     np.dtype(np.str_): DataType.STRING,
 }
@@ -1145,6 +1155,7 @@ DataType._DENSITIES = {
     DataType.STRING: Density.UNKNOWN,
     DataType.JSON: Density.UNKNOWN,
     DataType.BYTES: Density.UNKNOWN,
+    DataType.BOOL: Density.BIT8,
 }
 
 
@@ -1195,6 +1206,10 @@ class Alignment(int):
         :param sample_idx: Optional sample index if value is provided as domain index.
         :returns: A new Alignment.
         """
+        if isinstance(value, str):
+            # The Go server marshals the uint64 alignment as a JSON string to avoid
+            # float64 precision loss, so a packed value can arrive as a string.
+            value = int(value)
         if isinstance(value, Alignment):
             return value
         elif isinstance(value, tuple):
@@ -1280,7 +1295,7 @@ class Alignment(int):
         return f"Alignment({self.domain_index}, {self.sample_index})"
 
 
-CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment
+CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment | str
 
 
 def seconds_linspace(start: int, count: int) -> list[TimeSpan]:

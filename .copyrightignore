@@ -7,10 +7,17 @@
 **/nisyscfg_errors.h
 **/nisyscfg.h
 **/nidaqmx.h
-vendor/**
+vendor/open62541/open62541/**
+vendor/mbedtls/mbedtls/**
+vendor/wasmtime/wasmtime/**
+vendor/libmodbus/libmodbus/**
+vendor/soem/SOEM/**
 
 # IgH EtherCAT Master
 driver/ethercat/igh/ecrt.h
+
+# Generated lockfiles
+pnpm-lock.yaml
 
 # Test fixtures and third-party assets
 integration/tests/fixtures/test_symbol.svg

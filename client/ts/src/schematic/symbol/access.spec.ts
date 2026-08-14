@@ -9,12 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { symbol } from "@/schematic/symbol";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -41,8 +40,8 @@ describe("schematic_symbol", () => {
         parent: group.ontologyID(symbolGroup.key),
       });
       await expect(
-        userClient.schematics.symbols.retrieve({ key: randomSymbol.key }),
-      ).rejects.toThrow(AuthError);
+        userClient.schematics.symbols.retrieve(randomSymbol.key),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to retrieve symbols with the correct policy", async () => {
@@ -65,9 +64,7 @@ describe("schematic_symbol", () => {
         },
         parent: group.ontologyID(symbolGroup.key),
       });
-      const retrieved = await userClient.schematics.symbols.retrieve({
-        key: randomSymbol.key,
-      });
+      const retrieved = await userClient.schematics.symbols.retrieve(randomSymbol.key);
       expect(retrieved.key).toBe(randomSymbol.key);
       expect(retrieved.name).toBe(randomSymbol.name);
     });
@@ -75,8 +72,8 @@ describe("schematic_symbol", () => {
     it("should allow the caller to create symbols with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [symbol.ontologyID("")],
-        actions: ["create"],
+        objects: [symbol.ontologyID(""), group.ontologyID("")],
+        actions: ["create", "update"],
       });
       const symbolGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
@@ -115,7 +112,7 @@ describe("schematic_symbol", () => {
           },
           parent: group.ontologyID(symbolGroup.key),
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete symbols with the correct policy", async () => {
@@ -140,7 +137,7 @@ describe("schematic_symbol", () => {
       });
       await userClient.schematics.symbols.delete(randomSymbol.key);
       await expect(
-        userClient.schematics.symbols.retrieve({ key: randomSymbol.key }),
+        userClient.schematics.symbols.retrieve(randomSymbol.key),
       ).rejects.toThrow(NotFoundError);
     });
 
@@ -166,7 +163,7 @@ describe("schematic_symbol", () => {
       });
       await expect(
         userClient.schematics.symbols.delete(randomSymbol.key),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
   });
 });

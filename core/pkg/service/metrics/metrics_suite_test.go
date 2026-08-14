@@ -15,85 +15,68 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	builder    *mock.Cluster
 	dist       mock.Node
+	otg        *ontology.Ontology
+	searchIdx  *search.Index
+	groupSvc   *group.Service
 	framerSvc  *framer.Service
-	channelSvc *servicechannel.Service
+	channelSvc *channel.Service
 )
 
 func TestMetrics(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Metrics Suite")
+	RunSpecs(t, "Service Metrics Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder = DeferClose(mock.NewCluster())
-	dist = builder.Provision(ctx)
-	searchIdx := MustOpen(search.Open())
+	ShouldNotLeakGoroutines()
+	dist = mock.NewNode(ctx)
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
+	searchIdx = MustOpen(search.OpenIndex())
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      dist.Channel,
 		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		HostProvider: mock.StaticHostKeyProvider(1),
-		Status:       statusSvc,
+		HostProvider: dist.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
 		Search:       searchIdx,
-	}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		Search:   searchIdx,
-	}))
-	arcSvc := MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Task:     taskSvc,
-		Search:   searchIdx,
-	}))
-	channelSvc = MustOpen(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
-		DB:           dist.DB,
-		Distribution: dist.Channel,
 		Status:       statusSvc,
-		Arc:          arcSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  dist.Framer,
-		Channel: channelSvc,
-		Arc:     arcSvc,
-		Status:  statusSvc,
-		DB:      dist.DB,
+		Framer:       dist.Framer,
+		Channel:      channelSvc,
+		Status:       statusSvc,
+		HostProvider: dist.Cluster,
 	}))
 })

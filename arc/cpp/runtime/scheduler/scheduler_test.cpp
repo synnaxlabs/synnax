@@ -1183,4 +1183,439 @@ TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCy
     EXPECT_EQ(mocks["worker_b"]->next_called, 1);
 }
 
+// ----- Settle passes -----
+
+TEST_F(SchedulerTest, ReRunsAnAlreadyVisitedNodeWhenALaterNodeWritesBackToIt) {
+    auto &a = mock("A");
+    auto &b = mock("B");
+    // Each node marks only on its first run so the re-pass converges.
+    a.on_next = [&a](node::Context &ctx) {
+        if (a.next_called == 1) ctx.mark_changed(0);
+    };
+    b.on_next = [&b](node::Context &ctx) {
+        if (b.next_called == 1) ctx.mark_changed(0);
+    };
+    auto program = program_of(
+        {ir_node("A", {"output"}), ir_node("B", {"output"})},
+        {continuous_edge("A", "output", "B", "in"),
+         continuous_edge("B", "output", "A", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    // B's backward write lands on already-visited A, forcing a second pass
+    // within the same cycle.
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 2);
+    // B's pass-1 run consumed its flag; no fresh mark, no re-run.
+    EXPECT_EQ(b.next_called, 1);
+    // The re-pass does not leak into the next cycle.
+    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 3);
+    EXPECT_EQ(b.next_called, 1);
+}
+
+TEST_F(SchedulerTest, DoesNotRePassWhenAConditionalBackwardEdgeStaysFalsy) {
+    auto &a = mock("A");
+    auto &b = mock("B");
+    a.on_next = mark_on_next(0);
+    b.on_next = mark_on_next(0);
+    auto program = program_of(
+        {ir_node("A", {"output"}), ir_node("B", {"output"})},
+        {continuous_edge("A", "output", "B", "in"),
+         conditional_edge("B", "output", "A", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    // B marks its falsy output each run; the gated backward edge never lands
+    // the change, so each cycle stays a single pass.
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 1);
+    EXPECT_EQ(b.next_called, 1);
+    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 2);
+    EXPECT_EQ(b.next_called, 2);
+}
+
+TEST_F(SchedulerTest, DoesNotRePassWhenANodeMarksItselfThroughASelfLoop) {
+    auto &a = mock("A");
+    a.on_next = mark_on_next(0);
+    auto program = program_of(
+        {ir_node("A", {"output"})},
+        {continuous_edge("A", "output", "A", "in")},
+        root_scope({ir::node_member("A")})
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 1);
+    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 2);
+}
+
+TEST_F(SchedulerTest, BoundsSettlePassesForAMutuallyMarkingCycle) {
+    auto &a = mock("A");
+    auto &b = mock("B");
+    a.on_next = mark_on_next(0);
+    b.on_next = mark_on_next(0);
+    auto program = program_of(
+        {ir_node("A", {"output"}), ir_node("B", {"output"})},
+        {continuous_edge("A", "output", "B", "in"),
+         continuous_edge("B", "output", "A", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    // Every pass unsettles, so the cycle runs to the bound of node-count + 1
+    // passes and stops.
+    EXPECT_EQ(a.next_called, 3);
+    EXPECT_EQ(b.next_called, 3);
+}
+
+TEST_F(SchedulerTest, RunsTheNextSequentialStepOnTheSettlePassSoItObservesPriorWrites) {
+    std::vector<std::string> order;
+    auto &trigger = mock("trigger", {true});
+    auto &v = mock("V");
+    auto &first_node = mock("first_node", {true});
+    auto &second_node = mock("second_node");
+    trigger.on_next = [&order](node::Context &) { order.emplace_back("trigger"); };
+    v.on_next = [&order](node::Context &) { order.emplace_back("V"); };
+    first_node.on_next = [&order](node::Context &) { order.emplace_back("first"); };
+    second_node.on_next = [&order](node::Context &) { order.emplace_back("second"); };
+    auto first = parallel_scope("first", {stratum_of({ir::node_member("first_node")})});
+    auto second = parallel_scope(
+        "second",
+        {stratum_of({ir::node_member("second_node")})}
+    );
+    ir::Transition t;
+    t.on = ir::Handle{"first_node", "output"};
+    t.target_key = step_key_target("second");
+    auto main = sequential_scope(
+        "main",
+        {ir::scope_member(std::move(first)), ir::scope_member(std::move(second))},
+        {t}
+    );
+    main.activation = ir::Handle{"trigger", "output"};
+    auto program = program_of(
+        {ir_node("trigger", {"output"}),
+         ir_node("V"),
+         ir_node("first_node", {"output"}),
+         ir_node("second_node")},
+        // first_node writes back to V, which ran earlier in the pass.
+        {continuous_edge("first_node", "output", "V", "in")},
+        root_scope(
+            {ir::node_member("trigger"),
+             ir::node_member("V"),
+             ir::scope_member(std::move(main))}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    // The transition fires on pass 1, but second_node waits for the settle
+    // pass and runs after V has absorbed first_node's write.
+    EXPECT_EQ(
+        order,
+        (std::vector<std::string>{"trigger", "V", "first", "trigger", "V", "second"})
+    );
+    EXPECT_EQ(first_node.next_called, 1);
+    EXPECT_EQ(second_node.next_called, 1);
+}
+
+// ----- Change-flag consumption -----
+//
+// A node's pending-change flag is consumed when it runs; settle passes must
+// not re-dispatch side-effecting nodes without a fresh mark.
+
+/// @brief configures m to announce output 0 only on its first run.
+static void mark_once(MockNode &m) {
+    m.on_next = [&m](node::Context &ctx) {
+        if (m.next_called == 1) ctx.mark_changed(0);
+    };
+}
+
+TEST_F(SchedulerTest, DispatchesAMarkedNodeOnceDespiteAnUnrelatedRePass) {
+    auto &trigger = mock("trigger");
+    auto &worker = mock("worker");
+    auto &a = mock("A");
+    auto &b = mock("B");
+    mark_once(trigger);
+    mark_once(a);
+    mark_once(b);
+    auto program = program_of(
+        {ir_node("trigger", {"output"}),
+         ir_node("worker"),
+         ir_node("A", {"output"}),
+         ir_node("B", {"output"})},
+        {continuous_edge("trigger", "output", "worker", "in"),
+         continuous_edge("A", "output", "B", "in"),
+         continuous_edge("B", "output", "A", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("trigger"), ir::node_member("A")}),
+             stratum_of({ir::node_member("worker"), ir::node_member("B")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    // A's re-run proves a second pass happened.
+    EXPECT_EQ(a.next_called, 2);
+    EXPECT_EQ(worker.next_called, 1);
+}
+
+TEST_F(SchedulerTest, DispatchesChainNodesOncePerMarkAcrossSettlePasses) {
+    auto &a = mock("A");
+    auto &b = mock("B");
+    auto &c = mock("C");
+    mark_once(a);
+    mark_once(b);
+    mark_once(c);
+    auto program = program_of(
+        {ir_node("A", {"output"}), ir_node("B", {"output"}), ir_node("C", {"output"})},
+        {continuous_edge("A", "output", "B", "in"),
+         continuous_edge("B", "output", "C", "in"),
+         continuous_edge("C", "output", "A", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}),
+             stratum_of({ir::node_member("B")}),
+             stratum_of({ir::node_member("C")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 2);
+    EXPECT_EQ(b.next_called, 1);
+    EXPECT_EQ(c.next_called, 1);
+}
+
+TEST_F(SchedulerTest, FiresAStagesOneShotTriggeredNodeOncePerActivation) {
+    mock("trigger", {true});
+    auto &entry = mock("entry");
+    auto &creator = mock("creator");
+    auto &a = mock("A");
+    auto &b = mock("B");
+    mark_once(entry);
+    mark_once(a);
+    mark_once(b);
+    auto stage = parallel_scope(
+        "stage",
+        {stratum_of({ir::node_member("entry")}),
+         stratum_of({ir::node_member("creator")})}
+    );
+    auto main = sequential_scope("main", {ir::scope_member(std::move(stage))});
+    main.activation = ir::Handle{"trigger", "output"};
+    auto program = program_of(
+        {ir_node("trigger", {"output"}),
+         ir_node("entry", {"output"}),
+         ir_node("creator"),
+         ir_node("A", {"output"}),
+         ir_node("B", {"output"})},
+        {continuous_edge("entry", "output", "creator", "in"),
+         continuous_edge("A", "output", "B", "in"),
+         continuous_edge("B", "output", "A", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("trigger"), ir::node_member("A")}),
+             stratum_of({ir::node_member("B"), ir::scope_member(std::move(main))})}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    // The entry re-runs each pass but marks once; the creator must dispatch
+    // exactly once, like a range create in a stage.
+    EXPECT_EQ(entry.next_called, 2);
+    EXPECT_EQ(creator.next_called, 1);
+}
+
+TEST_F(SchedulerTest, ReDispatchesANodeMarkedAgainAfterItAlreadyRan) {
+    auto &a = mock("A");
+    auto &b = mock("B");
+    auto &c = mock("C");
+    mark_once(a);
+    mark_once(c);
+    auto program = program_of(
+        {ir_node("A", {"output"}), ir_node("B"), ir_node("C", {"output"})},
+        {continuous_edge("A", "output", "B", "in"),
+         continuous_edge("A", "output", "C", "in"),
+         continuous_edge("C", "output", "B", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}),
+             stratum_of({ir::node_member("B")}),
+             stratum_of({ir::node_member("C")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    // C's write marked B after B ran; the fresh mark re-dispatches it.
+    EXPECT_EQ(b.next_called, 2);
+    EXPECT_EQ(c.next_called, 1);
+}
+
+TEST_F(SchedulerTest, NeverDispatchesAnUnmarkedNodeAcrossSettlePasses) {
+    mock("quiet");
+    auto &silent = mock("silent");
+    auto &a = mock("A");
+    auto &b = mock("B");
+    mark_once(a);
+    mark_once(b);
+    auto program = program_of(
+        {ir_node("quiet", {"output"}),
+         ir_node("silent"),
+         ir_node("A", {"output"}),
+         ir_node("B", {"output"})},
+        {continuous_edge("quiet", "output", "silent", "in"),
+         continuous_edge("A", "output", "B", "in"),
+         continuous_edge("B", "output", "A", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("quiet"), ir::node_member("A")}),
+             stratum_of({ir::node_member("silent"), ir::node_member("B")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(a.next_called, 2);
+    EXPECT_EQ(silent.next_called, 0);
+}
+
+TEST_F(SchedulerTest, PreservesAMarkANodeSetsOnItselfWhileItRuns) {
+    auto &starter = mock("starter");
+    auto &looper = mock("looper");
+    auto &a = mock("A");
+    auto &b = mock("B");
+    mark_once(starter);
+    mark_once(looper);
+    mark_once(a);
+    mark_once(b);
+    auto program = program_of(
+        {ir_node("starter", {"output"}),
+         ir_node("looper", {"output"}),
+         ir_node("A", {"output"}),
+         ir_node("B", {"output"})},
+        {continuous_edge("starter", "output", "looper", "in"),
+         continuous_edge("looper", "output", "looper", "in"),
+         continuous_edge("A", "output", "B", "in"),
+         continuous_edge("B", "output", "A", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("starter"), ir::node_member("A")}),
+             stratum_of({ir::node_member("looper"), ir::node_member("B")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    // The self-mark lands after consumption, so the re-pass delivers it.
+    EXPECT_EQ(looper.next_called, 2);
+}
+
+TEST_F(SchedulerTest, DispatchesAgainOnAFreshMarkInTheNextCycle) {
+    auto &a = mock("A");
+    auto &worker = mock("worker");
+    a.on_next = mark_on_next(0);
+    auto program = program_of(
+        {ir_node("A", {"output"}), ir_node("worker")},
+        {continuous_edge("A", "output", "worker", "in")},
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}),
+             stratum_of({ir::node_member("worker")})}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(worker.next_called, 1);
+    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(worker.next_called, 2);
+}
+
+// ----- Sequential strata variable members -----
+
+TEST_F(SchedulerTest, ResetsASequentialScopesStrataMembersOnActivation) {
+    mock("trigger", {true});
+    auto &v = mock("V");
+    auto &stage_node = mock("M");
+    auto stage = parallel_scope("stage", {stratum_of({ir::node_member("M")})});
+    auto main = sequential_scope("main", {ir::scope_member(std::move(stage))});
+    main.strata.push_back(stratum_of({ir::node_member("V")}));
+    main.activation = ir::Handle{"trigger", "output"};
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), ir_node("V"), ir_node("M")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    const int base = v.reset_called;
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(v.reset_called, base + 1);
+    EXPECT_EQ(stage_node.reset_called, 1);
+}
+
+TEST_F(SchedulerTest, ClearsAPendingSelfChangeAndReResetsOnScopeReEntry) {
+    auto &trigger = mock("trigger", {true});
+    trigger.suppress_auto_mark = true;
+    // Activate main on cycles 1 and 3 only.
+    trigger.on_next = [&trigger](node::Context &ctx) {
+        if (trigger.next_called == 1 || trigger.next_called == 3) ctx.mark_changed(0);
+    };
+    auto &src = mock("src");
+    src.on_next = [&src](node::Context &ctx) {
+        if (src.next_called == 1) ctx.mark_changed(0);
+    };
+    auto &v = mock("V");
+    v.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
+    auto &stage_node = mock("A");
+    auto first = parallel_scope(
+        "first",
+        {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("V")})}
+    );
+    ir::Transition t;
+    t.on = ir::Handle{"A", "output"};
+    t.target_key = exit_target();
+    auto main = sequential_scope("main", {ir::scope_member(std::move(first))}, {t});
+    main.activation = ir::Handle{"trigger", "output"};
+    auto program = program_of(
+        {ir_node("trigger", {"output"}),
+         ir_node("src", {"output"}),
+         ir_node("V"),
+         ir_node("A", {"output"})},
+        {continuous_edge("src", "output", "V", "in")},
+        root_scope(
+            {ir::node_member("trigger"),
+             ir::node_member("src"),
+             ir::scope_member(std::move(main))}
+        )
+    );
+    const auto s = build(std::move(program));
+    const int base = v.reset_called;
+    // Cycle 1: activation resets V; V runs via the trigger edge and marks
+    // itself.
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(v.reset_called, base + 1);
+    EXPECT_EQ(v.next_called, 1);
+    // Cycle 2: V replays its self-change and re-marks; A exits main.
+    stage_node.set_truthy(0);
+    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(v.next_called, 2);
+    // Cycle 3: re-activation resets V again and clears the pending
+    // self-change, so V does not replay.
+    s->next(3 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(v.reset_called, base + 2);
+    EXPECT_EQ(v.next_called, 2);
+}
+
+TEST_F(SchedulerTest, IgnoresAStrataVariableMemberWithNoMatchingNode) {
+    mock("trigger", {true});
+    auto &m = mock("M");
+    auto stage = parallel_scope("stage", {stratum_of({ir::node_member("M")})});
+    auto main = sequential_scope("main", {ir::scope_member(std::move(stage))});
+    main.strata.push_back(stratum_of({ir::node_member("ghost")}));
+    main.activation = ir::Handle{"trigger", "output"};
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), ir_node("M")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    EXPECT_NO_THROW(s->next(x::telem::MICROSECOND, node::RunReason::TimerTick));
+    EXPECT_EQ(m.next_called, 1);
+}
+
 }

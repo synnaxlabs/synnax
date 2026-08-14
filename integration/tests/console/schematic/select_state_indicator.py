@@ -48,7 +48,7 @@ class SelectStateIndicator(ConsoleCase):
         ]
 
         self.log("Creating schematic")
-        schematic = console.workspace.create_schematic("select_state_indicator")
+        schematic = console.project.create_schematic("select_state_indicator")
         self._cleanup_pages.append(schematic.page_name)
 
         self.log("Creating Select symbol")

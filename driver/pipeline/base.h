@@ -12,6 +12,8 @@
 #include <string>
 #include <thread>
 
+#include "absl/log/log.h"
+
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/thread/thread.h"
 
@@ -30,6 +32,8 @@ class Base {
         } catch (const std::exception &e) {
             LOG(ERROR) << "[control] Unhandled standard exception: " << e.what();
         } catch (...) { LOG(ERROR) << "[control] Unhandled unknown exception"; }
+        // A breaker left running makes start() a permanent no-op.
+        this->breaker.stop();
     }
 
 protected:

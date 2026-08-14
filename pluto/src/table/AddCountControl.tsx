@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/table/AddCountControl.css";
+
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -20,7 +23,6 @@ export interface AddCountControlProps {
   className?: string;
 }
 
-const INPUT_STYLE: React.CSSProperties = { width: "7rem" };
 const COUNT_BOUNDS = { lower: 1, upper: 100 };
 
 export const AddCountControl = ({
@@ -37,7 +39,7 @@ export const AddCountControl = ({
         bounds={COUNT_BOUNDS}
         size="tiny"
         showDragHandle={false}
-        style={INPUT_STYLE}
+        className={CSS.B("table-add-count-input")}
       />
       <Button.Button
         size="tiny"

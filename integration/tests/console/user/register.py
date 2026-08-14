@@ -95,8 +95,8 @@ class UserRegister(ConsoleCase):
         self.console.access.logout()
         self.console.access.login(username=self.username, password=PASSWORD)
 
-        self.log("Testing: Engineer can create a workspace")
-        self.console.layout.command_palette("Create a workspace")
+        self.log("Testing: Engineer can create a project")
+        self.console.layout.command_palette("Create a project")
         self.console.layout.close_modal(self.console.layout.MODAL_SELECTOR)
 
         self.log("Logging back in as admin")

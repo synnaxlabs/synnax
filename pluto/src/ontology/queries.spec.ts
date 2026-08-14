@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, group, ontology } from "@synnaxlabs/client";
+import { DisconnectedError, group, ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Ontology } from "@/ontology";
+import { renderHookSuspended } from "@/testutil/render";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -261,7 +263,7 @@ describe("Ontology Queries", () => {
     });
   });
 
-  describe("useRetrieveChildren", () => {
+  describe("useChildren", () => {
     it("should retrieve children of a parent", async () => {
       const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
@@ -276,14 +278,14 @@ describe("Ontology Queries", () => {
         name: "child2",
       });
 
-      const { result } = renderHook(
-        () => Ontology.useRetrieveChildren({ id: group.ontologyID(parent.key) }),
+      const { result } = await renderHookSuspended(
+        () => Ontology.useChildren({ id: group.ontologyID(parent.key) }),
         { wrapper },
       );
 
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(2);
+        expect(result.current).not.toBeNull();
+        expect(result.current).toHaveLength(2);
       });
     });
 
@@ -293,28 +295,21 @@ describe("Ontology Queries", () => {
         name: "empty-parent",
       });
 
-      const { result } = renderHook(
-        () => Ontology.useRetrieveChildren({ id: group.ontologyID(parent.key) }),
+      const { result } = await renderHookSuspended(
+        () => Ontology.useChildren({ id: group.ontologyID(parent.key) }),
         { wrapper },
       );
 
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toEqual([]);
-      });
+      await waitFor(() => expect(result.current).toEqual([]));
     });
 
-    it("should return disabled state when no client connected", async () => {
+    it("should throw when no client is connected", () => {
       const noClientWrapper = createSynnaxWrapper({ client: null });
-
-      const { result } = renderHook(
-        () => Ontology.useRetrieveChildren({ id: ontology.ROOT_ID }),
-        { wrapper: noClientWrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("disabled");
-      });
+      expect(() =>
+        renderHook(() => Ontology.useChildren({ id: ontology.ROOT_ID }), {
+          wrapper: noClientWrapper,
+        }),
+      ).toThrow(DisconnectedError);
     });
 
     it("should re-fetch when query ID changes", async () => {
@@ -340,24 +335,19 @@ describe("Ontology Queries", () => {
         name: "p2-child2",
       });
 
-      const { result, rerender } = renderHook(
-        ({ id }) => Ontology.useRetrieveChildren({ id }),
+      const { result, rerender } = await renderHookSuspended(
+        ({ id }) => Ontology.useChildren({ id }),
         {
           wrapper,
           initialProps: { id: group.ontologyID(parent1.key) },
         },
       );
 
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toHaveLength(1);
-      });
+      await waitFor(() => expect(result.current).toHaveLength(1));
 
-      rerender({ id: group.ontologyID(parent2.key) });
+      await act(async () => rerender({ id: group.ontologyID(parent2.key) }));
 
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(2);
-      });
+      await waitFor(() => expect(result.current).toHaveLength(2));
     });
   });
 });

@@ -9,18 +9,24 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-schematic__empty {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+}
+
 .pluto-schematic {
     .react-flow__node.selected .pluto-symbol-primitive {
         /* make an inset box shadow to simulate a background */
         box-shadow: 0 0 0 1000px var(--pluto-primary-z-20) inset !important;
-
-        & .react-flow__resize-control {
-            display: block;
-        }
     }
 
     .react-flow__resize-control {
         display: none;
+    }
+
+    .react-flow__node.selected .react-flow__resize-control {
+        display: block;
     }
 
     .react-flow__handle {
@@ -69,10 +75,10 @@
         & .react-flow__handle {
             display: block !important;
             border-width: 2px !important;
-            min-width: 1.4rem !important;
-            min-height: 1.4rem !important;
-            width: 1.4rem !important;
-            height: 1.4rem !important;
+            min-width: 1.5rem !important;
+            min-height: 1.5rem !important;
+            width: 1.5rem !important;
+            height: 1.5rem !important;
             pointer-events: all !important;
             border-radius: 50%;
             z-index: 1;

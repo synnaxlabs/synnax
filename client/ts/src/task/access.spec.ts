@@ -9,11 +9,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { rack } from "@/rack";
 import { task } from "@/task";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -33,8 +32,8 @@ describe("task", () => {
         type: "ni",
         config: {},
       });
-      await expect(userClient.tasks.retrieve({ key: randomTask.key })).rejects.toThrow(
-        AuthError,
+      await expect(userClient.tasks.retrieve(randomTask.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -52,9 +51,7 @@ describe("task", () => {
         type: "ni",
         config: {},
       });
-      const retrieved = await userClient.tasks.retrieve({
-        key: randomTask.key,
-      });
+      const retrieved = await userClient.tasks.retrieve(randomTask.key);
       expect(retrieved.key).toBe(randomTask.key);
       expect(retrieved.name).toBe(randomTask.name);
     });
@@ -68,7 +65,7 @@ describe("task", () => {
       const rck = await client.racks.create({
         name: "test",
       });
-      const userRack = await userClient.racks.retrieve({ key: rck.key });
+      const userRack = await userClient.racks.retrieve(rck.key);
       await userRack.createTask({
         name: "test",
         type: "ni",
@@ -88,7 +85,7 @@ describe("task", () => {
           type: "ni",
           config: {},
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete tasks with the correct policy", async () => {
@@ -106,7 +103,7 @@ describe("task", () => {
         config: {},
       });
       await userClient.tasks.delete(randomTask.key);
-      await expect(userClient.tasks.retrieve({ key: randomTask.key })).rejects.toThrow(
+      await expect(userClient.tasks.retrieve(randomTask.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -125,7 +122,9 @@ describe("task", () => {
         type: "ni",
         config: {},
       });
-      await expect(userClient.tasks.delete(randomTask.key)).rejects.toThrow(AuthError);
+      await expect(userClient.tasks.delete(randomTask.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

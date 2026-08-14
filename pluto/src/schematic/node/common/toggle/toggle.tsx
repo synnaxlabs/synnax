@@ -71,7 +71,9 @@ export const createToggle = <C extends ToggleConfig>(
     nodeKey,
     onConfigChange,
     selected,
-    config: {
+    config,
+  }: NodeProps<ToggleConfig>): ReactElement => {
+    const {
       control,
       source,
       sink,
@@ -79,9 +81,9 @@ export const createToggle = <C extends ToggleConfig>(
       orientation = "left",
       onClickDelay,
       ...rest
-    },
-  }: NodeProps<ToggleConfig>): ReactElement => {
+    } = config;
     const { enabled, toggle } = Base.use({ aetherKey: nodeKey, source, sink });
+    const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid
         editable={selected}
@@ -89,6 +91,7 @@ export const createToggle = <C extends ToggleConfig>(
         orientation={orientation}
         onRotate={onConfigChange}
         {...overrides?.grid}
+        {...scaleResize}
       >
         <Label.Label config={label} onChange={onConfigChange} />
         <Control.State config={control} onChange={onConfigChange} />
@@ -121,24 +124,27 @@ export const createDummyToggle = <C extends DummyToggleConfig>(
     nodeKey,
     onConfigChange,
     selected,
-    config: {
+    config,
+  }: NodeProps<DummyToggleConfig>): ReactElement => {
+    const {
       label,
       orientation = "left",
       enabled = false,
       clickable = false,
       ...rest
-    },
-  }: NodeProps<DummyToggleConfig>): ReactElement => {
+    } = config;
     const handleToggleChange = () => {
       if (!clickable) return;
       onConfigChange({ enabled: !enabled });
     };
+    const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid
         editable={selected}
         nodeKey={nodeKey}
         orientation={orientation}
         onRotate={onConfigChange}
+        {...scaleResize}
       >
         <Label.Label config={label} onChange={onConfigChange} />
         <Sym

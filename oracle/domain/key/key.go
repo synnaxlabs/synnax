@@ -58,20 +58,6 @@ func HasKey(field resolution.Field) bool {
 	return hasKey
 }
 
-// HasGenerate checks if a field has @key generate annotation.
-func HasGenerate(field resolution.Field) bool {
-	domain, hasKey := field.Domains["key"]
-	if !hasKey {
-		return false
-	}
-	for _, expr := range domain.Expressions {
-		if expr.Name == "generate" {
-			return true
-		}
-	}
-	return false
-}
-
 // ResolvePrimitive extracts the underlying primitive from a TypeRef.
 func ResolvePrimitive(ref resolution.TypeRef, table *resolution.Table) string {
 	if ref.IsTypeParam() {

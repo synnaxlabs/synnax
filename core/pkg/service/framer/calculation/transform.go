@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -26,7 +25,9 @@ type transform struct {
 	calculators      calculator.Group
 }
 
-var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(nil)
+var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(
+	nil,
+)
 
 func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	opts = append(opts, confluence.DeferErr(g.calculators.Close))
@@ -49,10 +50,14 @@ func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !changed {
 					continue
 				}
-				if err := signal.SendUnderContext(ctx, g.Out.Inlet(), framer.WriterRequest{
-					Command: writer.CommandWrite,
-					Frame:   output.KeepKeys(writeTo),
-				}); err != nil {
+				if err := signal.SendUnderContext(
+					ctx,
+					g.Out.Inlet(),
+					framer.WriterRequest{
+						Command: framer.WriterCommandWrite,
+						Frame:   output.KeepKeys(writeTo),
+					},
+				); err != nil {
 					return err
 				}
 			}

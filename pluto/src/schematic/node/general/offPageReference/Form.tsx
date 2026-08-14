@@ -8,19 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { color, type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { color, type record, type text } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
+import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
+import { Status } from "@/status/base";
+import { Synnax } from "@/synnax";
 import { Theming } from "@/theming";
-import { Workspace } from "@/workspace";
 const CLICK_MODE_KEYS = ["single", "double"] as const;
 
 const ClickModeSelect = Component.renderProp(
@@ -64,10 +66,21 @@ const useHandlePageChange = (): ((v: string) => void) => {
 };
 
 export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {
-  const { data: siblings = [] } = Workspace.useRetrieveChildren({
-    resourceID: schematicKey != null ? schematic.ontologyID(schematicKey) : undefined,
-    types: ["schematic"],
-  });
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const [siblings, setSiblings] = useState<record.KeyedNamed[]>([]);
+  useEffect(() => {
+    setSiblings([]);
+    if (client == null || schematicKey == null) return;
+    handleError(async () => {
+      setSiblings(
+        await Project.retrieveChildren(client, {
+          resourceID: schematic.ontologyID(schematicKey),
+          types: ["schematic"],
+        }),
+      );
+    }, "Failed to retrieve schematic pages");
+  }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
   return (
     <Form.Wrapper x align="stretch">
@@ -88,7 +101,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
               onChange={handlePageChange}
               data={siblings}
               resourceName="schematic"
-              emptyContent="No other schematics in this workspace"
+              emptyContent="No other schematics in this project"
               allowNone
             />
           )}

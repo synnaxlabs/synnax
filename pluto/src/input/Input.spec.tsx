@@ -335,7 +335,7 @@ describe("Input", () => {
         const input = c.getByRole("textbox");
         fireEvent.change(input, { target: { value: "15" } });
         fireEvent.blur(input);
-        expect(onChange).toHaveBeenCalledWith(9);
+        expect(onChange).toHaveBeenCalledWith(10);
       });
 
       it("should clamp negative values to lower bound", () => {
@@ -417,9 +417,7 @@ describe("Input", () => {
       });
 
       it("should hide drag handle when variant is preview", () => {
-        const c = render(
-          <Input.Numeric value={0} onChange={vi.fn()} variant="preview" />,
-        );
+        const c = render(<Input.Numeric value={0} onChange={vi.fn()} preview />);
         const dragButton = c.container.querySelector(".pluto-input__drag-btn");
         expect(dragButton).not.toBeTruthy();
       });

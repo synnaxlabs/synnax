@@ -9,29 +9,37 @@
 
 #pragma once
 
-/// external
+#include <cstddef>
+#include <memory>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 #include "open62541/types.h"
 
-/// module
+#include "client/cpp/opc/json.gen.h"
+#include "client/cpp/synnax.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/strings/strings.h"
-
-/// internal
+#include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
+#include "driver/errors/errors.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
-#include "driver/pipeline/acquisition.h"
 
 namespace driver::opc {
 struct InputChan {
-    const bool enabled;
     /// @brief the OPC UA node id.
     types::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
@@ -41,14 +49,14 @@ struct InputChan {
     /// be provided via the JSON configuration.
     synnax::channel::Channel ch;
 
-    explicit InputChan(x::json::Parser &parser):
-        enabled(parser.field<bool>("enabled", true)),
-        node(types::NodeId::parse("node_id", parser)),
-        synnax_key(parser.field<synnax::channel::Key>("channel")) {}
+    InputChan(const ::synnax::opc::InputChannel &parsed, x::json::Parser &parser):
+        node(types::NodeId::parse("node_id", parser)), synnax_key(parsed.channel) {
+        if (this->synnax_key == 0)
+            parser.field_err("channel", "channel must be specified");
+    }
 
     // Move constructor - needed because NodeId is move-only
     InputChan(InputChan &&other) noexcept:
-        enabled(other.enabled),
         node(std::move(other.node)),
         synnax_key(other.synnax_key),
         ch(std::move(other.ch)) {}
@@ -72,7 +80,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief keys of the index channels for the input channels.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> index_keys;
-    /// @brief the list of channels to read from the server.
+    /// @brief the enabled channels to read from the server.
     std::vector<std::unique_ptr<InputChan>> channels;
     /// @brief the number of samples to read on each iteration.
     const size_t samples_per_chan;
@@ -106,9 +114,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         array_size(parser.field<std::size_t>("array_size", 1)),
         samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](x::json::Parser &cp) {
-            auto ch = InputChan(cp);
-            if (ch.enabled)
-                channels.push_back(std::make_unique<InputChan>(std::move(ch)));
+            const auto parsed = ::synnax::opc::InputChannel::parse(cp);
+            if (parsed.disabled) return;
+            channels.push_back(std::make_unique<InputChan>(parsed, cp));
         });
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
@@ -166,7 +174,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             channel_keys.push_back(idx);
         return {
             .channels = channel_keys,
-            .mode = common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(!this->data_saving_disabled),
         };
     }
 
@@ -183,10 +191,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 /// The builder borrows NodeIds from cfg, so cfg must outlive the builder.
 static types::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) {
     types::ReadRequestBuilder builder;
-    for (const auto &ch: cfg.channels) {
-        if (!ch->enabled) continue;
+    for (const auto &ch: cfg.channels)
         builder.add_node(ch->node, UA_ATTRIBUTEID_VALUE);
-    }
     return builder;
 }
 

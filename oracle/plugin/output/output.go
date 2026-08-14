@@ -24,11 +24,13 @@ func GetPath(typ resolution.Type, domainName string) string {
 	return ""
 }
 
-// IsOmitted checks if a type has the "omit" expression in its domain.
+// IsOmitted checks if a type generates no declaration in the domain: either
+// an "omit" expression (the type does not exist there) or a "hand" expression
+// (the type is hand-written at its output path).
 func IsOmitted(typ resolution.Type, domainName string) bool {
 	if domain, ok := typ.Domains[domainName]; ok {
 		for _, expr := range domain.Expressions {
-			if expr.Name == "omit" {
+			if expr.Name == "omit" || expr.Name == "hand" {
 				return true
 			}
 		}

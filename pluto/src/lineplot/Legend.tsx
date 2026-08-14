@@ -12,14 +12,24 @@ import { memo, type ReactElement, useMemo } from "react";
 
 import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
+import { type LineSpec, useContext, useGridEntry } from "@/lineplot/Frame";
 import { Text } from "@/text";
 import { Legend as Base } from "@/vis/legend";
-import { Entries, type EntryData } from "@/vis/legend/Entries";
+import { Entries, type EntriesProps, type EntryData } from "@/vis/legend/Entries";
 
-export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
+type LineHandlers = Pick<
+  EntriesProps,
+  "onColorChange" | "onLabelChange" | "onVisibleChange"
+>;
+
+export interface LegendProps extends Omit<
+  Base.SimpleProps,
+  "data" | "onColorChange" | "onLabelChange" | "onVisibleChange"
+> {
   variant?: "floating" | "fixed";
-  onLineChange?: (line: optional.Optional<LineSpec, "legendGroup">) => void;
+  onLineColorChange?: EntriesProps["onColorChange"];
+  onLineLabelChange?: EntriesProps["onLabelChange"];
+  onLineVisibleChange?: EntriesProps["onVisibleChange"];
 }
 
 export const Legend = ({ variant = "floating", ...rest }: LegendProps): ReactElement =>
@@ -27,16 +37,31 @@ export const Legend = ({ variant = "floating", ...rest }: LegendProps): ReactEle
 
 interface FloatingProps extends Omit<LegendProps, "variant"> {}
 
-const Floating = memo(({ onLineChange, ...rest }: FloatingProps): ReactElement => {
-  const { lines } = useContext("LinePlot.Legend");
-  const groups: Base.GroupData[] = useGroupData(lines);
-  if (groups.length === 1)
-    return <Base.Simple data={groups[0].data} onEntryChange={onLineChange} {...rest} />;
-  return <Base.Grouped data={groups} onEntryChange={onLineChange} {...rest} />;
-});
+const Floating = memo(
+  ({
+    onLineColorChange,
+    onLineLabelChange,
+    onLineVisibleChange,
+    ...rest
+  }: FloatingProps): ReactElement => {
+    const { lines } = useContext("LinePlot.Legend");
+    const groups: Base.GroupData[] = useGroupData(lines);
+    const handlers: LineHandlers = {
+      onColorChange: onLineColorChange,
+      onLabelChange: onLineLabelChange,
+      onVisibleChange: onLineVisibleChange,
+    };
+    if (groups.length === 1)
+      return <Base.Simple data={groups[0].data} {...handlers} {...rest} />;
+    return <Base.Grouped data={groups} {...handlers} {...rest} />;
+  },
+);
 Floating.displayName = "LinePlot.FloatingLegend";
 
-interface FixedProps extends Pick<LegendProps, "onLineChange"> {}
+interface FixedProps extends Pick<
+  LegendProps,
+  "onLineColorChange" | "onLineLabelChange" | "onLineVisibleChange"
+> {}
 
 const useGroupData = (lines: LineSpec[]): Base.GroupData[] => {
   const groups: Base.GroupData[] = useMemo(() => {
@@ -57,7 +82,11 @@ const useGroupData = (lines: LineSpec[]): Base.GroupData[] => {
   return groups;
 };
 
-const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
+const Fixed = ({
+  onLineColorChange,
+  onLineLabelChange,
+  onLineVisibleChange,
+}: FixedProps): ReactElement | null => {
   const { lines } = useContext("LinePlot.Legend");
   const groups: Base.GroupData[] = useGroupData(lines);
   const key = useUniqueKey();
@@ -65,35 +94,35 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
     { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
     "LinePlot.Legend",
   );
+  const handlers: LineHandlers = {
+    onColorChange: onLineColorChange,
+    onLabelChange: onLineLabelChange,
+    onVisibleChange: onLineVisibleChange,
+  };
   if (groups.length === 0) return null;
   if (groups.length === 1)
     return (
       <Flex.Box align="center" justify="start" x style={gridStyle}>
-        <Entries data={groups[0].data} onEntryChange={onLineChange} background={0} />
+        <Entries data={groups[0].data} {...handlers} background={0} />
       </Flex.Box>
     );
   return (
     <Flex.Box align="center" justify="start" x style={gridStyle} gap="huge">
-      <FocusedGroup name="Y1" data={groups[0].data} onLineChange={onLineChange} />
-      <FocusedGroup name="Y2" data={groups[1].data} onLineChange={onLineChange} />
+      <FocusedGroup name="Y1" data={groups[0].data} {...handlers} />
+      <FocusedGroup name="Y2" data={groups[1].data} {...handlers} />
     </Flex.Box>
   );
 };
 Fixed.displayName = "LinePlot.FixedLegend";
 
-interface FocusedGroupProps {
+interface FocusedGroupProps extends LineHandlers {
   name: string;
   data: optional.Optional<EntryData, "visible">[];
-  onLineChange?: (line: optional.Optional<LineSpec, "legendGroup">) => void;
 }
 
-const FocusedGroup = ({
-  name,
-  data,
-  onLineChange,
-}: FocusedGroupProps): ReactElement => (
+const FocusedGroup = ({ name, data, ...handlers }: FocusedGroupProps): ReactElement => (
   <Flex.Box x>
     <Text.Text level="small">{name}</Text.Text>
-    <Entries data={data} onEntryChange={onLineChange} background={0} />
+    <Entries data={data} {...handlers} background={0} />
   </Flex.Box>
 );

@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/set"
+	"go.lsp.dev/protocol"
 )
 
 const (
@@ -41,12 +41,12 @@ const (
 	SemanticTokenTypeEdgeConditional
 	SemanticTokenTypeEdgeContinuous
 	SemanticTokenTypeConstant
-	SemanticTokenTypeConfig
 	SemanticTokenTypeInput
 	SemanticTokenTypeOutput
 	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
+	SemanticTokenTypeChannelVariable
 )
 
 var semanticTokenTypes = []string{
@@ -67,15 +67,18 @@ var semanticTokenTypes = []string{
 	"edgeConditional",
 	"edgeContinuous",
 	"constant",
-	"config",
 	"input",
 	"output",
 	"namespace",
 	"stringRaw",
 	"stringPlaceholder",
+	"channelVariable",
 }
 
-func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
+func (s *Server) SemanticTokensFull(
+	ctx context.Context,
+	params *protocol.SemanticTokensParams,
+) (*protocol.SemanticTokens, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return &protocol.SemanticTokens{Data: []uint32{}}, nil
@@ -88,7 +91,8 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 	allTokens := tokenizeContent(content)
 	importIdents := importContextIdents(allTokens)
 	var tokens []lsp.Token
-	// Track prev/next token types so classifyToken can handle qualified names (e.g., control.set_authority).
+	// Track prev/next token types so classifyToken can handle qualified names (e.g.,
+	// control.set_authority).
 	for i, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
@@ -109,7 +113,15 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		if prevType == parser.ArcLexerDOT && i >= 2 {
 			qualifier = allTokens[i-2].GetText()
 		}
-		tokenType := classifyToken(ctx, t, prevType, nextType, importIdents.Contains(i), docIR, qualifier)
+		tokenType := classifyToken(
+			ctx,
+			t,
+			prevType,
+			nextType,
+			importIdents.Contains(i),
+			docIR,
+			qualifier,
+		)
 		if tokenType == nil {
 			continue
 		}
@@ -233,7 +245,11 @@ func isImportAlias(docIR ir.IR, name string) bool {
 // must be split into per-line entries to receive consistent coloring across the
 // whole span. For single-line tokens this collapses to one append, matching the
 // prior behavior.
-func appendTokenPerLine(tokens []lsp.Token, t antlr.Token, tokenType uint32) []lsp.Token {
+func appendTokenPerLine(
+	tokens []lsp.Token,
+	t antlr.Token,
+	tokenType uint32,
+) []lsp.Token {
 	return appendTextTokenPerLine(
 		tokens,
 		t.GetText(),
@@ -284,7 +300,17 @@ func classifyToken(
 	docIR ir.IR,
 	qualifier string,
 ) *uint32 {
-	return classifyTokenAt(ctx, t, prevTokenType, nextTokenType, inImport, docIR, t.GetLine(), t.GetColumn(), qualifier)
+	return classifyTokenAt(
+		ctx,
+		t,
+		prevTokenType,
+		nextTokenType,
+		inImport,
+		docIR,
+		t.GetLine(),
+		t.GetColumn(),
+		qualifier,
+	)
 }
 
 // Variant with explicit (line1, col0) for tokens lexed out of a sub-string.
@@ -302,7 +328,8 @@ func classifyTokenAt(
 	antlrType := t.GetTokenType()
 	// Identifiers (and AUTHORITY used as an importable name) inside an import
 	// statement are module references, not variables.
-	if inImport && (antlrType == parser.ArcLexerIDENTIFIER || antlrType == parser.ArcLexerAUTHORITY) {
+	if inImport &&
+		(antlrType == parser.ArcLexerIDENTIFIER || antlrType == parser.ArcLexerAUTHORITY) {
 		tokenType := uint32(SemanticTokenTypeNamespace)
 		return &tokenType
 	}
@@ -327,7 +354,10 @@ func classifyTokenAt(
 		if docIR.Symbols == nil || qualifier == "" {
 			return nil
 		}
-		scope := findScopeAtInternalPosition(docIR.Symbols, position{Line: line1, Col: col0})
+		scope := findScopeAtInternalPosition(
+			docIR.Symbols,
+			position{Line: line1, Col: col0},
+		)
 		mod, err := scope.Resolve(ctx, qualifier, symbol.WithoutUsageTracking)
 		if err != nil {
 			return nil
@@ -352,13 +382,29 @@ func classifyTokenAt(
 	return mapLexerTokenType(antlrType)
 }
 
-func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, rootScope *symbol.Symbol) *uint32 {
+func classifyIdentifierAt(
+	ctx context.Context,
+	name string,
+	line1, col0 int,
+	rootScope *symbol.Symbol,
+) *uint32 {
 	scope := findScopeAtInternalPosition(rootScope, position{Line: line1, Col: col0})
 	sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
 	if err != nil || sym == nil {
 		return nil
 	}
+	if t := classifyVarKind(sym); t != nil {
+		return t
+	}
 	return mapSymbolKind(sym.Kind)
+}
+
+func classifyVarKind(sym *symbol.Symbol) *uint32 {
+	if !sym.IsChannelReadWrite() && !sym.IsReactive() {
+		return nil
+	}
+	tokenType := uint32(SemanticTokenTypeChannelVariable)
+	return &tokenType
 }
 
 func mapSymbolKind(kind symbol.Kind) *uint32 {
@@ -368,12 +414,10 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindVariable:
 		tokenType = SemanticTokenTypeVariable
-	case symbol.KindConstant, symbol.KindGlobalConstant:
+	case symbol.KindConstant:
 		tokenType = SemanticTokenTypeConstant
 	case symbol.KindStatefulVariable:
 		tokenType = SemanticTokenTypeStatefulVariable
-	case symbol.KindConfig:
-		tokenType = SemanticTokenTypeConfig
 	case symbol.KindInput:
 		tokenType = SemanticTokenTypeInput
 	case symbol.KindOutput:
@@ -451,10 +495,22 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 		var out []lsp.Token
 		line, col := uint32(t.GetLine()-1), uint32(t.GetColumn())
 		if prefixLen > 0 {
-			out = appendTextTokenPerLine(out, text[:prefixLen], line, col, SemanticTokenTypeFunction)
+			out = appendTextTokenPerLine(
+				out,
+				text[:prefixLen],
+				line,
+				col,
+				SemanticTokenTypeFunction,
+			)
 			col += uint32(prefixLen)
 		}
-		out = appendTextTokenPerLine(out, text[prefixLen:], line, col, SemanticTokenTypeString)
+		out = appendTextTokenPerLine(
+			out,
+			text[prefixLen:],
+			line,
+			col,
+			SemanticTokenTypeString,
+		)
 		return out
 	}
 	if !ok || !flags.Format {
@@ -469,12 +525,15 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 	}
 	const delimLen = 1
 	bodyOff := prefixLen + delimLen
-	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}
+	cursor := protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	}
 	prevOff := 0
 	posOf := func(off int) (uint32, uint32) {
-		cursor = cursor.Advance(text[prevOff:], off-prevOff)
+		cursor = diagnostics.Advance(cursor, text[prevOff:], off-prevOff)
 		prevOff = off
-		return uint32(cursor.Line), uint32(cursor.Col)
+		return cursor.Line, cursor.Character
 	}
 	var tokens []lsp.Token
 	emit := func(a, b int, tt uint32) {
@@ -507,7 +566,17 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 			if relLine == 0 {
 				absCol = baseCol + relCol
 			}
-			tt := classifyTokenAt(ctx, it, prev, next, false, docIR, int(absLine)+1, int(absCol), qualifier)
+			tt := classifyTokenAt(
+				ctx,
+				it,
+				prev,
+				next,
+				false,
+				docIR,
+				int(absLine)+1,
+				int(absCol),
+				qualifier,
+			)
 			if tt == nil {
 				continue
 			}
@@ -528,7 +597,11 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 		}
 		emitInner(seg.Start+bodyOff+1, exprEnd+bodyOff)
 		if seg.SpecOffset >= 0 {
-			emit(seg.SpecOffset+bodyOff, seg.End-1+bodyOff, SemanticTokenTypeStringPlaceholder)
+			emit(
+				seg.SpecOffset+bodyOff,
+				seg.End-1+bodyOff,
+				SemanticTokenTypeStringPlaceholder,
+			)
 		}
 		emit(seg.End-1+bodyOff, seg.End+bodyOff, SemanticTokenTypeStringPlaceholder)
 	}

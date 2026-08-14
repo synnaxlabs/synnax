@@ -434,6 +434,7 @@ class TestDataType:
         [
             (sy.DataType.INT8, np.dtype(np.int8)),
             (sy.DataType.FLOAT32, np.dtype(np.float32)),
+            (sy.DataType.BOOL, np.dtype(np.bool_)),
         ],
     )
     def test_np(self, value: sy.DataType, expected: np.dtype[np.generic]) -> None:
@@ -446,6 +447,7 @@ class TestDataType:
             (sy.DataType.STRING, True),
             (sy.DataType.JSON, True),
             (sy.DataType.BYTES, True),
+            (sy.DataType.BOOL, False),
             (sy.DataType.UUID, False),
             (sy.DataType.TIMESTAMP, False),
             (sy.DataType.FLOAT64, False),
@@ -463,6 +465,10 @@ class TestDataType:
     def test_is_variable(self, data_type: sy.DataType, expected: bool) -> None:
         """is_variable should return True only for variable-length data types."""
         assert data_type.is_variable is expected
+
+    def test_bool_density(self) -> None:
+        """Should report BIT8 density for BOOL"""
+        assert sy.DataType.BOOL.density == sy.Density.BIT8
 
 
 @pytest.mark.telem
@@ -528,6 +534,16 @@ class TestAlignment:
         align2 = sy.Alignment(packed)
         assert align2.domain_index == 5
         assert align2.sample_index == 10
+
+    def test_construction_from_string(self) -> None:
+        """Should reconstruct a packed alignment delivered as a JSON string.
+
+        The Go server marshals the uint64 alignment as a JSON string to avoid
+        float64 precision loss; this is the exact value a streamed frame carries.
+        """
+        align = sy.Alignment(str((5 << 32) | 10))
+        assert align.domain_index == 5
+        assert align.sample_index == 10
 
     def test_construction_from_tuple(self) -> None:
         """Should construct alignment from a tuple"""
@@ -642,7 +658,7 @@ class TestAlignment:
 
         # Should also accept int
         packed_value = (5 << 32) | 10
-        model2 = TestModel(alignment=packed_value)  # type: ignore[arg-type]
+        model2 = TestModel(alignment=packed_value)
         assert model2.alignment.domain_index == 5
         assert model2.alignment.sample_index == 10
 
@@ -663,3 +679,32 @@ class TestSecondsLinspace:
 
     def test_empty(self) -> None:
         assert sy.seconds_linspace(0, 0) == []
+
+
+@pytest.mark.telem
+class TestStringEncodedInts:
+    """Regression coverage for the JSON wire format. The Go server marshals its
+    int64/uint64 telemetry primitives as JSON strings to avoid float64 precision
+    loss, so each must parse a decimal string back into its packed integer value.
+    """
+
+    @pytest.mark.parametrize("typ", [sy.TimeStamp, sy.TimeSpan, sy.Size, sy.Alignment])
+    def test_construction_from_string(self, typ: type) -> None:
+        """Should construct the primitive from a decimal string."""
+        assert typ("1234567890123") == typ(1234567890123)
+
+    @pytest.mark.parametrize("typ", [sy.TimeStamp, sy.TimeSpan, sy.Size, sy.Alignment])
+    def test_construction_from_large_string(self, typ: type) -> None:
+        """Should parse a value past the float64 safe-integer range without loss."""
+        big = (1 << 62) + 7
+        assert int(typ(str(big))) == big
+
+    @pytest.mark.parametrize("typ", [sy.TimeStamp, sy.TimeSpan, sy.Alignment])
+    def test_pydantic_validation_from_string(self, typ: type) -> None:
+        """Should validate a primitive delivered as a JSON string in a model field."""
+        from pydantic import create_model
+
+        model_cls = create_model("M", v=(typ, ...))
+        big = (1 << 62) + 7
+        validated = model_cls.model_validate({"v": str(big)})
+        assert int(getattr(validated, "v")) == big

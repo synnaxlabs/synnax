@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/lineplot/range/Provider.css";
+
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 
 import { Aether } from "@/aether";
 import { type RenderProp } from "@/component/renderProp";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useContext, useGridEntry } from "@/lineplot/LinePlot";
+import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
 import { Menu } from "@/menu";
 
@@ -74,14 +77,13 @@ export const Provider = ({
       }}
     >
       <Flex.Box
-        style={{
-          ...gridStyle,
-          cursor: hovered != null ? "pointer" : "default",
-          width: "100%",
-          height: "100%",
-        }}
+        style={gridStyle}
         onContextMenu={menuProps.open}
-        className={menuProps.className}
+        className={CSS(
+          CSS.B("lineplot-range-provider"),
+          hovered != null && CSS.M("hovered"),
+          menuProps.className,
+        )}
         onClick={() => {
           if (hovered != null) {
             setViewport({

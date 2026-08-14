@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { destructor, type record } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
 
-export interface UseCombinedDataArgs<
+export interface UseCombinedDataParams<
   K extends record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
@@ -26,7 +26,7 @@ export const useCombinedData = <
 >({
   first,
   second,
-}: UseCombinedDataArgs<K, E>): FrameProps<K, E> => {
+}: UseCombinedDataParams<K, E>): FrameProps<K, E> => {
   const data = useMemo(
     () => [...first.data, ...second.data],
     [first.data, second.data],
@@ -46,10 +46,7 @@ export const useCombinedData = <
     (callback: () => void, key: K) => {
       const firstUnsub = first.subscribe?.(callback, key);
       const secondUnsub = second.subscribe?.(callback, key);
-      return () => {
-        firstUnsub?.();
-        secondUnsub?.();
-      };
+      return () => destructor.unwind(firstUnsub, secondUnsub);
     },
     [first.subscribe, second.subscribe],
   );

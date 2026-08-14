@@ -38,7 +38,12 @@ var _ = Describe("DiscriminatedUnion", func() {
 				SampleRate float64
 			}
 			var dest ReadConfig
-			Expect(schema.Parse(map[string]any{"Type": "read", "SampleRate": 1000.0}, &dest)).To(Succeed())
+			Expect(
+				schema.Parse(
+					map[string]any{"Type": "read", "SampleRate": 1000.0},
+					&dest,
+				),
+			).To(Succeed())
 			Expect(dest.Type).To(Equal("read"))
 			Expect(dest.SampleRate).To(Equal(1000.0))
 		})
@@ -48,7 +53,12 @@ var _ = Describe("DiscriminatedUnion", func() {
 				Endpoint string
 			}
 			var dest WriteConfig
-			Expect(schema.Parse(map[string]any{"Type": "write", "Endpoint": "opc.tcp://localhost"}, &dest)).To(Succeed())
+			Expect(
+				schema.Parse(
+					map[string]any{"Type": "write", "Endpoint": "opc.tcp://localhost"},
+					&dest,
+				),
+			).To(Succeed())
 			Expect(dest.Type).To(Equal("write"))
 			Expect(dest.Endpoint).To(Equal("opc.tcp://localhost"))
 		})
@@ -58,7 +68,12 @@ var _ = Describe("DiscriminatedUnion", func() {
 				SampleRate float64
 			}
 			var dest ReadConfig
-			Expect(schema.Parse(map[string]any{"type": "read", "sample_rate": 1000.0}, &dest)).To(Succeed())
+			Expect(
+				schema.Parse(
+					map[string]any{"type": "read", "sample_rate": 1000.0},
+					&dest,
+				),
+			).To(Succeed())
 			Expect(dest.Type).To(Equal("read"))
 			Expect(dest.SampleRate).To(Equal(1000.0))
 		})
@@ -68,14 +83,21 @@ var _ = Describe("DiscriminatedUnion", func() {
 				SampleRate float64
 			}
 			var dest ReadConfig
-			Expect(schema.Parse(map[string]any{"type": "read", "sampleRate": 1000.0}, &dest)).To(Succeed())
+			Expect(
+				schema.Parse(
+					map[string]any{"type": "read", "sampleRate": 1000.0},
+					&dest,
+				),
+			).To(Succeed())
 			Expect(dest.Type).To(Equal("read"))
 			Expect(dest.SampleRate).To(Equal(1000.0))
 		})
 	})
 	Describe("Validate", func() {
 		It("Should succeed for a valid variant", func() {
-			Expect(schema.Validate(map[string]any{"Type": "read", "SampleRate": 42.0})).To(Succeed())
+			Expect(
+				schema.Validate(map[string]any{"Type": "read", "SampleRate": 42.0}),
+			).To(Succeed())
 		})
 		It("Should fail for an unknown discriminator value", func() {
 			Expect(schema.Validate(map[string]any{"Type": "delete"})).
@@ -128,7 +150,12 @@ var _ = Describe("DiscriminatedUnion", func() {
 				SampleRate float64
 			}
 			var dest Cfg
-			Expect(schema.Parse(map[string]any{"Type": "read", "SampleRate": "bad"}, &dest)).
+			Expect(
+				schema.Parse(
+					map[string]any{"Type": "read", "SampleRate": "bad"},
+					&dest,
+				),
+			).
 				To(HaveOccurred())
 		})
 	})
@@ -150,7 +177,9 @@ var _ = Describe("DiscriminatedUnion", func() {
 				Type       string
 				SampleRate float64
 			}
-			result := MustSucceed(schema.Dump(ReadConfig{Type: "read", SampleRate: 1000}))
+			result := MustSucceed(
+				schema.Dump(ReadConfig{Type: "read", SampleRate: 1000}),
+			)
 			Expect(result).To(Equal(map[string]any{
 				"type":        "read",
 				"sample_rate": 1000.0,
@@ -161,14 +190,20 @@ var _ = Describe("DiscriminatedUnion", func() {
 				Type     string
 				Endpoint string
 			}
-			result := MustSucceed(schema.Dump(WriteConfig{Type: "write", Endpoint: "opc.tcp://localhost"}))
+			result := MustSucceed(
+				schema.Dump(
+					WriteConfig{Type: "write", Endpoint: "opc.tcp://localhost"},
+				),
+			)
 			Expect(result).To(Equal(map[string]any{
 				"type":     "write",
 				"endpoint": "opc.tcp://localhost",
 			}))
 		})
 		Specify("map input", func() {
-			result := MustSucceed(schema.Dump(map[string]any{"type": "read", "sample_rate": 1000.0}))
+			result := MustSucceed(
+				schema.Dump(map[string]any{"type": "read", "sample_rate": 1000.0}),
+			)
 			Expect(result).To(Equal(map[string]any{
 				"type":        "read",
 				"sample_rate": 1000.0,
@@ -232,7 +267,12 @@ var _ = Describe("DiscriminatedUnion", func() {
 				SampleRate float64
 			}
 			var dest ReadConfig
-			Expect(schema.Parse(map[string]any{"type": "read", "sample_rate": 1000.0}, &dest)).To(Succeed())
+			Expect(
+				schema.Parse(
+					map[string]any{"type": "read", "sample_rate": 1000.0},
+					&dest,
+				),
+			).To(Succeed())
 			result := MustSucceed(schema.Dump(dest))
 			Expect(result).To(Equal(map[string]any{
 				"type":        "read",
@@ -267,17 +307,20 @@ var _ = Describe("DiscriminatedUnion", func() {
 			)
 			Expect(s.Validate(map[string]any{"taskType": "a", "X": 1.0})).To(Succeed())
 		})
-		It("Should match discriminator via raw data key when neither pascal nor snake match", func() {
-			s := zyn.DiscriminatedUnion("TYPE",
-				zyn.Object(map[string]zyn.Schema{
-					"TYPE": zyn.Literal("a"),
-				}),
-				zyn.Object(map[string]zyn.Schema{
-					"TYPE": zyn.Literal("b"),
-				}),
-			)
-			Expect(s.Validate(map[string]any{"TYPE": "a"})).To(Succeed())
-		})
+		It(
+			"Should match discriminator via raw data key when neither pascal nor snake match",
+			func() {
+				s := zyn.DiscriminatedUnion("TYPE",
+					zyn.Object(map[string]zyn.Schema{
+						"TYPE": zyn.Literal("a"),
+					}),
+					zyn.Object(map[string]zyn.Schema{
+						"TYPE": zyn.Literal("b"),
+					}),
+				)
+				Expect(s.Validate(map[string]any{"TYPE": "a"})).To(Succeed())
+			},
+		)
 		It("Should resolve findFieldSchema via snake_case fallback", func() {
 			Expect(func() {
 				zyn.DiscriminatedUnion("type",
@@ -332,7 +375,12 @@ var _ = Describe("DiscriminatedUnion", func() {
 				Rate     float64
 			}
 			var dest ReadTask
-			Expect(snakeSchema.Parse(map[string]any{"task_type": "read", "rate": 500.0}, &dest)).To(Succeed())
+			Expect(
+				snakeSchema.Parse(
+					map[string]any{"task_type": "read", "rate": 500.0},
+					&dest,
+				),
+			).To(Succeed())
 			Expect(dest.TaskType).To(Equal("read"))
 			Expect(dest.Rate).To(Equal(500.0))
 		})
@@ -354,14 +402,21 @@ var _ = Describe("DiscriminatedUnion", func() {
 				Rate     float64
 			}
 			var dest ReadTask
-			Expect(camelSchema.Parse(map[string]any{"taskType": "read", "rate": 500.0}, &dest)).To(Succeed())
+			Expect(
+				camelSchema.Parse(
+					map[string]any{"taskType": "read", "rate": 500.0},
+					&dest,
+				),
+			).To(Succeed())
 			Expect(dest.TaskType).To(Equal("read"))
 			Expect(dest.Rate).To(Equal(500.0))
 		})
 	})
 	Describe("Camel Case Dump", func() {
 		It("Should dump from camelCase map input", func() {
-			result := MustSucceed(schema.Dump(map[string]any{"type": "read", "sampleRate": 1000.0}))
+			result := MustSucceed(
+				schema.Dump(map[string]any{"type": "read", "sampleRate": 1000.0}),
+			)
 			Expect(result).To(Equal(map[string]any{
 				"type":        "read",
 				"sample_rate": 1000.0,
@@ -439,14 +494,17 @@ var _ = Describe("DiscriminatedUnion", func() {
 				)
 			}).To(Panic())
 		})
-		It("Should panic when discriminator field is an Enum with multiple values", func() {
-			Expect(func() {
-				zyn.DiscriminatedUnion("type",
-					zyn.Object(map[string]zyn.Schema{"type": zyn.Enum("a", "b")}),
-					zyn.Object(map[string]zyn.Schema{"type": zyn.Literal("c")}),
-				)
-			}).To(Panic())
-		})
+		It(
+			"Should panic when discriminator field is an Enum with multiple values",
+			func() {
+				Expect(func() {
+					zyn.DiscriminatedUnion("type",
+						zyn.Object(map[string]zyn.Schema{"type": zyn.Enum("a", "b")}),
+						zyn.Object(map[string]zyn.Schema{"type": zyn.Literal("c")}),
+					)
+				}).To(Panic())
+			},
+		)
 		It("Should panic on duplicate discriminator values", func() {
 			Expect(func() {
 				zyn.DiscriminatedUnion("type",

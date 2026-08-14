@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -24,12 +25,16 @@ var (
 	kvDB kv.DB
 	db   *gorp.DB
 )
+
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	kvDB = memkv.New()
-	db = DeferClose(gorp.Wrap(kvDB))
+	db = DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
 })
 
 func TestGorp(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Gorp Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -19,13 +19,13 @@ class MosaicOperations(ConsoleCase):
     def setup(self) -> None:
         super().setup()
         self.shared_page_name = "Shared Layout Plot"
-        self.console.workspace.create_page("Line Plot", self.shared_page_name)
+        self.console.project.create_page("Line Plot", self.shared_page_name)
         self._cleanup_pages.append(self.shared_page_name)
 
     def run(self) -> None:
         """Run all mosaic operation tests."""
         # Tests using shared page (non-destructive)
-        self.test_toggle_color_theme()
+        self.test_change_color_theme()
         self.test_find_tab()
         self.test_focus_via_context_menu()
         self.test_focus_via_cmd_l()
@@ -49,7 +49,7 @@ class MosaicOperations(ConsoleCase):
 
         # Create a page
         original_name = "Original Tab Name"
-        console.workspace.create_page("Line Plot", original_name)
+        console.project.create_page("Line Plot", original_name)
         self._cleanup_pages.append(original_name)
 
         # Rename the tab
@@ -63,7 +63,7 @@ class MosaicOperations(ConsoleCase):
         assert new_tab.is_visible(), f"Tab '{new_name}' should be visible after rename"
 
         # Clean up
-        console.workspace.close_page(new_name)
+        console.project.close_page(new_name)
 
     def _split_and_drag(self, direction: str) -> None:
         """Split a leaf, drag a tab to the new pane, and verify positioning.
@@ -76,9 +76,9 @@ class MosaicOperations(ConsoleCase):
         first_name = "Left Plot" if horizontal else "Top Plot"
         second_name = "Right Plot" if horizontal else "Bottom Plot"
 
-        console.workspace.create_page("Line Plot", first_name)
+        console.project.create_page("Line Plot", first_name)
         self._cleanup_pages.append(first_name)
-        console.workspace.create_page("Line Plot", second_name)
+        console.project.create_page("Line Plot", second_name)
         self._cleanup_pages.append(second_name)
 
         if horizontal:
@@ -127,8 +127,8 @@ class MosaicOperations(ConsoleCase):
                 f"below {first_name} ({first_box['y']})"
             )
 
-        console.workspace.close_page(second_name)
-        console.workspace.close_page(first_name)
+        console.project.close_page(second_name)
+        console.project.close_page(first_name)
 
     def test_split_horizontal(self) -> None:
         """Should split a leaf horizontally via context menu."""
@@ -180,20 +180,35 @@ class MosaicOperations(ConsoleCase):
         )
         return classes
 
-    def test_toggle_color_theme(self) -> None:
-        """Should toggle the color theme via the command palette."""
-        self.log("test_toggle_color_theme: Toggling color theme")
+    def test_change_color_theme(self) -> None:
+        """Should change the color theme via the command palette picker."""
+        self.log("test_change_color_theme: Changing color theme")
         console = self.console
 
         original_theme = self._get_theme_class()
         assert original_theme, "Should have an active pluto theme class"
 
-        console.layout.command_palette("Toggle color theme")
+        is_dark = "dark" in original_theme
+        target_option = "Light" if is_dark else "Dark"
+        target_theme = (
+            "pluto-theme-synnax-light" if is_dark else "pluto-theme-synnax-dark"
+        )
+
+        console.layout.command_palette("Change color theme")
+        option = (
+            console.layout.page.locator(".console-theme-modal .pluto-list__item")
+            .filter(has_text=target_option)
+            .first
+        )
+        option.wait_for(state="visible", timeout=5000)
+        option.click(timeout=5000)
+
         console.layout.page.wait_for_function(
-            f"!document.documentElement.classList.contains('{original_theme}')",
+            f"document.documentElement.classList.contains('{target_theme}')",
             timeout=5000,
         )
         new_theme = self._get_theme_class()
-        assert new_theme != original_theme, (
-            f"Theme should change. Before: '{original_theme}', After: '{new_theme}'"
+        assert new_theme == target_theme, (
+            f"Theme should change to '{target_theme}'. "
+            f"Before: '{original_theme}', After: '{new_theme}'"
         )

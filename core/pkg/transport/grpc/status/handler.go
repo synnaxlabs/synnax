@@ -18,11 +18,11 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	xpb "github.com/synnaxlabs/x/pb"
-	xstatus "github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -61,13 +61,27 @@ type (
 )
 
 var (
-	_ grpc.Translator[status.SetRequest, *SetRequest]                         = (*setRequestTranslator)(nil)
-	_ grpc.Translator[status.SetResponse, *SetResponse]                       = (*setResponseTranslator)(nil)
-	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest]               = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse]             = (*retrieveResponseTranslator)(nil)
-	_ grpc.Translator[status.DeleteRequest, *DeleteRequest]                   = (*deleteRequestTranslator)(nil)
-	_ grpc.Translator[status.SetByKeyOrNameRequest, *SetByKeyOrNameRequest]   = (*setByKeyOrNameRequestTranslator)(nil)
-	_ grpc.Translator[status.SetByKeyOrNameResponse, *SetByKeyOrNameResponse] = (*setByKeyOrNameResponseTranslator)(nil)
+	_ grpc.Translator[status.SetRequest, *SetRequest] = (*setRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.SetResponse, *SetResponse] = (*setResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.SetByKeyOrNameRequest, *SetByKeyOrNameRequest] = (*setByKeyOrNameRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.SetByKeyOrNameResponse, *SetByKeyOrNameResponse] = (*setByKeyOrNameResponseTranslator)(
+		nil,
+	)
 )
 
 func (setRequestTranslator) Forward(
@@ -129,7 +143,7 @@ func (retrieveRequestTranslator) Forward(
 	hasLabels := lo.Map(msg.HasLabels, func(k label.Key, _ int) string {
 		return k.String()
 	})
-	variants := lo.Map(msg.Variants, func(v xstatus.Variant, _ int) string {
+	variants := lo.Map(msg.Variants, func(v svcstatus.Variant, _ int) string {
 		return string(v)
 	})
 	return &RetrieveRequest{
@@ -147,14 +161,17 @@ func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
 ) (status.RetrieveRequest, error) {
-	hasLabelKeys, err := lo.MapErr(msg.HasLabels, func(k string, _ int) (label.Key, error) {
-		return uuid.Parse(k)
-	})
+	hasLabelKeys, err := lo.MapErr(
+		msg.HasLabels,
+		func(k string, _ int) (label.Key, error) {
+			return uuid.Parse(k)
+		},
+	)
 	if err != nil {
 		return status.RetrieveRequest{}, err
 	}
-	variants := lo.Map(msg.Variants, func(v string, _ int) xstatus.Variant {
-		return xstatus.Variant(v)
+	variants := lo.Map(msg.Variants, func(v string, _ int) svcstatus.Variant {
+		return svcstatus.Variant(v)
 	})
 	return status.RetrieveRequest{
 		Keys:          msg.Keys,
@@ -221,7 +238,7 @@ func (setByKeyOrNameRequestTranslator) Backward(
 	return status.SetByKeyOrNameRequest{
 		KeyOrName: msg.KeyOrName,
 		Message:   msg.Message,
-		Variant:   xstatus.Variant(msg.Variant),
+		Variant:   svcstatus.Variant(msg.Variant),
 	}, nil
 }
 
@@ -229,14 +246,20 @@ func (setByKeyOrNameResponseTranslator) Forward(
 	_ context.Context,
 	msg status.SetByKeyOrNameResponse,
 ) (*SetByKeyOrNameResponse, error) {
-	return &SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
+	return &SetByKeyOrNameResponse{
+		Key:             msg.Key,
+		MultipleMatches: msg.MultipleMatches,
+	}, nil
 }
 
 func (setByKeyOrNameResponseTranslator) Backward(
 	_ context.Context,
 	msg *SetByKeyOrNameResponse,
 ) (status.SetByKeyOrNameResponse, error) {
-	return status.SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
+	return status.SetByKeyOrNameResponse{
+		Key:             msg.Key,
+		MultipleMatches: msg.MultipleMatches,
+	}, nil
 }
 
 func New(t *api.Transport) grpc.BindableTransport {

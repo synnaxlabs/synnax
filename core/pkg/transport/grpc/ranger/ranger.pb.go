@@ -16,7 +16,7 @@
 package ranger
 
 import (
-	pb "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -312,25 +312,80 @@ func (x *RenameRequest) GetName() string {
 	return ""
 }
 
+type SetEndRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	End           int64                  `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetEndRequest) Reset() {
+	*x = SetEndRequest{}
+	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetEndRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetEndRequest) ProtoMessage() {}
+
+func (x *SetEndRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetEndRequest.ProtoReflect.Descriptor instead.
+func (*SetEndRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SetEndRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *SetEndRequest) GetEnd() int64 {
+	if x != nil {
+		return x.End
+	}
+	return 0
+}
+
 var File_core_pkg_transport_grpc_ranger_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/ranger/ranger.proto\x12\vgrpc.ranger\x1a#core/pkg/api/ranger/pb/ranger.proto\x1a\x1bgoogle/protobuf/empty.proto\"#\n" +
+	"+core/pkg/transport/grpc/ranger/ranger.proto\x12\vgrpc.ranger\x1a'core/pkg/service/ranger/pb/ranger.proto\x1a\x1bgoogle/protobuf/empty.proto\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\"=\n" +
-	"\rCreateRequest\x12,\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x14.api.ranger.pb.RangeR\x06ranges\">\n" +
-	"\x0eCreateResponse\x12,\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x14.api.ranger.pb.RangeR\x06ranges\";\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"A\n" +
+	"\rCreateRequest\x120\n" +
+	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\"B\n" +
+	"\x0eCreateResponse\x120\n" +
+	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\";\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\"@\n" +
-	"\x10RetrieveResponse\x12,\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x14.api.ranger.pb.RangeR\x06ranges\"5\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\"D\n" +
+	"\x10RetrieveResponse\x120\n" +
+	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\"5\n" +
 	"\rRenameRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name2W\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"3\n" +
+	"\rSetEndRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x10\n" +
+	"\x03end\x18\x02 \x01(\x03R\x03end2W\n" +
 	"\x12RangeCreateService\x12A\n" +
 	"\x04Exec\x12\x1a.grpc.ranger.CreateRequest\x1a\x1b.grpc.ranger.CreateResponse\"\x002]\n" +
 	"\x14RangeRetrieveService\x12E\n" +
@@ -338,7 +393,9 @@ const file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc = "" +
 	"\x12RangeDeleteService\x12<\n" +
 	"\x04Exec\x12\x1a.grpc.ranger.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002R\n" +
 	"\x12RangeRenameService\x12<\n" +
-	"\x04Exec\x12\x1a.grpc.ranger.RenameRequest\x1a\x16.google.protobuf.Empty\"\x00B\xa3\x01\n" +
+	"\x04Exec\x12\x1a.grpc.ranger.RenameRequest\x1a\x16.google.protobuf.Empty\"\x002R\n" +
+	"\x12RangeSetEndService\x12<\n" +
+	"\x04Exec\x12\x1a.grpc.ranger.SetEndRequest\x1a\x16.google.protobuf.Empty\"\x00B\xa3\x01\n" +
 	"\x0fcom.grpc.rangerB\vRangerProtoP\x01Z6github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger\xa2\x02\x03GRX\xaa\x02\vGrpc.Ranger\xca\x02\vGrpc\\Ranger\xe2\x02\x17Grpc\\Ranger\\GPBMetadata\xea\x02\fGrpc::Rangerb\x06proto3"
 
 var (
@@ -353,7 +410,7 @@ func file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_core_pkg_transport_grpc_ranger_ranger_proto_goTypes = []any{
 	(*DeleteRequest)(nil),    // 0: grpc.ranger.DeleteRequest
 	(*CreateRequest)(nil),    // 1: grpc.ranger.CreateRequest
@@ -361,23 +418,26 @@ var file_core_pkg_transport_grpc_ranger_ranger_proto_goTypes = []any{
 	(*RetrieveRequest)(nil),  // 3: grpc.ranger.RetrieveRequest
 	(*RetrieveResponse)(nil), // 4: grpc.ranger.RetrieveResponse
 	(*RenameRequest)(nil),    // 5: grpc.ranger.RenameRequest
-	(*pb.Range)(nil),         // 6: api.ranger.pb.Range
-	(*emptypb.Empty)(nil),    // 7: google.protobuf.Empty
+	(*SetEndRequest)(nil),    // 6: grpc.ranger.SetEndRequest
+	(*pb.Range)(nil),         // 7: service.ranger.pb.Range
+	(*emptypb.Empty)(nil),    // 8: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_ranger_ranger_proto_depIdxs = []int32{
-	6, // 0: grpc.ranger.CreateRequest.ranges:type_name -> api.ranger.pb.Range
-	6, // 1: grpc.ranger.CreateResponse.ranges:type_name -> api.ranger.pb.Range
-	6, // 2: grpc.ranger.RetrieveResponse.ranges:type_name -> api.ranger.pb.Range
+	7, // 0: grpc.ranger.CreateRequest.ranges:type_name -> service.ranger.pb.Range
+	7, // 1: grpc.ranger.CreateResponse.ranges:type_name -> service.ranger.pb.Range
+	7, // 2: grpc.ranger.RetrieveResponse.ranges:type_name -> service.ranger.pb.Range
 	1, // 3: grpc.ranger.RangeCreateService.Exec:input_type -> grpc.ranger.CreateRequest
 	3, // 4: grpc.ranger.RangeRetrieveService.Exec:input_type -> grpc.ranger.RetrieveRequest
 	0, // 5: grpc.ranger.RangeDeleteService.Exec:input_type -> grpc.ranger.DeleteRequest
 	5, // 6: grpc.ranger.RangeRenameService.Exec:input_type -> grpc.ranger.RenameRequest
-	2, // 7: grpc.ranger.RangeCreateService.Exec:output_type -> grpc.ranger.CreateResponse
-	4, // 8: grpc.ranger.RangeRetrieveService.Exec:output_type -> grpc.ranger.RetrieveResponse
-	7, // 9: grpc.ranger.RangeDeleteService.Exec:output_type -> google.protobuf.Empty
-	7, // 10: grpc.ranger.RangeRenameService.Exec:output_type -> google.protobuf.Empty
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
+	6, // 7: grpc.ranger.RangeSetEndService.Exec:input_type -> grpc.ranger.SetEndRequest
+	2, // 8: grpc.ranger.RangeCreateService.Exec:output_type -> grpc.ranger.CreateResponse
+	4, // 9: grpc.ranger.RangeRetrieveService.Exec:output_type -> grpc.ranger.RetrieveResponse
+	8, // 10: grpc.ranger.RangeDeleteService.Exec:output_type -> google.protobuf.Empty
+	8, // 11: grpc.ranger.RangeRenameService.Exec:output_type -> google.protobuf.Empty
+	8, // 12: grpc.ranger.RangeSetEndService.Exec:output_type -> google.protobuf.Empty
+	8, // [8:13] is the sub-list for method output_type
+	3, // [3:8] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
 	3, // [3:3] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
@@ -394,9 +454,9 @@ func file_core_pkg_transport_grpc_ranger_ranger_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc), len(file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
-			NumServices:   4,
+			NumServices:   5,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_ranger_ranger_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_ranger_ranger_proto_depIdxs,

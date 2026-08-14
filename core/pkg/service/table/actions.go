@@ -50,6 +50,11 @@ func expandTemplate(template Cell, count int) []Cell {
 	return cells
 }
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Table) (Table, error) {
+	return p.Table, nil
+}
+
 // Handle replaces the table's name.
 func (p RenamePayload) Handle(state Table) (Table, error) {
 	state.Name = p.Name
@@ -119,7 +124,11 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		state.Rows = slices.Repeat([]Row{{Size: baseRowDim}}, len(cells))
 	}
 	idx := min(int(p.Index), len(state.Columns))
-	state.Columns = slices.Insert(state.Columns, idx, Column{Size: max(p.Size, minCellDim)})
+	state.Columns = slices.Insert(
+		state.Columns,
+		idx,
+		Column{Size: max(p.Size, minCellDim)},
+	)
 	if state.Cells == nil {
 		state.Cells = make(map[string]Cell, len(cells))
 	}
@@ -227,15 +236,13 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 		}
 	}
 	slices.Sort(fullColIdx)
-	for i := len(fullRowIdx) - 1; i >= 0; i-- {
-		idx := fullRowIdx[i]
+	for _, idx := range slices.Backward(fullRowIdx) {
 		for _, k := range state.Rows[idx].Cells {
 			delete(state.Cells, k)
 		}
 		state.Rows = slices.Delete(state.Rows, idx, idx+1)
 	}
-	for i := len(fullColIdx) - 1; i >= 0; i-- {
-		idx := fullColIdx[i]
+	for _, idx := range slices.Backward(fullColIdx) {
 		state.Columns = slices.Delete(state.Columns, idx, idx+1)
 		for r := range state.Rows {
 			if idx >= len(state.Rows[r].Cells) {
@@ -249,7 +256,11 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 		if _, ok := state.Cells[k]; !ok {
 			continue
 		}
-		state.Cells[k] = Cell{Key: k, Variant: p.Template.Variant, Props: p.Template.Props}
+		state.Cells[k] = Cell{
+			Key:     k,
+			Variant: p.Template.Variant,
+			Props:   p.Template.Props,
+		}
 	}
 	return state, nil
 }

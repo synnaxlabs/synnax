@@ -20,7 +20,7 @@ import (
 
 type Message struct {
 	Message string `json:"message" msgpack:"message"`
-	ID      int    `json:"id" msgpack:"id"`
+	ID      int    `json:"id"      msgpack:"id"`
 }
 
 type (

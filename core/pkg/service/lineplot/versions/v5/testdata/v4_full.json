@@ -1,0 +1,144 @@
+{
+  "version": "4.0.0",
+  "key": "00000000-0000-0000-0000-000000000003",
+  "remoteCreated": true,
+  "title": { "level": "h3", "visible": true },
+  "legend": {
+    "visible": true,
+    "position": {
+      "x": 10,
+      "y": 20,
+      "units": { "x": "px", "y": "px" },
+      "root": { "x": "right", "y": "bottom" }
+    }
+  },
+  "channels": {
+    "x1": 100,
+    "x2": 101,
+    "y1": [200, 201, 202],
+    "y2": [300],
+    "y3": [],
+    "y4": []
+  },
+  "ranges": {
+    "x1": [
+      "00000000-0000-0000-0000-00000000000a",
+      "00000000-0000-0000-0000-00000000000b"
+    ],
+    "x2": ["00000000-0000-0000-0000-00000000000c"]
+  },
+  "axes": {
+    "renderTrigger": 5,
+    "hasHadChannelSet": true,
+    "axes": {
+      "x1": {
+        "key": "x1",
+        "label": "time",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 1000 },
+        "autoBounds": { "lower": false, "upper": true },
+        "tickSpacing": 80,
+        "type": "time"
+      },
+      "x2": {
+        "key": "x2",
+        "label": "elapsed",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75,
+        "type": "linear"
+      },
+      "y1": {
+        "key": "y1",
+        "label": "pressure",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 50 },
+        "autoBounds": { "lower": false, "upper": false },
+        "tickSpacing": 60
+      },
+      "y2": {
+        "key": "y2",
+        "label": "flow",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 25 },
+        "autoBounds": { "lower": false, "upper": true },
+        "tickSpacing": 75
+      },
+      "y3": {
+        "key": "y3",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y4": {
+        "key": "y4",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      }
+    }
+  },
+  "lines": [
+    {
+      "key": "y1-ra-200",
+      "label": "P main",
+      "color": "#ff0000",
+      "strokeWidth": 2,
+      "downsample": 1,
+      "downsampleMode": "decimate"
+    },
+    {
+      "key": "y1-ra-201",
+      "color": "#00aa00",
+      "strokeWidth": 2,
+      "downsample": 1,
+      "downsampleMode": "decimate"
+    },
+    {
+      "key": "y2-ra-300",
+      "color": "#0000ff",
+      "strokeWidth": 1,
+      "downsample": 4,
+      "downsampleMode": "average"
+    }
+  ],
+  "rules": [
+    {
+      "key": "rule-1",
+      "label": "ceiling",
+      "color": "#888888",
+      "axis": "y1",
+      "lineWidth": 1,
+      "lineDash": 4,
+      "units": "psi",
+      "position": 45
+    },
+    {
+      "selected": true,
+      "key": "rule-2",
+      "label": "floor",
+      "color": "#aaaaaa",
+      "axis": "y1",
+      "lineWidth": 1,
+      "lineDash": 2,
+      "units": "psi",
+      "position": 5
+    }
+  ],
+  "mode": "zoom",
+  "control": { "hold": false, "clickMode": null, "enableTooltip": true },
+  "toolbar": { "activeTab": "data" },
+  "measure": { "mode": "two" },
+  "annotations": { "visible": true }
+}

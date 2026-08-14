@@ -24,29 +24,32 @@ import (
 
 var _ = Describe("Observable", func() {
 	Describe("ObservableTransformPublisher", func() {
-		It("Should forward transformed values from an observable to the outlet", func() {
-			obs := observe.New[int]()
-			outlet := NewStream[int](10)
-			pub := &ObservableTransformPublisher[int, int]{
-				Observable: obs,
-				Transform: func(_ context.Context, v int) (int, bool, error) {
-					return v * 2, true, nil
-				},
-			}
-			pub.OutTo(outlet)
-			ctx, cancel := signal.Isolated()
-			defer cancel()
-			pub.Flow(ctx)
+		It(
+			"Should forward transformed values from an observable to the outlet",
+			func() {
+				obs := observe.New[int]()
+				outlet := NewStream[int](10)
+				pub := &ObservableTransformPublisher[int, int]{
+					Observable: obs,
+					Transform: func(_ context.Context, v int) (int, bool, error) {
+						return v * 2, true, nil
+					},
+				}
+				pub.OutTo(outlet)
+				ctx, cancel := signal.Isolated()
+				defer cancel()
+				pub.Flow(ctx)
 
-			obs.Notify(context.Background(), 5)
-			Eventually(outlet.Outlet()).Should(Receive(Equal(10)))
+				obs.Notify(context.Background(), 5)
+				Eventually(outlet.Outlet()).Should(Receive(Equal(10)))
 
-			obs.Notify(context.Background(), 3)
-			Eventually(outlet.Outlet()).Should(Receive(Equal(6)))
+				obs.Notify(context.Background(), 3)
+				Eventually(outlet.Outlet()).Should(Receive(Equal(6)))
 
-			cancel()
-			Expect(ctx.Wait()).To(MatchError(context.Canceled))
-		})
+				cancel()
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
+			},
+		)
 
 		It("Should not forward values when transform returns false", func() {
 			obs := observe.New[int]()
@@ -91,33 +94,39 @@ var _ = Describe("Observable", func() {
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
 
-		It("Should not deadlock when publisher shuts down with a full outlet buffer", func() {
-			obsCtx, obsCancel := signal.Isolated()
-			defer obsCancel()
-			obs := observe.NewAsync[int](obsCtx, signal.WithRetryOnPanic(100))
+		It(
+			"Should not deadlock when publisher shuts down with a full outlet buffer",
+			func() {
+				obsCtx, obsCancel := signal.Isolated()
+				defer obsCancel()
+				obs := observe.NewAsync[int](obsCtx, signal.WithRetryOnPanic(100))
 
-			outlet := NewStream[int](1)
-			pub := &ObservableTransformPublisher[int, int]{
-				Observable: obs,
-				Transform: func(_ context.Context, v int) (int, bool, error) {
-					return v, true, nil
-				},
-			}
-			pub.OutTo(outlet)
+				outlet := NewStream[int](1)
+				pub := &ObservableTransformPublisher[int, int]{
+					Observable: obs,
+					Transform: func(_ context.Context, v int) (int, bool, error) {
+						return v, true, nil
+					},
+				}
+				pub.OutTo(outlet)
 
-			pubCtx, pubCancel := signal.Isolated()
-			pub.Flow(pubCtx, CloseOutputInletsOnExit())
+				pubCtx, pubCancel := signal.Isolated()
+				pub.Flow(pubCtx, CloseOutputInletsOnExit())
 
-			obs.Notify(context.Background(), 1)
-			Eventually(outlet.Outlet()).Should(Receive(Equal(1)))
+				obs.Notify(context.Background(), 1)
+				Eventually(outlet.Outlet()).Should(Receive(Equal(1)))
 
-			obs.Notify(context.Background(), 2)
-			time.Sleep(50 * time.Millisecond)
-			obs.Notify(context.Background(), 3)
+				obs.Notify(context.Background(), 2)
+				time.Sleep(50 * time.Millisecond)
+				obs.Notify(context.Background(), 3)
 
-			pubCancel()
-			Eventually(pubCtx.Wait, 2*time.Second).Should(MatchError(context.Canceled))
-		})
+				pubCancel()
+				Eventually(
+					pubCtx.Wait,
+					2*time.Second,
+				).Should(MatchError(context.Canceled))
+			},
+		)
 
 		It("Should not leak goroutines when used with an async observer", func() {
 			sCtx, cancel := signal.Isolated()

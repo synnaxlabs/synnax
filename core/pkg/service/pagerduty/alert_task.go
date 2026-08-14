@@ -23,8 +23,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
-	xstatus "github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -95,6 +93,8 @@ type alertTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        AlertTaskConfig
+	// status is the authority on this instance's current status.
+	status     *driver.StatusHandler
 	disconnect observe.Disconnect
 	// alertsByStatus maps status keys to their AlertConfig for O(1) lookup.
 	alertsByStatus map[string]AlertConfig
@@ -102,19 +102,22 @@ type alertTask struct {
 
 var _ driver.Task = (*alertTask)(nil)
 
+// Exec implements driver.Task. Every command it handles ends in a status carrying
+// the command key, so a caller waiting on the command always resolves.
 func (t *alertTask) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
-		return t.start(ctx)
+		return t.start(ctx, cmd.Key)
 	case "stop":
-		return t.stop(ctx)
+		return t.stop(ctx, cmd.Key, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
 }
 
-func (t *alertTask) start(ctx context.Context) error {
+func (t *alertTask) start(ctx context.Context, cmdKey string) error {
 	if t.disconnect != nil {
+		t.ackCurrent(ctx, cmdKey, true)
 		return nil
 	}
 	t.alertsByStatus = make(map[string]AlertConfig, len(t.cfg.Alerts))
@@ -124,19 +127,51 @@ func (t *alertTask) start(ctx context.Context) error {
 		}
 	}
 	t.disconnect = t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
-	t.updateStatus(ctx, xstatus.VariantSuccess, true, "Task started successfully")
+	t.updateStatus(
+		ctx,
+		cmdKey,
+		status.VariantSuccess,
+		true,
+		"Task started successfully",
+	)
 	return nil
 }
 
-func (t *alertTask) Stop() error { return t.stop(context.TODO()) }
+func (t *alertTask) Stop(sendStatus bool) error {
+	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
+}
 
-func (t *alertTask) stop(ctx context.Context) error {
-	if t.disconnect != nil {
-		t.disconnect()
-		t.disconnect = nil
+func (t *alertTask) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
+	if t.disconnect == nil {
+		if sendStatus {
+			t.ackCurrent(ctx, cmdKey, false)
+		}
+		return nil
 	}
-	t.updateStatus(ctx, xstatus.VariantSuccess, false, "Task stopped successfully")
+	t.disconnect()
+	t.disconnect = nil
+	if sendStatus {
+		t.updateStatus(
+			ctx,
+			cmdKey,
+			status.VariantSuccess,
+			false,
+			"Task stopped successfully",
+		)
+	}
 	return nil
+}
+
+// ackCurrent answers cmdKey with the task's current status, for a command that
+// needs no work.
+func (t *alertTask) ackCurrent(ctx context.Context, cmdKey string, running bool) {
+	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
+		t.factoryCfg.L.Error("failed to acknowledge command",
+			zap.Stringer("task", t.task),
+			zap.String("cmd", cmdKey),
+			zap.Error(err),
+		)
+	}
 }
 
 func (t *alertTask) handleStatusChange(
@@ -153,10 +188,10 @@ func (t *alertTask) handleStatusChange(
 		}
 		s := ch.Value
 		switch s.Variant {
-		case xstatus.VariantError, xstatus.VariantWarning, xstatus.VariantInfo:
+		case status.VariantError, status.VariantWarning, status.VariantInfo:
 			event := t.buildTriggerEvent(s, alertCfg)
 			t.sendEvent(ctx, event)
-		case xstatus.VariantSuccess:
+		case status.VariantSuccess:
 			event := t.buildResolveEvent(s.Key)
 			t.sendEvent(ctx, event)
 		default:
@@ -199,16 +234,16 @@ func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
 	}
 }
 
-func mapSeverity(variant xstatus.Variant, treatErrorAsCritical bool) string {
+func mapSeverity(variant status.Variant, treatErrorAsCritical bool) string {
 	switch variant {
-	case xstatus.VariantError:
+	case status.VariantError:
 		if treatErrorAsCritical {
 			return "critical"
 		}
 		return "error"
-	case xstatus.VariantWarning:
+	case status.VariantWarning:
 		return "warning"
-	case xstatus.VariantInfo:
+	case status.VariantInfo:
 		return "info"
 	default:
 		return "info"
@@ -224,7 +259,7 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 			zap.Any("event", event),
 			zap.Error(err),
 		)
-		t.updateStatus(ctx, xstatus.VariantError, true,
+		t.updateStatus(ctx, driver.NoCommand, status.VariantError, true,
 			fmt.Sprintf("Failed to send PagerDuty event: %s", err.Error()))
 		return
 	}
@@ -238,20 +273,12 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 
 func (t *alertTask) updateStatus(
 	ctx context.Context,
-	variant xstatus.Variant,
+	cmdKey string,
+	variant status.Variant,
 	running bool,
 	message string,
 ) {
-	stat := task.Status{
-		Key:     task.OntologyID(t.task.Key).String(),
-		Name:    t.task.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.task.Key, Running: running},
-	}
-	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).
-		Set(ctx, &stat); err != nil {
+	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
 		t.factoryCfg.L.Error("failed to set task status", zap.Error(err))
 	}
 }

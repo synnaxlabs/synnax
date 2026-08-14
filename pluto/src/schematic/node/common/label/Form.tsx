@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction, type text } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import "@/schematic/node/common/form/form.css";
 
+import { type direction, type text } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
 import { Direction } from "@/direction";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { type Input } from "@/input";
 import { Select } from "@/select";
-
-const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
 
@@ -36,7 +37,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
     />
     <Base.NumericField
       visible={!omit.includes("maxInlineSize")}
-      style={MAX_INLINE_SIZE_STYLE}
+      className={CSS.BE("label-form", "wrap-width")}
       path={`${path}.maxInlineSize`}
       hideIfNull
       label="Label wrap width"

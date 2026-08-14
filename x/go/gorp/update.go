@@ -56,10 +56,16 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 		return err
 	}
 	if len(u.changes) == 0 {
-		return errors.Wrap(query.ErrInvalidParameters, "[gorp] - update query must specify at least one change function")
+		return errors.Wrap(
+			query.ErrInvalidParameters,
+			"[gorp] - update query must specify at least one change function",
+		)
 	}
 	for i, e := range entries {
-		if entries[i], err = u.changes.exec(Context{Context: ctx, Tx: tx}, e); err != nil {
+		if entries[i], err = u.changes.exec(
+			Context{Context: ctx, Tx: tx},
+			e,
+		); err != nil {
 			return err
 		}
 	}
@@ -73,8 +79,8 @@ type changes[K Key, E Entry[K]] []ChangeFunc[K, E]
 func (c changes[K, E]) exec(ctx Context, entry E) (o E, err error) {
 	for _, change := range c {
 		if o, err = change(ctx, entry); err != nil {
-			return
+			return o, err
 		}
 	}
-	return
+	return o, err
 }

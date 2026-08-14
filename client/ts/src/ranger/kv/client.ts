@@ -11,21 +11,25 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type query } from "@/query";
+import { createPairKey } from "@/ranger/kv/payload";
 import { type Pair, pairZ } from "@/ranger/kv/types.gen";
 import { type Key, keyZ } from "@/ranger/types.gen";
 
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
-const getResZ = z.object({ pairs: array.nullishToEmpty(pairZ) });
+const getResZ = z.object({ pairs: pairZ.array().default(() => []) });
 const setReqZ = z.object({ range: keyZ, pairs: pairZ.array() });
 const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 
 export class Client {
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
+  private readonly pairs: query.Table<string, Pair>;
 
-  constructor(rng: Key, client: UnaryClient) {
+  constructor(rng: Key, client: UnaryClient, pairs: query.Table<string, Pair>) {
     this.rangeKey = rng;
     this.client = client;
+    this.pairs = pairs;
   }
 
   async get(key: string): Promise<string>;
@@ -63,14 +67,19 @@ export class Client {
       setReqZ,
       z.unknown(),
     );
+    // Pair.key is the bare key; the table is keyed by createPairKey, so
+    // keyed-object set would mis-key entries.
+    pairs.forEach((p) => this.pairs.set(createPairKey(p), p));
   }
 
   async delete(key: string | string[]): Promise<void> {
+    const keys = array.toArray(key);
     await this.client.send(
       "/range/kv/delete",
-      { range: this.rangeKey, keys: array.toArray(key) },
+      { range: this.rangeKey, keys },
       deleteReqZ,
       z.unknown(),
     );
+    this.pairs.delete(keys.map((k) => createPairKey({ range: this.rangeKey, key: k })));
   }
 }

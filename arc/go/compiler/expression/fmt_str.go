@@ -61,16 +61,33 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 	if t.Kind == types.KindString {
 		if seg.Spec != "" {
 			emitSpecBytes(ctx, seg.Spec)
-			return ctx.Resolver.EmitStringFormat(ctx.Context, ctx.Writer, ctx.WriterID, ctx.Scope)
+			return ctx.Resolver.EmitStringFormat(
+				ctx.Context,
+				ctx.Writer,
+				ctx.WriterID,
+				ctx.Scope,
+			)
 		}
 		return nil
 	}
 	if t.IsNumeric() {
 		if seg.Spec != "" {
 			emitSpecBytes(ctx, seg.Spec)
-			return ctx.Resolver.EmitNumericFormat(ctx.Context, ctx.Writer, ctx.WriterID, ctx.Scope, t)
+			return ctx.Resolver.EmitNumericFormat(
+				ctx.Context,
+				ctx.Writer,
+				ctx.WriterID,
+				ctx.Scope,
+				t,
+			)
 		}
-		return ctx.Resolver.EmitNumericToString(ctx.Context, ctx.Writer, ctx.WriterID, ctx.Scope, t)
+		return ctx.Resolver.EmitNumericToString(
+			ctx.Context,
+			ctx.Writer,
+			ctx.WriterID,
+			ctx.Scope,
+			t,
+		)
 	}
 	return errors.Newf(
 		"placeholder %q has type %s; only numeric and string types are supported",

@@ -31,13 +31,21 @@ func fixture() string {
 	DeferCleanup(func() {
 		Expect(os.RemoveAll(root)).To(Succeed())
 	})
-	Expect(os.MkdirAll(filepath.Join(root, "x"), 0755)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(root, "buf.yaml"), []byte("version: v2\n"), 0644)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(root, "buf.gen.yaml"), []byte("version: v2\n"), 0644)).To(Succeed())
+	Expect(os.MkdirAll(filepath.Join(root, "x"), 0o755)).To(Succeed())
+	Expect(
+		os.WriteFile(filepath.Join(root, "buf.yaml"), []byte("version: v2\n"), 0o644),
+	).To(Succeed())
+	Expect(
+		os.WriteFile(
+			filepath.Join(root, "buf.gen.yaml"),
+			[]byte("version: v2\n"),
+			0o644,
+		),
+	).To(Succeed())
 	Expect(os.WriteFile(
 		filepath.Join(root, "x", "a.proto"),
 		[]byte(`syntax = "proto3";`+"\n"+`package x;`+"\n"),
-		0644,
+		0o644,
 	)).To(Succeed())
 	return root
 }
@@ -49,16 +57,23 @@ var _ = Describe("RunBufGenerate", func() {
 		}
 	})
 
-	It("Should be a cache hit on the second run when nothing changed", func(ctx SpecContext) {
-		root := fixture()
-		cache := format.LoadCache(root)
+	It(
+		"Should be a cache hit on the second run when nothing changed",
+		func(ctx SpecContext) {
+			root := fixture()
+			cache := format.LoadCache(root)
 
-		first := MustSucceed(codegen.RunBufGenerate(ctx, root, nil, cache))
-		Expect(first.Cached).To(BeFalse(), "first run cannot be cached: no prior stamp")
+			first := MustSucceed(codegen.RunBufGenerate(ctx, root, nil, cache))
+			Expect(
+				first.Cached,
+			).To(BeFalse(), "first run cannot be cached: no prior stamp")
 
-		second := MustSucceed(codegen.RunBufGenerate(ctx, root, nil, cache))
-		Expect(second.Cached).To(BeTrue(), "second run with identical inputs must hit the stamp cache")
-	})
+			second := MustSucceed(codegen.RunBufGenerate(ctx, root, nil, cache))
+			Expect(
+				second.Cached,
+			).To(BeTrue(), "second run with identical inputs must hit the stamp cache")
+		},
+	)
 
 	It("Should re-run when a .proto file changes", func(ctx SpecContext) {
 		root := fixture()
@@ -68,22 +83,27 @@ var _ = Describe("RunBufGenerate", func() {
 		Expect(os.WriteFile(
 			filepath.Join(root, "x", "a.proto"),
 			[]byte(`syntax = "proto3";`+"\n"+`package x;`+"\n"+`message M {}`+"\n"),
-			0644,
+			0o644,
 		)).To(Succeed())
 
 		result := MustSucceed(codegen.RunBufGenerate(ctx, root, nil, cache))
 		Expect(result.Cached).To(BeFalse())
 	})
 
-	It("Should re-run when changedProtos is non-empty even if the stamp matches", func(ctx SpecContext) {
-		root := fixture()
-		cache := format.LoadCache(root)
-		MustSucceed(codegen.RunBufGenerate(ctx, root, nil, cache))
+	It(
+		"Should re-run when changedProtos is non-empty even if the stamp matches",
+		func(ctx SpecContext) {
+			root := fixture()
+			cache := format.LoadCache(root)
+			MustSucceed(codegen.RunBufGenerate(ctx, root, nil, cache))
 
-		// Stamp is fresh; nil changedProtos would be a cache hit.
-		// Passing a non-empty changedProtos forces a re-run so the
-		// caller can scope generation to a slice of changed files.
-		result := MustSucceed(codegen.RunBufGenerate(ctx, root, []string{"x/a.proto"}, cache))
-		Expect(result.Cached).To(BeFalse())
-	})
+			// Stamp is fresh; nil changedProtos would be a cache hit.
+			// Passing a non-empty changedProtos forces a re-run so the
+			// caller can scope generation to a slice of changed files.
+			result := MustSucceed(
+				codegen.RunBufGenerate(ctx, root, []string{"x/a.proto"}, cache),
+			)
+			Expect(result.Cached).To(BeFalse())
+		},
+	)
 })

@@ -78,13 +78,16 @@ var _ = Describe("CheapIs", func() {
 	})
 
 	Describe("encode round-trip", func() {
-		It("Should match after encode→decode because decode re-wraps sentinel", func(ctx SpecContext) {
-			original := errors.Wrap(query.ErrNotFound, "channel 123")
-			pld := errors.Encode(ctx, original, false)
-			decoded := errors.Decode(ctx, pld)
-			Expect(errors.CheapIs(decoded, query.ErrNotFound)).To(BeTrue())
-			Expect(errors.CheapIs(decoded, query.ErrQuery)).To(BeTrue())
-		})
+		It(
+			"Should match after encode→decode because decode re-wraps sentinel",
+			func(ctx SpecContext) {
+				original := errors.Wrap(query.ErrNotFound, "channel 123")
+				pld := errors.Encode(ctx, original, false)
+				decoded := errors.Decode(ctx, pld)
+				Expect(errors.CheapIs(decoded, query.ErrNotFound)).To(BeTrue())
+				Expect(errors.CheapIs(decoded, query.ErrQuery)).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("stdlib errors", func() {

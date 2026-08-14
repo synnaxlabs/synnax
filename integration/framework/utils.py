@@ -18,6 +18,7 @@ located at ``x/py/``.
 import os
 import re
 import uuid
+from typing import Any
 
 import synnax as sy
 
@@ -65,6 +66,21 @@ def create_virtual_channel(
         virtual=True,
         retrieve_if_name_exists=True,
     )
+
+
+def create_virtual_channels(
+    client: sy.Synnax,
+    specs: list[tuple[str, sy.DataType]],
+) -> list[sy.Channel]:
+    """Create (or retrieve) many virtual channels in a single round-trip."""
+    channels = [
+        sy.Channel(name=name, data_type=data_type, virtual=True)
+        for name, data_type in specs
+    ]
+    created: list[sy.Channel] = client.channels.create(
+        channels, retrieve_if_name_exists=True
+    )
+    return created
 
 
 def create_indexed_channel(
@@ -132,3 +148,33 @@ def assert_link_format(
             raise AssertionError(
                 f"Resource ID should be a valid UUID, got: {actual_id}"
             )
+
+
+def assert_envelope(
+    exported: dict[str, Any],
+    envelope_type: str,
+    min_version: int,
+    name: str | None = None,
+) -> None:
+    """Assert that a server-side export has the portable envelope shape.
+
+    :param exported: The decoded export JSON.
+    :param envelope_type: The expected envelope type (e.g., "lineplot", "schematic").
+    :param min_version: Floor for the envelope version — a floor, not an exact match, so
+        server-side version bumps don't break export tests.
+    :param name: Optional resource name the envelope must carry.
+    """
+    assert exported.get("type") == envelope_type, (
+        f"Envelope type should be {envelope_type!r}, got {exported.get('type')!r}"
+    )
+    version = exported.get("version")
+    assert isinstance(version, int) and version >= min_version, (
+        f"Envelope version should be an int >= {min_version}, got {version!r}"
+    )
+    assert "key" not in exported, (
+        "Server-side export strips the resource key from the portable envelope"
+    )
+    if name is not None:
+        assert exported.get("name") == name, (
+            f"Envelope name should be {name!r}, got {exported.get('name')!r}"
+        )

@@ -10,16 +10,11 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
 import { nameZ } from "@/ranger/payload";
 import { keyZ, type New, newZ, type Payload, payloadZ } from "@/ranger/types.gen";
 
+const createReqZ = z.object({ ranges: newZ.array() });
 const createResZ = z.object({ ranges: payloadZ.array() });
-
-const createReqZ = z.object({ parent: ontology.idZ.optional(), ranges: newZ.array() });
-
-interface CreateRequest extends z.infer<typeof createReqZ> {}
-export interface CreateOptions extends Pick<CreateRequest, "parent"> {}
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -38,10 +33,10 @@ export class Writer {
     await this.client.send("/range/rename", { key, name }, renameReqZ, renameResZ);
   }
 
-  async create(ranges: New[], options?: CreateOptions): Promise<Payload[]> {
+  async create(ranges: New[]): Promise<Payload[]> {
     const res = await this.client.send(
       "/range/create",
-      { ranges, ...options },
+      { ranges },
       createReqZ,
       createResZ,
     );

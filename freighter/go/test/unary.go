@@ -29,22 +29,33 @@ func UnarySuite(
 	ginkgo.Describe("Normal Operation", func() {
 		ginkgo.It("should send a request", func(ctx ginkgo.SpecContext) {
 			server, client, addr := deps()
-			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
-				return Response(req), nil
-			})
-			res := testutil.MustSucceed(client.Send(ctx, addr, Request{ID: 1, Message: "hello"}))
+			server.BindHandler(
+				func(ctx context.Context, req Request) (Response, error) {
+					return Response(req), nil
+				},
+			)
+			res := testutil.MustSucceed(
+				client.Send(ctx, addr, Request{ID: 1, Message: "hello"}),
+			)
 			gomega.Expect(res).To(gomega.Equal(Response{ID: 1, Message: "hello"}))
 		})
 	})
 
 	ginkgo.Describe("Details Handling", func() {
-		ginkgo.It("Should correctly return a custom error to the client", func(ctx ginkgo.SpecContext) {
-			server, client, addr := deps()
-			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
-				return Response{}, ErrCustom
-			})
-			gomega.Expect(client.Send(ctx, addr, Request{ID: 1, Message: "hello"})).Error().To(gomega.MatchError(ErrCustom))
-		})
+		ginkgo.It(
+			"Should correctly return a custom error to the client",
+			func(ctx ginkgo.SpecContext) {
+				server, client, addr := deps()
+				server.BindHandler(
+					func(ctx context.Context, req Request) (Response, error) {
+						return Response{}, ErrCustom
+					},
+				)
+				gomega.Expect(client.Send(ctx, addr, Request{ID: 1, Message: "hello"})).
+					Error().
+					To(gomega.MatchError(ErrCustom))
+			},
+		)
 	})
 
 	ginkgo.Describe("Middleware", func() {
@@ -60,9 +71,11 @@ func UnarySuite(
 				c++
 				return oMd, err
 			}))
-			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
-				return Response{}, nil
-			})
+			server.BindHandler(
+				func(ctx context.Context, req Request) (Response, error) {
+					return Response{}, nil
+				},
+			)
 			gomega.Expect(client.Send(
 				ctx,
 				addr,

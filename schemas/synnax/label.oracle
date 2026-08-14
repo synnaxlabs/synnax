@@ -1,0 +1,45 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/color"
+
+@ts output  "client/ts/src/label"
+@py output  "client/py/synnax/label"
+@go output  "core/pkg/service/label"
+@cpp output "client/cpp/label"
+@pb
+
+Key = uuid {
+    @go version 0
+    @doc value  "is a unique identifier for a label, represented as a UUID."
+}
+
+Label struct {
+    key   Key = create {
+        @doc value "is the unique identifier for this label."
+        @key
+    }
+    name  string      {
+        @doc value           "is a human-readable name for the label."
+        @validate min_length 1
+    }
+    color color.Color {
+        @doc value "is the display color for visual identification of the label."
+    }
+
+    @go version 0
+    @doc value  """
+        is a tagging and categorization entity with a name and associated color.
+        Labels can be attached to resources like ranges for organization and
+        filtering.
+    """
+    @create
+    @go marshal
+    @go migrate
+}

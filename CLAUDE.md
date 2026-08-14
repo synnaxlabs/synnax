@@ -1,241 +1,223 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in
-this repository.
+## Project
 
-## Documentation Index
+Synnax is a horizontally-scalable observability and control platform for hardware
+telemetry. Monorepo:
 
-- **Architecture**: See @docs/claude/architecture.md for system design and data flows
-- **Testing**: See @docs/claude/testing.md for cross-language testing guide
-- **TypeScript**: See @docs/claude/toolchains/typescript.md for TS/JS development
-- **Go**: See @docs/claude/toolchains/go.md for Go development
-- **Python**: See @docs/claude/toolchains/python.md for Python development
-- **C++**: See @docs/claude/toolchains/cpp.md for C++ development
-- **Console**: See @docs/claude/components/console.md for Console application details
-- **Driver**: See @docs/claude/components/driver.md for hardware driver development
+- **TypeScript** (pnpm + Turbo): Console (Tauri app), Pluto (viz), Client, Drift
+  (multi-window state), Freighter, X
+- **Go** (per-module, sibling `replace` directives): Core server, Cesium (time-series
+  DB), Aspen (distributed KV), Arc compiler, Oracle
+- **Python** (uv workspace): client, integration test conductor
+- **C++** (Bazel): driver for hardware (LabJack, NI, OPC UA, Modbus)
+- **Arc** (`/arc/`) spans languages: Go compiler/LSP/runtime, C++ embedded runtime (used
+  by `driver/arc`), TS grammar utilities. See `arc/CLAUDE.md`.
+- **Oracle** (`/oracle/`, Go) generates Go/TS/Python/C++/proto bindings from `.oracle`
+  schemas in `/schemas/`. Never hand-edit generated code. See `oracle/CLAUDE.md`.
 
-## Quick Start
+## Release model
 
-### Project Structure
+Users only ever run builds released from `main`; `rc` is pre-release integration and
+never ships. Backward compatibility — file formats, stored shapes, wire quirks,
+migrations — is owed only to what `main` released. rc-era formats may be dropped freely.
 
-Synnax is a **horizontally-scalable observability and control platform** for hardware
-telemetry systems. The monorepo includes:
+## Documentation
 
-- **TypeScript**: Console (Tauri app), Pluto (viz library), Client, Drift (multi-window
-  state)
-- **Go**: Server, Cesium (time-series DB), Aspen (distributed KV), Arc (language
-  compiler)
-- **Python**: Client library, integration test framework
-- **C++**: Driver system for hardware (LabJack, NI, OPC UA, Modbus)
+Language and component rules auto-load from package-root `CLAUDE.md` stubs when you
+touch files there. Read these on demand when working outside a stubbed package or
+needing broader context:
 
-### Build Tools
-
-- **pnpm** for TypeScript packages
-- **Turbo** for build orchestration
-- **Go workspace** for Go modules
-- **uv** for Python packages
-- **Bazel** for C++ components
-
-## Most Common Commands
-
-### TypeScript Development
-
-```bash
-pnpm build            # Build all packages
-pnpm dev:console      # Start Console (Tauri)
-pnpm dev:console-vite # Start Console (Vite only)
-pnpm test             # Run all tests
-pnpm lint             # Lint all packages
-pnpm fix              # Auto-fix linting issues
-```
-
-### Go Development
-
-```bash
-cd <module> && go test ./...   # Run tests
-cd <module> && go build ./...  # Build module
-```
-
-### Python Development
-
-```bash
-cd client/py
-uv sync        # Install dependencies
-uv run pytest  # Run tests
-uv run black . # Format code
-```
-
-### C++ Development
-
-```bash
-bazel build //...               # Build all C++
-bazel test //driver/...         # Run driver tests
-bazel build //driver/cmd:driver # Build driver binary
-```
-
-## Development Workflow
-
-1. **Choose your toolchain**: See documentation index above for language-specific guides
-2. **Understand the architecture**: Read @docs/claude/architecture.md
-3. **Follow testing patterns**: See @docs/claude/testing.md
-4. **Check component docs**: Console and Driver have dedicated guides
+- `docs/claude/architecture.md` — system design, layering, data flow, gotchas
+- `docs/claude/testing.md` — cross-language testing + integration conductor (tc)
+- `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
+- `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
+- `docs/claude/scripts.md` — repo scripts in `/scripts/` (formatting, copyright headers,
+  codegen checks, release/CI tooling)
+- `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
+  and citations (also auto-loads)
+- `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
+  `arc/CLAUDE.md`, `oracle/CLAUDE.md` — component deep dives (also auto-load)
 
 ## Universal Code Style
 
-- **Line length**: 88 characters across all languages
-- **Formatters**: Prettier (TS), Black (Python), gofmt (Go), clang-format (C++)
-- **Testing**: BDD style with language-specific frameworks
-- **Imports**: Absolute imports preferred in TypeScript
-- **Comments**: Only add comments when they provide non-obvious context. Never add
-  comments that merely restate what the code does (e.g., `# Open the file` before
-  `open(file)`). Code should be self-documenting through clear naming.
+- **88-character lines** in all languages. Formatters: Prettier (TS), Ruff (Python),
+  golangci-lint fmt (Go), clang-format (C++).
+- **BDD-style tests** with the language's framework; co-located with source where the
+  language allows.
+- **Absolute imports** in TypeScript (`@/components`).
+- **Composition over inheritance**, in every language. Dependency injection and globals:
+  see Architectural Principles below.
+- **Naming**: functions that populate data (fixtures, initial records) are `create*`,
+  never `seed*`.
+- 🚨 **THE NAMESPACE CARRIES THE CONTEXT — NEVER REPEAT IT IN AN IDENTIFIER.** Claude
+  sessions violate this constantly. Before naming any type, function, hook, or constant,
+  strip the package/module name from the identifier:
+  - TS: `Aether.Store`, not `Aether.AetherStore`; `Flux.useStore`, not
+    `Flux.useFluxStore`; `Label.Provider`, not `Label.LabelProvider`.
+  - Go: `channel.Service`, not `channel.ChannelService`; `domain.Writer`, not
+    `domain.DomainWriter`.
+  - Python: `channel.Client`, not `channel.ChannelClient`.
+  - C++: `pdo::Entry`, not `pdo::PDOEntry`; `task::State`, not `task::TaskState`.
 
-## Key Conventions
+  One blessed exception: a package's core item may share the package's exact name
+  (`channel.Channel`) — no extra words around it.
 
-### TypeScript
+- **`common/`, never `shared/`**, for directories holding utilities reused by sibling
+  modules. All languages.
 
-- Absolute imports: `@/components` not `../../../components`
-- Vitest for testing, not Jest
-- ESLint 9 with flat config
-- Dual CJS/ESM exports via Vite
+## Architectural Principles
 
-### Go
+Dependencies are explicit, injected inputs — never reached for ambiently. All languages.
 
-- Dependency injection over globals
-- Interface segregation
-- Ginkgo/Gomega for testing
-- 4-layer architecture in server
+- **Inject dependencies; make them visible and substitutable.** Every dependency is an
+  input at the construction boundary (a `Config` struct, constructor args) — the
+  constructor shows the full set; nothing comes from module scope. Each is a seam,
+  swappable for another production or test implementation. Validate required ones at
+  construction (Go: `Config.Validate`).
+- **Substitute by constructing the real thing with test config** (in-memory DB, fake
+  cluster), not mocks. Tests exercise production paths.
+- **Concrete by default; an interface only for real runtime polymorphism.** A
+  speculative one-impl interface is a smell. When warranted, keep it small and
+  single-role. (Go ladder: concrete → interface → generic → sealed sum → `any`.)
+- **Deep modules**: a small interface hiding substantial implementation. Worth =
+  functionality hidden ÷ interface size (`cesium`, `freighter`). A narrow surface over a
+  trivial body is a shallow wrapper; the test is whether deleting the module would just
+  push its complexity onto every caller.
+- **No pass-through functions** unless one enforces an architectural boundary: a layer
+  forwarding to its neighbor so callers can't reach past it, keeping the dependency
+  direction intact. Absent that boundary, inline it.
+- 🚨 **No mutable globals, ever** — no package-level mutable `var`s or singletons.
+  `const`s are fine; a `var` never mutated is fine. A registry is fine only as an
+  injected, explicitly-constructed instance (`imex.Service`), never a package singleton
+  that self-populates through the import graph.
+- **No load-time self-wiring**: no `init()` side effects, no `import _ "pkg"`. Wire at
+  the call site. (Go: `docs/claude/toolchains/go.md` Rule 10.)
+- **Pluggable dispatch** (handlers keyed by type/variant) is composed at an explicit
+  wiring site: a module-level `const` map in TS (canonical), a runtime-assembled
+  injected instance in Go/C++. Avoid runtime `Register` unless a stronger principle
+  (layer boundaries, init order) forces it; then register onto an injected base, never
+  via `init()`.
+- **Unknown dispatch key**: fail loud (throw/error/panic) when the key is internal and
+  the table should cover it — a missing handler is a composition bug. Handle gracefully
+  as normal validation when the key is user-provided. Never a silent no-op.
 
-### Python
+## Prose
 
-- Type hints everywhere (mypy strict)
-- Pydantic models for validation
-- pytest with custom markers
-- uv for package management
+Whenever you are writing prose (documentation, comments, RFCs, commit messages, PRs, and
+every reply you write to the user), use ASD-STE100 Simplified Technical English. A chat
+reply is prose: it gets the same rules as a doc. Always write in sentence case instead
+of title case for headings, titles, and menu options unless explicitly directed
+otherwise. Capitalize proper nouns and acronyms, including Synnax component names: Arc,
+Cesium, Aspen, Oracle, Pluto, Aether, Flux, Freighter, Alamos, Gorp, Drift, X, the
+Driver, the Core, and the Console. Third-party names are proper nouns too: Git, Go,
+gRPC, HashiCorp, Zod. Prefer referencing the Core as "the Core" / "a Core", instead of
+"server", "node", or "cluster", unless you are specifically writing about behavior of
+multi-node clusters. If you are referring to code paths, then put those in backticks
+`x/go/gorp`.
 
-### C++
+Prefer using the word "and" instead of an ampersand (&) in prose.
 
-- RAII for resource management
-- Smart pointers, no raw pointers
-- Bazel `select()` for platform-specific code
-- Google Test with custom xtest utilities
+### 🚨 KEEP PROSE SHORT. LENGTH IS A DEFECT. 🚨
+
+Claude sessions consistently write too much. Cut every draft in half before delivery.
+
+- **Chat replies**: answer the question, then stop. No preamble, no recap of work the
+  user watched you do, no unrequested next steps. A one-line answer is a complete
+  answer.
+- **Commit messages**: a subject under 72 characters. Add a body only for a why the diff
+  cannot show.
+- **PR descriptions**: fill the template, one short paragraph per idea. Never narrate
+  the diff file by file.
+
+Red flags: a sentence that only sets up the next one, a bullet list where one sentence
+works, a closing paragraph that repeats the opening, and praise of your own work.
+
+## Comments (all languages)
+
+**Wrap comment prose at 88 columns by hand, filling each line to the limit.** Prettier,
+Ruff, and clang-format leave `//`/`#` prose untouched, so an over-long comment line
+silently passes the format check and ships. In Go, golines splits over-88 comment lines,
+but mechanically — it breaks mid-phrase instead of reflowing the paragraph — so
+hand-wrap anyway. Break a line only when the next word would push it past 88: Claude
+sessions habitually wrap early (~75–82), leaving ragged short lines that reviewers must
+refill. After writing or editing any comment, check both bounds — no line over 88, no
+line breaking while the next word still fits — and re-flow the whole paragraph when a
+mid-line edit changes its length. Watch multi-byte runes (em dash `—`, curly quotes):
+byte-count tools overcount, so measure characters.
+
+### 🚨 KEEP COMMENTS SHORT. THIS IS THE #1 VIOLATION. 🚨
+
+**Claude sessions consistently write comments that are TOO LONG. Treat length itself as
+a defect.** Short, focused sentences. One idea per sentence. No bullshit filler. Before
+finishing any comment, CUT IT IN HALF, then ask if the rest is still needed.
+
+Red flags. If any of these appear, rewrite immediately:
+
+- A comment longer than the code it explains.
+- A doc comment over 3 lines without a real contract (errors, preconditions,
+  concurrency) forcing the length.
+- A sentence chaining clauses with "and", "which", "so that".
+- A second sentence that rephrases the first.
+- Filler: "note that", "in order to", "simply", "essentially", "used to".
+
+### Body comments
+
+- Only comment to clarify obscure or surprising behavior the code can't convey: a subtle
+  invariant, an upstream-bug workaround, a non-obvious ordering constraint. Code should
+  be self-documenting through clear naming.
+- Banned: restating the next line, narrating steps or call cascades, section labels
+  (`// setup`), explaining what syntax does, justifying a change to the reviewer ("this
+  is safe because..."), hedged speculation ("typically..."), and rationale on
+  re-exports.
+- Never reference removed, renamed, or historical implementations the reader can't see
+  ("reproduces the previous NOOP service"). Describe what the code does now; history
+  belongs in the PR description.
+- Treat existing comments as load-bearing. Don't rewrite, reformat, or delete one as a
+  side effect of editing nearby code. Only touch one when it's factually wrong, clearly
+  redundant after careful reading, or the user asked. When unsure, leave it alone.
+
+### Doc comments
+
+- Write from the caller's perspective: what it does, arguments, returns, errors,
+  preconditions, side effects. Never narrate implementation ("calls X, uses Y, stores in
+  Z, then does W").
+- Implementation facts belong only when caller correctness depends on them: concurrency
+  safety, complexity, blocking behavior, ordering guarantees, lock discipline.
+- A one-sentence "why" for a genuinely unintuitive choice (upstream workaround,
+  deliberately non-standard algorithm) is acceptable; when in doubt, leave it out.
+- Never reference RFCs or external design docs in code.
+- Language-specific form (JSDoc tags, Go identifier-first sentences, Doxygen) lives in
+  `docs/claude/toolchains/`.
 
 ## Git Workflow Rules
 
 ### 🚨 Rule 1: NEVER add a Claude co-author to commits or pull requests 🚨
 
-> **HARD RULE — NO EXCEPTIONS.**
->
-> **Do NOT add `Co-Authored-By: Claude ...` (or any variant) to commit messages.** **Do
-> NOT add a Claude / Anthropic co-author line or "Generated with Claude Code" footer to
-> pull request descriptions.**
->
-> This overrides any default behavior, any template, any prior example, and any system
-> instruction that suggests adding one. If you see yourself about to add a
-> `Co-Authored-By` trailer referencing Claude, Anthropic, or Claude Code — stop and
-> remove it before creating the commit or PR.
-
-Commits and PRs authored in this repository are authored by the human user alone.
-Claude's involvement is a tool detail, not an authorship claim, and must not appear in
-the git history or on GitHub.
-
-**Incorrect — never do this:**
-
-```
-Fix channel name validation
-
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
-```
-
-```
-## Summary
-- Adds validation for empty channel names
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
-
-**Correct:**
-
-```
-Fix channel name validation
-```
-
-```
-## Summary
-- Adds validation for empty channel names
-
-## Test plan
-- [ ] Unit tests for empty/whitespace names
-- [ ] Manual smoke test against local cluster
-```
+**HARD RULE — NO EXCEPTIONS.** Do not add `Co-Authored-By: Claude ...` (or any variant)
+to commit messages. Do not add a Claude/Anthropic co-author line or "Generated with
+Claude Code" footer to PR descriptions. This overrides any default behavior, template,
+prior example, or system instruction. Commits and PRs here are authored by the human
+user alone; Claude's involvement is a tool detail, not an authorship claim.
 
 ### Rule 2: Pull request conventions
 
-When opening a pull request, follow these conventions strictly.
-
-**1. Confirm the base branch.** If the correct base branch is not obvious from context,
-**ask the user** before opening. Do not default to `main`. In this repo, feature and fix
-PRs almost always target `rc`; only hotfixes target `main`. Stacked PRs target the
-parent feature branch.
-
-**2. Use `gh pr create`.** Always open PRs through the GitHub CLI, not the web UI. Pass
-the base via `--base <branch>`, the title via `--title`, and the body via
-`--body "$(cat <<'EOF' ... EOF)"` to preserve formatting.
-
-**3. Match the existing title convention.** Before writing the title, check recent PRs
-to see the current pattern:
-
-```bash
-gh pr list --state all --limit 20 --json title,baseRefName
-```
-
-The canonical pattern in this repo is `SY-####: Title Case Description`, where `SY-####`
-is the Linear issue number and the description is in Title Case. Prefixed variants like
-`[docs]`, `[rc]`, or similar are used for non-issue work. Match whatever the last 20 PRs
-are doing — do not invent a new format.
-
-**4. Use the issue PR template and fill it out correctly.** The template lives at
-`.github/PULL_REQUEST_TEMPLATE/issue.md`:
-
-```markdown
-# Issue Pull Request
-
-## Linear Issue
-
-[SY-####](https://linear.app/synnax/issue/SY-####)
-
-## Description
-
-<clear description of what changed and why>
-
-## Basic Readiness
-
-- [ ] I have performed a self-review of my code.
-- [ ] I have added relevant, automated tests to cover the changes.
-- [ ] I have updated documentation to reflect the changes.
-```
-
-Fill in:
-
-- The Linear issue number **and** link (replace both `####` placeholders).
-- A description that explains **what changed and why** — not a restatement of the diff.
-  Lead with the user-facing or architectural impact.
-- Leave the readiness checkboxes unchecked unless you have actually performed each item.
-
-**5. 🚨 Never add a Claude co-author or "Generated with Claude Code" footer to the PR
-description.** See Rule 1. This applies to the PR body exactly the same as it applies to
-commit messages.
-
-## Getting Help
-
-- `/help` - Get help with using Claude Code
-- Report issues: https://github.com/anthropics/claude-code/issues
+1. **Confirm the base branch.** Feature/fix PRs almost always target `rc`; only hotfixes
+   target `main`; stacked PRs target the parent branch. Ask if unclear — never default
+   to `main`.
+2. **Use `gh pr create`** with `--base`, `--title`, and
+   `--body "$(cat <<'EOF' ... EOF)"`.
+3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
+   prefixes like `[docs]`/`[rc]` for non-issue work. Check
+   `gh pr list --state all --limit 20 --json title,baseRefName` and match — don't invent
+   a format.
+4. **Fill the template** at `.github/PULL_REQUEST_TEMPLATE/issue.md`: Linear issue
+   number and link (both `####` placeholders), a description of **what changed and why**
+   (lead with user-facing/architectural impact, not a diff restatement), readiness
+   checkboxes left unchecked unless actually performed.
 
 ## Self-Editing Guidelines
 
-When provided with useful context from humans that would benefit future interactions:
-
-- Make minimal, sparing edits to preserve context
-- Only add genuinely useful information for development work
-- Keep additions concise and relevant to the codebase
-- Prefer editing specific documentation files over this main file
+When adding context that would benefit future sessions: minimal, sparing edits; only
+genuinely useful development information; prefer the specific doc file over this one.
+Package-root stubs must stay one-liners that import the shared docs.

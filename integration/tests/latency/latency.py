@@ -18,10 +18,10 @@ class Latency(TestCase):
     """
 
     def setup(self) -> None:
-
         gc.disable()
         self.log("GC Disabled")
 
     def teardown(self) -> None:
         gc.enable()
         self.log("GC Enabled")
+        super().teardown()

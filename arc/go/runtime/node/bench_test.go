@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -25,10 +26,14 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	ctx := context.Background()
 	g := graph.Graph{
 		Nodes: graph.Nodes{
-			{Key: "source", Type: "source"},
-			{Key: "target", Type: "target"},
+			{Key: "source"},
+			{Key: "target"},
 		},
-		Functions: []graph.Function{
+		Inputs: map[string]msgpack.EncodedJSON{
+			"source": {"type": "source"},
+			"target": {"type": "target"},
+		},
+		Functions: []ir.Function{
 			{
 				Key: "source",
 				Outputs: types.Params{
@@ -42,11 +47,11 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 				},
 			},
 		},
-		Edges: []ir.Edge{
-			{
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "target", Param: ir.DefaultInputParam},
-			},
+			}},
 		},
 	}
 	inter, diagnostics := graph.Analyze(ctx, g, nil)
@@ -59,10 +64,9 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	*sourceNode.Output(0) = telem.NewSeriesV[float32](0)
 	*sourceNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		telem.SetValueAt[float32](*sourceNode.Output(0), 0, float32(i))
-		telem.SetValueAt[telem.TimeStamp](
+	for i := 0; b.Loop(); i++ {
+		telem.SetValueAt(*sourceNode.Output(0), 0, float32(i))
+		telem.SetValueAt(
 			*sourceNode.OutputTime(0),
 			0,
 			telem.TimeStamp(i+1)*telem.SecondTS,
@@ -105,7 +109,7 @@ func BenchmarkWriteChannelU8SameKeyFlush(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for j := 0; j < writesPerCycle; j++ {
+		for j := range writesPerCycle {
 			s.WriteChannelU8(1, uint8(j))
 		}
 		_, _ = s.Flush(telem.Frame[uint32]{})
@@ -115,14 +119,14 @@ func BenchmarkWriteChannelU8SameKeyFlush(b *testing.B) {
 func BenchmarkFlushManyKeysSingleWrite(b *testing.B) {
 	const keys = 256
 	digests := make([]channels.Digest, keys)
-	for i := 0; i < keys; i++ {
+	for i := range keys {
 		digests[i] = channels.Digest{Key: uint32(i + 1)}
 	}
 	s := channels.NewProgramState(digests)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for k := 0; k < keys; k++ {
+		for k := range keys {
 			s.WriteChannelU8(uint32(k+1), uint8(k))
 		}
 		_, _ = s.Flush(telem.Frame[uint32]{})

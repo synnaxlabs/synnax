@@ -198,11 +198,6 @@ inline std::pair<::arc::ir::pb::Function, x::errors::Error> Function::to_proto()
         if (err) return {{}, err};
         *pb.mutable_body() = v;
     }
-    for (const auto &item: this->config) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_config() = v;
-    }
     for (const auto &item: this->inputs) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -231,11 +226,6 @@ Function::from_proto(const ::arc::ir::pb::Function &pb) {
         cpp.body = v;
     }
     if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
-            cpp.config,
-            pb.config()
-        ))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
             cpp.inputs,
             pb.inputs()
         ))
@@ -257,11 +247,6 @@ inline std::pair<::arc::ir::pb::Node, x::errors::Error> Node::to_proto() const {
     ::arc::ir::pb::Node pb;
     pb.set_key(this->key);
     pb.set_type(this->type);
-    for (const auto &item: this->config) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_config() = v;
-    }
     for (const auto &item: this->inputs) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -285,11 +270,6 @@ Node::from_proto(const ::arc::ir::pb::Node &pb) {
     Node cpp;
     cpp.key = pb.key();
     cpp.type = pb.type();
-    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
-            cpp.config,
-            pb.config()
-        ))
-        return {{}, err};
     if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
             cpp.inputs,
             pb.inputs()

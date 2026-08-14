@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
@@ -19,6 +20,10 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   markdown: {
+    // Astro 7's native Markdown pipeline (Sätteri) emits highlighted code fences as raw
+    // HTML that bypasses the MDX `pre` component override (Block.astro). Opt back into
+    // the legacy remark/rehype pipeline so the override keeps applying.
+    processor: unified(),
     shikiConfig: {
       theme: "css-variables",
       langs: [arcGrammar],

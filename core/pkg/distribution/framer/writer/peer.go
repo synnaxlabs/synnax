@@ -22,15 +22,28 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// openManyPeers opens a client stream to each target peer, immediately sending the open
+// request that spins up a remote writer on that peer. On success it also returns the
+// opened senders so the caller can close them (via closePeerClients) if a later step of
+// the open flow fails; the remote writers hold control over their channels until their
+// streams are closed.
 func (s *Service) openManyPeers(
 	ctx context.Context,
 	cfg Config,
 	targets map[node.Key][]keyAuthority,
-) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
+) (
+	confluence.Sink[Request],
+	[]*freightfluence.Receiver[Response],
+	[]address.Address,
+	map[address.Address]freighter.StreamSenderCloser[Request],
+	error,
+) {
 	var (
-		receivers         = make([]*freightfluence.Receiver[Response], 0, len(targets))
-		addrMap           = make(proxy.AddressMap)
-		senders           = make(map[address.Address]freighter.StreamSenderCloser[Request])
+		receivers = make([]*freightfluence.Receiver[Response], 0, len(targets))
+		addrMap   = make(proxy.AddressMap)
+		senders   = make(
+			map[address.Address]freighter.StreamSenderCloser[Request],
+		)
 		sender            = newRequestSwitchSender(addrMap, senders)
 		receiverAddresses = make([]address.Address, 0, len(targets))
 	)
@@ -38,19 +51,31 @@ func (s *Service) openManyPeers(
 	for nodeKey, keys := range targets {
 		target, err := s.cfg.HostResolver.Resolve(nodeKey)
 		if err != nil {
-			return sender, receivers, receiverAddresses, s.closePeerClients(senders, err)
+			return sender, receivers, receiverAddresses, senders, s.closePeerClients(
+				senders,
+				err,
+			)
 		}
 		addrMap[nodeKey] = target
 		client, err := s.openPeerClient(ctx, target, cfg.setKeyAuthorities(keys))
 		if err != nil {
-			return sender, receivers, receiverAddresses, s.closePeerClients(senders, err)
+			return sender, receivers, receiverAddresses, senders, s.closePeerClients(
+				senders,
+				err,
+			)
 		}
 		senders[target] = client
-		receivers = append(receivers, &freightfluence.Receiver[Response]{Receiver: client})
-		receiverAddresses = append(receiverAddresses, address.Address("receiver-"+strconv.Itoa(int(nodeKey))))
+		receivers = append(
+			receivers,
+			&freightfluence.Receiver[Response]{Receiver: client},
+		)
+		receiverAddresses = append(
+			receiverAddresses,
+			address.Address("receiver-"+strconv.Itoa(int(nodeKey))),
+		)
 	}
 
-	return sender, receivers, receiverAddresses, nil
+	return sender, receivers, receiverAddresses, senders, nil
 }
 
 func (s *Service) closePeerClients(

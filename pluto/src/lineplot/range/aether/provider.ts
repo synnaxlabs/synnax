@@ -8,22 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { ranger, type Synnax } from "@synnaxlabs/client";
-import {
-  bounds,
-  box,
-  clamp,
-  color,
-  type destructor,
-  type scale,
-  TimeRange,
-  TimeSpan,
-  xy,
-} from "@synnaxlabs/x";
+import { bounds, box, color, type scale, TimeRange, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { flux } from "@/flux/aether";
-import { type ranger as aetherRanger } from "@/ranger/aether";
+import { ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
@@ -45,13 +35,12 @@ export const providerStateZ = z.object({
 export type ProviderState = z.infer<typeof providerStateZ>;
 
 interface InternalState {
-  ranges: Map<string, ranger.Range>;
+  retrieve: flux.Retrieve<aetherRanger.ListQuery, ranger.Range[]>;
   client: Synnax | null;
   render: render.Context;
   requestRender: render.Requestor;
   draw: Draw2D;
   runAsync: status.ErrorHandler;
-  removeListener: destructor.Destructor | null;
 }
 
 interface ProviderProps {
@@ -61,14 +50,23 @@ interface ProviderProps {
   timeRange: TimeRange;
 }
 
-interface Store extends flux.Store {
-  ranges: aetherRanger.FluxStore;
-}
+// Snaps fetch boundaries outward to a grid roughly an eighth of the viewport wide,
+// so a requery takes a meaningful pan or zoom at any zoom level. Power-of-two grid
+// sizes nest, keeping boundaries stable as the viewport zooms.
+const quantize = (timeRange: TimeRange): TimeRange => {
+  const span = timeRange.span.valueOf();
+  if (span < 8n) return timeRange;
+  const quantum = 1n << BigInt(Math.floor(Math.log2(Number(span) / 8)));
+  const mod = (v: bigint): bigint => ((v % quantum) + quantum) % quantum;
+  const start = timeRange.start.valueOf();
+  const end = timeRange.end.valueOf();
+  const rem = mod(end);
+  return new TimeRange(start - mod(start), rem === 0n ? end : end + quantum - rem);
+};
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
   schema = providerStateZ;
-  fetchedInitial: TimeRange = TimeRange.ZERO;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -76,49 +74,30 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
     i.requestRender = render.useRequestor(ctx);
     i.runAsync = status.useErrorHandler(ctx);
-    i.ranges ??= new Map();
+    i.retrieve ??= new flux.Retrieve({
+      definition: aetherRanger.listDefinition,
+      onChange: () => i.requestRender("tool"),
+      onError: (error) =>
+        i.runAsync(async () => {
+          throw error;
+        }, "failed to retrieve ranges"),
+    });
     const client = synnax.use(ctx);
+    if (client != null) i.client = client;
     i.requestRender("tool");
-    if (client == null) return;
-    i.client = client;
-    const store = flux.useStore<Store>(ctx, this.key);
-    i.removeListener?.();
-    const removeOnSet = store.ranges.onSet((changed) => {
-      if (i.client == null) return;
-      if (color.isCrude(changed.color))
-        i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
-      i.requestRender("tool");
-    });
-    const removeOnDelete = store.ranges.onDelete(async (changed) => {
-      i.ranges.delete(changed);
-      i.requestRender("tool");
-    });
-    i.removeListener = () => {
-      removeOnSet();
-      removeOnDelete();
-    };
   }
 
-  private fetchInitial(timeRange: TimeRange): void {
-    const { internal: i } = this;
-    const { client, runAsync } = i;
-    if (client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
-      return;
-
-    this.fetchedInitial = timeRange;
-    runAsync(async () => {
-      const ranges = await client.ranges.retrieve(timeRange);
-      ranges.forEach((r) => {
-        if (color.isCrude(r.color)) i.ranges.set(r.key, r);
-      });
-      i.requestRender("tool");
-    }, "failed to fetch initial ranges");
+  afterDelete(): void {
+    this.internal.retrieve.close();
   }
 
   render(props: ProviderProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
-    this.fetchInitial(timeRange);
-    const { draw, ranges } = this.internal;
+    const { internal: i } = this;
+    if (i.client != null)
+      i.retrieve.update(i.client, { overlapsWith: quantize(timeRange) });
+    const { draw } = i;
+    const ranges = i.retrieve.value ?? [];
     const visible = this.state.visible !== false;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;
@@ -141,7 +120,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       if (endPos < box.left(region) || startPos > box.right(region)) return;
       visibleCount++;
       if (!visible) return;
-      startPos = clamp(startPos, box.left(region) - 2, box.right(region) - 1);
+      startPos = bounds.clamp(
+        { lower: box.left(region) - 2, upper: box.right(region) - 1 },
+        startPos,
+      );
       let hovered = false;
       if (cursor != null)
         hovered = bounds.contains({ lower: startPos, upper: endPos }, cursor);

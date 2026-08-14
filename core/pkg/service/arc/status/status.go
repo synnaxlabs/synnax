@@ -26,8 +26,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
 )
@@ -44,18 +44,27 @@ const allowedVariantsList = "success, info, warning, error, loading, disabled"
 // memberDoc is the LSP hover body for status.set. The renderer prepends the
 // title from the symbol name and kind, so it is omitted here.
 var memberDoc = doc.New(
-	doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
+	doc.Paragraph(
+		"Sets a status notification on the cluster. Used to report alarms, warnings, or operational state.",
+	),
 	doc.Divider(),
-	doc.Code("arc", "status_key := sensor -> status.set{key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
+	doc.Code(
+		"arc",
+		"status_key := sensor -> status.set{key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}",
+	),
 	doc.Divider(),
-	doc.Paragraph("Accepted variants: success, info, warning, error, loading, disabled."),
+	doc.Paragraph(
+		"Accepted variants: success, info, warning, error, loading, disabled.",
+	),
 	doc.Divider(),
 	doc.Paragraph("Outputs the resolved status key as a string."),
 )
 
 // moduleDoc is the LSP hover body for the status module itself.
 var moduleDoc = doc.New(
-	doc.Paragraph("Publishes status notifications (alarms, warnings, operational state) to the cluster."),
+	doc.Paragraph(
+		"Publishes status notifications (alarms, warnings, operational state) to the cluster.",
+	),
 )
 
 // newSetSymbolType returns a fresh function type for status.set per call so
@@ -68,7 +77,6 @@ func newSetSymbolType() types.Type {
 	}
 	return types.Function(types.FunctionProperties{
 		Inputs:  params,
-		Config:  params,
 		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 	})
 }
@@ -77,20 +85,20 @@ func newSetSymbolType() types.Type {
 // contributes: the status module with its sole status.set member.
 func NewSymbols() []*symbol.Symbol {
 	member := &symbol.Symbol{
-		Name:              setMemberName,
-		Kind:              symbol.KindFunction,
-		Exec:              symbol.ExecBoth,
-		Type:              newSetSymbolType(),
-		Doc:               memberDoc,
-		AnalyzeCall:       analyzeStatusSetCall,
-		AnalyzeFlowConfig: analyzeStatusSetFlowConfig,
+		Name:             setMemberName,
+		Kind:             symbol.KindFunction,
+		Exec:             symbol.ExecBoth,
+		Type:             newSetSymbolType(),
+		Trigger:          symbol.TriggerOnly,
+		Doc:              memberDoc,
+		AnalyzeArguments: analyzeStatusSetArguments,
 	}
 	mod := &symbol.Symbol{Name: moduleName, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(member)
 	return []*symbol.Symbol{mod}
 }
 
-type Module struct {
+type module struct {
 	stat   *status.Service
 	report taskreporter.Reporter
 }
@@ -103,8 +111,17 @@ type ModuleConfig struct {
 	Reporter taskreporter.Reporter
 }
 
-func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
-	m := &Module{stat: cfg.Status, report: cfg.Reporter}
+func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
+	v := validate.New("arc.status")
+	validate.NotNil(v, "status", cfg.Status)
+	validate.NotNil(v, "reporter", cfg.Reporter)
+	if cfg.Runtime != nil {
+		validate.NotNil(v, "strings", cfg.Strings)
+	}
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
+	m := &module{stat: cfg.Status, report: cfg.Reporter}
 	if cfg.Runtime == nil {
 		return m, nil
 	}
@@ -116,11 +133,13 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 			msg, mOK := strings.Get(msgH)
 			variant, vOK := strings.Get(variantH)
 			if !kOK || !mOK || !vOK {
-				m.report(ctx, xstatus.VariantWarning,
+				m.report(ctx, status.VariantWarning,
 					"status.set: invalid string handle from WASM runtime")
 				return 0
 			}
-			return strings.Create(dispatchSet(ctx, m.stat, m.report, keyOrName, msg, variant))
+			return strings.Create(
+				dispatchSet(ctx, m.stat, m.report, keyOrName, msg, variant),
+			)
 		}).Export(setMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -128,35 +147,21 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	return m, nil
 }
 
-func (m *Module) ModuleName() string { return moduleName }
+func (m *module) ModuleName() string { return moduleName }
 
-func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+func (m *module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
-		var sc setConfig
-		if err := setConfigSchema.Parse(cfg.Node.Config.ValueMap(), &sc); err != nil {
-			return nil, errors.Wrap(err, "status.set config")
+		if err := setSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
+			return nil, errors.Wrap(err, "status.set inputs")
 		}
-		return &setNode{
-			State:     cfg.State,
-			stat:      m.stat,
-			report:    m.report,
-			keyOrName: sc.KeyOrName,
-			message:   sc.Message,
-			variant:   sc.Variant,
-		}, nil
+		return &setNode{State: cfg.State, stat: m.stat, report: m.report}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
 }
 
-type setConfig struct {
-	KeyOrName string `json:"key_or_name"`
-	Message   string `json:"message"`
-	Variant   string `json:"variant"`
-}
-
-var setConfigSchema = zyn.Object(map[string]zyn.Schema{
+var setSchema = zyn.Object(map[string]zyn.Schema{
 	"key_or_name": zyn.String(),
 	"message":     zyn.String(),
 	"variant":     zyn.String(),
@@ -164,15 +169,14 @@ var setConfigSchema = zyn.Object(map[string]zyn.Schema{
 
 type setNode struct {
 	*node.State
-	stat      *status.Service
-	report    taskreporter.Reporter
-	keyOrName string
-	message   string
-	variant   string
+	stat   *status.Service
+	report taskreporter.Reporter
 }
 
 func (s *setNode) Next(ctx node.Context) {
-	key := dispatchSet(ctx, s.stat, s.report, s.keyOrName, s.message, s.variant)
+	key := dispatchSet(ctx, s.stat, s.report,
+		s.StringInput("key_or_name"), s.StringInput("message"),
+		s.StringInput("variant"))
 	*s.Output(0) = telem.NewSeriesV[string](key)
 	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
@@ -188,11 +192,11 @@ func dispatchSet(
 ) string {
 	key, multi, err := stat.SetByKeyOrName(ctx, keyOrName, message, variantStr)
 	if err != nil {
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.set: %v", err))
+		report(ctx, status.VariantWarning, fmt.Sprintf("status.set: %v", err))
 		return ""
 	}
 	if multi {
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf(
+		report(ctx, status.VariantWarning, fmt.Sprintf(
 			"status.set: multiple statuses named %q; updated first match (%s)",
 			keyOrName, key,
 		))
@@ -202,41 +206,21 @@ func dispatchSet(
 
 const variantIndex = 2
 
-func analyzeStatusSetCall(
-	diags *diagnostics.Diagnostics,
-	funcCall parser.IFunctionCallSuffixContext,
-) {
-	if al := funcCall.ArgumentList(); al != nil {
-		if args := al.AllExpression(); len(args) > variantIndex {
-			checkVariantLiteral(diags, args[variantIndex])
+// analyzeStatusSetArguments validates the variant argument across both call
+// forms: it binds by name ("variant") or, when positional, by index.
+func analyzeStatusSetArguments(diags *diagnostics.Diagnostics, args []symbol.Argument) {
+	for _, arg := range args {
+		if arg.Name == "variant" || (arg.Name == "" && arg.Index == variantIndex) {
+			checkVariantLiteral(diags, arg.Expr)
+			return
 		}
 	}
 }
 
-func analyzeStatusSetFlowConfig(
+func checkVariantLiteral(
 	diags *diagnostics.Diagnostics,
-	config parser.IConfigValuesContext,
+	expr parser.IExpressionContext,
 ) {
-	if config == nil {
-		return
-	}
-	if named := config.NamedConfigValues(); named != nil {
-		for _, cv := range named.AllNamedConfigValue() {
-			if cv.IDENTIFIER().GetText() == "variant" {
-				if e := cv.Expression(); e != nil {
-					checkVariantLiteral(diags, e)
-				}
-				return
-			}
-		}
-	} else if anon := config.AnonymousConfigValues(); anon != nil {
-		if exprs := anon.AllExpression(); len(exprs) > variantIndex {
-			checkVariantLiteral(diags, exprs[variantIndex])
-		}
-	}
-}
-
-func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionContext) {
 	lit := parser.GetLiteral(expr)
 	if lit == nil {
 		return
@@ -250,7 +234,7 @@ func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpression
 		return
 	}
 	value, ok := parsed.Value.(string)
-	if !ok || xstatus.Variant(value).IsValid() {
+	if !ok || status.Variant(value).IsValid() {
 		return
 	}
 	diags.Add(diagnostics.Errorf(expr,

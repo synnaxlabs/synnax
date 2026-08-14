@@ -42,9 +42,14 @@ const (
 var (
 	symbolName = "select"
 	symbolDoc  = doc.New(
-		doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
+		doc.Paragraph(
+			"Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.",
+		),
 		doc.Divider(),
-		doc.Code("arc", "flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+		doc.Code(
+			"arc",
+			"flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}",
+		),
 	)
 )
 
@@ -65,7 +70,8 @@ func NewSymbols() []*symbol.Symbol {
 					{Name: FalseOutputParam, Type: types.U8()},
 				},
 			}),
-			Doc: symbolDoc,
+			Trigger: symbol.TriggerInput(ir.DefaultOutputParam),
+			Doc:     symbolDoc,
 		},
 	}
 }
@@ -81,17 +87,24 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	return &selectNode{State: cfg.State}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultOutputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &selectNode{State: cfg.State, inputIdx: inputIdx}, nil
 }
 
-type selectNode struct{ *node.State }
+type selectNode struct {
+	*node.State
+	inputIdx int
+}
 
 func (s *selectNode) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
-	data := s.Input(0)
-	time := s.InputTime(0)
+	data := s.Input(s.inputIdx)
+	time := s.InputTime(s.inputIdx)
 	if data.Len() == 0 {
 		return
 	}
@@ -118,7 +131,7 @@ func (s *selectNode) Next(ctx node.Context) {
 	falseData.TimeRange = data.TimeRange
 	falseTime.Alignment = data.Alignment
 	falseTime.TimeRange = data.TimeRange
-	var trueIdx, falseIdx = 0, 0
+	trueIdx, falseIdx := 0, 0
 	for i := range data.Data {
 		if data.Data[i] == 1 {
 			trueData.Data[trueIdx] = 1

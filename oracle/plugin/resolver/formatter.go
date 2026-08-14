@@ -22,7 +22,8 @@ type FormatterConfig struct {
 	FixedArrayFormat func(elemType string, size int64) string
 	// MapFormat formats a map type. If nil, uses default "map[K]V" style.
 	MapFormat func(keyType, valType string) string
-	// QualifiedSep is the separator between qualifier and type name (e.g., "." or "::").
+	// QualifiedSep is the separator between qualifier and type name (e.g., "." or
+	// "::").
 	QualifiedSep string
 	// GenericOpen is the opening bracket for generics (e.g., "<" or "[").
 	GenericOpen string
@@ -51,7 +52,10 @@ func (f *ConfigurableFormatter) FormatQualified(qualifier, typeName string) stri
 	return qualifier + f.config.QualifiedSep + typeName
 }
 
-func (f *ConfigurableFormatter) FormatGeneric(baseName string, typeArgs []string) string {
+func (f *ConfigurableFormatter) FormatGeneric(
+	baseName string,
+	typeArgs []string,
+) string {
 	if f.config.SkipGenerics || len(typeArgs) == 0 {
 		return baseName
 	}

@@ -90,6 +90,8 @@ EXPECTED_HEADER_HASH_TWO=$(generate_line_header "#" 2)
 EXPECTED_HEADER_HASH_ONE=$(generate_line_header "#" 1)
 EXPECTED_HEADER_C_STYLE=$(generate_block_header "/*" " *" " * " " */")
 EXPECTED_HEADER_HTML=$(generate_block_header "<!--" "" "  " "  -->")
+EXPECTED_HEADER_REM=$(generate_line_header "rem" 1)
+EXPECTED_HEADER_SEMI=$(generate_line_header ";" 1)
 
 # Read .copyrightignore patterns
 declare -a IGNORE_PATTERNS
@@ -118,46 +120,92 @@ should_ignore_file() {
     return 1
 }
 
-# Resolve per-extension header properties into globals. TRAILING_BLANK is 1
-# when the canonical layout requires a blank line between the header and the
-# file body.
+# Resolve per-extension header properties into globals. TRAILING_BLANK is 1 when the
+# canonical layout requires a blank line between the header and the file body.
+# LEADING_LINE_RE is a regex; when non-empty and the file's first line matches it, that
+# line is preserved above the header (shebangs, the cmd `@echo off` directive that must
+# stay first to suppress command echo, and the astro `---` frontmatter fence that must
+# open the file — the header then lives inside the frontmatter as a // comment).
+# LEADING_BLANK is 1 when a blank line separates the leading line from the header; astro
+# sets it to 0 because prettier strips blank lines adjacent to the frontmatter fences.
+# FENCE, when non-empty, is a closing delimiter that may sit directly after the header
+# with no separating blank (astro's `---`, for comment-only frontmatter); a normal
+# trailing blank is still required when real body content follows instead.
 resolve_header_for_ext() {
     local ext="$1"
+    LEADING_LINE_RE=""
+    LEADING_BLANK=1
+    LEADING_REQUIRED=0
+    FENCE=""
     case "$ext" in
-        py)
+        py | pyi)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_TWO"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
         sh | zsh)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_ONE"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=1
+            LEADING_LINE_RE='^#!'
+            TRAILING_BLANK=1
+            ;;
+        ps1 | bazel | bzl | yaml | yml | toml)
+            EXPECTED_HEADER="$EXPECTED_HEADER_HASH_ONE"
+            HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        nsi | def)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SEMI"
+            HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        astro)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^---$'
+            LEADING_BLANK=0
+            TRAILING_BLANK=1
+            FENCE='---'
+            ;;
+        cmd)
+            EXPECTED_HEADER="$EXPECTED_HEADER_REM"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^@[Ee][Cc][Hh][Oo]'
+            TRAILING_BLANK=1
+            ;;
+        glsl)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^#version'
+            # WebGL requires the #version directive on the first line; a shader with the
+            # directive buried below the header (or absent) fails to compile, so the
+            # leading line is mandatory rather than optional.
+            LEADING_REQUIRED=1
             TRAILING_BLANK=1
             ;;
         css)
             EXPECTED_HEADER="$EXPECTED_HEADER_C_STYLE"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
         html)
             EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
+            ;;
+        xml)
+            EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
+            HEADER_LINES=10
+            TRAILING_BLANK=0
             ;;
         svg)
             EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=0
             ;;
         *)
             EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
     esac
@@ -202,12 +250,19 @@ classify_file() {
         return
     fi
 
-    # Canonical layout: [shebang / blank /] header / [blank /] body. Header
-    # starts at index 0 normally; on a shebang file, at index 2 iff line 2 is
-    # blank.
+    # Canonical layout: [leading line / [blank] /] header / [blank /] body. Header
+    # starts at index 0 normally; when a leading line is preserved, at index 2 iff line
+    # 2 is blank (LEADING_BLANK=1), or at index 1 directly against the leading line
+    # (LEADING_BLANK=0, e.g. astro frontmatter).
+    if [ "$LEADING_REQUIRED" = "1" ] && [[ ! "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
+        printf 'MALFORMED\t%s\n' "$file"
+        return
+    fi
     local header_start_idx=0
-    if [ "$SUPPORTS_SHEBANG" = "1" ] && [[ "${LINES[0]}" =~ ^#! ]]; then
-        if [ -z "${LINES[1]:-}" ]; then
+    if [ -n "$LEADING_LINE_RE" ] && [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
+        if [ "$LEADING_BLANK" = "0" ]; then
+            header_start_idx=1
+        elif [ -z "${LINES[1]:-}" ]; then
             header_start_idx=2
         else
             printf 'MALFORMED\t%s\n' "$file"
@@ -267,31 +322,47 @@ classify_file() {
         return
     fi
 
-    # Trailing-blank rule: the line immediately after the header must be blank
-    # (or absent) when TRAILING_BLANK=1, and non-blank otherwise.
+    # Trailing-blank rule: the line immediately after the header must be blank (or
+    # absent) when TRAILING_BLANK=1, and non-blank otherwise. Exception: a closing FENCE
+    # directly after the header (astro comment-only frontmatter) is valid with no blank,
+    # since prettier strips a blank adjacent to it.
     local line_after_header=""
     if [ $((header_end_idx + 1)) -lt ${#LINES[@]} ]; then
         line_after_header="${LINES[$((header_end_idx + 1))]}"
     fi
-    if [ "$trailing_blank" = "1" ] && [ -n "$line_after_header" ]; then
+    if [ -n "$FENCE" ] && [ "$line_after_header" = "$FENCE" ]; then
+        :
+    elif [ "$trailing_blank" = "1" ] && [ -n "$line_after_header" ]; then
         printf 'MALFORMED\t%s\n' "$file"
         return
-    fi
-    if [ "$trailing_blank" = "0" ] && [ -z "$line_after_header" ]; then
+    elif [ "$trailing_blank" = "0" ] && [ -z "$line_after_header" ]; then
         printf 'MALFORMED\t%s\n' "$file"
         return
     fi
 
-    # Duplicate check: count "Copyright ... Synnax Labs" occurrences in the
-    # first 20 lines. Guards against code generators that bake a header into
-    # template strings near the top of the file.
+    # Duplicate check: count header copyright lines in the first 20 lines to guard
+    # against a header accidentally emitted twice. Only lines that *begin* with the
+    # notice (after stripping a leading comment marker and whitespace) count — a line
+    # that merely embeds the notice as data, such as the JetBrains copyright-profile
+    # XML's value="Copyright ..." attribute, is not a second header and must not trip
+    # this check.
     local dup_limit=20
     if [ $dup_limit -gt ${#LINES[@]} ]; then
         dup_limit=${#LINES[@]}
     fi
     local copyright_count=0
     for ((i = 0; i < dup_limit; i++)); do
-        if [[ "${LINES[i]}" == *"Copyright"*"Synnax Labs"* ]]; then
+        local dl="${LINES[i]}"
+        dl="${dl#"${dl%%[![:space:]]*}"}"
+        case "$dl" in
+            "//"*) dl="${dl#//}" ;;
+            "#"*) dl="${dl#\#}" ;;
+            "*"*) dl="${dl#\*}" ;;
+            ";"*) dl="${dl#;}" ;;
+            "rem "*) dl="${dl#rem}" ;;
+        esac
+        dl="${dl#"${dl%%[![:space:]]*}"}"
+        if [[ "$dl" == "Copyright"*"Synnax Labs"* ]]; then
             copyright_count=$((copyright_count + 1))
         fi
     done
@@ -330,7 +401,7 @@ while IFS= read -r file; do
     fi
     ext="${file##*.}"
     case "$ext" in
-        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | svg)
+        go | py | pyi | ts | tsx | js | jsx | c | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | xml | svg | proto | g4 | glsl | bazel | bzl | ps1 | cmd | yaml | yml | arc | astro | toml | nsi | def)
             if ! should_ignore_file "$abs_file"; then
                 [ -f "$abs_file" ] && FILES_TO_CHECK+=("$abs_file")
             fi

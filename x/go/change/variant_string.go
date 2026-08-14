@@ -26,9 +26,9 @@ const _Variant_name = "VariantSetVariantDelete"
 var _Variant_index = [...]uint8{0, 10, 23}
 
 func (i Variant) String() string {
-	i -= 1
-	if i >= Variant(len(_Variant_index)-1) {
-		return "Variant(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	idx := int(i) - 1
+	if i < 1 || idx >= len(_Variant_index)-1 {
+		return "Variant(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Variant_name[_Variant_index[i]:_Variant_index[i+1]]
+	return _Variant_name[_Variant_index[idx]:_Variant_index[idx+1]]
 }

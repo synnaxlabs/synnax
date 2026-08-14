@@ -9,7 +9,6 @@
 
 export * from "@/channel/AliasInput";
 export * from "@/channel/Icons";
-export * from "@/channel/LinePlot";
 export * from "@/channel/queries";
 export * from "@/channel/resolveIcon";
 export * from "@/channel/Select";

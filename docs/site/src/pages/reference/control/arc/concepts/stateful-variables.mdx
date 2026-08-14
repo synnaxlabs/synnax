@@ -8,43 +8,82 @@ next: "Control Authority"
 nextURL: "/reference/control/arc/concepts/control-authority"
 ---
 
-import { Divider, Note } from "@synnaxlabs/pluto";
+import { Divider, Icon, Note, Text } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
+import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Arc functions execute repeatedly in response to incoming data. Each execution starts
-fresh, with local variables reset to their initial values. **Stateful variables** let
-you preserve values across these executions.
+Arc programs execute repeatedly in response to incoming data. Each time a scope runs (a
+function call, or entering a stage or sequence), its local variables (`:=`) reset to
+their initial values. **Stateful variables** (`$=`) let you preserve values across those
+runs.
 
 <Divider.Divider x />
 
 ## Local vs Stateful Variables
 
-Use `:=` for local variables that reset each execution, and `$=` for stateful variables
-that persist:
+Use `:=` for local variables that reset each run, and `$=` for stateful variables that
+persist across scope re-entry.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+stage counting {
+    local := 0 // resets to 0 on re-entry
+    state $= 0 // value persists on re-entry
+
+    local + 1 -> local // always becomes 1
+    state + 1 -> state // increments on re-entry
+
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
 
 ```arc
 func example() {
-    local := 0 // resets to 0 every execution
-    state $= 0 // persists across executions
+    local := 0 // resets to 0 on each call
+    state $= 0 // persists across calls
 
     local = local + 1 // always becomes 1
     state = state + 1 // increments: 1, 2, 3, ...
 }
 ```
 
-The `$=` operator declares a stateful variable with an initial value. After the first
-execution, subsequent executions use the persisted value instead of the initial value.
+</Fragment>
+
+</Arc.Tabs>
 
 <Divider.Divider x />
 
 ## Common Patterns
 
-### Counter
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Counter</Text.Text>
 
-Track how many times a condition has occurred:
+Track how many times a condition has occurred.
 
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage {
+    count $= 0
+    // Triggered on new `value`
+    value > threshold -> select{} -> {
+        true: count + 1 -> count
+    }
+}
+```
+</Fragment>
+
+<Fragment slot="function">
 ```arc
 func count_events{threshold f64} (value f64) i64 {
     count $= 0
@@ -54,11 +93,30 @@ func count_events{threshold f64} (value f64) i64 {
     return count
 }
 ```
+</Fragment>
 
-### Accumulator
+</Arc.Tabs>
 
-Sum values over time:
+</Details>
 
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Accumulator</Text.Text>
+
+Sum values over time.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage accumulate {
+    total $= 0.0
+    // Triggred on new `value`
+    value + total -> total
+}
+```
+</Fragment>
+
+<Fragment slot="function">
 ```arc
 func accumulate(value f64) f64 {
     total $= 0.0
@@ -66,11 +124,31 @@ func accumulate(value f64) f64 {
     return total
 }
 ```
+</Fragment>
 
-### Previous Value
+</Arc.Tabs>
 
-Compare the current value to the previous one:
+</Details>
 
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Previous Value</Text.Text>
+
+Compare the current value to the previous one.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+sequence phase_delta {
+    prev $= 0.0
+    // Triggered on new `value`
+    value - prev -> delta
+    value -> previous
+}
+```
+</Fragment>
+
+<Fragment slot="function">
 ```arc
 func rate_of_change(value f64) f64 {
     prev $= 0.0
@@ -79,11 +157,32 @@ func rate_of_change(value f64) f64 {
     return delta
 }
 ```
+</Fragment>
 
-### Running Maximum
+</Arc.Tabs>
 
-Track the highest value seen:
+</Details>
 
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Running Maximum</Text.Text>
+
+Track the highest value seen.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage running_max {
+    max $= 0.0
+    // Triggered on new `value`
+    value > max -> select{} -> {
+        true: value -> max
+    }
+}
+```
+</Fragment>
+
+<Fragment slot="function">
 ```arc
 func running_max(value f64) f64 {
     max $= 0.0
@@ -93,10 +192,37 @@ func running_max(value f64) f64 {
     return max
 }
 ```
+</Fragment>
 
-### State Toggle
+</Arc.Tabs>
 
-Maintain an on/off state:
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> State Toggle</Text.Text>
+
+Maintain an on/off state.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+stage toggle {
+    state $= 0
+
+    // Blocked on new `trigger`
+    trigger -> state == 0 -> select{} -> {
+        true: 1 -> state,
+        false: 0 -> state
+    }
+
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
 
 ```arc
 func toggle(trigger u8) u8 {
@@ -111,6 +237,12 @@ func toggle(trigger u8) u8 {
     return state
 }
 ```
+
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
 
 <Divider.Divider x />
 
@@ -147,32 +279,6 @@ func running_average(value f64) f64 {
 
 Use `for` loops for computation within a single call. Use stateful variables for
 streaming computations that build up over time.
-
-<Divider.Divider x />
-
-## Reset on Stage Re-entry
-
-When a stage in a [sequence](/reference/control/arc/concepts/sequences-and-stages) is
-re-entered, all stateful variables in that stage reset to their initial values. This
-ensures stages start fresh when you transition back to them.
-
-```arc
-sequence main {
-    stage monitoring {
-        // count resets to 0 each time we enter monitoring
-        sensor -> count_events{threshold=100.0} -> event_count
-        event_count > 10 => alert
-    }
-
-    stage alert {
-        // handle alert...
-        acknowledged => monitoring // re-entering resets count
-    }
-}
-```
-
-If you need to preserve state across stage re-entries, put the stateful logic in a
-function that's called from the top level (outside any sequence).
 
 <Divider.Divider x />
 

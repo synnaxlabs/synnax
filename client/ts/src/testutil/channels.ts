@@ -30,10 +30,39 @@ export const newIndexedPair = async (
   return [index, data];
 };
 
+export const newIndexedBoolPair = async (
+  client: Synnax,
+): Promise<[channel.Channel, channel.Channel]> => {
+  const index = await client.channels.create({
+    leaseholder: 1,
+    name: id.create(),
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  });
+  const data = await client.channels.create({
+    leaseholder: 1,
+    name: id.create(),
+    dataType: DataType.BOOLEAN,
+    index: index.key,
+  });
+  return [index, data];
+};
+
 export const newVirtualChannel = async (client: Synnax): Promise<channel.Channel> => {
   const ch = await client.channels.create({
     name: id.create(),
     dataType: DataType.FLOAT64,
+    virtual: true,
+  });
+  return ch;
+};
+
+export const newVirtualBoolChannel = async (
+  client: Synnax,
+): Promise<channel.Channel> => {
+  const ch = await client.channels.create({
+    name: id.create(),
+    dataType: DataType.BOOLEAN,
     virtual: true,
   });
   return ch;

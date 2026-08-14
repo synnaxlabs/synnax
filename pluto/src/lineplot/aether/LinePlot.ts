@@ -15,11 +15,12 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
+import { measure } from "@/lineplot/measure/aether";
+import { rule } from "@/lineplot/rule/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { status } from "@/status/aether";
 import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
-import { measure } from "@/vis/measure/aether";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;
@@ -232,4 +233,7 @@ export const REGISTRY: aether.ComponentRegistry = {
   [LinePlot.TYPE]: LinePlot,
   [XAxis.TYPE]: XAxis,
   [YAxis.TYPE]: YAxis,
+  ...measure.REGISTRY,
+  ...rule.REGISTRY,
+  ...tooltip.REGISTRY,
 };

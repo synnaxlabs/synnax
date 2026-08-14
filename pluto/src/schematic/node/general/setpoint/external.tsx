@@ -47,7 +47,6 @@ const Preview = ({ ...rest }: Config): ReactElement => (
     value={12}
     onChange={() => {}}
     units="mV"
-    style={{ width: 120, transform: "scale(0.95)" }}
     className={CSS.BM("setpoint", "preview")}
     disabled
     {...rest}

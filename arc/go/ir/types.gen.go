@@ -13,32 +13,39 @@ package ir
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/ir/versions"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
-// Edges is a collection of dataflow edges in an Arc graph.
-type Edges []Edge
-
-// Functions is a collection of function definitions in an Arc module.
-type Functions []Function
-
-// Nodes is a collection of node instantiations in an Arc module.
-type Nodes []Node
-
-// Members is an ordered collection of Scope members, one per position.
-type Members = []Member
+// Handle is a reference to a specific parameter on a specific node in the dataflow
+// graph.
+type Handle = versions.Handle
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
-type EdgeKind uint8
-
-//go:generate stringer -type=EdgeKind
+type EdgeKind = versions.EdgeKind
 
 const (
-	EdgeKindUnspecified EdgeKind = iota
-	EdgeKindContinuous
-	EdgeKindConditional
+	EdgeKindUnspecified EdgeKind = versions.EdgeKindUnspecified
+	EdgeKindContinuous  EdgeKind = versions.EdgeKindContinuous
+	EdgeKindConditional EdgeKind = versions.EdgeKindConditional
 )
+
+// Edge is a dataflow connection between node parameters in the Arc graph.
+type Edge = versions.Edge
+
+// Body is raw function body source code with optional parsed AST.
+type Body = versions.Body
+
+// Function is a function template definition with typed parameters, serving as a
+// blueprint for node instantiation.
+type Function = versions.Function
+
+// Functions is a collection of function definitions in an Arc module.
+type Functions = versions.Functions
+
+// Edges is a collection of dataflow edges in an Arc graph.
+type Edges []Edge
 
 // ScopeMode defines the concurrency model of a Scope.
 type ScopeMode uint8
@@ -62,25 +69,6 @@ const (
 	LivenessGated
 )
 
-// Handle is a reference to a specific parameter on a specific node in the dataflow
-// graph.
-type Handle struct {
-	// Node is the node identifier.
-	Node string `json:"node" msgpack:"node"`
-	// Param is the parameter name (input or output).
-	Param string `json:"param" msgpack:"param"`
-}
-
-// Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge struct {
-	// Source is the source node parameter producing data.
-	Source Handle `json:"source" msgpack:"source"`
-	// Target is the target node parameter consuming data.
-	Target Handle `json:"target" msgpack:"target"`
-	// Kind defines execution semantics for this connection.
-	Kind EdgeKind `json:"kind" msgpack:"kind"`
-}
-
 // Transition is a declarative state-transition rule on a sequential Scope.
 type Transition struct {
 	// On is the dataflow handle whose truthy value fires this transition.
@@ -101,6 +89,9 @@ type Member struct {
 	Scope *Scope `json:"scope,omitempty" msgpack:"scope,omitempty"`
 }
 
+// Members is an ordered collection of Scope members, one per position.
+type Members = []Member
+
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members
 // into strata; sequential scopes run one step at a time and advance via transitions.
@@ -114,78 +105,56 @@ type Scope struct {
 	// Activation is the handle whose truthy value activates a gated scope. Unset for
 	// always-live scopes.
 	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
-	// Strata contains stratified execution layers for parallel scopes. Empty for sequential
-	// scopes. Stratum N depends only on strata 0 to N-1.
-	Strata []Members `json:"strata" msgpack:"strata"`
+	// Strata contains stratified execution layers for parallel scopes. On sequential
+	// scopes, strata hold variable nodes that run every pass alongside the active step.
+	// Stratum N depends only on strata 0 to N-1.
+	Strata []Members `json:"strata,omitzero" msgpack:"strata,omitzero"`
 	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-	Steps Members `json:"steps" msgpack:"steps"`
-	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
-	// scopes.
-	Transitions []Transition `json:"transitions" msgpack:"transitions"`
+	Steps Members `json:"steps,omitzero" msgpack:"steps,omitzero"`
+	// Transitions contains state-transition rules for sequential scopes. Empty for
+	// parallel scopes.
+	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
 }
 
-// Body is raw function body source code with optional parsed AST.
-type Body struct {
-	// Raw is the raw source code text.
-	Raw string                  `json:"raw" msgpack:"raw"`
-	AST antlr.ParserRuleContext `json:"-"`
-}
-
-// Function is a function template definition with typed parameters, serving as a
-// blueprint for node instantiation.
-type Function struct {
-	// Key is the function identifier (template name).
-	Key string `json:"key" msgpack:"key"`
-	// Body is raw source code for user-defined functions.
-	Body Body `json:"body" msgpack:"body"`
-	// Config contains configuration parameter definitions.
-	Config types.Params `json:"config" msgpack:"config"`
-	// Inputs contains input parameter definitions.
-	Inputs types.Params `json:"inputs" msgpack:"inputs"`
-	// Outputs contains output parameter definitions.
-	Outputs types.Params `json:"outputs" msgpack:"outputs"`
-	// Channels contains channel read/write declarations.
-	Channels types.Channels `json:"channels" msgpack:"channels"`
-}
-
-// Node is a concrete instantiation of a function with typed parameters and
-// configuration values.
+// Node is a concrete instantiation of a function with typed parameters and values.
 type Node struct {
 	// Key is the unique identifier for this node instance.
 	Key string `json:"key" msgpack:"key"`
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
-	// Config contains configuration parameter values.
-	Config types.Params `json:"config" msgpack:"config"`
 	// Inputs contains input parameter type signatures.
-	Inputs types.Params `json:"inputs" msgpack:"inputs"`
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter type signatures.
-	Outputs types.Params `json:"outputs" msgpack:"outputs"`
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
+
+// Nodes is a collection of node instantiations in an Arc module.
+type Nodes []Node
 
 // Authorities holds the static authority declarations from an Arc program.
 type Authorities struct {
 	// Default is the default authority for all write channels not explicitly listed.
 	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
 	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels" msgpack:"channels"`
+	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
 	// Functions contains function template definitions.
-	Functions Functions `json:"functions" msgpack:"functions"`
+	Functions Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
 	// Nodes contains node instantiations.
-	Nodes Nodes `json:"nodes" msgpack:"nodes"`
+	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Edges contains dataflow connections.
-	Edges Edges `json:"edges" msgpack:"edges"`
+	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Authorities contains the static authority declarations for this program.
 	Authorities Authorities `json:"authorities" msgpack:"authorities"`
-	// Root is the top-level execution context. The root is always a parallel, always-live
-	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
+	// Root is the top-level execution context. The root is always a parallel,
+	// always-live Scope whose strata mix module-scope reactive flow with top-level
+	// gated scopes.
 	Root    Scope                                  `json:"root" msgpack:"root"`
 	Symbols *symbol.Symbol                         `json:"-"`
 	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`

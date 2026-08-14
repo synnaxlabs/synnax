@@ -12,9 +12,9 @@ package iterator
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -86,7 +86,10 @@ func (t *calculationTransform) processResponse(ctx context.Context, res Response
 	t.Out.Inlet() <- res
 }
 
-func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes Response) {
+func (t *calculationTransform) processBufferedFrames(
+	ctx context.Context,
+	ackRes Response,
+) {
 	defer func() { t.pendingFrames = t.pendingFrames[:0] }()
 	if len(t.pendingFrames) == 0 {
 		if t.accumulatedError != nil {

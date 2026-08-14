@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control as clientControl } from "@synnaxlabs/client";
-import { type status, TimeStamp } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
+import { control as clientControl, type status } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/x";
+import {
+  type CSSProperties,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+} from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -41,12 +47,12 @@ export const tooltipMessage = (
       if (status.details?.valid === true)
         return {
           message: "Uncontrolled. Click to take control.",
-          chipColor: "var(--pluto-gray-l12)",
+          chipColor: "var(--pluto-gray-l11)",
           chipIcon: Icon.Circle,
         };
       return {
         message: "No channel connected. This element cannot be controlled.",
-        chipColor: "var(--pluto-gray-l7)",
+        chipColor: "var(--pluto-text-disabled)",
         chipIcon: Icon.Circle,
         disabled: true,
       };
@@ -114,7 +120,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
     chipIcon: ChipIcon,
     buttonStyle,
     disabled,
-  } = tooltipMessage(status);
+  } = useMemo(() => tooltipMessage(status), [status]);
 
   return (
     <Button.Button

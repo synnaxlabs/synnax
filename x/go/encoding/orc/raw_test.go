@@ -21,13 +21,16 @@ import (
 
 var _ = Describe("Raw", func() {
 	Describe("NewRaw", func() {
-		It("Should return a validation error when the bytes do not have the magic header", func() {
-			Expect(orc.NewRaw([]byte{1, 2, 3})).Error().To(
-				SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("data was not encoded using orc")),
-				))
-		})
+		It(
+			"Should return a validation error when the bytes do not have the magic header",
+			func() {
+				Expect(orc.NewRaw([]byte{1, 2, 3})).Error().To(
+					SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("data was not encoded using ORC")),
+					))
+			},
+		)
 
 		It("Should strip the magic header when it matches", func() {
 			bytes := append(magic[:], 1, 2, 3)
@@ -243,7 +246,7 @@ var _ = Describe("Raw", func() {
 			Expect(string(val)).To(Equal("hello"))
 			val, rest = rest.ReadString()
 			Expect(string(val)).To(Equal("world"))
-			Expect(rest).To(HaveLen(0))
+			Expect(rest).To(BeEmpty())
 		})
 	})
 
@@ -360,7 +363,7 @@ var _ = Describe("Raw", func() {
 			r = r.SkipBool()
 			val, rest := r.ReadString()
 			Expect(string(val)).To(Equal("target"))
-			Expect(rest).To(HaveLen(0))
+			Expect(rest).To(BeEmpty())
 		})
 	})
 })

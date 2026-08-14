@@ -39,8 +39,18 @@ func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, err
 	resT.Transform = newResponseTranslator(s.cfg.HostResolver.HostKey())
 	plumber.SetSegment(pipe, gatewayRequestsAddr, reqT)
 	plumber.SetSegment(pipe, gatewayResponsesAddr, resT)
-	plumber.MustConnect[ts.WriterRequest](pipe, gatewayRequestsAddr, gatewayTSWriterAddr, 1)
-	plumber.MustConnect[ts.WriterResponse](pipe, gatewayTSWriterAddr, gatewayResponsesAddr, 1)
+	plumber.MustConnect[ts.WriterRequest](
+		pipe,
+		gatewayRequestsAddr,
+		gatewayTSWriterAddr,
+		1,
+	)
+	plumber.MustConnect[ts.WriterResponse](
+		pipe,
+		gatewayTSWriterAddr,
+		gatewayResponsesAddr,
+		1,
+	)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteInletTo(gatewayRequestsAddr))
 	lo.Must0(seg.RouteOutletFrom(gatewayResponsesAddr))

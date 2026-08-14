@@ -7,45 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError, ontology, type rack, task } from "@synnaxlabs/client";
-import { errors, primitive, status } from "@synnaxlabs/x";
+import { arc, type rack, status, task } from "@synnaxlabs/client";
+import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
+import { Node } from "@/arc/graph/node";
+import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { type List } from "@/list";
-import { state } from "@/state";
-import { type Status } from "@/status";
 import { Task } from "@/task";
+import { Theming } from "@/theming";
+import { type Diagram } from "@/vis/diagram";
 
-export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
-
-export const FLUX_STORE_KEY = "arcs";
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";
 
-export interface FluxSubStore extends Status.FluxSubStore, Task.FluxSubStore {
-  [FLUX_STORE_KEY]: FluxStore;
-}
+const {
+  useDispatch,
+  useUndo: useUndoBase,
+  useRedo: useRedoBase,
+  useSingleDispatch: useSingleDispatchBase,
+} = Flux.createDispatch<arc.Key, arc.Arc, arc.Action>({
+  domain: (client) => client.arcs,
+});
 
-const SET_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.arcZ> = {
-  channel: arc.SET_CHANNEL_NAME,
-  schema: arc.arcZ,
-  onChange: ({ store, changed }) => store.arcs.set(changed.key, changed),
-};
+export { useDispatch };
+export const useUndo = Scope.bindHook(useUndoBase);
+export const useRedo = Scope.bindHook(useRedoBase);
+export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
 
-const DELETE_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.keyZ> = {
-  channel: arc.DELETE_CHANNEL_NAME,
-  schema: arc.keyZ,
-  onChange: ({ store, changed }) => store.arcs.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, arc.Key, arc.Arc> =
-  { listeners: [SET_ARC_LISTENER, DELETE_ARC_LISTENER] };
-
-export interface FluxSubStore extends Flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
+export interface KeyParams {
+  key: arc.Key;
 }
 
 export type RetrieveQuery = {
@@ -53,349 +46,270 @@ export type RetrieveQuery = {
   includeStatus?: boolean;
 };
 
-const retrieveSingle = async ({
-  client,
-  query,
-  store,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const a = await client.arcs.retrieve({
-    ...query,
-    includeStatus: query.includeStatus ?? true,
+export const { use, useEnsure, useTombstone, useResult, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, arc.Arc>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
+    onChange: ({ client, query: { key, includeStatus } }, handler) =>
+      client.arcs.onChange({ key, includeStatus }, handler),
+    getCached: ({ client, query: { key, includeStatus } }) =>
+      client.arcs.getCached({ key, includeStatus }),
+    awaitCreation: true,
   });
-  store.arcs.set(query.key, a);
-  return a;
+
+// useAllNodes returns every graph node of the Arc with the given key as diagram
+// nodes. graph.Node is a structural superset of Diagram.Node, so the cached array
+// is returned by reference with no translation, keeping selections referentially
+// stable across unrelated cache updates.
+export const useAllNodes = Scope.bindHook(
+  createSelector<Diagram.Node[]>(({ graph }) => graph.nodes),
+);
+
+export interface NodesParams extends KeyParams {
+  keys: string[];
+}
+
+// useNodes returns only the graph nodes whose keys are in the given set. The
+// result is compared by value, so a consumer that tracks a selection re-renders only
+// when its nodes change, not on every node mutation.
+export const useNodes = Scope.bindHook(
+  createSelector<Diagram.Node[], NodesParams>(
+    ({ graph }, { keys }) => {
+      if (keys.length === 0) return [];
+      const keySet = new Set(keys);
+      return graph.nodes.filter((n) => keySet.has(n.key));
+    },
+    (a, b) => compare.arraysEqual(a, b),
+  ),
+);
+
+// useAllEdges returns every graph edge of the Arc with the given key as diagram
+// edges. graph.Edge is a structural superset of Diagram.Edge, so the cached array
+// is returned by reference with no translation, keeping selections referentially
+// stable across unrelated cache updates.
+export const useAllEdges = Scope.bindHook(
+  createSelector<Diagram.Edge[]>(({ graph }) => graph.edges),
+);
+
+export interface NodePropsParams extends KeyParams {
+  nodeKey: string;
+}
+
+// useNodeConfig returns the typed config for a single graph node. Returned by
+// reference, so the selection only re-runs when that node's config changes.
+export const useNodeConfig = Scope.bindHook(
+  createSelector<Node.Config, NodePropsParams>(
+    ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,
+  ),
+);
+
+// useMode returns the representation mode of the Arc with the given key. It
+// requires the arc to be cached, so callers must render it beneath an Arc.Suspended
+// boundary that has retrieved the arc.
+export const useMode = Scope.bindHook(createSelector(({ mode }) => mode));
+
+// useHasText reports whether the Arc with the given key has a cached document.
+// It returns a stable boolean, so an editor that drives its document imperatively
+// re-renders only when the document first becomes available, not on every edit.
+export const useHasText = Scope.bindHook(
+  createSelector(({ text }) => text.doc != null),
+);
+
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
+
+export interface AddNodeProps {
+  key: string;
+  type: string;
+  position?: xy.Crude;
+}
+
+// useAddNode returns a callback that appends a node of the given function type at
+// the given position, seeding its config from the type's default props. The Arc key
+// is resolved from the surrounding scope unless overridden.
+export const useAddNode = (keyOverride?: arc.Key) => {
+  const key = Scope.use(keyOverride);
+  const theme = Theming.use();
+  const { dispatch } = useDispatch();
+  return useCallback(
+    ({ key: nodeKey, type, position }: AddNodeProps) => {
+      const spec = (Node.REGISTRY as Record<string, Node.Spec>)[type];
+      if (spec == null) return;
+      dispatch({
+        key,
+        actions: [
+          arc.setNode({
+            node: { key: nodeKey, position: xy.construct(position ?? xy.ZERO) },
+          }),
+          arc.setNodeInputs({
+            key: nodeKey,
+            inputs: spec.defaultConfig(theme) as record.Unknown,
+          }),
+        ],
+      });
+    },
+    [key, dispatch, theme],
+  );
 };
 
 export type ListQuery = List.PagerParams & {
   keys?: arc.Key[];
 };
 
-export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore>({
+export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store, query }) =>
-    store.arcs.get((a) => {
-      if (primitive.isNonZero(query.keys)) return query.keys.includes(a.key);
-      return true;
-    }),
-  retrieve: async ({ client, query }) =>
-    await client.arcs.retrieve({
-      ...query,
-      includeStatus: true,
-    }),
-  retrieveByKey: async ({ client, key, store }) => {
-    const cached = store.arcs.get(key);
-    if (cached != null) return cached;
-    const arc = await client.arcs.retrieve({ key });
-    store.arcs.set(key, arc);
-    return arc;
-  },
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.arcs.onSet((arc) => onChange(arc.key, arc)),
-    store.arcs.onDelete(onDelete),
-  ],
+  normalizeQuery: (query) => ({ ...query, includeStatus: true }),
+  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
+  retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
+  onChange: ({ client, query }, handler) => client.arcs.onChange(query, handler),
+  getCached: ({ client, query }) => client.arcs.getCached(query),
 });
 
-export const { useUpdate: useDelete } = Flux.createUpdate<
-  arc.Key | arc.Key[],
-  FluxSubStore
->({
+export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   name: PLURAL_RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    rollbacks.push(store.arcs.delete(data));
-    await client.arcs.delete(data);
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.arcs.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
 
-export const formSchema = arc.newZ.extend({
-  name: z.string().min(1, "Name must not be empty"),
+export const formSchema = z.object({
+  key: arc.keyZ.optional(),
+  name: z.string().min(1, "Name is required"),
+  mode: arc.modeZ,
 });
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   mode: "text",
-  graph: {
-    nodes: [],
-    edges: [],
-    viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-    functions: [],
-  },
-  text: { raw: "" },
 };
 
-export const useForm = Flux.createForm<
-  Partial<RetrieveQuery>,
-  typeof formSchema,
-  FluxSubStore
->({
+export type FormQuery = Record<string, never>;
+
+export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query, reset, store }) => {
-    if (!("key" in query) || primitive.isZero(query.key)) return;
-    reset(await retrieveSingle({ client, query: query as RetrieveQuery, store }));
-  },
-  update: async ({ client, value, reset, store, rollbacks }) => {
-    const updated = await client.arcs.create(value());
-    reset(updated);
-    rollbacks.push(store.arcs.set(updated.key, updated));
+  update: async ({ client, value, set }) => {
+    const res = await client.arcs.create(value());
+    set("key", res.key);
   },
 });
 
-export interface CreateParams extends arc.New {
-  rack?: rack.Key;
-}
+export interface CreateParams extends arc.New {}
 
-const TASK_TYPE = "arc";
-
-const taskStatusDataZ = z.null().optional();
-
-const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
-  status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
-    key: task.statusKey(taskKey),
-    name: "Configuring task",
-    variant: "loading",
-    message: "Configuring task...",
-    details: { task: taskKey, running: false, data: undefined },
-  });
-
-const TASK_SCHEMAS = {
-  type: z.literal(TASK_TYPE),
-  config: z.object({ arcKey: z.string() }),
-  statusData: taskStatusDataZ,
-} as const satisfies task.Schemas;
-
-export const { useUpdate: useCreate } = Flux.createUpdate<
-  CreateParams,
-  FluxSubStore,
-  arc.Arc
->({
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    const { rack } = data;
-    let taskKey: task.Key | undefined;
-    // If the caller selected a rack to deploy the arc on, we need to create a task
-    // for it.
-    if (rack != null) {
-      taskKey = task.newKey(rack, 0);
-      if (data.key != null) {
-        const tsk = await retrieveTask({ client, store, query: { arcKey: data.key } });
-        if (tsk != null)
-          if (task.rackKey(tsk.key) != rack) {
-            // This means a previous task was created for a different rack, and we need
-            // to delete it.
-            rollbacks.push(store.tasks.delete(tsk.key));
-            rollbacks.push(
-              store.relationships.delete(
-                ontology.relationshipToString({
-                  from: arc.ontologyID(data.key),
-                  type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-                  to: task.ontologyID(tsk.key),
-                }),
-              ),
-            );
-            await client.tasks.delete([tsk.key]);
-          } else taskKey = tsk.key;
-      }
-    }
-    const prog = await client.arcs.create(data);
-    rollbacks.push(store.arcs.set(prog));
-    if (taskKey == null) return prog;
-    const { key, name } = prog;
-    const newTsk = await client.tasks.create(
-      {
-        key: taskKey,
-        name,
-        type: TASK_TYPE,
-        config: { arcKey: key },
-        status: configuringStatus(taskKey),
-      },
-      TASK_SCHEMAS,
-    );
-    await client.ontology.addChildren(arc.ontologyID(key), task.ontologyID(newTsk.key));
-    return prog;
-  },
+  verbs: verbs.CREATE,
+  update: async ({ client, data, onOptimisticComplete }) =>
+    await client.arcs.create(data, {
+      onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
+    }),
 });
-
-export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
-  RetrieveQuery,
-  arc.Arc,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query, onChange }) => {
-    if (!("key" in query) || primitive.isZero(query.key)) return [];
-    return [store.arcs.onSet(onChange, query.key)];
-  },
-});
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, arc.Arc>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success") return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
 
 export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
-  update: async (params) => {
-    const {
-      client,
-      store,
-      data: { key, name },
-      rollbacks,
-    } = params;
-    const arc = await retrieveSingle({ client, store, query: { key } });
-    const task = await retrieveTask({ client, store, query: { arcKey: key } });
-    if (task != null) await Task.rename({ ...params, data: { key: task.key, name } });
-
-    rollbacks.push(
-      store.arcs.set(
-        key,
-        state.skipUndefined((p) => ({ ...p, name })),
-      ),
-    );
-    await client.arcs.create({ ...arc, name });
-    return { key, name };
+  verbs: verbs.RENAME,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    const { key, name } = data;
+    await client.arcs.rename(key, name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
+    return data;
   },
+});
+
+export interface SetRackParams {
+  key: arc.Key;
+  /** Target rack. Zero clears the binding, deleting the arc's task. */
+  rack: rack.Key;
+}
+
+export const { useUpdate: useSetRack } = Flux.createUpdate<
+  SetRackParams,
+  task.Task | null
+>({
+  name: `${RESOURCE_NAME} rack`,
+  verbs: verbs.SET,
+  update: async ({ client, data }) => await client.arcs.setRack(data.key, data.rack),
 });
 
 export type RetrieveTaskParams = {
   arcKey: arc.Key;
 };
 
-export const retrieveTask = async ({
-  client,
-  query,
-  store,
-}: Flux.RetrieveParams<RetrieveTaskParams, FluxSubStore>): Promise<
-  task.Task | undefined
-> => {
-  const arcOntologyID = arc.ontologyID(query.arcKey);
-  const cachedChild = store.relationships.get((r) =>
-    ontology.matchRelationship(r, {
-      from: arcOntologyID,
-      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      to: { type: "task" },
-    }),
-  )[0];
-
-  let taskKey = cachedChild?.to.key;
-
-  if (taskKey == null) {
-    let children: ontology.Resource[];
-    try {
-      children = await client.ontology.retrieveChildren(arcOntologyID, {
-        types: ["task"],
-      });
-    } catch (e) {
-      // if the arc doesn't exist then it can't have a task.
-      if (NotFoundError.matches(e)) return undefined;
-      throw errors.fromUnknown(e);
-    }
-    children.forEach((c) => {
-      const rel: ontology.Relationship = {
-        from: arcOntologyID,
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: c.id,
-      };
-      store.relationships.set(ontology.relationshipToString(rel), rel);
-    });
-    if (children.length === 0) return undefined;
-    taskKey = children[0].id.key;
-  }
-
-  return await Task.retrieveSingle({ store, client, query: { key: taskKey } });
-};
-
-export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
-  RetrieveTaskParams,
-  task.Task | undefined,
-  FluxSubStore
->({
+export const {
+  use: useTask,
+  useResult: useResultTask,
+  createResultSelector: createTaskResultSelector,
+} = Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({
   name: "Task",
-  retrieve: retrieveTask,
-  mountListeners: ({ store, query, onChange, client }) => {
-    if (!("arcKey" in query) || primitive.isZero(query.arcKey)) return [];
-    const arcOntologyID = arc.ontologyID(query.arcKey);
-
-    return [
-      store.relationships.onSet(async (rel) => {
-        const isTaskChild = ontology.matchRelationship(rel, {
-          from: arcOntologyID,
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: { type: "task" },
-        });
-        if (!isTaskChild) return;
-        const tsk = await Task.retrieveSingle({
-          store,
-          client,
-          query: { key: rel.to.key },
-        });
-        onChange(tsk);
-      }),
-
-      store.relationships.onDelete(async (relKey) => {
-        const rel = ontology.relationshipZ.parse(relKey);
-        const isTaskChild = ontology.matchRelationship(rel, {
-          from: arcOntologyID,
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: { type: "task" },
-        });
-        if (!isTaskChild) return;
-        onChange(undefined);
-      }),
-
-      store.tasks.onSet(async (tsk) => {
-        const isChild =
-          store.relationships.get((r) =>
-            ontology.matchRelationship(r, {
-              from: arcOntologyID,
-              type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-              to: task.ontologyID(tsk.key),
-            }),
-          ).length > 0;
-        if (isChild)
-          onChange((prev) => {
-            if (prev == null) return tsk;
-            return client.tasks.sugar({ ...tsk.payload, status: prev.status });
-          });
-      }),
-
-      store.statuses.onSet(async (status) => {
-        if (!status.key.startsWith("task")) return;
-        const cachedRel = store.relationships.get((r) =>
-          ontology.matchRelationship(r, {
-            from: arcOntologyID,
-            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: { type: "task" },
-          }),
-        )[0];
-        if (cachedRel == null) return;
-        const taskStatusKey = task.statusKey(cachedRel.to.key);
-        if (status.key !== taskStatusKey) return;
-        const parsed = task.statusZ(z.unknown().optional()).safeParse(status);
-        if (!parsed.success) return;
-        onChange((prev) => {
-          if (prev == null) return prev;
-          return client.tasks.sugar({ ...prev.payload, status: parsed.data });
-        });
-      }),
-    ];
-  },
+  retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
+  onChange: ({ client, query }, handler) =>
+    client.arcs.task.onChange(query.arcKey, handler),
+  getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
 });
+
+const useDriftedResult = createTaskResultSelector(
+  (tsk) => tsk != null && task.drifted(tsk),
+);
+
+/**
+ * Whether the arc's running instance was deployed from different content, config, or
+ * rack than its task now holds. The Core rewrites the task config whenever the arc's
+ * semantic content changes, so content drift surfaces as ordinary task config drift.
+ * Arcs that are not running never drift. Re-renders only when the boolean changes.
+ */
+export const useDrifted = (query: RetrieveTaskParams): boolean =>
+  useDriftedResult(query).data === true;
+
+export interface UseTaskControlsReturn {
+  running: boolean;
+  taskKey: task.Key;
+  taskRack: rack.Key;
+  /** Starts the task. The driver rebuilds from the current config when it drifted. */
+  onStart: () => void;
+  /** Stops the running instance. */
+  onStop: () => void;
+  onStartStop: () => void;
+  taskStatus: status.Status;
+}
+
+const notDeployedYet = (name: string) =>
+  status.create({ name, variant: "disabled", message: "Not deployed yet" });
+
+/** Running state and start/stop controls for the arc's task. */
+export const useTaskControls = (key: arc.Key, name: string): UseTaskControlsReturn => {
+  const { data: tsk, variant, status: readStatus } = useResultTask({ arcKey: key });
+  const cmd = Task.useCommand();
+  const isRunning = tsk?.status?.details.running ?? false;
+  const taskKey = tsk?.key ?? "";
+  const taskRack = tsk?.rack ?? 0;
+  const exec = useCallback(
+    (type: "start" | "stop") => {
+      if (taskKey === "") return;
+      cmd.update([{ task: taskKey, type }]);
+    },
+    [cmd, taskKey],
+  );
+  const onStart = useCallback(() => exec("start"), [exec]);
+  const onStop = useCallback(() => exec("stop"), [exec]);
+  const onStartStop = useCallback(
+    () => (isRunning ? onStop() : onStart()),
+    [isRunning, onStop, onStart],
+  );
+  return {
+    running: isRunning,
+    taskKey,
+    taskRack,
+    onStart,
+    onStop,
+    onStartStop,
+    taskStatus:
+      variant !== "success" ? readStatus : (tsk?.status ?? notDeployedYet(name)),
+  };
+};

@@ -15,67 +15,109 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type benchIterEnv struct {
-	ctx         context.Context
-	builder     *mock.Cluster
-	dist        mock.Node
-	iteratorSvc *iterator.Service
-	arcSvc      *arc.Service
+	ctx           context.Context
+	node          mock.Node
+	closer        io.MultiCloser
+	channelSvc    *channel.Service
+	channelWriter channel.Writer
+	iteratorSvc   *iterator.Service
 }
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
-	ctx := context.Background()
-	builder := mock.NewCluster()
-	dist := builder.Provision(ctx)
+	node := mock.OpenNode(b.Context())
 
-	searchIdx, err := search.Open()
+	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
-		b.Fatalf("failed to create search index: %v", err)
+		b.Fatalf("failed to open ontology: %v", err)
 	}
 
-	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
-		DB:       dist.DB,
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
+	searchIdx, err := search.OpenIndex()
+	if err != nil {
+		b.Fatalf("failed to open search index: %v", err)
+	}
+
+	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
 		Search:   searchIdx,
 	})
 	if err != nil {
-		b.Fatalf("failed to open arc service: %v", err)
+		b.Fatalf("failed to open group service: %v", err)
+	}
+
+	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	})
+	if err != nil {
+		b.Fatalf("failed to open label service: %v", err)
+	}
+
+	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	})
+	if err != nil {
+		b.Fatalf("failed to open status service: %v", err)
+	}
+
+	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open channel service: %v", err)
 	}
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
-		DistFramer: dist.Framer,
-		Channel:    svcchannel.Wrap(dist.Channel),
-		Arc:        arcSvc,
+		Framer:  node.Framer,
+		Channel: channelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open iterator service: %v", err)
 	}
 
 	return &benchIterEnv{
-		ctx:         ctx,
-		builder:     builder,
-		dist:        dist,
-		iteratorSvc: iteratorSvc,
-		arcSvc:      arcSvc,
+		ctx:  b.Context(),
+		node: node,
+		closer: io.MultiCloser{
+			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+		},
+		channelSvc:    channelSvc,
+		channelWriter: channelSvc.NewWriter(nil),
+		iteratorSvc:   iteratorSvc,
 	}
 }
 
 func (e *benchIterEnv) close(b *testing.B) {
-	if err := e.builder.Close(); err != nil {
-		b.Errorf("failed to close cluster: %v", err)
+	if err := e.closer.Close(); err != nil {
+		b.Errorf("failed to close env: %v", err)
 	}
 }
 
@@ -89,7 +131,7 @@ func (e *benchIterEnv) createChannels(
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := e.dist.Channel.Create(e.ctx, indexCh); err != nil {
+	if err := e.channelWriter.Create(e.ctx, indexCh); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -99,7 +141,7 @@ func (e *benchIterEnv) createChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.dist.Channel.Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.channelWriter.Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -117,7 +159,7 @@ func (e *benchIterEnv) writeData(
 	for i, ch := range dataChannels {
 		keys[i+1] = ch.Key()
 	}
-	w, err := e.dist.Framer.OpenWriter(e.ctx, framer.WriterConfig{
+	w, err := e.node.Framer.OpenWriter(e.ctx, framer.WriterConfig{
 		Start:            telem.SecondTS,
 		Keys:             keys,
 		EnableAutoCommit: new(true),
@@ -157,7 +199,7 @@ func (e *benchIterEnv) createCalculation(
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.dist.Channel.Create(e.ctx, calc); err != nil {
+	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc
@@ -208,7 +250,11 @@ func BenchmarkIteratorCalc_ManyChannels(b *testing.B) {
 			prefix := fmt.Sprintf("many%d", count)
 			indexCh, dataChannels := env.createChannels(b, prefix, count)
 			env.writeData(b, indexCh, dataChannels, 100)
-			calc := env.createCalculation(b, prefix+"_calc", fmt.Sprintf("return %s_sensor_0", prefix))
+			calc := env.createCalculation(
+				b,
+				prefix+"_calc",
+				fmt.Sprintf("return %s_sensor_0", prefix),
+			)
 
 			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -249,7 +295,11 @@ func BenchmarkIteratorCalc_LargeFrames(b *testing.B) {
 			prefix := fmt.Sprintf("large%d", size)
 			indexCh, dataChannels := env.createChannels(b, prefix, 1)
 			env.writeData(b, indexCh, dataChannels, size)
-			calc := env.createCalculation(b, prefix+"_calc", fmt.Sprintf("return %s_sensor_0 * 2", prefix))
+			calc := env.createCalculation(
+				b,
+				prefix+"_calc",
+				fmt.Sprintf("return %s_sensor_0 * 2", prefix),
+			)
 
 			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -295,7 +345,11 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 			prevName := prefix + "_sensor_0"
 			for i := range length {
 				name := fmt.Sprintf("%s_calc_%d", prefix, i)
-				finalCalc = env.createCalculation(b, name, fmt.Sprintf("return %s + 1", prevName))
+				finalCalc = env.createCalculation(
+					b,
+					name,
+					fmt.Sprintf("return %s + 1", prevName),
+				)
 				prevName = name
 			}
 
@@ -341,7 +395,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			if err := env.dist.Channel.Create(env.ctx, indexCh); err != nil {
+			if err := env.channelWriter.Create(env.ctx, indexCh); err != nil {
 				b.Fatalf("failed to create index channel: %v", err)
 			}
 			dataCh := &channel.Channel{
@@ -349,14 +403,14 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			if err := env.dist.Channel.Create(env.ctx, dataCh); err != nil {
+			if err := env.channelWriter.Create(env.ctx, dataCh); err != nil {
 				b.Fatalf("failed to create data channel: %v", err)
 			}
 
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 			for d := range numDomains {
 				startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
-				w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
+				w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 					Start:            startTS,
 					Keys:             keys,
 					EnableAutoCommit: new(true),
@@ -382,7 +436,11 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				}
 			}
 
-			calc := env.createCalculation(b, prefix+"_calc", "return "+prefix+"_sensor * 2")
+			calc := env.createCalculation(
+				b,
+				prefix+"_calc",
+				"return "+prefix+"_sensor * 2",
+			)
 			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
 				Bounds: telem.TimeRangeMax,
@@ -408,7 +466,10 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				b.StartTimer()
 			}
 			b.StopTimer()
-			b.ReportMetric(float64(50*numDomains*b.N)/b.Elapsed().Seconds(), "samples/sec")
+			b.ReportMetric(
+				float64(50*numDomains*b.N)/b.Elapsed().Seconds(),
+				"samples/sec",
+			)
 		})
 	}
 }
@@ -419,7 +480,11 @@ func BenchmarkIteratorCalc_TwoInputAdd(b *testing.B) {
 
 	indexCh, dataChannels := env.createChannels(b, "twoinput", 2)
 	env.writeData(b, indexCh, dataChannels, 100)
-	calc := env.createCalculation(b, "twoinput_calc", "return twoinput_sensor_0 + twoinput_sensor_1")
+	calc := env.createCalculation(
+		b,
+		"twoinput_calc",
+		"return twoinput_sensor_0 + twoinput_sensor_1",
+	)
 
 	iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 		Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -455,7 +520,11 @@ func BenchmarkIteratorCalc_MixedConcreteAndCalc(b *testing.B) {
 
 	indexCh, dataChannels := env.createChannels(b, "mixed", 2)
 	env.writeData(b, indexCh, dataChannels, 100)
-	calc := env.createCalculation(b, "mixed_calc", "return mixed_sensor_0 + mixed_sensor_1")
+	calc := env.createCalculation(
+		b,
+		"mixed_calc",
+		"return mixed_sensor_0 + mixed_sensor_1",
+	)
 
 	requestKeys := []channel.Key{
 		dataChannels[0].Key(),

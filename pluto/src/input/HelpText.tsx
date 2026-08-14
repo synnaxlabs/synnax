@@ -9,7 +9,7 @@
 
 import "@/input/HelpText.css";
 
-import { status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -41,7 +41,7 @@ export const HelpText = ({
 }: HelpTextProps): ReactElement => (
   <Text.Text<"small">
     className={CSS(CSS.B("input-help-text"), className)}
-    color={8}
+    color={9}
     status={status.removeVariants(variant, "success")}
     level="small"
     {...rest}

@@ -13,57 +13,93 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Writer struct {
-	tx     gorp.Tx
-	otg    ontology.Writer
-	rack   rack.Writer
-	group  group.Group
-	status status.Writer[StatusDetails]
-	table  *gorp.Table[Key, Task]
+	tx        gorp.Tx
+	otgWriter ontology.Writer
+	otg       *ontology.Ontology
+	group     group.Group
+	status    status.Writer[StatusDetails]
+	table     *gorp.Table[Key, Task]
 }
 
-func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Status[StatusDetails] {
+// resolveStatus returns the status to persist for t. Without a provided status, a
+// task created for the first time provably has no live instance, so it gets a quiet
+// "has not been deployed" placeholder; an existing task may be running, so its
+// placeholder stays a "status unknown" warning.
+func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	if provided == nil {
-		return &status.Status[StatusDetails]{
-			Key:     OntologyID(t.Key).String(),
+		message := fmt.Sprintf("%s status unknown", t.Name)
+		variant := status.VariantWarning
+		if !existed {
+			message = fmt.Sprintf("%s has not been deployed", t.Name)
+			variant = status.VariantDisabled
+		}
+		return &Status{
+			Key:     t.OntologyID().String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
-			Message: fmt.Sprintf("%s status unknown", t.Name),
-			Variant: xstatus.VariantWarning,
+			Message: message,
+			Variant: variant,
 			Details: StatusDetails{Task: t.Key},
 		}
 	}
-	provided.Key = OntologyID(t.Key).String()
+	provided.Key = t.OntologyID().String()
 	provided.Details.Task = t.Key
 	provided.Name = t.Name
 	return provided
 }
 
-// Create creates or updates a task. If a status is provided on the task,
-// it will be used instead of the default "unknown" status.
-func (w Writer) Create(ctx context.Context, t *Task) error {
-	if !t.Key.IsValid() {
-		localKey, err := w.rack.NewTaskKey(ctx, t.Rack())
-		if err != nil {
-			return err
-		}
-		t.Key = NewKey(t.Rack(), localKey)
+// healStatus returns the task's effective status, writing stat first if no row exists.
+// Tasks are re-created on every scan cycle, so on a no-op update the placeholder must
+// not overwrite a status the driver has already reported.
+func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
+	var existing Status
+	err := gorp.NewRetrieve[string, Status]().
+		Where(gorp.MatchKeys[string, Status](stat.Key)).
+		Entry(&existing).
+		Exec(ctx, w.tx)
+	if err == nil {
+		return &existing, nil
 	}
-	providedStatus := (*status.Status[StatusDetails])(t.Status) // Preserve before clearing for gorp
-	t.Status = nil                                              // Status stored separately, not in gorp
+	if !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	if err := w.status.Set(ctx, stat); err != nil {
+		return nil, err
+	}
+	return stat, nil
+}
+
+// Create creates or updates a task. A provided status is persisted as given. Without
+// one, a new task gets a "has not been deployed" placeholder, and an existing task
+// keeps its reported status (healed to "status unknown" if the row is missing).
+func (w Writer) Create(ctx context.Context, t *Task) error {
+	if t.Key == uuid.Nil {
+		t.Key = uuid.New()
+	}
+	var err error
+	if t.ConfigHash, err = hashConfig(t.Config); err != nil {
+		return err
+	}
+	providedStatus := t.Status // Preserve before clearing for Gorp
+	t.Status = nil             // Status stored separately, not in Gorp
+	existed := false
 	if err := w.table.NewCreate().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
+			existed = true
 			if existing.Snapshot {
 				creating.Config = existing.Config
+				creating.ConfigHash = existing.ConfigHash
 			}
 			return creating, nil
 		}).
@@ -71,28 +107,44 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	stat := resolveStatus(t, providedStatus)
-	if err := w.status.Set(ctx, stat); err != nil {
+	stat := resolveStatus(t, providedStatus, existed)
+	if providedStatus != nil {
+		if err := w.status.Set(ctx, stat); err != nil {
+			return err
+		}
+	} else if stat, err = w.healStatus(ctx, stat); err != nil {
 		return err
 	}
+	t.Status = stat
 	// We don't create ontology resources for internal tasks.
 	if t.Internal {
 		return nil
 	}
-	otgID := OntologyID(t.Key)
-	exists, err := w.otg.HasResource(ctx, otgID)
+	otgID := t.OntologyID()
+	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
 	if err != nil || exists {
 		return err
 	}
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		w.group.OntologyID(),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
+}
+
+// CreateMany creates the given tasks. If tasks with the same key already exist, they
+// will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
+	for i := range *tasks {
+		if err := w.Create(ctx, &(*tasks)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Delete deletes the task with the given key and its associated status.
@@ -102,7 +154,7 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+	if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())
@@ -114,25 +166,24 @@ func (w Writer) Copy(
 	name string,
 	snapshot bool,
 ) (Task, error) {
-	localKey, err := w.rack.NewTaskKey(ctx, key.Rack())
-	if err != nil {
-		return Task{}, err
-	}
-	newKey := NewKey(key.Rack(), localKey)
+	newKey := uuid.New()
 	var res Task
-	if err = w.table.NewUpdate().Where(gorp.MatchKeys[Key, Task](key)).Change(func(_ gorp.Context, t Task) Task {
-		t.Key = newKey
-		t.Name = name
-		t.Snapshot = snapshot
-		res = t
-		return t
-	}).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Change(func(_ gorp.Context, t Task) Task {
+			t.Key = newKey
+			t.Name = name
+			t.Snapshot = snapshot
+			res = t
+			return t
+		}).
+		Exec(ctx, w.tx); err != nil {
 		return Task{}, err
 	}
-	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
+	if err := w.status.Set(ctx, resolveStatus(&res, nil, false)); err != nil {
 		return Task{}, err
 	}
-	if err = w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
 	return res, nil

@@ -10,7 +10,7 @@
 import "@/list/Items.css";
 
 import { type record } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode } from "react";
+import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -25,6 +25,10 @@ export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
   emptyContent?: ReactNode;
   displayItems?: number;
 }
+
+/* The container's 1rem top and bottom padding (Items.css); the sized box is
+   border-box, so omitting it leaves short lists scrolling by exactly this amount. */
+const VERTICAL_PADDING = 12;
 
 const BaseItems = <
   K extends record.Key = record.Key,
@@ -47,12 +51,11 @@ const BaseItems = <
   const visibleData = getItems();
   let content = emptyContent;
   const hasItems = data.length > 0;
+  const totalSize = getTotalSize();
+  const virtualizerStyle = useMemo(() => ({ minHeight: totalSize }), [totalSize]);
   if (hasItems)
     content = (
-      <div
-        className={CSS.BE("list", "virtualizer")}
-        style={{ minHeight: getTotalSize() }}
-      >
+      <div className={CSS.BE("list", "virtualizer")} style={virtualizerStyle}>
         {visibleData.map(({ key, index, translate }) =>
           children({ key, index, itemKey: key, translate }),
         )}
@@ -68,7 +71,10 @@ const BaseItems = <
 
   let minHeight: number | undefined;
   if (itemHeight != null && displayItems != null && isFinite(displayItems) && hasItems)
-    minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
+    minHeight =
+      Math.min(displayItems, visibleData.length) * itemHeight + VERTICAL_PADDING + 1;
+
+  const boxStyle = useMemo(() => ({ height: minHeight, ...style }), [minHeight, style]);
 
   const parsedDirection = Flex.parseDirection(direction, x, y);
   return (
@@ -80,7 +86,7 @@ const BaseItems = <
         CSS.BE("list", "items"),
         !hasItems && CSS.BEM("list", "items", "empty"),
       )}
-      style={{ height: minHeight, ...style }}
+      style={boxStyle}
       full={parsedDirection}
       direction={parsedDirection}
       {...rest}

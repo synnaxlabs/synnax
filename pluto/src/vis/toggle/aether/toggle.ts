@@ -44,6 +44,7 @@ export class Toggle
 {
   static readonly TYPE = "Toggle";
   static readonly METHODS = toggleMethodsZ;
+  static readonly z = toggleStateZ;
 
   schema = toggleStateZ;
   methods = toggleMethodsZ;

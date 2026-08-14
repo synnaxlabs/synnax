@@ -15,6 +15,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "x/go/telem/pb/telem.pb.h"
 
@@ -212,6 +213,36 @@ TEST(TestSeries, testConstructionSingleValue) {
     const auto v = s.values<std::uint64_t>();
     ASSERT_EQ(v[0], 1);
     ASSERT_EQ(s.at<std::uint64_t>(0), value);
+}
+
+/// @brief it should correctly construct a series of size 1 from a bool.
+TEST(TestSeries, testConstructionSingleBool) {
+    const auto s_true = Series(true);
+    ASSERT_EQ(s_true.data_type(), BOOL_T);
+    ASSERT_EQ(s_true.size(), 1);
+    ASSERT_EQ(s_true.byte_size(), 1);
+    ASSERT_EQ(s_true.at<uint8_t>(0), 0x01);
+
+    const auto s_false = Series(false);
+    ASSERT_EQ(s_false.data_type(), BOOL_T);
+    ASSERT_EQ(s_false.at<uint8_t>(0), 0x00);
+}
+
+/// @brief DataType::infer<bool>() should return BOOL_T.
+TEST(DataTypeTests, testInferBool) {
+    ASSERT_EQ(DataType::infer<bool>(), BOOL_T);
+}
+
+/// @brief casting a numeric SampleValue to BOOL_T should normalize nonzero to 1.
+TEST(DataTypeTests, testCastToBoolNormalizesNonzero) {
+    const auto bool_t = BOOL_T;
+    ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{int32_t{0}})), 0);
+    ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{int32_t{1}})), 1);
+    ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{int32_t{42}})), 1);
+    ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{int32_t{-3}})), 1);
+    ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{double{0.0}})), 0);
+    ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{double{0.5}})), 1);
+    ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{double{-1.5}})), 1);
 }
 
 /// @brief it should construct a variable density series from it's protobuf
@@ -2246,5 +2277,92 @@ TEST(SeriesBytes, StringsThrowsForBytesType) {
 TEST(SeriesBytes, AtStringThrowsForBytesType) {
     const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
     ASSERT_THROW((void) s.at<std::string>(0), std::runtime_error);
+}
+
+/// @brief uuids() should recover the same UUIDs written into a UUID series.
+TEST(SeriesUUID, TestUUIDsRoundTrip) {
+    const std::vector<x::uuid::UUID> expected = {
+        x::uuid::create(),
+        x::uuid::create(),
+        x::uuid::create(),
+    };
+    std::vector<uint8_t> raw(expected.size() * x::uuid::UUID::size());
+    for (size_t i = 0; i < expected.size(); i++)
+        memcpy(
+            raw.data() + i * x::uuid::UUID::size(),
+            expected[i].data(),
+            x::uuid::UUID::size()
+        );
+    Series s(UUID_T, expected.size());
+    s.write(raw.data(), expected.size());
+    ASSERT_EQ(s.data_type(), UUID_T);
+    ASSERT_EQ(s.size(), expected.size());
+    const auto actual = s.uuids();
+    ASSERT_EQ(actual.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); i++)
+        ASSERT_EQ(actual[i], expected[i]);
+}
+
+/// @brief uuids() should return an empty vector for an empty UUID series.
+TEST(SeriesUUID, TestUUIDsEmpty) {
+    const Series s(UUID_T, 0);
+    ASSERT_TRUE(s.uuids().empty());
+}
+
+/// @brief uuids() should throw when called on a non-UUID series.
+TEST(SeriesUUID, TestUUIDsThrowsForNonUUIDType) {
+    const Series s(std::vector<int64_t>{1, 2, 3});
+    ASSERT_THROW((void) s.uuids(), std::runtime_error);
+}
+
+/// @brief copy_from() should copy data and metadata into the receiver.
+TEST(SeriesCopyFrom, CopiesDataAndMetadataIntoTheReceiver) {
+    Series src(std::vector<int64_t>{1, 2, 3});
+    src.time_range = TimeRange(TimeStamp(100), TimeStamp(200));
+    src.alignment = Alignment(1, 5);
+    Series dst(UNKNOWN_T, 0);
+    dst.copy_from(src);
+    ASSERT_EQ(dst.data_type(), INT64_T);
+    ASSERT_EQ(dst.time_range, src.time_range);
+    ASSERT_EQ(dst.alignment, src.alignment);
+    ASSERT_EQ(dst.values<int64_t>(), std::vector<int64_t>({1, 2, 3}));
+}
+
+/// @brief copy_from() should not share data with the source.
+TEST(SeriesCopyFrom, DoesNotShareDataWithTheSource) {
+    Series src(std::vector<int64_t>{1, 2, 3});
+    Series dst(UNKNOWN_T, 0);
+    dst.copy_from(src);
+    src.set(0, static_cast<int64_t>(99));
+    ASSERT_EQ(dst.at<int64_t>(0), 1);
+}
+
+/// @brief copy_from() should reuse the receiver's buffer across copies.
+TEST(SeriesCopyFrom, ReusesTheReceiversBufferAcrossCopies) {
+    Series dst(UNKNOWN_T, 0);
+    dst.copy_from(Series(std::vector<int64_t>{1, 2, 3}));
+    const auto *first = dst.data();
+    dst.copy_from(Series(std::vector<int64_t>{7}));
+    ASSERT_EQ(dst.data(), first);
+    ASSERT_EQ(dst.values<int64_t>(), std::vector<int64_t>({7}));
+}
+
+/// @brief copy_from() should replace a shared buffer instead of writing through it.
+TEST(SeriesCopyFrom, ReplacesABufferSharedViaShallowCopy) {
+    Series dst(std::vector<int64_t>{1, 2, 3});
+    const Series shared = dst.shallow_copy();
+    dst.copy_from(Series(std::vector<int64_t>{7, 8, 9}));
+    ASSERT_NE(dst.data(), shared.data());
+    ASSERT_EQ(shared.values<int64_t>(), std::vector<int64_t>({1, 2, 3}));
+    ASSERT_EQ(dst.values<int64_t>(), std::vector<int64_t>({7, 8, 9}));
+}
+
+/// @brief copy_from() should work with variable density types.
+TEST(SeriesCopyFrom, WorksWithVariableDensityTypes) {
+    const Series src(std::vector<std::string>{"foo", "bar"});
+    Series dst(UNKNOWN_T, 0);
+    dst.copy_from(src);
+    ASSERT_EQ(dst.data_type(), STRING_T);
+    ASSERT_EQ(dst.strings(), std::vector<std::string>({"foo", "bar"}));
 }
 }

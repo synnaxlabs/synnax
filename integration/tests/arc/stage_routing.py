@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_STAGE_ROUTING = """
 
@@ -69,6 +69,22 @@ sequence main {
             true: "chain_true" -> routing_stage_log,
             false: "chain_false" -> routing_stage_log
         }
+        next_cmd => arrow_body_hold
+    }
+
+    stage arrow_body_hold {
+        "arrow_body_hold" -> routing_stage_log
+        routing_flag -> select{} -> {
+            true: 1 => arrow_on,
+            false: 1 => arrow_off
+        }
+    }
+    stage arrow_on {
+        "arrow_on" -> routing_stage_log
+        next_cmd => arrow_body_hold
+    }
+    stage arrow_off {
+        "arrow_off" -> routing_stage_log
         next_cmd => done
     }
 
@@ -79,8 +95,8 @@ sequence main {
 """
 
 
-class StageRouting(ArcConsoleCase):
-    """Test routing table with stage targets (SY-4045).
+class StageRouting(ArcCase):
+    """Test routing table with stage targets (SY-4045, SY-4460).
 
     Exercises both select{} and a custom multi-output function routing tables
     targeting stages within the same sequence.
@@ -88,7 +104,9 @@ class StageRouting(ArcConsoleCase):
     Phase 2 uses decide_stage to route to vent/press/abort based on sensor thresholds.
     Phase 3 uses select with multi-node case bodies that write string literals
     to a channel, verifying that case-body chains type-check via chain semantics
-    rather than against the select's discriminator output."""
+    rather than against the select's discriminator output.
+    Phase 4 (SY-4460) uses select with `=>` transition case bodies, verifying that
+    the transition operator drives stage jumps from inside a routing table."""
 
     arc_source = ARC_STAGE_ROUTING
     arc_name_prefix = "StageRouting"
@@ -118,57 +136,75 @@ class StageRouting(ArcConsoleCase):
     def verify_sequence_execution(self) -> None:
         # Phase 1: select routing
         self.log("[select] Sequence activated, expecting select_hold")
-        self.wait_for_eq("routing_stage_log", "select_hold", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "select_hold")
 
         self.log("[select] flag=1 -> select_on")
         self._write_flag(1)
-        self.wait_for_eq("routing_stage_log", "select_on", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "select_on")
 
         self.log("[select] Advancing select_on -> select_hold")
         self._advance()
-        self.wait_for_eq("routing_stage_log", "select_hold", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "select_hold")
 
         self.log("[select] flag=0 -> select_off")
         self._write_flag(0)
-        self.wait_for_eq("routing_stage_log", "select_off", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "select_off")
 
         # Phase 2: decide_stage routing
         self.log("[decide_stage] Advancing select_off -> decide_stage_hold")
         self._advance()
-        self.wait_for_eq("routing_stage_log", "decide_stage_hold", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "decide_stage_hold")
 
         self.log("[decide_stage] sensor=50.0 (mid range) -> decide_stage_press")
         self._write_sensor(50.0)
-        self.wait_for_eq("routing_stage_log", "decide_stage_press", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "decide_stage_press")
 
         self.log("[decide_stage] Advancing decide_stage_press -> decide_stage_hold")
         self._advance()
-        self.wait_for_eq("routing_stage_log", "decide_stage_hold", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "decide_stage_hold")
 
         self.log("[decide_stage] sensor=10.0 (below low) -> decide_stage_vent")
         self._write_sensor(10.0)
-        self.wait_for_eq("routing_stage_log", "decide_stage_vent", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "decide_stage_vent")
 
         self.log("[decide_stage] Advancing decide_stage_vent -> decide_stage_hold")
         self._advance()
-        self.wait_for_eq("routing_stage_log", "decide_stage_hold", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "decide_stage_hold")
 
         self.log("[decide_stage] sensor=90.0 (above high) -> decide_stage_abort")
         self._write_sensor(90.0)
-        self.wait_for_eq("routing_stage_log", "decide_stage_abort", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "decide_stage_abort")
 
         self.log("[decide_stage] Advancing decide_stage_abort -> chain_body_hold")
         self._advance()
-        self.wait_for_eq("routing_stage_log", "chain_body_hold", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "chain_body_hold")
 
         # Phase 3: multi-node case body — `true: "literal" -> str_channel`
         self.log("[chain_body] flag=1 -> 'chain_true' written to log")
         self._write_flag(1)
-        self.wait_for_eq("routing_stage_log", "chain_true", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "chain_true")
 
         self.log("[chain_body] flag=0 -> 'chain_false' written to log")
         self._write_flag(0)
-        self.wait_for_eq("routing_stage_log", "chain_false", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "chain_false")
 
+        self.log("[chain_body] Advancing chain_body_hold -> arrow_body_hold")
         self._advance()
-        self.wait_for_eq("routing_stage_log", "done", is_virtual=True)
+        self.wait_for_eq("routing_stage_log", "arrow_body_hold")
+
+        # Phase 4: `=>` transition case body — `true: 1 => arrow_on`
+        self.log("[arrow_body] flag=1 -> arrow_on via => transition")
+        self._write_flag(1)
+        self.wait_for_eq("routing_stage_log", "arrow_on")
+
+        self.log("[arrow_body] Advancing arrow_on -> arrow_body_hold")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "arrow_body_hold")
+
+        self.log("[arrow_body] flag=0 -> arrow_off via => transition")
+        self._write_flag(0)
+        self.wait_for_eq("routing_stage_log", "arrow_off")
+
+        self.log("[arrow_body] Advancing arrow_off -> done")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "done")

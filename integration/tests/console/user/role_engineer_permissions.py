@@ -62,28 +62,28 @@ class RoleEngineerPermissions(ConsoleCase):
         self.console.layout.press_escape()
         sy.sleep(0.3)
 
-        # Test 2: Engineer SHOULD be able to create workspace
-        self.log("Testing: Engineer should be able to create workspace...")
+        # Test 2: Engineer SHOULD be able to create project
+        self.log("Testing: Engineer should be able to create project...")
         self.page.keyboard.press("ControlOrMeta+Shift+p")
         sy.sleep(0.3)
 
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a workspace", timeout=2000)
+        palette_input.fill(">Create a project", timeout=2000)
         sy.sleep(0.3)
 
-        workspace_cmd = self.page.get_by_text("Create a workspace", exact=True)
-        workspace_cmd_exists = workspace_cmd.count() > 0
+        project_cmd = self.page.get_by_text("Create a project", exact=True)
+        project_cmd_exists = project_cmd.count() > 0
 
         self.console.layout.press_escape()
         sy.sleep(0.2)
 
-        if workspace_cmd_exists:
-            self.log("PASS: Create Workspace command available for engineer")
+        if project_cmd_exists:
+            self.log("PASS: Create Project command available for engineer")
         else:
-            self.log("FAIL: Create Workspace command not available for engineer")
-            assert False, "Engineer should be able to create workspace"
+            self.log("FAIL: Create Project command not available for engineer")
+            assert False, "Engineer should be able to create project"
 
         # Test 3: Engineer SHOULD be able to create schematic
         self.log("Testing: Engineer should be able to create schematic...")

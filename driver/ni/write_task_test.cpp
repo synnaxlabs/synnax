@@ -82,13 +82,13 @@ protected:
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "my_task",
             .type = "ni_analog_write",
         };
 
         const x::json::json j{
-            {"data_saving", false},
+            {"data_saving_disabled", true},
             {"state_rate", 25},
             {"device", dev.key},
             {"channels",
@@ -96,7 +96,7 @@ protected:
                  {{"type", "ao_voltage"},
                   {"key", "hCzuNC9glqc"},
                   {"port", 0},
-                  {"enabled", true},
+                  {"disabled", false},
                   {"min_val", 0},
                   {"max_val", 1},
                   {"state_channel", state_ch_1.key},
@@ -108,7 +108,7 @@ protected:
                      {"type", "ao_voltage"},
                      {"key", "hCzuNC9glqc"},
                      {"port", 1},
-                     {"enabled", true},
+                     {"disabled", false},
                      {"min_val", 0},
                      {"max_val", 1},
                      {"state_channel", state_ch_2.key},
@@ -120,7 +120,7 @@ protected:
         };
 
         auto p = x::json::Parser(j);
-        cfg = std::make_unique<WriteTaskConfig>(client, p);
+        cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<driver::task::MockContext>(client);
@@ -164,7 +164,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
@@ -182,7 +182,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EQ(second_state.message, "Task stopped successfully");
 
     auto first = std::move(
@@ -271,7 +271,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
 
     // Create a configuration with an invalid channel type
     x::json::json j{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"state_rate", 25},
         {"device", dev.key},
         {"channels",
@@ -279,7 +279,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
              {{{"type", "INVALID_CHANNEL_TYPE"}, // Invalid channel type
                {"key", "hCzuNC9glqc"},
                {"port", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"min_val", 0},
                {"max_val", 1},
                {"state_channel", state_ch.key},
@@ -290,7 +290,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     };
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<WriteTaskConfig>(client, p);
+    auto cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
 
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }

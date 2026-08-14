@@ -11,148 +11,167 @@ package imex
 
 import (
 	"context"
-	"fmt"
+	"maps"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening an import/export service.
-type ServiceConfig struct {
-	// DB is the database used to wrap import operations in a single transaction.
-	//
-	// [REQUIRED]
-	DB *gorp.DB
-}
-
-var _ config.Config[ServiceConfig] = ServiceConfig{}
-
-// Override implements config.Config.
-func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.DB = override.Nil(c.DB, other.DB)
-	return c
-}
-
-// Validate implements config.Config.
-func (c ServiceConfig) Validate() error {
-	v := validate.New("imex")
-	validate.NotNil(v, "db", c.DB)
-	return v.Error()
-}
-
 // Service is the central import/export registry. Handlers are registered via
-// RegisterImporterExporter / RegisterImporter / RegisterExporter  and routed by their
-// Type.
+// [Service.RegisterImportExporter], [Service.RegisterImporter], or
+// [Service.RegisterExporter], and [Service.Import] and [Service.Export] route to them
+// by type. Service is safe for concurrent registration and lookup.
 type Service struct {
-	cfg       ServiceConfig
+	mu        sync.RWMutex
 	importers map[string]Importer
 	exporters map[ontology.ResourceType]Exporter
 }
 
-// NewService creates a new, empty import/export registry. Handlers register themselves
-// via RegisterImporterExporter / RegisterImporter / RegisterExporter at their own
-// registration time, typically by accepting the Service in their own service config.
-func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
-	if err != nil {
-		return nil, err
-	}
+// NewService creates a new, empty [Service], safe for concurrent use.
+func NewService() *Service {
 	return &Service{
-		cfg:       cfg,
 		importers: make(map[string]Importer),
 		exporters: make(map[ontology.ResourceType]Exporter),
-	}, nil
+	}
 }
 
-// RegisterImportExporter registers a single handler for both halves under its own Type.
+// RegisterImportExporter registers a single handler for both halves under its own type.
 // Use this for symmetric services (one resource type for both import and export) —
 // e.g., logs, schematics.
 func (s *Service) RegisterImportExporter(ie ImportExporter) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	t := ie.Type()
 	s.importers[string(t)] = ie
 	s.exporters[t] = ie
 }
 
-// RegisterImporter adds an Importer for the given resource type. Use this for services
-// with asymmetric registration — for example, a task service that imports under
-// fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a single
-// coarse type ("task").
-func (s *Service) RegisterImporter(t string, i Importer) { s.importers[t] = i }
+// RegisterImporter adds an Importer for t. Use it when a service registers under
+// fine-grained type strings ("http_read") but exports under one coarse type ("task").
+func (s *Service) RegisterImporter(t string, i Importer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.importers[t] = i
+}
 
-// RegisterExporter adds an Exporter for the given resource type. See RegisterImporter
-// for the asymmetric-registration use case.
-func (s *Service) RegisterExporter(e Exporter) { s.exporters[e.Type()] = e }
+// RegisterExporter adds an [Exporter] for the given resource type. See
+// [Service.RegisterImporter] for the asymmetric-registration use case.
+func (s *Service) RegisterExporter(e Exporter) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.exporters[e.Type()] = e
+}
 
-// ImporterType returns the ontology resource type that the importer registered under
-// the given (possibly narrow) type string creates. For symmetric importers (e.g.,
-// "log") this is identical to the registration string; for asymmetric importers (e.g.,
-// a task service registered under "http_read") this is the broader ontology type
-// ("task"). Returns a validation error scoped to the "type" field if no importer is
+// ImporterType returns the ontology resource type created by the Importer registered
+// under t. It returns a validation error scoped to the "type" field when no importer is
 // registered for t.
 func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
+	s.mu.RLock()
 	imp, ok := s.importers[t]
+	s.mu.RUnlock()
 	if !ok {
-		return "", notFoundError(t, "type", false)
+		return "", notFoundError(t, "importer")
 	}
 	return imp.Type(), nil
 }
 
-func notFoundError(t any, path string, exporter bool) error {
-	kind := "importer"
-	if exporter {
-		kind = "exporter"
-	}
+func notFoundError[T ~string](typ T, kind string) error {
 	return validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, t),
-		path,
+		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, typ),
+		"type",
 	)
 }
 
-// Import validates and persists the given envelopes within a single transaction,
-// returning the newly-assigned key for each resource in the same order as envs.
-func (s *Service) Import(
-	ctx context.Context,
-	envelopes []Envelope,
-) ([]string, error) {
-	keys := make([]string, len(envelopes))
-	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var err error
-		for i, env := range envelopes {
-			importer, ok := s.importers[env.Type]
-			if !ok {
-				return notFoundError(env.Type, fmt.Sprintf("[%d].type", i), false)
-			}
-			if keys[i], err = importer.Import(ctx, tx, env); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return nil, err
+// ResolveType returns the registration type string Import will route envelope to. A
+// non-empty envelope.Type passes through; a typeless envelope's body is offered to
+// every Importer's Match in sorted type order, first claim winning. It returns a
+// validation error scoped to the "type" field when nothing claims the body.
+func (s *Service) ResolveType(envelope Envelope) (string, error) {
+	if envelope.Type != "" {
+		return envelope.Type, nil
 	}
-	return keys, nil
+	body := envelope.body
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, t := range slices.Sorted(maps.Keys(s.importers)) {
+		if s.importers[t].Match(body) {
+			return t, nil
+		}
+	}
+	return "", newFieldError("type", "file does not match any known resource format")
 }
 
-// Export serializes the requested resources as envelopes. Each registered handler
-// stamps its own per-schema version on the envelopes it returns.
+// baseName strips fileName's directory segments and trailing extension. Both separators
+// are cut: the name arrives on the wire, so a client can send a path built on a
+// platform other than the Core's. An empty fileName stays empty.
+func baseName(fileName string) string {
+	if i := strings.LastIndexAny(fileName, `/\`); i >= 0 {
+		fileName = fileName[i+1:]
+	}
+	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
+}
+
+// Import routes envelope to its Importer, persists it on tx, and returns the created
+// resource's ID. The opts.FileName fallback is applied before routing; opts then
+// reaches the importer untouched. It returns a validation error scoped to "parent" when
+// opts.Parent is zero, to "type" when nothing is registered, and to "name" when the
+// envelope is still nameless after the fallback.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	envelope Envelope,
+	opts ImportOptions,
+) (ontology.ID, error) {
+	if opts.Parent.IsZero() {
+		return ontology.ID{}, validate.PathedError(validate.ErrRequired, "parent")
+	}
+	if envelope.Type == "" {
+		typ, err := s.ResolveType(envelope)
+		if err != nil {
+			return ontology.ID{}, err
+		}
+		envelope.Type = typ
+	}
+	s.mu.RLock()
+	importer, ok := s.importers[envelope.Type]
+	s.mu.RUnlock()
+	if !ok {
+		return ontology.ID{}, notFoundError(envelope.Type, "importer")
+	}
+	if envelope.Name == "" {
+		envelope.Name = baseName(opts.FileName)
+	}
+	if envelope.Name == "" {
+		return ontology.ID{}, newFieldError("name", "name must be a non-empty string")
+	}
+	id, err := importer.Import(ctx, tx, envelope, opts)
+	if err != nil {
+		return ontology.ID{}, errors.Wrap(err, "import envelope")
+	}
+	return id, nil
+}
+
+// Export routes resource to its Exporter and returns the resulting envelope. It returns
+// a validation error scoped to the "type" field when no Exporter is registered.
 func (s *Service) Export(
 	ctx context.Context,
-	resources []ontology.ID,
-) ([]Envelope, error) {
-	envelopes := make([]Envelope, len(resources))
-	var err error
-	for i, r := range resources {
-		exporter, ok := s.exporters[r.Type]
-		if !ok {
-			return nil, notFoundError(r.Type, fmt.Sprintf("[%d].type", i), true)
-		}
-		if envelopes[i], err = exporter.Export(ctx, r.Key); err != nil {
-			return nil, err
-		}
+	resource ontology.ID,
+) (Envelope, error) {
+	s.mu.RLock()
+	exporter, ok := s.exporters[resource.Type]
+	s.mu.RUnlock()
+	if !ok {
+		return Envelope{}, notFoundError(resource.Type, "exporter")
 	}
-	return envelopes, nil
+	env, err := exporter.Export(ctx, resource)
+	if err != nil {
+		return Envelope{}, errors.Wrap(err, "export resource")
+	}
+	return env, nil
 }

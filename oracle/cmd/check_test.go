@@ -30,13 +30,13 @@ var _ = Describe("oracle check end-to-end", func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
 		// Bare git repo so paths.RepoRoot resolves.
-		Expect(os.MkdirAll(filepath.Join(repoRoot, ".git"), 0755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0o755)).To(Succeed())
 	})
 
 	writeSchema := func(name, body string) {
 		path := filepath.Join(repoRoot, "schemas", name+".oracle")
-		Expect(os.WriteFile(path, []byte(body), 0644)).To(Succeed())
+		Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
 	}
 
 	runOracleCheck := func(args ...string) (string, int) {
@@ -111,13 +111,14 @@ func buildOracleBinary() string {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	cmd := exec.Command("go", "build", "-o", bin, ".")
+	// -buildvcs=false keeps the build working inside a Git worktree, where VCS stamping
+	// fails ("error obtaining VCS status: exit status 128").
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, ".")
 	cmd.Dir = MustSucceed(findOracleModuleRoot())
-	out := MustSucceed(cmd.CombinedOutput())
-	_ = out
+	Expect(cmd.CombinedOutput()).ToNot(BeNil())
 	oracleBinaryPath = bin
 	DeferCleanup(func() {
-		_ = os.RemoveAll(dir)
+		Expect(os.RemoveAll(dir)).To(Succeed())
 		oracleBinaryPath = ""
 	})
 	return bin

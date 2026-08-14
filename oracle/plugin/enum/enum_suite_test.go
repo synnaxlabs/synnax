@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestEnum(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Enum Suite")
+	RunSpecs(t, "Plugin Enum Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

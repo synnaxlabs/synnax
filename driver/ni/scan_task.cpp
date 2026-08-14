@@ -11,6 +11,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "absl/log/log.h"
+
 #include "driver/common/scan_task.h"
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"
@@ -31,7 +33,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
-    dev.rack = synnax::task::rack_key_from_task_key(this->task.key);
+    dev.rack = this->task.rack;
     dev.configured = false;
     NISysCfgBool is_simulated;
     if (const auto err = this->syscfg->GetResourceProperty(
@@ -106,7 +108,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     dev.status = synnax::device::Status{
         .key = synnax::device::status_key(dev),
         .name = dev.name,
-        .variant = x::status::VARIANT_SUCCESS,
+        .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Device present",
         .time = x::telem::TimeStamp::now(),
         .details = synnax::device::StatusDetails{

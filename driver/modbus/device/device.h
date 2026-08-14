@@ -11,7 +11,7 @@
 
 #include <utility>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #ifdef _WIN32
 #include "vendor/libmodbus/modbus/modbus.h"
 #else

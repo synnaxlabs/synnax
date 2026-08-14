@@ -30,29 +30,24 @@
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "dist/alamos.cjs",
-  "module": "dist/alamos.js",
-  "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/alamos.js",
-      "require": "./dist/alamos.cjs"
+      "default": "./dist/alamos.js"
     },
     "./dev": {
       "types": "./dist/src/dev/index.d.ts",
-      "import": "./dist/dev.js",
-      "require": "./dist/dev.cjs"
+      "default": "./dist/dev.js"
     }
   }
 }

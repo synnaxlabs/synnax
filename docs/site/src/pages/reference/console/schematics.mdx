@@ -13,6 +13,7 @@ import { Divider, Note, Icon, Flex } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
 import { Table } from "@/components";
 import Diagram from "@/components/diagram/Diagram.astro";
+import ControlChip from "@/components/console/ControlChip.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -323,18 +324,15 @@ of the system. Clicking on an actionable element, such as a valve, switch, or bu
 allows you to activate the output channel on that element. The indicator next to the
 element displays the control status.
 
-<Icon.Circle color="var(--pluto-primary-z)" /> Blue circle is indicates the current user
-has control.
+<ControlChip variant="control" /> Blue circle is indicates the current user has control.
 
-<Icon.Circle color="var(--pluto-secondary-z)" /> Green circle indicates the current user
-has absolute control.
+<ControlChip variant="absolute" /> Green circle indicates the current user has absolute
+control.
 
-<Icon.Circle color="var(--pluto-error-z)" /> Red circle indicates the current user does
-not have control as the command channel is being controlled by another user or an
-automated sequence.
+<ControlChip variant="other" /> Red square indicates the current user does not have
+control because authority is held by another user or process.
 
-The color of the bar indicates what is controlling the elements on the schematic. There
-is a legend on the display indicating what controlling node is what color.
+The color of the bar and legend indicate what has control over the channel.
 
 <Video client:only="react" id="console/schematics/valve" />
 

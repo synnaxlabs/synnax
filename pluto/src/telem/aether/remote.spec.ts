@@ -7,28 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, TimeRange } from "@synnaxlabs/client";
 import {
-  bounds,
-  type destructor,
-  id,
-  MultiSeries,
-  Series,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+  channel,
+  DataType,
+  type framer,
+  type status as cstatus,
+  TimeRange,
+} from "@synnaxlabs/client";
+import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createFactory } from "@/telem/aether/factory";
 import {
   ChannelData,
   type ChannelDataProps,
+  type Client,
   StreamChannelData,
   type StreamChannelDataProps,
+  StreamChannelStringValue,
   StreamChannelValue,
+  streamChannelValue,
   type StreamChannelValueProps,
 } from "@/telem/aether/remote";
 import { type Source } from "@/telem/aether/telem";
-import { type client } from "@/telem/client";
+import { telemTest } from "@/telem/aether/test";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -40,11 +42,11 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
 
 describe("remote", () => {
   describe("StreamChannelValue", () => {
-    class MockClient implements client.Client {
+    class MockClient implements Client {
       key: string = id.create();
 
       // Stream
-      streamHandler: client.StreamHandler | null = null;
+      streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -60,25 +62,20 @@ describe("remote", () => {
       // Data
       response: MultiSeries = new MultiSeries([]);
 
-      async retrieveChannel(): Promise<channel.Channel> {
-        return this.channel;
-      }
+      channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
-      async read(): Promise<MultiSeries> {
-        return this.response;
-      }
-
-      async stream(
-        handler: client.StreamHandler,
-        keys: channel.Key[],
-      ): Promise<destructor.Async> {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return this.streamDestructorF;
-      }
-
-      async close(): Promise<void> {}
+      feed = {
+        read: async (): Promise<MultiSeries> => this.response,
+        stream: (
+          handler: framer.StreamHandler,
+          keys: channel.Key[],
+        ): framer.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return telemTest.mockSubscription(this.streamDestructorF);
+        },
+      };
     }
 
     let c: MockClient;
@@ -195,10 +192,241 @@ describe("remote", () => {
       expect(scv.value()).toBe(6);
       expect(newSeriesTwo.refCount).toBe(1);
     });
+
+    it("should not subscribe when cleaned up while retrieving the channel", async () => {
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.channels.retrieve = async (): Promise<channel.Channel> => {
+        await gate;
+        return c.channel;
+      };
+      const scv = new StreamChannelValue(c, { channel: c.channel.key });
+      scv.value();
+      scv.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(c.streamF).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("StreamChannelStringValue", () => {
+    class MockClient implements Client {
+      key: string = id.create();
+
+      streamHandler: framer.StreamHandler | null = null;
+      streamKeys: channel.Key[] = [];
+      streamF = vi.fn();
+      streamDestructorF = vi.fn();
+
+      channel: channel.Channel = new channel.Channel({
+        key: 65537,
+        name: "test",
+        dataType: DataType.STRING,
+        isIndex: false,
+      });
+
+      response: MultiSeries = new MultiSeries([]);
+
+      channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
+
+      feed = {
+        read: async (): Promise<MultiSeries> => this.response,
+        stream: (
+          handler: framer.StreamHandler,
+          keys: channel.Key[],
+        ): framer.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return telemTest.mockSubscription(this.streamDestructorF);
+        },
+      };
+    }
+
+    let c: MockClient;
+
+    beforeEach(() => {
+      c = new MockClient();
+      vi.resetAllMocks();
+    });
+
+    it("should return an empty string when no channel has been set", () => {
+      const scsv = new StreamChannelStringValue(c, { channel: 0 });
+      expect(scsv.value()).toBe("");
+      expect(c.streamF).not.toHaveBeenCalled();
+    });
+
+    it("should return an empty string when no data has been received", async () => {
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      expect(await waitForResolve(scsv)).toBe("");
+      expect(c.streamF).toHaveBeenCalledTimes(1);
+      expect(c.streamKeys).toEqual([c.channel.key]);
+    });
+
+    it("should decode the leading sample of a string series", async () => {
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      const handleChange = vi.fn();
+      scsv.onChange(handleChange);
+      scsv.value();
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
+      const series = new Series(["IDLE", "ARMED"]);
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
+      expect(scsv.value()).toBe("ARMED");
+      expect(series.refCount).toBe(1);
+    });
+
+    it("should preserve spaces and punctuation", async () => {
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      await waitForResolve(scsv);
+      c.streamHandler?.(
+        new Map([
+          [c.channel.key, new MultiSeries([new Series(["Hello, World! (42%)"])])],
+        ]),
+      );
+      await expect.poll(() => scsv.value()).toBe("Hello, World! (42%)");
+    });
+
+    // The client appends into the leading buffer in place and then delivers a
+    // response with no series, so a value cached at stream time goes stale.
+    it("should return the new value when the leading buffer is appended to", async () => {
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      const handleChange = vi.fn();
+      scsv.onChange(handleChange);
+      expect(scsv.value()).toBe("");
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
+      const series = Series.alloc({ dataType: DataType.STRING, capacity: 64 });
+      series.write(new Series(["IDLE"]));
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
+      expect(scsv.value()).toBe("IDLE");
+
+      series.write(new Series(["ARMED"]));
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([])]]));
+      await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
+      expect(scsv.value()).toBe("ARMED");
+    });
+
+    it("should replace and release the leading buffer when a new one arrives", async () => {
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      await waitForResolve(scsv);
+      const first = new Series(["FIRST"]);
+      const second = new Series(["SECOND"]);
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([first])]]));
+      await expect.poll(() => scsv.value()).toBe("FIRST");
+      expect(first.refCount).toBe(1);
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([second])]]));
+      await expect.poll(() => scsv.value()).toBe("SECOND");
+      expect(first.refCount).toBe(0);
+      expect(second.refCount).toBe(1);
+    });
+
+    it("should stringify a numeric channel rather than returning NaN", async () => {
+      c.channel = new channel.Channel({
+        key: 65538,
+        name: "numeric",
+        dataType: DataType.FLOAT32,
+        isIndex: false,
+      });
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      await waitForResolve(scsv);
+      c.streamHandler?.(
+        new Map([
+          [
+            c.channel.key,
+            new MultiSeries([new Series({ data: new Float32Array([1, 2, 3]) })]),
+          ],
+        ]),
+      );
+      await expect.poll(() => scsv.value()).toBe("3");
+    });
+
+    it("should release the leading buffer and stop streaming on cleanup", async () => {
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      await waitForResolve(scsv);
+      const series = new Series(["IDLE"]);
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      await expect.poll(() => scsv.value()).toBe("IDLE");
+      scsv.cleanup();
+      expect(c.streamDestructorF).toHaveBeenCalledTimes(1);
+      expect(series.refCount).toBe(0);
+      expect(scsv.value()).toBe("");
+    });
+
+    // value() runs read() synchronously up to its first await, so a cleanup() on the
+    // next line lands between the awaits. Without the generation guard the resumed
+    // read subscribes a source that nothing will clean up again.
+    describe("cleanup during an in-flight read", () => {
+      it("should not subscribe when cleaned up while retrieving the channel", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.channels.retrieve = async (): Promise<channel.Channel> => {
+          await gate;
+          return c.channel;
+        };
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        scsv.value();
+        scsv.cleanup();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(c.streamF).not.toHaveBeenCalled();
+      });
+
+      it("should not acquire buffers delivered to a stale handler", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        const staleHandler = c.streamHandler;
+        scsv.cleanup();
+        const series = new Series(["ARMED"]);
+        staleHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+        expect(series.refCount).toBe(0);
+      });
+
+      it("should not notify listeners from a stale handler", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        const staleHandler = c.streamHandler;
+        const handleChange = vi.fn();
+        scsv.onChange(handleChange);
+        scsv.cleanup();
+        staleHandler?.(
+          new Map([[c.channel.key, new MultiSeries([new Series(["ARMED"])])]]),
+        );
+        expect(handleChange).not.toHaveBeenCalled();
+      });
+
+      it("should stream again after cleanup", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        scsv.cleanup();
+        expect(await waitForResolve(scsv)).toBe("");
+        expect(c.streamF).toHaveBeenCalledTimes(2);
+        c.streamHandler?.(
+          new Map([[c.channel.key, new MultiSeries([new Series(["ARMED"])])]]),
+        );
+        await expect.poll(() => scsv.value()).toBe("ARMED");
+      });
+
+      it("should not let a stale handler overwrite a later read's buffer", async () => {
+        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+        await waitForResolve(scsv);
+        const staleHandler = c.streamHandler;
+        scsv.cleanup();
+        await waitForResolve(scsv);
+        const fresh = new Series(["ARMED"]);
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([fresh])]]));
+        await expect.poll(() => scsv.value()).toBe("ARMED");
+        const stale = new Series(["IDLE"]);
+        staleHandler?.(new Map([[c.channel.key, new MultiSeries([stale])]]));
+        expect(scsv.value()).toBe("ARMED");
+        expect(stale.refCount).toBe(0);
+        expect(fresh.refCount).toBe(1);
+      });
+    });
   });
 
   describe("ChannelData", () => {
-    class MockClient implements client.ReadClient, client.ChannelClient {
+    class MockClient implements Client {
       key: string = id.create();
       readMock = vi.fn();
       retrieveChannelMock = vi.fn();
@@ -225,19 +453,22 @@ describe("remote", () => {
         [this.channel.index]: new MultiSeries([]),
       };
 
-      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
-        this.retrieveChannelMock(key);
-        if (key === this.channel.key) return this.channel;
-        if (key === this.channel.index) return this.indexChannel;
-        throw new Error(`Channel with key ${key} not found`);
-      }
+      channels = {
+        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
+          this.retrieveChannelMock(key);
+          if (key === this.channel.key) return this.channel;
+          if (key === this.channel.index) return this.indexChannel;
+          throw new Error(`Channel with key ${key} not found`);
+        },
+      };
 
-      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-        this.readMock(tr, key);
-        return this.response[key];
-      }
-
-      close(): void {}
+      feed = {
+        read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
+          this.readMock(tr, key);
+          return this.response[key];
+        },
+        stream: (): framer.Subscription => telemTest.mockSubscription(vi.fn()),
+      };
     }
 
     let c: MockClient;
@@ -331,14 +562,33 @@ describe("remote", () => {
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
     });
+
+    it("should not retain data when cleaned up while reading", async () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.feed.read = async (): Promise<MultiSeries> => {
+        await gate;
+        return new MultiSeries([series]);
+      };
+      const cd = new ChannelData(c, {
+        timeRange: TimeRange.MAX,
+        channel: c.channel.key,
+      });
+      cd.value();
+      cd.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(series.refCount).toBe(0);
+    });
   });
 
   describe("StreamChannelData", () => {
-    class MockClient implements client.Client {
+    class MockClient implements Client {
       key: string = id.create();
 
       // Stream
-      streamHandler: client.StreamHandler | null = null;
+      streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -363,28 +613,29 @@ describe("remote", () => {
         isIndex: true,
       });
 
-      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
-        if (key === this.channel.key) return this.channel;
-        if (key === this.channel.index) return this.indexChannel;
-        throw new Error(`Channel with key ${key} not found`);
-      }
+      channels = {
+        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
+          if (key === this.channel.key) return this.channel;
+          if (key === this.channel.index) return this.indexChannel;
+          throw new Error(`Channel with key ${key} not found`);
+        },
+      };
 
-      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-        this.readMock(tr, key);
-        return this.response;
-      }
-
-      async stream(
-        handler: client.StreamHandler,
-        keys: channel.Key[],
-      ): Promise<destructor.Async> {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return this.streamDestructorF;
-      }
-
-      async close(): Promise<void> {}
+      feed = {
+        read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
+          this.readMock(tr, key);
+          return this.response;
+        },
+        stream: (
+          handler: framer.StreamHandler,
+          keys: channel.Key[],
+        ): framer.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return telemTest.mockSubscription(this.streamDestructorF);
+        },
+      };
     }
 
     let c: MockClient;
@@ -426,6 +677,27 @@ describe("remote", () => {
       expect(data.series[0]).toBe(series);
     });
 
+    it("should not duplicate a series delivered by both read and stream", async () => {
+      const now = TimeStamp.now();
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(now.sub(TimeSpan.milliseconds(3)), TimeStamp.MAX),
+      });
+      c.response = new MultiSeries([series]);
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      };
+      const cd = new StreamChannelData(c, props);
+      await waitForResolve(cd);
+      // The feed's stream subscription re-delivers the live buffer that read
+      // already returned.
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      const [, data] = cd.value();
+      expect(data.series).toHaveLength(1);
+      expect(series.refCount).toBe(1);
+    });
+
     it("should bind a stream handler", async () => {
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
@@ -436,6 +708,26 @@ describe("remote", () => {
       expect(c.streamHandler).not.toBeNull();
       expect(c.streamF).toHaveBeenCalled();
       expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
+    });
+
+    it("should not subscribe or retain data when cleaned up while reading", async () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.feed.read = async (): Promise<MultiSeries> => {
+        await gate;
+        return new MultiSeries([series]);
+      };
+      const cd = new StreamChannelData(c, {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      });
+      cd.value();
+      cd.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(c.streamF).not.toHaveBeenCalled();
+      expect(series.refCount).toBe(0);
     });
 
     it("should garbage collect data that goes out of range", async () => {
@@ -671,6 +963,43 @@ describe("remote", () => {
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(d);
+    });
+  });
+
+  describe("disconnected", () => {
+    it("should still create remote sources from a null-client factory", () => {
+      const factory = createFactory(null);
+      const source = factory.create(streamChannelValue({ channel: 1 }));
+      expect(source).not.toBeNull();
+    });
+
+    it("should report a disconnected status once instead of throwing", () => {
+      const statuses: cstatus.Crude[] = [];
+      const scv = new StreamChannelValue(
+        null,
+        { channel: 1 },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      expect(scv.value()).toBe(NaN);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
+      // A repeated read must not re-report: the source is rebuilt on reconnect.
+      expect(scv.value()).toBe(NaN);
+      expect(statuses).toHaveLength(1);
+    });
+
+    it("should return empty data from a disconnected ChannelData source", () => {
+      const statuses: cstatus.Crude[] = [];
+      const cd = new ChannelData(
+        null,
+        { timeRange: TimeRange.MAX, channel: 1 },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      const [b, data] = cd.value();
+      expect(b).toStrictEqual(bounds.ZERO);
+      expect(data).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
     });
   });
 });

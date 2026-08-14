@@ -38,15 +38,16 @@ Details = TypeVar("Details")
 
 
 class Status(BaseModel, Generic[Details]):
-    """Is a standardized message used to communicate state across the
-    Synnax platform. Statuses support different severity variants
-    and can carry component-specific details.
+    """Is a standardized message used to communicate state across the Synnax platform.
+    Statuses support different severity variants and can carry component-specific
+    details. A status is uniquely identified by a key and may carry a human-readable
+    name and labels for categorization and filtering.
 
     Attributes:
         key: Is a unique identifier for this status, auto-generated if not provided.
         name: Is an optional human-readable name for the status.
-        variant: Indicates the severity of the status. One of success, info,
-            warning, error, loading, or disabled.
+        variant: Indicates the severity of the status. One of success, info, warning,
+            error, loading, or disabled.
         message: Is the main message text describing the status.
         description: Is an optional detailed description providing additional context.
         time: Is the timestamp when the status was created.
@@ -55,10 +56,10 @@ class Status(BaseModel, Generic[Details]):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = Field(default="")
+    name: str = ""
     variant: Variant
     message: str
-    description: str | None = None
+    description: str = ""
     time: telem.TimeStamp = Field(
         default_factory=telem.TimeStamp.now,
         ge=-9223372036854775808,

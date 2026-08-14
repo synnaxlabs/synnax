@@ -25,8 +25,21 @@ public:
 
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
-        auto [func, err] = this->mod->func(cfg.node.type, cfg.node.config);
+        auto [func, err] = this->mod->func(cfg.node.type, cfg.node.inputs);
         if (err) return {nullptr, err};
+        // Node classifies its params by position against the function signature, so
+        // a shape mismatch would read past the classification vectors.
+        const auto &fn = cfg.prog.function(cfg.node.type);
+        if (fn.inputs.size() != cfg.node.inputs.size() ||
+            fn.outputs.size() != cfg.node.outputs.size())
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "node " + cfg.node.key + " params do not match the signature of " +
+                        cfg.node.type
+                )
+            };
         return {
             std::make_unique<Node>(
                 cfg.prog,

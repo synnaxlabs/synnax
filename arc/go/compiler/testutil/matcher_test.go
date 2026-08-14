@@ -36,7 +36,9 @@ var _ = Describe("MatchOpcodes", func() {
 
 		It("should fail when opcodes differ", func() {
 			bytecode := WASM(wasm.OpI32Const, int32(10), wasm.OpI32Add)
-			Expect(bytecode).NotTo(MatchOpcodes(wasm.OpI32Const, int32(20), wasm.OpI32Add))
+			Expect(
+				bytecode,
+			).NotTo(MatchOpcodes(wasm.OpI32Const, int32(20), wasm.OpI32Add))
 		})
 
 		It("should fail when lengths differ", func() {

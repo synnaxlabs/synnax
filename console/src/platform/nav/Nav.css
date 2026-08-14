@@ -1,0 +1,133 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-nav__bar {
+    .pluto-menu-item {
+        position: relative;
+
+        /* Fill comes from the list tier; the rail indicator is the nav's own
+           ornament. */
+        &.pluto--selected {
+            &::after {
+                top: 0.5rem;
+                height: calc(100% - 1rem);
+                opacity: 1;
+                transition: all 0.15s;
+            }
+        }
+        &::after {
+            content: "";
+            position: absolute;
+            width: 0.5rem;
+            background: var(--pluto-primary-z);
+            top: 50%;
+            opacity: 0;
+            height: 0;
+            transition: all 0.15s;
+        }
+    }
+
+    &.pluto--location-left {
+        button {
+            /* Between medium and large: matches the 5.5rem list-row height, with the
+               icon kept at size-large's h5 scale. */
+            --pluto-height: round(5.333rem, 1px);
+            font-size: var(--pluto-h5-size);
+            &.pluto--square {
+                min-width: var(--pluto-height);
+            }
+        }
+        .pluto-menu-item::after {
+            left: -1.5rem;
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+    }
+
+    .pluto-navbar__content {
+        z-index: 2;
+    }
+
+    &.pluto--direction-x {
+        padding-left: 3rem;
+        padding-right: 1.5rem;
+    }
+
+    /* The panel strip is the only elastic section of the top bar: it absorbs the
+       squeeze and scrolls internally, rather than driving the badges off screen. */
+    &.pluto--location-top {
+        > .pluto-navbar__content.pluto--start {
+            min-width: 0;
+        }
+        > .pluto-navbar__content.pluto--end {
+            flex-shrink: 0;
+        }
+    }
+
+    &.pluto--direction-y .pluto-navbar__content {
+        padding: 2rem 0rem;
+    }
+}
+
+.console--os-macos .console-nav__bar.pluto--direction-x {
+    padding-left: 2rem;
+}
+
+.console--os-windows .console-nav__bar.pluto--direction-x {
+    padding-right: 1rem;
+    padding-left: 2.5rem;
+}
+
+.console-nav__drawer {
+    overflow: hidden;
+    box-shadow: var(--pluto-shadow-overlay);
+    opacity: 1;
+    flex-shrink: 0;
+
+    &.console--hover,
+    &.pluto--hidden {
+        &.pluto--location-bottom {
+            transition: transform 0.15s linear;
+        }
+        &.pluto--location-left {
+            transition:
+                opacity 0.05s linear,
+                transform 0.15s linear;
+        }
+        /* Viewport-positioned (the canvas forbids positioned ancestors); each window
+           shell sets the inset vars to match its chrome. */
+        position: absolute;
+        z-index: 200;
+        &.pluto--location-bottom {
+            bottom: var(--console-bottom-drawer-inset-bottom, 0);
+            left: var(--console-bottom-drawer-inset-left, 0);
+            right: var(--console-bottom-drawer-inset-right, 0);
+            /* The resize box's full-x/full-y 100% would beat the opposing inset. */
+            width: auto;
+        }
+        &.pluto--location-left {
+            left: var(--console-left-drawer-inset-left, 0);
+            top: var(--console-left-drawer-inset-top, 0);
+            bottom: var(--console-left-drawer-inset-bottom, 0);
+            height: auto;
+        }
+    }
+    &.pluto--hidden {
+        pointer-events: none;
+        &.pluto--location-bottom {
+            transform: translateY(calc(100% + 3rem));
+        }
+        &.pluto--location-left {
+            opacity: 0;
+            transform: translateX(-2rem);
+        }
+    }
+}

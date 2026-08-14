@@ -11,24 +11,11 @@
 
 package view
 
-import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/view/versions"
 
 // Key is a unique identifier for a saved view configuration.
-type Key = uuid.UUID
+type Key = versions.Key
 
 // View is a persisted view configuration storing visualization settings and query
 // parameters for line plots, tables, schematics, and other view types.
-type View struct {
-	// Key is the unique identifier for this view.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the view.
-	Name string `json:"name" msgpack:"name"`
-	// Type is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
-	Type string `json:"type" msgpack:"type"`
-	// Query is a type-agnostic JSON object containing view-specific configuration and query
-	// parameters.
-	Query msgpack.EncodedJSON `json:"query" msgpack:"query"`
-}
+type View = versions.View

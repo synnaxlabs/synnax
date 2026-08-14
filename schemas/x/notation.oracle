@@ -1,0 +1,20 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "x/ts/src/notation"
+@go output "x/go/notation"
+
+Notation enum {
+    standard    = "standard"
+    scientific  = "scientific"
+    engineering = "engineering"
+
+    @go version 0
+    @doc value  "is the numeric notation used to render samples."
+}

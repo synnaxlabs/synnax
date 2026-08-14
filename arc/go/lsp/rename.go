@@ -15,14 +15,19 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/query"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 	"go.uber.org/zap"
 )
 
 func (s *Server) logUnexpectedSymbolError(sym *symbol.Symbol, err error) {
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		s.cfg.L.Error("unexpected failure resolving symbol", zap.Stringer("symbol", sym), zap.Error(err))
+		s.cfg.L.Error(
+			"unexpected failure resolving symbol",
+			zap.Stringer("symbol", sym),
+			zap.Error(err),
+		)
 	}
 }
 
@@ -49,7 +54,7 @@ func isRenameable(sym *symbol.Symbol, err error) bool {
 func (s *Server) PrepareRename(
 	ctx context.Context,
 	params *protocol.PrepareRenameParams,
-) (*protocol.Range, error) {
+) (protocol.PrepareRenameResult, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
@@ -59,7 +64,10 @@ func (s *Server) PrepareRename(
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(sym, err)
-	return doc.getWordRangeAtPosition(params.Position), nil
+	if r := doc.getWordRangeAtPosition(params.Position); r != nil {
+		return r, nil
+	}
+	return nil, nil
 }
 
 func (s *Server) Rename(
@@ -84,12 +92,17 @@ func (s *Server) Rename(
 		return nil, nil
 	}
 	if s.cfg.OnRename != nil {
-		if err := s.cfg.OnRename(ctx, targetSym, targetSym.Name, params.NewName); err != nil {
+		if err := s.cfg.OnRename(
+			ctx,
+			targetSym,
+			targetSym.Name,
+			params.NewName,
+		); err != nil {
 			return nil, err
 		}
 	}
 	return &protocol.WorkspaceEdit{
-		Changes: map[protocol.DocumentURI][]protocol.TextEdit{
+		Changes: map[uri.URI][]protocol.TextEdit{
 			params.TextDocument.URI: edits,
 		},
 	}, nil

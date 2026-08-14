@@ -101,6 +101,16 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
 
   reset(): void {
     this.wrapped.reset();
+    this.cachedFont = null;
+    this.cachedFillStyle = null;
+    this.cachedStrokeStyle = null;
+    this.cachedLineWidth = null;
+    this.cachedGlobalAlpha = null;
+    this.cachedTextAlign = null;
+    this.cachedTextBaseline = null;
+    this.cachedLineCap = null;
+    this.cachedLineJoin = null;
+    this.cachedMiterLimit = null;
   }
 
   applyScale(scale: scale.XY): SugaredOffscreenCanvasRenderingContext2D {
@@ -495,6 +505,11 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     if (value === this.cachedLineJoin) return;
     this.cachedLineJoin = value;
     this.wrapped.lineJoin = value;
+  }
+
+  /** @returns the width in CSS pixels of a single device pixel. */
+  get hairlineWidth(): number {
+    return 1 / this.dpr;
   }
 
   get lineWidth(): number {

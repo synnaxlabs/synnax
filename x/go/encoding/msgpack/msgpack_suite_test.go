@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestMsgpack(t *testing.T) {
+func TestMessagePack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Msgpack Suite")
+	RunSpecs(t, "Encoding MessagePack Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

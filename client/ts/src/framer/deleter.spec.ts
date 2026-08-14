@@ -11,9 +11,7 @@ import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError, UnauthorizedError } from "@/errors";
-import { newIndexedPair } from "@/testutil/channels";
-import { createTestClient } from "@/testutil/client";
-import { secondsLinspace } from "@/testutil/telem";
+import { createTestClient, newIndexedPair, secondsLinspace } from "@/testutil";
 import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Form as Base } from "@/form";
@@ -75,20 +75,17 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-const LIGHT_FORM_TABS: Tabs.Tab[] = [
-  { tabKey: "style", name: "Style" },
-  { tabKey: "telemetry", name: "Telemetry" },
-];
-
-export const LightForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telemetry":
-        return <LightTelemForm path="" />;
-      default:
-        return <Form.StyleForm />;
-    }
-  }, []);
-  const props = Tabs.useStatic({ tabs: LIGHT_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
-};
+export const LightForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <Form.StyleForm />
+    </Tabs.Content>
+    <Tabs.Content itemKey="telemetry">
+      <LightTelemForm path="" />
+    </Tabs.Content>
+  </Tabs.Frame>
+);

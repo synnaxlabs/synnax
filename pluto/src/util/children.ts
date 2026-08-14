@@ -17,8 +17,7 @@ import {
 export const reactElementToArray = <
   P = any,
   T extends string | React.JSXElementConstructor<any> =
-    | string
-    | React.JSXElementConstructor<any>,
+    string | React.JSXElementConstructor<any>,
 >(
   children: ReactElement<P, T> | Array<ReactElement<P, T>>,
 ): Array<ReactElement<P, T>> => Children.toArray(children) as Array<ReactElement<P, T>>;
@@ -26,8 +25,7 @@ export const reactElementToArray = <
 export const isValidElement = <
   P = any,
   T extends string | React.JSXElementConstructor<any> =
-    | string
-    | React.JSXElementConstructor<any>,
+    string | React.JSXElementConstructor<any>,
 >(
   child: unknown,
 ): child is ReactElement<P, T> =>

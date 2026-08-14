@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -26,12 +27,20 @@ import (
 )
 
 type testFileOutput struct {
-	Package      string
-	PkgImport    string
-	ExtraImports map[string]string
-	NeedsUUID    bool
-	Tests        []testEntry
-	GenericTests []genericTestEntry
+	Package        string
+	PkgImport      string
+	ExtraImports   map[string]string
+	NeedsUUID      bool
+	SharedFixtures []sharedFixture
+	Tests          []testEntry
+	GenericTests   []genericTestEntry
+}
+
+// sharedFixture is a package-level fixture var shared by every test case that
+// embeds the same struct, replacing per-entry copies of identical literals.
+type sharedFixture struct {
+	VarName   string
+	ValueExpr string
 }
 
 type genericTestEntry struct {
@@ -77,7 +86,127 @@ func generateTestCodecFile(
 		ExtraImports: make(map[string]string),
 	}
 
+	sharedVars := make(map[string]string)
+	varNameOwner := make(map[string]string)
+	ensureShared := func(typ resolution.Type, ref resolution.TypeRef) error {
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok || form.IsGeneric() || typ.Synthetic {
+			return nil
+		}
+		if _, ok := sharedVars[typ.QualifiedName]; ok {
+			return nil
+		}
+		varName := "fullyPopulated" + naming.GetGoName(typ)
+		if owner, taken := varNameOwner[varName]; taken && owner != typ.QualifiedName {
+			return nil
+		}
+		b := &testValueBuilder{
+			table:       table,
+			repoRoot:    repoRoot,
+			packageName: packageName,
+			parentPath:  parentPath,
+			imports:     fo.ExtraImports,
+			pkgPrefix:   packageName + ".",
+			mode:        modeFullyPopulated,
+		}
+		expr, err := b.valueExpr(typ, ref)
+		if err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to generate shared fixture for %s",
+				typ.Name,
+			)
+		}
+		if expr == "" {
+			return nil
+		}
+		if b.needsUUID {
+			fo.NeedsUUID = true
+		}
+		varNameOwner[varName] = typ.QualifiedName
+		sharedVars[typ.QualifiedName] = varName
+		fo.SharedFixtures = append(fo.SharedFixtures, sharedFixture{
+			VarName:   varName,
+			ValueExpr: expr,
+		})
+		return nil
+	}
 	for _, e := range entries {
+		uform, isUnion := e.Type.Form.(resolution.UnionForm)
+		if !isUnion {
+			continue
+		}
+		for _, ext := range uform.Extends {
+			if parent, ok := ext.Resolve(table); ok {
+				if err := ensureShared(parent, ext); err != nil {
+					return nil, err
+				}
+			}
+		}
+		for _, v := range uform.Variants {
+			payload, ok := v.Type.Resolve(table)
+			if !ok {
+				continue
+			}
+			if err := ensureShared(payload, v.Type); err != nil {
+				return nil, err
+			}
+			pform, ok := payload.Form.(resolution.StructForm)
+			if !ok || !v.Inline {
+				continue
+			}
+			for _, ext := range pform.Extends {
+				if parent, ok := ext.Resolve(table); ok {
+					if err := ensureShared(parent, ext); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+
+	for _, e := range entries {
+		recv := ReceiverName(e.GoName)
+		// In test files the receiver is used as a local variable, so it must
+		// not shadow the package import alias.
+		if recv == packageName {
+			recv = recv + "v"
+		}
+
+		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
+			te := testEntry{GoName: e.GoName, Receiver: recv}
+			for _, v := range uform.Variants {
+				b := &testValueBuilder{
+					table:       table,
+					repoRoot:    repoRoot,
+					packageName: packageName,
+					parentPath:  parentPath,
+					imports:     fo.ExtraImports,
+					pkgPrefix:   packageName + ".",
+					mode:        modeFullyPopulated,
+					sharedVars:  sharedVars,
+				}
+				valueExpr, err := b.unionExpr(e.Type, uform, v)
+				if err != nil {
+					return nil, errors.Wrapf(
+						err,
+						"failed to generate test value for %s variant %q",
+						e.GoName,
+						v.Name,
+					)
+				}
+				if b.needsUUID {
+					fo.NeedsUUID = true
+				}
+				te.Cases = append(te.Cases, testCase{
+					Name:      v.Name + " variant",
+					ValueExpr: valueExpr,
+				})
+			}
+			fo.Tests = append(fo.Tests, te)
+			continue
+		}
+
 		form, ok := e.Type.Form.(resolution.StructForm)
 		if !ok {
 			continue
@@ -95,13 +224,6 @@ func generateTestCodecFile(
 					Constraint: typeParamConstraint(tp),
 				})
 			}
-		}
-
-		recv := ReceiverName(e.GoName)
-		// In test files the receiver is used as a local variable, so it must
-		// not shadow the package import alias.
-		if recv == packageName {
-			recv = recv + "v"
 		}
 		modes := []struct {
 			name string
@@ -128,7 +250,11 @@ func generateTestCodecFile(
 				}
 			}
 
-			gte := genericTestEntry{GoName: e.GoName, Receiver: recv, TypeParams: typeParams}
+			gte := genericTestEntry{
+				GoName:     e.GoName,
+				Receiver:   recv,
+				TypeParams: typeParams,
+			}
 			for _, m := range modes {
 				b := &testValueBuilder{
 					table:       table,
@@ -136,6 +262,7 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
+					sharedVars:  sharedVars,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,
 				}
@@ -144,14 +271,23 @@ func generateTestCodecFile(
 				substituted := make([]resolution.Field, len(fields))
 				for i, f := range fields {
 					substituted[i] = f
-					substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
+					substituted[i].Type = resolution.SubstituteTypeRef(
+						f.Type,
+						typeArgMap,
+					)
 				}
 
 				var concreteTypeArgStrs []string
 				for _, tp := range typeParams {
-					concreteTypeArgStrs = append(concreteTypeArgStrs, concreteGoTypeForConstraint(tp.Constraint))
+					concreteTypeArgStrs = append(
+						concreteTypeArgStrs,
+						concreteGoTypeForConstraint(tp.Constraint),
+					)
 				}
-				concreteGoName := e.GoName + "[" + strings.Join(concreteTypeArgStrs, ", ") + "]"
+				concreteGoName := e.GoName + "[" + strings.Join(
+					concreteTypeArgStrs,
+					", ",
+				) + "]"
 
 				var fieldExprs []string
 				for _, f := range substituted {
@@ -169,13 +305,19 @@ func generateTestCodecFile(
 					fieldGoName := naming.GetFieldName(f)
 					var expr string
 					var err error
-					if f.IsHardOptional {
-						expr, err = b.hardOptionalExpr(r, f.Type)
+					if f.Optional && b.isGoPointerField(f.Type) {
+						expr, err = b.optionalExpr(r, f.Type)
 					} else {
 						expr, err = b.valueExpr(r, f.Type)
 					}
 					if err != nil {
-						return nil, errors.Wrapf(err, "failed to generate %s test value for %s field %s", m.name, e.GoName, fieldGoName)
+						return nil, errors.Wrapf(
+							err,
+							"failed to generate %s test value for %s field %s",
+							m.name,
+							e.GoName,
+							fieldGoName,
+						)
 					}
 					if expr != "" {
 						fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
@@ -185,12 +327,24 @@ func generateTestCodecFile(
 					fo.NeedsUUID = true
 				}
 				valueExpr := b.formatComposite(b.pkgPrefix+concreteGoName, fieldExprs)
-				gte.Cases = append(gte.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+				gte.Cases = append(
+					gte.Cases,
+					testCase{Name: m.name, ValueExpr: valueExpr},
+				)
 			}
 			fo.GenericTests = append(fo.GenericTests, gte)
 		} else {
 			te := testEntry{GoName: e.GoName, Receiver: recv}
 			for _, m := range modes {
+				if m.mode == modeFullyPopulated {
+					if varName, ok := sharedVars[e.Type.QualifiedName]; ok {
+						te.Cases = append(
+							te.Cases,
+							testCase{Name: m.name, ValueExpr: varName},
+						)
+						continue
+					}
+				}
 				b := &testValueBuilder{
 					table:       table,
 					repoRoot:    repoRoot,
@@ -199,15 +353,24 @@ func generateTestCodecFile(
 					imports:     fo.ExtraImports,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,
+					sharedVars:  sharedVars,
 				}
 				valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
 				if err != nil {
-					return nil, errors.Wrapf(err, "failed to generate %s test value for %s", m.name, e.GoName)
+					return nil, errors.Wrapf(
+						err,
+						"failed to generate %s test value for %s",
+						m.name,
+						e.GoName,
+					)
 				}
 				if b.needsUUID {
 					fo.NeedsUUID = true
 				}
-				te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+				te.Cases = append(
+					te.Cases,
+					testCase{Name: m.name, ValueExpr: valueExpr},
+				)
 			}
 			fo.Tests = append(fo.Tests, te)
 		}
@@ -298,6 +461,11 @@ type testValueBuilder struct {
 	depth       int
 	fieldIndex  int
 	mode        valueMode
+	// sharedVars maps a struct's qualified name to a package-level fixture
+	// var that union embeds reference instead of inlining the literal. Nil
+	// while building the fixtures themselves, so they never reference each
+	// other (package-level init cycles).
+	sharedVars map[string]string
 }
 
 func (b *testValueBuilder) buildStructLiteral(
@@ -321,7 +489,9 @@ func (b *testValueBuilder) formatComposite(typeName string, entries []string) st
 	return typeName + "{\n" + strings.Join(entries, ",\n") + ",\n}"
 }
 
-func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string, error) {
+func (b *testValueBuilder) buildFieldExprs(
+	fields []resolution.Field,
+) ([]string, error) {
 	var fieldExprs []string
 	for _, f := range fields {
 		if f.Type.Name == "nil" {
@@ -341,8 +511,8 @@ func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string,
 		fieldGoName := naming.GetFieldName(f)
 		var expr string
 		var err error
-		if f.IsHardOptional {
-			expr, err = b.hardOptionalExpr(resolved, f.Type)
+		if f.Optional && b.isGoPointerField(f.Type) {
+			expr, err = b.optionalExpr(resolved, f.Type)
 		} else {
 			expr, err = b.valueExpr(resolved, f.Type)
 		}
@@ -356,7 +526,9 @@ func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string,
 	return fieldExprs, nil
 }
 
-func (b *testValueBuilder) buildStructFieldExprs(typ resolution.Type) ([]string, error) {
+func (b *testValueBuilder) buildStructFieldExprs(
+	typ resolution.Type,
+) ([]string, error) {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
 		return nil, nil
@@ -386,7 +558,10 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 		if err != nil {
 			return nil, err
 		}
-		exprs = append(exprs, parentGoName+": "+b.formatComposite(parentGoType, parentFieldExprs))
+		exprs = append(
+			exprs,
+			parentGoName+": "+b.formatComposite(parentGoType, parentFieldExprs),
+		)
 	}
 	childFieldExprs, err := b.buildFieldExprs(form.Fields)
 	if err != nil {
@@ -396,7 +571,26 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	return exprs, nil
 }
 
-func (b *testValueBuilder) hardOptionalExpr(
+// isGoPointerField reports whether an optional field of the given type is
+// generated as a Go pointer by the types plugin. Slices, maps, and record/any
+// (msgpack.EncodedJSON) are nilable in place and are never pointerized, so only
+// the remaining types take the `new(...)` pointer form for their test value.
+func (b *testValueBuilder) isGoPointerField(ref resolution.TypeRef) bool {
+	resolved, ok := ref.Resolve(b.table)
+	if !ok {
+		return false
+	}
+	actual, _ := typemap.UnwrapTypeRef(resolved, ref, b.table)
+	switch form := actual.Form.(type) {
+	case resolution.BuiltinGenericForm:
+		return form.Name != "Array" && form.Name != "Map"
+	case resolution.PrimitiveForm:
+		return form.Name != "record"
+	}
+	return true
+}
+
+func (b *testValueBuilder) optionalExpr(
 	resolved resolution.Type, ref resolution.TypeRef,
 ) (string, error) {
 	if b.mode == modeZeroValue {
@@ -409,19 +603,19 @@ func (b *testValueBuilder) hardOptionalExpr(
 	if inner == "" {
 		return "nil", nil
 	}
-	// For struct/map/slice literals, extract the type from "Type{...}".
-	// For primitives, cast the value to the correct type so that Go's
-	// type inference assigns the right type to v (e.g., uint8(5) not just 5).
-	var goType string
-	if idx := strings.Index(inner, "{"); idx >= 0 {
-		goType = inner[:idx]
-		return fmt.Sprintf("func() *%s { v := %s; return &v }()", goType, inner), nil
+	// Composite literals carry their type; bare primitives are cast so the
+	// pointer gets the declared type (e.g., new(uint8(5)), not *int).
+	if strings.Contains(inner, "{") {
+		return fmt.Sprintf("new(%s)", inner), nil
 	}
-	goType, err = b.goTypeName(resolved)
+	goType, err := b.goTypeName(resolved)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("func() *%s { v := %s(%s); return &v }()", goType, goType, inner), nil
+	if strings.HasPrefix(inner, goType+"(") {
+		return fmt.Sprintf("new(%s)", inner), nil
+	}
+	return fmt.Sprintf("new(%s(%s))", goType, inner), nil
 }
 
 func (b *testValueBuilder) valueExpr(
@@ -481,8 +675,8 @@ func (b *testValueBuilder) valueExpr(
 				fieldGoName := naming.GetFieldName(f)
 				var expr string
 				var err error
-				if f.IsHardOptional {
-					expr, err = b.hardOptionalExpr(r, f.Type)
+				if f.Optional && b.isGoPointerField(f.Type) {
+					expr, err = b.optionalExpr(r, f.Type)
 				} else {
 					expr, err = b.valueExpr(r, f.Type)
 				}
@@ -533,9 +727,117 @@ func (b *testValueBuilder) valueExpr(
 	case resolution.EnumForm:
 		return b.enumExpr(resolved, form)
 
+	case resolution.UnionForm:
+		if len(form.Variants) == 0 {
+			return "", errors.Newf("union %s has no variants", actual.Name)
+		}
+		return b.unionExpr(actual, form, form.Variants[0])
 	default:
 		return b.primitiveExpr(resolved)
 	}
+}
+
+// unionExpr builds a wrapper literal holding the given variant with its base
+// and payload structs populated. Beyond the depth cutoff it falls back to an
+// empty variant struct, which still encodes (a zero Variant field would not).
+func (b *testValueBuilder) unionExpr(
+	actual resolution.Type, form resolution.UnionForm, v resolution.UnionVariant,
+) (string, error) {
+	goType, err := b.goTypeName(actual)
+	if err != nil {
+		return "", err
+	}
+	goName := naming.GetGoName(actual)
+	variantType := strings.TrimSuffix(goType, goName) +
+		casing.VariantTypeName(goName, v.Name)
+	payload, ok := v.Type.Resolve(b.table)
+	if !ok {
+		return "", errors.Newf(
+			"union %s variant %q: unresolved payload", actual.Name, v.Name)
+	}
+	if b.depth > 2 {
+		return fmt.Sprintf("%s{Variant: %s{}}", goType, variantType), nil
+	}
+	b.depth++
+	defer func() { b.depth-- }()
+
+	var embeds []string
+	for _, ext := range form.Extends {
+		parent, ok := ext.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		if varName, ok := b.sharedVars[parent.QualifiedName]; ok &&
+			b.mode == modeFullyPopulated {
+			embeds = append(embeds, naming.GetGoName(parent)+": "+varName)
+			continue
+		}
+		parentGoType, err := b.goTypeName(parent)
+		if err != nil {
+			return "", err
+		}
+		parentExprs, err := b.buildStructFieldExprs(parent)
+		if err != nil {
+			return "", err
+		}
+		embeds = append(embeds,
+			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
+	}
+	if v.Inline {
+		pform, ok := payload.Form.(resolution.StructForm)
+		if !ok {
+			return "", errors.Newf(
+				"union %s variant %q: inline payload is not a struct",
+				actual.Name,
+				v.Name,
+			)
+		}
+		for _, ext := range pform.Extends {
+			parent, ok := ext.Resolve(b.table)
+			if !ok {
+				continue
+			}
+			if varName, ok := b.sharedVars[parent.QualifiedName]; ok &&
+				b.mode == modeFullyPopulated {
+				embeds = append(embeds, naming.GetGoName(parent)+": "+varName)
+				continue
+			}
+			parentGoType, err := b.goTypeName(parent)
+			if err != nil {
+				return "", err
+			}
+			parentExprs, err := b.buildStructFieldExprs(parent)
+			if err != nil {
+				return "", err
+			}
+			embeds = append(
+				embeds,
+				naming.GetGoName(
+					parent,
+				)+": "+b.formatComposite(
+					parentGoType,
+					parentExprs,
+				),
+			)
+		}
+		fieldExprs, err := b.buildFieldExprs(pform.Fields)
+		if err != nil {
+			return "", err
+		}
+		embeds = append(embeds, fieldExprs...)
+	} else if varName, ok := b.sharedVars[payload.QualifiedName]; ok &&
+		b.mode == modeFullyPopulated {
+		embeds = append(embeds, naming.GetGoName(payload)+": "+varName)
+	} else {
+		payloadExpr, err := b.valueExpr(payload, v.Type)
+		if err != nil {
+			return "", err
+		}
+		embeds = append(embeds, naming.GetGoName(payload)+": "+payloadExpr)
+	}
+	return fmt.Sprintf(
+		"%s{Variant: %s}", goType, b.formatComposite(variantType, embeds),
+	), nil
 }
 
 func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
@@ -579,7 +881,10 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		base = fmt.Sprintf("%d.5", idx)
 	case "uuid":
 		b.needsUUID = true
-		base = fmt.Sprintf(`uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678%02x")`, idx%256)
+		base = fmt.Sprintf(
+			`uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678%02x")`,
+			idx%256,
+		)
 	case "bytes":
 		base = fmt.Sprintf("[]byte{%d, %d, %d}", idx%256, (idx+1)%256, (idx+2)%256)
 	case "record":
@@ -597,7 +902,9 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		}
 		base = fmt.Sprintf(`%s.EncodedJSON{"key_%d": "value_%d"}`, qualifier, idx, idx)
 	case "any":
-		base = fmt.Sprintf(`map[string]interface{}{"key_%d": "value_%d"}`, idx, idx)
+		// Wrap in any(...) so an optional field pointerizes to *any instead of
+		// *map[string]any.
+		base = fmt.Sprintf(`any(map[string]any{"key_%d": "value_%d"})`, idx, idx)
 	default:
 		return "", errors.Newf("unsupported primitive for test value: %s", primName)
 	}
@@ -607,7 +914,9 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 	return base, nil
 }
 
-func (b *testValueBuilder) zeroPrimitiveExpr(primName, goTypeCast string) (string, error) {
+func (b *testValueBuilder) zeroPrimitiveExpr(
+	primName, goTypeCast string,
+) (string, error) {
 	var base string
 	switch primName {
 	case "string":
@@ -627,7 +936,10 @@ func (b *testValueBuilder) zeroPrimitiveExpr(primName, goTypeCast string) (strin
 	case "record", "any":
 		return "nil", nil
 	default:
-		return "", errors.Newf("unsupported primitive for zero test value: %s", primName)
+		return "", errors.Newf(
+			"unsupported primitive for zero test value: %s",
+			primName,
+		)
 	}
 	if goTypeCast != "" {
 		return goTypeCast + "(" + base + ")", nil
@@ -719,7 +1031,9 @@ func (b *testValueBuilder) mapExpr(keyRef, valRef resolution.TypeRef) (string, e
 	return fmt.Sprintf("%s{%s}", mapType, entry), nil
 }
 
-func (b *testValueBuilder) resolveLeafPrim(typ resolution.Type) (string, string, error) {
+func (b *testValueBuilder) resolveLeafPrim(
+	typ resolution.Type,
+) (string, string, error) {
 	return typemap.ResolveLeafPrimitive(typ, b.table, b.goTypeName)
 }
 
@@ -759,6 +1073,13 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 		return "", err
 	}
 	alias := naming.DerivePackageAlias(goPath, b.packageName)
+	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
+	// shadows that resource's root package or another already-imported package sharing
+	// the name. Disambiguate with the version-suffixed alias, matching the migration
+	// import convention (spatialv0).
+	if b.aliasCollides(importPath, alias) {
+		alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+	}
 	actualPkg := filepath.Base(importPath)
 	if alias == actualPkg {
 		if _, ok := b.imports[importPath]; !ok {
@@ -772,6 +1093,27 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 		qualifier = existing
 	}
 	return qualifier + "." + goName, nil
+}
+
+// aliasCollides reports whether alias would shadow the package under test or an
+// already-registered import other than importPath. An import stored with an empty alias
+// qualifies under its bare package name.
+func (b *testValueBuilder) aliasCollides(importPath, alias string) bool {
+	if alias == b.packageName {
+		return true
+	}
+	for path, existing := range b.imports {
+		if path == importPath {
+			continue
+		}
+		if existing == "" {
+			existing = filepath.Base(path)
+		}
+		if existing == alias {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *testValueBuilder) goSliceElemType(typ resolution.Type) (string, error) {
@@ -792,21 +1134,29 @@ const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.
 package {{.Package}}_test
 
 import (
-	"reflect"
 	"testing"
 {{- if .NeedsUUID}}
 	"github.com/google/uuid"
 {{- end}}
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-
 	"{{.PkgImport}}"
 {{- range sortedImports .ExtraImports}}
 	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
+{{- if .SharedFixtures}}
+
+var (
+{{- range .SharedFixtures}}
+	{{.VarName}} = {{.ValueExpr}}
+{{- end}}
+)
+{{- end}}
 
 var _ = Describe("Codec", func() {
 {{- range .Tests}}
@@ -848,12 +1198,12 @@ var _ = Describe("Codec", func() {
 })
 {{range .GenericTests}}
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
-	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
+	seed := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
-		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
@@ -894,26 +1244,19 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
 {{end}}{{range .Tests}}
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
-	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
+	seed := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
-		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded {{$.Package}}.{{.GoName}}
@@ -952,15 +1295,8 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }

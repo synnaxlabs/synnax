@@ -15,8 +15,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -76,15 +76,18 @@ func PublishSignals[K comparable, A any](
 			}, true
 		},
 	}
-	closer, err := cfg.Provider.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
-		Name:       fmt.Sprintf("%s_actions", cfg.Name),
-		Observable: translator,
-		SetChannel: channel.Channel{
-			Name:     fmt.Sprintf("sy_%s_set", cfg.Name),
-			DataType: telem.JSONT,
-			Internal: true,
+	closer, err := cfg.Provider.PublishFromObservable(
+		ctx,
+		signals.ObservablePublisherConfig{
+			Name:       fmt.Sprintf("%s_actions", cfg.Name),
+			Observable: translator,
+			SetChannel: channel.Channel{
+				Name:     fmt.Sprintf("sy_%s_set", cfg.Name),
+				DataType: telem.JSONT,
+				Internal: true,
+			},
 		},
-	})
+	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "open action publisher for %s", cfg.Name)
 	}

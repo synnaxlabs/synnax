@@ -39,7 +39,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
 
     def run(self) -> None:
         self.log("Creating schematic symbols")
-        schematic = self.console.workspace.create_schematic("setpoint_press_user")
+        schematic = self.console.project.create_schematic("setpoint_press_user")
 
         start_cmd = schematic.create_symbol(
             Valve(
@@ -77,7 +77,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
         schematic.set_authority(100)
 
         self.log("Starting Control Authority Test (1/2)")
-        self.wait_for_eq("test_flag_cmd", 0, is_virtual=True)
+        self.wait_for_eq("test_flag_cmd", 0)
         self.wait_for_eq("press_vlv_state", 0)
         self.wait_for_eq("vent_vlv_state", 0)
 
@@ -91,7 +91,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
 
         self.wait_for_eq("press_vlv_state", 1)
         self.wait_for_eq("vent_vlv_state", 1)
-        self.wait_for_eq("test_flag_cmd", 1, is_virtual=True)
+        self.wait_for_eq("test_flag_cmd", 1)
 
         press_valve.press()
         vent_valve.press()
@@ -103,18 +103,18 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
 
         self.wait_for_eq("press_vlv_state", 0)
         self.wait_for_eq("vent_vlv_state", 0)
-        self.wait_for_eq("test_flag_cmd", 0, is_virtual=True)
+        self.wait_for_eq("test_flag_cmd", 0)
 
         self.log("Starting Basic Control Test (2/2)")
         start_cmd.press()
-        self.wait_for_eq("test_flag_cmd", 1, is_virtual=True)
+        self.wait_for_eq("test_flag_cmd", 1)
 
         self.log("Starting test")
         setpoints = [25, 0]
         for target in setpoints:
             self.log(f"Target pressure: {target}")
             setpoint.set_value(target)
-            self.wait_for_eq("press_setpoint_cmd", target, is_virtual=True)
+            self.wait_for_eq("press_setpoint_cmd", target)
             self.wait_for_near("press_pt", target, tolerance=3.0)
             self.log("Target pressure reached")
             sy.sleep(1)

@@ -36,11 +36,6 @@ FunctionProperties::to_proto() const {
         if (err) return {{}, err};
         *pb.add_outputs() = v;
     }
-    for (const auto &item: this->config) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_config() = v;
-    }
     return {pb, x::errors::NIL};
 }
 
@@ -50,8 +45,6 @@ FunctionProperties::from_proto(const ::arc::types::pb::FunctionProperties &pb) {
     if (auto err = x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs()))
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs()))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Param>(cpp.config, pb.config()))
         return {{}, err};
     return {cpp, x::errors::NIL};
 }
@@ -67,11 +60,6 @@ inline std::pair<::arc::types::pb::Type, x::errors::Error> Type::to_proto() cons
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
         *pb.add_outputs() = v;
-    }
-    for (const auto &item: this->config) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_config() = v;
     }
     pb.set_kind(static_cast<::arc::types::pb::Kind>(this->kind));
     pb.set_name(this->name);
@@ -102,8 +90,6 @@ Type::from_proto(const ::arc::types::pb::Type &pb) {
     if (auto err = x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs()))
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs()))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Param>(cpp.config, pb.config()))
         return {{}, err};
     cpp.kind = static_cast<Kind>(pb.kind());
     cpp.name = pb.name();

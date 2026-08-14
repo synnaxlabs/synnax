@@ -1,0 +1,6 @@
+# Oracle-generated outputs: collapse in GitHub diffs and exclude from
+# language statistics.
+*.gen.* linguist-generated
+*_gen.go linguist-generated
+*_gen_test.go linguist-generated
+*_gen.py linguist-generated

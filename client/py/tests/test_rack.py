@@ -66,6 +66,8 @@ class TestRackClient:
         client.devices.create(
             key=str(uuid4()),
             name="test",
+            make="ni",
+            model="pxi",
             rack=rack.key,
             location="dev1",
             properties={"foo": "bar"},

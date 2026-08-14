@@ -1,0 +1,255 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { query, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Flux, Icon, Schematic } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
+
+import { Panel } from "@/platform/panel";
+import {
+  createPanelWrapper,
+  createServerPanel,
+  primePanel,
+} from "@/platform/panel/testutil";
+import {
+  awaitTextEditing,
+  awaitTextEditingElement,
+  commitTextEdit,
+  countEditableText,
+  findEditableText,
+  renderWithConsole,
+  uniqueName,
+} from "@/testutil";
+
+const client = createTestClient();
+
+describe("Panel tab", () => {
+  describe("useTab", () => {
+    it("resolves the renderer registered for the active tab's type", async () => {
+      const tabKey = uuid.create();
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [{ variant: "view", key: tabKey, type: "custom_view", args: {} }],
+      });
+      const { wrapper: Base } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey,
+      });
+      await primePanel(Base, existing.key);
+      const renderer: Panel.Tab = {
+        Content: () => <>content</>,
+        Name: () => <>name</>,
+        Icon: () => <>icon</>,
+      };
+      const renderers: Panel.Tabs = { custom_view: renderer };
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Base>
+          <Panel.RendererContext value={renderers}>{children}</Panel.RendererContext>
+        </Base>
+      );
+      const { result } = renderHook(() => Panel.useTab(), { wrapper: Wrapper });
+      await waitFor(() => expect(result.current).toBe(renderer));
+    });
+
+    it("throws when no renderer is registered for the active tab's type", async () => {
+      const tabKey = uuid.create();
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [{ variant: "view", key: tabKey, type: "unregistered_view", args: {} }],
+      });
+      const { wrapper: Base } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey,
+      });
+      await primePanel(Base, existing.key);
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Base>
+          <Panel.RendererContext value={{}}>{children}</Panel.RendererContext>
+        </Base>
+      );
+      expect(() => renderHook(() => Panel.useTab(), { wrapper: Wrapper })).toThrow(
+        "no renderer for tab type unregistered_view",
+      );
+    });
+  });
+
+  describe("ResourceGuard", () => {
+    it("swaps to the tombstone once the resource is deleted, and back on restore", async () => {
+      const { key: project } = await client.projects.create({
+        name: uniqueName("project"),
+        layout: {},
+      });
+      const schem = await client.schematics.create(project, { name: "Guarded" });
+      const tabKey = uuid.create();
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [
+          {
+            variant: "resource",
+            key: tabKey,
+            resource: schematic.ontologyID(schem.key),
+          },
+        ],
+      });
+      const { wrapper: Base } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey,
+        project,
+      });
+      await primePanel(Base, existing.key);
+      await client.schematics.retrieve(schem.key);
+
+      const renderers: Panel.Tabs = {
+        [schematic.TYPE_ONTOLOGY_ID.type]: {
+          Content: () => <>content</>,
+          Name: () => <>name</>,
+          Icon: () => <>icon</>,
+          useTombstone: Panel.createTombstoneReader(Schematic),
+        },
+      };
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Base>
+          <Panel.RendererContext value={renderers}>{children}</Panel.RendererContext>
+        </Base>
+      );
+      Wrapper.displayName = "ResourceGuardWrapper";
+      const Fallback = ({ name }: Flux.Tombstone): ReactElement => (
+        <>{name} was deleted</>
+      );
+      render(
+        <Panel.ResourceGuard FallbackComponent={Fallback}>
+          <div>live content</div>
+        </Panel.ResourceGuard>,
+        { wrapper: Wrapper },
+      );
+      expect(await screen.findByText("live content")).toBeTruthy();
+
+      await act(async () => await client.schematics.delete(schem.key));
+      expect(await screen.findByText("Guarded was deleted")).toBeTruthy();
+      expect(screen.queryByText("live content")).toBeNull();
+
+      // Restoring re-creates from the corpse under the original key. The guard
+      // re-reads its own query: no boundary reset and no refetch.
+      const corpse = query.requireCorpse(client.schematics.getCached(schem.key));
+      await act(async () => {
+        await client.schematics.create(project, corpse);
+      });
+      expect(await screen.findByText("live content")).toBeTruthy();
+    });
+  });
+
+  describe("createStaticTabName", () => {
+    it("renders a component displaying the provided name", async () => {
+      const Name = Panel.createStaticTabName({
+        name: "Static Tab Name",
+        icon: <Icon.Schematic />,
+      });
+      await renderWithConsole(<Name />);
+      expect(screen.getByText("Static Tab Name")).toBeTruthy();
+    });
+  });
+
+  describe("createEditableTabName", () => {
+    const renderName = async (
+      mount: (Name: Panel.TabName) => ReactElement = (Name) => <Name />,
+    ) => {
+      const resourceKey = uuid.create();
+      const tabKey = uuid.create();
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [
+          {
+            variant: "resource",
+            key: tabKey,
+            resource: schematic.ontologyID(resourceKey),
+          },
+        ],
+      });
+      const { wrapper: Base } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey,
+      });
+      await primePanel(Base, existing.key);
+      const ensureRetrieved = vi.fn();
+      const rename = vi.fn();
+      const service: Panel.EditableTabNameService = {
+        useEnsure: ensureRetrieved,
+        useName: () => "Resolved Name",
+        useRename: () => ({ update: rename }),
+      };
+      const Name = Panel.createEditableTabName(service, <Icon.Schematic />);
+      render(mount(Name), { wrapper: Base });
+      await waitFor(() =>
+        expect(screen.getAllByText("Resolved Name").length).toBeTruthy(),
+      );
+      return { resourceKey, tabKey, ensureRetrieved, rename };
+    };
+
+    it("renders the injected service's name for the tab's resource", async () => {
+      const { resourceKey, ensureRetrieved } = await renderName();
+      expect(ensureRetrieved).toHaveBeenCalledWith({ key: resourceKey });
+    });
+
+    it("commits a rename through the injected service", async () => {
+      const { resourceKey, rename } = await renderName();
+      fireEvent.doubleClick(screen.getByText("Resolved Name"));
+      const editing = await awaitTextEditingElement();
+      act(() => commitTextEdit(editing, "Renamed Tab"));
+      await waitFor(() =>
+        expect(rename).toHaveBeenCalledWith({ key: resourceKey, name: "Renamed Tab" }),
+      );
+    });
+
+    it("renders static text that cannot be edited when renaming is not allowed", async () => {
+      const { tabKey, rename } = await renderName((Name) => (
+        <Name allowRename={false} />
+      ));
+      expect(() => findEditableText(Panel.tabNameID(tabKey))).toThrow();
+      fireEvent.doubleClick(screen.getByText("Resolved Name"));
+      expect(document.querySelector('[contenteditable="true"]')).toBeNull();
+      expect(rename).not.toHaveBeenCalled();
+    });
+
+    it("routes editTabName to the renameable mount when the name renders twice", async () => {
+      const { resourceKey, tabKey, rename } = await renderName((Name) => (
+        <>
+          <Name allowRename={false} />
+          <Name />
+        </>
+      ));
+      expect(screen.getAllByText("Resolved Name")).toHaveLength(2);
+      expect(countEditableText(Panel.tabNameID(tabKey))).toEqual(1);
+      act(() => Panel.editTabName(tabKey));
+      const editing = await awaitTextEditing(Panel.tabNameID(tabKey));
+      act(() => commitTextEdit(editing, "Renamed Twice"));
+      await waitFor(() =>
+        expect(rename).toHaveBeenCalledWith({
+          key: resourceKey,
+          name: "Renamed Twice",
+        }),
+      );
+      expect(rename).toHaveBeenCalledTimes(1);
+    });
+  });
+});

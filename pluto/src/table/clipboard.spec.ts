@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type table } from "@synnaxlabs/client";
+import { type table } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
@@ -17,6 +18,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/table";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -56,12 +58,12 @@ describe("table clipboard", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  const seedTable = async () => {
-    const ws = await client.workspaces.create({
+  const createTable = async () => {
+    const proj = await client.projects.create({
       name: `clipboard_ws_${uuid.create()}`,
       layout: {},
     });
-    return await client.tables.create(ws.key, {
+    return await client.tables.create(proj.key, {
       name: "clipboard_test",
       rows: [
         { size: 30, cells: ["a", "b", "c"] },
@@ -84,11 +86,13 @@ describe("table clipboard", () => {
   };
 
   const loadAndUse = async (key: table.Key, selected: string[]) => {
-    const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
-    await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+    const retrieve = await renderHookSuspended(() => Table.use({ key }), {
+      wrapper,
+    });
+    await waitFor(() => expect(retrieve.result.current).toBeDefined());
     return renderHook(
       () => ({
-        retrieve: Table.useRetrieve({ key }),
+        retrieve: Table.use({ key }),
         clipboard: Table.useClipboard({ key, selected }),
       }),
       { wrapper },
@@ -97,9 +101,9 @@ describe("table clipboard", () => {
 
   describe("copy", () => {
     it("writes a payload to clipboardData normalized to the top-left of the selection", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, ["e", "f", "h", "i"]);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, ["e", "f", "h", "i"]);
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       const ev = makeClipboardEvent();
       act(() => result.current.clipboard.onCopy(ev));
       expect(ev.defaultPrevented).toBe(true);
@@ -118,18 +122,18 @@ describe("table clipboard", () => {
     });
 
     it("writes a human-readable text/plain summary", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, ["a", "b"]);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, ["a", "b"]);
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       const ev = makeClipboardEvent();
       act(() => result.current.clipboard.onCopy(ev));
       expect(ev._data["text/plain"]).toEqual("2 cells");
     });
 
     it("is a no-op when selection is empty", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, []);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, []);
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       const ev = makeClipboardEvent();
       act(() => result.current.clipboard.onCopy(ev));
       expect(ev.defaultPrevented).toBe(false);
@@ -139,9 +143,9 @@ describe("table clipboard", () => {
 
   describe("paste", () => {
     it("overwrites in-bounds cells at the anchor position", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, ["a"]);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, ["a"]);
+      await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
         version: 1,
         cells: [
@@ -152,17 +156,17 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       await waitFor(() => {
-        expect(result.current.retrieve.data?.cells.a.props.v).toEqual("X");
-        expect(result.current.retrieve.data?.cells.b.props.v).toEqual("Y");
+        expect(result.current.retrieve?.cells.a.props.v).toEqual("X");
+        expect(result.current.retrieve?.cells.b.props.v).toEqual("Y");
       });
-      expect(result.current.retrieve.data?.rows).toHaveLength(3);
-      expect(result.current.retrieve.data?.columns).toHaveLength(3);
+      expect(result.current.retrieve?.rows).toHaveLength(3);
+      expect(result.current.retrieve?.columns).toHaveLength(3);
     });
 
     it("grows the table when the paste extends past the right edge", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, ["c"]);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, ["c"]);
+      await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
         version: 1,
         cells: [
@@ -173,16 +177,16 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       await waitFor(() => {
-        expect(result.current.retrieve.data?.columns).toHaveLength(4);
-        expect(result.current.retrieve.data?.rows[0].cells).toHaveLength(4);
-        expect(result.current.retrieve.data?.cells.c.props.v).toEqual("P");
+        expect(result.current.retrieve?.columns).toHaveLength(4);
+        expect(result.current.retrieve?.rows[0].cells).toHaveLength(4);
+        expect(result.current.retrieve?.cells.c.props.v).toEqual("P");
       });
     });
 
     it("grows the table when the paste extends past the bottom edge", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, ["g"]);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, ["g"]);
+      await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
         version: 1,
         cells: [
@@ -193,15 +197,15 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       await waitFor(() => {
-        expect(result.current.retrieve.data?.rows).toHaveLength(4);
-        expect(result.current.retrieve.data?.cells.g.props.v).toEqual("P");
+        expect(result.current.retrieve?.rows).toHaveLength(4);
+        expect(result.current.retrieve?.cells.g.props.v).toEqual("P");
       });
     });
 
     it("grows both axes when the paste extends past the bottom-right corner", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, ["i"]);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, ["i"]);
+      await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
         version: 1,
         cells: [
@@ -212,15 +216,15 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       await waitFor(() => {
-        expect(result.current.retrieve.data?.rows).toHaveLength(4);
-        expect(result.current.retrieve.data?.columns).toHaveLength(4);
+        expect(result.current.retrieve?.rows).toHaveLength(4);
+        expect(result.current.retrieve?.columns).toHaveLength(4);
       });
     });
 
     it("is a no-op when selection is empty", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, []);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, []);
+      await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
         version: 1,
         cells: [{ row: 0, col: 0, variant: "value", props: { v: "X" } }],
@@ -228,13 +232,13 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       expect(ev.defaultPrevented).toBe(false);
-      expect(result.current.retrieve.data?.cells.a.props.v).toEqual("A");
+      expect(result.current.retrieve?.cells.a.props.v).toEqual("A");
     });
 
     it("is a no-op when the payload version is unknown", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndUse(seeded.key, ["a"]);
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      const created = await createTable();
+      const { result } = await loadAndUse(created.key, ["a"]);
+      await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
         version: 99,
         cells: [{ row: 0, col: 0, variant: "value", props: { v: "X" } }],
@@ -242,20 +246,23 @@ describe("table clipboard", () => {
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       expect(ev.defaultPrevented).toBe(false);
-      expect(result.current.retrieve.data?.cells.a.props.v).toEqual("A");
+      expect(result.current.retrieve?.cells.a.props.v).toEqual("A");
     });
 
     it("fires onPaste with the keys that were overwritten", async () => {
-      const seeded = await seedTable();
-      const retrieve = renderHook(() => Table.useRetrieve({ key: seeded.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const created = await createTable();
+      const retrieve = await renderHookSuspended(
+        () => Table.use({ key: created.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(retrieve.result.current).toBeDefined());
       const seen: string[][] = [];
       const { result } = renderHook(
         () =>
           Table.useClipboard({
-            key: seeded.key,
+            key: created.key,
             selected: ["a"],
             onPaste: (keys) => seen.push(keys),
           }),
@@ -277,14 +284,17 @@ describe("table clipboard", () => {
 
   describe("round-trip", () => {
     it("copy then paste at a new anchor reproduces the source region", async () => {
-      const seeded = await seedTable();
-      const retrieve = renderHook(() => Table.useRetrieve({ key: seeded.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const created = await createTable();
+      const retrieve = await renderHookSuspended(
+        () => Table.use({ key: created.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(retrieve.result.current).toBeDefined());
 
       const copyHook = renderHook(
-        () => Table.useClipboard({ key: seeded.key, selected: ["a", "b", "d", "e"] }),
+        () => Table.useClipboard({ key: created.key, selected: ["a", "b", "d", "e"] }),
         { wrapper },
       );
       const copyEv = makeClipboardEvent();
@@ -293,20 +303,20 @@ describe("table clipboard", () => {
       expect(wire.length).toBeGreaterThan(0);
 
       const pasteHook = renderHook(
-        () => Table.useClipboard({ key: seeded.key, selected: ["e"] }),
+        () => Table.useClipboard({ key: created.key, selected: ["e"] }),
         { wrapper },
       );
       const pasteEv = makeClipboardEvent({ [MIME]: wire });
       await act(async () => pasteHook.result.current.onPaste(pasteEv));
       await waitFor(() => {
-        expect(retrieve.result.current.data?.cells.e.variant).toEqual("value");
-        expect(retrieve.result.current.data?.cells.e.props.v).toEqual("A");
-        expect(retrieve.result.current.data?.cells.f.variant).toEqual("value");
-        expect(retrieve.result.current.data?.cells.f.props.v).toEqual("B");
-        expect(retrieve.result.current.data?.cells.h.variant).toEqual("text");
-        expect(retrieve.result.current.data?.cells.h.props.v).toEqual("D");
-        expect(retrieve.result.current.data?.cells.i.variant).toEqual("text");
-        expect(retrieve.result.current.data?.cells.i.props.v).toEqual("E");
+        expect(retrieve.result.current?.cells.e.variant).toEqual("value");
+        expect(retrieve.result.current?.cells.e.props.v).toEqual("A");
+        expect(retrieve.result.current?.cells.f.variant).toEqual("value");
+        expect(retrieve.result.current?.cells.f.props.v).toEqual("B");
+        expect(retrieve.result.current?.cells.h.variant).toEqual("text");
+        expect(retrieve.result.current?.cells.h.props.v).toEqual("D");
+        expect(retrieve.result.current?.cells.i.variant).toEqual("text");
+        expect(retrieve.result.current?.cells.i.props.v).toEqual("E");
       });
     });
   });

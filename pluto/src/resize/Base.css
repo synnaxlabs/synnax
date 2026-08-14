@@ -44,27 +44,26 @@
         width: 100%;
         cursor: row-resize;
     }
-
-    &.pluto--collapsed > .pluto-resize__handle {
-        border-color: var(--pluto-primary-p1);
-        border-width: 2px;
-    }
 }
 
 .pluto-resize__handle {
     position: absolute;
+    z-index: 4;
+    color: var(--pluto-border-color);
+    border-color: var(--pluto-border-color);
     transition:
         border-color 0.1s ease-in-out,
         border-width 0.1s ease-in-out;
-    z-index: 4;
+
+    &:is(:hover, :active) {
+        border-width: 2px;
+    }
 
     &:hover {
         border-color: var(--pluto-primary-z);
-        border-width: 2px;
     }
 
     &:active {
         border-color: var(--pluto-primary-p1);
-        border-width: 2px;
     }
 }

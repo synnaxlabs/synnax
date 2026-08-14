@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, buildQueryString, errors, type URL } from "@synnaxlabs/x";
+import { type binary, errors, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, StreamClosed } from "@/errors";
-import { CONTENT_TYPE_HEADER_KEY } from "@/http";
+import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
 
@@ -135,8 +135,6 @@ class WebSocketStream<
   }
 }
 
-export const FREIGHTER_METADATA_PREFIX = "freighterctx";
-
 const CLOSE_NORMAL = 1000;
 
 /**
@@ -144,7 +142,7 @@ const CLOSE_NORMAL = 1000;
  * websockets.
  */
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
-  baseUrl: URL;
+  baseUrl: url.URL;
   encoder: binary.Codec;
   secure: boolean;
 
@@ -155,7 +153,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
    *   responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
    */
-  constructor(baseEndpoint: URL, encoder: binary.Codec, secure = false) {
+  constructor(baseEndpoint: url.URL, encoder: binary.Codec, secure = false) {
     super();
     this.secure = secure;
     this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
@@ -189,7 +187,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   private buildURL(target: string, ctx: Context): string {
-    const qs = buildQueryString(
+    const qs = url.buildQueryString(
       {
         [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
         ...ctx.params,

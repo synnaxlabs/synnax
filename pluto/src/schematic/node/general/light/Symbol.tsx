@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/light/config";
-import { Light } from "@/schematic/node/general/light/Primitive";
+import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
 
@@ -29,6 +29,8 @@ export const Symbol = ({
       onRotate={onConfigChange}
       editable={selected}
       nodeKey={nodeKey}
+      keepAspectRatio
+      onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
       <Light enabled={enabled} orientation={orientation} {...rest} />

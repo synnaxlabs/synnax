@@ -16,11 +16,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/actions"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGoActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Actions Plugin Suite")
+	RunSpecs(t, "Plugin Go Actions Suite")
 }
 
 var _ = Describe("Go Actions Plugin", func() {
@@ -115,8 +116,38 @@ var _ = Describe("Go Actions Plugin", func() {
 				)
 			})
 
-			It("Should snake_case action names with multiple words", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should flatten fields from an extended struct into the action payload",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/counter"
+
+					Named struct {
+						name string
+					}
+
+					Counter struct {
+						key uuid
+
+						action Rename extends Named {
+							force int32
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToContain(
+							"type RenamePayload struct {",
+							"Name string `json:\"name\" msgpack:\"name\"`",
+							"Force int32 `json:\"force\" msgpack:\"force\"`",
+						)
+				},
+			)
+
+			It(
+				"Should snake_case action names with multiple words",
+				func(ctx SpecContext) {
+					source := `
 					@go output "core/pkg/service/board"
 
 					Board struct {
@@ -127,16 +158,19 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "board", loader, p)
-				ExpectContent(resp, "actions.gen.go").
-					ToContain(
-						`ActionTypeSetNodePosition = "set_node_position"`,
-						"NewSetNodePositionAction",
-					)
-			})
+					resp := MustGenerate(ctx, source, "board", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToContain(
+							`ActionTypeSetNodePosition = "set_node_position"`,
+							"NewSetNodePositionAction",
+						)
+				},
+			)
 
-			It("Should not pointer-prefix slice, map, or record fields", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should not pointer-prefix slice, map, or record fields",
+				func(ctx SpecContext) {
+					source := `
 					@go output "core/pkg/service/bag"
 
 					Bag struct {
@@ -148,12 +182,15 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "bag", loader, p)
-				content := string(resp.Files[0].Content)
-				Expect(content).ToNot(ContainSubstring("*[]"))
-				Expect(content).ToNot(ContainSubstring("*msgpack.EncodedJSON"))
-				Expect(content).To(ContainSubstring("Names []string"))
-			})
+					resp := MustGenerate(ctx, source, "bag", loader, p)
+					content := string(resp.Files[0].Content)
+					Expect(content).ToNot(ContainSubstring("*[]"))
+					Expect(content).ToNot(ContainSubstring("*msgpack.EncodedJSON"))
+					Expect(content).To(ContainSubstring("Names []string"))
+				},
+			)
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

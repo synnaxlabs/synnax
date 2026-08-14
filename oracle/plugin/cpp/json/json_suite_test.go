@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestCppJson(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "C++ JSON Plugin Suite")
+	RunSpecs(t, "Plugin C++ JSON Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

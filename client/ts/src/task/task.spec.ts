@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { task } from "@/task";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -27,8 +28,7 @@ describe("Task", async () => {
         type: "ni",
       });
       expect(m.key).not.toHaveLength(0);
-      const rackKey = BigInt(m.key) >> 32n;
-      expect(Number(rackKey)).toBe(testRack.key);
+      expect(m.rack).toBe(testRack.key);
     });
     it("should create a task with a config", async () => {
       const config = {
@@ -47,16 +47,16 @@ describe("Task", async () => {
       expect(m.config).toStrictEqual(config);
     });
     it("should create a task with a custom status", async () => {
-      const customStatus = {
-        key: "",
-        name: "",
-        variant: "success" as const,
+      const key = uuid.create();
+      const customStatus: task.New["status"] = {
+        name: "Status",
+        variant: "success",
         message: "Custom task status",
         description: "Task is running",
-        time: TimeStamp.now(),
-        details: { running: true, data: { customData: true } },
+        details: { task: key, running: true, data: { customData: true } },
       };
       const m = await testRack.createTask({
+        key,
         name: "task-with-status",
         config: { test: true },
         type: "ni",
@@ -89,7 +89,7 @@ describe("Task", async () => {
         name: "updated",
       });
       expect(updated.name).toBe("updated");
-      const retrieved = await client.tasks.retrieve({ key: m.key });
+      const retrieved = await client.tasks.retrieve(m.key);
       expect(retrieved.name).toBe("updated");
     });
   });
@@ -100,7 +100,7 @@ describe("Task", async () => {
         config: { a: "dog" },
         type: "ni",
       });
-      const retrieved = await client.tasks.retrieve({ key: m.key });
+      const retrieved = await client.tasks.retrieve(m.key);
       expect(retrieved.key).toBe(m.key);
       expect(retrieved.name).toBe("test");
       expect(retrieved.config).toStrictEqual({ a: "dog" });
@@ -139,8 +139,16 @@ describe("Task", async () => {
           key: ontology.idToString(task.ontologyID(t.key)),
           name: "test",
           variant: "success",
-          details: { task: t.key, running: false, data: undefined },
+          details: {
+            task: t.key,
+            running: false,
+            cmd: "",
+            configHash: "",
+            rack: testRack.key,
+            data: undefined,
+          },
           message: "test",
+          description: "",
           time: TimeStamp.now(),
         };
         await client.statuses.set(communicatedStatus);
@@ -186,7 +194,7 @@ describe("Task", async () => {
           rack: testRack.key,
         });
         expect(result.length).toBeGreaterThanOrEqual(3);
-        expect(result.every((t) => task.rackKey(t.key) === testRack.key)).toBe(true);
+        expect(result.every((t) => t.rack === testRack.key)).toBe(true);
       });
 
       it("should retrieve tasks by multiple keys", async () => {
@@ -370,7 +378,7 @@ describe("Task", async () => {
       });
       const tasks = await client.tasks.list(testRack.key);
       expect(tasks.some((t) => t.key === task1.key)).toBe(true);
-      expect(tasks.every((t) => task.rackKey(t.key) === testRack.key)).toBe(true);
+      expect(tasks.every((t) => t.rack === testRack.key)).toBe(true);
     });
 
     it("should exclude internal tasks by default", async () => {
@@ -531,6 +539,42 @@ describe("Task", async () => {
         .toMatchObject({ key, task: t.key, type, args });
       streamer.close();
     });
+    it("should stamp the config hash from the task instance", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      expect(t.configHash).not.toEqual("");
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await t.executeCommand({ type: "start" });
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, configHash: t.configHash });
+      streamer.close();
+    });
+    it("should stamp the config hash from the cached task row", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      await client.tasks.retrieve(t.key);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await client.tasks.executeCommand({ task: t.key, type: "start" });
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, configHash: t.configHash });
+      streamer.close();
+    });
     it("should timeout on a synchronously executed command", async () => {
       const t = await testRack.createTask({
         name: "test",
@@ -653,5 +697,262 @@ describe("Task", async () => {
       expect(retrieved.type).toBe("unique_type_test");
       expect(retrieved.config.value).toBe(42);
     });
+  });
+
+  describe("onChange", () => {
+    it("merges a status keyed by details.task into a subscribed single query", async () => {
+      const t = await testRack.createTask({
+        name: `status-details-single-${id.create()}`,
+        config: {},
+        type: "ni",
+      });
+      const params = { key: t.key };
+      const off = client.tasks.onChange(params, vi.fn());
+      try {
+        await client.tasks.retrieve(params);
+        await client.statuses.set({
+          key: id.create(),
+          name: "Task Status",
+          variant: "error",
+          message: "task failed",
+          time: TimeStamp.now(),
+          details: { task: t.key, running: false, cmd: "", data: {} },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.status?.message;
+          })
+          .toBe("task failed");
+      } finally {
+        off();
+      }
+    });
+
+    it("merges a status keyed by details.task into a subscribed request query", async () => {
+      const t = await testRack.createTask({
+        name: `status-details-request-${id.create()}`,
+        config: {},
+        type: "ni",
+      });
+      const params = { keys: [t.key] };
+      const off = client.tasks.onChange(params, vi.fn());
+      try {
+        await client.tasks.retrieve(params);
+        await client.statuses.set({
+          key: id.create(),
+          name: "Task Status",
+          variant: "warning",
+          message: "task degraded",
+          time: TimeStamp.now(),
+          details: { task: t.key, running: true, cmd: "", data: {} },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.find((v) => v.key === t.key)?.status?.message;
+          })
+          .toBe("task degraded");
+      } finally {
+        off();
+      }
+    });
+
+    it("preserves deploy info on the optimistic command-loading status", async () => {
+      const t = await testRack.createTask({
+        name: `status-loading-carry-${id.create()}`,
+        config: {},
+        type: "ni",
+      });
+      const params = { key: t.key };
+      const off = client.tasks.onChange(params, vi.fn());
+      try {
+        await client.tasks.retrieve(params);
+        await client.statuses.set({
+          key: id.create(),
+          name: "Task Status",
+          variant: "success",
+          message: "task started",
+          time: TimeStamp.now(),
+          details: {
+            task: t.key,
+            running: true,
+            cmd: "",
+            configHash: "deadbeef",
+            rack: testRack.key,
+            data: {},
+          },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.status?.details.configHash;
+          })
+          .toBe("deadbeef");
+        await client.tasks.executeCommand({ task: t.key, type: "stop" });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.status?.variant;
+          })
+          .toBe("loading");
+        const cached = client.tasks.getCached(params);
+        if (!query.isLive(cached)) throw new Error("expected live cached task");
+        expect(cached.status?.details.configHash).toBe("deadbeef");
+        expect(cached.status?.details.rack).toBe(testRack.key);
+      } finally {
+        off();
+      }
+    });
+
+    it("refetches a cached task whose config was changed by another client", async () => {
+      const t = await testRack.createTask({
+        name: `set-config-${id.create()}`,
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const remote = createTestClient();
+      await remote.connect();
+      const params = { key: t.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        expect((await remote.tasks.retrieve(params)).config).toStrictEqual({
+          a: "dog",
+        });
+        await client.tasks.create({ ...t.payload, config: { a: "cat" } });
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            return query.isLive(cached) ? cached.config : undefined;
+          })
+          .toStrictEqual({ a: "cat" });
+      } finally {
+        off();
+      }
+    });
+
+    it("merges a metadata-only set signal into a cached task", async () => {
+      const remote = createTestClient();
+      await remote.connect();
+      const t = await testRack.createTask({
+        name: `set-merge-${id.create()}`,
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const params = { key: t.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        await remote.tasks.retrieve(params);
+        const name = `set-merge-renamed-${id.create()}`;
+        await client.tasks.create({ ...t.payload, name });
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toBe(name);
+        const cached = remote.tasks.getCached(params);
+        assert(query.isLive(cached));
+        expect(cached.config).toStrictEqual({ a: "dog" });
+      } finally {
+        off();
+      }
+    });
+
+    it("fetches an uncached task moved onto a subscribed rack", async () => {
+      const remote = createTestClient();
+      await remote.connect();
+      const source = await client.racks.create({ name: `set-move-src-${id.create()}` });
+      const dest = await client.racks.create({ name: `set-move-dest-${id.create()}` });
+      const t = await source.createTask({
+        name: `set-move-${id.create()}`,
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const params = { rack: dest.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        expect(await remote.tasks.retrieve(params)).toHaveLength(0);
+        await client.tasks.create({ ...t.payload, rack: dest.key });
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.find((v) => v.key === t.key)?.config;
+          })
+          .toStrictEqual({ a: "dog" });
+      } finally {
+        off();
+      }
+    });
+  });
+});
+
+describe("drifted", () => {
+  // Both hashes are server-assigned and opaque here; the client only compares them.
+  const DEPLOYED = "2de66015b3bdded8";
+  const EDITED = "0000000000000000";
+  const newPayload = (overrides: {
+    running?: boolean;
+    taskHash?: string;
+    statusHash?: string;
+    statusRack?: number;
+    hasStatus?: boolean;
+  }): task.Payload => {
+    const key = uuid.create();
+    const {
+      running = true,
+      taskHash = DEPLOYED,
+      statusHash = DEPLOYED,
+      statusRack = 1,
+      hasStatus = true,
+    } = overrides;
+    return {
+      key,
+      rack: 1,
+      name: "test",
+      type: "test",
+      config: { rate: 50, port: 8080, host: "localhost" },
+      configHash: taskHash,
+      internal: false,
+      snapshot: false,
+      status: hasStatus
+        ? task.statusZ().parse({
+            message: "running",
+            variant: "success",
+            details: { task: key, running, configHash: statusHash, rack: statusRack },
+          })
+        : undefined,
+    };
+  };
+
+  it("should not drift when the deployed hash and rack match the task", () => {
+    expect(task.drifted(newPayload({}))).toBe(false);
+  });
+
+  it("should drift when the stored hash differs from the deployed hash", () => {
+    expect(task.drifted(newPayload({ taskHash: EDITED }))).toBe(true);
+  });
+
+  it("should drift when the task moved racks while running", () => {
+    expect(task.drifted(newPayload({ statusRack: 2 }))).toBe(true);
+  });
+
+  it("should never drift when the task is not running", () => {
+    expect(task.drifted(newPayload({ running: false, taskHash: EDITED }))).toBe(false);
+  });
+
+  it("should never drift without a status", () => {
+    expect(task.drifted(newPayload({ hasStatus: false }))).toBe(false);
+  });
+
+  it("should never drift when the deployed hash is unknown", () => {
+    // The optimistic command-loading status reports running with an empty hash.
+    expect(task.drifted(newPayload({ statusHash: "", taskHash: EDITED }))).toBe(false);
+    expect(task.drifted(newPayload({ statusHash: "", statusRack: 2 }))).toBe(false);
   });
 });

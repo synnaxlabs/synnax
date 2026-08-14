@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
@@ -32,8 +32,8 @@ class _Request(BaseModel):
 
 
 class _Response(BaseModel):
-    channels: list[Payload] = list()
-    not_found: list[str] | None = list()
+    channels: list[Payload] = Field(default_factory=list)
+    not_found: list[str] | None = Field(default_factory=list)
 
 
 class Retriever(Protocol):

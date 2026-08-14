@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "client/cpp/synnax.h"
+#include "absl/log/log.h"
 
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
@@ -80,7 +80,8 @@ class Factory final : public task::Factory {
     /// task state and return false.
     [[nodiscard]] bool check_health(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) const;
 
 public:
@@ -98,7 +99,8 @@ public:
     /// @brief implements task::Factory to process task configuration requests.
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override;
 
     /// @brief implements task::Factory to configure initial tasks such as the
@@ -118,8 +120,7 @@ public:
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
         TaskHandle handle;
-        const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +
-                                          ")";
+        const std::string dmx_task_name = task.name + " (" + task.key.to_string() + ")";
         if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle))
             return {std::move(result), err};
         // Very important that we instantiate the Hardware API here, as we pass

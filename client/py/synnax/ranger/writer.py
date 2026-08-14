@@ -11,16 +11,15 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient
-from synnax.ontology.payload import ID
-from synnax.ranger.payload import Key, Payload
+from synnax.ranger.types_gen import Key, Payload
 
 
 class _CreateRequest(BaseModel):
-    parent: ID | None = None
     ranges: list[Payload] = []
 
 
-_CreateResponse = _CreateRequest
+class _CreateResponse(BaseModel):
+    ranges: list[Payload] = []
 
 
 class _DeleteRequest(BaseModel):
@@ -40,10 +39,8 @@ class Writer:
         self.instrumentation = instrumentation
 
     @trace("debug", "range.create")
-    def create(
-        self, ranges: list[Payload], *, parent: ID | None = None
-    ) -> list[Payload]:
-        req = _CreateRequest(ranges=ranges, parent=parent)
+    def create(self, ranges: list[Payload]) -> list[Payload]:
+        req = _CreateRequest(ranges=ranges)
         return self._client.send("/range/create", req, _CreateResponse).ranges
 
     @trace("debug", "range.delete")

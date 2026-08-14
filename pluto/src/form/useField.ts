@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type compare, type record, shallow, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { array, type compare, type record, shallow, state } from "@synnaxlabs/x";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
@@ -20,7 +21,6 @@ import {
   type OptionalGetOptions,
   type RequiredGetOptions,
 } from "@/form/state";
-import { state } from "@/state";
 
 export type ContextOptions<Z extends z.ZodType = z.ZodType> = {
   ctx?: ContextValue<Z>;
@@ -39,7 +39,7 @@ export interface UseFieldReturn<I, O = I> extends FieldState<I> {
   onChange: (value: O) => void;
   setStatus: (status: status.Crude) => void;
   status: status.Crude;
-  variant?: "preview";
+  preview?: boolean;
 }
 
 interface UseField {
@@ -99,8 +99,8 @@ export const useField = (<I, O = I>(
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
   }
-  const variant = ctx.mode === "preview" ? "preview" : undefined;
-  return { onChange: handleChange, setStatus: handleSetStatus, variant, ...state };
+  const preview = ctx.mode === "preview" ? true : undefined;
+  return { onChange: handleChange, setStatus: handleSetStatus, preview, ...state };
 }) as UseField;
 
 export interface UseFieldValue {

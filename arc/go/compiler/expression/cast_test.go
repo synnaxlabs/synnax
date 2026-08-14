@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Type Cast Compilation", func() {
@@ -356,8 +357,7 @@ var _ = Describe("Type Cast Compilation", func() {
 	DescribeTable(
 		"should reject str to numeric casts (analyzer-gated)",
 		func(bCtx SpecContext, source string) {
-			expr, diag := parser.ParseExpression(source)
-			Expect(diag).To(BeNil())
+			expr := MustSucceed(parser.ParseExpression(source))
 			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
 			aexpression.Analyze(analyzerCtx)
 			Expect(analyzerCtx.Diagnostics.Ok()).To(BeFalse())
@@ -377,8 +377,7 @@ var _ = Describe("Type Cast Compilation", func() {
 
 	It("Should propagate literal parsing errors", func(bCtx SpecContext) {
 		// Test that non-exact float-to-int conversions are rejected
-		expr, diag := parser.ParseExpression("i32(3.14)")
-		Expect(diag).To(BeNil())
+		expr := MustSucceed(parser.ParseExpression("i32(3.14)"))
 		ctx := NewContext(bCtx)
 		_, err := expression.Compile(ccontext.Child(ctx, expr))
 		Expect(err).To(MatchError(ContainSubstring("cannot convert non-integer float")))
@@ -386,8 +385,7 @@ var _ = Describe("Type Cast Compilation", func() {
 
 	It("Should propagate overflow errors from literals", func(bCtx SpecContext) {
 		// Test that overflow validation is enforced
-		expr, diag := parser.ParseExpression("i8(128)")
-		Expect(diag).To(BeNil())
+		expr := MustSucceed(parser.ParseExpression("i8(128)"))
 		ctx := NewContext(bCtx)
 		_, err := expression.Compile(ccontext.Child(ctx, expr))
 		Expect(err).To(MatchError(ContainSubstring("out of range for i8")))

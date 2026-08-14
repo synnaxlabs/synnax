@@ -18,7 +18,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	lsp "github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 // codeActionSnapshot bundles the document state CodeAction needs after
@@ -26,7 +27,7 @@ import (
 // with DidChange and runAnalysis, which write doc.Content and doc.IR under
 // s.mu.Lock.
 type codeActionSnapshot struct {
-	URI     protocol.DocumentURI
+	URI     uri.URI
 	Content string
 	Symbols *symbol.Symbol
 	Tokens  []antlr.Token
@@ -40,7 +41,7 @@ type codeActionSnapshot struct {
 func (s *Server) CodeAction(
 	ctx context.Context,
 	params *protocol.CodeActionParams,
-) ([]protocol.CodeAction, error) {
+) ([]protocol.CommandOrCodeAction, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return nil, nil
@@ -57,17 +58,17 @@ func (s *Server) CodeAction(
 		Tokens:  tokenizeContent(content),
 		IsBlock: isBlock,
 	}
-	var actions []protocol.CodeAction
+	var actions []protocol.CommandOrCodeAction
 	for _, diag := range params.Context.Diagnostics {
-		code, _ := diag.Code.(string)
-		switch code {
+		code, _ := diag.Code.(protocol.String)
+		switch string(code) {
 		case string(codes.UnusedImport):
 			if action := unusedImportQuickFix(snap, diag); action != nil {
-				actions = append(actions, *action)
+				actions = append(actions, action)
 			}
 		case string(codes.DeprecatedSymbol):
 			if action := deprecatedSymbolQuickFix(ctx, snap, diag); action != nil {
-				actions = append(actions, *action)
+				actions = append(actions, action)
 			}
 		}
 		// Missing-import is offered for any diagnostic whose range contains
@@ -76,7 +77,7 @@ func (s *Server) CodeAction(
 		// match, already imported) reject non-candidates, so we don't need
 		// a separate code to gate it.
 		if action := missingImportQuickFix(ctx, snap, diag); action != nil {
-			actions = append(actions, *action)
+			actions = append(actions, action)
 		}
 	}
 	return actions, nil
@@ -116,11 +117,11 @@ func unusedImportQuickFix(
 	edit := buildUnusedImportEdit(snap.Content, stmt, items, idx)
 	return &protocol.CodeAction{
 		Title:       "Remove unused import",
-		Kind:        protocol.QuickFix,
+		Kind:        new(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
-		IsPreferred: true,
+		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{
-			Changes: map[protocol.DocumentURI][]protocol.TextEdit{
+			Changes: map[uri.URI][]protocol.TextEdit{
 				snap.URI: {edit},
 			},
 		},
@@ -286,21 +287,33 @@ func deprecatedSymbolQuickFix(
 	tokenEndLine, tokenEndChar := tokenEndLineChar(token)
 	edits := []protocol.TextEdit{{
 		Range: protocol.Range{
-			Start: protocol.Position{Line: uint32(tokenStartLine), Character: uint32(tokenStartChar)},
-			End:   protocol.Position{Line: uint32(tokenEndLine), Character: uint32(tokenEndChar)},
+			Start: protocol.Position{
+				Line:      uint32(tokenStartLine),
+				Character: uint32(tokenStartChar),
+			},
+			End: protocol.Position{
+				Line:      uint32(tokenEndLine),
+				Character: uint32(tokenEndChar),
+			},
 		},
 		NewText: replacementName,
 	}}
 	if module := replacementModule(repl); module != "" {
-		edits = append(buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, module), edits...)
+		edits = append(
+			buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, module),
+			edits...)
 	}
 	return &protocol.CodeAction{
-		Title:       fmt.Sprintf("Replace '%s' with '%s'", token.GetText(), replacementName),
-		Kind:        protocol.QuickFix,
+		Title: fmt.Sprintf(
+			"Replace '%s' with '%s'",
+			token.GetText(),
+			replacementName,
+		),
+		Kind:        new(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
-		IsPreferred: true,
+		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{
-			Changes: map[protocol.DocumentURI][]protocol.TextEdit{snap.URI: edits},
+			Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
 		},
 	}
 }
@@ -401,7 +414,7 @@ func isTriviaToken(t antlr.Token) bool {
 // buildReplacementName returns the dotted reference the user should write
 // for repl, preferring an existing module alias when one is in scope and
 // falling back to repl's canonical QualifiedName otherwise.
-func buildReplacementName(symbols *symbol.Symbol, repl *symbol.Symbol) string {
+func buildReplacementName(symbols, repl *symbol.Symbol) string {
 	if repl.Parent == nil || repl.Parent.Kind != symbol.KindModule {
 		return repl.QualifiedName()
 	}
@@ -457,7 +470,12 @@ func missingImportQuickFix(
 	if scope == nil {
 		return nil
 	}
-	if sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking); err == nil && sym != nil {
+	if sym, err := scope.Resolve(
+		ctx,
+		name,
+		symbol.WithoutUsageTracking,
+	); err == nil &&
+		sym != nil {
 		return nil
 	}
 	if !scope.IsAmbientModule(name) {
@@ -469,11 +487,11 @@ func missingImportQuickFix(
 	}
 	return &protocol.CodeAction{
 		Title:       fmt.Sprintf("Add import '%s'", name),
-		Kind:        protocol.QuickFix,
+		Kind:        new(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
-		IsPreferred: true,
+		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{
-			Changes: map[protocol.DocumentURI][]protocol.TextEdit{snap.URI: edits},
+			Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
 		},
 	}
 }

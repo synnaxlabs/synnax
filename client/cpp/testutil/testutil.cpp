@@ -9,7 +9,6 @@
 
 #include <random>
 
-//// internal
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 

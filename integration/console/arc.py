@@ -154,6 +154,9 @@ class ArcClient:
     def get_item(self, name: str) -> Locator:
         """Get an Arc item locator from the panel.
 
+        Waits for the item to appear, since the panel's list loads
+        asynchronously and may be empty when first opened.
+
         Args:
             name: The name of the Arc to get.
 
@@ -161,11 +164,15 @@ class ArcClient:
             Locator for the Arc item.
 
         Raises:
-            ValueError: If the Arc is not found in the panel.
+            ValueError: If the Arc does not appear in the panel before timeout.
         """
-        item = self.find_item(name)
-        if item is None:
-            raise ValueError(f"Arc '{name}' not found in panel")
+        self._show_arc_panel()
+        toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
+        item = toolbar.locator(self.LIST_ITEM_CLASS).filter(has_text=name).first
+        try:
+            item.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError as exc:
+            raise ValueError(f"Arc '{name}' not found in panel") from exc
         return item
 
     def open(self, name: str) -> None:

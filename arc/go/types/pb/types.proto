@@ -40,13 +40,15 @@ enum Kind {
   KIND_FUNCTION = 21;
   KIND_SEQUENCE = 22;
   KIND_STAGE = 23;
+  KIND_VAR_REF = 24;
 }
 
-// ChanDirection indicates read/write direction for channel-typed config parameters.
+// ChanDirection indicates read/write direction for channel-typed parameters.
 enum ChanDirection {
   CHAN_DIRECTION_NONE = 0;
   CHAN_DIRECTION_READ = 1;
   CHAN_DIRECTION_WRITE = 2;
+  CHAN_DIRECTION_READ_WRITE = 3;
 }
 
 // FunctionProperties contains common parameter definitions for function-like types.
@@ -55,8 +57,6 @@ message FunctionProperties {
   repeated Param inputs = 1;
   // outputs contains output parameter definitions.
   repeated Param outputs = 2;
-  // config contains configuration parameter definitions.
-  repeated Param config = 3;
 }
 
 // Type is a type in Arc's type system with optional element type for compounds,
@@ -66,20 +66,18 @@ message Type {
   repeated Param inputs = 1;
   // outputs contains output parameter definitions.
   repeated Param outputs = 2;
-  // config contains configuration parameter definitions.
-  repeated Param config = 3;
   // kind is the type category (primitive, compound, or meta-type).
-  Kind kind = 4;
+  Kind kind = 3;
   // name is the type name for variables and user-defined types.
-  string name = 5;
+  string name = 4;
   // elem is the element type for compound types (chan, series).
-  optional Type elem = 6;
+  optional Type elem = 5;
   // unit is the physical unit metadata for dimensional analysis.
-  optional Unit unit = 7;
+  optional Unit unit = 6;
   // constraint is the type constraint for type variables.
-  optional Type constraint = 8;
-  // chan_direction indicates read/write direction for channel-typed config parameters.
-  ChanDirection chan_direction = 9;
+  optional Type constraint = 7;
+  // chan_direction indicates read/write direction for channel-typed parameters.
+  ChanDirection chan_direction = 8;
 }
 
 // Param is a named, typed parameter with optional default value.

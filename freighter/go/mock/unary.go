@@ -33,34 +33,39 @@ type UnaryServer[RQ, RS freighter.Payload] struct {
 	// not nil.
 	Address address.Address
 	// Handler is the handler that is called when a request is received.
-	Handler func(context.Context, RQ) (RS, error)
+	Handler freighter.UnaryHandler[RQ, RS]
 	mu      sync.RWMutex
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
 
 // BindHandler implements the freighter.Unary interface.
-func (u *UnaryServer[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS, error)) {
+func (u *UnaryServer[RQ, RS]) BindHandler(handler freighter.UnaryHandler[RQ, RS]) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.Handler = handler
 }
 
-func (u *UnaryServer[RQ, RS]) exec(ctx freighter.Context, req RQ) (res RS, oMD freighter.Context, err error) {
+func (u *UnaryServer[RQ, RS]) exec(
+	ctx freighter.Context,
+	req RQ,
+) (res RS, oMD freighter.Context, err error) {
 	u.mu.RLock()
 	h := u.Handler
 	u.mu.RUnlock()
 	oMD, err = u.Exec(
 		ctx,
-		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
-			res, err = h(ctx, req)
-			return freighter.Context{
-				Context:  ctx,
-				Target:   u.Address,
-				Protocol: u.Protocol,
-				Params:   make(freighter.Params),
-			}, err
-		}),
+		freighter.FinalizerFunc(
+			func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+				res, err = h(ctx, req)
+				return freighter.Context{
+					Context:  ctx,
+					Target:   u.Address,
+					Protocol: u.Protocol,
+					Params:   make(freighter.Params),
+				}, err
+			},
+		),
 	)
 	return res, oMD, err
 }

@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -23,12 +32,22 @@ cc_library(
 cc_test(
     name = "time_test",
     srcs = ["time_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    tags = ["requires-core"],
     deps = [
         ":time",
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/loop",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/testutil:compile",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/mem",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

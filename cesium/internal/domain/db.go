@@ -34,9 +34,8 @@ import (
 //
 //   - Writer allows the caller to write a blob of telemetry occupying a particular time
 //     domain.
-//
-//   - Iterator allows the caller to iterate over the telemetry domains in a DB in time order,
-//     and provides an io.Reader like interface for accessing the data.
+//   - Iterator allows the caller to iterate over the telemetry domains in a DB in time
+//     order, and provides an io.Reader like interface for accessing the data.
 //
 // A DB is safe for concurrent use, and multiple writers and iterators can access the DB
 // at once.

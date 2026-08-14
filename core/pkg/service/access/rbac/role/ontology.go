@@ -15,7 +15,8 @@ import (
 	"iter"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -28,6 +29,11 @@ func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRole, Key: k.String()}
 }
 
+// OntologyIDsFromRoles constructs a slice of unique ontology.IDs for the given Roles.
+func OntologyIDsFromRoles(roles []Role) []ontology.ID {
+	return lo.Map(roles, func(r Role, _ int) ontology.ID { return r.OntologyID() })
+}
+
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":      zyn.UUID(),
 	"name":     zyn.String(),
@@ -35,15 +41,12 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(r Role) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
+	return ontology.NewResource(schema, r.OntologyID(), r.Name, r)
 }
 
 type change = xchange.Change[Key, Role]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRole }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -71,7 +74,9 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Role]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -79,7 +84,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

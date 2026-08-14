@@ -11,7 +11,7 @@
 
 #include <memory>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/channel/channel.h"
@@ -196,6 +196,7 @@ public:
         ranges(
             std::move(this->t.range_retrieve),
             std::move(this->t.range_create),
+            std::move(this->t.range_set_end),
             ranger::kv::Client(
                 this->t.range_kv_get,
                 this->t.range_kv_set,

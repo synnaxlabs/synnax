@@ -20,7 +20,6 @@ package pb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -147,201 +146,15 @@ func (x *Subject) GetGroup() uint32 {
 	return 0
 }
 
-// State represents the state of control over a resource at a point in time, capturing
-// who controls what and with how much authority.
-type State struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// subject is the entity controlling the resource.
-	Subject *Subject `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
-	// resource is the resource being controlled.
-	Resource *anypb.Any `protobuf:"bytes,2,opt,name=resource,proto3" json:"resource,omitempty"`
-	// authority is the level of control authority the subject has over the resource.
-	Authority     uint32 `protobuf:"varint,3,opt,name=authority,proto3" json:"authority,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *State) Reset() {
-	*x = State{}
-	mi := &file_x_go_control_pb_control_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *State) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*State) ProtoMessage() {}
-
-func (x *State) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_control_pb_control_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use State.ProtoReflect.Descriptor instead.
-func (*State) Descriptor() ([]byte, []int) {
-	return file_x_go_control_pb_control_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *State) GetSubject() *Subject {
-	if x != nil {
-		return x.Subject
-	}
-	return nil
-}
-
-func (x *State) GetResource() *anypb.Any {
-	if x != nil {
-		return x.Resource
-	}
-	return nil
-}
-
-func (x *State) GetAuthority() uint32 {
-	if x != nil {
-		return x.Authority
-	}
-	return 0
-}
-
-// Transfer represents a transfer of control over a resource. It is represented as a
-// transition from one state to another over the same resource. A transfer between
-// resources that are different will result in a panic when any transfer methods are
-// called.
-//
-// If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
-// resource is uncontrolled after the transfer.
-//
-// If both From and To are nil, no transfer occurred. If both From and To are not nil,
-// and From.Subject != To.Subject, a transfer occurred.
-type Transfer struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// from the previous authority holder. Null on initial acquire.
-	From *State `protobuf:"bytes,1,opt,name=from,proto3,oneof" json:"from,omitempty"`
-	// to the new authority holder. Null on release.
-	To            *State `protobuf:"bytes,2,opt,name=to,proto3,oneof" json:"to,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Transfer) Reset() {
-	*x = Transfer{}
-	mi := &file_x_go_control_pb_control_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Transfer) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Transfer) ProtoMessage() {}
-
-func (x *Transfer) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_control_pb_control_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Transfer.ProtoReflect.Descriptor instead.
-func (*Transfer) Descriptor() ([]byte, []int) {
-	return file_x_go_control_pb_control_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *Transfer) GetFrom() *State {
-	if x != nil {
-		return x.From
-	}
-	return nil
-}
-
-func (x *Transfer) GetTo() *State {
-	if x != nil {
-		return x.To
-	}
-	return nil
-}
-
-// Update represents a batch of control transfers that occurred atomically.
-type Update struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// transfers is the list of control transfers that occurred in this update.
-	Transfers     []*Transfer `protobuf:"bytes,1,rep,name=transfers,proto3" json:"transfers,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Update) Reset() {
-	*x = Update{}
-	mi := &file_x_go_control_pb_control_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Update) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Update) ProtoMessage() {}
-
-func (x *Update) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_control_pb_control_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Update.ProtoReflect.Descriptor instead.
-func (*Update) Descriptor() ([]byte, []int) {
-	return file_x_go_control_pb_control_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *Update) GetTransfers() []*Transfer {
-	if x != nil {
-		return x.Transfers
-	}
-	return nil
-}
-
 var File_x_go_control_pb_control_proto protoreflect.FileDescriptor
 
 const file_x_go_control_pb_control_proto_rawDesc = "" +
 	"\n" +
-	"\x1dx/go/control/pb/control.proto\x12\fx.control.pb\x1a\x19google/protobuf/any.proto\"E\n" +
+	"\x1dx/go/control/pb/control.proto\x12\fx.control.pb\"E\n" +
 	"\aSubject\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05group\x18\x03 \x01(\rR\x05group\"\x88\x01\n" +
-	"\x05State\x12/\n" +
-	"\asubject\x18\x01 \x01(\v2\x15.x.control.pb.SubjectR\asubject\x120\n" +
-	"\bresource\x18\x02 \x01(\v2\x14.google.protobuf.AnyR\bresource\x12\x1c\n" +
-	"\tauthority\x18\x03 \x01(\rR\tauthority\"r\n" +
-	"\bTransfer\x12,\n" +
-	"\x04from\x18\x01 \x01(\v2\x13.x.control.pb.StateH\x00R\x04from\x88\x01\x01\x12(\n" +
-	"\x02to\x18\x02 \x01(\v2\x13.x.control.pb.StateH\x01R\x02to\x88\x01\x01B\a\n" +
-	"\x05_fromB\x05\n" +
-	"\x03_to\">\n" +
-	"\x06Update\x124\n" +
-	"\ttransfers\x18\x01 \x03(\v2\x16.x.control.pb.TransferR\ttransfers*@\n" +
+	"\x05group\x18\x03 \x01(\rR\x05group*@\n" +
 	"\vConcurrency\x12\x19\n" +
 	"\x15CONCURRENCY_EXCLUSIVE\x10\x00\x12\x16\n" +
 	"\x12CONCURRENCY_SHARED\x10\x01B\x96\x01\n" +
@@ -360,26 +173,17 @@ func file_x_go_control_pb_control_proto_rawDescGZIP() []byte {
 }
 
 var file_x_go_control_pb_control_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_x_go_control_pb_control_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_x_go_control_pb_control_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_x_go_control_pb_control_proto_goTypes = []any{
-	(Concurrency)(0),  // 0: x.control.pb.Concurrency
-	(*Subject)(nil),   // 1: x.control.pb.Subject
-	(*State)(nil),     // 2: x.control.pb.State
-	(*Transfer)(nil),  // 3: x.control.pb.Transfer
-	(*Update)(nil),    // 4: x.control.pb.Update
-	(*anypb.Any)(nil), // 5: google.protobuf.Any
+	(Concurrency)(0), // 0: x.control.pb.Concurrency
+	(*Subject)(nil),  // 1: x.control.pb.Subject
 }
 var file_x_go_control_pb_control_proto_depIdxs = []int32{
-	1, // 0: x.control.pb.State.subject:type_name -> x.control.pb.Subject
-	5, // 1: x.control.pb.State.resource:type_name -> google.protobuf.Any
-	2, // 2: x.control.pb.Transfer.from:type_name -> x.control.pb.State
-	2, // 3: x.control.pb.Transfer.to:type_name -> x.control.pb.State
-	3, // 4: x.control.pb.Update.transfers:type_name -> x.control.pb.Transfer
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	0, // [0:0] is the sub-list for method output_type
+	0, // [0:0] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_x_go_control_pb_control_proto_init() }
@@ -387,14 +191,13 @@ func file_x_go_control_pb_control_proto_init() {
 	if File_x_go_control_pb_control_proto != nil {
 		return
 	}
-	file_x_go_control_pb_control_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_control_pb_control_proto_rawDesc), len(file_x_go_control_pb_control_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   4,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

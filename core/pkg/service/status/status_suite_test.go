@@ -19,7 +19,7 @@ import (
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Status Suite")
+	RunSpecs(t, "Service Status Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

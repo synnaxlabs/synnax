@@ -41,7 +41,7 @@ class SimDaqCase(TestCase):
         sim_daq_class: SimDAQ subclass to instantiate
     """
 
-    sim_daq_class: type[SimDAQ] | None
+    sim_daq_class: type[SimDAQ] | None = None
     sim_daq: SimDAQ | None
 
     def __init__(
@@ -53,7 +53,7 @@ class SimDaqCase(TestCase):
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
         # Not all test cases need a simulator (e.g. edge_cases).
-        sim_cls = getattr(self, "sim_daq_class", None)
+        sim_cls = self.sim_daq_class
         if sim_cls is not None:
             self.sim_daq = sim_cls(self.client)
             self.sim_daq.start()
@@ -61,10 +61,15 @@ class SimDaqCase(TestCase):
             self.sim_daq = None
 
     def teardown(self) -> None:
-        """Stop the simulator during teardown."""
+        """Stop the simulator, then run the remaining teardown.
+
+        Stopping is done first and unconditionally so a failure in a later
+        teardown step cannot leave the simulator's writer open. A leaked writer
+        keeps control authority over shared channels and fails every later
+        simulator-backed test.
+        """
         try:
-            super().teardown()
+            if self.sim_daq is not None:
+                self.sim_daq.stop()
         finally:
-            sim_daq = getattr(self, "sim_daq", None)
-            if sim_daq is not None:
-                sim_daq.stop()
+            super().teardown()

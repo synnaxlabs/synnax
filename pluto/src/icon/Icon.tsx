@@ -93,6 +93,51 @@ export const wrapSVGIcon = (
   return O;
 };
 
+const STACK_SCALE = 0.75;
+const STACK_OFFSET = BASE_SIZE * (1 - STACK_SCALE);
+/**
+ * Copies size themselves in `em`, which inside a view box counts user units rather than
+ * pixels, so the font size has to be pinned to the view box or they scale with the
+ * caller's text.
+ */
+const STACK_COPY_STYLE = { fontSize: BASE_SIZE };
+
+/**
+ * createStacked returns an icon that draws Base twice in oblique projection: a back
+ * copy shifted up and right, a front copy shifted down and left. A halo painted in the
+ * surface color sits under the front copy so the two silhouettes stay separable.
+ */
+export const createStacked = (Base: FC): FC => {
+  const Stacked = ({ className, color: c, ...rest }: IconProps) => (
+    <svg
+      className={CSS(CSS.B("icon"), CSS.BM("icon", "stacked"), className)}
+      viewBox={`0 0 ${BASE_SIZE} ${BASE_SIZE}`}
+      height="1em"
+      width="1em"
+      color={parseColor(c)}
+      {...rest}
+    >
+      <g
+        style={STACK_COPY_STYLE}
+        transform={`translate(${STACK_OFFSET}, 0) scale(${STACK_SCALE})`}
+      >
+        <Base />
+      </g>
+      <g
+        style={STACK_COPY_STYLE}
+        transform={`translate(0, ${STACK_OFFSET}) scale(${STACK_SCALE})`}
+      >
+        <g className={CSS.BE("icon", "halo")}>
+          <Base />
+        </g>
+        <Base />
+      </g>
+    </svg>
+  );
+  Stacked.displayName = Base.displayName || Base.name;
+  return Stacked;
+};
+
 export const createComposite = (
   Base: FC,
   { topRight, topLeft, bottomLeft, bottomRight }: Record<string, FC | undefined>,

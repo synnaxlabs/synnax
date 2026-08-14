@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { type color, unique } from "@synnaxlabs/x";
+import { type color, type state, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
@@ -16,7 +16,6 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type state } from "@/state";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
 import { Text } from "@/text";
@@ -35,7 +34,10 @@ const parseSubjectName = (name: string): ParsedName => {
   return { primary: match[1], secondary: match[2] };
 };
 
-export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
+export interface LegendProps extends Omit<
+  Base.SimpleProps,
+  "data" | "onColorChange" | "onLabelChange" | "onVisibleChange"
+> {
   colors?: Record<string, color.Color>;
   onColorsChange?: (colors: Record<string, color.Color>) => void;
 }

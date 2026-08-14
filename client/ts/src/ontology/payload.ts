@@ -23,9 +23,14 @@ export interface RelationshipDelete extends change.Delete<Relationship, undefine
 
 export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
 
-const stringIDZ = z.string().transform((v) => {
+export const stringIDZ = z.string().transform((v, ctx) => {
   const [type, key] = v.split(":");
-  return { type: resourceTypeZ.parse(type), key: key ?? "" };
+  const res = resourceTypeZ.safeParse(type);
+  if (!res.success) {
+    ctx.addIssue({ code: "custom", message: `invalid resource type: ${type}` });
+    return z.NEVER;
+  }
+  return { type: res.data, key: key ?? "" };
 });
 
 export const idZ = z.object({ type: resourceTypeZ, key: z.string() }).or(stringIDZ);
@@ -106,7 +111,7 @@ export const relationshipToString = (relationship: Relationship) =>
 
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
 
-export interface MatchRelationshipArgs {
+export interface MatchRelationshipParams {
   from?: Partial<ID>;
   type: string;
   to?: Partial<ID>;
@@ -114,7 +119,7 @@ export interface MatchRelationshipArgs {
 
 export const matchRelationship = (
   relationship: Relationship,
-  match: MatchRelationshipArgs,
+  match: MatchRelationshipParams,
 ) => {
   if (match.type != null && match.type !== relationship.type) return false;
   if (match.from?.type != null && match.from.type !== relationship.from.type)

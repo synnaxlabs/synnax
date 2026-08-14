@@ -164,20 +164,23 @@ var _ = Describe("Vectorized Operations", func() {
 				Expect(telem.UnmarshalSeries[float64](output)).To(Equal(expected))
 			})
 
-			It("should repeat last value of shorter 'b' series for subtraction", func() {
-				a := telem.NewSeriesV[int64](100, 200, 300, 400)
-				b := telem.NewSeriesV[int64](10, 20)
-				output := telem.Series{DataType: telem.Int64T}
+			It(
+				"should repeat last value of shorter 'b' series for subtraction",
+				func() {
+					a := telem.NewSeriesV[int64](100, 200, 300, 400)
+					b := telem.NewSeriesV[int64](10, 20)
+					output := telem.Series{DataType: telem.Int64T}
 
-				op.SubtractI64(a, b, &output)
+					op.SubtractI64(a, b, &output)
 
-				// a values: [100, 200, 300, 400]
-				// b values: [10,  20,  20,  20] (20 repeats)
-				// result:   [90,  180, 280, 380]
-				expected := []int64{90, 180, 280, 380}
-				Expect(output.Len()).To(Equal(int64(4)))
-				Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
-			})
+					// a values: [100, 200, 300, 400]
+					// b values: [10,  20,  20,  20] (20 repeats)
+					// result:   [90,  180, 280, 380]
+					expected := []int64{90, 180, 280, 380}
+					Expect(output.Len()).To(Equal(int64(4)))
+					Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
+				},
+			)
 
 			It("should repeat last value for multiplication", func() {
 				a := telem.NewSeriesV[float32](2.0, 3.0, 4.0)
@@ -311,20 +314,23 @@ var _ = Describe("Vectorized Operations", func() {
 				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
 			})
 
-			It("should handle different length series with last value repetition", func() {
-				a := telem.NewSeriesV[uint8](1, 0)
-				b := telem.NewSeriesV[uint8](1, 1, 1, 1, 1)
-				output := telem.Series{DataType: telem.Uint8T}
+			It(
+				"should handle different length series with last value repetition",
+				func() {
+					a := telem.NewSeriesV[uint8](1, 0)
+					b := telem.NewSeriesV[uint8](1, 1, 1, 1, 1)
+					output := telem.Series{DataType: telem.Uint8T}
 
-				op.AndU8(a, b, &output)
+					op.AndU8(a, b, &output)
 
-				// a values: [1, 0, 0, 0, 0] (0 repeats)
-				// b values: [1, 1, 1, 1, 1]
-				// result:   [1, 0, 0, 0, 0]
-				expected := []uint8{1, 0, 0, 0, 0}
-				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
-			})
+					// a values: [1, 0, 0, 0, 0] (0 repeats)
+					// b values: [1, 1, 1, 1, 1]
+					// result:   [1, 0, 0, 0, 0]
+					expected := []uint8{1, 0, 0, 0, 0}
+					Expect(output.Len()).To(Equal(int64(5)))
+					Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				},
+			)
 
 			It("should work with all bits set", func() {
 				a := telem.NewSeriesV[uint8](0xFF, 0xF0, 0x0F)
@@ -351,20 +357,23 @@ var _ = Describe("Vectorized Operations", func() {
 				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
 			})
 
-			It("should handle different length series with last value repetition", func() {
-				a := telem.NewSeriesV[uint8](1, 0)
-				b := telem.NewSeriesV[uint8](0, 0, 0, 0, 0)
-				output := telem.Series{DataType: telem.Uint8T}
+			It(
+				"should handle different length series with last value repetition",
+				func() {
+					a := telem.NewSeriesV[uint8](1, 0)
+					b := telem.NewSeriesV[uint8](0, 0, 0, 0, 0)
+					output := telem.Series{DataType: telem.Uint8T}
 
-				op.OrU8(a, b, &output)
+					op.OrU8(a, b, &output)
 
-				// a values: [1, 0, 0, 0, 0] (0 repeats)
-				// b values: [0, 0, 0, 0, 0]
-				// result:   [1, 0, 0, 0, 0]
-				expected := []uint8{1, 0, 0, 0, 0}
-				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
-			})
+					// a values: [1, 0, 0, 0, 0] (0 repeats)
+					// b values: [0, 0, 0, 0, 0]
+					// result:   [1, 0, 0, 0, 0]
+					expected := []uint8{1, 0, 0, 0, 0}
+					Expect(output.Len()).To(Equal(int64(5)))
+					Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				},
+			)
 
 			It("should work with all bits set", func() {
 				a := telem.NewSeriesV[uint8](0xFF, 0xF0, 0x0F)
@@ -892,7 +901,15 @@ var _ = Describe("Vectorized Operations", func() {
 			outData := telem.Series{DataType: telem.Float64T}
 			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			Expect(outData.Len()).To(Equal(int64(3)))
 			vals := telem.UnmarshalSeries[float64](outData)
@@ -915,11 +932,27 @@ var _ = Describe("Vectorized Operations", func() {
 
 			input1 := telem.NewSeriesV(0.0, 10.0)
 			time1 := telem.NewSeriesSecondsTSV(1, 2)
-			op.DerivativeF64(input1, time1, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input1,
+				time1,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			input2 := telem.NewSeriesV(30.0)
 			time2 := telem.NewSeriesSecondsTSV(4)
-			op.DerivativeF64(input2, time2, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input2,
+				time2,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 10.0, 0.01))
@@ -936,7 +969,15 @@ var _ = Describe("Vectorized Operations", func() {
 			outData := telem.Series{DataType: telem.Float64T}
 			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -952,7 +993,15 @@ var _ = Describe("Vectorized Operations", func() {
 			outData := telem.Series{DataType: telem.Float64T}
 			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -973,7 +1022,15 @@ var _ = Describe("Vectorized Operations", func() {
 			outData := telem.Series{DataType: telem.Float64T}
 			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			op.DerivativeI32(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeI32(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -990,7 +1047,15 @@ var _ = Describe("Vectorized Operations", func() {
 			outData := telem.Series{DataType: telem.Float64T}
 			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			Expect(outData.Len()).To(Equal(int64(0)))
 			Expect(outTime.Len()).To(Equal(int64(0)))
@@ -1006,7 +1071,15 @@ var _ = Describe("Vectorized Operations", func() {
 			outData := telem.Series{DataType: telem.Float64T}
 			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeU8(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -1023,7 +1096,15 @@ var _ = Describe("Vectorized Operations", func() {
 			outData := telem.Series{DataType: telem.Float64T}
 			outTime := telem.Series{DataType: telem.TimeStampT}
 
-			op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeU8(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -1038,29 +1119,36 @@ var _ = Describe("Vectorized Operations", func() {
 			output := telem.Series{}
 			op.NegateU8(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int16T))
-			Expect(telem.UnmarshalSeries[int16](output)).To(Equal([]int16{-5, -10, -255}))
+			Expect(
+				telem.UnmarshalSeries[int16](output),
+			).To(Equal([]int16{-5, -10, -255}))
 		})
 		It("should negate uint16 to int32", func() {
 			input := telem.NewSeriesV[uint16](100, 500, 65535)
 			output := telem.Series{}
 			op.NegateU16(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int32T))
-			Expect(telem.UnmarshalSeries[int32](output)).To(Equal([]int32{-100, -500, -65535}))
+			Expect(
+				telem.UnmarshalSeries[int32](output),
+			).To(Equal([]int32{-100, -500, -65535}))
 		})
 		It("should negate uint32 to int64", func() {
 			input := telem.NewSeriesV[uint32](1000, 50000, 4294967295)
 			output := telem.Series{}
 			op.NegateU32(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int64T))
-			Expect(telem.UnmarshalSeries[int64](output)).To(Equal([]int64{-1000, -50000, -4294967295}))
+			Expect(
+				telem.UnmarshalSeries[int64](output),
+			).To(Equal([]int64{-1000, -50000, -4294967295}))
 		})
 		It("should negate uint64 to float64", func() {
 			input := telem.NewSeriesV[uint64](100, 200, 300)
 			output := telem.Series{}
 			op.NegateU64(input, &output)
 			Expect(output.DataType).To(Equal(telem.Float64T))
-			Expect(telem.UnmarshalSeries[float64](output)).To(Equal([]float64{-100, -200, -300}))
+			Expect(
+				telem.UnmarshalSeries[float64](output),
+			).To(Equal([]float64{-100, -200, -300}))
 		})
 	})
-
 })

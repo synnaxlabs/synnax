@@ -31,8 +31,8 @@ type (
 	Transfer = control.Transfer[channel.Key]
 )
 
-// Resource represents some resource that can be controlled by a Gate. A Resource must have
-// a ChannelKey that represents the resource that is being controlled.
+// Resource represents some resource that can be controlled by a Gate. A Resource must
+// have a ChannelKey that represents the resource that is being controlled.
 type Resource interface {
 	// ChannelKey returns the key of the channel that is being controlled.
 	ChannelKey() channel.Key
@@ -62,12 +62,12 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Controller controls access to a specified resource type over discrete time regions.
-// A Controller maintains a set of regions that occupy non-overlapping time ranges.
-// If the controller is open with control.ConcurrencyExclusive, each region can only have one
-// subject, managed by a Gate, controlling it at a single time. Each region manages
-// an independent set of gates that bid for control over the resource using a mix
-// of both first-come-first-serve precedence and specified control authorities
+// Controller controls access to a specified resource type over discrete time regions. A
+// Controller maintains a set of regions that occupy non-overlapping time ranges. If the
+// controller is open with control.ConcurrencyExclusive, each region can only have one
+// subject, managed by a Gate, controlling it at a single time. Each region manages an
+// independent set of gates that bid for control over the resource using a mix of both
+// first-come-first-serve precedence and specified control authorities
 // (control.Authority).
 type Controller[R Resource] struct {
 	Config
@@ -86,29 +86,35 @@ func New[R Resource](cfg Config) (*Controller[R], error) {
 
 // GateConfig is the configuration for opening a gate.
 type GateConfig[R Resource] struct {
-	// CreateResource is a callback that is called when the gate is opened. It should return
-	// the resource that is being controlled. This is used to create the resource in the
-	// database.
-	// [REQUIRED}
+	// CreateResource is a callback that is called when the gate is opened. It should
+	// return the resource that is being controlled. This is used to create the resource
+	// in the database.
+	//
+	// [REQUIRED]
 	OpenResource func() (R, error)
 	// ErrIfControlled indicates whether the controller should return an error if any
 	// other gates are currently controlling the resource.
+	//
 	// [OPTIONAL] Defaults to false.
 	ErrIfControlled *bool
-	// ErrOnUnauthorizedOpen indicates whether the controller should return an error
-	// if the gate does not immediately take control when it is opened.
+	// ErrOnUnauthorizedOpen indicates whether the controller should return an error if
+	// the gate does not immediately take control when it is opened.
+	//
 	// [OPTIONAL] Defaults to false.
 	ErrOnUnauthorizedOpen *bool
 	// Subject sets the identity of the gate, and is used to track changes in control
 	// within the db.
+	//
 	// [REQUIRED]
 	Subject control.Subject
-	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate
-	// with overlapping time ranges will bind themselves to the same control region.
+	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate with
+	// overlapping time ranges will bind themselves to the same control region.
+	//
 	// [REQUIRED]
 	TimeRange telem.TimeRange
 	// Authority sets the authority of the gate over the resource. For a complete
 	// discussion of authority, see the package level documentation.
+	//
 	// [REQUIRED]
 	Authority control.Authority
 }
@@ -143,7 +149,10 @@ func (c GateConfig[R]) Override(other GateConfig[R]) GateConfig[R] {
 	c.TimeRange.End = override.Numeric(c.TimeRange.End, other.TimeRange.End)
 	c.OpenResource = override.Nil(c.OpenResource, other.OpenResource)
 	c.ErrIfControlled = override.Nil(c.ErrIfControlled, other.ErrIfControlled)
-	c.ErrOnUnauthorizedOpen = override.Nil(c.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
+	c.ErrOnUnauthorizedOpen = override.Nil(
+		c.ErrOnUnauthorizedOpen,
+		other.ErrOnUnauthorizedOpen,
+	)
 	return c
 }
 
@@ -155,7 +164,7 @@ func (c *Controller[R]) LeadingState() (state *State) {
 	if len(c.regions) != 0 && len(c.regions[0].gates) != 0 {
 		state = c.regions[0].curr.state()
 	}
-	return
+	return state
 }
 
 // ResourceAt returns the resource held by the region overlapping tr, reporting false
@@ -178,7 +187,9 @@ func (c *Controller[R]) ResourceAt(tr telem.TimeRange) (res R, ok bool) {
 // region does not exist, it will be created and cfg.OpenResource will be called.
 // If the region does exist, the new gate will be added to the authority chain for the
 // existing region.
-func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) {
+func (c *Controller[R]) OpenGate(
+	cfg GateConfig[R],
+) (g *Gate[R], t Transfer, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if cfg, err = config.New(DefaultGateConfig[R](), cfg); err != nil {
@@ -189,15 +200,19 @@ func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err
 	for _, reg := range c.regions {
 		// Check if there is an existing region that overlaps with that time range.
 		if reg.timeRange.OverlapsWith(cfg.TimeRange) {
-			// v1 optimization: one writer can only overlap with one region at any given time.
+			// v1 optimization: one writer can only overlap with one region at any given
+			// time.
 			if exists {
-				err = errors.Newf("encountered multiple control regions for time range %s", cfg.TimeRange)
+				err = errors.Newf(
+					"encountered multiple control regions for time range %s",
+					cfg.TimeRange,
+				)
 				c.L.DPanic(err.Error())
 				return nil, t, err
 			}
 			// If there is an existing region, we open a new gate on that region.
 			if g, t, err = reg.open(cfg); err != nil {
-				return
+				return g, t, err
 			}
 			exists = true
 		}
@@ -207,7 +222,7 @@ func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err
 	}
 	var res R
 	if res, err = cfg.OpenResource(); err != nil {
-		return
+		return g, t, err
 	}
 	reg := c.unsafeInsertNewRegion(cfg.TimeRange, res)
 	return reg.open(cfg)
@@ -223,7 +238,7 @@ func (c *Controller[R]) unsafeInsertNewRegion(
 		timeRange:  t,
 		controller: c,
 	}
-	pos, _ := slices.BinarySearchFunc(c.regions, r, func(a *region[R], b *region[R]) int {
+	pos, _ := slices.BinarySearchFunc(c.regions, r, func(a, b *region[R]) int {
 		return int(a.timeRange.Start - b.timeRange.Start)
 	})
 	c.regions = slices.Insert(c.regions, pos, r)

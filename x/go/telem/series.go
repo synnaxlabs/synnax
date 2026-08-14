@@ -26,6 +26,24 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Series is a strongly-typed array of telemetry samples backed by a binary buffer.
+// Supports both fixed-density primitive types and variable-density types (strings,
+// JSON). Designed for high-performance, memory-efficient storage and streaming of
+// time-series data.
+type Series struct {
+	// TimeRange is the time range covered by the samples in this series.
+	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
+	// DataType is the data type of all samples in this series.
+	DataType DataType `json:"data_type" msgpack:"data_type"`
+	// Data is the raw binary buffer containing the sample data.
+	Data []byte `json:"data" msgpack:"data"`
+	// Alignment defines the location of the series relative to other series in a
+	// logical group. Typically used for defining the position of the series within a
+	// channel's data.
+	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
+	cachedLength *int64
+}
+
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
 	if len(s.Data) == 0 {
@@ -89,7 +107,9 @@ func (s *Series) validateVariable() error {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
-				offset-variableLengthPrefixSize, length, len(s.Data)-offset,
+				offset-variableLengthPrefixSize,
+				length,
+				len(s.Data)-offset,
 			)
 		}
 		sample := s.Data[offset : offset+length]
@@ -227,7 +247,8 @@ func SetValueAt[T FixedSample](s Series, i int, v T) {
 // dst and src must have the same DataType, and that DataType cannot be of variable
 // density.
 func CopyValue(dst, src Series, dstIdx, srcIdx int) {
-	if dst.DataType != src.DataType || dst.DataType.IsVariable() || src.DataType.IsVariable() {
+	if dst.DataType != src.DataType || dst.DataType.IsVariable() ||
+		src.DataType.IsVariable() {
 		panic("cannot copy values from non-variable series")
 	}
 	den := int(dst.DataType.Density())
@@ -311,6 +332,15 @@ func (s Series) DeepCopy() Series {
 	}
 }
 
+// CopyFrom copies src into s, reusing s's buffer capacity to avoid allocation.
+// Holders on emit hot paths should prefer this over DeepCopy (SY-4506).
+func (s *Series) CopyFrom(src Series) {
+	s.TimeRange = src.TimeRange
+	s.Alignment = src.Alignment
+	s.DataType = src.DataType
+	s.Data = append(s.Data[:0], src.Data...)
+}
+
 // DataString returns a string representation of the data in a series.
 func (s Series) DataString() string {
 	if s.Len() == 0 {
@@ -340,6 +370,8 @@ func (s Series) DataString() string {
 		return truncateAndFormatSlice(UnmarshalSeries[uint16](s))
 	case Uint8T:
 		return truncateAndFormatSlice(UnmarshalSeries[uint8](s))
+	case BoolT:
+		return truncateAndFormatSlice(UnmarshalSeries[bool](s))
 	case TimeStampT:
 		first, last := xslices.Truncate(UnmarshalSeries[TimeStamp](s), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)

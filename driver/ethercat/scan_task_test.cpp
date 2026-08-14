@@ -32,7 +32,7 @@ protected:
 
 TEST_F(EtherCATScanTest, ScannerCreation) {
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -65,7 +65,7 @@ TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
 
 TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
     synnax::task::Task task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true,
@@ -80,7 +80,7 @@ TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
 
 TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
     synnax::task::Task task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true,
@@ -94,7 +94,7 @@ TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Task task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true,
@@ -114,7 +114,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
 
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     synnax::task::Task task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true,
@@ -147,7 +147,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -163,7 +163,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_NE(this->ctx->statuses.back().message.find("1 slaves"), std::string::npos);
 }
 
@@ -202,7 +202,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -218,7 +218,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_NE(this->ctx->statuses.back().message.find("3 slaves"), std::string::npos);
 }
 
@@ -233,7 +233,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -249,6 +249,6 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
 }
 }

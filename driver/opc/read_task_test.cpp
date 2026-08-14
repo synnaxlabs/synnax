@@ -130,7 +130,7 @@ protected:
         auto server_cfg = mock::ServerConfig::create_default();
 
         x::json::json task_cfg{
-            {"data_saving", true},
+            {"data_saving_disabled", false},
             {"device", dev.key},
             {"channels",
              x::json::json::array(
@@ -139,7 +139,7 @@ protected:
                    {"node_name", "TestBoolean"},
                    {"node_id", "NS=1;S=TestBoolean"},
                    {"channel", this->bool_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "uint8"}},
                   {{"key", "NS=2;I=2"},
@@ -147,7 +147,7 @@ protected:
                    {"node_name", "TestUInt16"},
                    {"node_id", "NS=1;S=TestUInt16"},
                    {"channel", this->uint16_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "uint16"}},
                   {{"key", "NS=2;I=3"},
@@ -155,7 +155,7 @@ protected:
                    {"node_name", "TestUInt32"},
                    {"node_id", "NS=1;S=TestUInt32"},
                    {"channel", this->uint32_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "uint32"}},
                   {{"key", "NS=2;I=4"},
@@ -163,7 +163,7 @@ protected:
                    {"node_name", "TestUInt64"},
                    {"node_id", "NS=1;S=TestUInt64"},
                    {"channel", this->uint64_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "uint64"}},
                   {{"key", "NS=2;I=5"},
@@ -171,7 +171,7 @@ protected:
                    {"node_name", "TestInt8"},
                    {"node_id", "NS=1;S=TestInt8"},
                    {"channel", this->int8_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "int8"}},
                   {{"key", "NS=2;I=6"},
@@ -179,7 +179,7 @@ protected:
                    {"node_name", "TestInt16"},
                    {"node_id", "NS=1;S=TestInt16"},
                    {"channel", this->int16_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "int16"}},
                   {{"key", "NS=2;I=7"},
@@ -187,7 +187,7 @@ protected:
                    {"node_name", "TestInt32"},
                    {"node_id", "NS=1;S=TestInt32"},
                    {"channel", this->int32_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "int32"}},
                   {{"key", "NS=2;I=8"},
@@ -195,7 +195,7 @@ protected:
                    {"node_name", "TestInt64"},
                    {"node_id", "NS=1;S=TestInt64"},
                    {"channel", this->int64_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "int64"}},
                   {{"key", "NS=2;I=9"},
@@ -203,7 +203,7 @@ protected:
                    {"node_name", "TestFloat"},
                    {"node_id", "NS=1;S=TestFloat"},
                    {"channel", this->float_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "float32"}},
                   {{"key", "NS=2;I=10"},
@@ -211,7 +211,7 @@ protected:
                    {"node_name", "TestDouble"},
                    {"node_id", "NS=1;S=TestDouble"},
                    {"channel", this->double_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "float64"}}}
              )},
@@ -221,7 +221,7 @@ protected:
         };
 
         task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "OPC UA Read Task Test",
             .type = "opc_read",
         };
@@ -272,7 +272,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
@@ -281,7 +281,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 11);
@@ -317,7 +317,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
 /// @brief it should return error for non-existent OPC UA node.
 TEST_F(TestReadTask, testInvalidNodeId) {
     x::json::json bad_task_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -326,7 +326,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
                {"node_name", "NonExistent"},
                {"node_id", "NS=1;S=NonExistentNode"},
                {"channel", this->float_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float32"}}}
          )},
@@ -353,7 +353,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     ASSERT_GE(ctx->statuses.size(), 1);
     bool found_error = false;
     for (const auto &state: ctx->statuses) {
-        if (state.variant == x::status::VARIANT_ERROR) {
+        if (state.variant == synnax::status::VARIANT_ERROR) {
             found_error = true;
             break;
         }
@@ -376,7 +376,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
 
     bool found_error = false;
     for (const auto &state: ctx->statuses) {
-        if (state.variant == x::status::VARIANT_ERROR) {
+        if (state.variant == synnax::status::VARIANT_ERROR) {
             found_error = true;
             break;
         }
@@ -387,7 +387,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
 /// @brief it should return error for empty channel list.
 TEST_F(TestReadTask, testEmptyChannelList) {
     x::json::json empty_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels", x::json::json::array()},
         {"sample_rate", 50},
@@ -403,7 +403,7 @@ TEST_F(TestReadTask, testEmptyChannelList) {
 /// @brief it should return error when all channels are disabled.
 TEST_F(TestReadTask, testDisabledChannels) {
     x::json::json disabled_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -412,7 +412,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
                {"node_name", "TestFloat"},
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
-               {"enabled", false},
+               {"disabled", true},
                {"use_as_index", false},
                {"data_type", "float32"}}}
          )},
@@ -426,6 +426,36 @@ TEST_F(TestReadTask, testDisabledChannels) {
     EXPECT_TRUE(p.error());
 }
 
+/// @brief it should configure when a disabled channel has no node id or Synnax
+/// channel bound to it.
+TEST_F(TestReadTask, testUnboundDisabledChannel) {
+    x::json::json cfg{
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array(
+             {{{"key", "NS=2;I=1"},
+               {"name", "float_test"},
+               {"node_name", "TestFloat"},
+               {"node_id", "NS=1;S=TestFloat"},
+               {"channel", this->float_channel.key},
+               {"disabled", false},
+               {"use_as_index", false},
+               {"data_type", "float32"}},
+              {{"key", "blank"}, {"disabled", true}}}
+         )},
+        {"sample_rate", 50},
+        {"array_mode", false},
+        {"stream_rate", 25}
+    };
+
+    auto p = x::json::Parser(cfg);
+    const auto parsed = std::make_unique<ReadTaskConfig>(ctx->client, p);
+    ASSERT_FALSE(p.error()) << p.error().message();
+    EXPECT_EQ(parsed->channels.size(), 1);
+    EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
+}
+
 /// @brief it should handle rapid start and stop cycles.
 TEST_F(TestReadTask, testRapidStartStop) {
     const auto rt = create_task();
@@ -434,8 +464,8 @@ TEST_F(TestReadTask, testRapidStartStop) {
     rt->stop("stop_cmd", true);
 
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should reuse connections from pool across task starts.
@@ -499,7 +529,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     // Test that ArrayReadTaskSource properly handles invalid data from OPC UA server
     // by clearing the frame and returning a warning
     x::json::json array_task_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -508,7 +538,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
                {"node_name", "TestFloat"},
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float32"}}}
          )},
@@ -551,9 +581,9 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
 
     // Verify task lifecycle worked correctly
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[0].message, "Task started successfully");
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
 }
 
@@ -688,7 +718,7 @@ TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
 TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     // Test that ArrayReadTaskSource aggregates multiple errors from different channels
     x::json::json multi_channel_array_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -697,7 +727,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"node_name", "TestFloat"},
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float32"}},
               {{"key", "NS=2;I=2"},
@@ -705,7 +735,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"node_name", "TestDouble"},
                {"node_id", "NS=1;S=TestDouble"},
                {"channel", this->double_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float64"}}}
          )},
@@ -766,8 +796,8 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
 
     // Verify that task completed successfully
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should clear frame when error occurs in array mode.
@@ -775,7 +805,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     // Test that ArrayReadTaskSource clears the frame when errors occur
     // This exercises the frame.clear() logic in read_task.h line 268
     x::json::json array_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -784,7 +814,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
                {"node_name", "TestBoolean"},
                {"node_id", "NS=1;S=TestBoolean"},
                {"channel", this->bool_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "uint8"}}}
          )},
@@ -866,7 +896,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
 
     // Create a task that reads from the invalid boolean node
     x::json::json invalid_bool_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", invalid_dev.key},
         {"channels",
          x::json::json::array(
@@ -875,7 +905,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
                {"node_name", "InvalidBoolean"},
                {"node_id", "NS=1;S=InvalidBoolean"},
                {"channel", this->bool_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "uint8"}}}
          )},
@@ -947,7 +977,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_float_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", invalid_dev.key},
         {"channels",
          x::json::json::array(
@@ -956,7 +986,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
                {"node_name", "InvalidFloat"},
                {"node_id", "NS=1;S=InvalidFloat"},
                {"channel", this->float_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float32"}}}
          )},
@@ -1028,7 +1058,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_double_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", invalid_dev.key},
         {"channels",
          x::json::json::array(
@@ -1037,7 +1067,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
                {"node_name", "InvalidDouble"},
                {"node_id", "NS=1;S=InvalidDouble"},
                {"channel", this->double_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float64"}}}
          )},
@@ -1118,7 +1148,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
 
     // Create task config
     x::json::json task_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", dev.key},
         {"sample_rate", 25},
         {"stream_rate", 25},

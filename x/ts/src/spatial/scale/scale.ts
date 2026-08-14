@@ -9,7 +9,6 @@
 
 import { z } from "zod";
 
-import { clamp } from "@/clamp/clamp";
 import { type numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
 import { box } from "@/spatial/box";
@@ -91,8 +90,7 @@ const curriedInvert =
 const curriedClamp =
   <T extends numeric.Value>(bound: bounds.Bounds<T>): Operation<T> =>
   (currScale, _, v) => {
-    const { lower, upper } = bound;
-    v = clamp<T>(v, lower, upper);
+    v = bounds.clamp<T>(bound, v);
     return [currScale, v];
   };
 

@@ -1,6 +1,16 @@
 ---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Breadcrumb } from "@/components/article/Breadcrumb";
 import NextPrev from "@/components/article/NextPrev.astro";
+import { InlineCode } from "@/components/text/InlineCode";
 import { Text } from "@synnaxlabs/pluto";
 const {
     title,
@@ -17,13 +27,15 @@ const {
     authorLink,
 } = Astro.props;
 
-const titleStr = String(title ?? "");
-const titleParts = titleStr.split(/(`[^`]+`)/g).filter((s) => s.length > 0);
-const visibleTitleLength = titleStr.replace(/`/g, "").length;
+const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 ---
 
 <article transition:animate="none">
-    {showBreadcrumb && url.split("/").length > 2 && <Breadcrumb url={url} />}
+    {
+        showBreadcrumb && url.split("/").length > 2 && (
+            <Breadcrumb url={url} title={title} />
+        )
+    }
     {
         published && (
             <div class="blog-meta">
@@ -32,17 +44,7 @@ const visibleTitleLength = titleStr.replace(/`/g, "").length;
         )
     }
     <Text.Text className="article-title" level={visibleTitleLength > 30 ? "h2" : "h1"}>
-        <span>
-            {
-                titleParts.map((part) =>
-                    part.startsWith("`") && part.endsWith("`") ? (
-                        <code>{part.slice(1, -1)}</code>
-                    ) : (
-                        part
-                    ),
-                )
-            }
-        </span>
+        <span><InlineCode text={title} /></span>
     </Text.Text>
     <h4 class="article-description">{description}</h4>
     {
@@ -78,12 +80,6 @@ const visibleTitleLength = titleStr.replace(/`/g, "").length;
         .article-title {
             display: inline-block;
             width: fit-content;
-
-            & code {
-                background: none;
-                border: none;
-                padding: 0;
-            }
         }
 
         & .pluto-breadcrumb {
@@ -146,7 +142,7 @@ const visibleTitleLength = titleStr.replace(/`/g, "").length;
             }
         }
 
-        .pluto-tabs-selector {
+        .pluto-tabs__selector {
             margin: 1.5rem 0;
         }
 
@@ -187,7 +183,7 @@ const visibleTitleLength = titleStr.replace(/`/g, "").length;
             }
         }
 
-        .pluto-tabs-selector {
+        .pluto-tabs__selector {
             --pluto-height-medium: 6.5rem;
 
             .pluto-btn.pluto--height-medium {

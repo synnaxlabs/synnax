@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors, id, uuid } from "@synnaxlabs/x";
+import { errors, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -24,7 +24,7 @@ import {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 describe("error", () => {
   describe("type matching", () => {
@@ -52,6 +52,33 @@ describe("error", () => {
       }),
     );
   });
+
+  describe("encode", () => {
+    test("encodes synnax errors into a payload", () => {
+      const payload = errors.encode(new NotFoundError("nope"));
+      expect(payload.type).toBe(NotFoundError.TYPE);
+      expect(payload.data).toBe("nope");
+    });
+
+    test("round trips a synnax error through the registry", () => {
+      const decoded = errors.decode(errors.encode(new NotFoundError("nope")));
+      expect(NotFoundError.matches(decoded)).toBe(true);
+    });
+
+    test("round trips a path error through the registry", () => {
+      const original = new PathError("field", new ValidationError("bad"));
+      const decoded = errors.decode(errors.encode(original));
+      expect(PathError.matches(decoded)).toBe(true);
+      expect((decoded as PathError).path).toEqual(["field"]);
+    });
+
+    test("returns null for foreign typed errors so the registry falls through", () => {
+      class ForeignError extends errors.createTyped("foreign") {}
+      const payload = errors.encode(new ForeignError("boom"));
+      expect(payload.type).toBe(errors.UNKNOWN);
+      expect(payload.data).toBe("boom");
+    });
+  });
 });
 
 const client = createTestClient();
@@ -64,7 +91,7 @@ test("client", async () => {
     expect(NotFoundError.matches(e)).toBe(true);
   }
   try {
-    await client.schematics.retrieve({ key: uuid.create() });
+    await client.schematics.retrieve(uuid.create());
   } catch (e) {
     expect(NotFoundError.matches(e)).toBe(true);
   }

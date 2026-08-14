@@ -11,7 +11,6 @@ package http_test
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -29,19 +28,24 @@ import (
 var _ = Describe("Recovery (wire)", func() {
 	It("should contain a handler panic and keep serving", func(ctx context.Context) {
 		addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-		app := fiber.New(fiber.Config{})
-		app.Get("/health", func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
+		app := newFiberApp(fiber.Config{})
+		app.Get(
+			"/health",
+			func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) },
+		)
 		router := MustSucceed(fhttp.NewRouter())
 		server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
 		server.Use(recovery.Middleware(alamos.Instrumentation{}))
 
 		panicNext := true
-		server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
-			if panicNext {
-				panic("boom in handler")
-			}
-			return test.Response(req), nil
-		})
+		server.BindHandler(
+			func(_ context.Context, req test.Request) (test.Response, error) {
+				if panicNext {
+					panic("boom in handler")
+				}
+				return test.Response(req), nil
+			},
+		)
 		router.BindTo(app)
 		go func() {
 			defer GinkgoRecover()
@@ -51,13 +55,14 @@ var _ = Describe("Recovery (wire)", func() {
 		}()
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		Eventually(func(g Gomega) {
-			_, err := http.Get("http://" + addr.String() + "/health")
-			g.Expect(err).To(Succeed())
+			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
 		}).WithPolling(time.Millisecond).Should(Succeed())
 
 		client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 
-		By("surfacing the panic to the client as a generic error, not a dropped connection")
+		By(
+			"surfacing the panic to the client as a generic error, not a dropped connection",
+		)
 		Expect(client.Send(ctx, addr, test.Request{ID: 1})).
 			Error().To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
 

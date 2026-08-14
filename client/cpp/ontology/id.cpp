@@ -62,17 +62,16 @@ x::json::json ID::to_json() const {
     return j;
 }
 
-std::pair<ID, x::errors::Error>
-ID::from_proto(const ::distribution::ontology::pb::ID &pb) {
+std::pair<ID, x::errors::Error> ID::from_proto(const ::service::ontology::pb::ID &pb) {
     auto [type_str, err] = resource_type_from_pb(pb.type());
     if (!err.ok()) return {ID{}, err};
     return {ID{.type = type_str, .key = pb.key()}, x::errors::NIL};
 }
 
-std::pair<::distribution::ontology::pb::ID, x::errors::Error> ID::to_proto() const {
+std::pair<::service::ontology::pb::ID, x::errors::Error> ID::to_proto() const {
     auto [rt, err] = resource_type_to_pb(this->type);
     if (!err.ok()) return {{}, err};
-    ::distribution::ontology::pb::ID pb;
+    ::service::ontology::pb::ID pb;
     pb.set_type(rt);
     pb.set_key(this->key);
     return {pb, x::errors::NIL};

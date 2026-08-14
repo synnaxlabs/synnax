@@ -127,7 +127,7 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/x/telem"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // Blank identifier ensures math import is used even when no float types are generated,
@@ -140,8 +140,8 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < inputLen; i++ {
 		outData[i] = {{.Op}}inData[i]
@@ -156,7 +156,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		return prevCount
 	}
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 
 	{{if eq .Name "Avg"}}
 	// Compute sum of new input samples
@@ -169,7 +169,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	if freshStart {
 		// Fresh start: compute average of input samples
@@ -187,7 +187,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Find minimum in new input samples
 	newMin := inData[0]
@@ -213,7 +213,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Find maximum in new input samples
 	newMax := inData[0]
@@ -248,8 +248,8 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := output.Data
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
@@ -302,9 +302,9 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
@@ -345,8 +345,8 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = inData[i] {{.Op}} scalar
@@ -361,7 +361,7 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
@@ -381,8 +381,8 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = scalar {{.Op}} inData[i]
@@ -394,12 +394,12 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 const derivativeFuncTemplate = `
 func Derivative{{$.Type.Name}}(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
 	n := input.Len()
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
-	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
 	output.Resize(n)
 	outputTime.Resize(n)
-	outData := xunsafe.CastSlice[uint8, float64](output.Data)
-	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	outData := unsafe.CastSlice[uint8, float64](output.Data)
+	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
 		ts := inTime[i]
@@ -432,9 +432,9 @@ func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
@@ -475,8 +475,8 @@ func ModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, 
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = {{$.Type.GoType}}(math.Mod(float64(inData[i]), float64(scalar)))
@@ -490,8 +490,8 @@ func ReverseModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoT
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = {{$.Type.GoType}}(math.Mod(float64(scalar), float64(inData[i])))
@@ -502,21 +502,38 @@ func ReverseModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoT
 func main() {
 	tmpl := template.Must(template.New("funcs").Parse(funcTemplate))
 	unaryTmpl := template.Must(template.New("unary").Parse(unaryFuncTemplate))
-	reductionTmpl := template.Must(template.New("reduction").Parse(reductionFuncTemplate))
-	scalarArithTmpl := template.Must(template.New("scalarArith").Parse(scalarArithFuncTemplate))
-	reverseScalarArithTmpl := template.Must(template.New("reverseScalarArith").Parse(reverseScalarArithFuncTemplate))
-	scalarCompTmpl := template.Must(template.New("scalarComp").Parse(scalarCompFuncTemplate))
-	floatModuloTmpl := template.Must(template.New("floatModulo").Parse(floatModuloFuncTemplate))
-	floatModuloScalarTmpl := template.Must(template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate))
-	floatReverseModuloScalarTmpl := template.Must(template.New("floatReverseModuloScalar").Parse(floatReverseModuloScalarFuncTemplate))
-	derivativeTmpl := template.Must(template.New("derivative").Parse(derivativeFuncTemplate))
+	reductionTmpl := template.Must(
+		template.New("reduction").Parse(reductionFuncTemplate),
+	)
+	scalarArithTmpl := template.Must(
+		template.New("scalarArith").Parse(scalarArithFuncTemplate),
+	)
+	reverseScalarArithTmpl := template.Must(
+		template.New("reverseScalarArith").Parse(reverseScalarArithFuncTemplate),
+	)
+	scalarCompTmpl := template.Must(
+		template.New("scalarComp").Parse(scalarCompFuncTemplate),
+	)
+	floatModuloTmpl := template.Must(
+		template.New("floatModulo").Parse(floatModuloFuncTemplate),
+	)
+	floatModuloScalarTmpl := template.Must(
+		template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate),
+	)
+	floatReverseModuloScalarTmpl := template.Must(
+		template.New("floatReverseModuloScalar").
+			Parse(floatReverseModuloScalarFuncTemplate),
+	)
+	derivativeTmpl := template.Must(
+		template.New("derivative").Parse(derivativeFuncTemplate),
+	)
 
 	var buf strings.Builder
 	buf.WriteString(headerTemplate)
 
 	// Generate regular operations for all types
 	for _, typ := range types {
-		lo.Must0(tmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(tmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": operations,
 		}))
@@ -526,12 +543,12 @@ func main() {
 	for _, typ := range types {
 		if typ.IsFloat {
 			// Float types use math.Mod
-			lo.Must0(floatModuloTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(floatModuloTmpl.Execute(&buf, map[string]any{
 				"Type": typ,
 			}))
 		} else {
 			// Integer types use %
-			lo.Must0(tmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(tmpl.Execute(&buf, map[string]any{
 				"Type":       typ,
 				"Operations": []Operation{moduloIntOp},
 			}))
@@ -540,14 +557,14 @@ func main() {
 
 	// Generate logical operations for uint8 only
 	uint8Type := TypeInfo{Name: "U8", GoType: "uint8", Size: 1, IsUnsigned: true}
-	lo.Must0(tmpl.Execute(&buf, map[string]interface{}{
+	lo.Must0(tmpl.Execute(&buf, map[string]any{
 		"Type":       uint8Type,
 		"Operations": logicalOperations,
 	}))
 
 	// Generate Not operation for uint8 only
 	notOp := []UnaryOperation{{Name: "Not", Op: "^"}}
-	lo.Must0(unaryTmpl.Execute(&buf, map[string]interface{}{
+	lo.Must0(unaryTmpl.Execute(&buf, map[string]any{
 		"Type":     uint8Type,
 		"UnaryOps": notOp,
 	}))
@@ -556,7 +573,7 @@ func main() {
 	negateOp := []UnaryOperation{{Name: "Negate", Op: "-"}}
 	for _, typ := range types {
 		if typ.IsSigned || typ.IsFloat {
-			lo.Must0(unaryTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(unaryTmpl.Execute(&buf, map[string]any{
 				"Type":     typ,
 				"UnaryOps": negateOp,
 			}))
@@ -565,7 +582,7 @@ func main() {
 
 	// Generate reduction operations for all types
 	for _, typ := range types {
-		lo.Must0(reductionTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(reductionTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Reductions": reductionOperations,
 		}))
@@ -573,14 +590,14 @@ func main() {
 
 	// Generate derivative operations for all types
 	for _, typ := range types {
-		lo.Must0(derivativeTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(derivativeTmpl.Execute(&buf, map[string]any{
 			"Type": typ,
 		}))
 	}
 
 	// Generate scalar arithmetic operations for all types
 	for _, typ := range types {
-		lo.Must0(scalarArithTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(scalarArithTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": scalarArithmeticOps,
 		}))
@@ -588,7 +605,7 @@ func main() {
 
 	// Generate reverse scalar arithmetic operations for all types
 	for _, typ := range types {
-		lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": reverseScalarArithmeticOps,
 		}))
@@ -596,11 +613,11 @@ func main() {
 
 	for _, typ := range types {
 		if typ.IsFloat {
-			lo.Must0(floatReverseModuloScalarTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(floatReverseModuloScalarTmpl.Execute(&buf, map[string]any{
 				"Type": typ,
 			}))
 		} else {
-			lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]any{
 				"Type":       typ,
 				"Operations": []Operation{reverseModuloScalarIntOp},
 			}))
@@ -610,11 +627,11 @@ func main() {
 	// Generate modulo scalar operations - integer types use %, float types use math.Mod
 	for _, typ := range types {
 		if typ.IsFloat {
-			lo.Must0(floatModuloScalarTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(floatModuloScalarTmpl.Execute(&buf, map[string]any{
 				"Type": typ,
 			}))
 		} else {
-			lo.Must0(scalarArithTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(scalarArithTmpl.Execute(&buf, map[string]any{
 				"Type":       typ,
 				"Operations": []Operation{moduloScalarIntOp},
 			}))
@@ -623,14 +640,14 @@ func main() {
 
 	// Generate scalar comparison operations for all types
 	for _, typ := range types {
-		lo.Must0(scalarCompTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(scalarCompTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": scalarComparisonOps,
 		}))
 	}
 
 	formatted := lo.Must(format.Source([]byte(buf.String())))
-	lo.Must0(os.WriteFile("op_generated.go", formatted, 0644))
+	lo.Must0(os.WriteFile("op_generated.go", formatted, 0o644))
 
 	fmt.Println("Generated op_generated.go successfully")
 }

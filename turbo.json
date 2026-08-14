@@ -37,8 +37,8 @@
     "watch": { "cache": false },
     "madge": { "dependsOn": ["^build"] },
     "fix": { "cache": false },
-    "test": { "dependsOn": ["^build"] },
-    "cov": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
+    "test": { "cache": false, "dependsOn": ["^build"] },
+    "cov": { "cache": false, "dependsOn": ["^build"], "outputs": ["coverage/**"] },
     "devtools": { "cache": false }
   }
 }
