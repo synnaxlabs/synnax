@@ -41,8 +41,8 @@ var (
 	groupSvc *group.Service
 	panelSvc *panel.Service
 	logSvc   *log.Service
-	// lineplotSvc registers its exporter in a registry the project service never
-	// sees, so line plots stand in for children Export cannot serialize.
+	// lineplotSvc registers its exporter in a registry the project service never sees,
+	// so line plots stand in for children Export cannot serialize.
 	lineplotSvc *lineplot.Service
 	imexSvc     *imex.Service
 	writer      project.Writer

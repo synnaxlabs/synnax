@@ -111,8 +111,6 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	return fctx
 }
 
-// createProject creates a project. It writes outside a transaction so the api
-// enforcers, which read committed state, observe the new resource.
 func createProject(ctx SpecContext, name string) project.Project {
 	GinkgoHelper()
 	p := project.Project{Name: name}
@@ -120,8 +118,6 @@ func createProject(ctx SpecContext, name string) project.Project {
 	return p
 }
 
-// createLog creates a log under the project, committing it for the same reason
-// createProject does.
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
 	l := log.Log{Name: name}

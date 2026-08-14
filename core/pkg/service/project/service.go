@@ -106,10 +106,7 @@ func OpenService(
 		ctx,
 		"Projects",
 		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
+	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
