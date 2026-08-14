@@ -595,11 +595,11 @@ describe("Tabs", () => {
     beforeEach(() => {
       vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(100);
       vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(100);
-      vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(
-        function (this: HTMLElement): number {
-          return Array.from(this.parentElement?.children ?? []).indexOf(this) * 100;
-        },
-      );
+      vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (
+        this: HTMLElement,
+      ): number {
+        return Array.from(this.parentElement?.children ?? []).indexOf(this) * 100;
+      });
       scrollLeft = vi.spyOn(Element.prototype, "scrollLeft", "set");
     });
 
