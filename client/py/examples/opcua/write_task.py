@@ -93,9 +93,9 @@ tsk = sy.opc.WriteTask(
     channels=[
         # Map Synnax command channels to OPC UA node IDs
         # Replace these node_id values with the actual IDs from your server
-        sy.opc.OutputChannel(cmd_channel=cmd_channel_0.key, node_id="NS=2;I=18"),
-        sy.opc.OutputChannel(cmd_channel=cmd_channel_1.key, node_id="NS=2;I=19"),
-        sy.opc.OutputChannel(cmd_channel=cmd_channel_2.key, node_id="NS=2;I=20"),
+        sy.opc.WriteChannel(cmd_channel=cmd_channel_0.key, node_id="NS=2;I=18"),
+        sy.opc.WriteChannel(cmd_channel=cmd_channel_1.key, node_id="NS=2;I=19"),
+        sy.opc.WriteChannel(cmd_channel=cmd_channel_2.key, node_id="NS=2;I=20"),
     ],
 )
 

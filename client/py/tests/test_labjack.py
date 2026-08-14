@@ -31,7 +31,7 @@ class TestLabJackReadTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "AI",
+                            "type": "analog",
                             "key": "ai-1",
                             "disabled": False,
                             "port": "AIN0",
@@ -53,7 +53,7 @@ class TestLabJackReadTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "TC",
+                            "type": "thermocouple",
                             "key": "tc-1",
                             "disabled": False,
                             "port": "AIN0",
@@ -80,7 +80,7 @@ class TestLabJackReadTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "DI",
+                            "type": "digital",
                             "key": "di-1",
                             "disabled": False,
                             "port": "FIO4",
@@ -99,7 +99,7 @@ class TestLabJackReadTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "AI",
+                            "type": "analog",
                             "key": "ai-1",
                             "disabled": False,
                             "port": "AIN0",
@@ -109,7 +109,7 @@ class TestLabJackReadTask:
                             "scale": {"type": "none"},
                         },
                         {
-                            "type": "AI",
+                            "type": "analog",
                             "key": "ai-2",
                             "disabled": False,
                             "port": "AIN1",
@@ -119,7 +119,7 @@ class TestLabJackReadTask:
                             "scale": {"type": "none"},
                         },
                         {
-                            "type": "DI",
+                            "type": "digital",
                             "key": "di-1",
                             "disabled": False,
                             "port": "FIO5",
@@ -150,12 +150,12 @@ class TestLabJackReadTask:
             name="test",
             device="test-device",
             channels=[
-                sy.labjack.InputChannelAI(
-                    type="AI",
+                sy.labjack.AnalogReadChannel(
+                    type="analog",
                     port="AIN0",
                     channel=1234,
                     range=10.0,
-                    scale=sy.labjack.ScaleNone(type="none"),
+                    scale=sy.labjack.NoneScale(type="none"),
                 )
             ],
         )
@@ -167,8 +167,8 @@ class TestLabJackReadTask:
         """Test that thermocouple types are validated."""
         # Valid thermocouple types
         for tc_type in ["B", "E", "J", "K", "N", "R", "S", "T", "C"]:
-            sy.labjack.InputChannelTc(
-                type="TC",
+            sy.labjack.ThermocoupleReadChannel(
+                type="thermocouple",
                 port="AIN0",
                 channel=1234,
                 thermocouple_type=tc_type,
@@ -176,13 +176,13 @@ class TestLabJackReadTask:
                 cjc_slope=1.0,
                 cjc_offset=0.0,
                 units="C",
-                scale=sy.labjack.ScaleNone(type="none"),
+                scale=sy.labjack.NoneScale(type="none"),
             )
 
         # Invalid thermocouple type
         with pytest.raises(ValidationError):
-            sy.labjack.InputChannelTc(
-                type="TC",
+            sy.labjack.ThermocoupleReadChannel(
+                type="thermocouple",
                 port="AIN0",
                 channel=1234,
                 thermocouple_type="InvalidType",
@@ -190,7 +190,7 @@ class TestLabJackReadTask:
                 cjc_slope=1.0,
                 cjc_offset=0.0,
                 units="C",
-                scale=sy.labjack.ScaleNone(type="none"),
+                scale=sy.labjack.NoneScale(type="none"),
             )
 
     def test_create_and_retrieve_read_task(self, client: sy.Synnax):
@@ -203,16 +203,16 @@ class TestLabJackReadTask:
             data_saving_disabled=True,
             auto_start=False,
             channels=[
-                sy.labjack.InputChannelAI(
-                    type="AI",
+                sy.labjack.AnalogReadChannel(
+                    type="analog",
                     key="ai-1",
                     port="AIN0",
                     channel=1234,
                     range=10.0,
-                    scale=sy.labjack.ScaleNone(type="none"),
+                    scale=sy.labjack.NoneScale(type="none"),
                 ),
-                sy.labjack.InputChannelDI(
-                    type="DI",
+                sy.labjack.DigitalReadChannel(
+                    type="digital",
                     key="di-1",
                     port="FIO4",
                     channel=5678,
@@ -243,7 +243,7 @@ class TestLabJackWriteTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "AO",
+                            "type": "analog",
                             "key": "ao-1",
                             "disabled": False,
                             "port": "DAC0",
@@ -262,7 +262,7 @@ class TestLabJackWriteTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "DO",
+                            "type": "digital",
                             "key": "do-1",
                             "disabled": False,
                             "port": "FIO4",
@@ -281,7 +281,7 @@ class TestLabJackWriteTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "AO",
+                            "type": "analog",
                             "key": "ao-1",
                             "disabled": False,
                             "port": "DAC0",
@@ -289,7 +289,7 @@ class TestLabJackWriteTask:
                             "state_channel": 1001,
                         },
                         {
-                            "type": "AO",
+                            "type": "analog",
                             "key": "ao-2",
                             "disabled": True,
                             "port": "DAC1",
@@ -297,7 +297,7 @@ class TestLabJackWriteTask:
                             "state_channel": 2001,
                         },
                         {
-                            "type": "DO",
+                            "type": "digital",
                             "key": "do-1",
                             "disabled": False,
                             "port": "FIO4",
@@ -305,7 +305,7 @@ class TestLabJackWriteTask:
                             "state_channel": 3001,
                         },
                         {
-                            "type": "DO",
+                            "type": "digital",
                             "key": "do-2",
                             "disabled": False,
                             "port": "FIO5",
@@ -329,15 +329,15 @@ class TestLabJackWriteTask:
             state_rate=sy.Rate(20),
             auto_start=False,
             channels=[
-                sy.labjack.OutputChannelDO(
-                    type="DO",
+                sy.labjack.DigitalWriteChannel(
+                    type="digital",
                     port="FIO4",
                     cmd_channel=1234,
                     state_channel=1235,
                     disabled=False,
                 ),
-                sy.labjack.OutputChannelDO(
-                    type="DO",
+                sy.labjack.DigitalWriteChannel(
+                    type="digital",
                     port="FIO5",
                     cmd_channel=5678,
                     state_channel=5679,
@@ -356,8 +356,8 @@ class TestLabJackWriteTask:
             device="test-device",
             state_rate=20,
             channels=[
-                sy.labjack.OutputChannelAO(
-                    type="AO",
+                sy.labjack.AnalogWriteChannel(
+                    type="analog",
                     port="DAC0",
                     cmd_channel=1234,
                     state_channel=1235,
@@ -377,16 +377,16 @@ class TestLabJackWriteTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.labjack.OutputChannelAO(
+                sy.labjack.AnalogWriteChannel(
                     key="ao-1",
-                    type="AO",
+                    type="analog",
                     port="DAC0",
                     cmd_channel=1234,
                     state_channel=1235,
                 ),
-                sy.labjack.OutputChannelDO(
+                sy.labjack.DigitalWriteChannel(
                     key="do-1",
-                    type="DO",
+                    type="digital",
                     port="FIO4",
                     cmd_channel=5678,
                     state_channel=5679,
@@ -409,17 +409,17 @@ class TestLabJackWriteTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.labjack.OutputChannelAO(
+                sy.labjack.AnalogWriteChannel(
                     key="ao-1",
-                    type="AO",
+                    type="analog",
                     port="DAC0",
                     cmd_channel=1234,
                     state_channel=1235,
                     disabled=False,
                 ),
-                sy.labjack.OutputChannelDO(
+                sy.labjack.DigitalWriteChannel(
                     key="do-1",
-                    type="DO",
+                    type="digital",
                     port="FIO4",
                     cmd_channel=5678,
                     state_channel=5679,
@@ -503,15 +503,15 @@ class TestLabJackDevicePropertyUpdates:
             sample_rate=100,
             stream_rate=25,
             channels=[
-                sy.labjack.InputChannelAI(
-                    type="AI",
+                sy.labjack.AnalogReadChannel(
+                    type="analog",
                     port="AIN0",
                     channel=ch1.key,
                     range=10.0,
-                    scale=sy.labjack.ScaleNone(type="none"),
+                    scale=sy.labjack.NoneScale(type="none"),
                 ),
-                sy.labjack.InputChannelDI(
-                    type="DI",
+                sy.labjack.DigitalReadChannel(
+                    type="digital",
                     port="FIO4",
                     channel=ch2.key,
                 ),
@@ -598,14 +598,14 @@ class TestLabJackDevicePropertyUpdates:
             device=device.key,
             state_rate=20,
             channels=[
-                sy.labjack.OutputChannelAO(
-                    type="AO",
+                sy.labjack.AnalogWriteChannel(
+                    type="analog",
                     port="DAC0",
                     cmd_channel=dac0_cmd.key,
                     state_channel=dac0_state.key,
                 ),
-                sy.labjack.OutputChannelDO(
-                    type="DO",
+                sy.labjack.DigitalWriteChannel(
+                    type="digital",
                     port="FIO4",
                     cmd_channel=fio4_cmd.key,
                     state_channel=fio4_state.key,

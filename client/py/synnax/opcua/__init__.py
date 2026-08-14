@@ -9,5 +9,21 @@
 
 """Deprecated: use synnax.opc instead."""
 
-from synnax.opc import *  # noqa: F403
+import warnings
+from typing import Any
+
+warnings.warn(
+    "synnax.opcua is deprecated and will be removed in a future version. "
+    "Use synnax.opc instead.",
+    FutureWarning,
+    stacklevel=2,
+)
+
+from synnax import opc as _opc
+from synnax.opc import *  # noqa: E402, F403
 from synnax.opc import __all__ as __all__  # noqa: F401
+
+
+def __getattr__(name: str) -> Any:
+    """Resolves names synnax.opc only serves through its deprecation shim."""
+    return getattr(_opc, name)

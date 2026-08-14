@@ -13,9 +13,9 @@ from pydantic import BaseModel, Field
 
 from synnax import device, task
 from synnax.ethercat.types_gen import (
-    InputChannel,
-    OutputChannel,
+    ReadChannel,
     ReadConfig,
+    WriteChannel,
     WriteConfig,
 )
 from synnax.telem import CrudeRate, Rate
@@ -56,8 +56,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param data_saving_disabled: Whether to only stream data for real-time consumption
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when configured.
-    :param channels: The input channels to acquire data from (InputChannel variants:
-        InputChannelAutomatic, InputChannelManual).
+    :param channels: The input channels to acquire data from (ReadChannel variants:
+        AutomaticReadChannel, ManualReadChannel).
     """
 
     TYPE = "ethercat_read"
@@ -73,7 +73,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[InputChannel] | None = None,
+        channels: list[ReadChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -102,8 +102,8 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param data_saving_disabled: Whether to only stream state data for real-time
         consumption instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when configured.
-    :param channels: The output channels to write to (OutputChannel variants:
-        OutputChannelAutomatic, OutputChannelManual).
+    :param channels: The output channels to write to (WriteChannel variants:
+        AutomaticWriteChannel, ManualWriteChannel).
     """
 
     TYPE = "ethercat_write"
@@ -119,7 +119,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         execution_rate: CrudeRate = 1000,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[OutputChannel] | None = None,
+        channels: list[WriteChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal

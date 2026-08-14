@@ -16,37 +16,49 @@ from synnax.ethercat.types import (
     WriteTask,
 )
 from synnax.ethercat.types_gen import (
-    BaseInputChannel,
-    BaseOutputChannel,
-    InputChannel,
-    InputChannelAutomatic,
-    InputChannelManual,
-    OutputChannel,
-    OutputChannelAutomatic,
-    OutputChannelManual,
+    AutomaticReadChannel,
+    AutomaticWriteChannel,
+    BaseReadChannel,
+    BaseWriteChannel,
+    ManualReadChannel,
+    ManualWriteChannel,
     PDOAddress,
+    ReadChannel,
     ReadConfig,
     ScanConfig,
+    WriteChannel,
     WriteConfig,
 )
+from x.deprecation import deprecated_getattr
+
+_DEPRECATED: dict[str, str | tuple[str, str]] = {
+    "AutomaticInputChan": "AutomaticReadChannel",
+    "AutomaticOutputChan": "AutomaticWriteChannel",
+    "ManualInputChan": "ManualReadChannel",
+    "ManualOutputChan": "ManualWriteChannel",
+    "ReadTaskConfig": "ReadConfig",
+    "WriteTaskConfig": "WriteConfig",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
-    "BaseInputChannel",
-    "BaseOutputChannel",
+    "AutomaticReadChannel",
+    "AutomaticWriteChannel",
+    "BaseReadChannel",
+    "BaseWriteChannel",
     "Device",
-    "InputChannel",
-    "InputChannelAutomatic",
-    "InputChannelManual",
     "MAKE",
     "MODEL",
-    "OutputChannel",
-    "OutputChannelAutomatic",
-    "OutputChannelManual",
+    "ManualReadChannel",
+    "ManualWriteChannel",
     "PDOAddress",
     "PDOEntry",
+    "ReadChannel",
     "ReadConfig",
     "ReadTask",
     "ScanConfig",
+    "WriteChannel",
     "WriteConfig",
     "WriteTask",
 ]

@@ -92,7 +92,7 @@ tsk = sy.ni.AnalogWriteTask(
             # The minimum and maximum voltage values for the output.
             min_val=-10.0,
             max_val=10.0,
-            custom_scale=sy.ni.ScaleNone(type="none"),
+            custom_scale=sy.ni.NoneScale(type="none"),
         ),
         sy.ni.AOVoltageChannel(
             type="ao_voltage",
@@ -101,7 +101,7 @@ tsk = sy.ni.AnalogWriteTask(
             port=1,
             min_val=-10.0,
             max_val=10.0,
-            custom_scale=sy.ni.ScaleNone(type="none"),
+            custom_scale=sy.ni.NoneScale(type="none"),
         ),
     ],
 )

@@ -120,7 +120,7 @@ class TestEtherCATReadTask:
         task = sy.ethercat.ReadTask(
             name="test",
             channels=[
-                sy.ethercat.InputChannelAutomatic(
+                sy.ethercat.AutomaticReadChannel(
                     type="automatic",
                     device="slave-key",
                     pdo="Position actual value",
@@ -135,7 +135,7 @@ class TestEtherCATReadTask:
     def test_manual_input_index_bounds(self):
         """Test that index validation works (0-65535)."""
         # Valid index
-        sy.ethercat.InputChannelManual(
+        sy.ethercat.ManualReadChannel(
             type="manual",
             device="slave-key",
             index=0,
@@ -144,7 +144,7 @@ class TestEtherCATReadTask:
             data_type="uint16",
             channel=1234,
         )
-        sy.ethercat.InputChannelManual(
+        sy.ethercat.ManualReadChannel(
             type="manual",
             device="slave-key",
             index=65535,
@@ -156,7 +156,7 @@ class TestEtherCATReadTask:
 
         # Invalid index
         with pytest.raises(ValidationError):
-            sy.ethercat.InputChannelManual(
+            sy.ethercat.ManualReadChannel(
                 type="manual",
                 device="slave-key",
                 index=-1,
@@ -166,7 +166,7 @@ class TestEtherCATReadTask:
                 channel=1234,
             )
         with pytest.raises(ValidationError):
-            sy.ethercat.InputChannelManual(
+            sy.ethercat.ManualReadChannel(
                 type="manual",
                 device="slave-key",
                 index=65536,
@@ -179,7 +179,7 @@ class TestEtherCATReadTask:
     def test_manual_input_sub_index_bounds(self):
         """Test that sub_index validation works (0-255)."""
         # Valid sub_index
-        sy.ethercat.InputChannelManual(
+        sy.ethercat.ManualReadChannel(
             type="manual",
             device="slave-key",
             index=0x6064,
@@ -188,7 +188,7 @@ class TestEtherCATReadTask:
             data_type="int32",
             channel=1234,
         )
-        sy.ethercat.InputChannelManual(
+        sy.ethercat.ManualReadChannel(
             type="manual",
             device="slave-key",
             index=0x6064,
@@ -200,7 +200,7 @@ class TestEtherCATReadTask:
 
         # Invalid sub_index
         with pytest.raises(ValidationError):
-            sy.ethercat.InputChannelManual(
+            sy.ethercat.ManualReadChannel(
                 type="manual",
                 device="slave-key",
                 index=0x6064,
@@ -210,7 +210,7 @@ class TestEtherCATReadTask:
                 channel=1234,
             )
         with pytest.raises(ValidationError):
-            sy.ethercat.InputChannelManual(
+            sy.ethercat.ManualReadChannel(
                 type="manual",
                 device="slave-key",
                 index=0x6064,
@@ -223,7 +223,7 @@ class TestEtherCATReadTask:
     def test_manual_input_bit_length_bounds(self):
         """Test that bit_length validation works (0-255)."""
         # Valid bit lengths
-        sy.ethercat.InputChannelManual(
+        sy.ethercat.ManualReadChannel(
             type="manual",
             device="slave-key",
             index=0x6064,
@@ -232,7 +232,7 @@ class TestEtherCATReadTask:
             data_type="uint8",
             channel=1234,
         )
-        sy.ethercat.InputChannelManual(
+        sy.ethercat.ManualReadChannel(
             type="manual",
             device="slave-key",
             index=0x6064,
@@ -244,7 +244,7 @@ class TestEtherCATReadTask:
 
         # Invalid bit lengths
         with pytest.raises(ValidationError):
-            sy.ethercat.InputChannelManual(
+            sy.ethercat.ManualReadChannel(
                 type="manual",
                 device="slave-key",
                 index=0x6064,
@@ -254,7 +254,7 @@ class TestEtherCATReadTask:
                 channel=1234,
             )
         with pytest.raises(ValidationError):
-            sy.ethercat.InputChannelManual(
+            sy.ethercat.ManualReadChannel(
                 type="manual",
                 device="slave-key",
                 index=0x6064,
@@ -273,14 +273,14 @@ class TestEtherCATReadTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.ethercat.InputChannelAutomatic(
+                sy.ethercat.AutomaticReadChannel(
                     type="automatic",
                     key="auto-input-1",
                     device="slave-device-key",
                     pdo="Position actual value",
                     channel=1234,
                 ),
-                sy.ethercat.InputChannelManual(
+                sy.ethercat.ManualReadChannel(
                     type="manual",
                     key="manual-input-1",
                     device="slave-device-key",
@@ -414,7 +414,7 @@ class TestEtherCATWriteTask:
             execution_rate=sy.Rate(1000),
             auto_start=False,
             channels=[
-                sy.ethercat.OutputChannelAutomatic(
+                sy.ethercat.AutomaticWriteChannel(
                     type="automatic",
                     key="auto-1",
                     device="slave-key",
@@ -422,7 +422,7 @@ class TestEtherCATWriteTask:
                     cmd_channel=1234,
                     disabled=False,
                 ),
-                sy.ethercat.OutputChannelAutomatic(
+                sy.ethercat.AutomaticWriteChannel(
                     type="automatic",
                     key="auto-2",
                     device="slave-key",
@@ -441,7 +441,7 @@ class TestEtherCATWriteTask:
         task = sy.ethercat.WriteTask(
             name="test",
             channels=[
-                sy.ethercat.OutputChannelAutomatic(
+                sy.ethercat.AutomaticWriteChannel(
                     type="automatic",
                     device="slave-key",
                     pdo="Target velocity",
@@ -455,7 +455,7 @@ class TestEtherCATWriteTask:
 
     def test_write_task_state_channel_optional(self):
         """Test that state_channel is optional (defaults to 0)."""
-        channel = sy.ethercat.OutputChannelAutomatic(
+        channel = sy.ethercat.AutomaticWriteChannel(
             type="automatic",
             device="slave-key",
             pdo="Target velocity",
@@ -463,7 +463,7 @@ class TestEtherCATWriteTask:
         )
         assert channel.state_channel == 0
 
-        channel_with_state = sy.ethercat.OutputChannelAutomatic(
+        channel_with_state = sy.ethercat.AutomaticWriteChannel(
             type="automatic",
             device="slave-key",
             pdo="Target velocity",
@@ -481,7 +481,7 @@ class TestEtherCATWriteTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.ethercat.OutputChannelAutomatic(
+                sy.ethercat.AutomaticWriteChannel(
                     type="automatic",
                     key="auto-output-1",
                     device="slave-device-key",
@@ -489,7 +489,7 @@ class TestEtherCATWriteTask:
                     cmd_channel=1234,
                     state_channel=5678,
                 ),
-                sy.ethercat.OutputChannelManual(
+                sy.ethercat.ManualWriteChannel(
                     type="manual",
                     key="manual-output-1",
                     device="slave-device-key",
@@ -517,7 +517,7 @@ class TestEtherCATWriteTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.ethercat.OutputChannelAutomatic(
+                sy.ethercat.AutomaticWriteChannel(
                     type="automatic",
                     key="auto-1",
                     device="slave-1",
@@ -526,7 +526,7 @@ class TestEtherCATWriteTask:
                     state_channel=5678,
                     disabled=False,
                 ),
-                sy.ethercat.OutputChannelManual(
+                sy.ethercat.ManualWriteChannel(
                     type="manual",
                     key="manual-1",
                     device="slave-2",

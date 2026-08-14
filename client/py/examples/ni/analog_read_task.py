@@ -74,7 +74,7 @@ task = ni.AnalogReadTask(
             min_val=-10.0,
             max_val=10.0,
             terminal_config="Diff",
-            custom_scale=ni.ScaleNone(type="none"),
+            custom_scale=ni.NoneScale(type="none"),
         ),
         ni.AICurrentChannel(
             type="ai_current",
@@ -85,7 +85,7 @@ task = ni.AnalogReadTask(
             max_val=0.02,
             shunt_resistor_loc="Internal",
             ext_shunt_resistor_val=249.0,
-            custom_scale=ni.ScaleNone(type="none"),
+            custom_scale=ni.NoneScale(type="none"),
         ),
         ni.AIThermocoupleChannel(
             type="ai_thermocouple",

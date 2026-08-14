@@ -11,7 +11,7 @@ from typing import Literal
 from uuid import uuid4
 
 from synnax import device, task
-from synnax.opc.types_gen import InputChannel, OutputChannel, ReadConfig, WriteConfig
+from synnax.opc.types_gen import ReadChannel, ReadConfig, WriteChannel, WriteConfig
 from synnax.telem import CrudeRate, Rate
 
 SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]
@@ -62,7 +62,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         auto_start: bool = False,
         array_mode: bool = False,
         array_size: int = 1,
-        channels: list[InputChannel] | None = None,
+        channels: list[ReadChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -117,7 +117,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[OutputChannel] | None = None,
+        channels: list[WriteChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal

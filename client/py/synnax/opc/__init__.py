@@ -18,25 +18,33 @@ from synnax.opc.types import (
 )
 from synnax.opc.types_gen import (
     BaseChannel,
-    InputChannel,
-    OutputChannel,
+    ReadChannel,
     ReadConfig,
     ScanConfig,
+    WriteChannel,
     WriteConfig,
 )
+from x.deprecation import deprecated_getattr
+
+_DEPRECATED: dict[str, str | tuple[str, str]] = {
+    "Channel": "ReadChannel",
+    "WriteTaskConfig": "WriteConfig",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "BaseChannel",
     "Device",
-    "InputChannel",
     "MAKE",
     "MODEL",
-    "OutputChannel",
+    "ReadChannel",
     "ReadConfig",
     "ReadTask",
     "ScanConfig",
     "SecurityMode",
     "SecurityPolicy",
+    "WriteChannel",
     "WriteConfig",
     "WriteTask",
 ]

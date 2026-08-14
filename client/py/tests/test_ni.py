@@ -373,7 +373,7 @@ class TestNITask:
                         min_val=0,
                         max_val=1,
                         units="Volts",
-                        custom_scale=sy.ni.ScaleNone(type="none"),
+                        custom_scale=sy.ni.NoneScale(type="none"),
                     )
                 ],
             )
@@ -393,7 +393,7 @@ class TestNITask:
                     min_val=0,
                     max_val=1,
                     units="Volts",
-                    custom_scale=sy.ni.ScaleNone(type="none"),
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
         )
@@ -591,7 +591,6 @@ class TestNITask:
             "channels": [
                 {
                     "key": "5DSZbDQy6a4",
-                    "type": "digital_input",
                     "disabled": False,
                     "port": 0,
                     "line": 1,
@@ -612,7 +611,6 @@ class TestNITask:
             "channels": [
                 {
                     "key": "Xph3kNL7twt",
-                    "type": "digital_output",
                     "disabled": False,
                     "cmd_channel": 1048605,
                     "state_channel": 1048603,
@@ -641,7 +639,7 @@ class TestNITask:
                     min_val=0,
                     max_val=10,
                     units="Volts",
-                    custom_scale=sy.ni.ScaleNone(type="none"),
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
         )
@@ -669,7 +667,7 @@ class TestNITask:
                     meas_method="LowFreq1Ctr",
                     meas_time=0.001,
                     divisor=4,
-                    custom_scale=sy.ni.ScaleNone(type="none"),
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
         )
@@ -685,8 +683,7 @@ class TestNITask:
             sample_rate=sy.Rate(1000),
             stream_rate=sy.Rate(500),
             channels=[
-                sy.ni.DigitalInputChannel(
-                    type="digital_input",
+                sy.ni.DIChannel(
                     key="test",
                     port=0,
                     line=0,
@@ -711,7 +708,7 @@ class TestNITask:
                     min_val=-10,
                     max_val=10,
                     units="Volts",
-                    custom_scale=sy.ni.ScaleNone(type="none"),
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 ),
                 sy.ni.AIVoltageChannel(
                     type="ai_voltage",
@@ -723,7 +720,7 @@ class TestNITask:
                     min_val=-10,
                     max_val=10,
                     units="Volts",
-                    custom_scale=sy.ni.ScaleNone(type="none"),
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 ),
             ],
         )

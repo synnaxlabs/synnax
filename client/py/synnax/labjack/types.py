@@ -12,9 +12,9 @@ from uuid import uuid4
 
 from synnax import device, task
 from synnax.labjack.types_gen import (
-    InputChannel,
-    OutputChannel,
+    ReadChannel,
     ReadConfig,
+    WriteChannel,
     WriteConfig,
 )
 from synnax.telem import CrudeRate, Rate
@@ -42,8 +42,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param data_saving_disabled: Whether to only stream data for real-time consumption
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when it is created.
-    :param channels: The input channels to acquire data from (InputChannel variants:
-        InputChannelAI, InputChannelDI, InputChannelTc).
+    :param channels: The input channels to acquire data from (ReadChannel variants:
+        AnalogReadChannel, DigitalReadChannel, ThermocoupleReadChannel).
     """
 
     TYPE = "labjack_read"
@@ -60,7 +60,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[InputChannel] | None = None,
+        channels: list[ReadChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -102,8 +102,8 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param data_saving_disabled: Whether to only stream state data for real-time
         consumption instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when it is created.
-    :param channels: The output channels to write to (OutputChannel variants:
-        OutputChannelAO, OutputChannelDO).
+    :param channels: The output channels to write to (WriteChannel variants:
+        AnalogWriteChannel, DigitalWriteChannel).
     """
 
     TYPE = "labjack_write"
@@ -119,7 +119,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         state_rate: CrudeRate = 10,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[OutputChannel] | None = None,
+        channels: list[WriteChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal

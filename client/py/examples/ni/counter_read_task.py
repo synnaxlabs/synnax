@@ -90,7 +90,7 @@ tsk = sy.ni.CounterReadTask(
             meas_time=0.001,
             # Divisor for internal timebase
             divisor=4,
-            custom_scale=sy.ni.ScaleNone(type="none"),
+            custom_scale=sy.ni.NoneScale(type="none"),
         ),
         sy.ni.CIEdgeCountChannel(
             type="ci_edge_count",

@@ -499,7 +499,7 @@ class TestHTTPWriteTask:
                     path="/api/v1/control",
                     channel=sy.http.ChannelField(pointer="/value", channel=1),
                     fields=[
-                        sy.http.WriteFieldGenerated(
+                        sy.http.GeneratedWriteField(
                             type="generated",
                             pointer="/id",
                             generator="uuid",
@@ -535,8 +535,8 @@ class TestHTTPWriteTask:
         assert cf.time_format is None
 
     def test_static_field_type(self):
-        """Test that WriteFieldStatic carries the static discriminator."""
-        sf = sy.http.WriteFieldStatic(
+        """Test that StaticWriteField carries the static discriminator."""
+        sf = sy.http.StaticWriteField(
             type="static",
             pointer="/source",
             json_type="string",
@@ -546,8 +546,8 @@ class TestHTTPWriteTask:
         assert sf.value == {"source": "test"}
 
     def test_generated_field_type(self):
-        """Test that WriteFieldGenerated carries the generated discriminator."""
-        gf = sy.http.WriteFieldGenerated(
+        """Test that GeneratedWriteField carries the generated discriminator."""
+        gf = sy.http.GeneratedWriteField(
             type="generated", pointer="/id", generator="uuid"
         )
         assert gf.type == "generated"
@@ -613,7 +613,7 @@ class TestHTTPWriteTask:
                         name="Setpoint",
                     ),
                     fields=[
-                        sy.http.WriteFieldStatic(
+                        sy.http.StaticWriteField(
                             type="static",
                             key="sf-1",
                             pointer="/source",
