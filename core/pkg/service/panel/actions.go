@@ -182,24 +182,28 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 	if !ok {
 		return Panel{}, errTabNotFound
 	}
-	if err := updateLeafAt(&state.Root, targetLeaf, func(leaf LeafNode) (LeafNode, error) {
-		idx := len(leaf.Tabs)
-		if p.Index != nil {
-			idx = int(*p.Index)
-			if srcLeaf == targetLeaf && srcIdx < idx {
-				idx--
+	if err := updateLeafAt(
+		&state.Root,
+		targetLeaf,
+		func(leaf LeafNode) (LeafNode, error) {
+			idx := len(leaf.Tabs)
+			if p.Index != nil {
+				idx = int(*p.Index)
+				if srcLeaf == targetLeaf && srcIdx < idx {
+					idx--
+				}
 			}
-		}
-		if idx < 0 || idx > len(leaf.Tabs) {
-			return LeafNode{}, errIndexOutOfRange
-		}
-		tabs := make([]Tab, 0, len(leaf.Tabs)+1)
-		tabs = append(tabs, leaf.Tabs[:idx]...)
-		tabs = append(tabs, removed)
-		tabs = append(tabs, leaf.Tabs[idx:]...)
-		leaf.Tabs = tabs
-		return leaf, nil
-	}); err != nil {
+			if idx < 0 || idx > len(leaf.Tabs) {
+				return LeafNode{}, errIndexOutOfRange
+			}
+			tabs := make([]Tab, 0, len(leaf.Tabs)+1)
+			tabs = append(tabs, leaf.Tabs[:idx]...)
+			tabs = append(tabs, removed)
+			tabs = append(tabs, leaf.Tabs[idx:]...)
+			leaf.Tabs = tabs
+			return leaf, nil
+		},
+	); err != nil {
 		return Panel{}, err
 	}
 	collapseEmptyLeaves(&state.Root)
