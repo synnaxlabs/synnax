@@ -331,7 +331,9 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
       description="This window references a panel that no longer exists."
     >
       {panelKey != null && (
-        <Button.Button onClick={() => dispatch(Session.Panel.remove(panelKey))}>
+        <Button.Button
+          onClick={() => dispatch(Session.Panel.remove({ keys: panelKey }))}
+        >
           Close
         </Button.Button>
       )}
