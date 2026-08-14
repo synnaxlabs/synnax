@@ -11,10 +11,9 @@ package v0
 
 import "github.com/vmihailenco/msgpack/v5"
 
-// DecodeMsgpack implements msgpack.CustomDecoder for rows stored before Orc
-// encoding. Released rows nest the compiled output under the embedded
-// compiler.Output field name "Output"; the oldest rows key its fields by Go
-// field name instead of msgpack tag.
+// DecodeMsgpack implements msgpack.CustomDecoder for rows stored before Orc encoding.
+// Released rows nest the compiled output under the embedded compiler.Output field name
+// "Output"; the oldest rows key its fields by Go field name instead of msgpack tag.
 func (p *Program) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Program
 	raw, err := dec.DecodeRaw()

@@ -17,9 +17,9 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Released rows nest the compiled output under the embedded compiler.Output field
-// name "Output", because its custom decoder blocks msgpack inlining. The mirrors
-// below reproduce those bytes with explicit named fields.
+// Released rows nest the compiled output under the embedded compiler.Output field name
+// "Output", because its custom decoder blocks msgpack inlining. The mirrors below
+// reproduce those bytes with explicit named fields.
 var _ = Describe("Legacy msgpack decode", func() {
 	It("Should decode a main-era row nesting tagged output", func() {
 		type output struct {
