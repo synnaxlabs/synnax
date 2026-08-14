@@ -168,9 +168,9 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         std::vector<channel::OutputCoil> coils;
         std::vector<channel::OutputHoldingRegister> registers;
         cfg.iter("channels", [&](x::json::Parser &ch) {
-            const auto parsed = ::synnax::modbus::parse_output_channel(ch);
+            const auto parsed = ::synnax::modbus::parse_write_channel(ch);
             const auto &base = std::visit(
-                [](const auto &c) -> const ::synnax::modbus::BaseOutputChannel & {
+                [](const auto &c) -> const ::synnax::modbus::BaseWriteChannel & {
                     return c;
                 },
                 parsed
@@ -179,11 +179,11 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             if (base.channel == 0)
                 return ch.field_err("channel", "channel must be specified");
             if (const auto *c = std::get_if<
-                    ::synnax::modbus::OutputChannelHoldingRegisterOutput>(&parsed))
+                    ::synnax::modbus::HoldingRegisterWriteChannel>(&parsed))
                 registers.emplace_back(*c);
             else
                 coils.emplace_back(
-                    std::get<::synnax::modbus::OutputChannelCoilOutput>(parsed)
+                    std::get<::synnax::modbus::CoilWriteChannel>(parsed)
                 );
         });
         if (!coils.empty())

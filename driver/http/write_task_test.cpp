@@ -32,9 +32,9 @@
 #include "driver/http/write_task.h"
 
 namespace driver::http {
+using ::synnax::http::GeneratedWriteField;
+using ::synnax::http::StaticWriteField;
 using ::synnax::http::WriteEndpoint;
-using ::synnax::http::WriteFieldGenerated;
-using ::synnax::http::WriteFieldStatic;
 
 namespace {
 /// @brief helper to build a WriteTaskSink from config and a mock server URL.
@@ -523,7 +523,7 @@ TEST(HTTPWriteTask, StaticFields) {
     ep.channel.pointer = "/value";
     ep.channel.json_type = "number";
     ep.channel.channel = 1;
-    WriteFieldStatic device_field;
+    StaticWriteField device_field;
     device_field.pointer = "/device_id";
     device_field.value = "sensor-01";
     ep.fields = {device_field};
@@ -570,7 +570,7 @@ TEST(HTTPWriteTask, GeneratedUUIDField) {
     ep.channel.pointer = "/value";
     ep.channel.json_type = "number";
     ep.channel.channel = 1;
-    WriteFieldGenerated request_id_field;
+    GeneratedWriteField request_id_field;
     request_id_field.pointer = "/request_id";
     request_id_field.generator = "uuid";
     ep.fields = {request_id_field};
@@ -1325,7 +1325,7 @@ TEST(HTTPWriteTask, GeneratedTimestampField) {
     ep.channel.pointer = "/value";
     ep.channel.json_type = "number";
     ep.channel.channel = 1;
-    WriteFieldGenerated created_at_field;
+    GeneratedWriteField created_at_field;
     created_at_field.pointer = "/created_at";
     created_at_field.generator = "timestamp";
     created_at_field.time_format = "iso8601";
@@ -1377,10 +1377,10 @@ TEST(HTTPWriteTask, DeeplyNestedPointer) {
     ep.channel.pointer = "/payload/sensors/temperature/reading";
     ep.channel.json_type = "number";
     ep.channel.channel = 1;
-    WriteFieldStatic unit_field;
+    StaticWriteField unit_field;
     unit_field.pointer = "/payload/sensors/temperature/unit";
     unit_field.value = "celsius";
-    WriteFieldStatic source_field;
+    StaticWriteField source_field;
     source_field.pointer = "/metadata/source";
     source_field.value = "driver";
     ep.fields = {unit_field, source_field};

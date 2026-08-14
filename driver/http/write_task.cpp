@@ -96,10 +96,10 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
         for (const auto &field: ep.fields) {
             const std::string *pointer = nullptr;
-            if (const auto *sf = std::get_if<::synnax::http::WriteFieldStatic>(&field))
+            if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(&field))
                 pointer = &sf->pointer;
             else if (
-                const auto *gf = std::get_if<::synnax::http::WriteFieldGenerated>(
+                const auto *gf = std::get_if<::synnax::http::GeneratedWriteField>(
                     &field
                 )
             ) {
@@ -218,7 +218,7 @@ WriteTaskSink::WriteTaskSink(
         for (const auto &entry: ep.channel.enum_values)
             state.enum_values.emplace(x::json::json(entry.value), entry.label);
         for (const auto &field: ep.fields)
-            if (const auto *sf = std::get_if<::synnax::http::WriteFieldStatic>(
+            if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(
                     &field
                 )) {
                 StaticField state_field;
@@ -226,7 +226,7 @@ WriteTaskSink::WriteTaskSink(
                 state_field.value = sf->value;
                 state.static_fields.push_back(std::move(state_field));
             } else if (
-                const auto *gf = std::get_if<::synnax::http::WriteFieldGenerated>(
+                const auto *gf = std::get_if<::synnax::http::GeneratedWriteField>(
                     &field
                 )
             ) {

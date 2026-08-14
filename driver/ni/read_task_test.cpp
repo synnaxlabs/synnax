@@ -565,7 +565,6 @@ protected:
             {"device", dev.key},
             {"channels",
              x::json::json::array({{
-                 {"type", "digital_input"},
                  {"key", "hCzuNC9glqc"},
                  {"port", 0},
                  {"disabled", false},

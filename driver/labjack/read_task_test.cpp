@@ -19,13 +19,13 @@
 
 namespace driver::labjack {
 /// @brief it should parse analog input channel configuration.
-TEST(TestInputChannelParse, testAIChan) {
+TEST(TestReadChannelParse, testAIChan) {
     const x::json::json cfg{
         {"port", "AIN0"},
         {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 1},
-        {"type", "AI"},
+        {"type", "analog"},
         {"range", 5},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}}
     };
@@ -41,13 +41,13 @@ TEST(TestInputChannelParse, testAIChan) {
 }
 
 /// @brief it should parse digital input channel configuration.
-TEST(TestInputChannelParse, testDIChan) {
+TEST(TestReadChannelParse, testDIChan) {
     const x::json::json cfg{
         {"port", "DIO0"},
         {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 1},
-        {"type", "DI"}
+        {"type", "digital"}
     };
     auto p = x::json::Parser(cfg);
     const auto chan = parse_input_chan(p);
@@ -60,13 +60,13 @@ TEST(TestInputChannelParse, testDIChan) {
 }
 
 /// @brief it should parse thermocouple channel configuration.
-TEST(TestInputChannelParse, testTCChan) {
+TEST(TestReadChannelParse, testTCChan) {
     const x::json::json cfg{
         {"port", "AIN0"},
         {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 0},
-        {"type", "TC"},
+        {"type", "thermocouple"},
         {"range", 0},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
         {"thermocouple_type", "K"},
@@ -95,7 +95,7 @@ TEST(TestInputChannelParse, testTCChan) {
 }
 
 /// @brief it should reject invalid channel type in configuration.
-TEST(TestInputChannelParse, testInvalidChannelType) {
+TEST(TestReadChannelParse, testInvalidChannelType) {
     const x::json::json cfg{
         {"port", "AIN0"},
         {"disabled", false},
@@ -165,7 +165,7 @@ x::json::json basic_read_task_config() {
                {"disabled", false},
                {"key", "8hYJO9zt6eS"},
                {"channel", 0},
-               {"type", "TC"},
+               {"type", "thermocouple"},
                {"range", 0},
                {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
                {"thermocouple_type", "K"},
@@ -179,12 +179,12 @@ x::json::json basic_read_task_config() {
                {"disabled", false},
                {"key", "DYFpBBDlpRt"},
                {"channel", 0},
-               {"type", "DI"}},
+               {"type", "digital"}},
               {{"port", "AIN6"},
                {"disabled", false},
                {"key", "rHb0YjmhUq3"},
                {"channel", 0},
-               {"type", "AI"},
+               {"type", "analog"},
                {"range", 0},
                {"scale", {{"type", "none"}}}}}
          )}
@@ -329,7 +329,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
           {"disabled", false},
           {"key", "8hYJO9zt6eS"},
           {"channel", ch.key},
-          {"type", "AI"},
+          {"type", "analog"},
           {"range", 5},
           {"scale", {{"type", "none"}}}}}
     );

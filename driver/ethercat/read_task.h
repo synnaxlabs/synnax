@@ -69,7 +69,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         std::string first_network;
 
         cfg.iter("channels", [&](x::json::Parser &ch) {
-            const auto parsed = ::synnax::ethercat::parse_input_channel(ch);
+            const auto parsed = ::synnax::ethercat::parse_read_channel(ch);
             if (ch.error()) return;
             const auto &slave_key = channel::base(parsed).device;
             if (!slave_cache.contains(slave_key)) {
