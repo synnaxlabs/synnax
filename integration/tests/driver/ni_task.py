@@ -167,7 +167,7 @@ class NIAnalogReadTaskCase(_NIReadTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIChan]: ...
+    ) -> list[sy.ni.AIChannel]: ...
 
 
 class NIDigitalReadTaskCase(_NIReadTaskBase):
@@ -179,7 +179,7 @@ class NIDigitalReadTaskCase(_NIReadTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.DIChan]: ...
+    ) -> list[sy.ni.DIChannel]: ...
 
 
 class NICounterReadTaskCase(_NIReadTaskBase):
@@ -191,7 +191,7 @@ class NICounterReadTaskCase(_NIReadTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.CIChan]: ...
+    ) -> list[sy.ni.CIChannel]: ...
 
 
 class NIAnalogWriteTaskCase(_NIWriteTaskBase):
@@ -203,7 +203,7 @@ class NIAnalogWriteTaskCase(_NIWriteTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AOChan]: ...
+    ) -> list[sy.ni.AOChannel]: ...
 
 
 class NIDigitalWriteTaskCase(_NIWriteTaskBase):
@@ -215,4 +215,4 @@ class NIDigitalWriteTaskCase(_NIWriteTaskBase):
     @abstractmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.DOChan]: ...
+    ) -> list[sy.ni.DOChannel]: ...

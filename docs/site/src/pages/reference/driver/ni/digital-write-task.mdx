@@ -155,19 +155,19 @@ task = ni.DigitalWriteTask(
     state_rate=sy.Rate.HZ * 20,
     data_saving=True,
     channels=[
-        ni.DOChan(
+        ni.DOChannel(
             cmd_channel=do_0_0_cmd.key,
             state_channel=do_0_0_state.key,
             port=0,
             line=0,
         ),
-        ni.DOChan(
+        ni.DOChannel(
             cmd_channel=do_0_1_cmd.key,
             state_channel=do_0_1_state.key,
             port=0,
             line=1,
         ),
-        ni.DOChan(
+        ni.DOChannel(
             cmd_channel=do_1_0_cmd.key,
             state_channel=do_1_0_state.key,
             port=1,
@@ -315,21 +315,18 @@ const task = await client.tasks.create({
     data_saving: true,
     channels: [
       {
-        type: "digital_output",
         cmd_channel: do00Cmd.key,
         state_channel: do00State.key,
         port: 0,
         line: 0,
       },
       {
-        type: "digital_output",
         cmd_channel: do01Cmd.key,
         state_channel: do01State.key,
         port: 0,
         line: 1,
       },
       {
-        type: "digital_output",
         cmd_channel: do10Cmd.key,
         state_channel: do10State.key,
         port: 1,

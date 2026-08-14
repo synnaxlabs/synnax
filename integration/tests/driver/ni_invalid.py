@@ -60,7 +60,7 @@ class NIInvalidConfig(TestCase):
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
             channels=[
-                sy.ni.AIVoltageChan(
+                sy.ni.AIVoltageChannel(
                     port=99,
                     channel=create_channel(
                         self.client,
@@ -86,7 +86,7 @@ class NIInvalidConfig(TestCase):
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
             channels=[
-                sy.ni.AIRTDChan(
+                sy.ni.AIRTDChannel(
                     port=0,
                     channel=create_channel(
                         self.client,
@@ -117,7 +117,7 @@ class NIInvalidConfig(TestCase):
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
             channels=[
-                sy.ni.AIVoltageChan(
+                sy.ni.AIVoltageChannel(
                     port=0,
                     channel=create_channel(
                         self.client,
@@ -151,7 +151,7 @@ class NIInvalidConfig(TestCase):
                 sample_rate=100 * sy.Rate.HZ,
                 stream_rate=25 * sy.Rate.HZ,
                 channels=[
-                    sy.ni.AIVoltageChan(
+                    sy.ni.AIVoltageChannel(
                         port=0,
                         channel=shared_ch_key,
                         terminal_config="Cfg_Default",
@@ -217,7 +217,7 @@ class NIMissingLibraries(TestCase):
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
             channels=[
-                sy.ni.AIVoltageChan(
+                sy.ni.AIVoltageChannel(
                     port=0,
                     channel=ch_key,
                     terminal_config="Cfg_Default",

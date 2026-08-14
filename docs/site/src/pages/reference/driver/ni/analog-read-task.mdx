@@ -323,9 +323,7 @@ For task lifecycle management, see the
 | `max_val`           | number | No       | `100`   | Maximum temperature                                               |
 | `units`             | enum   | No       | `DegC`  | `DegC`, `DegF`, `Kelvins`, `DegR`                                 |
 | `thermocouple_type` | enum   | Yes      | -       | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`                            |
-| `cjc_source`        | enum   | Yes      | -       | Cold junction compensation source (`BuiltIn`, `ConstVal`, `Chan`) |
-| `cjc_val`           | number | No       | -       | Cold junction temperature (if `cjc_source` is `ConstVal`)         |
-| `cjc_port`          | number | No       | -       | Cold junction port (if `cjc_source` is `Chan`)                    |
+| `cjc`               | object | No       | built-in sensor | Cold junction compensation. One of `{"source": "built_in"}`, `{"source": "const_val", "val": <temp>}`, or `{"source": "chan", "port": <port>}` |
 | `custom_scale`      | object | No       | -       | Custom scaling                                                    |
 
 </ChannelType>
@@ -488,7 +486,7 @@ task = ni.AnalogReadTask(
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
     channels=[
-        ni.AIVoltageChan(
+        ni.AIVoltageChannel(
             channel=voltage_chan.key,
             device=v_dev.key,
             port=0,
@@ -496,7 +494,7 @@ task = ni.AnalogReadTask(
             max_val=10.0,
             terminal_config="Diff",
         ),
-        ni.AICurrentChan(
+        ni.AICurrentChannel(
             channel=current_chan.key,
             device=c_dev.key,
             port=0,
@@ -505,15 +503,13 @@ task = ni.AnalogReadTask(
             shunt_resistor_loc="Internal",
             ext_shunt_resistor_val=249.0,
         ),
-        ni.AIThermocoupleChan(
+        ni.AIThermocoupleChannel(
             channel=temp_chan.key,
             device=tc_dev.key,
             port=0,
             units="DegC",
             thermocouple_type="J",
-            cjc_source="BuiltIn",
-            cjc_val=None,
-            cjc_port=None,
+            cjc=ni.BuiltInCJC(),
         ),
     ],
 )
@@ -643,9 +639,7 @@ const task = await client.tasks.create({
         port: 0,
         units: "DegC",
         thermocouple_type: "J",
-        cjc_source: "BuiltIn",
-        cjc_val: null,
-        cjc_port: null,
+        cjc: { source: "built_in" },
       },
     ],
   }),
