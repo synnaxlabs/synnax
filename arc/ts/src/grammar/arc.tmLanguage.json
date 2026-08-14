@@ -9,6 +9,9 @@
       "include": "#for-statement"
     },
     {
+      "include": "#declarations"
+    },
+    {
       "include": "#keywords"
     },
     {
@@ -30,7 +33,7 @@
       "include": "#functions"
     },
     {
-      "include": "#tasks"
+      "include": "#invocations"
     },
     {
       "include": "#identifiers"
@@ -251,7 +254,7 @@
         }
       ]
     },
-    "tasks": {
+    "declarations": {
       "patterns": [
         {
           "name": "meta.sequence.definition.arc",
@@ -288,10 +291,14 @@
               "include": "$self"
             }
           ]
-        },
+        }
+      ]
+    },
+    "invocations": {
+      "patterns": [
         {
           "name": "meta.stage.invocation.arc",
-          "begin": "\\b(?!(?:i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str|series|chan|if|else|return|func|sequence|stage)\\b)(\\w+)\\s*\\{",
+          "begin": "\\b(?!(?:i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str|series|chan|if|else|return|func|sequence|stage)\\b)(\\w+)\\{",
           "beginCaptures": {
             "1": {
               "name": "entity.name.function.arc"
