@@ -8,9 +8,8 @@ next: "`math`"
 nextURL: "/reference/control/arc/reference/standard-library/math"
 ---
 
-import { Icon, Text } from "@synnaxlabs/pluto";
-import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Params from "@/components/params/Params.astro";
 
 export const components = mdxOverrides;
 
@@ -22,17 +21,27 @@ promote or release writes that target shared channels.
 Dynamically changes the control authority of write channels at runtime. Higher authority
 values take priority, and setting the authority to `0` releases control.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
-
-| Parameter | Type   | Required | Description                                                                                         |
-| --------- | ------ | -------- | --------------------------------------------------------------------------------------------------- |
-| `value`   | `u8`   | Yes      | The authority level, `0`-`255`. Higher values take priority; `0` releases control.                  |
-| `channel` | `chan` | No       | The write channel to target. If omitted, the change applies to all of the program's write channels. |
-
-**Output** none: changes authority as a side effect and emits no value.
-
-</Details>
+<Params
+  fn="control.set_authority"
+  params={[
+    {
+      name: "value",
+      type: "u8",
+      required: true,
+      description:
+        "Authority level `0`-`255`. Higher values take priority; `0` releases control.",
+    },
+    {
+      name: "channel",
+      type: "chan",
+      description:
+        "The write channel to target. If omitted, applies to all write channels.",
+    },
+  ]}
+  output={{
+    description: "None; changes authority as a side effect and emits no value.",
+  }}
+/>
 
 ```arc
 // `flow` only
