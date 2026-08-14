@@ -302,6 +302,17 @@
     "declarations": {
       "patterns": [
         {
+          "match": "\\b(func)\\s+([a-zA-Z_]\\w*)",
+          "captures": {
+            "1": {
+              "name": "keyword.other.arc"
+            },
+            "2": {
+              "name": "entity.name.function.arc"
+            }
+          }
+        },
+        {
           "name": "meta.sequence.definition.arc",
           "begin": "\\b(sequence)\\s+(\\w+)\\s*\\{",
           "beginCaptures": {

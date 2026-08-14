@@ -25,15 +25,13 @@ export const theme = createCssVariablesTheme({ variablePrefix: "--astro-code-" }
 theme.tokenColors = [...(theme.tokenColors ?? []), ...arcRules];
 
 const VARIABLE_COLOR = color(tokens.variable);
-// Stage and sequence names take the function color, as the analyzer reports them as
-// functions.
+// The analyzer reports stage and sequence names as functions.
 const ROLES = { channels: color(tokens.channel), bodies: color(tokens.function) };
 const ROLES_META = new RegExp(`(${Object.keys(ROLES).join("|")})="([^"]*)"`, "g");
 
 /**
- * Experimental. Colors the identifiers named in a fence's `channels="a, b"` metadata as
- * channels, and those in `bodies="c, d"` as stage or sequence names. The grammar cannot
- * tell either from a plain variable, so the author declares them.
+ * Colors the identifiers in a fence's `channels="a, b"` metadata as channels, and those
+ * in `bodies="c, d"` as stage or sequence names.
  */
 export const symbols: ShikiTransformer = {
   name: "arc-symbols",
@@ -47,8 +45,8 @@ export const symbols: ShikiTransformer = {
         .filter(Boolean)
         .forEach((name) => declared.set(name, ROLES[role as keyof typeof ROLES]));
     if (declared.size === 0) return;
-    // Shiki emits `a=pressure_1` as one token, since a run of same-colored tokens is
-    // merged. Split the run at every name so each gets its own color.
+    // Shiki merges runs of same-colored tokens, so `a=pressure_1` arrives whole. Split
+    // it at every declared name.
     const pattern = new RegExp(`\\b(?:${[...declared.keys()].join("|")})\\b`, "g");
     const breaks = [...this.source.matchAll(pattern)].flatMap(({ 0: name, index }) => [
       index,

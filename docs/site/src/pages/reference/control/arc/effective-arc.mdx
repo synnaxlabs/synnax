@@ -63,18 +63,12 @@ matches operator intent.
 Each stage should do one thing. Split complex operations:
 
 ```arc
-/* Good: clear purpose for each stage */
-
-// check sensors
-stage verify_sensors {}
-
-// bring to pressure
+// Good: clear purpose for each stage
+stage check_sensors {}
 stage pressurize {}
-
-// maintain pressure
 stage hold {}
 
-/* Avoid: one stage trying to do everything */
+// Avoid: one stage trying to do everything
 stage do_everything {
     // 50 lines of mixed logic
 }
@@ -86,7 +80,7 @@ Stages are for steps that need to watch multiple conditions at once: a success c
 with safety monitoring, or a control loop that runs while a timeout counts down. If a
 step is just a write or a wait, make it a sequence item directly:
 
-```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure"
+```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure", bodies="abort"
 // Good: the linear part is linear, stages exist only where they earn their keep
 sequence prime {
     0 -> vent_vlv_cmd
