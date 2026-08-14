@@ -7,10 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createEvent, fireEvent } from "@testing-library/react";
-import { type DragEvent } from "react";
+import { Haul } from "@synnaxlabs/pluto";
+import { act, createEvent, fireEvent, screen } from "@testing-library/react";
+import { type DragEvent, type ReactElement } from "react";
 
 import { type FileIngesterContext } from "@/platform/import/ingester";
+
+const START_FILE_DRAG = "start file drag";
+
+/**
+ * Renders a button that puts an OS file haul in flight, the way the window chrome
+ * does on dragover in production (app/window/Window.tsx). Render it beside the drop
+ * target, inside the same Haul provider.
+ */
+export const FileDragSource = (): ReactElement => {
+  const { startDrag } = Haul.useDrag({ type: "os-file", key: "os-file" });
+  return <button onClick={() => startDrag([Haul.FILE])}>{START_FILE_DRAG}</button>;
+};
+
+/** Starts the file haul a rendered {@link FileDragSource} provides. */
+export const startFileDrag = (): void => {
+  act(() => {
+    fireEvent.click(screen.getByText(START_FILE_DRAG));
+  });
+};
 
 /**
  * Builds a FileIngesterContext with no connected cluster. Merge overrides over it for

@@ -27,6 +27,7 @@ import {
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
+import { Session } from "@/session";
 import { CaptureStatuses } from "@/testutil";
 
 const client = createTestClient();
@@ -55,7 +56,7 @@ const renderFileDrop = async ({
   panelKey,
   onStatuses,
 }: RenderParams = {}) => {
-  const { wrapper: Console } = await createPanelWrapper({ client, panelKey });
+  const { wrapper: Console, store } = await createPanelWrapper({ client, panelKey });
   if (panelKey != null) await primePanel(Console, panelKey);
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -65,7 +66,10 @@ const renderFileDrop = async ({
       </Import.FileIngestersProvider>
     </Console>
   );
-  return renderHook(() => Import.useFileDrop({ ingestDirectory }), { wrapper });
+  return {
+    ...renderHook(() => Import.useFileDrop({ ingestDirectory }), { wrapper }),
+    store,
+  };
 };
 
 describe("Import.useFileDrop", () => {
@@ -146,6 +150,31 @@ describe("Import.useFileDrop", () => {
     await act(async () => {});
     expect(log).not.toHaveBeenCalled();
     expect(statuses).toHaveLength(0);
+  });
+
+  // The no-panel state reports a drop with no leaf. Placing it would resolve
+  // against a mosaic that does not exist, so the tabs open in a created panel.
+  it("opens the tabs in a new panel when the drop carries no leaf", async () => {
+    const key = uuid.create();
+    const log = vi.fn(async () => clientLog.ontologyID(key));
+    const { result, store } = await renderFileDrop({ fileIngesters: { log } });
+    act(() =>
+      result.current({
+        event: fakeFileDropEvent([
+          fakeFileEntry(createJSONFile("a.json", { type: "log" })),
+        ]),
+      }),
+    );
+    await waitFor(() => expect(log).toHaveBeenCalledTimes(1));
+    const panelKey = await waitFor(() => {
+      const selected = Session.Panel.selectSelected(store.getState());
+      if (selected == null) throw new Error("no panel created for the drop");
+      return selected;
+    });
+    await waitFor(async () => {
+      const { root } = await client.panels.retrieve(panelKey);
+      expect(resourceKeys(leaf(root))).toEqual([key]);
+    });
   });
 
   it("splits the leaf once and fills the new half with every dropped file", async () => {

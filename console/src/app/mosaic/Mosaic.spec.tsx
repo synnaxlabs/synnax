@@ -10,7 +10,7 @@
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul, Icon, Text } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { act, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -19,7 +19,9 @@ import { Import } from "@/platform/import";
 import {
   createJSONFile,
   fakeFileEntry,
+  FileDragSource,
   fireFileDrop,
+  startFileDrag,
 } from "@/platform/import/testutil";
 import { Panel } from "@/platform/panel";
 import {
@@ -38,13 +40,6 @@ const SeedIcon: Panel.TabIcon = () => <Icon.Visualize />;
 
 const REGISTRY: Panel.Tabs = {
   seed: { Content: SeedContent, Name: SeedName, Icon: SeedIcon },
-};
-
-// The window chrome starts this drag when an OS file enters the window
-// (app/window/Window.tsx). Without it the mosaic's drop target rejects files.
-const StartFileDrag = (): ReactElement => {
-  const { startDrag } = Haul.useDrag({ type: "os-file", key: "os-file" });
-  return <button onClick={() => startDrag([Haul.FILE])}>start file drag</button>;
 };
 
 describe("Mosaic file drop", () => {
@@ -70,13 +65,13 @@ describe("Mosaic file drop", () => {
     );
     await renderSuspended(
       <>
-        <StartFileDrag />
+        <FileDragSource />
         <Mosaic.Mosaic />
       </>,
       { wrapper: Harness },
     );
     await screen.findByText("seed content");
-    act(() => screen.getByText("start file drag").click());
+    startFileDrag();
     fireFileDrop(getMosaicLeaf(), [
       fakeFileEntry(createJSONFile("widget.json", { type: "log", key: "abc" })),
     ]);

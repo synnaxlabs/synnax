@@ -93,21 +93,31 @@ export interface UseFileDropParams {
 }
 
 /**
- * Returns a mosaic file drop handler that imports every dropped JSON file and directory
+ * A drop the mosaic reports, or one with no leaf to place into: the Console has no
+ * panel open, so the tabs open in a panel created for them.
+ */
+export interface FileDropProps extends Partial<Mosaic.OnFileDropProps> {
+  event: Mosaic.OnFileDropProps["event"];
+}
+
+export type FileDrop = (props: FileDropProps) => void;
+
+/**
+ * Returns a file drop handler that imports every dropped JSON file and directory
  * concurrently, then opens the resources they created as one batch of tabs in the leaf
  * the drop landed on. A file that fails is reported on its own.
  */
-export const useFileDrop = ({
-  ingestDirectory,
-}: UseFileDropParams): ((props: Mosaic.OnFileDropProps) => void) => {
+export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop => {
   const client = Synnax.use();
   const store = Session.useStore();
   const openTabs = Panel.useOpenTabs();
   const handleError = Status.useErrorHandler();
   const fileIngesters = useFileIngesters();
   return useCallback(
-    ({ nodeKey, location, event }: Mosaic.OnFileDropProps) => {
+    ({ nodeKey, location, event }: FileDropProps) => {
       const entries = captureEntries(event.dataTransfer);
+      const placement =
+        nodeKey != null && location != null ? { leaf: nodeKey, location } : undefined;
       handleError(async () => {
         const ids = await Promise.all(
           entries.map(async (entry) => {
@@ -123,7 +133,7 @@ export const useFileDrop = ({
             }
           }),
         );
-        openTabs(resourceTabs(ids), { placement: { leaf: nodeKey, location } });
+        openTabs(resourceTabs(ids), { placement });
       });
     },
     [client, fileIngesters, ingestDirectory, openTabs, store, handleError],

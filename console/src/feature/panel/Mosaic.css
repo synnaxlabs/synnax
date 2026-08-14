@@ -14,6 +14,12 @@
     box-shadow: var(--pluto-shadow-lift);
 }
 
+/* Matches the mask a leaf draws for a file drop, so the no-panel state reads as the
+   same target. */
+.console-mosaic--drop-over {
+    background: var(--pluto-gray-l7-30) !important;
+}
+
 .console-mosaic__empty-content {
     transform: translateY(-4%);
 
