@@ -235,7 +235,7 @@ describe("Panel.Mosaic keep-alive", () => {
     await waitFor(() => expect(screen.getByText(`content-${b.key}`)).toBeTruthy());
 
     act(() => {
-      store.dispatch(Session.Panel.remove(a.key));
+      store.dispatch(Session.Panel.remove({ keys: a.key }));
     });
     await waitFor(() => expect(unmounts).toEqual([a.key]));
     expect(screen.getByText(`content-${b.key}`)).toBeTruthy();

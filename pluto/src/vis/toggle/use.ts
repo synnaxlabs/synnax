@@ -16,21 +16,26 @@ import { toggle } from "@/vis/toggle/aether";
 
 export interface UseProps extends Pick<
   z.input<typeof toggle.toggleStateZ>,
-  "source" | "sink"
+  "source" | "sink" | "stalenessTimeout"
 > {
   aetherKey: string;
 }
 
 export interface UseReturn extends Pick<
   z.infer<typeof toggle.toggleStateZ>,
-  "enabled"
+  "enabled" | "stale"
 > {
   toggle: () => void;
 }
 
-export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqual({ source, sink });
-  const [, { enabled }, setState, methods] = Aether.use({
+export const use = ({
+  aetherKey,
+  source,
+  sink,
+  stalenessTimeout,
+}: UseProps): UseReturn => {
+  const memoProps = useMemoDeepEqual({ source, sink, stalenessTimeout });
+  const [, { enabled, stale }, setState, methods] = Aether.use({
     aetherKey,
     type: toggle.Toggle.TYPE,
     schema: toggle.toggleStateZ,
@@ -42,5 +47,5 @@ export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
   }, [memoProps, setState]);
   // Wrap to prevent React event from being passed as argument
   const handleToggle = useCallback(() => methods.toggle(), [methods.toggle]);
-  return { toggle: handleToggle, enabled };
+  return { toggle: handleToggle, enabled, stale };
 };
