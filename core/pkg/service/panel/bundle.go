@@ -37,7 +37,7 @@ type bundleTabResource struct {
 // bundleTabResource for a resource.
 type bundleLeaf struct {
 	Variant NodeType `json:"variant"`
-	Tabs    []any    `json:"tabs,omitzero"`
+	Tabs    []any    `json:"tabs"`
 }
 
 // bundleSplit is the bundle wire form of a split node.
@@ -103,7 +103,7 @@ func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 func bundleNode(n Node, refs map[ontology.ID]string) (any, error) {
 	switch v := n.Variant.(type) {
 	case NodeLeaf:
-		var tabs []any
+		tabs := make([]any, 0, len(v.Tabs))
 		for _, t := range v.Tabs {
 			r, ok := t.Variant.(TabResource)
 			if !ok {
