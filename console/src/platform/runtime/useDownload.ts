@@ -82,7 +82,7 @@ export const useDownload = (): ((params: DownloadParams) => Promise<void>) => {
           // cancel unconditionally. After a pipeTo failure the stream is locked and
           // this cancel rejects; ignoring it is correct because pipeTo has already
           // cancelled the source.
-          await stream.cancel().catch(() => {});
+          await stream.cancel().catch(console.error);
           if (error instanceof DOMException && error.name === "AbortError") return;
           throw errors.fromUnknown(error);
         }
