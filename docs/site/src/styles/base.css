@@ -18,6 +18,7 @@
 
 html {
     background: var(--pluto-gray-l0);
+    color-scheme: light dark;
 }
 
 :root {
