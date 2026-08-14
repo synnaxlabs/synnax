@@ -321,7 +321,7 @@ WriteConfig struct extends task.BaseStartConfig {
 }
 
 ScanConfig struct extends task.BaseScanConfig {
-    @doc value  "configures an HTTP scan task, which carries no settings."
+    @doc value  "configures an HTTP scan task."
     @go version 2
     @go marshal
     @go migrate

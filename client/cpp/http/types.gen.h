@@ -104,7 +104,7 @@ struct BaseWriteField {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ScanConfig configures an HTTP scan task, which carries no settings.
+/// @brief ScanConfig configures an HTTP scan task.
 struct ScanConfig : public ::synnax::task::config::BaseScan {
 
     static ScanConfig parse(x::json::Parser parser);
