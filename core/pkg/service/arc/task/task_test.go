@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -476,8 +477,10 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-auto-start",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						ArcKey:    uuid.New(),
-						AutoStart: true,
+						BasePersistConfig: common.BasePersistConfig{
+							BaseStartConfig: common.BaseStartConfig{AutoStart: true},
+						},
+						ArcKey: uuid.New(),
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
@@ -509,8 +512,10 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-silent-stop",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						ArcKey:    uuid.New(),
-						AutoStart: true,
+						BasePersistConfig: common.BasePersistConfig{
+							BaseStartConfig: common.BaseStartConfig{AutoStart: true},
+						},
+						ArcKey: uuid.New(),
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
@@ -592,8 +597,10 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-boot-auto-start-failure",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						ArcKey:    uuid.New(),
-						AutoStart: true,
+						BasePersistConfig: common.BasePersistConfig{
+							BaseStartConfig: common.BaseStartConfig{AutoStart: true},
+						},
+						ArcKey: uuid.New(),
 					}),
 				}
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
@@ -647,8 +654,10 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "test-boot-auto-start",
 				Type: arctask.Type,
 				Config: configToMap(arctask.Config{
-					ArcKey:    uuid.New(),
-					AutoStart: true,
+					BasePersistConfig: common.BasePersistConfig{
+						BaseStartConfig: common.BaseStartConfig{AutoStart: true},
+					},
+					ArcKey: uuid.New(),
 				}),
 			}
 			t := MustSucceed(newGraphFactory(

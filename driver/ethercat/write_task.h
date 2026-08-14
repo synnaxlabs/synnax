@@ -24,7 +24,7 @@
 
 namespace driver::ethercat {
 /// @brief configuration for EtherCAT write tasks.
-struct WriteTaskConfig : ::synnax::task::common::BaseStartConfig {
+struct WriteTaskConfig : ::synnax::task::common::BasePersistConfig {
     /// @brief network interface name for the EtherCAT master.
     /// Dynamically populated from device properties.
     std::string interface_name;
@@ -44,7 +44,7 @@ struct WriteTaskConfig : ::synnax::task::common::BaseStartConfig {
     std::unordered_map<std::string, slave::Properties> device_cache;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        ::synnax::task::common::BaseStartConfig(std::move(other)),
+        ::synnax::task::common::BasePersistConfig(std::move(other)),
         interface_name(std::move(other.interface_name)),
         channels(std::move(other.channels)),
         state_channels(std::move(other.state_channels)),
@@ -60,8 +60,8 @@ struct WriteTaskConfig : ::synnax::task::common::BaseStartConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg
     ):
-        ::synnax::task::common::BaseStartConfig(
-            ::synnax::task::common::BaseStartConfig::parse(cfg)
+        ::synnax::task::common::BasePersistConfig(
+            ::synnax::task::common::BasePersistConfig::parse(cfg)
         ),
         state_rate(x::telem::Rate(cfg.field<float>("state_rate", 1.0f))),
         execution_rate(x::telem::Rate(cfg.field<float>("execution_rate", 1000.0f))) {

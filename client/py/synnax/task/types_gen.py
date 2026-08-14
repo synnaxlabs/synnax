@@ -26,15 +26,13 @@ Key: TypeAlias = UUID
 
 
 class BaseStartConfig(BaseModel):
-    """Carries the configuration fields shared by every hardware task.
+    """Carries the configuration fields shared by every task.
 
     Attributes:
         auto_start: Is true when the task should start as soon as it is configured.
-        data_saving_disabled: Is true when task telemetry is not persisted to disk.
     """
 
     auto_start: bool = False
-    data_saving_disabled: bool = False
 
 
 class StatusDetails(BaseModel):
@@ -78,7 +76,20 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
-class BaseReadConfig(BaseStartConfig):
+class BasePersistConfig(BaseStartConfig):
+    """Carries the configuration fields shared by tasks that write telemetry.
+
+    Attributes:
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+    """
+
+    data_saving_disabled: bool = False
+
+
+Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class BaseReadConfig(BasePersistConfig):
     """Carries the configuration fields shared by hardware acquisition tasks.
 
     Attributes:
@@ -90,7 +101,7 @@ class BaseReadConfig(BaseStartConfig):
     stream_rate: telem.Rate = telem.Rate(5)
 
 
-class BaseWriteConfig(BaseStartConfig):
+class BaseWriteConfig(BasePersistConfig):
     """Carries the configuration fields shared by hardware control tasks.
 
     Attributes:
@@ -98,9 +109,6 @@ class BaseWriteConfig(BaseStartConfig):
     """
 
     device: device_.Key = ""
-
-
-Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Payload(BaseModel):

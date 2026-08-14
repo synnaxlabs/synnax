@@ -156,20 +156,28 @@ Command struct {
 }
 
 BaseStartConfig struct {
-    auto_start           bool = false {
+    auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
-    data_saving_disabled bool = false {
-        @doc value "is true when task telemetry is not persisted to disk."
-    }
 
-    @doc value  "carries the configuration fields shared by every hardware task."
+    @doc value  "carries the configuration fields shared by every task."
     @go output  "core/pkg/service/task/common"
     @cpp output "client/cpp/task/common"
     @pb omit
 }
 
-BaseReadConfig struct extends BaseStartConfig {
+BasePersistConfig struct extends BaseStartConfig {
+    data_saving_disabled bool = false {
+        @doc value "is true when task telemetry is not persisted to disk."
+    }
+
+    @doc value  "carries the configuration fields shared by tasks that write telemetry."
+    @go output  "core/pkg/service/task/common"
+    @cpp output "client/cpp/task/common"
+    @pb omit
+}
+
+BaseReadConfig struct extends BasePersistConfig {
     sample_rate telem.Rate = 10 {
         @doc value "is the per-channel hardware sample rate, in hertz."
         @ts type   "number"
@@ -185,7 +193,7 @@ BaseReadConfig struct extends BaseStartConfig {
     @pb omit
 }
 
-BaseWriteConfig struct extends BaseStartConfig {
+BaseWriteConfig struct extends BasePersistConfig {
     device device.Key = "" {
         @doc value "is the key of the device the task writes to."
     }
