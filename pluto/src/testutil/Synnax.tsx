@@ -23,6 +23,8 @@ import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { canvasTest } from "@/vis/render/test";
+import { Staleness } from "@/vis/staleness";
+import { staleness } from "@/vis/staleness/aether";
 
 interface RenderContextSeedProps extends PropsWithChildren {
   context: canvasTest.Recorder;
@@ -86,6 +88,7 @@ export const createSynnaxWrapper = ({
     ...status.REGISTRY,
     ...alamos.REGISTRY,
     ...theming.REGISTRY,
+    ...staleness.REGISTRY,
     ...(renderContext != null
       ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
       : {}),
@@ -105,6 +108,7 @@ export const createSynnaxWrapper = ({
       ) : (
         <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
       );
+    inner = <Staleness.Provider>{inner}</Staleness.Provider>;
     if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
     return (
       <AetherProvider>

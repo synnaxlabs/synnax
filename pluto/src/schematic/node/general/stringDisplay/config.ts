@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 
 export const VARIANT = "stringDisplay" as const;
 
@@ -23,7 +24,6 @@ export const configZ = Label.labeledConfigZ.extend({
   inlineSize: z.number().optional(),
   telem: telem.stringSourceSpecZ.optional(),
   level: text.levelZ.optional(),
-  stalenessTimeout: z.number().optional(),
-  stalenessColor: color.colorZ.optional(),
+  ...Staleness.configZ.shape,
 });
 export type Config = z.infer<typeof configZ>;
