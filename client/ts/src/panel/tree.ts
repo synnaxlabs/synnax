@@ -10,7 +10,7 @@
 import { type location, type spatial } from "@synnaxlabs/x";
 
 import { type ontology } from "@/ontology";
-import { type Node, type LeafNode, type Tab, type TabKey } from "@/panel/types.gen";
+import { type LeafNode, type Node, type Tab, type TabKey } from "@/panel/types.gen";
 
 // Nodes in the panel tree are identified by path-derived numeric keys: the root
 // is ROOT_NODE_KEY, and a split's children are childNodeKey(key, "first" | "last").

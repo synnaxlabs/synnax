@@ -25,7 +25,7 @@ import {
   ROOT_NODE_KEY,
   tabLeafPath,
 } from "@/panel/tree";
-import { type Node, type LeafNode, type Panel, type Tab } from "@/panel/types.gen";
+import { type LeafNode, type Node, type Panel, type Tab } from "@/panel/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
