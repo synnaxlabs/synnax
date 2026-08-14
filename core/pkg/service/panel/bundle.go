@@ -10,11 +10,10 @@
 package panel
 
 import (
-	"encoding/json"
-
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // bundleVersion is the version stamped on panel envelopes in project bundles.
@@ -23,26 +22,43 @@ const bundleVersion imex.Version = 0
 // bundleBody is the envelope body for a panel bundle member.
 type bundleBody struct {
 	// Root is the panel tree with each resource reference rewritten to a bundle path.
-	Root map[string]any `json:"root"`
+	Root any `json:"root"`
 }
 
-// EncodeBundle serializes p as a project-bundle member. Where the in-cluster tree
-// holds an ontology.ID, the bundle tree holds the target member's path from the
-// bundle root, taken from refs. A resource tab whose target refs does not name is
-// removed, and leaves emptied by removals are collapsed. View tabs pass through
-// unchanged. It returns a validation error when p has no name.
+// bundleTabResource is the bundle wire form of a resource tab: resource holds the
+// target member's path from the bundle root instead of an ontology ID.
+type bundleTabResource struct {
+	TabBase
+	Variant  TabType `json:"variant"`
+	Resource string  `json:"resource"`
+}
+
+// bundleLeaf is the bundle wire form of a leaf node. Tabs holds a Tab for a view and a
+// bundleTabResource for a resource.
+type bundleLeaf struct {
+	Variant NodeType `json:"variant"`
+	Tabs    []any    `json:"tabs,omitzero"`
+}
+
+// bundleSplit is the bundle wire form of a split node.
+type bundleSplit struct {
+	Variant   NodeType          `json:"variant"`
+	Direction spatial.Direction `json:"direction"`
+	Size      spatial.Decimal   `json:"size"`
+	First     any               `json:"first"`
+	Last      any               `json:"last"`
+}
+
+// EncodeBundle serializes p as a project-bundle member. Where the in-cluster tree holds
+// an ontology.ID, the bundle tree holds the target member's path from the bundle root,
+// taken from refs. A resource tab whose target refs does not name is removed, and
+// leaves emptied by removals are collapsed. View tabs pass through unchanged. It
+// returns a validation error when p has no name.
 func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 	root := stripNonMemberTabs(p.Root, refs)
 	collapseEmptyLeaves(&root)
-	raw, err := json.Marshal(root)
+	wire, err := bundleNode(root, refs)
 	if err != nil {
-		return imex.Envelope{}, err
-	}
-	var m map[string]any
-	if err = json.Unmarshal(raw, &m); err != nil {
-		return imex.Envelope{}, err
-	}
-	if err = rewriteResourceTabs(m, refs); err != nil {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{
@@ -50,7 +66,7 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 		Type:    string(ontology.ResourceTypePanel),
 		Name:    p.Name,
 	}
-	if err = imex.Encode(&env, bundleBody{Root: m}); err != nil {
+	if err = imex.Encode(&env, bundleBody{Root: wire}); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
@@ -81,38 +97,47 @@ func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 	}
 }
 
-// rewriteResourceTabs replaces each resource tab's {type, key} object with the
-// target's bundle path. node is the JSON form of a tree stripNonMemberTabs already
-// filtered, so a target absent from refs is a programmer error, not bad input.
-func rewriteResourceTabs(node map[string]any, refs map[ontology.ID]string) error {
-	if node["variant"] == string(NodeTypeLeaf) {
-		tabs, _ := node["tabs"].([]any)
-		for _, t := range tabs {
-			tab, ok := t.(map[string]any)
-			if !ok || tab["variant"] != string(TabTypeResource) {
+// bundleNode converts a node to its bundle wire form, rewriting each resource tab's
+// target to its path from refs. n is a tree stripNonMemberTabs already filtered, so a
+// target absent from refs is a programmer error, not bad input.
+func bundleNode(n Node, refs map[ontology.ID]string) (any, error) {
+	switch v := n.Variant.(type) {
+	case NodeLeaf:
+		var tabs []any
+		for _, t := range v.Tabs {
+			r, ok := t.Variant.(TabResource)
+			if !ok {
+				tabs = append(tabs, t)
 				continue
 			}
-			resource, ok := tab["resource"].(map[string]any)
+			path, ok := refs[r.Resource]
 			if !ok {
-				return errors.Newf("resource tab holds no resource object")
+				return nil, errors.Newf("no bundle path for resource %s", r.Resource)
 			}
-			typ, _ := resource["type"].(string)
-			key, _ := resource["key"].(string)
-			id := ontology.ID{Type: ontology.ResourceType(typ), Key: key}
-			path, ok := refs[id]
-			if !ok {
-				return errors.Newf("no bundle path for resource %s", id)
-			}
-			tab["resource"] = path
+			tabs = append(tabs, bundleTabResource{
+				TabBase:  r.TabBase,
+				Variant:  TabTypeResource,
+				Resource: path,
+			})
 		}
-		return nil
-	}
-	for _, side := range []string{"first", "last"} {
-		if child, ok := node[side].(map[string]any); ok {
-			if err := rewriteResourceTabs(child, refs); err != nil {
-				return err
-			}
+		return bundleLeaf{Variant: NodeTypeLeaf, Tabs: tabs}, nil
+	case NodeSplit:
+		first, err := bundleNode(v.First, refs)
+		if err != nil {
+			return nil, err
 		}
+		last, err := bundleNode(v.Last, refs)
+		if err != nil {
+			return nil, err
+		}
+		return bundleSplit{
+			Variant:   NodeTypeSplit,
+			Direction: v.Direction,
+			Size:      v.Size,
+			First:     first,
+			Last:      last,
+		}, nil
+	default:
+		return nil, nil
 	}
-	return nil
 }

@@ -22,40 +22,28 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const (
-	manifestVersion = 1
-	manifestType    = "project"
-	// manifestBaseName is the manifest's file name without an extension. The codec
-	// supplies the extension, so every serialization has one recognition point.
-	manifestBaseName = "manifest"
-	// legacyLayoutFileName is reserved so a stable-release project directory migrated
-	// in place keeps working.
-	legacyLayoutFileName = "LAYOUT.json"
-)
+// legacyLayoutFileName is reserved so a stable-release project directory migrated in
+// place keeps working.
+const legacyLayoutFileName = "LAYOUT.json"
 
-// Manifest is the body of manifest.json in a project bundle. Membership is inferred
-// from the files around the manifest, so it names no members.
-type Manifest struct {
-	// Version governs the manifest schema and the bundle's layout rules.
-	Version uint64 `json:"version"`
-	// Type is the bundle kind, letting an endpoint reject a bundle of another kind.
-	Type string `json:"type"`
-	// Name is the project's name, which an import gives the project it creates.
-	Name string `json:"name"`
+type manifest struct {
+	Version uint8  `json:"version"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
 }
 
 // Export serializes the project identified by key and its ontology descendants as a
 // bundle: one envelope per member document and panel, group children as directories,
 // and a manifest naming the project at the root. It also returns the ontology ID of
-// every resource that shaped the artifact — documents, panels, and groups — so a
-// caller can enforce access on them. The encoder decides both the serialization and
-// the extension every file takes.
+// every resource that shaped the artifact — documents, panels, and groups — so a caller
+// can enforce access on them. The encoder decides both the serialization and the
+// extension every file takes.
 //
-// A child that is not a panel, a group, or a type the leaf registry exports is
-// skipped, along with every panel tab that references it. A group with no exported
-// descendants is dropped. It returns query.ErrNotFound if no project has key, and a
-// validation error if two members in one directory resolve to the same file name or
-// a member claims a reserved root file name.
+// A child that is not a panel, a group, or a type the leaf registry exports is skipped,
+// along with every panel tab that references it. A group with no exported descendants
+// is dropped. It returns query.ErrNotFound if no project has key, and a validation
+// error if two members in one directory resolve to the same file name or a member
+// claims a reserved root file name.
 func (s *Service) Export(
 	ctx context.Context,
 	key Key,
@@ -69,17 +57,16 @@ func (s *Service) Export(
 		return nil, nil, err
 	}
 	w := &bundleWalk{
-		ctx:  ctx,
 		svc:  s,
 		ext:  encoder.Extension(),
 		refs: map[ontology.ID]string{},
 	}
-	manifestFileName := manifestBaseName + w.ext
+	manifestFileName := "manifest" + w.ext
 	reserved := map[string]string{
 		filename.Fold(manifestFileName):     manifestFileName,
 		filename.Fold(legacyLayoutFileName): legacyLayoutFileName,
 	}
-	if err := w.directory(OntologyID(key), "", reserved); err != nil {
+	if err := w.directory(ctx, OntologyID(key), "", reserved); err != nil {
 		return nil, nil, err
 	}
 	files := make(zip.Files, len(w.refs)+len(w.panelIDs)+1)
@@ -92,12 +79,12 @@ func (s *Service) Export(
 			return nil, nil, err
 		}
 	}
-	if err := w.encodePanels(files, encoder); err != nil {
+	if err := w.encodePanels(ctx, files, encoder); err != nil {
 		return nil, nil, err
 	}
-	manifest, err := encoder.Encode(ctx, Manifest{
-		Version: manifestVersion,
-		Type:    manifestType,
+	manifest, err := encoder.Encode(ctx, manifest{
+		Version: 1,
+		Type:    "project",
 		Name:    proj.Name,
 	})
 	if err != nil {
@@ -110,7 +97,6 @@ func (s *Service) Export(
 // bundleWalk accumulates the bundle's members while directory recurses through the
 // project's ontology descendants.
 type bundleWalk struct {
-	ctx context.Context
 	svc *Service
 	// ext is the extension the encoder gives every member file.
 	ext string
@@ -130,6 +116,7 @@ type bundleWalk struct {
 // bundle root, "a/b/" otherwise). reserved maps folded file names no member in this
 // directory may claim to their display form.
 func (w *bundleWalk) directory(
+	ctx context.Context,
 	parent ontology.ID,
 	prefix string,
 	reserved map[string]string,
@@ -139,7 +126,7 @@ func (w *bundleWalk) directory(
 		WhereIDs(parent).
 		TraverseTo(ontology.ChildrenTraverser).
 		Entries(&children).
-		Exec(w.ctx, nil); err != nil {
+		Exec(ctx, nil); err != nil {
 		return err
 	}
 	// claimed maps each folded file name to the resource that took it.
@@ -171,7 +158,7 @@ func (w *bundleWalk) directory(
 				return err
 			}
 			before := len(w.refs) + len(w.panelIDs)
-			if err = w.directory(child.ID, prefix+dirName+"/", nil); err != nil {
+			if err = w.directory(ctx, child.ID, prefix+dirName+"/", nil); err != nil {
 				return err
 			}
 			// An empty group is dropped: it claims no name and enforces no access.
@@ -208,9 +195,11 @@ func (w *bundleWalk) directory(
 	return nil
 }
 
-// encodePanels retrieves every member panel and writes its bundle envelope into
-// files, resolving resource tabs through the walk's refs table.
-func (w *bundleWalk) encodePanels(files zip.Files, encoder encoding.FileEncoder) error {
+func (w *bundleWalk) encodePanels(
+	ctx context.Context,
+	files zip.Files,
+	encoder encoding.FileEncoder,
+) error {
 	if len(w.panelIDs) == 0 {
 		return nil
 	}
@@ -222,7 +211,7 @@ func (w *bundleWalk) encodePanels(files zip.Files, encoder encoding.FileEncoder)
 	if err = w.svc.cfg.Panel.NewRetrieve().
 		Where(panel.MatchKeys(keys...)).
 		Entries(&panels).
-		Exec(w.ctx, nil); err != nil {
+		Exec(ctx, nil); err != nil {
 		return err
 	}
 	byKey := make(map[panel.Key]panel.Panel, len(panels))
@@ -238,7 +227,7 @@ func (w *bundleWalk) encodePanels(files zip.Files, encoder encoding.FileEncoder)
 		if err != nil {
 			return err
 		}
-		if files[w.panelPaths[i]], err = encoder.Encode(w.ctx, env); err != nil {
+		if files[w.panelPaths[i]], err = encoder.Encode(ctx, env); err != nil {
 			return err
 		}
 	}
