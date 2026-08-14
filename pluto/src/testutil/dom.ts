@@ -7,7 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type xy } from "@synnaxlabs/x";
+import { createEvent, fireEvent } from "@testing-library/react";
 import { type Mock, vi } from "vitest";
+
+/**
+ * Fires a drag event of the given type at the given cursor position on target. jsdom
+ * has no DragEvent, so testing-library falls back to a plain Event and the coordinates
+ * in the init are lost; they are defined on the event instead.
+ */
+export const fireDragEvent = (
+  target: Element,
+  type: "dragOver" | "drop",
+  cursor: xy.XY,
+): void => {
+  const event = createEvent[type](target);
+  Object.defineProperties(event, {
+    clientX: { value: cursor.x },
+    clientY: { value: cursor.y },
+    screenX: { value: cursor.x },
+    screenY: { value: cursor.y },
+  });
+  fireEvent(target, event);
+};
 
 export const mockBoundingClientRect = (
   top: number,

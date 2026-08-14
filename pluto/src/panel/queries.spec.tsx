@@ -363,9 +363,7 @@ describe("Panel queries", () => {
     });
 
     it("should reject creating a panel without a parent", async () => {
-      await expect(client.panels.create({ name: "orphan" })).rejects.toThrow(
-        /parent/,
-      );
+      await expect(client.panels.create({ name: "orphan" })).rejects.toThrow(/parent/);
     });
 
     it("should return an empty list for a project with no panels", async () => {
