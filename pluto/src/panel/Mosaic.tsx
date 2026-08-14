@@ -347,6 +347,7 @@ export const Mosaic = ({
       const source = parseTabDragPayload(data);
       if (source == null || source.panel === key) {
         dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location }));
+        onSelect?.(tabKey);
         return;
       }
       dispatchTo({

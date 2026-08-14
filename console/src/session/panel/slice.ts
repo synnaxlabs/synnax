@@ -64,7 +64,15 @@ export interface TabAndPanelKeyPayload extends PanelKeyPayload {
   tabKey: string;
 }
 
-export type RemovePayload = panel.Key | panel.Key[];
+export interface RemovePayload {
+  keys: panel.Key | panel.Key[];
+  /**
+   * The panels in the order the selector shows them, as of before the removal. A
+   * window that loses its selected panel takes the nearest survivor beside it.
+   * Without the row it falls back to its most recently used panel.
+   */
+  order?: panel.Key[];
+}
 
 interface SelectTabPayload extends TabAndPanelKeyPayload {
   otherTabKeys: panel.TabKey[];
@@ -72,6 +80,11 @@ interface SelectTabPayload extends TabAndPanelKeyPayload {
 
 export interface ReconcileSelectionPayload extends PanelKeyPayload {
   leaves: panel.TabKey[][];
+  /**
+   * The leaves the last reconcile saw, holding the row a lost tab's replacement
+   * comes from. Without it a lost tab has no neighbor and its leaf falls back.
+   */
+  previous?: panel.TabKey[][];
 }
 
 const withWindowKey = Window.createWithKeyHandler(windowStateZ);
@@ -88,6 +101,41 @@ const withSelectedState = <Payload extends PanelKeyPayload>(
   withWindowKey<Payload, SliceState>((win, action) => {
     handler(panelState(win, action.payload.key), action);
   });
+
+// What takes a closed entry's place in a row of tabs or panels: the nearest
+// survivor to its right, else to its left. Closing several in a row then needs no
+// re-aiming, since the replacement lands where the cursor already is.
+const neighbor = <K extends string>(
+  row: K[],
+  key: K,
+  survives: (key: K) => boolean,
+): K | undefined => {
+  const idx = row.indexOf(key);
+  if (idx < 0) return undefined;
+  return row.slice(idx + 1).find(survives) ?? row.slice(0, idx).findLast(survives);
+};
+
+// The tab taking a lost tab's place: its neighbor in the leaf it last sat in.
+const replacement = (
+  previous: panel.TabKey[][],
+  tab: panel.TabKey,
+  survives: (tab: panel.TabKey) => boolean,
+): panel.TabKey | undefined =>
+  neighbor(previous.find((tabs) => tabs.includes(tab)) ?? [], tab, survives);
+
+// What a leaf with no selected tab shows: the neighbor of the tab it lost, whether
+// that tab was closed or dragged into another leaf, else its first tab.
+const leafSelection = (
+  previous: panel.TabKey[][],
+  selected: panel.TabKey[],
+  tabs: panel.TabKey[],
+): panel.TabKey => {
+  const inLeaf = (tab: panel.TabKey): boolean => tabs.includes(tab);
+  const row = previous.find((prev) => prev.some(inLeaf)) ?? [];
+  const lost = row.find((tab) => selected.includes(tab) && !inLeaf(tab));
+  if (lost == null) return tabs[0];
+  return neighbor(row, lost, inLeaf) ?? tabs[0];
+};
 
 // A hidden panel stops rendering but keeps streaming its channels, so the set is
 // bounded. Five covers alternating between a few panels; an evicted one pays a
@@ -125,23 +173,29 @@ const { actions, reducer } = createSlice({
       win.isOverlaid = true;
     }),
     // reconcileSelection converges a panel's selection to its live tree: one tab
-    // per leaf, most recent first; a leaf with no selected tab contributes its
-    // last tab.
+    // per leaf, most recent first. A leaf that lost its selected tab, to a close or
+    // to a drag into another leaf, shows the tab beside it; one that never had a
+    // selection shows its first tab, the same tab the mosaic shows until the
+    // selection lands.
     reconcileSelection: withWindowKey<ReconcileSelectionPayload, SliceState>(
-      (win, { payload: { key, leaves } }) => {
+      (win, { payload: { key, leaves, previous = [] } }) => {
         const pan = panelState(win, key);
         const leafOf = new Map<panel.TabKey, number>();
         leaves.forEach((tabs, i) => tabs.forEach((tab) => leafOf.set(tab, i)));
+        const survives = (tab: panel.TabKey): boolean => leafOf.has(tab);
         const claimed = new Set<number>();
         const next: panel.TabKey[] = [];
         pan.selectedTabs.forEach((k) => {
-          const leaf = leafOf.get(k);
+          const tab = survives(k) ? k : replacement(previous, k, survives);
+          if (tab == null) return;
+          const leaf = leafOf.get(tab);
           if (leaf == null || claimed.has(leaf)) return;
           claimed.add(leaf);
-          next.push(k);
+          next.push(tab);
         });
         leaves.forEach((tabs, i) => {
-          if (!claimed.has(i) && tabs.length > 0) next.push(tabs[tabs.length - 1]);
+          if (!claimed.has(i) && tabs.length > 0)
+            next.push(leafSelection(previous, pan.selectedTabs, tabs));
         });
         // Overlaying shows the selected panel's focused tab. Losing that tab ends the
         // overlay; the flag would otherwise pull in whichever tab is focused next, or
@@ -155,18 +209,25 @@ const { actions, reducer } = createSlice({
     stopOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.isOverlaid = false;
     }),
-    remove: (state, { payload: keys }: PayloadAction<RemovePayload>) => {
+    remove: (
+      state,
+      { payload: { keys, order = [] } }: PayloadAction<RemovePayload>,
+    ) => {
       const removed = array.toArray(keys);
+      const survives = (key: panel.Key): boolean => !removed.includes(key);
       Object.values(state.windows).forEach((win) => {
         removed.forEach((key) => delete win.panels[key]);
-        win.mounted = win.mounted.filter((key) => !removed.includes(key));
-        if (win.selected == null || !removed.includes(win.selected)) return;
+        win.mounted = win.mounted.filter(survives);
+        if (win.selected == null || survives(win.selected)) return;
         // The overlaid tab belongs to the selected panel, so losing it ends the
         // overlay.
         win.isOverlaid = false;
-        // Prefers the most recently used survivor, falling back to any panel the
-        // window has state for: mounted is empty until the window selects again.
-        const next = win.mounted[0] ?? Object.keys(win.panels).at(-1);
+        // Off the row, the most recently used survivor, then any panel the window
+        // has state for: mounted is empty until it selects again.
+        const next =
+          neighbor(order, win.selected, survives) ??
+          win.mounted[0] ??
+          Object.keys(win.panels).at(-1);
         win.selected = next;
         if (next != null) mount(win, next);
       });
