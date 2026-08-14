@@ -1,0 +1,75 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
+
+import Inline from "@/components/code/Inline.astro";
+import { InlineCode } from "@/components/text/InlineCode";
+
+interface Param {
+    name: string;
+    type: string;
+    required?: boolean;
+    description: string;
+}
+
+interface Output {
+    type?: string;
+    description: string;
+}
+
+interface Props {
+    fn: string;
+    input?: string;
+    params?: Param[];
+    output?: Output;
+}
+
+const { fn, input, params = [], output } = Astro.props;
+
+const args = params
+    .map(({ name, type, required = false }) => `${name}${required ? "" : "?"}: ${type}`)
+    .join(", ");
+let signature = `${fn}{${args}}`;
+if (input != null) signature = `${input} -> ${signature}`;
+if (output?.type != null) signature = `${signature} -> ${output.type}`;
+---
+
+<div class="params">
+    <Inline code={signature} lang={arcGrammar} theme="css-variables" />
+    {
+        params.length > 0 && (
+            <>
+                <p>
+                    <strong>Parameters</strong>
+                </p>
+                <ul>
+                    {params.map(({ name, description }) => (
+                        <li>
+                            <code>{name}</code>: <InlineCode text={description} />
+                        </li>
+                    ))}
+                </ul>
+            </>
+        )
+    }
+    {
+        output != null && (
+            <>
+                <p>
+                    <strong>Output</strong>
+                </p>
+                <p>
+                    <InlineCode text={output.description} />
+                </p>
+            </>
+        )
+    }
+</div>

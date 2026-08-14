@@ -9,10 +9,10 @@ next: "Errors"
 nextURL: "/reference/control/arc/reference/errors"
 ---
 
-import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/pluto";
 import { Arc } from "@/components";
-import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Params from "@/components/params/Params.astro";
 
 export const components = mdxOverrides;
 
@@ -23,16 +23,19 @@ The `time` module provides timing functions for timestamps, periodic firing, and
 Fires repeatedly at a fixed period, emitting `1` on each tick. Common for driving
 control loops, periodic sampling, and generating test data.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
-
-| Parameter | Type     | Required | Description                                                                |
-| --------- | -------- | -------- | -------------------------------------------------------------------------- |
-| `period`  | `i64 ns` | Yes      | Time between fires, written as a duration literal (such as `200ms`, `1s`). |
-
-**Output** `u8`: emits `1` on each fire.
-
-</Details>
+<Params
+  fn="time.interval"
+  params={[
+    {
+      name: "period",
+      type: "i64 ns",
+      required: true,
+      description:
+        "Time between fires, written as a duration literal (e.g. `200ms`, `1s`).",
+    },
+  ]}
+  output={{ type: "u8", description: "Emits `1` on each fire." }}
+/>
 
 ```arc
 // `flow` only
@@ -46,12 +49,10 @@ time.interval{period=1s} -> tick
 Returns the current timestamp. `time.now` works both as a flow node and as a direct
 function call, so it can be wired into a chain or called inside a `func`.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
-
-**Output** `i64 ns`: the current timestamp.
-
-</Details>
+<Params
+  fn="time.now"
+  output={{ type: "i64 ns", description: "The current timestamp." }}
+/>
 
 <Arc.Tabs client:load>
 
@@ -83,16 +84,19 @@ func stamp() {
 
 Fires once after a fixed duration, then stops.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
-
-| Parameter  | Type     | Required | Description                                                                    |
-| ---------- | -------- | -------- | ------------------------------------------------------------------------------ |
-| `duration` | `i64 ns` | Yes      | How long to wait before firing, written as a duration literal (such as `30s`). |
-
-**Output** `u8`: emits `1` once the duration elapses.
-
-</Details>
+<Params
+  fn="time.wait"
+  params={[
+    {
+      name: "duration",
+      type: "i64 ns",
+      required: true,
+      description:
+        "How long to wait before firing, as a duration literal (e.g. `30s`).",
+    },
+  ]}
+  output={{ type: "u8", description: "Emits `1` once the duration elapses." }}
+/>
 
 ```arc
 // `flow` only
