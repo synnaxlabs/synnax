@@ -18,9 +18,9 @@ import status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 // in its high bits, so writes route to the Core running its Driver.
 type Key uint32
 
-// StatusDetails is the rack-specific detail payload carried in a rack Status.
+// StatusDetails contains rack-specific status details.
 type StatusDetails struct {
-	// Rack is the key of the rack the status describes.
+	// Rack is the key of the rack this status pertains to.
 	Rack Key `json:"rack" msgpack:"rack"`
 }
 

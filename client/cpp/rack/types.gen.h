@@ -35,9 +35,9 @@ struct Rack;
 /// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
 
-/// @brief StatusDetails is the rack-specific detail payload carried in a rack Status.
+/// @brief StatusDetails contains rack-specific status details.
 struct StatusDetails {
-    /// @brief rack is the key of the rack the status describes.
+    /// @brief rack is the key of the rack this status pertains to.
     Key rack = 0;
 
     static StatusDetails parse(x::json::Parser parser);

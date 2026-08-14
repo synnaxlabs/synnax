@@ -18,7 +18,7 @@ import "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 // in its high bits, so writes route to the Core running its Driver.
 type Key = v2.Key
 
-// StatusDetails is the rack-specific detail payload carried in a rack Status.
+// StatusDetails contains rack-specific status details.
 type StatusDetails = v2.StatusDetails
 
 // Status is rack-specific status information including operational state.

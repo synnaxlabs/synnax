@@ -27,10 +27,10 @@ Key uint32 {
 
 StatusDetails struct {
     rack Key {
-        @doc value "is the key of the rack the status describes."
+        @doc value "is the key of the rack this status pertains to."
     }
 
-    @doc value "is the rack-specific detail payload carried in a rack Status."
+    @doc value "contains rack-specific status details."
 }
 
 Status = status.Status<StatusDetails> {
