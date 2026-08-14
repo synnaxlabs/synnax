@@ -94,7 +94,9 @@ func validateEntryName(name string) error {
 		switch segment {
 		case "":
 			return errors.Wrapf(
-				validate.ErrValidation, "file name %q holds an empty path segment", name,
+				validate.ErrValidation,
+				"file name %q holds an empty path segment",
+				name,
 			)
 		case ".", "..":
 			return errors.Wrapf(

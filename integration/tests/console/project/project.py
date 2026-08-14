@@ -74,9 +74,9 @@ class Project(ConsoleCase):
         expected = f"v{get_synnax_version()}"
         displayed = self.console.layout.get_version()
         self.log(f"Version badge displays: {displayed}, expected prefix: {expected}")
-        assert displayed.startswith(
-            expected
-        ), f"Version badge '{displayed}' does not start with expected '{expected}'"
+        assert displayed.startswith(expected), (
+            f"Version badge '{displayed}' does not start with expected '{expected}'"
+        )
 
     def test_switch_projects_in_resources(self) -> None:
         """Test switching between projects by double-clicking in resources toolbar."""
@@ -98,17 +98,17 @@ class Project(ConsoleCase):
         self.console.project.select("ProjectA")
         self.console.project.rename(old_name="ProjectA", new_name="RenamedProject")
 
-        assert self.console.project.exists(
-            "RenamedProject"
-        ), "Project should be renamed in Resources Toolbar"
+        assert self.console.project.exists("RenamedProject"), (
+            "Project should be renamed in Resources Toolbar"
+        )
 
         project_selector = self.page.get_by_role("button").filter(
             has_text="RenamedProject"
         )
         project_selector.wait_for(state="visible", timeout=5000)
-        assert (
-            project_selector.is_visible()
-        ), "Project Selector should show renamed project"
+        assert project_selector.is_visible(), (
+            "Project Selector should show renamed project"
+        )
 
         self.console.project.rename(old_name="RenamedProject", new_name="ProjectA")
         self.console.layout.close_left_toolbar()
@@ -119,9 +119,9 @@ class Project(ConsoleCase):
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
         self.console.project.import_page(json_path, "Metrics Plot")
 
-        assert self.console.project.page_exists(
-            "Metrics Plot"
-        ), "Imported line plot should appear in project resources"
+        assert self.console.project.page_exists("Metrics Plot"), (
+            "Imported line plot should appear in project resources"
+        )
 
         plot = Plot.from_open_page(self.console.layout, self.client, "Metrics Plot")
         labels = plot.get_line_labels()
@@ -139,16 +139,16 @@ class Project(ConsoleCase):
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
         self.console.project.import_page(json_path, "Metrics Schematic")
 
-        assert self.console.project.page_exists(
-            "Metrics Schematic"
-        ), "Imported schematic should appear in project resources"
+        assert self.console.project.page_exists("Metrics Schematic"), (
+            "Imported schematic should appear in project resources"
+        )
 
         schematic = Schematic.from_open_page(
             self.console.layout, self.client, "Metrics Schematic"
         )
-        assert (
-            schematic.get_symbol_count() == 2
-        ), "Imported schematic should have 2 gauge symbols"
+        assert schematic.get_symbol_count() == 2, (
+            "Imported schematic should have 2 gauge symbols"
+        )
 
         self.console.layout.close_tab("Metrics Schematic")
 
@@ -158,14 +158,14 @@ class Project(ConsoleCase):
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
         self.console.project.import_page(json_path, "Metrics Log")
 
-        assert self.console.project.page_exists(
-            "Metrics Log"
-        ), "Imported log should appear in project resources"
+        assert self.console.project.page_exists("Metrics Log"), (
+            "Imported log should appear in project resources"
+        )
 
         log = Log.from_open_page(self.console.layout, self.client, "Metrics Log")
-        assert log.has_channel(
-            "sy_node_1_metrics_cpu_percentage"
-        ), "Imported log should have sy_node_1_metrics_cpu_percentage channel"
+        assert log.has_channel("sy_node_1_metrics_cpu_percentage"), (
+            "Imported log should have sy_node_1_metrics_cpu_percentage channel"
+        )
 
         self.console.layout.close_tab("Metrics Log")
 
@@ -218,25 +218,25 @@ class Project(ConsoleCase):
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
         self.console.project.import_page(json_path, "Metrics Table")
 
-        assert self.console.project.page_exists(
-            "Metrics Table"
-        ), "Imported table should appear in project resources"
+        assert self.console.project.page_exists("Metrics Table"), (
+            "Imported table should appear in project resources"
+        )
 
         table = Table.from_open_page(self.console.layout, self.client, "Metrics Table")
-        assert (
-            table.get_row_count() == 2
-        ), f"Expected 2 rows, got {table.get_row_count()}"
-        assert (
-            table.get_column_count() == 2
-        ), f"Expected 2 columns, got {table.get_column_count()}"
+        assert table.get_row_count() == 2, (
+            f"Expected 2 rows, got {table.get_row_count()}"
+        )
+        assert table.get_column_count() == 2, (
+            f"Expected 2 columns, got {table.get_column_count()}"
+        )
         assert table.has_text("CPU %", 0, 0), "Cell [0,0] should have text 'CPU %'"
         assert table.has_text("Mem %", 0, 1), "Cell [0,1] should have text 'Mem %'"
-        assert table.has_channel(
-            "sy_node_1_metrics_cpu_percentage", 1, 0
-        ), "Cell [1,0] should have sy_node_1_metrics_cpu_percentage"
-        assert table.has_channel(
-            "sy_node_1_metrics_mem_percentage", 1, 1
-        ), "Cell [1,1] should have sy_node_1_metrics_mem_percentage"
+        assert table.has_channel("sy_node_1_metrics_cpu_percentage", 1, 0), (
+            "Cell [1,0] should have sy_node_1_metrics_cpu_percentage"
+        )
+        assert table.has_channel("sy_node_1_metrics_mem_percentage", 1, 1), (
+            "Cell [1,1] should have sy_node_1_metrics_mem_percentage"
+        )
 
         self.console.layout.close_tab("Metrics Table")
 
@@ -295,18 +295,18 @@ class Project(ConsoleCase):
         }
         for page_name, page_type in expected.items():
             member_path = os.path.join(self._export_dir, f"{page_name}.json")
-            assert os.path.exists(
-                member_path
-            ), f"Export should contain {page_name}.json"
+            assert os.path.exists(member_path), (
+                f"Export should contain {page_name}.json"
+            )
             with open(member_path, "r", encoding="utf-8") as f:
                 member = json.load(f)
             assert member["type"] == page_type, (
                 f"{page_name}.json should have type {page_type}, "
                 f"got {member.get('type')}"
             )
-            assert (
-                f"{page_name}.json" in referenced
-            ), f"A panel should reference {page_name}.json, got {referenced}"
+            assert f"{page_name}.json" in referenced, (
+                f"A panel should reference {page_name}.json, got {referenced}"
+            )
 
     def test_import_project(self) -> None:
         """Test importing a project through the real "Import a project" command."""
