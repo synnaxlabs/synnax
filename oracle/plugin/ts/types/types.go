@@ -3509,7 +3509,13 @@ export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .Pare
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}
 {{- end }}
+{{- if .IsSelfRef }}
+  get {{ .TSName }}(): {{ .ZodSchemaType }} {
+    return {{ .ZodType }};
+  },
+{{- else }}
   {{ .TSName }}: {{ .ZodType }},
+{{- end }}
 {{- end }}
 });
 {{- if $.GenerateTypes }}

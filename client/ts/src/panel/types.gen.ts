@@ -113,9 +113,13 @@ export const splitNodeZ = z.object({
    */
   size: spatial.decimalZ,
   /** first is the first child (left for x, top for y). */
-  first: nodeZ,
+  get first(): z.ZodType<Node> {
+    return nodeZ;
+  },
   /** last is the second child (right for x, bottom for y). */
-  last: nodeZ,
+  get last(): z.ZodType<Node> {
+    return nodeZ;
+  },
 });
 export interface SplitNode extends z.infer<typeof splitNodeZ> {}
 

@@ -3057,6 +3057,31 @@ var _ = Describe("TS Union Generation", func() {
 		},
 	)
 
+	It(
+		"Should render a recursive inline variant field as a lazy getter",
+		func(ctx SpecContext) {
+			source := `
+			@ts output "out"
+
+			Node union on variant {
+				leaf {
+					name string
+				}
+				split {
+					first Node
+					last  Node
+				}
+			}
+		`
+			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				`get first(): z.ZodType<Node> {`,
+				`return nodeZ;`,
+				`get last(): z.ZodType<Node> {`,
+			)
+		},
+	)
+
 	It("Should carry inline variants through union composition", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
