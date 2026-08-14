@@ -935,12 +935,12 @@ var _ = Describe("C++ JSON Plugin", func() {
 				loader.Add("schemas/scales", `
 					@cpp output "x/cpp/scales"
 
-					LinearScale struct { slope float64 }
-					NoneScale struct {}
+					LinearParams struct { slope float64 }
+					NoneParams struct {}
 
 					Scale union on type {
-						linear LinearScale
-						none NoneScale
+						linear LinearParams
+						none NoneParams
 					}
 				`)
 			})
@@ -1000,8 +1000,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					@cpp output "client/cpp/task"
 
 					Config union on type {
-						linear scales.LinearScale
-						none scales.NoneScale
+						linear scales.LinearParams
+						none scales.NoneParams
 					}
 				`
 					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
@@ -1075,8 +1075,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					loader.Add("schemas/scales", `
 					@cpp output "x/cpp/scales"
 
-					LinearScale struct { slope float64 }
-					NoneScale struct {}
+					LinearParams struct { slope float64 }
+					NoneParams struct {}
 				`)
 					req := MustGenerateRequest(ctx, `
 					import "schemas/scales"
@@ -1084,8 +1084,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					@cpp output "../escape"
 
 					Scale union on type {
-						linear scales.LinearScale
-						none scales.NoneScale
+						linear scales.LinearParams
+						none scales.NoneParams
 					}
 				`, "types", loader)
 					Expect(jsonPlugin.Generate(req)).Error().
@@ -1177,12 +1177,12 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
@@ -1190,8 +1190,8 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				ToContain(
 					`inline Scale parse_scale(x::json::Parser parser) {`,
 					`const auto discriminator = parser.field<std::string>("type");`,
-					`if (discriminator == "linear") return ScaleLinear::parse(parser);`,
-					`if (discriminator == "none") return ScaleNone::parse(parser);`,
+					`if (discriminator == "linear") return LinearScale::parse(parser);`,
+					`if (discriminator == "none") return NoneScale::parse(parser);`,
 					`parser.field_err("type", "unknown Scale type: " + discriminator);`,
 					`return {};`,
 					`inline x::json::json to_json(const Scale& value) {`,
@@ -1206,12 +1206,12 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 = 1 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 = 1 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Item struct { scale Scale = none }
@@ -1219,7 +1219,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").ToContain(
 				`parser.has("scale") ? parse_scale(parser.child("scale")) ` +
-					`: Scale{ScaleNone{}}`,
+					`: Scale{NoneScale{}}`,
 			)
 		},
 	)
@@ -1242,10 +1242,10 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			resp := MustGenerate(ctx, source, "panel", loader, jsonPlugin)
 			content := ExpectContent(resp, "json.gen.h")
 			content.ToContain(
-				`if (discriminator == "view") return TabView::parse(parser);`,
-				`if (discriminator == "empty") return TabEmpty::parse(parser);`,
+				`if (discriminator == "view") return ViewTab::parse(parser);`,
+				`if (discriminator == "empty") return EmptyTab::parse(parser);`,
 			)
-			content.ToNotContain("TabViewPayload")
+			content.ToNotContain("ViewTabPayload")
 		},
 	)
 
@@ -1253,23 +1253,23 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
-				`inline ScaleLinear ScaleLinear::parse(x::json::Parser parser) {`,
-				`static_cast<LinearScale&>(result) = LinearScale::parse(parser);`,
+				`inline LinearScale LinearScale::parse(x::json::Parser parser) {`,
+				`static_cast<LinearParams&>(result) = LinearParams::parse(parser);`,
 				`result.type = parser.field<std::string>("type");`,
 				// A field-less struct never reads the parser, so the parameter is
 				// left unnamed to avoid an unused-parameter warning.
-				`inline NoneScale NoneScale::parse(x::json::Parser) {`,
+				`inline NoneScale NoneScale::parse(x::json::Parser parser) {`,
 			)
 	})
 
@@ -1309,12 +1309,12 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -1336,12 +1336,12 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -1497,12 +1497,12 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 		source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {

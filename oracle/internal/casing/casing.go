@@ -100,20 +100,33 @@ func leadingKnownAcronym(s string) string {
 }
 
 // VariantTypeName derives a discriminated-union variant's type name from the
-// union's type name and the variant's discriminator value. When the variant
-// repeats the union's leading acronym (e.g. value "ai_voltage" under union
-// "AIChannel"), that acronym is factored out so the name reads naturally as
-// "AIVoltageChannel" rather than the doubled "AIChannelAIVoltage". Otherwise the
-// union name prefixes the PascalCased variant (e.g. "linear" under "Scale" ->
-// "ScaleLinear"), which keeps every variant unique and avoids colliding with a
-// field struct that shares the variant's bare name.
+// union's type name and the variant's discriminator value. The PascalCased
+// variant prefixes the union name (e.g. "linear" under "Scale" ->
+// "LinearScale", "coil" under "ReadChannel" -> "CoilReadChannel"). When the
+// variant's first word is the union's leading acronym (e.g. value "ai_voltage"
+// under union "AIChannel"), the acronym is written once: "AIVoltageChannel"
+// rather than "AIVoltageAIChannel".
 func VariantTypeName(unionName, variantValue string) string {
 	variant := PascalAcronym(variantValue)
 	if acr := leadingAcronym(unionName); acr != "" &&
-		strings.HasPrefix(strings.ToLower(variant), strings.ToLower(acr)) {
+		firstSegment(variantValue) == strings.ToLower(acr) {
 		return variant + unionName[len(acr):]
 	}
-	return unionName + variant
+	return variant + unionName
+}
+
+// VariantConstName derives the discriminator constant's name for a variant:
+// the variant's type name suffixed with "Type" (e.g. "AIVoltageChannelType",
+// "LinearScaleType").
+func VariantConstName(unionName, variantValue string) string {
+	return VariantTypeName(unionName, variantValue) + "Type"
+}
+
+// firstSegment returns the first underscore-delimited word of an identifier's
+// snake_case form, lower-cased.
+func firstSegment(s string) string {
+	seg, _, _ := strings.Cut(TypeSnake(s), "_")
+	return strings.ToLower(seg)
 }
 
 // QualifiedVariantTypeName is VariantTypeName for a union name that may carry a

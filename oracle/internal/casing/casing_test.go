@@ -12,7 +12,7 @@ package casing_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
+	"github.com/synnaxlabs/oracle/internal/casing"
 )
 
 var _ = Describe("FieldSnake", func() {
@@ -149,7 +149,7 @@ var _ = Describe("CamelAcronym", func() {
 
 var _ = Describe("VariantTypeName", func() {
 	DescribeTable(
-		"should factor a repeated union acronym, else prefix the union name",
+		"should prefix the variant, writing a shared leading acronym once",
 		func(union, variant, expected string) {
 			Expect(casing.VariantTypeName(union, variant)).To(Equal(expected))
 		},
@@ -167,13 +167,38 @@ var _ = Describe("VariantTypeName", func() {
 		),
 		Entry("ci union", "CIChannel", "ci_two_edge_sep", "CITwoEdgeSepChannel"),
 		Entry("ao union", "AOChannel", "ao_voltage", "AOVoltageChannel"),
-		Entry("plain union keeps union prefix", "Scale", "linear", "ScaleLinear"),
+		Entry("plain union takes the variant first", "Scale", "linear", "LinearScale"),
 		Entry(
-			"variant not repeating the acronym keeps union prefix",
+			"plain union with a multi-word variant",
+			"ReadChannel",
+			"holding_register",
+			"HoldingRegisterReadChannel",
+		),
+		Entry(
+			"variant not repeating the acronym prefixes the whole union name",
 			"AIChannel",
 			"voltage",
-			"AIChannelVoltage",
+			"VoltageAIChannel",
 		),
+		Entry(
+			"acronym must match a whole variant word, not a character prefix",
+			"DIChannel",
+			"digital_input",
+			"DigitalInputDIChannel",
+		),
+	)
+})
+
+var _ = Describe("VariantConstName", func() {
+	DescribeTable(
+		"should suffix the variant type name with Type",
+		func(union, variant, expected string) {
+			Expect(casing.VariantConstName(union, variant)).To(Equal(expected))
+		},
+		Entry("acronym union", "AIChannel", "ai_voltage", "AIVoltageChannelType"),
+		Entry("plain union", "Scale", "linear", "LinearScaleType"),
+		Entry("plain union with acronym variant", "ReadChannel", "analog",
+			"AnalogReadChannelType"),
 	)
 })
 
@@ -207,18 +232,18 @@ var _ = Describe("QualifiedVariantTypeName", func() {
 			"::ni::AIVoltageChannel",
 		),
 		Entry(
-			"qualified plain union keeps the union prefix",
+			"qualified plain union takes the variant first",
 			"ni.Scale",
 			"linear",
 			".",
-			"ni.ScaleLinear",
+			"ni.LinearScale",
 		),
 		Entry(
 			"cpp name with a leading separator only",
 			"::Scale",
 			"linear",
 			"::",
-			"::ScaleLinear",
+			"::LinearScale",
 		),
 	)
 })

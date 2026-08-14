@@ -1063,12 +1063,12 @@ var _ = Describe("Protobuf Union Generation", func() {
 			@go output "core/pkg/hw/ni"
 			@pb
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, p)
@@ -1076,8 +1076,8 @@ var _ = Describe("Protobuf Union Generation", func() {
 				ToContain(
 					"message Scale {",
 					"oneof variant {",
-					"LinearScale linear = 1;",
-					"NoneScale none = 2;",
+					"LinearParams linear = 1;",
+					"NoneParams none = 2;",
 				)
 		},
 	)
@@ -1141,12 +1141,12 @@ var _ = Describe("Protobuf Union Generation", func() {
 			@go output "core/pkg/hw/ni"
 			@pb
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -1163,12 +1163,12 @@ var _ = Describe("Protobuf Union Generation", func() {
 			@pb
 			@go output "core/pkg/service/scale"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none   NoneScale
+				linear LinearParams
+				none   NoneParams
 			}
 		`)
 		source := `

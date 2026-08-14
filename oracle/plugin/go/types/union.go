@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -121,7 +121,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	for _, v := range form.Variants {
 		vd := unionVariantData{
 			TypeName:  casing.VariantTypeName(name, v.Name),
-			ConstName: ud.DiscType + casing.PascalAcronym(v.Name),
+			ConstName: casing.VariantConstName(name, v.Name),
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
