@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, query, type rack, task } from "@synnaxlabs/client";
-import { array, type optional, primitive, verbs } from "@synnaxlabs/x";
+import { type ontology, query, rack, task } from "@synnaxlabs/client";
+import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -35,7 +35,8 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
       client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined,
   });
 
-export const { use, useEnsure, createSelector } = createRetrieve();
+export const { use, useEnsure, useResult, useTombstone, createSelector } =
+  createRetrieve();
 
 export interface KeyParams {
   key: task.Key;
@@ -62,22 +63,22 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
   z.object({
     key: task.keyZ.optional(),
     name: z.string(),
-    // NOTE: rackKey collapses into the rack payload field in PR 3.
-    rackKey: z.number(),
+    rack: rack.keyZ,
     type: schemas.type,
     snapshot: z.boolean(),
     config: schemas.config,
+    configHash: z.string(),
     status: task.statusZ(schemas.statusData).optional().nullable(),
   }) as unknown as FormSchema<S>;
 
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
   key?: task.Key;
   name: string;
-  // NOTE: rackKey collapses into the rack payload field in PR 3.
-  rackKey: rack.Key;
+  rack: rack.Key;
   type: z.infer<S["type"]>;
   snapshot: boolean;
   config: z.infer<S["config"]>;
+  configHash: string;
   status?: task.Status<S["statusData"]>;
 }> {}
 
@@ -91,13 +92,7 @@ export interface InitialValues<
 > extends optional.Optional<
   task.Payload<S>,
   "key" | "rack" | "internal" | "snapshot" | "configHash"
-> {
-  key?: task.Key;
-  /** Rack to pre-select when creating a new task. The payload rack takes
-   * precedence when set. */
-  // NOTE: this pre-select fallback dies once rack lives on the payload in PR 3.
-  rackKey?: rack.Key;
-}
+> {}
 
 export type FormQuery = {
   key: task.Key;
@@ -108,29 +103,15 @@ export const toFormValues = <S extends task.Schemas = task.Schemas>(
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
-  // NOTE: this rack/rackKey merge collapses to `rack: t.rack ?? 0` in PR 3.
-  rackKey: primitive.isNonZero(t.rack) ? t.rack : (t.rackKey ?? 0),
+  rack: t.rack ?? 0,
   type: t.type,
   config: t.config,
+  configHash: t.configHash ?? "",
   status: t.status,
   snapshot: t.snapshot ?? false,
 });
 
 const RESET_OPTIONS: Form.SetOptions = { markTouched: false };
-
-const resetFormValues = <S extends task.Schemas = task.Schemas>(
-  set: Form.UseReturn<FormSchema<S>>["set"],
-  payload: task.Payload<S>,
-) => {
-  const values = toFormValues(payload);
-  set("key", values.key, RESET_OPTIONS);
-  set("name", values.name, RESET_OPTIONS);
-  set("type", values.type, RESET_OPTIONS);
-  // NOTE: becomes set("rack", ...) in PR 3.
-  set("rackKey", values.rackKey, RESET_OPTIONS);
-  set("config", values.config, RESET_OPTIONS);
-  set("snapshot", values.snapshot, RESET_OPTIONS);
-};
 
 export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
@@ -147,30 +128,39 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       toFormValues((await client.tasks.retrieve({ ...q, schemas })).payload),
     getCached: ({ client, query: q }) => {
       const cached = client.tasks.getCached(q);
-      if (!query.isLive(cached)) return undefined;
+      if (!query.isLive(cached) || cached.status == null) return undefined;
       return toFormValues(cached.payload as task.Payload<S>);
     },
     update: async ({ client, ...form }) => {
       const value = form.value();
-      // NOTE: reads value.rack in PR 3.
-      const rack = await client.racks.retrieve(value.rackKey);
-      const task = await rack.createTask(
+      const created = await client.tasks.create(
         {
           key: value.key,
+          rack: value.rack,
           name: value.name,
           type: value.type,
           config: value.config,
-          status: value.status,
+          snapshot: value.snapshot,
+          status: value.status ?? undefined,
         },
         schemas,
       );
-      resetFormValues(form.set, task.payload);
+      // Only server-assigned fields are reset from the response: resetting an
+      // edited field would clobber edits typed while this save was in flight.
+      form.set("key", created.key, RESET_OPTIONS);
+      form.set("configHash", created.configHash, RESET_OPTIONS);
       form.setCurrentStateAsInitialValues();
     },
     mountListeners: ({ client, query: { key }, set }) =>
       client.tasks.onChange(key, (result) => {
         if (!query.isLive(result)) return;
-        resetFormValues(set, result.payload as task.Payload<S>);
+        // Metadata only: config changes come solely from this form's own
+        // saves, and resetting it would clobber in-flight autosave edits.
+        const payload = result.payload as task.Payload<S>;
+        set("name", payload.name, RESET_OPTIONS);
+        set("rack", payload.rack, RESET_OPTIONS);
+        set("snapshot", payload.snapshot, RESET_OPTIONS);
+        set("configHash", payload.configHash, RESET_OPTIONS);
         if (result.status != null)
           set(
             "status",

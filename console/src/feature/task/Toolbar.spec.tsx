@@ -19,6 +19,7 @@ import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import {
   awaitCommand,
+  awaitTaskResourceTab,
   type CreatedPanel,
   createSelectedPanel,
   createTaskStatus,
@@ -39,6 +40,7 @@ const client = createTestClient();
 interface CreateTaskOptions {
   config?: Record<string, unknown>;
   running?: boolean;
+  drifted?: boolean;
 }
 
 // The toolbar lists every task on the cluster, so leaked tasks from prior tests slow
@@ -56,7 +58,11 @@ afterEach(async () => {
   await client.racks.delete(createdRacks.splice(0)).catch(ignoreNotFound);
 });
 
-const createTask = async ({ config = {}, running }: CreateTaskOptions = {}) => {
+const createTask = async ({
+  config = {},
+  running,
+  drifted,
+}: CreateTaskOptions = {}) => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   createdRacks.push(rack.key);
   const t = await rack.createTask({
@@ -69,7 +75,12 @@ const createTask = async ({ config = {}, running }: CreateTaskOptions = {}) => {
     await client.statuses.set(
       createTaskStatus({
         key: task.statusKey(t.key),
-        details: { task: t.key, running },
+        details: {
+          task: t.key,
+          running,
+          configHash: drifted === true ? "stale" : t.configHash,
+          rack: t.rack,
+        },
       }),
     );
   return t;
@@ -78,9 +89,6 @@ const createTask = async ({ config = {}, running }: CreateTaskOptions = {}) => {
 const renderToolbar = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const created = await createSelectedPanel(store, client);
-  // useOpenTab reads the panel query cache; warm it and keep it subscribed
-  // so dispatches stay visible.
-  await client.panels.retrieve(created.panelKey);
   render(
     <Task.RegistryProvider registry={Task.REGISTRY}>
       {Task.TOOLBAR.content}
@@ -138,25 +146,23 @@ describe("task/Toolbar", () => {
     expect(args).toEqual({});
   });
 
-  it("opens the task's configuration tab on double click", async () => {
+  it("opens the task's resource tab on double click", async () => {
     const t = await createTask();
     const { created } = await renderToolbar();
     await screen.findByText(t.name);
     // Re-query synchronously: async status/permission resolutions can replace the
     // text node, detaching a match held across an await before the event lands.
     fireEvent.doubleClick(screen.getByText(t.name));
-    const args = await awaitTab(created, NI.Task.ANALOG_READ_TYPE);
-    expect(args).toEqual({ taskKey: t.key });
+    expect(await awaitTaskResourceTab(created)).toBe(t.key);
   });
 
   describe("context menu", () => {
-    it("opens the configuration tab from Edit configuration", async () => {
+    it("opens the resource tab from Edit configuration", async () => {
       const t = await createTask();
       const { created } = await renderToolbar();
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText("Edit configuration"));
-      const args = await awaitTab(created, NI.Task.ANALOG_READ_TYPE);
-      expect(args).toEqual({ taskKey: t.key });
+      expect(await awaitTaskResourceTab(created)).toBe(t.key);
     });
 
     it("issues a start command for a stopped task", async () => {
@@ -185,6 +191,27 @@ describe("task/Toolbar", () => {
       } finally {
         streamer.close();
       }
+    });
+
+    it("redeploys a drifted running task from the context menu", async () => {
+      const t = await createTask({ running: true, drifted: true });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        await renderToolbar();
+        await openContextMenuUntil(t.name, "Redeploy");
+        fireEvent.click(screen.getByText("Redeploy"));
+        const cmd = await awaitCommand(streamer, t.key);
+        expect(cmd.type).toBe("start");
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("hides Redeploy when the running instance matches the stored config", async () => {
+      const t = await createTask({ running: true });
+      await renderToolbar();
+      await openContextMenuUntil(t.name, "Stop");
+      expect(screen.queryByText("Redeploy")).toBeNull();
     });
 
     it("enables data saving for a task whose config has it disabled", async () => {
@@ -231,7 +258,7 @@ describe("task/Toolbar", () => {
       );
     });
 
-    it("asks for confirmation before renaming a running task", async () => {
+    it("renames a running task without asking for confirmation", async () => {
       const t = await createTask({ running: true });
       await renderToolbar();
       await openContextMenuUntil(t.name, "Stop");
@@ -239,13 +266,10 @@ describe("task/Toolbar", () => {
       const editor = await awaitTextEditing(`text-${t.key}`);
       const renamed = uniqueName("renamed");
       commitTextEdit(editor, renamed);
-      await screen.findByText(
-        `Are you sure you want to rename ${t.name} to ${renamed}?`,
-      );
-      fireEvent.click(findButton("Rename"));
       await waitFor(async () =>
         expect((await client.tasks.retrieve(t.key)).name).toBe(renamed),
       );
+      expect(screen.queryByText(/Are you sure you want to rename/)).toBeNull();
     });
 
     it("deletes a task after confirmation", async () => {

@@ -82,7 +82,7 @@ describe("OPC Read Task Config Validation", () => {
   });
 
   it("should reject a node ID used by multiple channels", () => {
-    const result = OPC.Task.READ_SCHEMAS.config.safeParse(
+    const result = OPC.Task.deployReadConfigZ.safeParse(
       createConfig([{ nodeId: "ns=1;s=dup" }, { nodeId: "ns=1;s=dup" }]),
     );
     expect(result.success).toBe(false);
@@ -92,7 +92,7 @@ describe("OPC Read Task Config Validation", () => {
   });
 
   it("should reject multiple channels marked as index", () => {
-    const result = OPC.Task.READ_SCHEMAS.config.safeParse(
+    const result = OPC.Task.deployReadConfigZ.safeParse(
       createConfig([{ useAsIndex: true }, { useAsIndex: true }]),
     );
     expect(result.success).toBe(false);
@@ -111,7 +111,7 @@ describe("OPC Read Task Config Validation", () => {
       arraySize: 100,
       channels: [],
     };
-    const result = OPC.Task.READ_SCHEMAS.config.safeParse(config);
+    const result = OPC.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
     expect(
       result.error?.issues.some(({ message }) =>
@@ -132,7 +132,7 @@ describe("OPC Write Task Config Validation", () => {
       dataType: "float32",
       name: "",
     });
-    const result = OPC.Task.WRITE_SCHEMAS.config.safeParse({
+    const result = OPC.Task.deployWriteConfigZ.safeParse({
       device: "dev",
       channels: [channel(0, 55), channel(1, 55)],
     });
@@ -160,5 +160,21 @@ describe("Scanned Nodes", () => {
       connection: OPC.Device.ZERO_CONNECTION_CONFIG,
     });
     expect(result?.channels[0].key).toBe("ns=2;s=A");
+  });
+});
+
+describe("draft configs", () => {
+  // Drafts persist server-side before configuration, so the shape schema must
+  // accept every zero config; retrieve parses with it.
+  it("should accept the zero read config", () => {
+    expect(
+      OPC.Task.READ_SCHEMAS.config.safeParse(OPC.Task.ZERO_READ_PAYLOAD.config).success,
+    ).toBe(true);
+  });
+  it("should accept the zero write config", () => {
+    expect(
+      OPC.Task.WRITE_SCHEMAS.config.safeParse(OPC.Task.ZERO_WRITE_PAYLOAD.config)
+        .success,
+    ).toBe(true);
   });
 });

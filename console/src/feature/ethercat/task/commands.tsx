@@ -9,21 +9,22 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { READ_TYPE, WRITE_TYPE } from "@/feature/ethercat/task/types";
+import { useCreateRead } from "@/feature/ethercat/task/Read";
+import { useCreateWrite } from "@/feature/ethercat/task/Write";
 import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "ethercat_create_read_task",
   name: "Create an EtherCAT Read Task",
   icon: <Icon.Logo.EtherCAT />,
-  type: READ_TYPE,
+  useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "ethercat_create_write_task",
   name: "Create an EtherCAT Write Task",
   icon: <Icon.Logo.EtherCAT />,
-  type: WRITE_TYPE,
+  useOnSelect: useCreateWrite,
 });
 
 export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

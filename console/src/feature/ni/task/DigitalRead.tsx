@@ -22,6 +22,7 @@ import {
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
 import {
+  deployDigitalReadConfigZ,
   type DIChannel,
   DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
@@ -32,13 +33,6 @@ import {
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const DigitalReadSelectable = Selector.createSelectable({
-  type: DIGITAL_READ_TYPE,
-  title: "NI Digital Read Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(DIGITAL_READ_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -65,9 +59,8 @@ const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<Task.FormProps<DigitalReadSchemas>> = (props) => (
+const Form: FC = () => (
   <DigitalChannelList<DIChannel>
-    {...props}
     createChannel={createDIChannel}
     name={name}
     contextMenuItems={Task.readChannelContextMenuItem}
@@ -162,9 +155,24 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
 export const DigitalRead = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.NI,
   schemas: DIGITAL_READ_SCHEMAS,
+  deployConfigZ: deployDigitalReadConfigZ,
   getInitialValues,
   onConfigure,
   type: "ni_digital_read",
+});
+
+export const useCreateDigitalRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const digitalReadIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const DigitalReadSelectable = Selector.createSelectable({
+  type: DIGITAL_READ_TYPE,
+  title: "NI Digital Read Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateDigitalRead,
 });

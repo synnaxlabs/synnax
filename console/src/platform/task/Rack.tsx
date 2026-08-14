@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type task } from "@synnaxlabs/client";
-import { Icon, Rack as PRack, Task as PTask, Text, Tooltip } from "@synnaxlabs/pluto";
+import { type rack } from "@synnaxlabs/client";
+import { Form as PForm, Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
-import { useKey } from "@/platform/task/useKey";
 
-interface DeploymentProps {
+interface ContentProps {
   rackKey: rack.Key;
 }
 
-const Deployment = ({ rackKey }: DeploymentProps): ReactElement => {
+const Content = ({ rackKey }: ContentProps): ReactElement => {
   const query = { key: rackKey };
   PRack.useEnsure(query);
   const name = PRack.useName(query);
@@ -37,22 +36,12 @@ const Deployment = ({ rackKey }: DeploymentProps): ReactElement => {
   );
 };
 
-interface ContentProps {
-  taskKey: task.Key;
-}
-
-const Content = ({ taskKey }: ContentProps): ReactElement | null => {
-  const { rack } = PTask.use({ key: taskKey });
-  if (primitive.isZero(rack)) return null;
-  return <Deployment rackKey={rack} />;
-};
-
 export const Rack = (): ReactElement | null => {
-  const taskKey = useKey();
-  if (taskKey == null) return null;
+  const rackKey = PForm.useFieldValue<rack.Key>("rack", { optional: true }) ?? 0;
+  if (primitive.isZero(rackKey)) return null;
   return (
     <Errors.SuspenseBoundary>
-      <Content taskKey={taskKey} />
+      <Content rackKey={rackKey} />
     </Errors.SuspenseBoundary>
   );
 };

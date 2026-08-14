@@ -7,136 +7,124 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ComponentProps } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import {
-  awaitCommand,
   createTaskStatus,
+  isRedeployHidden,
   renderInTaskForm,
-  renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { getIconButton } from "@/testutil";
 
-type FormStatus = ComponentProps<typeof Task.Controls.Controls>["formStatus"];
+const CONFIG = { channels: [] };
+// The server assigns config hashes; overrides.configHash is what the driver reports
+// as deployed, so leaving it unset means the running instance matches the task.
+const CONFIG_HASH = "2de66015b3bdded8";
 
-const successStatus: FormStatus = {
-  key: id.create(),
-  name: "form",
-  variant: "success",
-  message: "",
-  description: "",
-  time: TimeStamp.now(),
-};
-
-const errorStatus: FormStatus = {
-  key: id.create(),
-  name: "form",
-  variant: "error",
-  message: "Config is invalid",
-  description: "",
-  time: TimeStamp.now(),
-  details: { stack: "", error: new Error("Config is invalid") },
-};
-
-const client = createTestClient();
-const rack = await client.racks.create({ name: uniqueName("rack") });
-
-const createTask = async () =>
-  await rack.createTask({ name: uniqueName("tsk"), type: "test_type", config: {} });
+const runningValues = (overrides: { configHash?: string; rack?: number } = {}) => ({
+  key: "1",
+  rack: 2,
+  config: CONFIG,
+  configHash: CONFIG_HASH,
+  status: createTaskStatus({
+    details: {
+      task: "1",
+      running: true,
+      configHash: overrides.configHash ?? CONFIG_HASH,
+      rack: overrides.rack ?? 2,
+    },
+  }),
+});
 
 describe("Controls.Controls", () => {
-  it("should hide the configure and start/stop actions when the task is a snapshot", async () => {
-    await renderInTaskForm(
-      <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
+  it("should hide the actions when the task is a snapshot", async () => {
+    const { container } = await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
       { values: { snapshot: true } },
     );
     await waitFor(() =>
-      expect(screen.getByText("Task has not been configured")).toBeTruthy(),
+      expect(screen.getByText("Test Task has not been deployed")).toBeTruthy(),
     );
-    expect(screen.queryByRole("button", { name: /Configure/ })).toBeNull();
+    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
   });
 
-  it("should invoke onConfigure when the Configure button is pressed", async () => {
-    const onConfigure = vi.fn();
+  it("should invoke onDeploy when the start button is pressed", async () => {
+    const onDeploy = vi.fn();
+    const { container } = await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
+      { values: { key: "1" } },
+    );
+    fireEvent.click(getIconButton(container, "play"));
+    expect(onDeploy).toHaveBeenCalledTimes(1);
+  });
+
+  it("should invoke onStop when the task is running", async () => {
+    const onDeploy = vi.fn();
+    const onStop = vi.fn();
+    const { container } = await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={onDeploy} onStop={onStop} />,
+      { values: runningValues() },
+    );
+    fireEvent.click(getIconButton(container, "stop"));
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(onDeploy).not.toHaveBeenCalled();
+  });
+
+  it("should not invoke onDeploy when the task has no key", async () => {
+    const onDeploy = vi.fn();
+    const { container } = await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
+      { values: { key: undefined } },
+    );
+    fireEvent.click(getIconButton(container, "play"));
+    expect(onDeploy).not.toHaveBeenCalled();
+  });
+
+  it("should collapse the redeploy button when the running config matches", async () => {
     await renderInTaskForm(
-      <Task.Controls.Controls formStatus={successStatus} onConfigure={onConfigure} />,
-      { values: { snapshot: false } },
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      { values: runningValues() },
     );
-    fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
-    expect(onConfigure).toHaveBeenCalledTimes(1);
+    expect(isRedeployHidden()).toBe(true);
   });
 
-  it("should issue a start command for the task when not running", async () => {
-    const tsk = await createTask();
-    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-    try {
-      const { container } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
-        { client, values: { key: tsk.key } },
-      );
-      fireEvent.click(getIconButton(container, "play"));
-      const cmd = await awaitCommand(streamer, tsk.key);
-      expect(cmd.type).toBe("start");
-    } finally {
-      streamer.close();
-    }
-  });
-
-  it("should issue a stop command for the task when running", async () => {
-    const tsk = await createTask();
-    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-    try {
-      const { container } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
-        {
-          client,
-          values: {
-            key: tsk.key,
-            status: createTaskStatus({ details: { task: tsk.key, running: true } }),
-          },
-        },
-      );
-      fireEvent.click(getIconButton(container, "pause"));
-      const cmd = await awaitCommand(streamer, tsk.key);
-      expect(cmd.type).toBe("stop");
-    } finally {
-      streamer.close();
-    }
-  });
-
-  it("should not issue a command when the task has no key", async () => {
-    const executeCommand = vi.spyOn(client.tasks, "executeCommand");
-    const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
-      { client, values: { key: undefined } },
+  it("should invoke onDeploy from the redeploy button when the task has drifted", async () => {
+    const onDeploy = vi.fn();
+    await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
+      { values: runningValues({ configHash: "stale" }) },
     );
-    fireEvent.click(getIconButton(container, "play"));
-    expect(executeCommand).not.toHaveBeenCalled();
-    executeCommand.mockRestore();
+    await waitFor(() => expect(isRedeployHidden()).toBe(false));
+    fireEvent.click(screen.getByText("Redeploy"));
+    expect(onDeploy).toHaveBeenCalledTimes(1);
   });
 
-  it("should surface the form status and disable start/stop when the form is invalid", async () => {
-    const executeCommand = vi.spyOn(client.tasks, "executeCommand");
-    const tsk = await createTask();
-    const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls formStatus={errorStatus} onConfigure={vi.fn()} />,
-      { client, values: { key: tsk.key } },
+  it("should disable the redeploy button while a command is in flight", async () => {
+    const values = runningValues({ configHash: "stale" });
+    values.status = { ...values.status, variant: "loading" };
+    await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      { values },
     );
-    await waitFor(() => expect(screen.getByText("Config is invalid")).toBeTruthy());
-    fireEvent.click(getIconButton(container, "play"));
-    expect(executeCommand).not.toHaveBeenCalled();
-    executeCommand.mockRestore();
+    await waitFor(() => expect(isRedeployHidden()).toBe(false));
+    const button = screen.getByText("Redeploy").closest("button");
+    assert(button != null);
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("should collapse the redeploy button when the task is not running", async () => {
+    await renderInTaskForm(
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      { values: { key: "1", rack: 2, config: CONFIG } },
+    );
+    expect(isRedeployHidden()).toBe(true);
   });
 
   it("should expand the status on click and contract it on a second click", async () => {
     await renderInTaskForm(
-      <Task.Controls.Controls formStatus={successStatus} onConfigure={vi.fn()} />,
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
       { values: { status: createTaskStatus({ message: "Running smoothly" }) } },
     );
     expect(screen.queryByText("Copy diagnostics")).toBeNull();

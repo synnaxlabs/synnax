@@ -11,29 +11,26 @@ import "@/platform/task/Form.css";
 
 import {
   type device,
-  panel,
+  DisconnectedError,
   type rack,
+  type status,
   type Synnax,
   type task,
 } from "@synnaxlabs/client";
 import {
-  Device,
   Flex,
-  type Flux,
   Form as PForm,
   Input,
-  Panel as PlutoPanel,
+  Status,
+  Synnax as PSynnax,
   Task as PTask,
-  Text,
 } from "@synnaxlabs/pluto";
-import { id, primitive, TimeStamp, uuid } from "@synnaxlabs/x";
-import { type FC, useCallback, useEffect, useMemo, useRef } from "react";
-import { z } from "zod";
+import { primitive } from "@synnaxlabs/x";
+import { type FC, useCallback } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
-import { Modals } from "@/platform/modals";
-import { Panel } from "@/platform/panel";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
@@ -48,21 +45,6 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
 
-export const formParamsZ = z.object({
-  deviceKey: z.string().optional(),
-  taskKey: z.string().optional(),
-  rackKey: z.number().optional(),
-  config: z.unknown().optional(),
-  // name is the draft task's semantic name, mirrored from the form's name field so the
-  // tab title reflects it before the task is persisted. Absent once taskKey is set: the
-  // name is then read from the cluster record.
-  name: z.string().optional(),
-});
-
-export interface FormViewParams extends z.infer<typeof formParamsZ> {}
-
-const useFormArgs = PlutoPanel.createSelectTabArgs(formParamsZ);
-
 export interface getInitialValuesParams {
   deviceKey?: device.Key;
   config?: unknown;
@@ -72,21 +54,24 @@ export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
   (params: getInitialValuesParams): PTask.InitialValues<S>;
 }
 
-export interface FormProps<
-  S extends task.Schemas = task.Schemas,
-> extends PForm.UseReturn<PTask.FormSchema<S>> {
-  status: Flux.Result<undefined>["status"];
-  onConfigure: () => void;
+export interface FormTabProps {
+  taskKey: task.Key;
 }
+
+export interface Forms extends Record<string, FC<FormTabProps>> {}
 
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
-  Form: FC<FormProps<S>>;
-  /** Vendor-specific icon shown on the task's tab name and toolbar button. */
-  Icon: Panel.TabIcon;
+  Form: FC<{}>;
   type: z.infer<S["type"]>;
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
+  /**
+   * Validates the config when the user deploys. Failures render as field
+   * errors and block the start command; warning-variant issues render but
+   * don't block. Shape schemas stay lax so drafts persist through autosave.
+   */
+  deployConfigZ: z.ZodType;
   getInitialValues: GetInitialValues<S>;
   showHeader?: boolean;
   showControls?: boolean;
@@ -94,7 +79,7 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
 
 export const useIsRunning = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx)?.details.running ?? false;
+) => useStatus(ctx).details.running;
 
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
@@ -119,110 +104,67 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   </>
 );
 
+// The deploy pipeline saves once at the end; notifying would fire autosave first.
+const SKIP_AUTOSAVE: PForm.SetOptions = { notifyOnChange: false };
+
+const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
+  issue.code === "custom" && issue.params != null && "variant" in issue.params
+    ? (issue.params.variant as status.Variant)
+    : "error";
+
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
-  Icon: TabIcon,
   schemas,
   type,
+  deployConfigZ,
   getInitialValues,
   onConfigure,
   showHeader = true,
   showControls = true,
-}: WrapFormParams<S>): Panel.Tab => {
+}: WrapFormParams<S>): FC<FormTabProps> => {
   const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
-  const defaultName = getInitialValues({}).name;
-  const useSyncName = (
-    form: PForm.ContextValue<PTask.FormSchema<S>>,
-    { deviceKey, taskKey, rackKey, config, name }: FormViewParams,
-  ): void => {
-    const { set } = form;
-    const setView = PlutoPanel.useSetCurrentTabView();
-    const formName = PForm.useFieldValue<string>("name", { ctx: form });
-    const prevName = useRef(name);
-    useEffect(() => {
-      if (taskKey != null) return;
-      const argsEdited = name !== prevName.current && name != null;
-      prevName.current = name;
-      if (formName === name) return;
-      if (argsEdited) set("name", name);
-      else
-        setView(
-          panel.viewZ.parse({
-            type,
-            args: { deviceKey, rackKey, config, name: formName },
-          }),
-        );
-    }, [taskKey, name, formName, deviceKey, rackKey, config, set, setView]);
-  };
-  const Content: Panel.Content = () => {
-    const { deviceKey, taskKey, rackKey, config, name } = useFormArgs();
-    const setView = PlutoPanel.useSetCurrentTabView();
-    const initialValues = useMemo(() => {
-      const base = getInitialValues({ deviceKey, config });
-      return PTask.toFormValues({
-        ...base,
-        name: name ?? base.name,
-        key: taskKey,
-        rackKey: rackKey ?? 0,
-      });
-    }, [deviceKey, config, name, taskKey, rackKey]);
-    const confirm = Modals.useConfirm();
-    const { form, status, save } = useForm({
-      query: taskKey == null ? null : { key: taskKey },
-      initialValues,
-      beforeSave: async ({ client, ...form }) => {
-        const { name, config, rackKey: currentRackKey } = form.value();
-        const [newConfig, newRackKey] = await onConfigure(client, config, name);
-        const nonZeroRackKey = primitive.isNonZero(newRackKey);
-        if (
-          nonZeroRackKey &&
-          primitive.isNonZero(taskKey) &&
-          newRackKey != currentRackKey
-        ) {
-          const confirmed = await confirm({
-            message: "Device has been moved to different driver.",
-            description:
-              "This means that the task will be moved to the new driver. Do you want to continue?",
-            confirm: { label: "Confirm", variant: "error" },
-            cancel: { label: "Cancel" },
-          });
-          if (!confirmed) return false;
-        }
-        if (nonZeroRackKey) form.set("rackKey", newRackKey);
-        form.set("config", newConfig);
-        let key = form.value().key;
-        if (key == null) {
-          key = uuid.create();
-          form.set("key", key);
-        }
-        const status: task.New<S>["status"] = {
-          key: id.create(),
-          name,
-          description: "",
-          time: TimeStamp.now(),
-          variant: "loading",
-          message: "Configuring task",
-          details: { task: key, running: true, cmd: "", data: null },
-        };
-        form.set("status", status);
-        return true;
-      },
-      afterSave: (props) => {
-        const { key } = props.value();
-        if (key == null) return;
-        setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
-      },
+  const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
+    const client = PSynnax.use();
+    const handleError = Status.useErrorHandler();
+    const { form, saveAsync } = useForm({
+      query: { key: taskKey },
+      autoSave: true,
     });
-    const { data: deviceRack } = Device.useResultRack(
-      deviceKey == null ? null : { key: deviceKey },
-    );
-    useEffect(() => {
-      if (deviceRack != null) form.set("rackKey", deviceRack);
-    }, [deviceRack]);
+
+    // Deploy pipeline: resolve channels and rack through onConfigure, persist
+    // the row, then issue the start command so the driver picks it up.
+    const handleDeploy = useCallback(() => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const { config, name } = form.value();
+        const result = deployConfigZ.safeParse(config);
+        if (!result.success) {
+          let blocked = false;
+          result.error.issues.forEach((issue) => {
+            const variant = issueVariant(issue);
+            if (variant !== "warning") blocked = true;
+            const path = ["config", ...issue.path].join(".");
+            form.setStatus(path, { key: path, variant, message: issue.message });
+          });
+          if (blocked) return;
+        }
+        const [newConfig, newRack] = await onConfigure(client, config, name);
+        form.set("config", newConfig, SKIP_AUTOSAVE);
+        if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
+        if (!(await saveAsync())) return;
+        await client.tasks.executeCommand({ task: taskKey, type: "start" });
+      }, "Failed to start task");
+    }, [client, form, saveAsync, taskKey, handleError]);
+
+    const handleStop = useCallback(() => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        await client.tasks.executeCommand({ task: taskKey, type: "stop" });
+      }, "Failed to stop task");
+    }, [client, taskKey, handleError]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
-    useSyncName(form, { deviceKey, taskKey, rackKey, config, name });
     return (
       <Flex.Box
         y
@@ -249,70 +191,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               empty
             >
               <Errors.SuspenseBoundary>
-                <Form status={status} onConfigure={save} {...form} />
+                <Form />
               </Errors.SuspenseBoundary>
             </Flex.Box>
             {showControls && (
-              <Controls.Controls formStatus={status} onConfigure={save} />
+              <Controls.Controls onDeploy={handleDeploy} onStop={handleStop} />
             )}
           </PForm.Form>
         </Flex.Box>
       </Flex.Box>
     );
   };
-  Content.displayName = `Form(${Form.displayName ?? Form.name})`;
-  interface RemoteNameProps extends Panel.TabNameProps {
-    taskKey: task.Key;
-  }
-  const RemoteName = ({ taskKey, allowRename }: RemoteNameProps) => {
-    const tabKey = PlutoPanel.useTabKey();
-    PTask.useEnsure({ key: taskKey });
-    const name = PTask.useName({ key: taskKey });
-    const { update } = PTask.useRename();
-    const handleChange = useCallback(
-      (name: string) => update({ key: taskKey, name }),
-      [taskKey, update],
-    );
-    return (
-      <>
-        <TabIcon />
-        <Text.MaybeEditable
-          id={Panel.tabNameID(tabKey)}
-          value={name}
-          disabled={!allowRename}
-          onChange={handleChange}
-        />
-      </>
-    );
-  };
-  const LocalName = ({ allowRename }: Panel.TabNameProps) => {
-    const tabKey = PlutoPanel.useTabKey();
-    const { deviceKey, rackKey, config, name } = useFormArgs();
-    const setView = PlutoPanel.useSetCurrentTabView();
-    const handleChange = useCallback(
-      (name: string) =>
-        setView(
-          panel.viewZ.parse({ type, args: { deviceKey, rackKey, config, name } }),
-        ),
-      [deviceKey, rackKey, config, setView],
-    );
-    return (
-      <>
-        <TabIcon />
-        <Text.MaybeEditable
-          id={Panel.tabNameID(tabKey)}
-          value={name ?? defaultName}
-          disabled={!allowRename}
-          onChange={handleChange}
-        />
-      </>
-    );
-  };
-  const Name: Panel.TabName = ({ allowRename = true }) => {
-    const { taskKey } = useFormArgs();
-    if (taskKey != null)
-      return <RemoteName taskKey={taskKey} allowRename={allowRename} />;
-    return <LocalName allowRename={allowRename} />;
-  };
-  return { Content, Name, Icon: TabIcon };
+  Wrapped.displayName = `Form(${Form.displayName ?? Form.name})`;
+  return Wrapped;
 };

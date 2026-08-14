@@ -22,6 +22,7 @@ import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { SelectOutputChannelType } from "@/feature/labjack/task/SelectOutputChannelType";
 import {
+  deployWriteConfigZ,
   type OutputChannel,
   type OutputChannelType,
   WRITE_SCHEMAS,
@@ -34,13 +35,6 @@ import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "LabJack Write Task",
-  icon: <Icon.Logo.LabJack />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -180,7 +174,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
   );
 };
 
-const Form: FC<Task.FormProps<WriteSchemas>> = PlatformDevice.wrapTaskForm({
+const Form: FC = PlatformDevice.wrapTaskForm({
   use,
   useConfigure: useConfigureModal,
   Content: ChannelList,
@@ -316,9 +310,24 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.LabJack,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "labjack_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "LabJack Write Task",
+  icon: <Icon.Logo.LabJack />,
+  useOnSelect: useCreateWrite,
 });

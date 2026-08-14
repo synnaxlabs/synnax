@@ -63,6 +63,27 @@ const validateNodeIDs = ({
 export const READ_TYPE = `${PREFIX}_read`;
 
 const baseReadConfigZ = Task.baseReadConfigZ.extend({
+  channels: z.array(inputChannelZ),
+  sampleRate: z.number(),
+});
+
+const nonArraySamplingConfigZ = baseReadConfigZ.extend({
+  arrayMode: z.literal(false),
+  streamRate: z.number(),
+});
+
+const arraySamplingConfigZ = baseReadConfigZ.extend({
+  arrayMode: z.literal(true),
+  arraySize: z.number(),
+});
+
+const readConfigZ = z.discriminatedUnion("arrayMode", [
+  nonArraySamplingConfigZ,
+  arraySamplingConfigZ,
+]);
+
+const deployBaseReadShape = {
+  device: Task.deviceKeyZ,
   channels: z
     .array(inputChannelZ)
     .check(Task.validateReadChannels)
@@ -83,22 +104,18 @@ const baseReadConfigZ = Task.baseReadConfigZ.extend({
       });
     }),
   sampleRate: z.number().positive().max(10000),
-});
+};
 
-const nonArraySamplingConfigZ = baseReadConfigZ
-  .extend({ arrayMode: z.literal(false), streamRate: z.number().positive().max(10000) })
-  .check(Task.validateStreamRate);
-
-const arraySamplingConfigZ = baseReadConfigZ
-  .extend({ arrayMode: z.literal(true), arraySize: z.number().int().positive() })
-  .refine(({ arraySize, sampleRate }) => sampleRate >= arraySize, {
-    message: "Sample rate must be greater than or equal to the array size",
-    path: ["sampleRate"],
-  });
-
-const readConfigZ = z.discriminatedUnion("arrayMode", [
-  nonArraySamplingConfigZ,
-  arraySamplingConfigZ,
+export const deployReadConfigZ = z.discriminatedUnion("arrayMode", [
+  nonArraySamplingConfigZ
+    .extend({ ...deployBaseReadShape, streamRate: z.number().positive().max(10000) })
+    .check(Task.validateStreamRate),
+  arraySamplingConfigZ
+    .extend({ ...deployBaseReadShape, arraySize: z.number().int().positive() })
+    .refine(({ arraySize, sampleRate }) => sampleRate >= arraySize, {
+      message: "Sample rate must be greater than or equal to the array size",
+      path: ["sampleRate"],
+    }),
 ]);
 
 export type ReadConfig = z.infer<typeof readConfigZ>;
@@ -135,6 +152,11 @@ export const ZERO_READ_PAYLOAD = {
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = Task.baseConfigZ.extend({
+  channels: z.array(outputChannelZ),
+});
+
+export const deployWriteConfigZ = writeConfigZ.extend({
+  device: Task.deviceKeyZ,
   channels: z
     .array(outputChannelZ)
     .check(Task.validateChannels)

@@ -17,6 +17,7 @@ import { Select } from "@/feature/opc/device/Select";
 import * as Device from "@/feature/opc/device/types";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opc/task/Form";
 import {
+  deployWriteConfigZ,
   type OutputChannel,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -26,13 +27,6 @@ import {
 import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "OPC UA Write Task",
-  icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -77,7 +71,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const TaskForm: FC<Task.FormProps<WriteSchemas>> = createForm<OutputChannel>({
+const TaskForm: FC = createForm<OutputChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems,
@@ -164,9 +158,24 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form: TaskForm,
-  Icon: Icon.Logo.OPC,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "opc_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "OPC UA Write Task",
+  icon: <Icon.Logo.OPC />,
+  useOnSelect: useCreateWrite,
 });

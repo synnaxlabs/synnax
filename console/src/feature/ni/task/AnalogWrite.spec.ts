@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -14,11 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import {
-  awaitTaskKey,
-  clickConfigure,
-  selectFromDropdown,
-} from "@/platform/task/testutil";
+import { deployAndAwaitTask, selectFromDropdown } from "@/platform/task/testutil";
 import { isSelectButtonSelected, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -38,11 +35,23 @@ const createChannel = (
     ...overrides,
   }) as NI.Task.AOChannel;
 
-const renderAnalogWrite = async (params = {}) =>
-  await renderNITaskForm(NI.Task.AnalogWrite, NI.Task.ANALOG_WRITE_TYPE, {
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_ANALOG_WRITE_PAYLOAD;
+
+const createDraft = async (
+  config: task.Payload<NI.Task.AnalogWriteSchemas>["config"],
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, NI.Task.ANALOG_WRITE_SCHEMAS);
+
+const renderAnalogWrite = async (
+  config: task.Payload<NI.Task.AnalogWriteSchemas>["config"],
+) => {
+  const draft = await createDraft(config);
+  const rendered = await renderNITaskForm(NI.Task.AnalogWrite, {
     client,
-    params,
+    taskKey: draft.key,
   });
+  return { ...rendered, draft };
+};
 
 const createConfig = (
   channels: NI.Task.AOChannel[],
@@ -56,9 +65,9 @@ describe("AnalogWrite", () => {
       ["ao_func_gen", "Frequency"],
       ["ao_voltage", "Custom Scaling"],
     ];
-    await renderAnalogWrite({
-      config: createConfig(cases.map(([type], i) => createChannel(type, i))),
-    });
+    await renderAnalogWrite(
+      createConfig(cases.map(([type], i) => createChannel(type, i))),
+    );
     for (const [i, [type, distinguishingLabel]] of cases.entries()) {
       fireEvent.click(await screen.findByText(`cmd_${type}_${i}`));
       await waitFor(
@@ -73,9 +82,7 @@ describe("AnalogWrite", () => {
   });
 
   it("should switch the function generator wave type when a wave button is clicked", async () => {
-    await renderAnalogWrite({
-      config: createConfig([createChannel("ao_func_gen", 0)]),
-    });
+    await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
     fireEvent.click(await screen.findByText("cmd_ao_func_gen_0"));
     await screen.findByText("Triangle");
     await waitFor(() => expect(isSelectButtonSelected("Sine")).toBe(true));
@@ -86,9 +93,7 @@ describe("AnalogWrite", () => {
   });
 
   it("should swap the channel to the newly selected type", async () => {
-    await renderAnalogWrite({
-      config: createConfig([createChannel("ao_voltage", 2)]),
-    });
+    await renderAnalogWrite(createConfig([createChannel("ao_voltage", 2)]));
     fireEvent.click(await screen.findByText("cmd_ao_voltage_2"));
     await screen.findByText("Custom Scaling");
     await selectFromDropdown("Voltage", "Function Generator");
@@ -96,11 +101,11 @@ describe("AnalogWrite", () => {
     expect(screen.queryByText("Custom Scaling")).toBeNull();
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create command and state channels and update the device", async () => {
       const dev = await createNIDevice(client);
-      const rendered = await renderAnalogWrite({
-        config: createConfig(
+      const rendered = await renderAnalogWrite(
+        createConfig(
           [
             createChannel("ao_voltage", 0, {
               cmdChannelName: "",
@@ -109,11 +114,10 @@ describe("AnalogWrite", () => {
           ],
           dev.key,
         ),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
+      );
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: rendered.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
       expect(created.type).toBe(NI.Task.ANALOG_WRITE_TYPE);
@@ -150,8 +154,8 @@ describe("AnalogWrite", () => {
       const dev = await createNIDevice(client);
       const cmdName = uniqueName("ao_cmd");
       const stateName = uniqueName("ao_state");
-      const rendered = await renderAnalogWrite({
-        config: createConfig(
+      const rendered = await renderAnalogWrite(
+        createConfig(
           [
             createChannel("ao_voltage", 0, {
               cmdChannelName: cmdName,
@@ -160,11 +164,10 @@ describe("AnalogWrite", () => {
           ],
           dev.key,
         ),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
+      );
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: rendered.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
       const [c0] = created.config.channels;
@@ -176,36 +179,36 @@ describe("AnalogWrite", () => {
       expect(cmdIndex.name).toBe(`${cmdName}_time`);
     });
 
-    it("should reuse existing channels when reconfigured", async () => {
+    it("should reuse existing channels when redeployed", async () => {
       const dev = await createNIDevice(client);
-      const rendered = await renderAnalogWrite({
-        config: createConfig(
-          [
-            createChannel("ao_voltage", 0, {
-              cmdChannelName: "",
-              stateChannelName: "",
-            }),
-          ],
-          dev.key,
-        ),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const first = await client.tasks.retrieve({
-        key: taskKey,
+      const config = createConfig(
+        [
+          createChannel("ao_voltage", 0, {
+            cmdChannelName: "",
+            stateChannelName: "",
+          }),
+        ],
+        dev.key,
+      );
+      const first = await renderAnalogWrite(config);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
-      await clickConfigure();
+      first.unmount();
+      const second = await renderAnalogWrite(config);
+      await deployAndAwaitTask(client, second.container, second.draft.key);
       await waitFor(async () => {
         const again = await client.tasks.retrieve({
-          key: taskKey,
+          key: second.draft.key,
           schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
         });
         expect(again.config.channels[0].cmdChannel).toBe(
-          first.config.channels[0].cmdChannel,
+          firstTask.config.channels[0].cmdChannel,
         );
         expect(again.config.channels[0].stateChannel).toBe(
-          first.config.channels[0].stateChannel,
+          firstTask.config.channels[0].stateChannel,
         );
       });
     });

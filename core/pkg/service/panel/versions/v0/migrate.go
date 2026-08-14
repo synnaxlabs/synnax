@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -274,7 +273,7 @@ func convertNode(
 		}
 		resourceType, ok := migratableLayoutTypes[layout.Type]
 		if !ok {
-			tab, err := convertTaskTab(ctx, tx, t.TabKey, layout.Type)
+			tab, err := convertTaskTab(ctx, tx, t.TabKey)
 			if err != nil {
 				return nil, err
 			}
@@ -304,15 +303,11 @@ func convertNode(
 	return &Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: tabs}}}, nil
 }
 
-// convertTaskTab converts a legacy task layout tab into a view tab holding the
-// task's re-keyed UUID. Legacy task layouts were keyed by the task's uint64 key, so
-// a tab is a task tab exactly when its key is in the staging map written by the task
-// re-key migration; other tab keys are dropped.
-func convertTaskTab(
-	ctx context.Context,
-	tx gorp.Tx,
-	tabKey, layoutType string,
-) (*Tab, error) {
+// convertTaskTab converts a legacy task layout tab into a resource tab pointing at
+// the task's re-keyed UUID. Legacy task layouts were keyed by the task's uint64 key,
+// so a tab is a task tab exactly when its key is in the staging map written by the
+// task re-key migration; other tab keys are dropped.
+func convertTaskTab(ctx context.Context, tx gorp.Tx, tabKey string) (*Tab, error) {
 	val, closer, err := tx.Get(ctx, []byte(task.LegacyKeyKVPrefix+tabKey))
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
@@ -324,18 +319,15 @@ func convertTaskTab(
 	if err := closer.Close(); err != nil {
 		return nil, err
 	}
-	return &Tab{Variant: TabView{
-		TabBase: TabBase{Key: uuid.New()},
-		View: View{
-			Type: layoutType,
-			Args: msgpack.EncodedJSON{"taskKey": key},
-		},
+	return &Tab{Variant: TabResource{
+		TabBase:  TabBase{Key: uuid.New()},
+		Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
 	}}, nil
 }
 
-// MigrateTaskTabKeys rewrites the task key embedded in every panel view tab's args
-// from the legacy uint64 string to the UUID minted by the task re-key migration,
-// then drains the staging map.
+// MigrateTaskTabKeys converts every panel view tab holding a legacy uint64 task key
+// into a resource tab pointing at the UUID minted by the task re-key migration, then
+// drains the staging map.
 func MigrateTaskTabKeys(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -367,7 +359,7 @@ func MigrateTaskTabKeys(
 	}
 	w := gorp.WrapWriter[Key, Panel](tx)
 	for _, p := range panels {
-		if !rewriteNodeTaskKeys(&p.Root, mapping) {
+		if !convertNodeTaskTabs(&p.Root, mapping) {
 			continue
 		}
 		if err := w.Set(ctx, p); err != nil {
@@ -382,13 +374,13 @@ func MigrateTaskTabKeys(
 	return nil
 }
 
-// rewriteNodeTaskKeys rewrites legacy task keys in the view tabs under n, reporting
-// whether anything changed.
-func rewriteNodeTaskKeys(n *Node, mapping map[string]string) bool {
+// convertNodeTaskTabs converts legacy-keyed task view tabs under n into resource
+// tabs, reporting whether anything changed.
+func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 	switch v := n.Variant.(type) {
 	case NodeSplit:
-		first := rewriteNodeTaskKeys(&v.First, mapping)
-		last := rewriteNodeTaskKeys(&v.Last, mapping)
+		first := convertNodeTaskTabs(&v.First, mapping)
+		last := convertNodeTaskTabs(&v.Last, mapping)
 		if !first && !last {
 			return false
 		}
@@ -410,8 +402,10 @@ func rewriteNodeTaskKeys(n *Node, mapping map[string]string) bool {
 			if !ok {
 				continue
 			}
-			view.Args["taskKey"] = key
-			tab.Variant = view
+			tab.Variant = TabResource{
+				TabBase:  view.TabBase,
+				Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+			}
 			changed = true
 		}
 		if !changed {

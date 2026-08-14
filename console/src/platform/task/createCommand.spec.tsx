@@ -21,7 +21,7 @@ const Command = Task.createCommand({
   key: "test_create_task",
   name: "Create a Test Task",
   icon: <Icon.Task />,
-  type: "test_task_form",
+  useOnSelect: () => () => {},
 });
 
 describe("Task.createCommand", () => {

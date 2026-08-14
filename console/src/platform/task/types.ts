@@ -12,6 +12,7 @@ import { z } from "zod";
 
 export type Command = "start" | "stop";
 
+// Deploy-time only: shape schemas keep device lax so drafts round-trip.
 export const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
 
 export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
@@ -37,6 +38,21 @@ export const validateChannels = ({
 };
 
 export const nameZ = z.string().default("");
+
+export const validateChannelDevices = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<{ device: device.Key }[]>) => {
+  channels.forEach(({ device }, i) => {
+    if (device !== "") return;
+    issues.push({
+      code: "custom",
+      message: "Must specify a device",
+      path: [i, "device"],
+      input: channels,
+    });
+  });
+};
 
 export const readChannelZ = channelZ.extend({ channel: channel.keyZ, name: nameZ });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
@@ -177,7 +193,7 @@ export const validateWriteChannels = (ctx: z.core.ParsePayload<WriteChannel[]>) 
 
 export const baseConfigZ = z.object({
   autoStart: z.boolean().default(false),
-  device: deviceKeyZ,
+  device: device.keyZ,
 });
 export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 export const ZERO_BASE_CONFIG: BaseConfig = {

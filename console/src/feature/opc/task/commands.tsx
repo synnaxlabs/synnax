@@ -9,21 +9,22 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { READ_TYPE, WRITE_TYPE } from "@/feature/opc/task/types";
+import { useCreateRead } from "@/feature/opc/task/Read";
+import { useCreateWrite } from "@/feature/opc/task/Write";
 import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "opc_ua_create_read_task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  type: READ_TYPE,
+  useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "opc_ua_create_write_task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  type: WRITE_TYPE,
+  useOnSelect: useCreateWrite,
 });
 
 export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

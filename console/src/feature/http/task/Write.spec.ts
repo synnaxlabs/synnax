@@ -14,12 +14,11 @@ import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { type Task } from "@/platform/task";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  deployAndAwaitTask,
   findDialogTriggerByText,
   renderTaskFormTab,
+  type RenderTaskFormTabOptions,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
@@ -29,9 +28,14 @@ import {
   uniqueName,
 } from "@/testutil";
 
-const renderWrite = async (
-  options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
-) => await renderTaskFormTab(HTTP.Task.Write, HTTP.Task.WRITE_TYPE, options);
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
+  await renderTaskFormTab(HTTP.Task.Write, { task: ZERO_DRAFT, ...options });
+
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = HTTP.Task.ZERO_WRITE_PAYLOAD;
+
+const createDraft = async (client: Synnax, config: HTTP.Task.WritePayload["config"]) =>
+  await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an endpoint"));
@@ -127,13 +131,15 @@ describe("HTTP Write form", () => {
     await screen.findByText("my_cmd_channel");
   });
 
-  it("should seed the form from a config passed through view args", async () => {
+  it("should seed the form from the task row's config", async () => {
+    const client = createTestClient();
     const config = createWriteConfig("dev_1", [createWriteEndpoint("ep1", "/seeded")]);
-    await renderWrite({ params: { config } });
+    const draft = await createDraft(client, config);
+    await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(/\/seeded/);
   });
 
-  describe("onConfigure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     const client = createTestClient();
 
     it("should create command channels, virtual when variable, and persist them to the device", async () => {
@@ -143,13 +149,14 @@ describe("HTTP Write form", () => {
         createWriteEndpoint("ep1", "/cmd", { dataType: "uint8" }),
         createWriteEndpoint("ep2", "/msg", { dataType: "string", name: virtualName }),
       ]);
-      const rendered = await renderWrite({ client, params: { config } });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: HTTP.Task.WRITE_SCHEMAS,
-      });
+      const draft = await createDraft(client, config);
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.WRITE_SCHEMAS,
+      );
 
       const updated = await client.devices.retrieve({
         key: dev.key,
@@ -189,13 +196,14 @@ describe("HTTP Write form", () => {
         createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
         createWriteEndpoint("ep2", "/stored"),
       ]);
-      const rendered = await renderWrite({ client, params: { config } });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: HTTP.Task.WRITE_SCHEMAS,
-      });
+      const draft = await createDraft(client, config);
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.WRITE_SCHEMAS,
+      );
       expect(created.config.endpoints[0].channel.channel).toBe(configuredCh.key);
       expect(created.config.endpoints[1].channel.channel).toBe(storedCh.key);
       const updated = await client.devices.retrieve({

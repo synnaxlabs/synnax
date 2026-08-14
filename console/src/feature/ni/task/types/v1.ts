@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { device, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import * as v0 from "@/feature/ni/task/types/v0";
@@ -16,7 +16,7 @@ import { Task } from "@/platform/task";
 
 const validateAnalogPorts = createPortValidator();
 
-const aiChanExtensionShape = { device: Task.deviceKeyZ };
+const aiChanExtensionShape = { device: device.keyZ };
 
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
 
@@ -270,15 +270,20 @@ export type Channel = AnalogChannel | v0.DigitalChannel;
 
 const v1AnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .omit({ channels: true, device: true })
+  .extend({ channels: z.array(aiChannelZ) });
+
+export interface AnalogReadConfig extends z.infer<typeof v1AnalogReadConfigZ> {}
+
+export const deployAnalogReadConfigZ = v1AnalogReadConfigZ
   .extend({
+    ...v0.deployReadRateShape,
     channels: z
       .array(aiChannelZ)
       .check(Task.validateReadChannels)
-      .check(validateAnalogPorts),
+      .check(validateAnalogPorts)
+      .check(Task.validateChannelDevices),
   })
   .check(Task.validateStreamRate);
-
-export interface AnalogReadConfig extends z.infer<typeof v1AnalogReadConfigZ> {}
 
 export const analogReadConfigZ = z.union([
   v0.analogReadConfigZ.transform<AnalogReadConfig>(({ channels, device, ...rest }) => ({

@@ -26,19 +26,13 @@ import {
   COUNTER_READ_TYPE,
   counterReadConfigZ,
   type CounterReadSchemas,
+  deployCounterReadConfigZ,
   ZERO_CI_CHANNEL,
   ZERO_COUNTER_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const CounterReadSelectable = Selector.createSelectable({
-  type: COUNTER_READ_TYPE,
-  title: "NI Counter Read Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(COUNTER_READ_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -90,7 +84,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const Form: FC<Task.FormProps<CounterReadSchemas>> = () => {
+const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
   const listItem = useCallback(
     ({ key, itemKey, ...rest }: Task.ChannelListItemProps) => (
@@ -219,9 +213,24 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 export const CounterRead = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.NI,
   schemas: COUNTER_READ_SCHEMAS,
+  deployConfigZ: deployCounterReadConfigZ,
   type: "ni_counter_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateCounterRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const counterReadIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const CounterReadSelectable = Selector.createSelectable({
+  type: COUNTER_READ_TYPE,
+  title: "NI Counter Read Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateCounterRead,
 });

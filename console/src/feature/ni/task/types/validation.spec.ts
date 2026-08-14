@@ -19,7 +19,7 @@ const ai = (key: string, device: string, port: number): NI.Task.AIChannel => ({
 });
 
 const parseAnalog = (channels: NI.Task.AIChannel[]) =>
-  NI.Task.analogReadConfigZ.safeParse({
+  NI.Task.deployAnalogReadConfigZ.safeParse({
     ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
     streamRate: 1000,
     sampleRate: 2000,
