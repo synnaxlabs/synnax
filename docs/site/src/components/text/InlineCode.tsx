@@ -25,6 +25,13 @@ export const parseSegments = (text?: string): Segment[] =>
         : { text: s, code: false },
     );
 
+/**
+ * Rewrites backtick-delimited spans in an HTML string as inline code elements. Use for
+ * text that must stay HTML, such as Algolia snippets that carry highlight markup.
+ */
+export const codifyHTML = (html?: string): string =>
+  String(html ?? "").replace(/`([^`]+)`/g, "<code>$1</code>");
+
 export interface SegmentsProps {
   segments: Segment[];
 }

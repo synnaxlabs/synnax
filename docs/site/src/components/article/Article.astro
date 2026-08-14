@@ -31,7 +31,11 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 ---
 
 <article transition:animate="none">
-    {showBreadcrumb && url.split("/").length > 2 && <Breadcrumb url={url} />}
+    {
+        showBreadcrumb && url.split("/").length > 2 && (
+            <Breadcrumb url={url} title={title} />
+        )
+    }
     {
         published && (
             <div class="blog-meta">
@@ -76,12 +80,6 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
         .article-title {
             display: inline-block;
             width: fit-content;
-
-            & code {
-                background: none;
-                border: none;
-                padding: 0;
-            }
         }
 
         & .pluto-breadcrumb {
