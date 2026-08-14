@@ -54,10 +54,23 @@ func goDefaultFills(field resolution.Field, data *templateData) []defaultFillDat
 	if field.Default.Kind == resolution.ValueKindStruct {
 		return structDefaultFills(name, field.Type, *field.Default, data)
 	}
-	if fill, ok := scalarFill(name, field.Type, field.Default, data); ok {
+	if fill, ok := componentFill(name, field.Type, field.Default, data); ok {
 		return []defaultFillData{fill}
 	}
 	return nil
+}
+
+// componentFill returns the fill for a scalar or array default, dispatching on kind.
+func componentFill(
+	goName string,
+	typeRef resolution.TypeRef,
+	d *resolution.ExpressionValue,
+	data *templateData,
+) (defaultFillData, bool) {
+	if d.Kind == resolution.ValueKindArray {
+		return arrayFill(goName, typeRef, d, data)
+	}
+	return scalarFill(goName, typeRef, d, data)
 }
 
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
@@ -91,11 +104,71 @@ func structDefaultFills(
 				structDefaultFills(selector, f.Type, comp.Value, data)...)
 			continue
 		}
-		if fill, ok := scalarFill(selector, f.Type, &comp.Value, data); ok {
+		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {
 			fills = append(fills, fill)
 		}
 	}
 	return fills
+}
+
+// arrayFill returns the fill assigning the array default d to the Go selector goName of
+// slice type typeRef. It returns ok=false when d is empty, since the nil slice the
+// caller starts from already carries that value, and when an element has no Go literal.
+func arrayFill(
+	goName string,
+	typeRef resolution.TypeRef,
+	d *resolution.ExpressionValue,
+	data *templateData,
+) (defaultFillData, bool) {
+	if len(d.Elements) == 0 || typeRef.Name != "Array" || len(typeRef.TypeArgs) != 1 {
+		return defaultFillData{}, false
+	}
+	lits := make([]string, 0, len(d.Elements))
+	for i := range d.Elements {
+		lit, ok := goLiteral(typeRef.TypeArgs[0], &d.Elements[i], data)
+		if !ok {
+			return defaultFillData{}, false
+		}
+		lits = append(lits, lit)
+	}
+	return defaultFillData{
+		GoName:  goName,
+		ZeroLit: "nil",
+		Expr: fmt.Sprintf(
+			"%s{%s}",
+			data.resolver.ResolveTypeRef(typeRef, data.ctx),
+			strings.Join(lits, ", "),
+		),
+	}, true
+}
+
+// goLiteral renders v as a Go literal of type typeRef. Unlike scalarFill it does not
+// suppress the zero value, because an element of an array default must be written out
+// even when it is zero. It returns ok=false for a kind with no literal rendering, such
+// as a struct or a magic default like create.
+func goLiteral(
+	typeRef resolution.TypeRef,
+	v *resolution.ExpressionValue,
+	data *templateData,
+) (string, bool) {
+	switch v.Kind {
+	case resolution.ValueKindString:
+		return strconv.Quote(v.StringValue), true
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", v.IntValue), true
+	case resolution.ValueKindFloat:
+		return strconv.FormatFloat(v.FloatValue, 'g', -1, 64), true
+	case resolution.ValueKindBool:
+		return strconv.FormatBool(v.BoolValue), true
+	case resolution.ValueKindIdent:
+		ev, ok := validation.ResolveEnumVariant(v.IdentValue, typeRef, data.table)
+		if !ok {
+			return "", false
+		}
+		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+		return enumType + naming.ToPascalCase(ev.Variant.Name), true
+	}
+	return "", false
 }
 
 // scalarFill returns the fill assigning the scalar or enum default d to the Go selector

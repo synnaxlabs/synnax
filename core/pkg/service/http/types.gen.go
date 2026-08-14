@@ -108,5 +108,5 @@ type WriteEndpoint = versions.WriteEndpoint
 // value is written to an endpoint's command channel.
 type WriteConfig = versions.WriteConfig
 
-// ScanConfig configures an HTTP scan task, which carries no settings.
+// ScanConfig configures an HTTP scan task.
 type ScanConfig = versions.ScanConfig

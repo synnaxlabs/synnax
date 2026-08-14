@@ -70,5 +70,5 @@ type ReadConfig = v1.ReadConfig
 // its own slave; all slaves must share one network interface.
 type WriteConfig = v1.WriteConfig
 
-// ScanConfig configures an EtherCAT scan task, which carries no settings.
+// ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v1.ScanConfig

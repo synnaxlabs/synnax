@@ -1181,6 +1181,7 @@ var _ = Describe("Codec", func() {
 					Rate:     telem.Rate(2.5),
 					Disabled: true,
 				},
+				IgnoredModels: []string{"test_4"},
 			}),
 			Entry("zero values", v2.ScanConfig{
 				BaseScan: config.BaseScan{
@@ -1188,6 +1189,15 @@ var _ = Describe("Codec", func() {
 					Rate:     telem.Rate(0),
 					Disabled: false,
 				},
+				IgnoredModels: nil,
+			}),
+			Entry("empty collections", v2.ScanConfig{
+				BaseScan: config.BaseScan{
+					Keyed:    config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					Rate:     telem.Rate(2.5),
+					Disabled: true,
+				},
+				IgnoredModels: []string{},
 			}),
 		)
 	})
@@ -1867,6 +1877,7 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 			Rate:     telem.Rate(2.5),
 			Disabled: true,
 		},
+		IgnoredModels: []string{"test_4"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -3924,6 +3935,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 				Rate:     telem.Rate(2.5),
 				Disabled: true,
 			},
+			IgnoredModels: []string{"test_4"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3938,6 +3950,22 @@ func FuzzDecodeScanConfig(f *testing.F) {
 				Rate:     telem.Rate(0),
 				Disabled: false,
 			},
+			IgnoredModels: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.ScanConfig{
+			BaseScan: config.BaseScan{
+				Keyed:    config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				Rate:     telem.Rate(2.5),
+				Disabled: true,
+			},
+			IgnoredModels: []string{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -28,5 +28,5 @@ type ReadConfig = versions.ReadConfig
 // WriteConfig configures an OPC UA write task.
 type WriteConfig = versions.WriteConfig
 
-// ScanConfig configures an OPC UA scan task, which carries no settings.
+// ScanConfig configures an OPC UA scan task.
 type ScanConfig = versions.ScanConfig
