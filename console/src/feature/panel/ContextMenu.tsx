@@ -11,6 +11,8 @@ import { panel, query } from "@synnaxlabs/client";
 import { Icon, Menu, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
+import { useMovePicker } from "@/feature/panel/MovePicker";
+import { type TabOrigin } from "@/feature/panel/useMoveTab";
 import { useTearOffTab } from "@/feature/panel/useTearOff";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { Panel as PlatformPanel } from "@/platform/panel";
@@ -50,18 +52,42 @@ const FocusItem = (): ReactElement => {
   );
 };
 
-const MoveToNewWindowItem = (): ReactElement => {
+// Resolves the whole tab the menu is open on, which every move path needs: a tab
+// travels to a panel that may never have loaded the source.
+const useOrigin = (): (() => TabOrigin | undefined) => {
   const key = Panel.useKey();
   const tabKey = Panel.useTabKey();
   const client = Synnax.use();
+  return useCallback(() => {
+    const cached = client?.panels.getCached(key);
+    if (!query.isLive(cached)) return undefined;
+    const tab = panel.findTab(cached.root, tabKey);
+    return tab == null ? undefined : { panel: key, tab };
+  }, [key, tabKey, client]);
+};
+
+const MoveToPanelItem = (): ReactElement => {
+  const getOrigin = useOrigin();
+  const openPicker = useMovePicker();
+  const handleMove = useCallback(() => {
+    const origin = getOrigin();
+    if (origin != null) openPicker({ origin });
+  }, [getOrigin, openPicker]);
+  return (
+    <Menu.Item itemKey="move-to-panel" onClick={handleMove}>
+      <Icon.Panel />
+      Move to panel
+    </Menu.Item>
+  );
+};
+
+const MoveToNewWindowItem = (): ReactElement => {
+  const getOrigin = useOrigin();
   const tearOff = useTearOffTab();
   const handleMove = useCallback(() => {
-    const cached = client?.panels.getCached(key);
-    if (!query.isLive(cached)) return;
-    const tab = panel.findTab(cached.root, tabKey);
-    if (tab == null) return;
-    tearOff({ panel: key, tab });
-  }, [tearOff, key, tabKey, client]);
+    const origin = getOrigin();
+    if (origin != null) tearOff(origin);
+  }, [getOrigin, tearOff]);
   return (
     <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>
       <Icon.OpenInNewWindow />
@@ -80,6 +106,7 @@ export const TabMenuItems = ({ keys }: Menu.ContextMenuMenuProps): ReactElement 
       <FocusItem />
       <Menu.Divider />
       <Panel.SplitTabMenuItems />
+      <MoveToPanelItem />
       <MoveToNewWindowItem />
       <Menu.Divider />
       <CMenu.ReloadConsoleItem />
