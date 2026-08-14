@@ -171,41 +171,43 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
     }
     // Seeded after the streamer opens so a transfer arriving during the seed is held
     // by the stream instead of lost; the read loop then applies it on top.
-    const auto seed_err = this->seed_control_states();
-    if (!seed_err) {
-        LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
-        if (on_started) on_started();
-        do {
-            auto [frame, read_err] = this->streamer->read();
-            if (read_err) break;
-            for (size_t i = 0; i < frame.size(); i++) {
-                const auto &key = frame.channels->at(i);
-                const auto &series = frame.series->at(i);
-                if (key == this->channels.task_set.key)
-                    this->process_task_set(series);
-                else if (key == this->channels.task_delete.key)
-                    this->process_task_delete(series);
-                else if (key == this->channels.task_cmd.key)
-                    this->process_task_cmd(series);
-                else if (key == this->channels.control_state.key)
-                    this->control_states_->apply(series);
-            }
-        } while (true);
-    }
+    this->seed_control_states();
+    LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
+    if (on_started) on_started();
+    do {
+        auto [frame, read_err] = this->streamer->read();
+        if (read_err) break;
+        for (size_t i = 0; i < frame.size(); i++) {
+            const auto &key = frame.channels->at(i);
+            const auto &series = frame.series->at(i);
+            if (key == this->channels.task_set.key)
+                this->process_task_set(series);
+            else if (key == this->channels.task_delete.key)
+                this->process_task_delete(series);
+            else if (key == this->channels.task_cmd.key)
+                this->process_task_cmd(series);
+            else if (key == this->channels.control_state.key)
+                this->control_states_->apply(series);
+        }
+    } while (true);
     this->stop_all_tasks();
     this->stop_workers();
     std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
-    if (seed_err) return seed_err;
     return c_err;
 }
 
-x::errors::Error Manager::seed_control_states() {
+void Manager::seed_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
-    if (err) return err;
+    if (err) {
+        // The mirror treats an absent entry as uncontrolled and the Core arbitrates
+        // every write, so an unseeded driver starts optimistic and converges as
+        // transfers arrive on the stream.
+        LOG(WARNING) << "failed to seed control state: " << err;
+        return;
+    }
     this->control_states_->set(states);
-    return x::errors::NIL;
 }
 
 void Manager::process_task_set(const x::telem::Series &series) {
