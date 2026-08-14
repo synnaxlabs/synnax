@@ -19,6 +19,7 @@ import { Select } from "@/feature/opc/device/Select";
 import * as Device from "@/feature/opc/device/types";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opc/task/Form";
 import {
+  deployReadConfigZ,
   type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
@@ -29,13 +30,6 @@ import {
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "OPC UA Read Task",
-  icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>
   props.read.channels[nodeId] ??
@@ -92,7 +86,7 @@ const Properties = (): ReactElement => {
         ) : (
           <Task.Fields.StreamRate />
         )}
-        <Task.Fields.DataSaving />
+        <Task.Fields.DataSaving polarity="disabled" />
         <Task.Fields.AutoStart />
       </Flex.Box>
     </>
@@ -104,7 +98,7 @@ const convertHaulItemToChannel = ({ data }: HaulItem): InputChannel => ({
   nodeName: data.name,
   nodeId: data.nodeId,
   channel: 0,
-  enabled: true,
+  disabled: false,
   useAsIndex: false,
   dataType: data.dataType,
   name: "",
@@ -115,7 +109,7 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<InputChannel> = ({ channel, key 
   id: Task.getChannelNameID(key),
 });
 
-const TaskForm: FC<Task.FormProps<ReadSchemas>> = createForm<InputChannel>({
+const TaskForm: FC = createForm<InputChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,
@@ -266,8 +260,23 @@ export const Read = Task.wrapForm({
   type: "opc_read",
   Properties,
   Form: TaskForm,
-  Icon: Icon.Logo.OPC,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const readIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "OPC UA Read Task",
+  icon: <Icon.Logo.OPC />,
+  useOnSelect: useCreateRead,
 });

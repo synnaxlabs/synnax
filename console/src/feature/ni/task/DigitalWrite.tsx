@@ -22,6 +22,7 @@ import {
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
 import {
+  deployDigitalWriteConfigZ,
   DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
   digitalWriteConfigZ,
@@ -33,19 +34,12 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const DigitalWriteSelectable = Selector.createSelectable({
-  type: DIGITAL_WRITE_TYPE,
-  title: "NI Digital Write Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(DIGITAL_WRITE_TYPE),
-});
-
 const Properties = () => (
   <>
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
+      <Task.Fields.DataSaving polarity="disabled" />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>
@@ -71,9 +65,8 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<Task.FormProps<DigitalWriteSchemas>> = (props) => (
+const Form: FC = () => (
   <DigitalChannelList
-    {...props}
     createChannel={createDOChannel}
     name={name}
     contextMenuItems={Task.writeChannelContextMenuItems}
@@ -210,9 +203,24 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
 export const DigitalWrite = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.NI,
   schemas: DIGITAL_WRITE_SCHEMAS,
+  deployConfigZ: deployDigitalWriteConfigZ,
   getInitialValues,
   onConfigure,
   type: "ni_digital_write",
+});
+
+export const useCreateDigitalWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const digitalWriteIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const DigitalWriteSelectable = Selector.createSelectable({
+  type: DIGITAL_WRITE_TYPE,
+  title: "NI Digital Write Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateDigitalWrite,
 });

@@ -13,8 +13,8 @@ import (
 	"context"
 	"io"
 	"iter"
-	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -25,8 +25,15 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
+// OntologyID returns a unique ID for the task with the given key within the Synnax
+// ontology.
+func OntologyID(key Key) ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeTask, Key: key.String()}
+}
+
+// OntologyIDs returns the ontology IDs for the given keys.
 func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID { return key.OntologyID() })
+	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
 
 func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
@@ -37,16 +44,12 @@ func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		k, err := strconv.ParseUint(id.Key, 10, 64)
-		if err != nil {
-			return 0, err
-		}
-		return Key(k), nil
+		return uuid.Parse(id.Key)
 	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.Uint64().Coerce(),
+	"key":      zyn.UUID(),
 	"name":     zyn.String(),
 	"type":     zyn.String(),
 	"snapshot": zyn.Bool(),
@@ -75,15 +78,12 @@ func (s *Service) RetrieveResource(
 	key string,
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
-	k, err := strconv.Atoi(key)
+	k, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
 	var t Task
-	if err = s.NewRetrieve().
-		Where(MatchKeys(Key(k))).
-		Entry(&t).
-		Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&t).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(t), nil
@@ -92,7 +92,7 @@ func (s *Service) RetrieveResource(
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     c.Key.OntologyID().String(),
+		Key:     OntologyID(c.Key).String(),
 		Value:   newResource(c.Value),
 	}
 }

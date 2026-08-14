@@ -357,11 +357,12 @@ func (c *collector) structFuncFromForms(
 		}
 		// A field the two versions shape differently — an optional appearing, a
 		// union replacing a struct, a declaration replacing a raw record, a type
-		// moving to another resource — has no copy that type-checks; the
-		// hand-written migration carries it.
+		// moving to another resource, a leaf primitive Go cannot cast across — has
+		// no copy that type-checks; the hand-written migration carries it.
 		if oldField.Optional != newField.Optional ||
 			c.unionMismatch(oldField.Type, newField.Type) ||
-			c.declarationMismatch(oldField.Type, newField.Type) {
+			c.declarationMismatch(oldField.Type, newField.Type) ||
+			c.castMismatch(oldField.Type, newField.Type) {
 			continue
 		}
 		name := naming.GetFieldName(oldField)
@@ -402,6 +403,40 @@ func (c *collector) declarationMismatch(oldRef, newRef resolution.TypeRef) bool 
 	oldLive, _, oldVersioned := versions.ParseDepNS(oldResolved.Namespace)
 	newLive, _, newVersioned := versions.ParseDepNS(newResolved.Namespace)
 	return oldVersioned && newVersioned && oldLive != newLive
+}
+
+// castMismatch reports whether a field's old and new types resolve to leaf
+// primitives a Go conversion cannot bridge, such as a numeric key becoming a
+// UUID. Such fields are left to the hand-written migration.
+func (c *collector) castMismatch(oldRef, newRef resolution.TypeRef) bool {
+	oldLeaf, oldOk := leafPrimitive(oldRef, c.oldTable)
+	newLeaf, newOk := leafPrimitive(newRef, c.newTable)
+	if !oldOk || !newOk || oldLeaf == newLeaf {
+		return false
+	}
+	return !resolution.IsNumberPrimitive(oldLeaf) ||
+		!resolution.IsNumberPrimitive(newLeaf)
+}
+
+// leafPrimitive chases distinct bases and alias targets to the primitive a
+// reference bottoms out on. Non-scalar forms report no leaf.
+func leafPrimitive(ref resolution.TypeRef, table *resolution.Table) (string, bool) {
+	if resolution.IsPrimitive(ref.Name) {
+		return ref.Name, true
+	}
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return "", false
+	}
+	switch form := resolved.Form.(type) {
+	case resolution.PrimitiveForm:
+		return form.Name, true
+	case resolution.DistinctForm:
+		return leafPrimitive(form.Base, table)
+	case resolution.AliasForm:
+		return leafPrimitive(form.Target, table)
+	}
+	return "", false
 }
 
 // isUnionIn reports whether a type reference resolves to a discriminated

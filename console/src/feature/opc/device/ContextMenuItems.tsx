@@ -16,8 +16,16 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
-  { itemKey: "opc.readTask", label: "Create read task", type: Task.READ_TYPE },
-  { itemKey: "opc.writeTask", label: "Create write task", type: Task.WRITE_TYPE },
+  {
+    itemKey: "opc.readTask",
+    label: "Create read task",
+    useCreate: Task.useCreateRead,
+  },
+  {
+    itemKey: "opc.writeTask",
+    label: "Create write task",
+    useCreate: Task.useCreateWrite,
+  },
 ];
 
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {

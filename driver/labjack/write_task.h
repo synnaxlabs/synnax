@@ -94,7 +94,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->devices.retrieve(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
@@ -171,7 +171,7 @@ public:
             cfg.state_index_keys,
             cfg.state_channels(),
             cfg.cmd_channels(),
-            cfg.data_saving
+            !cfg.data_saving_disabled
         ),
         cfg(std::move(cfg)),
         dev(dev) {}

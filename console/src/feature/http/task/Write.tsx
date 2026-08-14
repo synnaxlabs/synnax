@@ -12,6 +12,7 @@ import "@/feature/http/task/Form.css";
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
+  Channel as PChannel,
   Component,
   Divider,
   Flex,
@@ -31,7 +32,9 @@ import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
+import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
+  deployWriteConfigZ,
   type GeneratorType,
   type TimeFormat,
   WRITE_SCHEMAS,
@@ -50,13 +53,6 @@ import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "HTTP Write Task",
-  icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -141,6 +137,11 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
   const channelPath = `${epPath}.channel`;
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
   const jsonType = PForm.useFieldValue<string>(`${channelPath}.jsonType`);
+  const channelQuery = useMemo(
+    () => (primitive.isNonZero(channelKey) ? { key: channelKey } : null),
+    [channelKey],
+  );
+  const { data: dataType } = PChannel.useResultDataType(channelQuery);
 
   return (
     <>
@@ -174,6 +175,9 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
           >
             {renderSelectDataType}
           </PForm.Field>
+        )}
+        {dataType != null && DataType.TIMESTAMP.equals(dataType) && (
+          <TimeFormatField path={`${channelPath}.timeFormat`} label="Time format" />
         )}
         {jsonType === "string" && <EnumValuesEditor channelPath={channelPath} />}
       </Flex.Box>
@@ -470,7 +474,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
 
 const PATH_INPUT_PROPS = { placeholder: "/api/control" };
 
-const Form: FC<Task.FormProps<WriteSchemas>> = () => {
+const Form: FC = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, WriteEndpoint>(
     "config.endpoints",
@@ -703,9 +707,24 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.HTTP,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "HTTP Write Task",
+  icon: <Icon.Logo.HTTP />,
+  useOnSelect: useCreateWrite,
 });

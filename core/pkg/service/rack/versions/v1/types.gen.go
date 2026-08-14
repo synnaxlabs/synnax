@@ -14,7 +14,6 @@ package v1
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a composite identifier for a rack. The high 16 bits contain the node key, and
@@ -26,8 +25,6 @@ type Key = v0.Key
 
 // StatusDetails is the rack-specific detail payload carried in a rack Status.
 type StatusDetails = v0.StatusDetails
-
-// Status is rack-specific status information including operational state.
 type Status = status.Status[StatusDetails]
 
 // Rack is a collection container for hardware devices and tasks running on a specific
@@ -47,13 +44,4 @@ type Rack struct {
 	// Integrations is the list of hardware integrations this rack supports (e.g., "ni",
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
 	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Rack) Validate() error {
-	v := validate.New("Rack")
-	validate.NonZero(v, "key", r.Key)
-	validate.NotEmptyString(v, "name", r.Name)
-	return v.Error()
 }

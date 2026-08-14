@@ -16,14 +16,15 @@ import "schemas/synnax/status"
 @ts output  "client/ts/src/rack"
 
 Key uint32 {
-    @doc value  """
+    @cpp include "client/cpp/rack/key.h"
+    @doc value   """
         is a composite identifier for a rack. The high 16 bits contain the node key, and
         the low 16 bits contain the local sequential key. Racks are leased to specific
         nodes because task configuration signals are passed through gossip operations,
         which can take 15s+ to propagate through a large cluster. This structure
         minimizes hops and configuration latency.
     """
-    @go marshal flex
+    @go marshal  flex
 }
 
 StatusDetails struct {
@@ -49,9 +50,6 @@ Rack struct {
         @filter
         @validate required
     }
-    task_counter uint32 = 0 {
-        @doc value "is an internal counter used for generating unique local task keys."
-    }
     embedded     bool = false {
         @doc value "is true if this rack is embedded within the Synnax server process."
         @filter
@@ -72,8 +70,8 @@ Rack struct {
     @cpp methods     "task::Client tasks"
     @doc value       """
         is a collection container for hardware devices and tasks running on a specific
-        cluster node. Racks serve as the integration point between the Synnax server and
-        physical hardware via the Driver system.
+        Core. Racks are the integration point between the Core and physical hardware
+        through the Driver.
     """
     @go marshal
     @go migrate
@@ -85,7 +83,6 @@ Rack struct {
 }
 
 New struct extends Rack {
-    -task_counter
     -embedded
     key = 0
 

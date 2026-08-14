@@ -67,7 +67,7 @@ protected:
     // Helper to create a basic task configuration
     x::json::json create_base_config() {
         return {
-            {"data_saving", false},
+            {"data_saving_disabled", true},
             {"sample_rate", 25},
             {"stream_rate", 25},
             {"device", device.key},
@@ -234,13 +234,13 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_NIL(client->devices.create(dev));
 
     auto tsk = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "my_task",
         .type = "modbus_read",
     };
 
     x::json::json j{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", dev.key},
@@ -337,7 +337,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "discrete_test",
             .type = "modbus_read",
         },
@@ -395,7 +395,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "holding_test",
             .type = "modbus_read",
         },
@@ -472,7 +472,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "multi_test",
             .type = "modbus_read",
         },
@@ -500,7 +500,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
 /// reads.
 TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto cfg = create_base_config();
-    cfg["data_saving"] = true;
+    cfg["data_saving_disabled"] = false;
 
     auto coil_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("coil"),
@@ -569,7 +569,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "uint8_test",
             .type = "modbus_read",
         },
@@ -647,7 +647,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "uint8_holding_test",
             .type = "modbus_read",
         },
@@ -695,7 +695,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 
     // Create task with auto_start=true
     x::json::json config{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", device.key},
@@ -711,7 +711,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     };
 
     task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "test_task",
         .type = "modbus_read",
         .config = config
@@ -719,7 +719,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 
     // Configure task through factory
     auto factory = Factory();
-    auto [configured_task, ok] = factory.configure_task(ctx, task);
+    auto [configured_task, ok] = factory.configure_task(ctx, task, "");
 
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
@@ -762,7 +762,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Create task with auto_start=false
     x::json::json config{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", device.key},
@@ -778,7 +778,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     };
 
     task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "test_task_no_auto",
         .type = "modbus_read",
         .config = config
@@ -786,25 +786,21 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Configure task through factory
     auto factory = Factory();
-    auto [configured_task, ok] = factory.configure_task(ctx, task);
+    auto [configured_task, ok] = factory.configure_task(ctx, task, "cmd1");
 
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
 
-    // Task should NOT have auto-started - check that the status is "configured" not
-    // "running"
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    const auto &initial_state = ctx->statuses[0];
-    ASSERT_FALSE(initial_state.details.running);
-    ASSERT_EQ(initial_state.variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(initial_state.message, "Task configured successfully");
+    // Task should NOT have auto-started. A successful configure writes no status, and
+    // an auto-start would have written its start status before returning.
+    ASSERT_TRUE(ctx->statuses.empty());
 
     // Manually start the task
     synnax::task::Command start_cmd{.task = task.key, .type = "start"};
     configured_task->exec(start_cmd);
 
     // Now task should be running
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
         if (s.details.running && s.variant == synnax::status::VARIANT_SUCCESS) {

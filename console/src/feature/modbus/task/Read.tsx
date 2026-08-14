@@ -18,6 +18,7 @@ import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
 import { SelectInputChannelTypeField } from "@/feature/modbus/task/SelectInputChannelTypeField";
 import {
+  deployReadConfigZ,
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
@@ -32,13 +33,6 @@ import {
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "Modbus Read Task",
-  icon: <Icon.Logo.Modbus />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -137,7 +131,7 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<ReadSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.List<InputChannel>
     createChannel={getOpenChannel}
     contextMenuItems={Task.readChannelContextMenuItem}
@@ -235,9 +229,24 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 export const Read = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.Modbus,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "modbus_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const readIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "Modbus Read Task",
+  icon: <Icon.Logo.Modbus />,
+  useOnSelect: useCreateRead,
 });

@@ -30,6 +30,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//client/cpp/task/common",
         "//driver/common",
         "//driver/errors",
         "//driver/ethercat/channel",

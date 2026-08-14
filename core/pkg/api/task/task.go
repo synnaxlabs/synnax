@@ -211,7 +211,7 @@ func (s *Service) Copy(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{req.Key.OntologyID()},
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
 	}); err != nil {
 		return CopyResponse{}, err
 	}

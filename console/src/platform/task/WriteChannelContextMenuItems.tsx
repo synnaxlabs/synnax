@@ -11,9 +11,15 @@ import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
 
 import { type ContextMenuItemProps } from "@/platform/task/ChannelList";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
-import { type WriteChannel, type WriteChannelType } from "@/platform/task/types";
+import {
+  type Channel,
+  type DisabledChannel,
+  type WriteChannelType,
+} from "@/platform/task/types";
 
-export interface WriteChannelContextMenuItemsProps extends ContextMenuItemProps<WriteChannel> {}
+export interface WriteChannelContextMenuItemsProps extends ContextMenuItemProps<
+  Channel | DisabledChannel
+> {}
 
 export const WriteChannelContextMenuItems: React.FC<
   WriteChannelContextMenuItemsProps

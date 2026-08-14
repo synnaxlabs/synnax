@@ -11,6 +11,8 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/task/common/json.gen.h"
+
 #include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
@@ -21,39 +23,28 @@
 #include "driver/transform/transform.h"
 
 namespace driver::common {
-/// @brief common read task configuration parameters used across multiple drivers.
-struct BaseReadTaskConfig : BaseTaskConfig {
-    /// @brief sets the sample rate for the task.
-    const x::telem::Rate sample_rate;
-    /// @brief sets the stream rate for the task.
-    const x::telem::Rate stream_rate;
+/// @brief common read task configuration shared across hardware acquisition tasks.
+/// Wraps the schema-generated read config (auto_start, data_saving_disabled,
+/// sample_rate, stream_rate) with the driver-only timing options, so the field set
+/// has a single definition in the oracle schema.
+struct BaseReadTaskConfig : ::synnax::task::common::BaseReadConfig {
     /// @brief timing configuration options for the task.
     TimingConfig timing;
-
-    BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)),
-        sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate),
-        timing(other.timing) {}
-
-    BaseReadTaskConfig(const BaseReadTaskConfig &) = delete;
-
-    const BaseReadTaskConfig &operator=(const BaseReadTaskConfig &) = delete;
 
     explicit BaseReadTaskConfig(
         x::json::Parser &cfg,
         const common::TimingConfig timing_cfg = common::TimingConfig(),
         const bool stream_rate_required = true
     ):
-        BaseTaskConfig(cfg),
-        sample_rate(x::telem::Rate(cfg.field<float>("sample_rate", 0))),
-        stream_rate(x::telem::Rate(cfg.field<float>("stream_rate", 0))),
+        ::synnax::task::common::BaseReadConfig(
+            ::synnax::task::common::BaseReadConfig::parse(cfg)
+        ),
         timing(timing_cfg) {
-        if (sample_rate <= x::telem::Rate(0))
+        if (this->sample_rate <= x::telem::Rate(0))
             cfg.field_err("sample_rate", "must be greater than 0");
-        if (stream_rate_required && stream_rate <= x::telem::Rate(0))
+        if (stream_rate_required && this->stream_rate <= x::telem::Rate(0))
             cfg.field_err("stream_rate", "must be greater than 0");
-        if (stream_rate_required && sample_rate < stream_rate)
+        if (stream_rate_required && this->sample_rate < this->stream_rate)
             cfg.field_err(
                 "sample_rate",
                 "must be greater than or equal to stream rate"
@@ -162,7 +153,7 @@ class ReadTask final : public driver::task::Task {
         [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
             if (cfg.subject.key.empty())
-                cfg.subject.key = std::to_string(this->p.state.task.key);
+                cfg.subject.key = this->p.state.task.key.to_string();
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
         }
@@ -236,11 +227,14 @@ public:
     }
 
     /// @brief starts the task, using the given command key as a reference for
-    /// communicating task state.
+    /// communicating task state. A task that is already running is not restarted:
+    /// the command is answered with the current status.
     bool start(const std::string &cmd_key) {
-        this->stop("", false);
+        if (this->pipe.running()) {
+            this->state.ack(cmd_key, true);
+            return false;
+        }
         this->state.reset();
-        if (this->pipe.running()) return false;
         const auto start_ok = !this->state.error(this->source->internal->start());
         if (start_ok) this->pipe.start();
         this->state.send_start(cmd_key);

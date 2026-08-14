@@ -117,7 +117,7 @@ void Scanner::set_device_status(
         .description = description,
         .time = x::telem::TimeStamp::now(),
         .details = {
-            .rack = synnax::task::rack_key_from_task_key(this->task.key),
+            .rack = this->task.rack,
             .device = dev.key,
         },
     };
@@ -195,6 +195,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
             .task = task.key,
             .running = true,
             .cmd = cmd.key,
+            .config_hash = task.config_hash,
         }
     };
     if (!parser.ok()) {

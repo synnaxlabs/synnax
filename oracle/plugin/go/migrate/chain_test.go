@@ -85,4 +85,72 @@ Channel struct {
 		Expect(content).To(ContainSubstring("Key: old.Key"))
 		Expect(content).To(ContainSubstring("Name: old.Name"))
 	})
+
+	It("Should leave a field re-keyed across primitive kinds to the hand migration",
+		func() {
+			root := GinkgoT().TempDir()
+			write := func(rel, content string) {
+				full := filepath.Join(root, rel)
+				Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+				Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+			}
+			write("schemas/synnax/versions/task/v0.oracle", `
+Key uint64 {
+	@go marshal flex
+}
+
+Task struct {
+	key Key @key
+	name string
+
+	@go marshal
+	@go migrate
+}
+`)
+			write("schemas/synnax/versions/task/v1.oracle", `
+Key = uuid
+
+Task struct {
+	key Key @key
+	name string
+
+	@go marshal
+	@go migrate
+}
+`)
+			chains := MustSucceed(versions.Discover(root))
+			resolver := versions.NewResolver(
+				chains, analyzer.NewStandardFileLoader(root),
+			)
+			table := resolution.NewTable()
+			diag := analyzer.AnalyzeSeeded(
+				GinkgoT().Context(), `
+@go output "core/pkg/service/task"
+
+Key = uuid
+
+Task struct {
+	key Key @key
+	name string
+
+}
+`,
+				"schemas/synnax/task.oracle", "task",
+				analyzer.NewStandardFileLoader(root), table,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			resp := MustSucceed(migrate.New().Generate(&plugin.Request{
+				Resolutions: table, RepoRoot: root, Versions: resolver,
+			}))
+			var content string
+			for _, f := range resp.Files {
+				if f.Path == "core/pkg/service/task/versions/v1/migrate.gen.go" {
+					content = string(f.Content)
+				}
+			}
+			Expect(content).ToNot(BeEmpty())
+			Expect(content).To(ContainSubstring("Name: old.Name"))
+			Expect(content).ToNot(ContainSubstring("Key: "))
+			Expect(content).ToNot(ContainSubstring("autoMigrateKey"))
+		})
 })

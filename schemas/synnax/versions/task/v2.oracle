@@ -1,0 +1,99 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/status"
+import "schemas/synnax/versions/rack/v2"
+
+Key = uuid {
+    @doc value "is a unique identifier for a task."
+}
+
+StatusDetails struct<Data? = record> {
+    task        Key      {
+        @doc value "is the key of the task this status pertains to."
+    }
+    running     bool     {
+        @doc value "is true if the task is currently executing."
+    }
+    cmd         string = "" {
+        @doc value "is the last command executed on this task."
+    }
+    config_hash string = "" {
+        @doc value """
+            is the hash of the config the running task instance was built from. Empty
+            when no instance exists.
+        """
+    }
+    rack        rack.Key = 0 {
+        @doc value "is the key of the rack running the task instance."
+    }
+    data        Data?    {
+        @doc value "contains task-specific status data."
+    }
+
+    @doc value "contains task-specific status details including execution state."
+}
+
+Status<Data? = record> = status.Status<StatusDetails<Data>>
+
+Task struct<
+    Type extends string = string,
+    Config extends record = record,
+    StatusData? = record
+> {
+    key         Key = create {
+        @doc value "is the unique identifier for this task."
+        @key
+    }
+    rack        rack.Key = 0 {
+        @doc value """
+            is the key of the rack this task deploys to. Zero for a draft that has not
+            been assigned a rack; required to start.
+        """
+    }
+    name        string              {
+        @doc value "is a human-readable name for the task."
+    }
+    type        Type                {
+        @doc value """
+            is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+            Determines which hardware integration handles the task.
+        """
+    }
+    config      Config              {
+        @doc value """
+            is task-specific configuration stored as JSON. Structure varies by task
+            type.
+        """
+    }
+    config_hash string = "" {
+        @doc value """
+            is the Core-assigned hash of config, rewritten on every write and ignored on
+            writes from clients. Compare against a status's config_hash to detect drift.
+        """
+    }
+    internal    bool = false {
+        @doc value "is true if this is an internal system task."
+    }
+    snapshot    bool = false {
+        @doc value "indicates whether to persist this task's configuration."
+    }
+    status      Status<StatusData>? {
+        @doc value  "is the current execution status of the task."
+        @go marshal omit
+    }
+
+    @doc value  """
+        is an executable unit of work in the Driver system. Tasks represent specific
+        hardware operations such as reading sensor data, writing control signals, or
+        scanning for devices.
+    """
+    @go marshal
+    @go migrate
+}

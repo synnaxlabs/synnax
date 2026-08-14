@@ -1,0 +1,153 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/device"
+import "schemas/synnax/task"
+import "schemas/x/telem"
+
+@cpp output "client/cpp/ethercat"
+@go output  "core/pkg/service/ethercat"
+@py output  "client/py/synnax/ethercat"
+@ts output  "client/ts/src/ethercat"
+
+PDOAddress struct {
+    index      uint16 = 0 {
+        @doc value "is the CoE object dictionary index of the PDO entry."
+    }
+    sub_index  uint8 = 0 {
+        @doc value "is the CoE object dictionary sub-index of the PDO entry."
+    }
+    bit_length uint8 = 16 {
+        @doc value "is the size of the PDO entry, in bits."
+    }
+    data_type  telem.DataType = "uint16" {
+        @doc value "is the data type of the PDO entry."
+        @ts type   "string"
+    }
+
+    @doc value "addresses a PDO entry explicitly in the CoE object dictionary."
+}
+
+BaseInputChannel struct {
+    key      string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from acquisition."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel that raw samples are written to."
+    }
+    device   device.Key = "" {
+        @doc value "is the key of the slave device the channel reads from."
+    }
+
+    @doc value "carries the fields every EtherCAT input channel shares."
+}
+
+InputChannel union on type extends BaseInputChannel {
+    automatic {
+        pdo string = "" {
+            @doc value "is the name of the PDO entry to resolve on the slave."
+        }
+
+        @doc value "resolves its PDO address from the slave's discovered PDOs."
+    }
+    manual extends PDOAddress {
+        @doc value "specifies its PDO address inline."
+    }
+
+    @doc value """
+        is a single EtherCAT input channel (TxPDO, slave to master). The type field
+        selects how the PDO entry is addressed.
+    """
+}
+
+BaseOutputChannel struct {
+    key                string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name               string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled           bool = false {
+        @doc value "is true when the channel is excluded from the task."
+    }
+    cmd_channel        channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+    state_channel      channel.Key = 0 {
+        @doc value "is the Synnax channel the output state is written to."
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
+    device             device.Key = "" {
+        @doc value "is the key of the slave device the channel writes to."
+    }
+
+    @doc value "carries the fields every EtherCAT output channel shares."
+}
+
+OutputChannel union on type extends BaseOutputChannel {
+    automatic {
+        pdo string = "" {
+            @doc value "is the name of the PDO entry to resolve on the slave."
+        }
+
+        @doc value "resolves its PDO address from the slave's discovered PDOs."
+    }
+    manual extends PDOAddress {
+        @doc value "specifies its PDO address inline."
+    }
+
+    @doc value """
+        is a single EtherCAT output channel (RxPDO, master to slave). The type field
+        selects how the PDO entry is addressed.
+    """
+}
+
+ReadConfig struct extends task.BaseReadConfig {
+    channels InputChannel[] {
+        @doc value "are the input channels the task acquires."
+    }
+
+    @doc value """
+        configures an EtherCAT read task. Each channel addresses a PDO entry on its own
+        slave; all slaves must share one network interface.
+    """
+}
+
+WriteConfig struct extends task.BasePersistConfig {
+    state_rate     telem.Rate = 25 {
+        @doc value "is the rate at which output state is reported to Synnax, in hertz."
+        @ts type   "number"
+    }
+    execution_rate telem.Rate = 1000 {
+        @doc value "is the rate at which commands are applied to the bus, in hertz."
+        @ts type   "number"
+    }
+    channels       OutputChannel[] {
+        @doc value "are the output channels the task drives."
+    }
+
+    @doc value """
+        configures an EtherCAT write task. Each channel addresses a PDO entry on its own
+        slave; all slaves must share one network interface.
+    """
+}

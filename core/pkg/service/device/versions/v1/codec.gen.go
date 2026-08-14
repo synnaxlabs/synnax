@@ -14,7 +14,7 @@ package v1
 import (
 	"encoding/json"
 
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 

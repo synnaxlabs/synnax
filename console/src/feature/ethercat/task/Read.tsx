@@ -21,6 +21,7 @@ import {
 import {
   channelMapKey,
   createInputChannel,
+  deployReadConfigZ,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
@@ -33,13 +34,6 @@ import {
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "EtherCAT Read Task",
-  icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
 
 const Properties = () => (
   <Flex.Box x grow>
@@ -72,7 +66,7 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<ReadSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.ListAndDetails<InputChannel>
     listItem={listItem}
     details={channelDetails}
@@ -143,9 +137,24 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 export const Read = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.EtherCAT,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "ethercat_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const readIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "EtherCAT Read Task",
+  icon: <Icon.Logo.EtherCAT />,
+  useOnSelect: useCreateRead,
 });

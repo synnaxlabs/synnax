@@ -157,9 +157,15 @@ export const OUTPUT_CHANNEL_SCHEMAS: Record<
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const readConfigZ = Task.baseReadConfigZ
+const readConfigZ = Task.baseReadConfigZ.extend({
+  channels: z.array(inputChannelZ),
+  sampleRate: z.number(),
+  streamRate: z.number(),
+});
+
+export const deployReadConfigZ = readConfigZ
   .extend({
-    channels: z.array(inputChannelZ),
+    device: Task.deviceKeyZ,
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
@@ -195,8 +201,10 @@ interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const ZERO_READ_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "Modbus Read Task",
   config: ZERO_READ_CONFIG,
+  configHash: "",
   type: READ_TYPE,
   internal: false,
   snapshot: false,
@@ -207,6 +215,8 @@ export const WRITE_TYPE = `${PREFIX}_write`;
 const writeConfigZ = Task.baseConfigZ.extend({
   channels: z.array(outputChannelZ),
 });
+
+export const deployWriteConfigZ = writeConfigZ.extend({ device: Task.deviceKeyZ });
 
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
@@ -236,8 +246,10 @@ interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "Modbus Write Task",
   config: ZERO_WRITE_CONFIG,
+  configHash: "",
   type: WRITE_TYPE,
   internal: false,
   snapshot: false,
