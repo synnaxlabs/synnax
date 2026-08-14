@@ -12,12 +12,33 @@
 import { caseconv, type optional, record, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { device } from "@/device";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
+/** BaseStartConfig carries the configuration fields shared by every hardware task. */
+export const baseStartConfigZ = z.object({
+  /** autoStart is true when the task should start as soon as it is configured. */
+  autoStart: z.boolean().default(false),
+  /** dataSavingDisabled is true when task telemetry is not persisted to disk. */
+  dataSavingDisabled: z.boolean().default(false),
+});
+export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+export const baseReadConfigZ = baseStartConfigZ.extend({
+  sampleRate: z.number().default(10),
+  streamRate: z.number().default(5),
+});
+export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
+
+export const baseWriteConfigZ = baseStartConfigZ.extend({
+  device: device.keyZ.default(""),
+});
+export interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
 
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
