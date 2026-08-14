@@ -83,7 +83,7 @@ export const tokens = {
   namespace: {
     dark: "#E5C07B",
     light: "#9C5404",
-    scopes: [],
+    scopes: ["entity.name.namespace.arc"],
   },
   comment: {
     dark: "#5C6370",

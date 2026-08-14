@@ -6,6 +6,9 @@
       "include": "#comments"
     },
     {
+      "include": "#imports"
+    },
+    {
       "include": "#for-statement"
     },
     {
@@ -36,6 +39,9 @@
       "include": "#invocations"
     },
     {
+      "include": "#namespaces"
+    },
+    {
       "include": "#identifiers"
     }
   ],
@@ -50,6 +56,49 @@
           "name": "comment.block.arc",
           "begin": "/\\*",
           "end": "\\*/"
+        }
+      ]
+    },
+    "imports": {
+      "patterns": [
+        {
+          "begin": "\\b(import)\\s*\\(",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.other.arc"
+            }
+          },
+          "end": "\\)",
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "name": "keyword.other.arc",
+              "match": "\\b(as)\\b"
+            },
+            {
+              "name": "entity.name.namespace.arc",
+              "match": "\\b[a-zA-Z_][a-zA-Z0-9_.]*"
+            }
+          ]
+        },
+        {
+          "match": "\\b(import)\\s+([a-zA-Z_][a-zA-Z0-9_.]*)(?:\\s+(as)\\s+([a-zA-Z_][a-zA-Z0-9_]*))?",
+          "captures": {
+            "1": {
+              "name": "keyword.other.arc"
+            },
+            "2": {
+              "name": "entity.name.namespace.arc"
+            },
+            "3": {
+              "name": "keyword.other.arc"
+            },
+            "4": {
+              "name": "entity.name.namespace.arc"
+            }
+          }
         }
       ]
     },
@@ -306,6 +355,14 @@
               "include": "$self"
             }
           ]
+        }
+      ]
+    },
+    "namespaces": {
+      "patterns": [
+        {
+          "name": "entity.name.namespace.arc",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\.)"
         }
       ]
     },
