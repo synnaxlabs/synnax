@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -45,7 +46,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db := &DB{options: o, closed: &atomic.Bool{}}
+	db := &DB{
+		options:        o,
+		closed:         &atomic.Bool{},
+		controlUpdates: observe.New[ControlUpdate](),
+	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
 	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
 	for _, i := range info {

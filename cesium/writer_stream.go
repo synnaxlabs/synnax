@@ -112,7 +112,7 @@ type streamWriter struct {
 	accumulatedErr  error
 	errSent         bool
 	virtual         *virtualWriter
-	updateDBControl func(ctx context.Context, u ControlUpdate) error
+	updateDBControl func(ctx context.Context, u ControlUpdate)
 	internal        []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
@@ -220,7 +220,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	}
 
 	if len(u.Transfers) > 0 {
-		return w.updateDBControl(ctx, u)
+		w.updateDBControl(ctx, u)
 	}
 	return nil
 }
@@ -438,16 +438,8 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(parentUpdate.Transfers) > 0 {
-		_ = w.updateDBControl(ctx, parentUpdate)
+		w.updateDBControl(ctx, parentUpdate)
 	}
-
-	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
-		// When digest writer closes, we do not (and cannot) send an update.
-		if _, digestErr := digestWriter.Close(); digestErr != nil {
-			return digestErr
-		}
-	}
-
 	return err
 }
 
@@ -919,8 +911,7 @@ func (w *idxWriter) resolveCommitEnd(
 }
 
 type virtualWriter struct {
-	internal  map[ChannelKey]*virtual.Writer
-	digestKey channel.Key
+	internal map[ChannelKey]*virtual.Writer
 }
 
 func (w virtualWriter) write(
@@ -956,15 +947,11 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 	var err error
 	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
-		// We do not want to clean up the digest channel since we want to use it to send
-		// updates for closures.
-		if chW.Channel.Key != w.digestKey {
-			transfer, closeErr := chW.Close()
-			if closeErr != nil {
-				err = errors.Join(err, closeErr)
-			} else if transfer.Occurred() {
-				update.Transfers = append(update.Transfers, transfer)
-			}
+		transfer, closeErr := chW.Close()
+		if closeErr != nil {
+			err = errors.Join(err, closeErr)
+		} else if transfer.Occurred() {
+			update.Transfers = append(update.Transfers, transfer)
 		}
 	}
 	return update, err

@@ -30,6 +30,7 @@ cc_library(
         "//client/cpp/framer",
         "//client/cpp/rack",
         "//client/cpp/ranger",
+        "//client/cpp/control",
         "//client/cpp/status",
         "//client/cpp/view",
         "//core/pkg/transport/grpc:api_grpc",

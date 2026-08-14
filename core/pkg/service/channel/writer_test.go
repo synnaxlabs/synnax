@@ -1530,7 +1530,7 @@ var _ = Describe("Writer", func() {
 					Where(channel.MatchLeaseholders(1)).
 					Exec(ctx, nil),
 			).To(Succeed())
-			Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))
+			Expect(retrievedChannels).To(HaveLen(limit))
 
 			// Retrieve a specific channel by name
 			var singleChannel channel.Channel

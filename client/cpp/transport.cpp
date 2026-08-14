@@ -20,6 +20,8 @@
 #include "core/pkg/transport/grpc/channel/channel.pb.h"
 #include "core/pkg/transport/grpc/connectivity/connectivity.grpc.pb.h"
 #include "core/pkg/transport/grpc/connectivity/connectivity.pb.h"
+#include "core/pkg/transport/grpc/control/control.grpc.pb.h"
+#include "core/pkg/transport/grpc/control/control.pb.h"
 #include "core/pkg/transport/grpc/device/device.grpc.pb.h"
 #include "core/pkg/transport/grpc/device/device.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.grpc.pb.h"
@@ -133,6 +135,10 @@ Transport::Transport(
         grpc::device::DeleteRequest,
         google::protobuf::Empty,
         grpc::device::DeviceDeleteService>>(pool, base_target);
+    this->control_retrieve = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::control::RetrieveRequest,
+        grpc::control::RetrieveResponse,
+        grpc::control::ControlRetrieveService>>(pool, base_target);
     this->status_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::status::RetrieveRequest,
         grpc::status::RetrieveResponse,

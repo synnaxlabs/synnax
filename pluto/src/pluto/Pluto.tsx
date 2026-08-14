@@ -69,7 +69,7 @@ export const Provider = ({
                   <Theming.Provider {...theming}>
                     <Code.Provider languages={ARC_LANGUAGES}>
                       <CanDisableTelem {...telem}>
-                        <Control.StateProvider>{children}</Control.StateProvider>
+                        <Control.Colors>{children}</Control.Colors>
                       </CanDisableTelem>
                     </Code.Provider>
                   </Theming.Provider>

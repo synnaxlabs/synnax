@@ -10,8 +10,6 @@
 package framer_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -81,9 +79,6 @@ var _ = Describe("Service", func() {
 				Entry("status", func(c *framer.ServiceConfig) {
 					c.Status = nil
 				}, "status"),
-				Entry("host_provider", func(c *framer.ServiceConfig) {
-					c.HostProvider = nil
-				}, "host_provider"),
 			)
 		})
 
@@ -93,14 +88,12 @@ var _ = Describe("Service", func() {
 				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
 				Expect(res.Status).To(Equal(statusSvc))
-				Expect(res.HostProvider).To(Equal(node.Cluster))
 			})
 			It("Should replace base values with non-nil overrides", func() {
 				res := framer.ServiceConfig{}.Override(validCfg)
 				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
 				Expect(res.Status).To(Equal(statusSvc))
-				Expect(res.HostProvider).To(Equal(node.Cluster))
 			})
 			It("Should override zero-value instrumentation", func() {
 				res := framer.ServiceConfig{}.Override(framer.ServiceConfig{
@@ -125,52 +118,6 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(framer.OpenService(ctx, framer.ServiceConfig{})).
 					Error().To(MatchError(ContainSubstring("must be non-nil")))
-			},
-		)
-	})
-
-	Describe("Control update channel configuration", func() {
-		controlChannelName := func(n mock.Node) string {
-			return fmt.Sprintf("sy_node_%v_control", n.Cluster.HostKey())
-		}
-		It(
-			"Should create the host node's control update channel on open",
-			func(ctx SpecContext) {
-				var controlChannels []channel.Channel
-				Expect(channelSvc.
-					NewRetrieve().
-					Where(channel.MatchNames(controlChannelName(node))).
-					Entries(&controlChannels).
-					Exec(ctx, nil),
-				).To(Succeed())
-				Expect(controlChannels).To(HaveLen(1))
-				controlCh := controlChannels[0]
-				Expect(controlCh.Virtual).To(BeTrue())
-				Expect(controlCh.Internal).To(BeTrue())
-				Expect(controlCh.DataType).To(Equal(telem.StringT))
-				Expect(controlCh.Leaseholder).To(Equal(node.Cluster.HostKey()))
-			},
-		)
-		It(
-			"Should reuse an existing control update channel rather than recreating it",
-			func(ctx SpecContext) {
-				n := mock.NewNode(ctx)
-				cfg := newFramerConfig(ctx, n)
-				name := controlChannelName(n)
-				existing := channel.Channel{
-					Name:        name,
-					Leaseholder: n.Cluster.HostKey(),
-					Virtual:     true,
-					DataType:    telem.StringT,
-					Internal:    true,
-				}
-				Expect(cfg.Channel.NewWriter(nil).Create(ctx, &existing)).To(Succeed())
-				Expect(MustOpen(framer.OpenService(ctx, cfg))).ToNot(BeNil())
-				Expect(cfg.Channel.
-					NewRetrieve().
-					Where(channel.MatchNames(name)).
-					Count(ctx, nil),
-				).To(Equal(1))
 			},
 		)
 	})

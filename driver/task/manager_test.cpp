@@ -1361,4 +1361,55 @@ TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
 
     ASSERT_NIL(writer.close());
 }
+
+TEST_F(TaskManagerTest, SeedsControlStateOnStart) {
+    auto index_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("seed_test_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("seed_test_data"),
+        x::telem::FLOAT32_T,
+        index_ch.key,
+        false
+    ));
+
+    const x::control::Subject writer_sub{"seed_writer", "sw-1"};
+    const x::control::Subject other_sub{"other", "other-2"};
+    // Opened before the manager starts, so the transfer never crosses the stream and
+    // only the seed can put it in the mirror.
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = {index_ch.key, data_ch.key},
+            .start = x::telem::TimeStamp::now(),
+            .authorities = {200},
+            .subject = writer_sub,
+        }
+    ));
+
+    auto f = std::make_unique<ContextCaptureFactory>();
+    auto *factory_ptr = f.get();
+    start_manager(std::move(f));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "seed_capture_task",
+        .type = "capture",
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.variant == synnax::status::VARIANT_SUCCESS &&
+               s.message == "configured";
+    });
+
+    auto states = factory_ptr->captured_ctx->control_states();
+    ASSERT_NE(states, nullptr);
+    ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
+    ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
+
+    ASSERT_NIL(writer.close());
+}
 }
