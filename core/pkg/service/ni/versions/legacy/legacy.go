@@ -25,6 +25,14 @@ const LastVersion imex.Version = 1
 // AnalogRead converts both released analog read shapes.
 var AnalogRead = legacy.Rewrite{Post: analogRead}
 
+// Digital converts released digital read and write shapes: channels carried a type
+// tag with one possible value, which the schema no longer stores.
+var Digital = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
+	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
+		delete(ch, "type")
+	})
+}}
+
 // Scanner converts the stored driver scan form.
 var Scanner = legacy.Scan
 

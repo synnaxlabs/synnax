@@ -172,6 +172,18 @@ func FlipBool(m msgpack.EncodedJSON, from, to string) {
 	}
 }
 
+// RemapValue replaces the string stored under key through mapping. A missing key, a
+// non-string value, or a string outside the mapping is left unchanged.
+func RemapValue(m msgpack.EncodedJSON, key string, mapping map[string]string) {
+	s, ok := m[key].(string)
+	if !ok {
+		return
+	}
+	if to, ok := mapping[s]; ok {
+		m[key] = to
+	}
+}
+
 // EachChild applies f to every object element of the list stored under key.
 func EachChild(m msgpack.EncodedJSON, key string, f func(msgpack.EncodedJSON)) {
 	list, ok := m[key].([]any)

@@ -73,7 +73,7 @@ var _ = Describe("Writer", func() {
 			Entry("duplicate resources", func() panel.Node {
 				resource := tabResource(uuid.New())
 				duplicated := func() panel.Tab {
-					return panel.Tab{Variant: panel.TabResource{
+					return panel.Tab{Variant: panel.ResourceTab{
 						TabBase:  panel.TabBase{Key: uuid.New()},
 						Resource: resource,
 					}}
@@ -323,7 +323,7 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				tabs := MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs
 				Expect(tabs).To(HaveLen(1))
-				Expect(tabs[0].Variant).To(Equal(panel.TabResource{
+				Expect(tabs[0].Variant).To(Equal(panel.ResourceTab{
 					TabBase:  panel.TabBase{Key: tabKey},
 					Resource: tabResource(tabKey),
 				}))

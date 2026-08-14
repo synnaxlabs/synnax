@@ -75,6 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "labjack_read",
 			Version:            legacy.LastVersion + 1,
+			Legacy:             &legacy.Read,
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ValidateEntry:      (*ReadConfig).Validate,

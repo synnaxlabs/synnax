@@ -84,7 +84,7 @@ var _ = Describe("Reduce", func() {
 		Expect(split.Size).To(Equal(0.7))
 	})
 
-	It("Should route a SetTabResource action", func() {
+	It("Should route a SetResourceTab action", func() {
 		k, other := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(viewTab(k, "selector"))},
@@ -93,13 +93,13 @@ var _ = Describe("Reduce", func() {
 			),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.TabResource{
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ResourceTab{
 			TabBase:  panel.TabBase{Key: k},
 			Resource: tabResource(other),
 		}}))
 	})
 
-	It("Should route a SetTabView action", func() {
+	It("Should route a SetViewTab action", func() {
 		k := uuid.New()
 		view := panel.View{Type: "docs"}
 		next := MustSucceed(panel.Reduce(
@@ -107,7 +107,7 @@ var _ = Describe("Reduce", func() {
 			panel.NewSetTabViewAction(panel.SetTabViewPayload{Key: k, View: view}),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.TabView{
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ViewTab{
 			TabBase: panel.TabBase{Key: k},
 			View:    view,
 		}}))
@@ -143,7 +143,7 @@ var _ = Describe("Reduce", func() {
 		Entry("MoveTab", panel.ActionTypeMoveTab),
 		Entry("SplitTab", panel.ActionTypeSplitTab),
 		Entry("ResizeSplit", panel.ActionTypeResizeSplit),
-		Entry("SetTabResource", panel.ActionTypeSetTabResource),
-		Entry("SetTabView", panel.ActionTypeSetTabView),
+		Entry("SetResourceTab", panel.ActionTypeSetTabResource),
+		Entry("SetViewTab", panel.ActionTypeSetTabView),
 	)
 })

@@ -56,7 +56,7 @@ var _ = Describe("Service", func() {
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
-					"type":    "coil_input",
+					"type":    "coil",
 					"key":     "chan-1",
 					"address": 3,
 					"channel": 42,
@@ -84,7 +84,7 @@ var _ = Describe("Service", func() {
 			key := uuid.New()
 			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
-					"type": "holding_register_output",
+					"type": "holding_register",
 					"key":  "chan-1",
 				}},
 			})).To(Succeed())

@@ -219,6 +219,29 @@ var _ = Describe("Helpers", func() {
 		})
 	})
 
+	Describe("RemapValue", func() {
+		It("Should replace a mapped string value", func() {
+			m := msgpack.EncodedJSON{"type": "coil_input"}
+			legacy.RemapValue(m, "type", map[string]string{"coil_input": "coil"})
+			Expect(m).To(Equal(msgpack.EncodedJSON{"type": "coil"}))
+		})
+		It("Should leave an unmapped string value alone", func() {
+			m := msgpack.EncodedJSON{"type": "discrete_input"}
+			legacy.RemapValue(m, "type", map[string]string{"coil_input": "coil"})
+			Expect(m).To(Equal(msgpack.EncodedJSON{"type": "discrete_input"}))
+		})
+		It("Should leave a non-string value alone", func() {
+			m := msgpack.EncodedJSON{"type": 3}
+			legacy.RemapValue(m, "type", map[string]string{"coil_input": "coil"})
+			Expect(m).To(Equal(msgpack.EncodedJSON{"type": 3}))
+		})
+		It("Should do nothing when the key is absent", func() {
+			m := msgpack.EncodedJSON{}
+			legacy.RemapValue(m, "type", map[string]string{"coil_input": "coil"})
+			Expect(m).To(BeEmpty())
+		})
+	})
+
 	Describe("RecordToList", func() {
 		It("Should convert entries in sorted key order", func() {
 			m := msgpack.EncodedJSON{

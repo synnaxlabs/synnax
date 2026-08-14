@@ -56,7 +56,7 @@ var _ = Describe("Service", func() {
 				"device":      "dev-1",
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
-					"type":    "AI",
+					"type":    "analog",
 					"key":     "chan-1",
 					"port":    "AIN0",
 					"channel": 42,
@@ -103,7 +103,7 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
-					"type":              "TC",
+					"type":              "thermocouple",
 					"thermocouple_type": "BOGUS",
 				}},
 			})).To(MatchError(ContainSubstring("invalid thermocouple_type: BOGUS")))
