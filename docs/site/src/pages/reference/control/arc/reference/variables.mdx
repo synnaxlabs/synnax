@@ -123,9 +123,187 @@ it with `$=`. Only literal variables can be stateful.
 count $= 0 // persists across entries
 ```
 
-Stateful variables drive counters, accumulators, and edge detection. The
-[Stateful Variables](/reference/control/arc/concepts/stateful-variables) concept page
-covers common patterns and reset behavior.
+Stateful variables drive counters, accumulators, and edge detection.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Counter</Text.Text>
+
+Track how many times a condition has occurred.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage {
+    count $= 0
+    // Triggered on new `value`
+    value > threshold -> select{} -> {
+        true: count + 1 -> count
+    }
+}
+```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func count_events{threshold f64} (value f64) i64 {
+    count $= 0
+    if value > threshold {
+        count = count + 1
+    }
+    return count
+}
+```
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Accumulator</Text.Text>
+
+Sum values over time.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage accumulate {
+    total $= 0.0
+    // Triggred on new `value`
+    value + total -> total
+}
+```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func accumulate(value f64) f64 {
+    total $= 0.0
+    total = total + value
+    return total
+}
+```
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Previous Value</Text.Text>
+
+Compare the current value to the previous one.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+sequence phase_delta {
+    prev $= 0.0
+    // Triggered on new `value`
+    value - prev -> delta
+    value -> previous
+}
+```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func rate_of_change(value f64) f64 {
+    prev $= 0.0
+    delta := value - prev
+    prev = value
+    return delta
+}
+```
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Running Maximum</Text.Text>
+
+Track the highest value seen.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage running_max {
+    max $= 0.0
+    // Triggered on new `value`
+    value > max -> select{} -> {
+        true: value -> max
+    }
+}
+```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func running_max(value f64) f64 {
+    max $= 0.0
+    if value > max {
+        max = value
+    }
+    return max
+}
+```
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> State Toggle</Text.Text>
+
+Maintain an on/off state.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+stage toggle {
+    state $= 0
+
+    // Blocked on new `trigger`
+    trigger -> state == 0 -> select{} -> {
+        true: 1 -> state,
+        false: 0 -> state
+    }
+
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
+
+```arc
+func toggle(trigger u8) u8 {
+    state $= 0
+    if trigger {
+        if state == 0 {
+            state = 1
+        } else {
+            state = 0
+        }
+    }
+    return state
+}
+```
+
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
 
 <Divider.Divider x />
 

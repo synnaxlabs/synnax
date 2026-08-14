@@ -33,10 +33,5 @@ export const CONCEPTS_NAV: PageNavNode = {
       href: "/reference/control/arc/concepts/channels-and-series",
       name: "Channels and Series",
     },
-    {
-      key: "/reference/control/arc/concepts/stateful-variables",
-      href: "/reference/control/arc/concepts/stateful-variables",
-      name: "Stateful Variables",
-    },
   ],
 };
