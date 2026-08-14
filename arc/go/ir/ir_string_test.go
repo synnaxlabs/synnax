@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1_test
+package ir_test
 
 import (
 	"encoding/json"
@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
-	v1 "github.com/synnaxlabs/arc/ir/versions/v1"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,28 +25,28 @@ var _ = Describe("IR", func() {
 	Describe("IsZero", func() {
 		DescribeTable(
 			"Classification",
-			func(program v1.IR, expected bool) {
+			func(program ir.IR, expected bool) {
 				Expect(program.IsZero()).To(Equal(expected))
 			},
-			Entry("an empty IR", v1.IR{}, true),
+			Entry("an empty IR", ir.IR{}, true),
 			Entry("a function",
-				v1.IR{Functions: v1.Functions{{Key: "add"}}}, false),
+				ir.IR{Functions: ir.Functions{{Key: "add"}}}, false),
 			Entry("a node",
-				v1.IR{Nodes: v1.Nodes{{Key: "n1"}}}, false),
+				ir.IR{Nodes: ir.Nodes{{Key: "n1"}}}, false),
 			Entry("an edge",
-				v1.IR{Edges: v1.Edges{{Kind: v1.EdgeKindContinuous}}}, false),
+				ir.IR{Edges: ir.Edges{{Kind: ir.EdgeKindContinuous}}}, false),
 			Entry("a non-zero root",
-				v1.IR{Root: v1.Scope{Key: "root"}}, false),
+				ir.IR{Root: ir.Scope{Key: "root"}}, false),
 			Entry("a root with members",
-				v1.IR{Root: v1.Scope{
-					Mode:     v1.ScopeModeParallel,
-					Liveness: v1.LivenessAlways,
-					Strata:   []v1.Members{{v1.NodeMember("n1")}},
+				ir.IR{Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata:   []ir.Members{{ir.NodeMember("n1")}},
 				}}, false),
 			Entry("symbols",
-				v1.IR{Symbols: &symbol.Symbol{}}, false),
+				ir.IR{Symbols: &symbol.Symbol{}}, false),
 			Entry("a type map",
-				v1.IR{TypeMap: map[antlr.ParserRuleContext]types.Type{}}, false),
+				ir.IR{TypeMap: map[antlr.ParserRuleContext]types.Type{}}, false),
 		)
 	})
 
@@ -59,9 +58,9 @@ var _ = Describe("IR", func() {
 			}
 			outputs := types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}
 
-			original := &v1.IR{
-				Functions: v1.Functions{{Key: "add", Inputs: inputs, Outputs: outputs}},
-				Nodes: v1.Nodes{
+			original := &ir.IR{
+				Functions: ir.Functions{{Key: "add", Inputs: inputs, Outputs: outputs}},
+				Nodes: ir.Nodes{
 					{
 						Key:  "node1",
 						Type: "add",
@@ -73,25 +72,25 @@ var _ = Describe("IR", func() {
 						Outputs: outputs,
 					},
 				},
-				Edges: v1.Edges{
+				Edges: ir.Edges{
 					{
-						Source: v1.Handle{
+						Source: ir.Handle{
 							Node:  "input_a",
 							Param: ir.DefaultOutputParam,
 						},
-						Target: v1.Handle{Node: "node1", Param: "a"},
+						Target: ir.Handle{Node: "node1", Param: "a"},
 					},
 					{
-						Source: v1.Handle{Node: "input_b", Param: "value"},
-						Target: v1.Handle{Node: "node1", Param: "b"},
+						Source: ir.Handle{Node: "input_b", Param: "value"},
+						Target: ir.Handle{Node: "node1", Param: "b"},
 					},
 				},
-				Root: v1.Scope{
-					Mode:     v1.ScopeModeParallel,
-					Liveness: v1.LivenessAlways,
-					Strata: []v1.Members{
-						{v1.NodeMember("input_a"), v1.NodeMember("input_b")},
-						{v1.NodeMember("node1")},
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata: []ir.Members{
+						{ir.NodeMember("input_a"), ir.NodeMember("input_b")},
+						{ir.NodeMember("node1")},
 					},
 				},
 			}
@@ -99,37 +98,37 @@ var _ = Describe("IR", func() {
 			data := MustSucceed(json.Marshal(original))
 			Expect(data).ToNot(BeEmpty())
 
-			var restored v1.IR
+			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
 			Expect(restored.Functions).To(HaveLen(1))
 			Expect(restored.Functions[0].Key).To(Equal("add"))
 			Expect(restored.Nodes).To(HaveLen(1))
 			Expect(restored.Edges).To(HaveLen(2))
-			Expect(restored.Root.Mode).To(Equal(v1.ScopeModeParallel))
+			Expect(restored.Root.Mode).To(Equal(ir.ScopeModeParallel))
 			Expect(restored.Root.Strata).To(HaveLen(2))
 			Expect(restored.Root.Strata[0]).To(HaveLen(2))
 		})
 
 		It("Should handle empty IR", func() {
-			original := &v1.IR{
-				Functions: v1.Functions{},
-				Nodes:     v1.Nodes{},
-				Edges:     v1.Edges{},
-				Root: v1.Scope{
-					Mode:     v1.ScopeModeParallel,
-					Liveness: v1.LivenessAlways,
+			original := &ir.IR{
+				Functions: ir.Functions{},
+				Nodes:     ir.Nodes{},
+				Edges:     ir.Edges{},
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
 				},
 			}
 			data := MustSucceed(json.Marshal(original))
-			var restored v1.IR
+			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 			Expect(restored.Functions).To(BeEmpty())
 			Expect(restored.Root.Strata).To(BeEmpty())
 		})
 
 		It("Should exclude Symbols and TypeMap from JSON (json:\"-\" tag)", func() {
-			original := &v1.IR{Symbols: symbol.NewRoot(nil, nil)}
+			original := &ir.IR{Symbols: symbol.NewRoot(nil, nil)}
 			data := MustSucceed(json.Marshal(original))
 			jsonStr := string(data)
 			Expect(jsonStr).ToNot(ContainSubstring("\"symbols\""))
@@ -138,26 +137,26 @@ var _ = Describe("IR", func() {
 
 		It("Should round-trip a sequential scope with transitions", func() {
 			stepKey := "run"
-			original := &v1.IR{
-				Root: v1.Scope{
-					Mode:     v1.ScopeModeParallel,
-					Liveness: v1.LivenessAlways,
-					Strata: []v1.Members{{
-						{Scope: &v1.Scope{
+			original := &ir.IR{
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata: []ir.Members{{
+						{Scope: &ir.Scope{
 							Key:      "main",
-							Mode:     v1.ScopeModeSequential,
-							Liveness: v1.LivenessGated,
-							Steps: v1.Members{
-								v1.NodeMember("init"),
-								v1.NodeMember("run"),
+							Mode:     ir.ScopeModeSequential,
+							Liveness: ir.LivenessGated,
+							Steps: ir.Members{
+								ir.NodeMember("init"),
+								ir.NodeMember("run"),
 							},
-							Transitions: []v1.Transition{
+							Transitions: []ir.Transition{
 								{
-									On:        v1.Handle{Node: "init", Param: "done"},
+									On:        ir.Handle{Node: "init", Param: "done"},
 									TargetKey: &stepKey,
 								},
 								{
-									On:        v1.Handle{Node: "run", Param: "done"},
+									On:        ir.Handle{Node: "run", Param: "done"},
 									TargetKey: nil,
 								},
 							},
@@ -167,12 +166,12 @@ var _ = Describe("IR", func() {
 			}
 
 			data := MustSucceed(json.Marshal(original))
-			var restored v1.IR
+			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
 			main := restored.Root.Strata[0][0].Scope
 			Expect(main).ToNot(BeNil())
-			Expect(main.Mode).To(Equal(v1.ScopeModeSequential))
+			Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
 			Expect(main.Steps).To(HaveLen(2))
 			Expect(main.Transitions).To(HaveLen(2))
 			Expect(main.Transitions[0].TargetKey).ToNot(BeNil())
@@ -183,13 +182,13 @@ var _ = Describe("IR", func() {
 
 	Describe("String", func() {
 		It("Should render an empty IR as an empty string", func() {
-			program := &v1.IR{}
+			program := &ir.IR{}
 			Expect(program.String()).To(BeEmpty())
 		})
 
 		It("Should render Functions, Nodes, Edges, and Root sections", func() {
-			program := &v1.IR{
-				Functions: v1.Functions{
+			program := &ir.IR{
+				Functions: ir.Functions{
 					{
 						Key:    "add",
 						Inputs: types.Params{{Name: "a", Type: types.I64()}},
@@ -198,7 +197,7 @@ var _ = Describe("IR", func() {
 						},
 					},
 				},
-				Nodes: v1.Nodes{
+				Nodes: ir.Nodes{
 					{
 						Key:  "node1",
 						Type: "add",
@@ -211,15 +210,15 @@ var _ = Describe("IR", func() {
 						},
 					},
 				},
-				Edges: v1.Edges{{
-					Source: v1.Handle{Node: "src", Param: ir.DefaultOutputParam},
-					Target: v1.Handle{Node: "node1", Param: "a"},
-					Kind:   v1.EdgeKindContinuous,
+				Edges: ir.Edges{{
+					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "node1", Param: "a"},
+					Kind:   ir.EdgeKindContinuous,
 				}},
-				Root: v1.Scope{
-					Mode:     v1.ScopeModeParallel,
-					Liveness: v1.LivenessAlways,
-					Strata:   []v1.Members{{v1.NodeMember("node1")}},
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata:   []ir.Members{{ir.NodeMember("node1")}},
 				},
 			}
 			out := program.String()
@@ -233,8 +232,8 @@ var _ = Describe("IR", func() {
 		})
 
 		It("Should render only populated sections", func() {
-			program := &v1.IR{
-				Nodes: v1.Nodes{{Key: "only", Type: "input"}},
+			program := &ir.IR{
+				Nodes: ir.Nodes{{Key: "only", Type: "input"}},
 			}
 			out := program.String()
 			Expect(out).To(ContainSubstring("Nodes (1)"))
@@ -246,25 +245,25 @@ var _ = Describe("IR", func() {
 		It(
 			"Should render multiple functions, nodes, and edges with tree indentation",
 			func() {
-				program := &v1.IR{
-					Functions: v1.Functions{
+				program := &ir.IR{
+					Functions: ir.Functions{
 						{Key: "f1"},
 						{Key: "f2"},
 					},
-					Nodes: v1.Nodes{
+					Nodes: ir.Nodes{
 						{Key: "n1", Type: "f1"},
 						{Key: "n2", Type: "f2"},
 					},
-					Edges: v1.Edges{
+					Edges: ir.Edges{
 						{
-							Source: v1.Handle{Node: "n1", Param: ir.DefaultOutputParam},
-							Target: v1.Handle{Node: "n2", Param: ir.DefaultInputParam},
-							Kind:   v1.EdgeKindContinuous,
+							Source: ir.Handle{Node: "n1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "n2", Param: ir.DefaultInputParam},
+							Kind:   ir.EdgeKindContinuous,
 						},
 						{
-							Source: v1.Handle{Node: "n2", Param: ir.DefaultOutputParam},
-							Target: v1.Handle{Node: "n1", Param: ir.DefaultInputParam},
-							Kind:   v1.EdgeKindConditional,
+							Source: ir.Handle{Node: "n2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "n1", Param: ir.DefaultInputParam},
+							Kind:   ir.EdgeKindConditional,
 						},
 					},
 				}
@@ -280,18 +279,18 @@ var _ = Describe("IR", func() {
 		)
 
 		It("Should render exact tree glyphs for every section", func() {
-			program := v1.IR{
-				Functions: v1.Functions{{Key: "add"}},
-				Nodes:     v1.Nodes{{Key: "n1", Type: "add"}},
-				Edges: v1.Edges{{
-					Source: v1.Handle{Node: "n1", Param: "out"},
-					Target: v1.Handle{Node: "n2", Param: "in"},
-					Kind:   v1.EdgeKindContinuous,
+			program := ir.IR{
+				Functions: ir.Functions{{Key: "add"}},
+				Nodes:     ir.Nodes{{Key: "n1", Type: "add"}},
+				Edges: ir.Edges{{
+					Source: ir.Handle{Node: "n1", Param: "out"},
+					Target: ir.Handle{Node: "n2", Param: "in"},
+					Kind:   ir.EdgeKindContinuous,
 				}},
-				Root: v1.Scope{
+				Root: ir.Scope{
 					Key:      "root",
-					Mode:     v1.ScopeModeParallel,
-					Liveness: v1.LivenessAlways,
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
 				},
 			}
 			out := program.String()
@@ -305,7 +304,7 @@ var _ = Describe("IR", func() {
 		})
 
 		It("Should mark the only section as the last tree item", func() {
-			program := v1.IR{Nodes: v1.Nodes{{Key: "n1", Type: "add"}}}
+			program := ir.IR{Nodes: ir.Nodes{{Key: "n1", Type: "add"}}}
 			Expect(program.String()).To(HavePrefix("└── Nodes (1)\n"))
 		})
 	})

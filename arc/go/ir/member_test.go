@@ -36,4 +36,44 @@ var _ = Describe("Member", func() {
 			Expect(m.NodeKey).To(BeNil())
 		})
 	})
+
+	Describe("Key", func() {
+		It("Should return the node key for a node-backed member", func() {
+			Expect(ir.NodeMember("n1").Key()).To(Equal("n1"))
+		})
+
+		It("Should return the scope key for a scope-backed member", func() {
+			m := ir.ScopeMember(ir.Scope{
+				Key:      "sub",
+				Mode:     ir.ScopeModeParallel,
+				Liveness: ir.LivenessAlways,
+			})
+			Expect(m.Key()).To(Equal("sub"))
+		})
+
+		It("Should return an empty key for a zero member", func() {
+			var m ir.Member
+			Expect(m.Key()).To(BeEmpty())
+		})
+	})
+
+	Describe("String", func() {
+		It("Should render the node key for a node-backed member", func() {
+			Expect(ir.NodeMember("n1").String()).To(Equal("n1\n"))
+		})
+
+		It("Should render the nested scope for a scope-backed member", func() {
+			m := ir.ScopeMember(ir.Scope{
+				Key:      "sub",
+				Mode:     ir.ScopeModeParallel,
+				Liveness: ir.LivenessAlways,
+			})
+			Expect(m.String()).To(ContainSubstring("sub"))
+		})
+
+		It("Should render a placeholder for a zero member", func() {
+			var m ir.Member
+			Expect(m.String()).To(Equal("(empty member)\n"))
+		})
+	})
 })

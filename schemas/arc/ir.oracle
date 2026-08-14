@@ -235,8 +235,7 @@ Authorities struct {
         @doc value "maps channel keys to their specific authority values."
     }
 
-    @doc value  "holds the static authority declarations from an Arc program."
-    @go marshal
+    @doc value "holds the static authority declarations from an Arc program."
 }
 
 IR struct {

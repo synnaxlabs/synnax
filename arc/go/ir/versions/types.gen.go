@@ -29,43 +29,6 @@ const (
 // Edge is a dataflow connection between node parameters in the Arc graph.
 type Edge = v1.Edge
 
-// Edges is a collection of dataflow edges in an Arc graph.
-type Edges = v1.Edges
-
-// ScopeMode defines the concurrency model of a Scope.
-type ScopeMode = v1.ScopeMode
-
-const (
-	ScopeModeUnspecified ScopeMode = v1.ScopeModeUnspecified
-	ScopeModeParallel    ScopeMode = v1.ScopeModeParallel
-	ScopeModeSequential  ScopeMode = v1.ScopeModeSequential
-)
-
-// Liveness defines whether a Scope is continuously active or must be activated.
-type Liveness = v1.Liveness
-
-const (
-	LivenessUnspecified Liveness = v1.LivenessUnspecified
-	LivenessAlways      Liveness = v1.LivenessAlways
-	LivenessGated       Liveness = v1.LivenessGated
-)
-
-// Transition is a declarative state-transition rule on a sequential Scope.
-type Transition = v1.Transition
-
-// Member is a tagged union representing a single child of a Scope. Exactly one of
-// nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
-// transitions) is derived from the set variant via Member.key().
-type Member = v1.Member
-
-// Members is an ordered collection of Scope members, one per position.
-type Members = v1.Members
-
-// Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
-// sequential) and liveness (always-live or gated). Parallel scopes organize members
-// into strata; sequential scopes run one step at a time and advance via transitions.
-type Scope = v1.Scope
-
 // Body is raw function body source code with optional parsed AST.
 type Body = v1.Body
 
@@ -75,16 +38,3 @@ type Function = v1.Function
 
 // Functions is a collection of function definitions in an Arc module.
 type Functions = v1.Functions
-
-// Node is a concrete instantiation of a function with typed parameters and values.
-type Node = v1.Node
-
-// Nodes is a collection of node instantiations in an Arc module.
-type Nodes = v1.Nodes
-
-// Authorities holds the static authority declarations from an Arc program.
-type Authorities = v1.Authorities
-
-// IR is the intermediate representation of an Arc program as a dataflow graph with
-// stratified execution, bridging semantic analysis and WebAssembly compilation.
-type IR = v1.IR

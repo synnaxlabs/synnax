@@ -7,38 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package ir_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
-	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
 )
 
 var _ = Describe("Edges", func() {
 	var (
-		aToAdd, bToAdd, addToOut v0.Edge
-		edges                    v0.Edges
+		aToAdd, bToAdd, addToOut ir.Edge
+		edges                    ir.Edges
 	)
 
 	BeforeEach(func() {
-		aToAdd = v0.Edge{
-			Source: v0.Handle{Node: "input_a", Param: ir.DefaultOutputParam},
-			Target: v0.Handle{Node: "add", Param: ir.LHSInputParam},
-			Kind:   v0.EdgeKindContinuous,
+		aToAdd = ir.Edge{
+			Source: ir.Handle{Node: "input_a", Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: "add", Param: ir.LHSInputParam},
+			Kind:   ir.EdgeKindContinuous,
 		}
-		bToAdd = v0.Edge{
-			Source: v0.Handle{Node: "input_b", Param: ir.DefaultOutputParam},
-			Target: v0.Handle{Node: "add", Param: ir.RHSInputParam},
-			Kind:   v0.EdgeKindContinuous,
+		bToAdd = ir.Edge{
+			Source: ir.Handle{Node: "input_b", Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: "add", Param: ir.RHSInputParam},
+			Kind:   ir.EdgeKindContinuous,
 		}
-		addToOut = v0.Edge{
-			Source: v0.Handle{Node: "add", Param: ir.DefaultOutputParam},
-			Target: v0.Handle{Node: "out", Param: ir.DefaultInputParam},
-			Kind:   v0.EdgeKindConditional,
+		addToOut = ir.Edge{
+			Source: ir.Handle{Node: "add", Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: "out", Param: ir.DefaultInputParam},
+			Kind:   ir.EdgeKindConditional,
 		}
-		edges = v0.Edges{aToAdd, bToAdd, addToOut}
+		edges = ir.Edges{aToAdd, bToAdd, addToOut}
 	})
 
 	Describe("FindByTarget", func() {
@@ -49,7 +48,7 @@ var _ = Describe("Edges", func() {
 		})
 
 		It("Should return false for a non-existent target", func() {
-			_, found := edges.FindByTarget(v0.Handle{Node: "missing", Param: "x"})
+			_, found := edges.FindByTarget(ir.Handle{Node: "missing", Param: "x"})
 			Expect(found).To(BeFalse())
 		})
 	})

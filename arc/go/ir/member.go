@@ -9,10 +9,38 @@
 
 package ir
 
-import "github.com/synnaxlabs/arc/ir/versions"
+import "fmt"
 
 // NodeMember builds a leaf Member referencing the node with the given key.
-func NodeMember(key string) Member { return versions.NodeMember(key) }
+func NodeMember(key string) Member { return Member{NodeKey: new(key)} }
 
 // ScopeMember builds a Member wrapping the given nested Scope.
-func ScopeMember(s Scope) Member { return versions.ScopeMember(s) }
+func ScopeMember(s Scope) Member { return Member{Scope: &s} }
+
+// Key returns the member's lookup key — the string transitions target via `=> name`.
+// Derived from the set variant: the referenced node's key for leaf members, the nested
+// scope's key for scope members. Returns the empty string for an unset member.
+func (m Member) Key() string {
+	switch {
+	case m.NodeKey != nil:
+		return *m.NodeKey
+	case m.Scope != nil:
+		return m.Scope.Key
+	default:
+		return ""
+	}
+}
+
+// String returns the tree representation of a Member.
+func (m Member) String() string { return m.stringWithPrefix("") }
+
+func (m Member) stringWithPrefix(prefix string) string {
+	switch {
+	case m.NodeKey != nil:
+		return fmt.Sprintf("%s\n", *m.NodeKey)
+	case m.Scope != nil:
+		return m.Scope.StringWithPrefix(prefix)
+	default:
+		return "(empty member)\n"
+	}
+}
