@@ -52,8 +52,11 @@ var typeRenames = map[string]string{"Rack Status": "rack_status"}
 
 // retiredTypes are task types released builds created that have no successor: the Lua
 // sequence task and the pre-cutover heartbeat and OPC scanner tasks. Their rows are
-// staged and removed rather than treated as unconvertible.
-var retiredTypes = set.New("sequence", "heartbeat", "opcScanner")
+// staged and removed rather than treated as unconvertible. "Rack State" (drivers 0.41
+// through 0.48) is retired, not renamed: 0.49+ drivers created a "Rack Status" twin
+// without deleting the old row, so renaming both would double up; the config was
+// always empty and the Driver recreates the task on connect.
+var retiredTypes = set.New("sequence", "heartbeat", "opcScanner", "Rack State")
 
 // hashConfig is a frozen copy of the config hash as of this version: xxhash64 of the
 // JSON encoding as 16 lowercase hex characters.
@@ -133,7 +136,9 @@ func migrateConfigsToRecords(
 		// handles as version 0.
 		converted, err := store.Normalize(0, t.Config)
 		if err != nil {
-			if err := quarantine(ctx, tx, ins, otgW, t, err.Error()); err != nil {
+			if err := quarantine(
+				ctx, tx, ins, otgW, t, unconvertibleReason(err),
+			); err != nil {
 				return err
 			}
 			continue
@@ -142,7 +147,9 @@ func migrateConfigsToRecords(
 			if err := store.Delete(ctx, tx, t.Key); err != nil {
 				return err
 			}
-			if err := quarantine(ctx, tx, ins, otgW, t, err.Error()); err != nil {
+			if err := quarantine(
+				ctx, tx, ins, otgW, t, unconvertibleReason(err),
+			); err != nil {
 				return err
 			}
 			continue
@@ -171,16 +178,30 @@ func migrateConfigsToRecords(
 }
 
 // stageAndRemove stages the JSON encoding of the legacy row in KV and removes the
-// row, its status, and its ontology presence.
+// row, its status, and its ontology presence. A config JSON cannot encode (a NaN
+// float) is staged without the config rather than aborting boot.
 func stageAndRemove(
 	ctx context.Context,
 	tx gorp.Tx,
+	ins alamos.Instrumentation,
 	otgW ontology.Writer,
 	t v2.Task,
 ) error {
 	b, err := json.Marshal(t)
 	if err != nil {
-		return err
+		marshalErr := err
+		stripped := t
+		stripped.Config = nil
+		if b, err = json.Marshal(stripped); err != nil {
+			return err
+		}
+		ins.L.Warn(
+			"task config could not be encoded; staged without config",
+			zap.String("key", t.Key.String()),
+			zap.String("name", t.Name),
+			zap.String("type", t.Type),
+			zap.Error(marshalErr),
+		)
 	}
 	if err := tx.Set(ctx, QuarantineKVKey(t.Key), b); err != nil {
 		return err
@@ -197,6 +218,12 @@ func stageAndRemove(
 	return otgW.DeleteResources(ctx, taskID)
 }
 
+// unconvertibleReason frames a raw conversion or encode error as a quarantine reason
+// an operator can act on.
+func unconvertibleReason(err error) string {
+	return "config could not be converted to the current format: " + err.Error()
+}
+
 // quarantine stages and removes a row whose config cannot be converted, logging a
 // warning once.
 func quarantine(
@@ -207,7 +234,7 @@ func quarantine(
 	t v2.Task,
 	reason string,
 ) error {
-	if err := stageAndRemove(ctx, tx, otgW, t); err != nil {
+	if err := stageAndRemove(ctx, tx, ins, otgW, t); err != nil {
 		return err
 	}
 	ins.L.Warn(
@@ -228,7 +255,7 @@ func retire(
 	otgW ontology.Writer,
 	t v2.Task,
 ) error {
-	if err := stageAndRemove(ctx, tx, otgW, t); err != nil {
+	if err := stageAndRemove(ctx, tx, ins, otgW, t); err != nil {
 		return err
 	}
 	ins.L.Info(

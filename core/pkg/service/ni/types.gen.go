@@ -520,8 +520,9 @@ const (
 type CIFreqUnits = versions.CIFreqUnits
 
 const (
-	CIFreqUnitsHz    CIFreqUnits = versions.CIFreqUnitsHz
-	CIFreqUnitsTicks CIFreqUnits = versions.CIFreqUnitsTicks
+	CIFreqUnitsHz      CIFreqUnits = versions.CIFreqUnitsHz
+	CIFreqUnitsSeconds CIFreqUnits = versions.CIFreqUnitsSeconds
+	CIFreqUnitsTicks   CIFreqUnits = versions.CIFreqUnitsTicks
 )
 
 // CITimeUnits are the units of a counter time measurement (period, pulse width, ...).

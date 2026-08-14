@@ -1,0 +1,28 @@
+{
+  "auto_start": false,
+  "channels": [
+    {
+      "cmd_channel": 7210,
+      "cmd_channel_name": "",
+      "disabled": false,
+      "key": "ch-lj-v0-ao",
+      "port": "DAC0",
+      "state_channel": 7211,
+      "state_channel_name": "",
+      "type": "analog"
+    },
+    {
+      "cmd_channel": 7220,
+      "cmd_channel_name": "",
+      "disabled": true,
+      "key": "ch-lj-v0-do",
+      "port": "DIO3",
+      "state_channel": 7221,
+      "state_channel_name": "",
+      "type": "digital"
+    }
+  ],
+  "data_saving_disabled": false,
+  "device": "fixture-labjack-v0-device",
+  "state_rate": 12.5
+}

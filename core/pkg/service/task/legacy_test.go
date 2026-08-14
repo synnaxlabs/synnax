@@ -201,14 +201,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		}))
 	})
 
-	// Scan and rack status task configs are created by the driver on rack boot, and
-	// arc task configs deploy from Arc; the released Console never exported any of
-	// them, so they carry no legacy fixture.
+	// Scan and rack status tasks are created internal by the driver on rack boot;
+	// internal tasks got no ontology resource in released cores, so no released
+	// Console surface could export them and they carry no legacy fixture.
 	neverExported := func(t string) bool {
 		return strings.HasSuffix(t, "_scan") ||
 			t == "ni_scanner" ||
-			t == "rack_status" ||
-			t == arctask.Type
+			t == "rack_status"
 	}
 
 	It("covers every registered config type with a fixture", func() {
@@ -286,20 +285,50 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			// re-importing an unversioned copy of a current export never rewrites it.
 			Expect(store.Normalize(0, imported.Config)).
 				To(Equal(imported.Config))
+
+			// The golden file freezes the canonical stored record independently of
+			// the rewrite under test: a rewrite edit that silently drops a released
+			// field passes the subset check above (the expected side loses the field
+			// too) but diffs here. Regenerate deliberately with
+			// UPDATE_LEGACY_GOLDENS=1 after reviewing the diff.
+			canonical := make(map[string]any, len(imported.Config))
+			for k, v := range imported.Config {
+				if k != "key" {
+					canonical[k] = v
+				}
+			}
+			goldenPath := filepath.Join(
+				"testdata",
+				"legacy",
+				"expected",
+				fixture+".json",
+			)
+			goldenBytes := MustSucceed(json.MarshalIndent(canonical, "", "  "))
+			if os.Getenv("UPDATE_LEGACY_GOLDENS") != "" {
+				Expect(os.WriteFile(goldenPath, goldenBytes, 0o644)).To(Succeed())
+			} else {
+				golden := MustSucceed(os.ReadFile(goldenPath))
+				Expect(string(goldenBytes)).To(MatchJSON(golden))
+			}
 		},
+		Entry(nil, "arc"),
 		Entry(nil, "ethercat_read"),
 		Entry(nil, "ethercat_write"),
 		Entry(nil, "http_read"),
+		Entry(nil, "http_read_list"),
 		Entry(nil, "http_write"),
 		Entry(nil, "labjack_read"),
+		Entry(nil, "labjack_read_py_no_scale"),
 		Entry(nil, "labjack_write"),
 		Entry(nil, "labjack_write_cmd_key"),
 		Entry(nil, "modbus_read"),
 		Entry(nil, "modbus_write"),
 		Entry(nil, "ni_analog_read"),
 		Entry(nil, "ni_analog_read_config_device"),
+		Entry(nil, "ni_analog_read_py"),
 		Entry(nil, "ni_analog_write"),
 		Entry(nil, "ni_counter_read"),
+		Entry(nil, "ni_counter_read_py"),
 		Entry(nil, "ni_digital_read"),
 		Entry(nil, "ni_digital_write"),
 		Entry(nil, "opc_read"),

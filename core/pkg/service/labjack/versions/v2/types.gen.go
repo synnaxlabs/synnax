@@ -267,6 +267,9 @@ func (a *AnalogReadChannel) ApplyDefaults() {
 	if a.NegChan == 0 {
 		a.NegChan = 199
 	}
+	if a.Scale.Variant == nil {
+		a.Scale.Variant = NoneScale{}
+	}
 	a.Scale.ApplyDefaults()
 }
 
@@ -331,6 +334,9 @@ func (t *ThermocoupleReadChannel) ApplyDefaults() {
 	}
 	if t.Units == "" {
 		t.Units = TemperatureUnitsKelvin
+	}
+	if t.Scale.Variant == nil {
+		t.Scale.Variant = NoneScale{}
 	}
 	t.Scale.ApplyDefaults()
 }

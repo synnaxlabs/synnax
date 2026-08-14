@@ -34,8 +34,5 @@ var Scan = legacy.Scan
 func subIndex(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		legacy.RenameKey(ch, "subindex", "sub_index")
-		if addr, ok := ch["address"].(map[string]any); ok {
-			legacy.RenameKey(addr, "subindex", "sub_index")
-		}
 	})
 }

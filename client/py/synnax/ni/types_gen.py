@@ -354,10 +354,12 @@ CIMeasMethod = Literal["LowFreq1Ctr", "HighFreq2Ctr", "LargeRng2Ctr", "DynamicAv
 
 CI_FREQ_UNITS_HZ: Literal["Hz"] = "Hz"
 
+CI_FREQ_UNITS_SECONDS: Literal["Seconds"] = "Seconds"
+
 CI_FREQ_UNITS_TICKS: Literal["Ticks"] = "Ticks"
 
 
-CIFreqUnits = Literal["Hz", "Ticks"]
+CIFreqUnits = Literal["Hz", "Seconds", "Ticks"]
 
 CI_TIME_UNITS_SECONDS: Literal["Seconds"] = "Seconds"
 

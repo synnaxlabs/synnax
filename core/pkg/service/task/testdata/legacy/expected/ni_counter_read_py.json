@@ -1,0 +1,28 @@
+{
+  "auto_start": true,
+  "channels": [
+    {
+      "channel": 3110,
+      "custom_scale": {
+        "type": "none"
+      },
+      "device": "fixture-ni-py-ctr-dev",
+      "disabled": false,
+      "divisor": 8,
+      "edge": "Falling",
+      "key": "ch-py-ci-frequency",
+      "max_val": 95.5,
+      "meas_method": "DynamicAvg",
+      "meas_time": 0.002,
+      "min_val": 2.5,
+      "name": "",
+      "port": 0,
+      "terminal": "/Dev1/PFI0",
+      "type": "ci_frequency",
+      "units": "Seconds"
+    }
+  ],
+  "data_saving_disabled": true,
+  "sample_rate": 100,
+  "stream_rate": 25
+}

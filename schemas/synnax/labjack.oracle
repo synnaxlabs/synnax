@@ -110,7 +110,7 @@ ReadChannel union on type extends BaseReadChannel {
                 199 selects single-ended.
             """
         }
-        scale    Scale   {
+        scale    Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
         }
 
@@ -151,7 +151,7 @@ ReadChannel union on type extends BaseReadChannel {
         units             TemperatureUnits = kelvin {
             @doc value "are the units of the temperature measurement."
         }
-        scale             Scale            {
+        scale             Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
         }
 

@@ -1,0 +1,28 @@
+{
+  "auto_start": true,
+  "channels": [
+    {
+      "cmd_channel": 4010,
+      "cmd_channel_name": "fixture_do_cmd_0",
+      "disabled": false,
+      "key": "ch-do-0",
+      "line": 2,
+      "port": 0,
+      "state_channel": 4011,
+      "state_channel_name": "fixture_do_state_0"
+    },
+    {
+      "cmd_channel": 4020,
+      "cmd_channel_name": "fixture_do_cmd_1",
+      "disabled": true,
+      "key": "ch-do-1",
+      "line": 5,
+      "port": 1,
+      "state_channel": 4021,
+      "state_channel_name": "fixture_do_state_1"
+    }
+  ],
+  "data_saving_disabled": true,
+  "device": "fixture-ni-digital-write-device",
+  "state_rate": 76.5
+}

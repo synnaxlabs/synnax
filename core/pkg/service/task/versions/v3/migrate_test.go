@@ -12,6 +12,7 @@ package v3_test
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/google/uuid"
@@ -25,6 +26,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,11 +43,13 @@ var _ = Describe("QuarantineKVKey", func() {
 
 var _ = Describe("NewMigration", func() {
 	var (
-		db  *gorp.DB
-		otg *ontology.Ontology
+		memDB kv.DB
+		db    *gorp.DB
+		otg   *ontology.Ontology
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New()))
+		memDB = memkv.New()
+		db = DeferClose(gorp.Wrap(memDB))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	})
 
@@ -156,6 +160,36 @@ var _ = Describe("NewMigration", func() {
 		},
 	)
 
+	It(
+		"Should retire the stale Rack State twin a 0.49 driver upgrade left behind",
+		func(ctx SpecContext) {
+			stale, live := uuid.New(), uuid.New()
+			seed(ctx, v2.Task{
+				Key:      stale,
+				Name:     "Rack State",
+				Type:     "Rack State",
+				Internal: true,
+			})
+			seed(ctx, v2.Task{
+				Key:      live,
+				Name:     "Rack Status",
+				Type:     "Rack Status",
+				Internal: true,
+			})
+			rt := MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{DB: db}))
+			run(ctx, rt.Stores()...)
+
+			Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+				Where(gorp.MatchKeys[v2.Key, v2.Task](stale)).
+				Exists(ctx, db)).To(BeFalse())
+			var migrated v2.Task
+			Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+				Where(gorp.MatchKeys[v2.Key, v2.Task](live)).
+				Entry(&migrated).Exec(ctx, db)).To(Succeed())
+			Expect(migrated.Type).To(Equal("rack_status"))
+		},
+	)
+
 	It("Should quarantine a task of an unknown type", func(ctx SpecContext) {
 		key := uuid.New()
 		seed(ctx, v2.Task{
@@ -199,6 +233,39 @@ var _ = Describe("NewMigration", func() {
 		},
 	)
 
+	It(
+		"Should stage a config JSON cannot encode without aborting boot",
+		func(ctx SpecContext) {
+			key := uuid.New()
+			// Released cores encoded rows with msgpack, which accepts NaN; the
+			// current orc codec rejects it, so the row seeds through a
+			// msgpack-codec wrap of the same KV to mimic legacy on-disk data.
+			legacyDB := gorp.Wrap(memDB, gorp.WithCodec(msgpack.Codec))
+			t := v2.Task{
+				Key:    key,
+				Name:   "NaN Task",
+				Type:   "bogus",
+				Config: msgpack.EncodedJSON{"value": math.NaN()},
+			}
+			Expect(gorp.NewCreate[v2.Key, v2.Task]().
+				Entry(&t).Exec(ctx, legacyDB)).To(Succeed())
+			Expect(otg.NewWriter(nil).DefineResources(ctx, ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  key.String(),
+			})).To(Succeed())
+			run(ctx, openArcStore(ctx))
+
+			Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+				Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
+				Exists(ctx, db)).To(BeFalse())
+			staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
+			Expect(string(staged)).To(ContainSubstring("NaN Task"))
+			// The config is dropped from the staged row: JSON cannot carry it.
+			Expect(string(staged)).ToNot(ContainSubstring("value"))
+			Expect(closer.Close()).To(Succeed())
+		},
+	)
+
 	DescribeTable("Should remove tasks of retired types",
 		func(ctx SpecContext, retiredType string) {
 			key := uuid.New()
@@ -220,5 +287,6 @@ var _ = Describe("NewMigration", func() {
 		Entry("sequence", "sequence"),
 		Entry("heartbeat", "heartbeat"),
 		Entry("opcScanner", "opcScanner"),
+		Entry("Rack State", "Rack State"),
 	)
 })

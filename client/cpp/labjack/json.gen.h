@@ -224,7 +224,8 @@ inline AnalogReadChannel AnalogReadChannel::parse(x::json::Parser parser) {
     result.port = parser.field<std::string>("port", "AIN0");
     result.range = parser.field<double>("range", 10);
     result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
-    result.scale = parse_scale(parser.child("scale"));
+    result.scale = parser.has("scale") ? parse_scale(parser.child("scale"))
+                                       : Scale{NoneScale{}};
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -269,7 +270,8 @@ inline ThermocoupleReadChannel ThermocoupleReadChannel::parse(x::json::Parser pa
     result.cjc_slope = parser.field<double>("cjc_slope", 1);
     result.cjc_offset = parser.field<double>("cjc_offset", 0);
     result.units = parser.field<std::string>("units", "K");
-    result.scale = parse_scale(parser.child("scale"));
+    result.scale = parser.has("scale") ? parse_scale(parser.child("scale"))
+                                       : Scale{NoneScale{}};
     result.type = parser.field<std::string>("type");
     return result;
 }

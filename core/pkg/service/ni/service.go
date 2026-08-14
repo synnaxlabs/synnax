@@ -108,6 +108,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_counter_read",
 			Version:            legacy.LastVersion + 1,
+			Legacy:             &legacy.CounterRead,
 			SetEntryKey:        (*CounterReadConfig).SetKey,
 			ApplyEntryDefaults: (*CounterReadConfig).ApplyDefaults,
 			ValidateEntry:      (*CounterReadConfig).Validate,

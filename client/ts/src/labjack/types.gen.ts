@@ -169,7 +169,7 @@ export const analogReadChannelZ = baseReadChannelZ.extend({
    */
   negChan: z.int32().default(199),
   /** scale is the scale applied to raw samples after acquisition. */
-  scale: scaleZ,
+  scale: scaleZ.prefault({ type: "none" }),
 });
 export interface AnalogReadChannel extends z.infer<typeof analogReadChannelZ> {}
 
@@ -206,7 +206,7 @@ export const thermocoupleReadChannelZ = baseReadChannelZ.extend({
   /** units are the units of the temperature measurement. */
   units: temperatureUnitsZ.default("K"),
   /** scale is the scale applied to raw samples after acquisition. */
-  scale: scaleZ,
+  scale: scaleZ.prefault({ type: "none" }),
 });
 export interface ThermocoupleReadChannel extends z.infer<
   typeof thermocoupleReadChannelZ

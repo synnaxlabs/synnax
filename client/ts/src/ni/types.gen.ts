@@ -179,7 +179,7 @@ export const CI_MEAS_METHODS = [
 export const ciMeasMethodZ = z.enum(CI_MEAS_METHODS);
 export type CIMeasMethod = z.infer<typeof ciMeasMethodZ>;
 
-export const CI_FREQ_UNITS = ["Hz", "Ticks"] as const;
+export const CI_FREQ_UNITS = ["Hz", "Seconds", "Ticks"] as const;
 export const ciFreqUnitsZ = z.enum(CI_FREQ_UNITS);
 export type CIFreqUnits = z.infer<typeof ciFreqUnitsZ>;
 

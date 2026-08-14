@@ -25,6 +25,18 @@ const LastVersion imex.Version = 1
 // AnalogRead converts both released analog read shapes.
 var AnalogRead = legacy.Rewrite{Post: analogRead}
 
+// CounterRead converts the released counter read shape: an optional task-level
+// device the schema no longer stores, and a frequency measurement method spelling
+// the Python client wrote that the Driver's own table never knew.
+var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
+	pushDownDevice(config)
+	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
+		if ch["type"] == "ci_frequency" && ch["meas_method"] == "DynAvg" {
+			ch["meas_method"] = "DynamicAvg"
+		}
+	})
+}}
+
 // Digital converts released digital read and write shapes: channels carried a type
 // tag with one possible value, which the schema no longer stores.
 var Digital = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
@@ -36,24 +48,60 @@ var Digital = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 // Scanner converts the stored driver scan form.
 var Scanner = legacy.Scan
 
-// analogRead copies the v0 config-level device onto every channel missing one,
-// replaces the renamed AI type alias, rewrites the charge units, and collapses the
-// flat cold-junction fields into their union.
+// analogRead copies the config-level device onto channels, replaces the renamed AI
+// type alias, rewrites the charge units, and collapses the flat cold-junction fields
+// into their union.
 func analogRead(config msgpack.EncodedJSON) {
-	device, hasDevice := config["device"]
-	delete(config, "device")
+	pushDownDevice(config)
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
-		if hasDevice {
-			if _, ok := ch["device"]; !ok {
-				ch["device"] = device
-			}
-		}
 		if ch["type"] == "ai_frequency_voltage" {
 			ch["type"] = "ai_freq_voltage"
 		}
 		rewriteChargeUnits(ch)
+		rewriteStrainValues(ch)
 		collapseCJC(ch)
 	})
+}
+
+// pushDownDevice moves a config-level device onto every channel without one. The
+// released Python client serialized device as "" on channels it left unset, so an
+// empty string counts as missing.
+func pushDownDevice(config msgpack.EncodedJSON) {
+	device, hasDevice := config["device"]
+	delete(config, "device")
+	if !hasDevice || device == "" {
+		return
+	}
+	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
+		if v, ok := ch["device"]; !ok || v == "" {
+			ch["device"] = device
+		}
+	})
+}
+
+// strainConfigs maps the kebab-case bridge names Consoles 0.36 through 0.44 wrote to
+// the DAQmx names. Console 0.44.6 flipped the constants in place with no migration,
+// so stored rows keep the kebab spelling until redeployed.
+var strainConfigs = map[string]string{
+	"full-bridge-I":     "FullBridgeI",
+	"full-bridge-II":    "FullBridgeII",
+	"full-bridge-III":   "FullBridgeIII",
+	"half-bridge-I":     "HalfBridgeI",
+	"half-bridge-II":    "HalfBridgeII",
+	"quarter-bridge-I":  "QuarterBridgeI",
+	"quarter-bridge-II": "QuarterBridgeII",
+}
+
+// rewriteStrainValues replaces a strain gauge channel's kebab-case bridge names and
+// Console 0.36's lowercase units with the DAQmx spellings.
+func rewriteStrainValues(ch msgpack.EncodedJSON) {
+	if ch["type"] != "ai_strain_gauge" {
+		return
+	}
+	legacy.RemapValue(ch, "strain_config", strainConfigs)
+	if ch["units"] == "strain" {
+		ch["units"] = "Strain"
+	}
 }
 
 // rewriteChargeUnits replaces a charge channel's released unit strings with the DAQmx

@@ -171,7 +171,7 @@ struct AnalogReadChannel : public BaseReadChannel {
     /// selects single-ended.
     std::int32_t neg_chan = 199;
     /// @brief scale is the scale applied to raw samples after acquisition.
-    Scale scale;
+    Scale scale = NoneScale{};
 
     static AnalogReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -210,7 +210,7 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_KELVIN;
     /// @brief scale is the scale applied to raw samples after acquisition.
-    Scale scale;
+    Scale scale = NoneScale{};
 
     static ThermocoupleReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

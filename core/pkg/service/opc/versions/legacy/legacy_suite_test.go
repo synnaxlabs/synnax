@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package legacy marks the Arc task config shape released Consoles stored and
-// exported: {arcKey}. It needs only era normalization.
-package legacy
+package legacy_test
 
-import "github.com/synnaxlabs/synnax/pkg/service/imex"
+import (
+	"testing"
 
-// LastVersion is the newest legacy Arc task shape. The typed shape sits directly
-// above it.
-const LastVersion imex.Version = 0
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestLegacy(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "OPC UA Legacy Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

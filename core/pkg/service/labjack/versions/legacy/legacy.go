@@ -35,10 +35,15 @@ var writeTypes = map[string]string{
 	"DO": "digital",
 }
 
-// Read converts the released read shape.
+// Read converts the released read shape. Released Python clients wrote pos_chan on
+// analog channels; the driver only ever read it on thermocouples, and the current
+// analog schema drops it.
 var Read = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		legacy.RemapValue(ch, "type", readTypes)
+		if ch["type"] == "analog" {
+			delete(ch, "pos_chan")
+		}
 	})
 }}
 

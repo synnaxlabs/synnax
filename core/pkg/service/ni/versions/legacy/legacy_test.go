@@ -36,6 +36,34 @@ var _ = Describe("AnalogRead", func() {
 				},
 			},
 		),
+		Entry("treats an empty channel device as missing during fan-out",
+			msgpack.EncodedJSON{
+				"device": "dev-1",
+				"channels": []any{
+					map[string]any{"port": float64(0), "device": ""},
+					map[string]any{"port": float64(1), "device": "dev-2"},
+				},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"port": float64(0), "device": "dev-1"},
+					map[string]any{"port": float64(1), "device": "dev-2"},
+				},
+			},
+		),
+		Entry("drops an empty config-level device without fanning it out",
+			msgpack.EncodedJSON{
+				"device": "",
+				"channels": []any{
+					map[string]any{"port": float64(0), "device": "dev-2"},
+				},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"port": float64(0), "device": "dev-2"},
+				},
+			},
+		),
 		Entry("replaces the renamed AI type alias",
 			msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"type": "ai_frequency_voltage"}},
@@ -83,6 +111,52 @@ var _ = Describe("AnalogRead", func() {
 				"channels": []any{map[string]any{
 					"type":  "ai_rtd",
 					"units": "C",
+				}},
+			},
+		),
+		Entry("rewrites kebab-case strain bridge names to the DAQmx spellings",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":          "ai_strain_gauge",
+					"strain_config": "half-bridge-II",
+					"units":         "strain",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":          "ai_strain_gauge",
+					"strain_config": "HalfBridgeII",
+					"units":         "Strain",
+				}},
+			},
+		),
+		Entry("leaves canonical strain bridge names alone",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":          "ai_strain_gauge",
+					"strain_config": "QuarterBridgeI",
+					"units":         "Strain",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":          "ai_strain_gauge",
+					"strain_config": "QuarterBridgeI",
+					"units":         "Strain",
+				}},
+			},
+		),
+		Entry("leaves a non-strain channel's strain-like values alone",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ai_bridge",
+					"units": "strain",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ai_bridge",
+					"units": "strain",
 				}},
 			},
 		),
@@ -150,6 +224,73 @@ var _ = Describe("AnalogRead", func() {
 					"type":   "ai_thermocouple",
 					"device": "dev-1",
 					"cjc":    map[string]any{"source": "built_in"},
+				}},
+			},
+		),
+	)
+})
+
+var _ = Describe("CounterRead", func() {
+	DescribeTable("legacy shapes",
+		func(in, want msgpack.EncodedJSON) {
+			Expect(legacy.CounterRead.Apply(in)).To(Equal(want))
+		},
+		Entry("copies the task-level device onto channels without one",
+			msgpack.EncodedJSON{
+				"device": "dev-ctr",
+				"channels": []any{
+					map[string]any{"type": "ci_frequency", "device": ""},
+					map[string]any{"type": "ci_edge_count", "device": "dev-2"},
+				},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"type": "ci_frequency", "device": "dev-ctr"},
+					map[string]any{"type": "ci_edge_count", "device": "dev-2"},
+				},
+			},
+		),
+		Entry("rewrites the Python frequency measurement method spelling",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":        "ci_frequency",
+					"meas_method": "DynAvg",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":        "ci_frequency",
+					"meas_method": "DynamicAvg",
+				}},
+			},
+		),
+		Entry("keeps a canonical frequency channel unchanged",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":        "ci_frequency",
+					"meas_method": "DynamicAvg",
+					"units":       "Seconds",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":        "ci_frequency",
+					"meas_method": "DynamicAvg",
+					"units":       "Seconds",
+				}},
+			},
+		),
+		Entry("leaves a non-frequency counter channel alone",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":        "ci_period",
+					"meas_method": "DynAvg",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":        "ci_period",
+					"meas_method": "DynAvg",
 				}},
 			},
 		),

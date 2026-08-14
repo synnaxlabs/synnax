@@ -180,6 +180,7 @@ constexpr const char *CI_MEAS_METHOD_LARGE_RNG_2_CTR = "LargeRng2Ctr";
 constexpr const char *CI_MEAS_METHOD_DYNAMIC_AVG = "DynamicAvg";
 
 constexpr const char *CI_FREQ_UNITS_HZ = "Hz";
+constexpr const char *CI_FREQ_UNITS_SECONDS = "Seconds";
 constexpr const char *CI_FREQ_UNITS_TICKS = "Ticks";
 
 constexpr const char *CI_TIME_UNITS_SECONDS = "Seconds";

@@ -1,0 +1,101 @@
+{
+  "auto_start": true,
+  "device": "fixture-http-write-device",
+  "endpoints": [
+    {
+      "channel": {
+        "channel": 10110,
+        "data_type": "uint8",
+        "enum_values": [
+          {
+            "label": "idle",
+            "value": 1
+          },
+          {
+            "label": "running",
+            "value": 2
+          }
+        ],
+        "json_type": "number",
+        "name": "fixture_http_mode_cmd",
+        "pointer": "/command/modeCode"
+      },
+      "disabled": false,
+      "fields": [
+        {
+          "json_type": "string",
+          "key": "wf-static-str",
+          "pointer": "/command/sourceSystem",
+          "type": "static",
+          "value": "fixture-console"
+        },
+        {
+          "json_type": "number",
+          "key": "wf-static-num",
+          "pointer": "/command/priorityLevel",
+          "type": "static",
+          "value": 99.5
+        },
+        {
+          "generator": "timestamp",
+          "key": "wf-gen-ts",
+          "pointer": "/command/sentAtMs",
+          "time_format": "unix_ms",
+          "type": "generated"
+        },
+        {
+          "generator": "uuid",
+          "key": "wf-gen-uuid",
+          "pointer": "/command/requestId",
+          "type": "generated"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "xApiKey",
+          "value": "fixture-write-key-456"
+        }
+      ],
+      "key": "ep-write-put",
+      "method": "PUT",
+      "path": "/api/v1/fixtureCommand",
+      "query_params": [
+        {
+          "parameter": "dryRun",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "channel": {
+        "channel": 10120,
+        "data_type": "timestamp",
+        "json_type": "string",
+        "name": "fixture_http_raw_cmd",
+        "pointer": "",
+        "time_format": "iso8601"
+      },
+      "disabled": true,
+      "fields": [],
+      "headers": [
+        {
+          "name": "xTraceId",
+          "value": "fixture-trace"
+        }
+      ],
+      "key": "ep-write-patch",
+      "method": "PATCH",
+      "path": "/api/v1/fixtureState",
+      "query_params": [
+        {
+          "parameter": "regionCode",
+          "value": "us-west-2"
+        }
+      ]
+    }
+  ]
+}

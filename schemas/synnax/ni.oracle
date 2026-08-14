@@ -875,8 +875,9 @@ CIMeasMethod enum {
 }
 
 CIFreqUnits enum {
-    hz    = "Hz"
-    ticks = "Ticks"
+    hz      = "Hz"
+    seconds = "Seconds"
+    ticks   = "Ticks"
 
     @doc value  "are the units of a frequency measurement."
     @go version 2

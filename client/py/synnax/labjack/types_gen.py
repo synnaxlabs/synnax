@@ -171,7 +171,7 @@ class AnalogReadChannel(BaseReadChannel):
     port: str = "AIN0"
     range: float = 10
     neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
-    scale: Scale
+    scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
 
 
 class DigitalReadChannel(BaseReadChannel):
@@ -193,7 +193,7 @@ class ThermocoupleReadChannel(BaseReadChannel):
     cjc_slope: float = 1
     cjc_offset: float = 0
     units: TemperatureUnits = "K"
-    scale: Scale
+    scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
 
 
 # Is a single LabJack read channel. The type field selects the input mode

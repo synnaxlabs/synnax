@@ -171,6 +171,11 @@ func OpenService(
 	for _, t := range cfg.Configs.Types() {
 		cfg.ImEx.RegisterImporter(string(t), s)
 	}
+	// Retired types register too so an old export fails with a retirement message
+	// instead of "no importer registered".
+	for t := range retiredTypes {
+		cfg.ImEx.RegisterImporter(t, s)
+	}
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
 			Name:     "sy_task_cmd",
