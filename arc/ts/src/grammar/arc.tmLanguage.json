@@ -24,10 +24,10 @@
       "include": "#types"
     },
     {
-      "include": "#operators"
+      "include": "#flow-operators"
     },
     {
-      "include": "#flow-operators"
+      "include": "#operators"
     },
     {
       "include": "#functions"
@@ -75,10 +75,10 @@
               "include": "#strings"
             },
             {
-              "include": "#operators"
+              "include": "#flow-operators"
             },
             {
-              "include": "#flow-operators"
+              "include": "#operators"
             },
             {
               "include": "#types"
@@ -171,10 +171,6 @@
     "types": {
       "patterns": [
         {
-          "name": "support.function.builtin.arc",
-          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str)\\b(?=\\s*\\()"
-        },
-        {
           "name": "support.type.primitive.arc",
           "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str)\\b"
         },
@@ -187,12 +183,8 @@
     "operators": {
       "patterns": [
         {
-          "name": "keyword.operator.arithmetic.arc",
-          "match": "[+\\-*/%]|\\*\\*|\\^"
-        },
-        {
-          "name": "keyword.operator.comparison.arc",
-          "match": "==|!=|<=?|>=?"
+          "name": "keyword.operator.transition.arc",
+          "match": "=>"
         },
         {
           "name": "keyword.operator.assignment.declare.arc",
@@ -207,12 +199,16 @@
           "match": "\\+=|-=|\\*=|/=|%="
         },
         {
+          "name": "keyword.operator.comparison.arc",
+          "match": "==|!=|<=?|>=?"
+        },
+        {
           "name": "keyword.operator.assignment.arc",
           "match": "="
         },
         {
-          "name": "keyword.operator.transition.arc",
-          "match": "=>"
+          "name": "keyword.operator.arithmetic.arc",
+          "match": "\\*\\*|[+\\-*/%]|\\^"
         }
       ]
     },
