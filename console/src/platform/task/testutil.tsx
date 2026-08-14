@@ -532,3 +532,20 @@ export const commitFieldInput = (input: HTMLInputElement, value: string): void =
 /** Whether the redeploy button is collapsed rather than revealed. */
 export const isRedeployHidden = (): boolean =>
   screen.getByText("Redeploy").closest("[aria-hidden='true']") != null;
+
+/**
+ * Waits for the redeploy button to be revealed and enabled, then clicks it. The button
+ * stays mounted while hidden and Pluto buttons swallow clicks while disabled, so
+ * clicking without the wait races the drift computation and the form's initial query.
+ */
+export const clickRedeploy = async (): Promise<void> => {
+  const button = await waitFor(() => {
+    if (isRedeployHidden()) throw new Error("redeploy button is hidden");
+    const b = screen.getByText("Redeploy").closest("button");
+    assertDefined(b, "redeploy button not found");
+    if (b.classList.contains("pluto--disabled"))
+      throw new Error("redeploy button is disabled");
+    return b;
+  });
+  fireEvent.click(button);
+};

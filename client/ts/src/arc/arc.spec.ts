@@ -168,32 +168,112 @@ describe("arc", () => {
         off();
       }
     });
+  });
 
-    it("preserves the deployment task when a rack move fails to commit", async () => {
+  describe("setRack", () => {
+    it("creates the task stamped with the arc's hash", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`set-rack-${id.create()}`));
+      const tsk = await client.arcs.setRack(created.key, rack.key);
+      expect(tsk).not.toBeNull();
+      expect(tsk?.rack).toEqual(rack.key);
+      expect(tsk?.type).toEqual("arc");
+      expect(tsk?.config.arcKey).toEqual(created.key);
+      expect(tsk?.config.hash).not.toEqual("");
+      expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();
+    });
+
+    it("reuses the task across rebinds and rack moves", async () => {
       const rackA = await client.racks.create({ name: `rack-${id.create()}` });
       const rackB = await client.racks.create({ name: `rack-${id.create()}` });
-      const created = await client.arcs.create({
-        ...newTextArc(`rack-move-${id.create()}`),
-        rack: rackA.key,
-      });
-      const tsk = await client.arcs.task.retrieve(created.key);
+      const created = await client.arcs.create(newTextArc(`move-${id.create()}`));
+      const first = await client.arcs.setRack(created.key, rackA.key);
+      const moved = await client.arcs.setRack(created.key, rackB.key);
+      expect(moved?.key).toEqual(first?.key);
+      expect(moved?.rack).toEqual(rackB.key);
+    });
+
+    it("restamps the hash when the program changed", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`restamp-${id.create()}`));
+      const first = await client.arcs.setRack(created.key, rack.key);
+      const gen = new crdt.Text(2);
+      const ops = gen.insert(0, "on -> off").map((op) => arc.insertChar(op));
+      await client.arcs.dispatch(created.key, ops);
+      const second = await client.arcs.setRack(created.key, rack.key);
+      expect(second?.key).toEqual(first?.key);
+      expect(second?.config.hash).not.toEqual(first?.config.hash);
+    });
+
+    it("clears the rack by deleting the task", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`clear-rack-${id.create()}`));
+      const tsk = await client.arcs.setRack(created.key, rack.key);
       if (tsk == null) throw new Error("expected a deployment task");
-      // Task permissions are granted so the rack-move resolution proceeds all
-      // the way to the arc create, which is what gets denied.
+      await client.arcs.setRack(created.key, 0);
+      await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
+      expect((await client.arcs.retrieve(created.key)).key).toEqual(created.key);
+    });
+
+    it("stops serving the unbound task from the cache", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`uncache-${id.create()}`));
+      const tsk = await client.arcs.setRack(created.key, rack.key);
+      if (tsk == null) throw new Error("expected a deployment task");
+      // Caching both the task and its status arms the cached fast-path, so a
+      // retrieve after the rack is cleared answers locally instead of asking the Core.
+      await client.tasks.retrieve(tsk.key);
+      await client.arcs.setRack(created.key, 0);
+      await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
+    });
+
+    it("leaves the task untouched when the subject may not set the rack", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`denied-${id.create()}`));
+      const tsk = await client.arcs.setRack(created.key, rack.key);
+      if (tsk == null) throw new Error("expected a deployment task");
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         objects: [arc.ontologyID(""), task.ontologyID("")],
-        actions: ["retrieve", "delete"],
+        actions: ["retrieve"],
       });
-      await expect(
-        userClient.arcs.create({
-          ...newTextArc(created.name),
-          key: created.key,
-          rack: rackB.key,
-        }),
-      ).rejects.toSatisfy(AccessDeniedError.matches);
+      await expect(userClient.arcs.setRack(created.key, rack.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
       const surviving = await client.tasks.retrieve(tsk.key);
-      expect(surviving.key).toEqual(tsk.key);
+      expect(surviving.rack).toEqual(rack.key);
+    });
+  });
+
+  describe("task sync", () => {
+    // The writing client's task cache still holds the pre-dispatch copy, so
+    // assertions read through a fresh client to reach the Core.
+    it("rewrites the task config when a dispatch changes the content", async () => {
+      const fresh = createTestClient();
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`sync-${id.create()}`));
+      const deployed = await client.arcs.setRack(created.key, rack.key);
+      if (deployed == null) throw new Error("expected a deployment task");
+      const gen = new crdt.Text(2);
+      const ops = gen.insert(0, "x -> y").map((op) => arc.insertChar(op));
+      await client.arcs.dispatch(created.key, ops);
+      const synced = await fresh.tasks.retrieve(deployed.key);
+      expect(synced.config.hash).not.toEqual(deployed.config.hash);
+      expect(synced.configHash).not.toEqual(deployed.configHash);
+    });
+
+    it("restores the deployed config when an edit is undone", async () => {
+      const fresh = createTestClient();
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`undo-${id.create()}`));
+      const deployed = await client.arcs.setRack(created.key, rack.key);
+      if (deployed == null) throw new Error("expected a deployment task");
+      const gen = new crdt.Text(2);
+      const [op] = gen.insert(0, "x");
+      await client.arcs.dispatch(created.key, [arc.insertChar(op)]);
+      await client.arcs.dispatch(created.key, [arc.deleteChar({ id: op.id })]);
+      const synced = await fresh.tasks.retrieve(deployed.key);
+      expect(synced.configHash).toEqual(deployed.configHash);
     });
   });
 });

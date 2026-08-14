@@ -14,6 +14,7 @@ import {
   caseconv,
   type CrudeTimeSpan,
   deep,
+  type destructor,
   id,
   primitive,
   type record,
@@ -503,13 +504,26 @@ export class Client extends query.Retriever<
     return isSingle ? sugared[0] : sugared;
   }
 
+  /**
+   * Forgets the tasks locally without deleting them on the cluster, for callers
+   * whose own endpoint already deleted them. Keeps a later retrieve from serving
+   * a deleted task while the delete signal is still in flight.
+   */
+  dropCached(keys: Key | Key[]): void {
+    this.dropLocal(array.toArray(keys));
+  }
+
+  private dropLocal(keys: Key[]): destructor.Destructor[] {
+    return [
+      this.cfg.ontology.cache.deleteResources(ontologyID(keys)),
+      this.store.delete(keys),
+      this.cfg.statusStore.delete(keys.map((k) => statusKey(k))),
+    ];
+  }
+
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-      this.cfg.statusStore.delete(keysArr.map((k) => statusKey(k))),
-    ];
+    const drop = () => this.dropLocal(keysArr);
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

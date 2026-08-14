@@ -9,13 +9,9 @@
 
 import { status } from "@synnaxlabs/client";
 import { type Flex, Form } from "@synnaxlabs/pluto";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
-import { Actions } from "@/platform/task/controls/Actions";
-import { Frame } from "@/platform/task/controls/Frame";
-import { RedeployButton } from "@/platform/task/controls/RedeployButton";
-import { StartStopButton } from "@/platform/task/controls/StartStopButton";
-import { Status } from "@/platform/task/controls/Status";
+import { Bar } from "@/platform/task/controls/Bar";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useKey } from "@/platform/task/useKey";
 import { useStatus } from "@/platform/task/useStatus";
@@ -27,45 +23,32 @@ export interface ControlsProps extends Flex.BoxProps {
   onStop: () => void;
 }
 
-/**
- * Task controls component that wires up the presentational controls
- * with task-specific data from Form context.
- */
+/** Task controls bar wired to the surrounding task Form context. */
 export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
 
-  const [expanded, setExpanded] = useState(false);
-
-  const running = taskStatus.details.running;
-  const handleStartStop = useCallback(() => {
+  const handleDeploy = useCallback(() => {
     if (key == null) return;
-    if (running) onStop();
-    else onDeploy();
-  }, [key, running, onStop, onDeploy]);
-
-  const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
-  const handleContract = useCallback(() => setExpanded(false), []);
+    onDeploy();
+  }, [key, onDeploy]);
+  const handleStop = useCallback(() => {
+    if (key == null) return;
+    onStop();
+  }, [key, onStop]);
 
   return (
-    <Frame expanded={expanded} onContract={handleContract} {...props}>
-      <Status status={taskStatus} expanded={expanded} onToggle={handleToggle} />
-      {!isSnapshot && (
-        <Actions>
-          <RedeployButton
-            visible={drifted}
-            onClick={onDeploy}
-            disabled={taskStatus.variant === "loading"}
-          />
-          <StartStopButton
-            running={running}
-            onClick={handleStartStop}
-            statusVariant={status.keepVariants(taskStatus.variant, "loading")}
-          />
-        </Actions>
-      )}
-    </Frame>
+    <Bar
+      status={taskStatus}
+      running={taskStatus.details.running}
+      drifted={drifted}
+      snapshot={isSnapshot}
+      startStopVariant={status.keepVariants(taskStatus.variant, "loading")}
+      onDeploy={handleDeploy}
+      onStop={handleStop}
+      {...props}
+    />
   );
 };

@@ -183,6 +183,7 @@ type Transport struct {
 	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
 	ArcDispatch freighter.UnaryServer[arc.DispatchRequest, types.Nil]
+	ArcSetRack  freighter.UnaryServer[arc.SetRackRequest, arc.SetRackResponse]
 	ArcLSP      freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
@@ -400,6 +401,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcDelete,
 		t.ArcRetrieve,
 		t.ArcDispatch,
+		t.ArcSetRack,
 
 		// IMPORT/EXPORT
 		t.ImExImport,
@@ -598,6 +600,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
+	t.ArcSetRack.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.SetRack))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT

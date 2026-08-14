@@ -10,22 +10,22 @@
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Task } from "@/platform/task";
+import { Frame } from "@/platform/task/controls/Frame";
 import { getBySelector, renderWithConsole } from "@/testutil";
 
 describe("Controls.Frame", () => {
   it("should apply the expanded modifier class only while expanded", async () => {
     const { container, rerender } = await renderWithConsole(
-      <Task.Controls.Frame>
+      <Frame>
         <span>a</span>
-      </Task.Controls.Frame>,
+      </Frame>,
     );
     expect(container.querySelector(".console-task-controls--expanded")).toBeNull();
 
     rerender(
-      <Task.Controls.Frame expanded>
+      <Frame expanded>
         <span>a</span>
-      </Task.Controls.Frame>,
+      </Frame>,
     );
     expect(container.querySelector(".console-task-controls--expanded")).toBeTruthy();
   });
@@ -33,9 +33,9 @@ describe("Controls.Frame", () => {
   it("should invoke onContract when clicked while expanded", async () => {
     const onContract = vi.fn();
     const { container } = await renderWithConsole(
-      <Task.Controls.Frame expanded onContract={onContract}>
+      <Frame expanded onContract={onContract}>
         <span>c</span>
-      </Task.Controls.Frame>,
+      </Frame>,
     );
     fireEvent.click(getBySelector(container, ".console-task-controls"));
     expect(onContract).toHaveBeenCalledTimes(1);
@@ -44,9 +44,9 @@ describe("Controls.Frame", () => {
   it("should not invoke onContract when clicked while collapsed", async () => {
     const onContract = vi.fn();
     const { container } = await renderWithConsole(
-      <Task.Controls.Frame onContract={onContract}>
+      <Frame onContract={onContract}>
         <span>d</span>
-      </Task.Controls.Frame>,
+      </Frame>,
     );
     fireEvent.click(getBySelector(container, ".console-task-controls"));
     expect(onContract).not.toHaveBeenCalled();
