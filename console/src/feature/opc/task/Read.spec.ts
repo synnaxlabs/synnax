@@ -40,7 +40,7 @@ const createInputChannel = (
     nodeId: `ns=1;s=${nodeName}`,
     nodeName,
     channel: 0,
-    enabled: true,
+    disabled: false,
     useAsIndex: false,
     dataType: "float32",
     name: "",

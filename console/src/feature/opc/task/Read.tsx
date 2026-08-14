@@ -86,7 +86,7 @@ const Properties = (): ReactElement => {
         ) : (
           <Task.Fields.StreamRate />
         )}
-        <Task.Fields.DataSaving />
+        <Task.Fields.DataSaving polarity="disabled" />
         <Task.Fields.AutoStart />
       </Flex.Box>
     </>
@@ -98,7 +98,7 @@ const convertHaulItemToChannel = ({ data }: HaulItem): InputChannel => ({
   nodeName: data.name,
   nodeId: data.nodeId,
   channel: 0,
-  enabled: true,
+  disabled: false,
   useAsIndex: false,
   dataType: data.dataType,
   name: "",

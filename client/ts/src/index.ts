@@ -46,6 +46,7 @@ export { log } from "@/log";
 export { ni } from "@/ni";
 export { node } from "@/node";
 export { ontology } from "@/ontology";
+export { opc } from "@/opc";
 export { panel } from "@/panel";
 export { project } from "@/project";
 export { query } from "@/query";

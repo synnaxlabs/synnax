@@ -96,7 +96,7 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
-        <Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.disabled`} polarity="disabled" />
       </Flex.Box>
     </Select.ListItem>
   );

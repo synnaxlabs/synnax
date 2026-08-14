@@ -38,10 +38,9 @@ describe("OPC Write Task Types", () => {
     const config = {
       channels: [
         {
-          channel: 432,
-          cmdChannel: 0,
+          cmdChannel: 432,
           dataType: "float",
-          enabled: true,
+          disabled: false,
           key: "432",
           nodeId: "1",
           name: "test",
@@ -67,7 +66,7 @@ describe("OPC Read Task Config Validation", () => {
       nodeId: `ns=1;s=n${i}`,
       nodeName: `n${i}`,
       channel: 0,
-      enabled: true,
+      disabled: false,
       useAsIndex: false,
       dataType: "float32",
       name: "",
@@ -119,6 +118,36 @@ describe("OPC Read Task Config Validation", () => {
       ),
     ).toBe(true);
   });
+
+  it("should reject a non-positive array size", () => {
+    const config = {
+      device: "dev",
+      arrayMode: true,
+      sampleRate: 50,
+      arraySize: 0,
+      channels: [],
+    };
+    const result = OPC.Task.deployReadConfigZ.safeParse(config);
+    expect(result.success).toBe(false);
+    expect(
+      result.error?.issues.some(({ message }) =>
+        message.includes("Array size must be a positive integer"),
+      ),
+    ).toBe(true);
+  });
+
+  it("should reject a stream rate outside of (0, 10000]", () => {
+    const result = OPC.Task.deployReadConfigZ.safeParse({
+      ...(createConfig([{}]) as object),
+      streamRate: 20000,
+    });
+    expect(result.success).toBe(false);
+    expect(
+      result.error?.issues.some(({ message }) =>
+        message.includes("Stream rate must be between 0 and 10000"),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("OPC Write Task Config Validation", () => {
@@ -128,7 +157,7 @@ describe("OPC Write Task Config Validation", () => {
       nodeId: `ns=1;s=n${i}`,
       nodeName: `n${i}`,
       cmdChannel,
-      enabled: true,
+      disabled: false,
       dataType: "float32",
       name: "",
     });
