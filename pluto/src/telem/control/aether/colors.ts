@@ -42,7 +42,8 @@ export interface ColoredState extends control.State {
  */
 export class Colors extends aether.Composite<typeof colorsStateZ, InternalState> {
   static readonly TYPE = "Colors";
-  schema = colorsStateZ;
+  static readonly stateZ = colorsStateZ;
+  schema = Colors.stateZ;
 
   /** The color assigned to each control subject, keyed by subject key. */
   private readonly assigned = new Map<string, color.Color>();
