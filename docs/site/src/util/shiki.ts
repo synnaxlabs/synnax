@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Token, tokens } from "@synnaxlabs/arc";
-import { type ShikiTransformer, createCssVariablesTheme, splitTokens } from "shiki";
+import { createCssVariablesTheme, type ShikiTransformer, splitTokens } from "shiki";
 
 const color = ({ light, dark }: Token): string => `light-dark(${light}, ${dark})`;
 
