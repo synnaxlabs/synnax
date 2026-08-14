@@ -12,7 +12,7 @@
 package v0
 
 // Program is the persisted shape of a compiled Arc program: the compiled output only.
-// Stored arc v0 records embed this layout; the intermediate representation never
+// Stored Arc v0 records embed this layout; the intermediate representation never
 // reached the stored bytes.
 type Program struct {
 	// WASM is compiled WebAssembly bytecode for sandboxed execution.
