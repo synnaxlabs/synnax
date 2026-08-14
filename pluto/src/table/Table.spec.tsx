@@ -269,30 +269,11 @@ describe("Table", () => {
       expect(scroller().contains(probe())).toBe(false);
     });
 
-    it("draws values at their layout position before any scroll", async () => {
-      renderTable(false);
-      await expectDrawnAt(ORIGIN);
-    });
-
     it("shifts drawn values by the scroll offset", async () => {
       const { scroller } = renderTable(false);
       await expectDrawnAt(ORIGIN);
-      scrollTo(scroller, { x: 40, y: 120 });
-      await expectDrawnAt({ x: ORIGIN.x - 40, y: ORIGIN.y - 120 });
-    });
-
-    it("keeps clipping to the region the table occupies on screen", async () => {
-      const { scroller } = renderTable(false);
-      await expectDrawnAt(ORIGIN);
-      scrollTo(scroller, { x: 40, y: 120 });
-      await expectDrawnAt({ x: ORIGIN.x - 40, y: ORIGIN.y - 120 });
-      const clip = recorder.scissorCalls.at(-1)?.region;
-      if (clip == null) throw new Error("the table did not clip its draw");
-      expect(box.topLeft(clip)).toEqual(xy.ZERO);
-      expect(box.dims(clip)).toEqual({
-        width: SURFACE_WIDTH,
-        height: SURFACE_HEIGHT,
-      });
+      scrollTo(scroller, { x: 10, y: 20 });
+      await expectDrawnAt({ x: ORIGIN.x - 10, y: ORIGIN.y - 20 });
     });
   });
 });

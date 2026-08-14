@@ -123,6 +123,10 @@ export class Value
     else void this.render({});
   }
 
+  get box(): box.Box {
+    return this.state.box;
+  }
+
   private get fontHeight(): number {
     const { theme } = this.internal;
     return theme.typography[this.state.level].size * theme.sizes.base;

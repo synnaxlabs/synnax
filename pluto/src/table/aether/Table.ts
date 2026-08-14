@@ -27,6 +27,8 @@ interface CellProps {
 }
 
 export interface Cell extends aether.Component {
+  /** The cell's position in the table's unscrolled layout coordinates. */
+  readonly box: box.Box;
   render: ({ viewportScale }: CellProps) => void;
 }
 
@@ -80,8 +82,11 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
       CANVASES,
     );
 
+    const visible = box.construct(this.state.scroll, box.dims(this.state.region));
     try {
-      for (const child of this.children) child.render({ viewportScale });
+      for (const child of this.children)
+        if (!box.areaIsZero(box.intersection(child.box, visible)))
+          child.render({ viewportScale });
     } catch (e) {
       handleError(e, "Failed to render table");
     } finally {
