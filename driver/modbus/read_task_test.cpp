@@ -234,7 +234,7 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_NIL(client->devices.create(dev));
 
     auto tsk = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "my_task",
         .type = "modbus_read",
     };
@@ -337,7 +337,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "discrete_test",
             .type = "modbus_read",
         },
@@ -395,7 +395,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "holding_test",
             .type = "modbus_read",
         },
@@ -472,7 +472,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "multi_test",
             .type = "modbus_read",
         },
@@ -569,7 +569,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "uint8_test",
             .type = "modbus_read",
         },
@@ -647,7 +647,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
 
     auto task = common::ReadTask(
         synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "uint8_holding_test",
             .type = "modbus_read",
         },
@@ -711,7 +711,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     };
 
     task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "test_task",
         .type = "modbus_read",
         .config = config
@@ -778,7 +778,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     };
 
     task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "test_task_no_auto",
         .type = "modbus_read",
         .config = config

@@ -9,7 +9,7 @@
 
 import { group, ontology, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -243,6 +243,8 @@ describe("queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: {},
         },
       });
@@ -340,6 +342,8 @@ describe("queries", () => {
           task: testTask.key,
           running: true,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: {},
         },
       });
@@ -418,6 +422,8 @@ describe("queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: { error: "Test error" },
         },
       });
@@ -761,7 +767,7 @@ describe("queries", () => {
       expect(result.current.form.get("rackKey").value).toEqual(testRack.key);
     });
 
-    it("should derive rackKey from the task key even when an initial rackKey is set", async () => {
+    it("should prefer the payload rack over an initial rackKey", async () => {
       const otherRack = await client.racks.create({ name: "otherRack" });
       const existing = await testRack.createTask({
         name: "rackKeyDeriveTask",
@@ -776,6 +782,7 @@ describe("queries", () => {
         },
         initialValues: {
           key: existing.key,
+          rack: existing.rack,
           name: "rackKeyDeriveTask",
           type: "testType",
           config: {},
@@ -805,7 +812,6 @@ describe("queries", () => {
           statusData: z.any().nullish(),
         },
         initialValues: {
-          key: "0",
           name: "",
           type: "testType",
           config: { setting: "" },
@@ -879,7 +885,6 @@ describe("queries", () => {
           statusData: z.any().optional(),
         },
         initialValues: {
-          key: "0",
           name: "test",
           type: "testType",
           config: { port: 0, host: "" },
@@ -1062,6 +1067,8 @@ describe("queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: { errorCode: 500 },
         },
       });
@@ -1198,6 +1205,8 @@ describe("queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: { errorCode: 500 },
         },
       });
@@ -1352,6 +1361,7 @@ describe("queries", () => {
     });
 
     it("should handle error states in form operations", async () => {
+      const missingKey = uuid.create();
       const useForm = Task.createForm({
         schemas: {
           type: z.literal("testType"),
@@ -1359,7 +1369,7 @@ describe("queries", () => {
           statusData: z.any().optional(),
         },
         initialValues: {
-          key: "999999",
+          key: missingKey,
           name: "errorTask",
           type: "testType",
           config: {},
@@ -1368,7 +1378,7 @@ describe("queries", () => {
 
       const Wrapper = wrapper;
       const Display = (): ReactElement => {
-        useForm({ query: { key: "999999" } });
+        useForm({ query: { key: missingKey } });
         return <div />;
       };
       let utils!: ReturnType<typeof render>;
@@ -1545,7 +1555,14 @@ describe("queries", () => {
           name: "Task Status",
           variant: "success",
           message: "Command executed successfully",
-          details: { task: t.key, running: true, cmd: "", data: {} },
+          details: {
+            task: t.key,
+            running: true,
+            cmd: "",
+            configHash: "",
+            rack: 0,
+            data: {},
+          },
         });
         await client.statuses.set(stat);
       });

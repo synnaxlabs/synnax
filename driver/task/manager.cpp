@@ -115,14 +115,6 @@ void Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
-bool Manager::skip_foreign_rack(const synnax::task::Key &task_key) const {
-    if (synnax::task::rack_key_from_task_key(task_key) != this->rack.key) {
-        VLOG(1) << "received task for foreign rack: " << task_key << ", skipping";
-        return true;
-    }
-    return false;
-}
-
 x::errors::Error Manager::run(std::function<void()> on_started) {
     if (this->exit_early) {
         VLOG(1) << "exiting early";
@@ -170,9 +162,19 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
 }
 
 void Manager::process_task_set(const x::telem::Series &series) {
-    const auto task_keys = series.values<std::uint64_t>();
-    for (const auto task_key: task_keys) {
-        if (this->skip_foreign_rack(task_key)) continue;
+    for (const auto &meta_str: series.strings()) {
+        auto parser = x::json::Parser(meta_str);
+        const auto task_key = parser.field<synnax::task::Key>("key");
+        const auto rack_key = parser.field<synnax::rack::Key>("rack", 0);
+        if (!parser.ok()) {
+            LOG(WARNING) << "failed to parse task metadata: "
+                         << parser.error_json().dump();
+            continue;
+        }
+        if (rack_key != this->rack.key) {
+            VLOG(1) << "received task for foreign rack: " << task_key << ", skipping";
+            continue;
+        }
         auto [tsk, err] = this->rack.tasks.retrieve(task_key);
         if (err) {
             LOG(WARNING) << "failed to retrieve task: " << err;
@@ -200,13 +202,20 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
             LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
             continue;
         }
-        if (this->skip_foreign_rack(cmd.task)) continue;
-        VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
-        std::lock_guard<std::mutex> lock(this->mu);
-        if (!this->entries[cmd.task])
-            this->entries[cmd.task] = std::make_shared<Entry>();
-        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
-        this->cv.notify_one();
+        {
+            std::lock_guard<std::mutex> lock(this->mu);
+            if (this->entries.find(cmd.task) != this->entries.end()) {
+                VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
+                this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
+                this->cv.notify_one();
+                continue;
+            }
+        }
+        // Unknown instance: the command may target another rack's task, so only
+        // warn when the task actually belongs to this rack.
+        auto [tsk, err] = this->rack.tasks.retrieve(cmd.task);
+        if (err || tsk.rack != this->rack.key) continue;
+        LOG(WARNING) << "received command for unconfigured task " << tsk;
     }
 }
 
@@ -241,12 +250,9 @@ void Manager::stop_all_tasks() {
 }
 
 void Manager::process_task_delete(const x::telem::Series &series) {
-    const auto task_keys = series.values<synnax::task::Key>();
-    for (const auto task_key: task_keys) {
-        if (this->skip_foreign_rack(task_key)) continue;
+    for (const auto &task_key: series.uuids()) {
         std::lock_guard<std::mutex> lock(this->mu);
-        if (!this->entries[task_key])
-            this->entries[task_key] = std::make_shared<Entry>();
+        if (this->entries.find(task_key) == this->entries.end()) continue;
         this->op_queue.push_back(Op{Op::Type::REMOVE, task_key, {}, {}});
         this->cv.notify_one();
     }

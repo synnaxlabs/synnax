@@ -49,15 +49,13 @@ export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
+export const setSignalZ = payloadZ().omit({ config: true, status: true });
+export interface SetSignal extends z.infer<typeof setSignalZ> {}
+
 // Temporary hack that filters the set of commands that should change the
 // status of a task to loading.
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
-
-export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
-
-export const newKey = (rackKey: RackKey, taskKey: number = 0): Key =>
-  ((BigInt(rackKey) << 32n) + BigInt(taskKey)).toString();
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.parents.retrieve({ ids: ontologyID(taskKey) });
@@ -94,11 +92,13 @@ export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends 
 
 export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
+  readonly rack: RackKey;
   name: string;
   internal: boolean;
   type: z.infer<S["type"]>;
   snapshot: boolean;
   config: z.infer<S["config"]>;
+  readonly configHash: string;
   status?: Status<S["statusData"]>;
 
   readonly schemas: S;
@@ -124,16 +124,28 @@ export class Task<S extends Schemas = Schemas> {
   }
 
   constructor(
-    { key, type, name, config, internal = false, snapshot = false, status }: Payload<S>,
+    {
+      key,
+      rack,
+      type,
+      name,
+      config,
+      configHash = "",
+      internal = false,
+      snapshot = false,
+      status,
+    }: Payload<S>,
     schemas?: S,
     frameClient?: framer.Client,
     ontologyClient?: ontology.Client,
     rangeClient?: ranger.Client,
   ) {
     this.key = key;
+    this.rack = rack;
     this.name = name;
     this.type = type;
     this.config = config;
+    this.configHash = configHash;
     this.schemas =
       schemas ??
       ({
@@ -155,9 +167,11 @@ export class Task<S extends Schemas = Schemas> {
   get payload(): Payload<S> {
     return {
       key: this.key,
+      rack: this.rack,
       name: this.name,
       type: this.type,
       config: this.config,
+      configHash: this.configHash,
       status: this.status,
       internal: this.internal,
       snapshot: this.snapshot,
@@ -263,7 +277,7 @@ const singleQueryZ = z
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
     z.strictObject({ type: z.string(), rack: rackKeyZ.optional() }),
-    z.union([z.string(), z.number()]).transform((key) => ({ key })),
+    keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
 
@@ -289,7 +303,7 @@ const requestFilter = (
     if (keySet != null && !keySet.has(t.key)) return false;
     if (nameSet != null && !nameSet.has(t.name)) return false;
     if (typeSet != null && !typeSet.has(t.type)) return false;
-    if (req.rack != null && rackKey(t.key) !== req.rack) return false;
+    if (req.rack != null && t.rack !== req.rack) return false;
     if (req.internal != null && t.internal !== req.internal) return false;
     if (req.snapshot != null && t.snapshot !== req.snapshot) return false;
     return true;
@@ -323,9 +337,7 @@ const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean =
   if (primitive.isNonZero(query.keys)) return t.key === query.keys[0];
   if (primitive.isNonZero(query.names)) return t.name === query.names[0];
   if (primitive.isNonZero(query.types))
-    return (
-      t.type === query.types[0] && (query.rack == null || rackKey(t.key) === query.rack)
-    );
+    return t.type === query.types[0] && (query.rack == null || t.rack === query.rack);
   return false;
 };
 
@@ -357,7 +369,29 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) => await this.fetchThrough({ keys }),
       listen: [
-        query.createFetchListener(SET_CHANNEL_NAME, keyZ),
+        {
+          bind: (table) => ({
+            channel: SET_CHANNEL_NAME,
+            schema: setSignalZ,
+            // The set signal omits config: a changed hash means the cached one is stale.
+            onChange: async (changed: SetSignal[]) => {
+              const stale: Key[] = [];
+              table.batch(() =>
+                changed.forEach((sig) => {
+                  const cached = table.get(sig.key);
+                  if (cached == null || cached.configHash !== sig.configHash) {
+                    stale.push(sig.key);
+                    return;
+                  }
+                  table.set(sig.key, (prev) =>
+                    prev == null ? undefined : this.sugar({ ...prev.payload, ...sig }),
+                  );
+                }),
+              );
+              if (stale.length > 0) await table.retrieve(stale, { refresh: true });
+            },
+          }),
+        },
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
@@ -374,7 +408,14 @@ export class Client extends query.Retriever<
                 name: "Task Status",
                 variant: "loading",
                 message: `Running ${changed.type} command...`,
-                details: { task: changed.task, running: true, cmd: "", data: {} },
+                details: {
+                  task: changed.task,
+                  running: true,
+                  cmd: "",
+                  configHash: "",
+                  rack: 0,
+                  data: {},
+                },
               });
             }),
           ),
@@ -604,13 +645,15 @@ export class Client extends query.Retriever<
   ): Task<S>[] | Task<S> {
     const isSingle = !Array.isArray(payloads);
     const res = array.toArray(payloads).map(
-      ({ key, name, type, config, status, internal, snapshot }) =>
+      ({ key, rack, name, type, config, configHash, status, internal, snapshot }) =>
         new Task(
           {
             key,
+            rack,
             name,
             type,
             config,
+            configHash,
             internal,
             snapshot,
             status,

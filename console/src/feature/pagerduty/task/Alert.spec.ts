@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -115,7 +115,7 @@ describe("PagerDuty Alert form", () => {
         schemas: PagerDuty.Task.ALERT_SCHEMAS,
       });
       expect(created.type).toBe(PagerDuty.Task.ALERT_TYPE);
-      expect(task.rackKey(created.key)).toBe(rack.key);
+      expect(created.rack).toBe(rack.key);
       expect(created.config.routingKey).toBe(config.routingKey);
       expect(created.config.alerts).toHaveLength(1);
       expect(created.config.alerts[0].status).toBe(config.alerts[0].status);

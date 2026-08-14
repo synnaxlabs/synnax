@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, query, type rack, task } from "@synnaxlabs/client";
-import { array, type optional, verbs } from "@synnaxlabs/x";
+import { array, type optional, primitive, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -62,6 +62,7 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
   z.object({
     key: task.keyZ.optional(),
     name: z.string(),
+    // NOTE: rackKey collapses into the rack payload field in PR 3.
     rackKey: z.number(),
     type: schemas.type,
     snapshot: z.boolean(),
@@ -72,6 +73,7 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
   key?: task.Key;
   name: string;
+  // NOTE: rackKey collapses into the rack payload field in PR 3.
   rackKey: rack.Key;
   type: z.infer<S["type"]>;
   snapshot: boolean;
@@ -86,10 +88,14 @@ export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
 
 export interface InitialValues<
   S extends task.Schemas = task.Schemas,
-> extends optional.Optional<task.Payload<S>, "key" | "internal" | "snapshot"> {
+> extends optional.Optional<
+  task.Payload<S>,
+  "key" | "rack" | "internal" | "snapshot" | "configHash"
+> {
   key?: task.Key;
-  /** Rack to pre-select when creating a new task. Ignored when key is set, as the
-   * rack is already encoded in the task key. */
+  /** Rack to pre-select when creating a new task. The payload rack takes
+   * precedence when set. */
+  // NOTE: this pre-select fallback dies once rack lives on the payload in PR 3.
   rackKey?: rack.Key;
 }
 
@@ -102,7 +108,8 @@ export const toFormValues = <S extends task.Schemas = task.Schemas>(
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
-  rackKey: t.key == null ? (t.rackKey ?? 0) : task.rackKey(t.key),
+  // NOTE: this rack/rackKey merge collapses to `rack: t.rack ?? 0` in PR 3.
+  rackKey: primitive.isNonZero(t.rack) ? t.rack : (t.rackKey ?? 0),
   type: t.type,
   config: t.config,
   status: t.status,
@@ -119,6 +126,7 @@ const resetFormValues = <S extends task.Schemas = task.Schemas>(
   set("key", values.key, RESET_OPTIONS);
   set("name", values.name, RESET_OPTIONS);
   set("type", values.type, RESET_OPTIONS);
+  // NOTE: becomes set("rack", ...) in PR 3.
   set("rackKey", values.rackKey, RESET_OPTIONS);
   set("config", values.config, RESET_OPTIONS);
   set("snapshot", values.snapshot, RESET_OPTIONS);
@@ -144,6 +152,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     },
     update: async ({ client, ...form }) => {
       const value = form.value();
+      // NOTE: reads value.rack in PR 3.
       const rack = await client.racks.retrieve(value.rackKey);
       const task = await rack.createTask(
         {

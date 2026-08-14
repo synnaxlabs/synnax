@@ -36,13 +36,12 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 class Base(BaseModel):
     """Is a collection container for hardware devices and tasks running on a specific
-    cluster node. Racks serve as the integration point between the Synnax server and
-    physical hardware via the Driver system.
+    Core. Racks are the integration point between the Core and physical hardware through
+    the Driver.
 
     Attributes:
         key: Is the composite identifier for this rack.
         name: Is a human-readable name for the rack.
-        task_counter: Is an internal counter used for generating unique local task keys.
         embedded: Is true if this rack is embedded within the Synnax server process.
         status: Is the current operational status of the rack.
         integrations: Is the list of hardware integrations this rack supports (e.g.,
@@ -52,7 +51,6 @@ class Base(BaseModel):
 
     key: Key = Field(ge=0, le=4294967295)
     name: str
-    task_counter: int = Field(default=0, ge=0, le=4294967295)
     embedded: bool = False
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
@@ -66,12 +64,10 @@ class Rack(Base):
 
     Attributes:
         key: Is the composite identifier for this rack.
-        task_counter: Is an internal counter used for generating unique local task keys.
         embedded: Is true if this rack is embedded within the Synnax server process.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
-    task_counter: int = Field(default=0, ge=0, le=4294967295, exclude=True)
     embedded: bool = Field(default=False, exclude=True)
 
     def __hash__(self) -> int:

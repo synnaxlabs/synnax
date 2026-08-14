@@ -42,7 +42,7 @@ message CreateResponse {
 
 message RetrieveRequest {
   uint32 rack = 1;
-  repeated uint64 keys = 2;
+  repeated string keys = 2;
   repeated string names = 3;
   repeated string types = 4;
   bool include_status = 5;
@@ -53,11 +53,11 @@ message RetrieveResponse {
 }
 
 message DeleteRequest {
-  repeated uint64 keys = 1;
+  repeated string keys = 1;
 }
 
 message CopyRequest {
-  uint64 key = 1;
+  string key = 1;
   string name = 2;
   bool snapshot = 3;
 }

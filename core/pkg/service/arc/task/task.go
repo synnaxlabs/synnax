@@ -240,7 +240,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 			func(ctx context.Context, nodeKey string, err error) {
 				t.factoryCfg.L.Warn("runtime error in arc node",
 					zap.String("node", nodeKey),
-					zap.Uint64("task", uint64(t.task.Key)),
+					zap.Stringer("task", t.task.Key),
 					zap.Error(err),
 				)
 				t.setRuntimeError(ctx, nodeKey, err)
@@ -408,7 +408,7 @@ func (t *impl) setStatus(
 	).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for Arc task",
-			zap.Uint64("key", uint64(t.task.Key)),
+			zap.Stringer("key", t.task.Key),
 			zap.String("name", t.task.Name),
 			zap.Error(err),
 		)

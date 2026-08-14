@@ -13,9 +13,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -25,7 +25,6 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	rack      rack.Writer
 	group     group.Group
 	status    status.Writer[StatusDetails]
 	table     *gorp.Table[Key, Task]
@@ -64,12 +63,12 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) error {
 // Create creates or updates a task. If a status is provided on the task,
 // it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, t *Task) error {
-	if !t.Key.IsValid() {
-		localKey, err := w.rack.NewTaskKey(ctx, t.Rack())
-		if err != nil {
-			return err
-		}
-		t.Key = NewKey(t.Rack(), localKey)
+	if t.Key == uuid.Nil {
+		t.Key = uuid.New()
+	}
+	var err error
+	if t.ConfigHash, err = hashConfig(t.Config); err != nil {
+		return err
 	}
 	providedStatus := t.Status // Preserve before clearing for Gorp
 	t.Status = nil             // Status stored separately, not in Gorp
@@ -77,6 +76,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {
 				creating.Config = existing.Config
+				creating.ConfigHash = existing.ConfigHash
 			}
 			return creating, nil
 		}).
@@ -130,10 +130,10 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otgWriter.DeleteResources(ctx, key.OntologyID()); err != nil {
+	if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, key.OntologyID().String())
+	return w.status.Delete(ctx, OntologyID(key).String())
 }
 
 func (w Writer) Copy(
@@ -142,13 +142,9 @@ func (w Writer) Copy(
 	name string,
 	snapshot bool,
 ) (Task, error) {
-	localKey, err := w.rack.NewTaskKey(ctx, key.Rack())
-	if err != nil {
-		return Task{}, err
-	}
-	newKey := NewKey(key.Rack(), localKey)
+	newKey := uuid.New()
 	var res Task
-	if err = w.table.NewUpdate().
+	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Change(func(_ gorp.Context, t Task) Task {
 			t.Key = newKey
@@ -160,10 +156,10 @@ func (w Writer) Copy(
 		Exec(ctx, w.tx); err != nil {
 		return Task{}, err
 	}
-	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
+	if err := w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
 	}
-	if err = w.otgWriter.DefineResources(ctx, newKey.OntologyID()); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
 	return res, nil

@@ -118,8 +118,10 @@ export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const ZERO_READ_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "HTTP Read Task",
   config: ZERO_READ_CONFIG,
+  configHash: "",
   type: "http_read",
   internal: false,
   snapshot: false,
@@ -276,8 +278,10 @@ export interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "HTTP Write Task",
   config: ZERO_WRITE_CONFIG,
+  configHash: "",
   type: WRITE_TYPE,
   internal: false,
   snapshot: false,

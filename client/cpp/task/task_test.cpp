@@ -13,6 +13,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/testutil/testutil.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 std::mt19937 gen_rand_task = random_generator("Task Tests");
 
@@ -31,8 +32,8 @@ TEST(TaskTests, testCreateTask) {
     };
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
-    ASSERT_EQ(rack_key_from_task_key(m.key), r.key);
-    ASSERT_NE(local_key(m.key), 0);
+    ASSERT_EQ(m.rack, r.key);
+    ASSERT_FALSE(m.key.is_nil());
 }
 
 /// @brief it should correctly retrieve a module from the rack.
@@ -50,8 +51,8 @@ TEST(TaskTests, testRetrieveTask) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(rack_key_from_task_key(t.key), r.key);
-    ASSERT_EQ(local_key(t2.key), local_key(t.key));
+    ASSERT_EQ(t.rack, r.key);
+    ASSERT_EQ(t2.key, t.key);
     ASSERT_TRUE(t2.snapshot);
 }
 
@@ -65,7 +66,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
     ASSERT_EQ(t2.name, rand_name);
-    ASSERT_EQ(rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(t.rack, r.key);
 }
 
 /// @brief it should retrieve a task by its type
@@ -82,7 +83,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(t.rack, r.key);
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -95,8 +96,8 @@ TEST(TaskTests, testListTasks) {
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
-    ASSERT_EQ(rack_key_from_task_key(tasks[0].key), r.key);
-    ASSERT_NE(local_key(tasks[0].key), 0);
+    ASSERT_EQ(tasks[0].rack, r.key);
+    ASSERT_FALSE(tasks[0].key.is_nil());
 }
 
 /// @brief it should correctly delete a task from the rack.
@@ -112,10 +113,10 @@ TEST(TaskTests, testDeleteTask) {
 
 /// @brief it should convert a task key to an ontology ID
 TEST(TaskTests, testTaskOntologyId) {
-    constexpr Key key = 12345678901234;
+    const auto key = x::uuid::create();
     const auto id = ontology_id(key);
     ASSERT_EQ(id.type, "task");
-    ASSERT_EQ(id.key, "12345678901234");
+    ASSERT_EQ(id.key, key.to_string());
 }
 
 /// @brief it should correctly create and retrieve a task with a status.
@@ -132,7 +133,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Task is running",
             .time = x::telem::TimeStamp::now(),
-            .details = task::StatusDetails{.task = 0, .running = true, .cmd = "start"}
+            .details = task::StatusDetails{.running = true, .cmd = "start"}
         }
     };
     ASSERT_NIL(r.tasks.create(t));
@@ -247,14 +248,16 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
 }
 
 TEST(TaskTests, testTaskStatusKey) {
-    const auto t = Task{.key = 1125};
-    ASSERT_EQ(task::status_key(t), "task:1125");
+    const auto key = x::uuid::create();
+    const auto t = Task{.key = key};
+    ASSERT_EQ(task::status_key(t), "task:" + key.to_string());
 }
 
 /// @brief it should correctly parse StatusDetails from JSON.
 TEST(StatusDetailsTests, testParseFromJSON) {
+    const auto task_key = x::uuid::create();
     x::json::json j = {
-        {"task", 123456789},
+        {"task", task_key.to_string()},
         {"cmd", "start"},
         {"running", true},
         {"data", {{"key", "value"}}}
@@ -262,7 +265,7 @@ TEST(StatusDetailsTests, testParseFromJSON) {
     x::json::Parser parser(j);
     auto details = StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.task, 123456789);
+    ASSERT_EQ(details.task, task_key);
     ASSERT_EQ(details.cmd, "start");
     ASSERT_EQ(details.running, true);
     ASSERT_TRUE(details.data.has_value());
@@ -271,14 +274,15 @@ TEST(StatusDetailsTests, testParseFromJSON) {
 
 /// @brief it should correctly serialize StatusDetails to JSON.
 TEST(StatusDetailsTests, testToJSON) {
+    const auto task_key = x::uuid::create();
     StatusDetails details{
-        .task = 987654321,
+        .task = task_key,
         .running = false,
         .cmd = "stop",
         .data = x::json::json{{"status", "completed"}},
     };
     const auto j = details.to_json();
-    ASSERT_EQ(j["task"], 987654321);
+    ASSERT_EQ(j["task"], task_key.to_string());
     ASSERT_EQ(j["cmd"], "stop");
     ASSERT_EQ(j["running"], false);
     ASSERT_EQ(j["data"]["status"], "completed");
@@ -287,7 +291,7 @@ TEST(StatusDetailsTests, testToJSON) {
 /// @brief it should round-trip StatusDetails through JSON.
 TEST(StatusDetailsTests, testRoundTrip) {
     StatusDetails original{
-        .task = 555555,
+        .task = x::uuid::create(),
         .running = true,
         .cmd = "configure",
         .data = x::json::json{{"config", "test"}, {"version", 2}},
@@ -318,7 +322,7 @@ TEST(TaskTests, testToProtoReportsBadConfig) {
 /// @brief it should report command arguments that do not convert.
 TEST(CommandTests, testToProtoReportsBadArgs) {
     const Command c{
-        .task = 1,
+        .task = x::uuid::create(),
         .type = "start",
         .args = x::json::deeply_nested_object()
     };
@@ -334,8 +338,9 @@ TEST(StatusDetailsTests, testToProtoReportsBadData) {
 
 /// @brief it should handle empty cmd field correctly.
 TEST(StatusDetailsTests, testEmptyCmd) {
+    const auto task_key = x::uuid::create();
     x::json::json j = {
-        {"task", 111},
+        {"task", task_key.to_string()},
         {"cmd", ""},
         {"running", true},
         {"data", x::json::json::object()}
@@ -343,7 +348,7 @@ TEST(StatusDetailsTests, testEmptyCmd) {
     x::json::Parser parser(j);
     auto details = StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.task, 111);
+    ASSERT_EQ(details.task, task_key);
     ASSERT_EQ(details.cmd, "");
     ASSERT_EQ(details.running, true);
 }

@@ -122,7 +122,7 @@ synnax::device::Device Scanner::create_slave_device(
 ) const {
     const auto &props = slave.properties;
     const auto &sts = slave.status;
-    const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
+    const auto rack_key = this->task.rack;
     const std::string key = this->generate_slave_key(props, master_key);
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);

@@ -1638,8 +1638,10 @@ export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;
 export interface AnalogReadPayload extends task.Payload<AnalogReadSchemas> {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   key: "",
+  rack: 0,
   name: "NI Analog Read Task",
   config: ZERO_ANALOG_READ_CONFIG,
+  configHash: "",
   type: "ni_analog_read",
   internal: false,
   snapshot: false,
@@ -1685,8 +1687,10 @@ export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
 export interface CounterReadPayload extends task.Payload<CounterReadSchemas> {}
 export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
   key: "",
+  rack: 0,
   name: "NI Counter Read Task",
   config: ZERO_COUNTER_READ_CONFIG,
+  configHash: "",
   type: "ni_counter_read",
   internal: false,
   snapshot: false,
@@ -1717,8 +1721,10 @@ export type AnalogWriteSchemas = typeof ANALOG_WRITE_SCHEMAS;
 interface AnalogWritePayload extends task.Payload<AnalogWriteSchemas> {}
 export const ZERO_ANALOG_WRITE_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "NI Analog Write Task",
   config: ZERO_ANALOG_WRITE_CONFIG,
+  configHash: "",
   type: "ni_analog_write",
   internal: false,
   snapshot: false,
@@ -1751,8 +1757,10 @@ export type DigitalReadSchemas = typeof DIGITAL_READ_SCHEMAS;
 export interface DigitalReadPayload extends task.Payload<DigitalReadSchemas> {}
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
+  rack: 0,
   name: "NI Digital Read Task",
   config: ZERO_DIGITAL_READ_CONFIG,
+  configHash: "",
   type: "ni_digital_read",
   internal: false,
   snapshot: false,
@@ -1783,8 +1791,10 @@ export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
 export interface DigitalWritePayload extends task.Payload<DigitalWriteSchemas> {}
 export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   key: "",
+  rack: 0,
   name: "NI Digital Write Task",
   config: ZERO_DIGITAL_WRITE_CONFIG,
+  configHash: "",
   type: "ni_digital_write",
   internal: false,
   snapshot: false,

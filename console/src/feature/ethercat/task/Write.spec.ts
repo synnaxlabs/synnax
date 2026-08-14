@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, task } from "@synnaxlabs/client";
+import { type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -95,7 +95,7 @@ describe("EtherCAT Write", () => {
         schemas: EtherCAT.Task.WRITE_SCHEMAS,
       });
       expect(created.type).toBe(EtherCAT.Task.WRITE_TYPE);
-      expect(task.rackKey(created.key)).toBe(testRack.key);
+      expect(created.rack).toBe(testRack.key);
       const [ch] = created.config.channels;
       expect(ch.cmdChannel).not.toBe(0);
       expect(ch.stateChannel).not.toBe(0);

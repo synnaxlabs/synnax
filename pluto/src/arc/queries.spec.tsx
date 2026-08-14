@@ -465,7 +465,7 @@ describe("Arc queries", () => {
           const retrievedTask = await client.tasks.retrieve(taskKey);
           expect(retrievedTask.type).toBe("arc");
           expect(retrievedTask.config).toEqual({ arcKey: createdArc.key });
-          expect(task.rackKey(taskKey)).toBe(testRack.key);
+          expect(retrievedTask.rack).toBe(testRack.key);
         });
       });
 
@@ -499,7 +499,8 @@ describe("Arc queries", () => {
             });
             const taskChildren = children.filter((c) => c.id.type === "task");
             expect(taskChildren).toHaveLength(1);
-            expect(task.rackKey(taskChildren[0].id.key)).toBe(testRack.key);
+            const createdTask = await client.tasks.retrieve(taskChildren[0].id.key);
+            expect(createdTask.rack).toBe(testRack.key);
           });
         });
 
@@ -559,7 +560,7 @@ describe("Arc queries", () => {
           });
         });
 
-        it("should migrate task when updating arc to different rack", async () => {
+        it("should move the task when updating arc to different rack", async () => {
           const rack1 = await client.racks.create({
             name: `rack_from_${id.create()}`,
           });
@@ -588,7 +589,8 @@ describe("Arc queries", () => {
             });
             expect(childrenBefore).toHaveLength(1);
             originalTaskKey = childrenBefore[0].id.key;
-            expect(task.rackKey(originalTaskKey)).toBe(rack1.key);
+            const originalTask = await client.tasks.retrieve(originalTaskKey);
+            expect(originalTask.rack).toBe(rack1.key);
           });
 
           const { result: updateResult } = renderHook(() => Arc.useCreate(), {
@@ -612,12 +614,13 @@ describe("Arc queries", () => {
             });
             expect(childrenAfter).toHaveLength(1);
             const newTaskKey = childrenAfter[0].id.key;
-            expect(newTaskKey).not.toBe(originalTaskKey);
-            expect(task.rackKey(newTaskKey)).toBe(rack2.key);
+            expect(newTaskKey).toBe(originalTaskKey);
+            const movedTask = await client.tasks.retrieve(newTaskKey);
+            expect(movedTask.rack).toBe(rack2.key);
           });
         });
 
-        it("should delete old task when migrating to different rack", async () => {
+        it("should keep the original task when migrating to different rack", async () => {
           const rack1 = await client.racks.create({
             name: `rack_del_from_${id.create()}`,
           });
@@ -667,7 +670,8 @@ describe("Arc queries", () => {
             expect(updateResult.current.variant).toEqual("success");
           });
 
-          await expect(client.tasks.retrieve(originalTaskKey)).rejects.toThrow();
+          const movedTask = await client.tasks.retrieve(originalTaskKey);
+          expect(movedTask.rack).toBe(rack2.key);
         });
       });
     });
@@ -914,6 +918,8 @@ describe("Arc queries", () => {
           task: testTask.key,
           running: false,
           cmd: "",
+          configHash: "",
+          rack: 0,
           data: {},
         },
       });

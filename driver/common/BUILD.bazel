@@ -50,6 +50,7 @@ cc_test(
         "//driver/common",
         "//driver/pipeline/mock",
         "//x/cpp/test",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

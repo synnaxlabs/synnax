@@ -165,8 +165,10 @@ export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const ZERO_READ_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "EtherCAT Read Task",
   config: ZERO_READ_CONFIG,
+  configHash: "",
   type: "ethercat_read",
   internal: false,
   snapshot: false,
@@ -210,8 +212,10 @@ export interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "EtherCAT Write Task",
   config: ZERO_WRITE_CONFIG,
+  configHash: "",
   type: "ethercat_write",
   internal: false,
   snapshot: false,

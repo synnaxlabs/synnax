@@ -33,7 +33,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -188,7 +187,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTask := func(ctx context.Context, factory driver.Factory) driver.Task {
 		svcTask := task.Task{
-			Key:    task.NewKey(rack.NewKey(1, 1), 1),
+			Key:    uuid.New(),
 			Name:   "test-task",
 			Type:   arctask.Type,
 			Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
@@ -295,7 +294,7 @@ var _ = Describe("Task", Ordered, func() {
 					},
 				}))
 				svcTask := task.Task{
-					Key:    task.NewKey(rack.NewKey(1, 1), 1),
+					Key:    uuid.New(),
 					Type:   "not-arc",
 					Config: map[string]any{},
 				}
@@ -324,7 +323,7 @@ var _ = Describe("Task", Ordered, func() {
 				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
-				Key:    task.NewKey(rack.NewKey(1, 1), 1),
+				Key:    uuid.New(),
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
@@ -341,7 +340,7 @@ var _ = Describe("Task", Ordered, func() {
 				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
-				Key:    task.NewKey(rack.NewKey(1, 1), 1),
+				Key:    uuid.New(),
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
@@ -358,7 +357,7 @@ var _ = Describe("Task", Ordered, func() {
 				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
-				Key:    task.NewKey(rack.NewKey(1, 1), 2),
+				Key:    uuid.New(),
 				Name:   "test-invalid-config",
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
@@ -383,7 +382,7 @@ var _ = Describe("Task", Ordered, func() {
 				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
-				Key:    task.NewKey(rack.NewKey(1, 1), 3),
+				Key:    uuid.New(),
 				Name:   "test-module-not-found",
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
@@ -407,7 +406,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
-				Key:    task.NewKey(rack.NewKey(1, 1), 4),
+				Key:    uuid.New(),
 				Name:   "test-config-success",
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
@@ -437,7 +436,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 				svcTask := task.Task{
-					Key:  task.NewKey(rack.NewKey(1, 1), 5),
+					Key:  uuid.New(),
 					Name: "test-auto-start",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
@@ -593,7 +592,7 @@ var _ = Describe("Task", Ordered, func() {
 				)
 				badNodeGraph := graph.Graph{Nodes: badNodes, Inputs: badConfigs}
 				svcTask := task.Task{
-					Key:    task.NewKey(rack.NewKey(1, 1), 1),
+					Key:    uuid.New(),
 					Name:   "test-bad-node",
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
@@ -745,7 +744,7 @@ var _ = Describe("Task", Ordered, func() {
 			`, base, trig.Name)}
 
 			svcTask := task.Task{
-				Key:    task.NewKey(rack.NewKey(1, 1), 7),
+				Key:    uuid.New(),
 				Name:   "test-status-sequence",
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
@@ -841,7 +840,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 
 				svcTask := task.Task{
-					Key:    task.NewKey(rack.NewKey(1, 1), 42),
+					Key:    uuid.New(),
 					Name:   "test-status-report",
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
@@ -1798,7 +1797,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 
 				svcTask := task.Task{
-					Key:    task.NewKey(rack.NewKey(1, 1), 100),
+					Key:    uuid.New(),
 					Name:   "test-div-zero",
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
@@ -1935,7 +1934,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 
 			svcTask := task.Task{
-				Key:    task.NewKey(rack.NewKey(1, 1), 101),
+				Key:    uuid.New(),
 				Name:   "test-div-recover",
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
