@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, project, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  type ontology,
+  type panel,
+  project,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -28,28 +34,30 @@ import { Session } from "@/session";
 /**
  * Imports data by streaming its bytes to the Core, which owns envelope decoding, type
  * resolution for typeless legacy Console states, legacy-version migration, file-name
- * naming, and project parenting. Opens the created resource as a tab.
+ * naming, and project parenting.
  * @throws {DisconnectedError} if no cluster is connected.
  */
 export const ingestServer: FileIngester = async (
   data,
-  { openTab, client, projectKey, fileName },
+  { client, projectKey, fileName },
 ) => {
   if (client == null) throw new DisconnectedError();
-  const id = await client.imex.import(JSON.stringify(data), {
+  return await client.imex.import(JSON.stringify(data), {
     encoding: "JSON",
     fileName,
     parent: project.ontologyID(projectKey),
   });
-  openTab({ variant: "resource", resource: id });
-  return id;
 };
+
+/** Maps the resources ingest created to the tabs that open them. */
+export const resourceTabs = (ids: (ontology.ID | void)[]): panel.NewTab[] =>
+  ids.filter((id) => id != null).map((resource) => ({ variant: "resource", resource }));
 
 export const ingestComponent = async (
   data: unknown,
   fileIngesters: FileIngesters,
   ctx: FileIngesterContext,
-): Promise<void> => {
+): Promise<void | ontology.ID> => {
   let type: string | undefined;
   if (
     typeof data === "object" &&
@@ -61,22 +69,20 @@ export const ingestComponent = async (
   if (type != null) {
     const ingest = fileIngesters[type];
     // Types without a client-side ingester are the server's to decode.
-    if (ingest != null) await ingest(data, ctx);
-    else await ingestServer(data, ctx);
-    return;
+    if (ingest != null) return await ingest(data, ctx);
+    return await ingestServer(data, ctx);
   }
   // Typeless files are either legacy task configs — client-side ingesters reject
   // foreign payloads with a ZodError — or legacy Console states, which the server
   // recognizes by their frozen markers.
   for (const ingest of Object.values(fileIngesters))
     try {
-      await ingest(data, ctx);
-      return;
+      return await ingest(data, ctx);
     } catch (e) {
       if (e instanceof ZodError) continue;
       throw errors.fromUnknown(e);
     }
-  await ingestServer(data, ctx);
+  return await ingestServer(data, ctx);
 };
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
@@ -84,7 +90,7 @@ const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 interface ImportComponentParams {
   handleError: Status.ErrorHandler;
   client: Client | null;
-  openTab: Panel.OpenTab;
+  openTabs: Panel.OpenTabs;
   store: Store;
   projectKey?: string;
   fileIngesters: FileIngesters;
@@ -93,7 +99,7 @@ interface ImportComponentParams {
 const importComponent = ({
   store,
   client,
-  openTab,
+  openTabs,
   handleError,
   projectKey,
   fileIngesters,
@@ -113,24 +119,27 @@ const importComponent = ({
       store.dispatch(Session.Project.select(proj.key));
     }
     const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
-    files.forEach((file) =>
-      handleError(async () => {
-        const data = await file.read();
-        const name = trimFileName(file.name);
-        await ingestComponent(JSON.parse(data), fileIngesters, {
-          name,
-          openTab,
-          client,
-          projectKey: activeProjectKeyAfter,
-          fileName: file.name,
-        });
-      }, `Failed to import ${file.name}`),
+    const ids = await Promise.all(
+      files.map(async (file) => {
+        try {
+          const data = await file.read();
+          return await ingestComponent(JSON.parse(data), fileIngesters, {
+            name: trimFileName(file.name),
+            client,
+            projectKey: activeProjectKeyAfter,
+            fileName: file.name,
+          });
+        } catch (e) {
+          handleError(e, `Failed to import ${file.name}`);
+        }
+      }),
     );
+    openTabs(resourceTabs(ids));
   });
 };
 
 export const useImport = (): ((projectKey?: string) => void) => {
-  const openTab = Panel.useOpenTab();
+  const openTabs = Panel.useOpenTabs();
   const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
@@ -139,12 +148,12 @@ export const useImport = (): ((projectKey?: string) => void) => {
     (projectKey?: string) =>
       importComponent({
         store,
-        openTab,
+        openTabs,
         client,
         handleError,
         projectKey,
         fileIngesters,
       }),
-    [store, openTab, client, handleError, fileIngesters],
+    [store, openTabs, client, handleError, fileIngesters],
   );
 };

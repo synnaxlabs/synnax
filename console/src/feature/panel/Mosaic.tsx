@@ -250,7 +250,7 @@ const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
   );
 };
 
-const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
+const Internal = ({ onCreateTab, onFileDrop }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelectedTabs();
   const handleSelect = Session.Panel.useSelectTab();
   const focusedTab = Session.Panel.useSelectFocusedTab();
@@ -268,6 +268,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
       overlaid={isOverlaid ? focusedTab : undefined}
       onStopOverlay={handleStopOverlay}
       onCreateTab={onCreateTab}
+      onFileDrop={onFileDrop}
       resolveDroppedTab={resolveDroppedTab}
       contextMenu={contextMenu}
       emptyContent={<EmptyTabContent onCreateTab={onCreateTab} />}
@@ -357,27 +358,24 @@ interface KeepAlivePanelProps extends MosaicProps {
 // A visited panel renders once into a keyed portal and stays mounted while other
 // panels are selected, so switching back reattaches its DOM instead of remounting.
 // The scope sits outside the boundary so PanelFallback resolves its own panel.
-const KeepAlivePanel = ({
-  panelKey,
-  onCreateTab,
-}: KeepAlivePanelProps): ReactElement => (
+const KeepAlivePanel = ({ panelKey, ...rest }: KeepAlivePanelProps): ReactElement => (
   <Portal.In itemKey={panelKey}>
     <Panel.Scope.Provider value={panelKey}>
       <Errors.SuspenseBoundary loading={loading} FallbackComponent={PanelFallback}>
         <Panel.Suspended panelKey={panelKey}>
-          <Internal onCreateTab={onCreateTab} />
+          <Internal {...rest} />
         </Panel.Suspended>
       </Errors.SuspenseBoundary>
     </Panel.Scope.Provider>
   </Portal.In>
 );
 
-const PortaledInPanels = memo(({ onCreateTab }: MosaicProps) => {
+const PortaledInPanels = memo((props: MosaicProps) => {
   const mounted = Session.Panel.useSelectMounted();
   return (
     <div>
       {mounted.map((key) => (
-        <KeepAlivePanel key={key} panelKey={key} onCreateTab={onCreateTab} />
+        <KeepAlivePanel key={key} panelKey={key} {...props} />
       ))}
     </div>
   );
@@ -394,13 +392,13 @@ const PortaledOutPanel = memo(() => {
 });
 PortaledOutPanel.displayName = "PortaledOutPanel";
 
-export interface MosaicProps {
+export interface MosaicProps extends Pick<Panel.MosaicProps, "onFileDrop"> {
   onCreateTab: () => panel.NewTab;
 }
 
-export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => (
+export const Mosaic = (props: MosaicProps): ReactElement => (
   <Portal.Context>
-    <PortaledInPanels onCreateTab={onCreateTab} />
+    <PortaledInPanels {...props} />
     <PortaledOutPanel />
   </Portal.Context>
 );

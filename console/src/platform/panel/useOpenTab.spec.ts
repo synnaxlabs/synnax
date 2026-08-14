@@ -30,6 +30,9 @@ const viewLeaf = (key: string, type: string): panel.New["root"] => ({
   tabs: [{ variant: "view", key, type, args: {} }],
 });
 
+// A node key no tree in these specs reaches: the root's own children stop at 3.
+const STALE_LEAF = 99;
+
 const leafTabs = (root: panel.Node): panel.Tab[] => {
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
   return root.tabs;
@@ -242,6 +245,54 @@ describe("Panel.useOpenTab", () => {
       );
     });
 
+    it("splits the placed leaf and puts the tab in the half the split creates", async () => {
+      const seedTabKey = uuid.create();
+      const existing = await createServerPanel(client, viewLeaf(seedTabKey, "seed"));
+      const { wrapper } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      const newTabKey = uuid.create();
+      await act(async () => {
+        result.current(
+          { variant: "view", key: newTabKey, type: "dropped", args: {} },
+          { placement: { leaf: panel.ROOT_NODE_KEY, location: "left" } },
+        );
+      });
+      await waitFor(async () => {
+        const { root } = await client.panels.retrieve(existing.key);
+        if (root.variant !== "split") throw new Error("root did not split");
+        expect(panel.findTab(root.first, newTabKey)).toBeDefined();
+        expect(panel.findTab(root.last, seedTabKey)).toBeDefined();
+      });
+    });
+
+    it("falls back to an unplaced open when the placed leaf is gone", async () => {
+      const seedTabKey = uuid.create();
+      const existing = await createServerPanel(client, viewLeaf(seedTabKey, "seed"));
+      const { wrapper } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      const newTabKey = uuid.create();
+      await act(async () => {
+        result.current(
+          { variant: "view", key: newTabKey, type: "dropped", args: {} },
+          { placement: { leaf: STALE_LEAF, location: "left" } },
+        );
+      });
+      await waitFor(async () => {
+        const doc = await client.panels.retrieve(existing.key);
+        expect(panel.findTab(doc.root, newTabKey)).toBeDefined();
+      });
+      const doc = await client.panels.retrieve(existing.key);
+      expect(leafTabs(doc.root)).toHaveLength(2);
+    });
+
     it("opens a second view of the same type when singleton is not set", async () => {
       const seedTabKey = uuid.create();
       const existing = await createServerPanel(
@@ -292,6 +343,29 @@ describe("Panel.useOpenTab", () => {
       const focused = await waitForFocusedTab(store);
       expect(focused).toBe(tabKey);
       expect(Session.Panel.selectSelected(store.getState())).toBeDefined();
+    });
+  });
+});
+
+describe("Panel.useOpenTabs", () => {
+  it("splits the placed leaf once and fills the new half with the whole batch", async () => {
+    const seedTabKey = uuid.create();
+    const existing = await createServerPanel(client, viewLeaf(seedTabKey, "seed"));
+    const { wrapper } = await createPanelWrapper({ client, panelKey: existing.key });
+    await primePanel(wrapper, existing.key);
+    const { result } = renderHook(() => Panel.useOpenTabs(), { wrapper });
+    const keys = [uuid.create(), uuid.create(), uuid.create()];
+    await act(async () => {
+      result.current(
+        keys.map((key) => ({ variant: "view", key, type: "dropped", args: {} })),
+        { placement: { leaf: panel.ROOT_NODE_KEY, location: "left" } },
+      );
+    });
+    await waitFor(async () => {
+      const { root } = await client.panels.retrieve(existing.key);
+      if (root.variant !== "split") throw new Error("root did not split");
+      expect(leafTabs(root.first).map((t) => t.key)).toEqual(keys);
+      expect(leafTabs(root.last).map((t) => t.key)).toEqual([seedTabKey]);
     });
   });
 });

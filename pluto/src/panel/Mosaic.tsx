@@ -46,13 +46,7 @@ import { Triggers } from "@/triggers";
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
-  | "onDrop"
-  | "onCreate"
-  | "onFileDrop"
-  | "onResize"
-  | "onSelect"
-  | "children"
-  | "contextMenu"
+  "onDrop" | "onCreate" | "onResize" | "onSelect" | "children" | "contextMenu"
 > {
   selected?: panel.TabKey[];
   onSelect?: (tabKey: panel.TabKey) => void;

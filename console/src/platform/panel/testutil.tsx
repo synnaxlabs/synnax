@@ -24,7 +24,16 @@ import {
 } from "react";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  getBySelector,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
+
+/** The rendered mosaic leaf: the drop target for both tabs and OS files. */
+export const getMosaicLeaf = (): HTMLElement =>
+  getBySelector<HTMLElement>(document, ".pluto-mosaic__leaf");
 
 /** Persists a panel with the given tree to the cluster. */
 export const createServerPanel = async (
