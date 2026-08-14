@@ -1,6 +1,7 @@
 {
   "type": "opc_write",
   "autoStart": true,
+  "dataSaving": false,
   "device": "fixture-opc-write-device",
   "channels": [
     {

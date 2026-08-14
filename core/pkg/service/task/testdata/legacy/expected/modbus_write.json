@@ -21,6 +21,6 @@
       "type": "holding_register"
     }
   ],
-  "data_saving_disabled": false,
+  "data_saving_disabled": true,
   "device": "fixture-modbus-write-device"
 }

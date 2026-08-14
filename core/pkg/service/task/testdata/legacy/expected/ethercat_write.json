@@ -29,7 +29,7 @@
       "type": "manual"
     }
   ],
-  "data_saving_disabled": false,
+  "data_saving_disabled": true,
   "execution_rate": 512.5,
   "state_rate": 38.5
 }

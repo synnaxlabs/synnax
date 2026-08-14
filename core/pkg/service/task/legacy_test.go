@@ -315,6 +315,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			}
 		},
 		Entry(nil, "arc"),
+		Entry(nil, "arc_py"),
 		Entry(nil, "ethercat_read"),
 		Entry(nil, "ethercat_write"),
 		Entry(nil, "http_read"),
@@ -335,6 +336,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "ni_digital_read"),
 		Entry(nil, "ni_digital_write"),
 		Entry(nil, "opc_read"),
+		Entry(nil, "opc_read_array"),
 		Entry(nil, "opc_write"),
 		Entry(nil, "pagerduty_alert"),
 	)

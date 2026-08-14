@@ -36,7 +36,13 @@ Fixtures with a `_py` suffix freeze that dialect as `model_dump()` wrote it:
 
 - `ni_analog_read_py.json` carries the Python-only analog types (`ai_charge` with the
   released `uC` units, `ai_freq_voltage`, both thermistors, `ai_voltage_rms`).
-- `ni_counter_read_py.json` carries a `ci_frequency` channel with the Python-only
-  `DynAvg` measurement method and `Seconds` units.
+- `ni_counter_read_py.json` carries `ci_frequency` and `ci_period` channels with the
+  Python-only `DynAvg` measurement method, plus the `Seconds` frequency units.
 - `labjack_read_py_no_scale.json` carries AI and thermocouple channels with no `scale`
   key and `pos_chan` on the analog channel, which only Python wrote.
+- `arc_py.json` carries the `auto_start` field, which only Python wrote; the Console
+  wrote `arcKey` alone.
+
+The `expected/` directory holds the canonical stored record each fixture imports to.
+Regenerate with `UPDATE_LEGACY_GOLDENS=1 ginkgo`, then run Prettier over the output; the
+comparison is semantic, and Prettier's formatting is the committed form.

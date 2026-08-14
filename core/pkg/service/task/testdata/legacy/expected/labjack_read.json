@@ -6,7 +6,7 @@
       "disabled": false,
       "key": "ch-lj-ai",
       "name": "fixture_lj_ain2",
-      "neg_chan": 199,
+      "neg_chan": 3,
       "port": "AIN2",
       "range": 4.5,
       "scale": {

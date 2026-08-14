@@ -20,6 +20,26 @@
       "terminal": "/Dev1/PFI0",
       "type": "ci_frequency",
       "units": "Seconds"
+    },
+    {
+      "channel": 3111,
+      "custom_scale": {
+        "type": "none"
+      },
+      "device": "fixture-ni-py-ctr-dev",
+      "disabled": true,
+      "divisor": 16,
+      "key": "ch-py-ci-period",
+      "max_val": 0.85,
+      "meas_method": "DynamicAvg",
+      "meas_time": 0.004,
+      "min_val": 0.0005,
+      "name": "",
+      "port": 1,
+      "starting_edge": "Rising",
+      "terminal": "/Dev1/PFI1",
+      "type": "ci_period",
+      "units": "Ticks"
     }
   ],
   "data_saving_disabled": true,

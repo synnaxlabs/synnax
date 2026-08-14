@@ -280,7 +280,7 @@ var _ = Describe("CounterRead", func() {
 				}},
 			},
 		),
-		Entry("leaves a non-frequency counter channel alone",
+		Entry("rewrites the measurement method spelling on a period channel",
 			msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":        "ci_period",
@@ -290,6 +290,20 @@ var _ = Describe("CounterRead", func() {
 			msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":        "ci_period",
+					"meas_method": "DynamicAvg",
+				}},
+			},
+		),
+		Entry("leaves other counter channel types alone",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":        "ci_pulse_width",
+					"meas_method": "DynAvg",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":        "ci_pulse_width",
 					"meas_method": "DynAvg",
 				}},
 			},

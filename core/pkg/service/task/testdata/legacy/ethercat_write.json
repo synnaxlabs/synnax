@@ -1,6 +1,7 @@
 {
   "type": "ethercat_write",
   "autoStart": true,
+  "dataSaving": false,
   "stateRate": 38.5,
   "executionRate": 512.5,
   "channels": [

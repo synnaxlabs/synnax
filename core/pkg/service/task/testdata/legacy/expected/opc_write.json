@@ -20,6 +20,6 @@
       "node_name": "FixtureHeaterCmdNode"
     }
   ],
-  "data_saving_disabled": false,
+  "data_saving_disabled": true,
   "device": "fixture-opc-write-device"
 }

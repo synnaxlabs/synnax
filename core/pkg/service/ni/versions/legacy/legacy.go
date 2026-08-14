@@ -26,12 +26,14 @@ const LastVersion imex.Version = 1
 var AnalogRead = legacy.Rewrite{Post: analogRead}
 
 // CounterRead converts the released counter read shape: an optional task-level
-// device the schema no longer stores, and a frequency measurement method spelling
-// the Python client wrote that the Driver's own table never knew.
+// device the schema no longer stores, and a measurement method spelling the Python
+// client wrote on frequency and period channels that the Driver's own table never
+// knew.
 var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	pushDownDevice(config)
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
-		if ch["type"] == "ci_frequency" && ch["meas_method"] == "DynAvg" {
+		t := ch["type"]
+		if (t == "ci_frequency" || t == "ci_period") && ch["meas_method"] == "DynAvg" {
 			ch["meas_method"] = "DynamicAvg"
 		}
 	})
