@@ -455,12 +455,10 @@ const ContextMenu = ({
       {isSingle && (
         <>
           <Export.ContextMenuItem
-            onClick={() =>
-              handleExport({
-                id: task.ontologyID(keys[0]),
-                name: selectedTasks.find((t) => t.key === keys[0])?.name,
-              })
-            }
+            onClick={() => {
+              const name = selectedTasks.find((t) => t.key === keys[0])?.name;
+              if (name != null) handleExport({ id: task.ontologyID(keys[0]), name });
+            }}
           />
           <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
         </>
