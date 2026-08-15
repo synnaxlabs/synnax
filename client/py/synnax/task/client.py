@@ -191,7 +191,9 @@ class Task:
                     "type": type_,
                     "key": key,
                     "config_hash": self.config_hash,
-                    "args": args,
+                    # Readers validate args as a record; a null on the wire fails
+                    # their schema, so an absent value must encode as {}.
+                    "args": args if args is not None else {},
                 }
             ],
         )

@@ -70,6 +70,26 @@ class TestTaskClient:
         tsk.execute_command_sync("test", {"key": "value"})
         t.join()
 
+    def test_execute_command_encodes_absent_args_as_empty_record(
+        self, client: sy.Synnax
+    ):
+        """Should write {} for omitted args; readers reject a null record."""
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        with client.open_streamer("sy_task_cmd") as s:
+            key = tsk.execute_command("start")
+            # The command channel is shared, so scan for this command's key.
+            cmd = None
+            for _ in range(10):
+                f = s.read(timeout=1)
+                assert f is not None
+                matches = [c for c in f["sy_task_cmd"] if c["key"] == key]
+                if matches:
+                    cmd = matches[0]
+                    break
+            assert cmd is not None
+            assert cmd["args"] == {}
+            sy.task.Command.model_validate(cmd)
+
     def test_task_configure_saves_without_ack(self, client: sy.Synnax):
         """Should save the task without waiting for a driver acknowledgement."""
         tsk = sy.Task(
