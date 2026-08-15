@@ -14,15 +14,30 @@ import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/light/config";
 import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
+import { Theming } from "@/theming";
 import { Light as BaseLight } from "@/vis/light";
+import { Staleness } from "@/vis/staleness";
 
 export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, source, orientation = "left", ...rest },
+  config: {
+    label,
+    source,
+    orientation = "left",
+    stalenessTimeout,
+    stalenessColor,
+    color,
+    ...rest
+  },
 }: NodeProps<Config>): ReactElement => {
-  const { enabled } = BaseLight.use({ aetherKey: nodeKey, source });
+  const theme = Theming.use();
+  const { enabled, stale } = BaseLight.use({
+    aetherKey: nodeKey,
+    source,
+    stalenessTimeout,
+  });
   return (
     <Grid.Grid
       orientation={orientation}
@@ -33,7 +48,12 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      <Light enabled={enabled} orientation={orientation} {...rest} />
+      <Light
+        enabled={enabled}
+        orientation={orientation}
+        color={stale ? Staleness.resolveColor(stalenessColor, theme) : color}
+        {...rest}
+      />
     </Grid.Grid>
   );
 };

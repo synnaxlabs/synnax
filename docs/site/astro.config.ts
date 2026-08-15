@@ -14,6 +14,8 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig } from "astro/config";
 
+import { symbols, theme } from "./src/util/shiki";
+
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx()],
@@ -25,8 +27,9 @@ export default defineConfig({
     // the legacy remark/rehype pipeline so the override keeps applying.
     processor: unified(),
     shikiConfig: {
-      theme: "css-variables",
+      theme,
       langs: [arcGrammar],
+      transformers: [symbols],
     },
   },
   redirects: {

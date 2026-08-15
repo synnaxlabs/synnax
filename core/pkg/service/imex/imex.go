@@ -83,7 +83,7 @@ func newFieldError(field, format string, args ...any) error {
 
 // Envelope is the portable format for one importable or exportable resource. The public
 // fields hold the wire headers; the body is private. Import handlers discriminate on
-// Version and Versioned, then call Decode once; exporters call Encode.
+// Version, then call Decode once; exporters call Encode.
 type Envelope struct {
 	// Version is the per-schema integer version stamped on every envelope.
 	Version Version
@@ -98,9 +98,6 @@ type Envelope struct {
 	codec encoding.Codec
 	raw   []byte
 	body  map[string]any
-	// versioned records whether the wire carried a version header, which a zero
-	// Version cannot express on its own.
-	versioned bool
 }
 
 // MarshalJSON emits the body built by Encode. It returns an error when the envelope has
@@ -142,7 +139,6 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 			return err
 		}
 		e.Version = ver
-		e.versioned = true
 	}
 	if v, ok := m["type"]; ok {
 		s, ok := v.(string)
@@ -163,11 +159,6 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 	e.body = m
 	return nil
 }
-
-// Versioned reports whether the wire carried a version header. Version alone cannot
-// answer this: an absent header and a stamped 0 both read as 0, and importers whose
-// oldest Console format is version 0 need to tell them apart.
-func (e Envelope) Versioned() bool { return e.versioned }
 
 // Decode materializes the envelope body as T using the codec bound when the envelope
 // was unmarshaled. T may name only the fields it needs. Envelopes built by Encode have

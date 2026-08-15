@@ -16,6 +16,7 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 import { type Toggle } from "@/vis/toggle";
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
@@ -56,7 +57,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Form.Wrapper x align="stretch">
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
       <Input.Item label="Lower threshold">
@@ -71,6 +72,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
           onChange={(v) => handleThresholdChange({ ...threshold.trueBound, upper: v })}
         />
       </Input.Item>
+      <Staleness.Fields />
     </Form.Wrapper>
   );
 };

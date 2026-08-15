@@ -123,9 +123,187 @@ it with `$=`. Only literal variables can be stateful.
 count $= 0 // persists across entries
 ```
 
-Stateful variables drive counters, accumulators, and edge detection. The
-[Stateful Variables](/reference/control/arc/concepts/stateful-variables) concept page
-covers common patterns and reset behavior.
+Stateful variables drive counters, accumulators, and edge detection.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Counter</Text.Text>
+
+Track how many times a condition has occurred.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage {
+    count $= 0
+    // Triggered on new `value`
+    value > threshold -> select{} -> {
+        true: count + 1 -> count
+    }
+}
+```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func count_events{threshold f64} (value f64) i64 {
+    count $= 0
+    if value > threshold {
+        count = count + 1
+    }
+    return count
+}
+```
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Accumulator</Text.Text>
+
+Sum values over time.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage accumulate {
+    total $= 0.0
+    // Triggred on new `value`
+    value + total -> total
+}
+```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func accumulate(value f64) f64 {
+    total $= 0.0
+    total = total + value
+    return total
+}
+```
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Previous Value</Text.Text>
+
+Compare the current value to the previous one.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+sequence phase_delta {
+    prev $= 0.0
+    // Triggered on new `value`
+    value - prev -> delta
+    value -> previous
+}
+```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func rate_of_change(value f64) f64 {
+    prev $= 0.0
+    delta := value - prev
+    prev = value
+    return delta
+}
+```
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Running Maximum</Text.Text>
+
+Track the highest value seen.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc
+stage running_max {
+    max $= 0.0
+    // Triggered on new `value`
+    value > max -> select{} -> {
+        true: value -> max
+    }
+}
+```
+</Fragment>
+
+<Fragment slot="function">
+```arc
+func running_max(value f64) f64 {
+    max $= 0.0
+    if value > max {
+        max = value
+    }
+    return max
+}
+```
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Arc /> State Toggle</Text.Text>
+
+Maintain an on/off state.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+stage toggle {
+    state $= 0
+
+    // Blocked on new `trigger`
+    trigger -> state == 0 -> select{} -> {
+        true: 1 -> state,
+        false: 0 -> state
+    }
+
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
+
+```arc
+func toggle(trigger u8) u8 {
+    state $= 0
+    if trigger {
+        if state == 0 {
+            state = 1
+        } else {
+            state = 0
+        }
+    }
+    return state
+}
+```
+
+</Fragment>
+
+</Arc.Tabs>
+
+</Details>
 
 <Divider.Divider x />
 
@@ -140,7 +318,7 @@ rebind it to another channel of the same type.
 
 A short local name for a long or deeply namespaced channel.
 
-```arc
+```arc channels="cpu, sy_node_1_metrics_cpu", bodies="throttle"
 cpu := sy_node_1_metrics_cpu
 cpu > 90.0 => throttle
 ```
@@ -153,7 +331,7 @@ cpu > 90.0 => throttle
 Command an actuator through an alias; on a fault, rebind it to the backup. Writes stay
 wired to the alias and follow whichever channel is bound.
 
-```arc
+```arc channels="pump, pump_a_cmd, pump_b_cmd, run_cmd, pump_a_fault",bodies="backup"
 stage main {
     pump := pump_a_cmd
 
@@ -179,7 +357,7 @@ stage main {
 Read and write the same channel: watch an operator-writable setpoint and write a safe
 limit back when it exceeds a bound.
 
-```arc
+```arc channels="setpoint, setpoint_cmd", bodies="clamp, watch"
 setpoint := setpoint_cmd
 
 sequence guard {
@@ -201,7 +379,7 @@ sequence guard {
 Point the same routine at a chosen unit; rebind the alias to switch targets without
 rewiring the flow.
 
-```arc
+```arc channels="dut, dut_a_cmd, dut_b_cmd, run_cmd, use_b", bodies="on_b"
 stage main {
     dut := dut_a_cmd // default target
 
@@ -238,7 +416,7 @@ the variable follows the new rule from its next trigger onward.
 A status label that reflects the current stage and the live reading, logged as it
 streams.
 
-```arc
+```arc channels="ai_0, log"
 stage monitor {
     reactive_expr := "Nominal: " + str(ai_0)
 
@@ -267,7 +445,7 @@ stage monitor {
 A proportional command whose gain changes with the phase, feeding the proportional valve
 directly.
 
-```arc
+```arc channels="pressure, setpoint, valve_cmd"
 stage control {
     // proportional command; the gain changes with the phase
     command := coarse_gain * (setpoint - pressure)
@@ -294,7 +472,7 @@ stage control {
 Read a scaled sensor; on a fault, reassign the same variable to a backup probe.
 Downstream flows stay wired to the variable.
 
-```arc
+```arc channels="probe_a, probe_b, probe_a_fault, temperature"
 stage monitor {
     temp := probe_a * 0.1 - 40.0
 

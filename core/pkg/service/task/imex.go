@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -29,7 +30,8 @@ var _ imex.Exporter = (*Service)(nil)
 // field; version, the fine-grained task type (e.g. "opc_read"), and name are stamped on
 // top. The version is the config type's own number line, taken from its config store.
 // Routing to this exporter still happens under the coarse "task" ontology type via
-// Type. It returns query.ErrNotFound if no task exists for id.Key.
+// Type. It returns query.ErrNotFound if no task exists for id.Key, and a validation
+// error if the task's type has no file form.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
@@ -41,6 +43,11 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 		Entry(&t).
 		Exec(ctx, nil); err != nil {
 		return imex.Envelope{}, err
+	}
+	if slices.Contains(s.cfg.ImExExcluded, t.Type) {
+		return imex.Envelope{}, errors.Wrapf(
+			validate.ErrValidation, "tasks of type %q have no file form", t.Type,
+		)
 	}
 	store, ok := s.cfg.Configs.Store(t.Type)
 	if !ok {
@@ -95,11 +102,7 @@ func (s *Service) Import(
 	delete(body, "version")
 	delete(body, "type")
 	delete(body, "name")
-	var version imex.Version
-	if env.Versioned() {
-		version = env.Version
-	}
-	config, err := store.Normalize(version, msgpack.EncodedJSON(body))
+	config, err := store.Normalize(env.Version, msgpack.EncodedJSON(body))
 	if err != nil {
 		return ontology.ID{}, err
 	}
