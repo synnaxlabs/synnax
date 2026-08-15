@@ -71,6 +71,13 @@ export const selectSelectedTabs = (
 export const selectSelected = (state: StoreState): panel.Key | undefined =>
   selectWindowState(state).selected;
 
+/** @returns the strip's panel order, shared by every window. */
+export const selectOrder = (state: StoreState): panel.Key[] =>
+  selectSliceState(state).order;
+
+/** @returns the strip's panel order, as {@link selectOrder}. */
+export const useSelectOrder = (): panel.Key[] => Select.useMemo(selectOrder, []);
+
 /**
  * @returns the panels the active window keeps mounted, most recently selected first.
  * The selected panel, when there is one, is always the first key. The stored set is

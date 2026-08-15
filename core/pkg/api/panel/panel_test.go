@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // createPanel persists a panel parented to the suite parent group and returns it
@@ -45,7 +46,7 @@ var _ = Describe("Service", func() {
 			"Should reject the request when the subject has no create policy",
 			func(ctx SpecContext) {
 				u := newUser(ctx)
-				p := panel.Panel{Key: uuid.New(), Name: "no-policy"}
+				p := panel.Panel{Key: uuid.New(), Name: "no-policy", Parent: &parentID}
 				Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(access.ErrDenied))
@@ -70,16 +71,15 @@ var _ = Describe("Service", func() {
 		})
 
 		It(
-			"Should parent a parent-less panel to the creating user as a draft",
+			"Should reject a panel with no parent",
 			func(ctx SpecContext) {
 				u := newUser(ctx)
-				p := panel.Panel{Key: uuid.New(), Name: "draft"}
+				p := panel.Panel{Key: uuid.New(), Name: "no-parent"}
 				grant(ctx, u.OntologyID(), access.ActionCreate,
 					ontology.ID{Type: ontology.ResourceTypePanel})
 				Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
 					Panels: []panel.Panel{p},
-				})).Error().To(Succeed())
-				Expect(hasParent(ctx, u.OntologyID(), p.Key)).To(BeTrue())
+				})).Error().To(MatchError(validate.ErrValidation))
 			},
 		)
 	})

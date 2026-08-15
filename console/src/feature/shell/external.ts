@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/testutil/access";
-export * from "@/testutil/channels";
-export * from "@/testutil/client";
-export * from "@/testutil/connection";
-export * from "@/testutil/panels";
-export * from "@/testutil/proxy";
-export * from "@/testutil/query";
-export * from "@/testutil/telem";
+export * from "@/feature/shell/Frame";
