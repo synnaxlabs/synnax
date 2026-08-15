@@ -123,7 +123,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	cfg.ImEx.RegisterImportExporter(s)
+	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
+		return nil, err
+	}
 	if cfg.Signals != nil {
 		signalsCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		signalsCfg.SetName = "sy_schematic_symbol_set"

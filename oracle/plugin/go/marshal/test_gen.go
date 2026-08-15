@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -563,12 +564,34 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 			parentGoName+": "+b.formatComposite(parentGoType, parentFieldExprs),
 		)
 	}
-	childFieldExprs, err := b.buildFieldExprs(form.Fields)
+	childFieldExprs, err := b.buildFieldExprs(
+		declaredFields(form.Extends, form.Fields, b.table),
+	)
 	if err != nil {
 		return nil, err
 	}
 	exprs = append(exprs, childFieldExprs...)
 	return exprs, nil
+}
+
+// declaredFields drops fields that restate an inherited default without changing
+// the type. An embedded parent declares them, so the type has no own member.
+func declaredFields(
+	extends []resolution.TypeRef,
+	fields []resolution.Field,
+	table *resolution.Table,
+) []resolution.Field {
+	defaultOnly := resolver.DefaultOnlyOverrides(extends, fields, table)
+	if len(defaultOnly) == 0 {
+		return fields
+	}
+	own := make([]resolution.Field, 0, len(fields))
+	for _, f := range fields {
+		if !defaultOnly.Contains(f.Name) {
+			own = append(own, f)
+		}
+	}
+	return own
 }
 
 // isGoPointerField reports whether an optional field of the given type is
@@ -820,7 +843,11 @@ func (b *testValueBuilder) unionExpr(
 				),
 			)
 		}
-		fieldExprs, err := b.buildFieldExprs(pform.Fields)
+		fieldExprs, err := b.buildFieldExprs(declaredFields(
+			append(slices.Clone(form.Extends), pform.Extends...),
+			pform.Fields,
+			b.table,
+		))
 		if err != nil {
 			return "", err
 		}

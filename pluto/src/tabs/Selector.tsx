@@ -204,6 +204,32 @@ const findSelected = (selector: HTMLElement, keys: Set<string>): HTMLElement | n
   return null;
 };
 
+/**
+ * scrollOffset returns the least scroll offset that brings a child at start, spanning
+ * size, into a port of the given size. An oversized child aligns to its start edge.
+ */
+const scrollOffset = (
+  scroll: number,
+  start: number,
+  size: number,
+  port: number,
+): number => {
+  if (start < scroll) return start;
+  if (start + size > scroll + port) return start + size - port;
+  return scroll;
+};
+
+/**
+ * scrollToTab scrolls the strip the least amount that brings the tab into view. It
+ * moves the strip alone, never an ancestor or the page.
+ */
+const scrollToTab = (selector: HTMLElement, tab: HTMLElement): void => {
+  const { scrollLeft, scrollTop, clientWidth, clientHeight } = selector;
+  const { offsetLeft, offsetTop, offsetWidth, offsetHeight } = tab;
+  selector.scrollLeft = scrollOffset(scrollLeft, offsetLeft, offsetWidth, clientWidth);
+  selector.scrollTop = scrollOffset(scrollTop, offsetTop, offsetHeight, clientHeight);
+};
+
 /** The dragging state a strip drop reports, plus the resolved insertion index. */
 export interface SelectorOnDropParams extends Haul.OnDropProps {
   /**
@@ -411,7 +437,7 @@ export const Selector = ({
     const key = tab?.getAttribute(KEY_ATTRIBUTE);
     if (tab == null || key == null || key === scrolledRef.current) return;
     scrolledRef.current = key;
-    tab.scrollIntoView({ block: "nearest", inline: "nearest" });
+    scrollToTab(el, tab);
   }, [selected]);
 
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);

@@ -78,6 +78,130 @@ func asFloat(v any) (float64, bool) {
 	return 0, false
 }
 
+// The three tables below map a legacy key to where its value lands in the stored
+// config. Each is consulted only when the key is absent under its own name, so a type
+// that kept the legacy spelling is unaffected.
+
+// legacyRenames maps a legacy key to the stored key holding its value.
+var legacyRenames = map[string]string{
+	"enabled":     "disabled",
+	"data_saving": "data_saving_disabled",
+	"subindex":    "sub_index",
+	"cmd_key":     "cmd_channel",
+	"state_key":   "state_channel",
+}
+
+// legacyCollapsed maps a legacy key to the stored key its value folds into. The fold
+// changes shape, so only the target's presence is checked.
+var legacyCollapsed = map[string]string{
+	"cjc_source": "cjc",
+	"cjc_val":    "cjc",
+	"cjc_port":   "cjc",
+}
+
+// legacyLifted maps a legacy config-level key to the list whose elements carry it in
+// the stored config. NI v0 stored the analog read device at the config level; the
+// rewrite copies it onto every channel.
+var legacyLifted = map[string]string{"device": "channels"}
+
+// snakeKey converts a legacy camelCase key to its snake_case stored spelling.
+func snakeKey(k string) string {
+	isLowerOrDigit := func(c byte) bool {
+		return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+	}
+	out := make([]byte, 0, len(k)+4)
+	for i := range len(k) {
+		c := k[i]
+		if c < 'A' || c > 'Z' {
+			out = append(out, c)
+			continue
+		}
+		if i > 0 && isLowerOrDigit(k[i-1]) {
+			out = append(out, '_')
+		}
+		out = append(out, c+('a'-'A'))
+	}
+	return string(out)
+}
+
+// expectNoDroppedKeys asserts that every key of the legacy fixture reaches the stored
+// config, resolving the rewrites that move a value to another key. The subset check
+// cannot see a key the rewrite drops: the dropped key is missing from its output and
+// from the stored record alike, so both sides agree on nothing.
+func expectNoDroppedKeys(path string, legacy, stored any) {
+	GinkgoHelper()
+	switch leg := legacy.(type) {
+	case map[string]any:
+		// A record whose keys are data becomes a list of pairs, moving each key into
+		// the value position of its own element.
+		if list, ok := stored.([]any); ok {
+			Expect(list).To(HaveLen(len(leg)), "%s: record lost entries", path)
+			for k, v := range leg {
+				el := MustBeOk(findPair(list, k))
+				expectNoDroppedKeys(path+"."+k, v, el["value"])
+			}
+			return
+		}
+		act, ok := stored.(map[string]any)
+		Expect(ok).To(BeTrue(), "%s: expected an object, got %T", path, stored)
+		for k, v := range leg {
+			// A null in a legacy file carried no value; the typed store may omit
+			// the field entirely.
+			if v == nil {
+				continue
+			}
+			sk := snakeKey(k)
+			if av, ok := act[sk]; ok {
+				expectNoDroppedKeys(path+"."+k, v, av)
+				continue
+			}
+			if renamed, ok := legacyRenames[sk]; ok {
+				if av, ok := act[renamed]; ok {
+					expectNoDroppedKeys(path+"."+k, v, av)
+					continue
+				}
+			}
+			if folded, ok := legacyCollapsed[sk]; ok {
+				if _, ok := act[folded]; ok {
+					continue
+				}
+			}
+			liftedInto, lifted := legacyLifted[sk]
+			Expect(lifted).To(BeTrue(), "%s: dropped key %q", path, k)
+			list, ok := act[liftedInto].([]any)
+			Expect(ok).To(BeTrue(), "%s: %q lifted into no list", path, k)
+			for i, el := range list {
+				Expect(el).To(
+					HaveKey(sk), "%s: %q missing from %s[%d]", path, k, liftedInto, i,
+				)
+			}
+		}
+	case []any:
+		act, ok := stored.([]any)
+		Expect(ok).To(BeTrue(), "%s: expected a list, got %T", path, stored)
+		Expect(act).To(HaveLen(len(leg)), "%s: list length changed", path)
+		for i, v := range leg {
+			expectNoDroppedKeys(fmt.Sprintf("%s[%d]", path, i), v, act[i])
+		}
+	}
+}
+
+// findPair returns the element of list whose record key is key.
+func findPair(list []any, key string) (map[string]any, bool) {
+	for _, el := range list {
+		m, ok := el.(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, v := range m {
+			if v == key {
+				return m, true
+			}
+		}
+	}
+	return nil, false
+}
+
 // expectSubset asserts that every key path and leaf value in expected survives into
 // actual. actual may carry extra keys (applied defaults, minted record keys).
 func expectSubset(path string, expected, actual any) {
@@ -245,9 +369,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	// exported for its task type, with every schema field set to a distinctive
 	// non-default value. A type with more than one released shape carries one fixture
 	// per shape, suffixed with the shape's distinguishing trait. Importing a fixture
-	// must land every field in the typed config store: the legacy rewrite's output
-	// must be a subset of the stored record, so a key the new schema does not accept,
-	// a mis-renamed key, or a corrupted value fails with the exact path.
+	// must land every field in the typed config store. Two checks cover that: every
+	// fixture key reaches the stored record, catching one the rewrite drops, and the
+	// rewrite's output is a subset of the stored record, catching a key the new
+	// schema does not accept, a mis-renamed key, or a corrupted value.
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
 			raw := MustSucceed(os.ReadFile(
@@ -269,6 +394,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(imported.Type).To(Equal(env.Type))
 			Expect(imported.Name).To(Equal(fixture))
+
+			var fixtureBody map[string]any
+			Expect(json.Unmarshal(raw, &fixtureBody)).To(Succeed())
+			delete(fixtureBody, "type")
+			expectNoDroppedKeys(
+				"config", fixtureBody, map[string]any(imported.Config),
+			)
 
 			var legacy map[string]any
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())

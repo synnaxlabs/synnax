@@ -10,11 +10,13 @@
 package types
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -143,8 +145,18 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 					}
 				}
 				inlineFields = pform.Fields
+				// A field that only restates an inherited default keeps the
+				// embedded parent's declaration and contributes a fill alone.
+				inherited := append(
+					slices.Clone(form.Extends), pform.Extends...,
+				)
+				defaultOnly := resolver.DefaultOnlyOverrides(
+					inherited, pform.Fields, data.table,
+				)
 				for _, f := range pform.Fields {
-					vd.Fields = append(vd.Fields, processField(f, data))
+					if !defaultOnly.Contains(f.Name) {
+						vd.Fields = append(vd.Fields, processField(f, data))
+					}
 					vd.DefaultFills = append(
 						vd.DefaultFills,
 						goDefaultFills(f, data)...)

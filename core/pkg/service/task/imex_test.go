@@ -39,60 +39,75 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// stack is a task service over an in-memory database, holding the PagerDuty config
+// store and its own ImEx registry, plus a rack to create tasks on.
+type stack struct {
+	task *task.Service
+	imex *imex.Service
+	rack *rack.Rack
+}
+
+// openStack opens a stack whose task service excludes excluded from import and export.
+func openStack(ctx context.Context, rackName string, excluded ...string) stack {
+	GinkgoHelper()
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.OpenIndex())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:                  db,
+		Ontology:            otg,
+		Group:               groupSvc,
+		HostProvider:        mock.NewStaticHostProvider(1),
+		Status:              statusSvc,
+		HealthCheckInterval: 10 * telem.Millisecond,
+		Search:              searchIdx,
+	}))
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+	imexSvc := imex.NewService()
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:           db,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Rack:         rackSvc,
+		Status:       statusSvc,
+		Search:       searchIdx,
+		ImEx:         imexSvc,
+		Configs:      MustSucceed(config.NewRegistry(pd.Stores()...)),
+		ImExExcluded: excluded,
+	}))
+	r := &rack.Rack{Name: rackName}
+	Expect(rackSvc.NewWriter(nil).Create(ctx, r)).To(Succeed())
+	return stack{task: taskSvc, imex: imexSvc, rack: r}
+}
+
 var _ = Describe("ImEx", Ordered, func() {
 	var (
 		svc      *task.Service
-		rackSvc  *rack.Service
 		testRack *rack.Rack
 		imexSvc  *imex.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               groupSvc,
-			HostProvider:        mock.NewStaticHostProvider(1),
-			Status:              statusSvc,
-			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
-		}))
-		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
-		configs := MustSucceed(config.NewRegistry(pd.Stores()...))
-		imexSvc = imex.NewService()
-		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Rack:     rackSvc,
-			Status:   statusSvc,
-			Search:   searchIdx,
-			ImEx:     imexSvc,
-			Configs:  configs,
-		}))
-		testRack = &rack.Rack{Name: "Test Rack"}
-		Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+		s := openStack(ctx, "Test Rack")
+		svc, imexSvc, testRack = s.task, s.imex, s.rack
 	})
 
 	Describe("Export", func() {
@@ -276,5 +291,33 @@ var _ = Describe("ImEx", Ordered, func() {
 				))
 			},
 		)
+	})
+
+	Describe("Excluded types", Ordered, func() {
+		var excluded stack
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			excluded = openStack(ctx, "Excluded Rack", pagerduty.AlertTaskType)
+		})
+
+		It("Should register no importer for an excluded type", func() {
+			Expect(excluded.imex.ImporterType(pagerduty.AlertTaskType)).
+				Error().
+				To(MatchError(ContainSubstring("no importer registered")))
+		})
+
+		It("Should refuse to export a task of an excluded type", func(ctx SpecContext) {
+			t := &task.Task{
+				Rack:   excluded.rack.Key,
+				Name:   "Excluded Task",
+				Type:   pagerduty.AlertTaskType,
+				Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+			}
+			Expect(excluded.task.NewWriter(nil).Create(ctx, t)).To(Succeed())
+			Expect(excluded.task.Export(ctx, t.OntologyID())).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("have no file form")),
+			))
+		})
 	})
 })

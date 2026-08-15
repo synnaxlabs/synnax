@@ -244,7 +244,6 @@ type ReadChannelVariant interface {
 // AnalogReadChannel reads a voltage from an analog input port.
 type AnalogReadChannel struct {
 	BaseReadChannel
-	Port string `json:"port" msgpack:"port"`
 	// Range is the upper bound of the voltage input range, in volts.
 	Range float64 `json:"range" msgpack:"range"`
 	// NegChan is the negative channel for differential readings on T7 devices. 199
@@ -276,7 +275,6 @@ func (a *AnalogReadChannel) ApplyDefaults() {
 // DigitalReadChannel reads a digital input line.
 type DigitalReadChannel struct {
 	BaseReadChannel
-	Port string `json:"port" msgpack:"port"`
 }
 
 func (DigitalReadChannel) isReadChannelVariant() {}
@@ -291,7 +289,6 @@ func (d *DigitalReadChannel) ApplyDefaults() {
 // ThermocoupleReadChannel reads temperature from a thermocouple.
 type ThermocoupleReadChannel struct {
 	BaseReadChannel
-	Port string `json:"port" msgpack:"port"`
 	// ThermocoupleType selects the thermocouple alloy type.
 	ThermocoupleType ThermocoupleType `json:"thermocouple_type" msgpack:"thermocouple_type"`
 	// PosChan is the AIN port the thermocouple's positive lead is wired to.
@@ -483,7 +480,6 @@ type WriteChannelVariant interface {
 // AnalogWriteChannel drives an analog output on a DAC port.
 type AnalogWriteChannel struct {
 	BaseWriteChannel
-	Port string `json:"port" msgpack:"port"`
 }
 
 func (AnalogWriteChannel) isWriteChannelVariant() {}
@@ -498,7 +494,6 @@ func (a *AnalogWriteChannel) ApplyDefaults() {
 // DigitalWriteChannel drives a digital output line on a DIO port.
 type DigitalWriteChannel struct {
 	BaseWriteChannel
-	Port string `json:"port" msgpack:"port"`
 }
 
 func (DigitalWriteChannel) isWriteChannelVariant() {}

@@ -466,6 +466,64 @@ var _ = Describe("C++ Types Plugin", func() {
 			},
 		)
 
+		It(
+			"Should keep inheriting when a field restates only a default",
+			func(ctx SpecContext) {
+				source := `
+				@cpp output "client/cpp/opc"
+
+				BaseRead struct {
+					sample_rate float64 = 10
+					stream_rate float64 = 5
+				}
+
+				ReadConfig struct extends BaseRead {
+					sample_rate = 50
+					stream_rate = 25
+					device      string = ""
+				}
+			`
+				resp := MustGenerate(ctx, source, "opc", loader, cppPlugin)
+				content := MustContentOf(resp, "types.gen.h")
+				Expect(content).To(ContainSubstring(
+					`struct ReadConfig : public BaseRead {`,
+				))
+				Expect(content).To(ContainSubstring(
+					"ReadConfig() {\n        this->sample_rate = 50;\n" +
+						"        this->stream_rate = 25;\n    }",
+				))
+				// The base already declares both rates; redeclaring them would hide
+				// its members from every reference held through a BaseRead.
+				Expect(content).NotTo(MatchRegexp(
+					`struct ReadConfig : public BaseRead \{[^}]*double sample_rate`,
+				))
+			},
+		)
+
+		It(
+			"Should flatten when a field restates an inherited type",
+			func(ctx SpecContext) {
+				source := `
+				@cpp output "client/cpp/opc"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Child struct extends Base {
+					port int32 = 4
+				}
+			`
+				resp := MustGenerate(ctx, source, "opc", loader, cppPlugin)
+				content := MustContentOf(resp, "types.gen.h")
+				// C++ cannot restate an inherited member's type, so Child flattens.
+				Expect(content).To(ContainSubstring("struct Child {"))
+				Expect(content).To(ContainSubstring(`std::int32_t port = 4;`))
+				Expect(content).To(ContainSubstring(`std::string name = "";`))
+			},
+		)
+
 		It("Should handle @cpp name override", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
@@ -2108,6 +2166,35 @@ var _ = Describe("C++ Union Generation", func() {
 					`double min_val = 0;`,
 					`using AIChannel = std::variant<AIVoltageChannel>;`,
 				)
+		},
+	)
+
+	It(
+		"Should move a variant's restated base default into a constructor",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			BaseInputChannel struct {
+				port string = ""
+			}
+
+			InputChannel union on type extends BaseInputChannel {
+				AI { port string = "AIN0" }
+				DI { port string = "DIO4" }
+			}
+		`
+			resp := MustGenerate(ctx, source, "labjack", loader, cppPlugin)
+			// A derived struct cannot restate a base member's initializer, and
+			// declaring the member again would hide the base's from every
+			// reference held through a base type.
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`struct AIInputChannel : public BaseInputChannel {`,
+					"AIInputChannel() {\n        this->port = \"AIN0\";\n    }",
+					"DIInputChannel() {\n        this->port = \"DIO4\";\n    }",
+				).
+				ToNotContain(`std::string port = "AIN0";`, `std::string port = "DIO4";`)
 		},
 	)
 
