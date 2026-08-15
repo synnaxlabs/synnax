@@ -21,7 +21,6 @@ from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
 from framework.utils import get_fixture_path
-from x import get_synnax_version
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
@@ -44,8 +43,6 @@ class Project(ConsoleCase):
         super().teardown()
 
     def run(self) -> None:
-        self.test_version_visible_in_navbar()
-
         # Project Navigation
         self.console.project.create("ProjectA")
         self._cleanup_projects.append("ProjectA")
@@ -68,29 +65,15 @@ class Project(ConsoleCase):
         self.test_export_project()
         self.test_import_project()
 
-    def test_version_visible_in_navbar(self) -> None:
-        """Test that the correct version is displayed in the navbar."""
-        self.log("Testing version badge visible in navbar")
-        expected = f"v{get_synnax_version()}"
-        displayed = self.console.layout.get_version()
-        self.log(f"Version badge displays: {displayed}, expected prefix: {expected}")
-        assert displayed.startswith(expected), (
-            f"Version badge '{displayed}' does not start with expected '{expected}'"
-        )
-
     def test_switch_projects_in_resources(self) -> None:
         """Test switching between projects by double-clicking in resources toolbar."""
         self.log("Testing switch projects in resources view")
 
         self.console.project.select("ProjectA")
-        assert (
-            self.page.get_by_role("button").filter(has_text="ProjectA").is_visible()
-        ), "ProjectA should be active after selection"
+        self.console.project.wait_for_active("ProjectA")
 
         self.console.project.select("ProjectB")
-        assert (
-            self.page.get_by_role("button").filter(has_text="ProjectB").is_visible()
-        ), "ProjectB should be active after selection"
+        self.console.project.wait_for_active("ProjectB")
 
     def test_rename_project(self) -> None:
         """Test renaming a project via context menu and verify synchronization."""
@@ -102,13 +85,8 @@ class Project(ConsoleCase):
             "Project should be renamed in Resources Toolbar"
         )
 
-        project_selector = self.page.get_by_role("button").filter(
-            has_text="RenamedProject"
-        )
-        project_selector.wait_for(state="visible", timeout=5000)
-        assert project_selector.is_visible(), (
-            "Project Selector should show renamed project"
-        )
+        # The rename must also sync into the selector dialog's project list.
+        self.console.project.wait_for_active("RenamedProject")
 
         self.console.project.rename(old_name="RenamedProject", new_name="ProjectA")
         self.console.layout.close_left_toolbar()

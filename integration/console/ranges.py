@@ -146,7 +146,14 @@ class RangesClient:
 
     def get_explorer_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
-        return self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name)
+        item = self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name)
+        # The explorer virtualizes its list, so a range beyond the viewport is
+        # absent from the DOM; narrow the list to the name before locating it.
+        # Guard on the explorer actually being open: callers also probe for
+        # absence, and the edit-toggle click would land on an unrelated view.
+        if item.count() == 0 and self.layout.page.get_by_text("All Ranges").count() > 0:
+            self.search_explorer(name)
+        return item
 
     def get_toolbar_item_time(self, name: str) -> str:
         """Get the displayed time text from a toolbar range item.
@@ -248,7 +255,10 @@ class RangesClient:
         if parent is not None:
             parent_button = modal.locator("button").filter(has_text="Select a range")
             parent_button.click()
+            # Scope to the picker dropdown: the explorer view has a search
+            # input with the same placeholder.
             search_input = self.layout.page.locator(
+                ".pluto-dialog__dialog.pluto--visible "
                 "input[placeholder='Search ranges...']"
             )
             search_input.fill(parent)
@@ -346,26 +356,17 @@ class RangesClient:
         self._toolbar_ctx_menu_action(name, "Add to active plot")
 
     def favorite(self, name: str) -> None:
-        """Favorite a range by opening its overview and clicking the favorite button.
+        """Favorite a range from the explorer (idempotent).
+
+        The overview no longer carries a favorite control; favoriting happens
+        on list items in the explorer and toolbar.
 
         Args:
             name: The name of the range to favorite.
         """
-        self.open_from_search(name)
-
-        favorite_btn = self.layout.page.locator("button.console-favorite-button")
-        favorite_btn.wait_for(state="visible", timeout=5000)
-
-        button_class = favorite_btn.get_attribute("class") or ""
-        is_favorited = "console--favorite" in button_class
-
-        if not is_favorited:
-            favorite_btn.click(force=True)
-            self.layout.page.locator(
-                "button.console-favorite-button.console--favorite"
-            ).wait_for(state="visible", timeout=2000)
-
-        self.layout.close_tab(name)
+        self.open_explorer()
+        self.favorite_from_explorer(name)
+        self.layout.close_tab("Range Explorer")
 
     def open_overview_from_explorer(self, name: str) -> None:
         """Open the range overview/details page from the explorer.
@@ -997,6 +998,13 @@ class RangesClient:
 
     def _deselect_all_explorer_ranges(self) -> None:
         """Deselect all explorer ranges by dispatching click on their checkbox labels."""
+        # A lingering name filter from get_explorer_item hides selected rows,
+        # so restore the full list before scanning for checked items.
+        search_input = self.layout.page.get_by_placeholder(
+            self.SEARCH_INPUT_PLACEHOLDER
+        )
+        if search_input.is_visible() and search_input.input_value() != "":
+            self.clear_explorer_search()
         self.layout.deselect_all_items(self.layout.page, self.EXPLORER_ITEM_SELECTOR)
 
     def _select_explorer_ranges(self, names: list[str]) -> Locator:

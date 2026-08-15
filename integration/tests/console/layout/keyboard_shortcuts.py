@@ -106,7 +106,7 @@ class KeyboardShortcuts(ConsoleCase):
         # Press Cmd+T to create new tab
         self.page.keyboard.press("ControlOrMeta+t")
 
-        selector_tab = self.console.layout.get_tab("Create tab")
+        selector_tab = self.console.layout.get_tab("Create component")
         selector_tab.wait_for(state="visible", timeout=5000)
 
         # Close the new tab to clean up

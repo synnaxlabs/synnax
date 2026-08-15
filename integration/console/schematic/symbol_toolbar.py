@@ -45,14 +45,28 @@ class SymbolToolbar:
         """Show the visualization toolbar with symbol search."""
         self.layout.show_visualization_toolbar()
 
+    def _select_symbols_tab(self) -> None:
+        """Select the Symbols tab.
+
+        Dispatch the click: notifications stack over the drawer's tab strip
+        and intercept physical clicks.
+        """
+        tab = self.page.get_by_text("Symbols", exact=True).first
+        tab.wait_for(state="visible", timeout=5000)
+        tab.dispatch_event("click")
+
+    def _group_tab(self, name: str) -> Locator:
+        """A symbol group's tab in the group list."""
+        return self.group_list.locator("[role='tab']").filter(has_text=name)
+
     def select_group(self, name: str) -> None:
         """Select a symbol group by name."""
         self.show()
         self.notifications.close_all()
-        self.layout.click("Symbols")
+        self._select_symbols_tab()
         self.layout.wait_for_visible(self.group_list)
 
-        group_btn = self.layout.locator("button").filter(has_text=name)
+        group_btn = self._group_tab(name)
         self.layout.wait_for_visible(group_btn)
         self.layout.click(group_btn)
 
@@ -66,40 +80,45 @@ class SymbolToolbar:
             .filter(has=self.page.locator("[aria-label*='group']"))
             .first
         )
-        self.layout.click(create_group_btn)
+        # Notifications stack over the actions bar and swallow coordinate
+        # clicks, so dispatch the click on the button itself.
+        create_group_btn.wait_for(state="visible", timeout=5000)
+        create_group_btn.dispatch_event("click")
 
-        name_input = self.layout.locator("input[placeholder='Group Name']")
+        name_input = self.layout.locator("input[placeholder='Name']")
         self.layout.wait_for_visible(name_input)
-        self.layout.fill_input_field("Group Name", name)
+        name_input.fill(name)
 
         self.layout.click_btn("Save")
         self.layout.wait_for_hidden(name_input)
 
         self.show()
-        group_btn = self.layout.locator("button").filter(has_text=name)
+        group_btn = self._group_tab(name)
         self.layout.wait_for_visible(group_btn)
 
+    def _rename_inline(self, target: Locator, new_name: str) -> None:
+        """Complete an in-place rename started from a context menu."""
+        self.ctx_menu.action(target, "Rename")
+        editable = self.page.locator(".pluto-text--editable[contenteditable='true']")
+        editable.wait_for(state="visible", timeout=5000)
+        editable.fill(new_name)
+        self.page.keyboard.press("Enter")
+        self.layout.wait_for_hidden(self.page.locator("[contenteditable='true']"))
+
     def rename_group(self, old_name: str, new_name: str) -> None:
-        """Rename a symbol group via context menu."""
+        """Rename a symbol group via context menu (in-place edit)."""
         self.select_group(old_name)
 
-        group_btn = self.layout.locator("button").filter(has_text=old_name)
-        self.ctx_menu.action(group_btn, "Rename")
+        group_btn = self._group_tab(old_name)
+        self._rename_inline(group_btn, new_name)
 
-        name_input = self.layout.locator("input[placeholder='Group Name']")
-        self.layout.wait_for_visible(name_input)
-        self.layout.fill_input_field("Group Name", new_name)
-
-        self.layout.click_btn("Save")
-        self.layout.wait_for_hidden(name_input)
-
-        renamed_btn = self.layout.locator("button").filter(has_text=new_name)
+        renamed_btn = self._group_tab(new_name)
         self.layout.wait_for_visible(renamed_btn)
 
     def delete_group(self, name: str) -> None:
         """Delete a symbol group via context menu."""
         self.show()
-        group_btn = self.layout.locator("button").filter(has_text=name)
+        group_btn = self._group_tab(name)
         self.layout.wait_for_visible(group_btn)
         self.ctx_menu.action(group_btn, "Delete")
 
@@ -115,7 +134,7 @@ class SymbolToolbar:
         try:
             self.show()
             self.layout.wait_for_visible(self.group_list)
-            group_btn = self.layout.locator("button").filter(has_text=name)
+            group_btn = self._group_tab(name)
             self.layout.wait_for_visible(group_btn)
             return True
         except PlaywrightTimeoutError:
@@ -123,7 +142,7 @@ class SymbolToolbar:
 
     def wait_for_group_hidden(self, name: str) -> None:
         """Wait for a symbol group to be hidden/removed."""
-        group_btn = self.layout.locator("button").filter(has_text=name)
+        group_btn = self._group_tab(name)
         self.layout.wait_for_hidden(group_btn)
 
     def create_symbol(self) -> SymbolEditor:
@@ -172,17 +191,9 @@ class SymbolToolbar:
         symbol.wait_for(state="hidden", timeout=5000)
 
     def rename_symbol(self, old_name: str, new_name: str) -> None:
-        """Rename a symbol via context menu."""
+        """Rename a symbol via context menu (in-place edit)."""
         symbol = self.get_symbol(old_name)
-        self.ctx_menu.action(symbol, "Rename")
-
-        name_input = self.page.locator("input[placeholder='Symbol Name']")
-        name_input.wait_for(state="visible", timeout=5000)
-        name_input.fill(new_name)
-
-        save_btn = self.page.get_by_role("button", name="Save", exact=True)
-        save_btn.click()
-        name_input.wait_for(state="hidden", timeout=5000)
+        self._rename_inline(symbol, new_name)
 
     def edit_symbol(self, name: str) -> SymbolEditor:
         """Open the symbol editor for an existing symbol via context menu."""
@@ -256,7 +267,7 @@ class SymbolToolbar:
     def _add_by_search(self, symbol_type: str) -> None:
         """Add a symbol using the search UI."""
         self.layout.show_visualization_toolbar()
-        self.layout.click("Symbols")
+        self._select_symbols_tab()
         self.layout.wait_for_visible(self.toolbar)
 
         search_input = self.toolbar.locator("input[role='textbox']").first

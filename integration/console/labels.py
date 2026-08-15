@@ -39,7 +39,7 @@ class LabelClient:
             color: Optional hex color code (e.g., "#FF0000") to set for the new label.
         """
         self._open_edit_modal()
-        add_button = self.layout.page.locator(".console-label__add-btn")
+        add_button = self.layout.page.locator("button.console-label__create")
         add_button.click()
 
         create_form = self.layout.page.locator(
@@ -160,7 +160,7 @@ class LabelClient:
 
         label_item.hover()
 
-        delete_button = label_item.locator("button.console-label__delete")
+        delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
         delete_button.wait_for(state="visible", timeout=5000)
 
         element_id = label_item.get_attribute("id")
