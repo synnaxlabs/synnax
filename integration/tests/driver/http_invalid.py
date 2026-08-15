@@ -19,6 +19,7 @@ import synnax as sy
 from synnax import http
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
+    assert_configure_rejected,
     assert_start_rejected,
     cleanup_task,
     create_channel,
@@ -59,7 +60,6 @@ class HTTPInvalidConfig(SimulatorCase):
             name="HTTP Invalid Device Test",
             device="nonexistent_device_key_12345",
             rate=10,
-            data_saving=True,
             endpoints=[
                 http.ReadEndpoint(
                     path="/api/v1/data",
@@ -79,7 +79,8 @@ class HTTPInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "nonexistent device")
+        message = assert_configure_rejected(self.client, task, "nonexistent device")
+        self.log(f"  Correctly rejected (nonexistent device): {message}")
 
     def test_no_enabled_fields(self) -> None:
         """Configure a read task with all fields disabled."""
@@ -89,7 +90,6 @@ class HTTPInvalidConfig(SimulatorCase):
             name="HTTP No Enabled Fields Test",
             device=self.device.key,
             rate=10,
-            data_saving=True,
             endpoints=[
                 http.ReadEndpoint(
                     path="/api/v1/data",
@@ -119,7 +119,6 @@ class HTTPInvalidConfig(SimulatorCase):
             name="HTTP Invalid Channel Key Test",
             device=self.device.key,
             rate=10,
-            data_saving=True,
             endpoints=[
                 http.ReadEndpoint(
                     path="/api/v1/data",
@@ -144,7 +143,6 @@ class HTTPInvalidConfig(SimulatorCase):
             name="HTTP Invalid JSON Pointer Test",
             device=self.device.key,
             rate=10,
-            data_saving=True,
             endpoints=[
                 http.ReadEndpoint(
                     path="/api/v1/data",
@@ -182,7 +180,6 @@ class HTTPInvalidConfig(SimulatorCase):
                 name=name,
                 device=self.device.key,
                 rate=10,
-                data_saving=True,
                 endpoints=[
                     http.ReadEndpoint(
                         path="/api/v1/data",

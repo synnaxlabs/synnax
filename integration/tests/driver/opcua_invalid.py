@@ -18,6 +18,7 @@ from examples.opcua import OPCUASim
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
+    assert_configure_rejected,
     assert_start_rejected,
     cleanup_task,
     create_channel,
@@ -61,7 +62,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device="nonexistent_device_key_12345",
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=create_channel(
@@ -75,7 +75,8 @@ class OPCUAInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "nonexistent device")
+        message = assert_configure_rejected(self.client, task, "nonexistent device")
+        self.log(f"  Correctly rejected (nonexistent device): {message}")
 
     def test_no_enabled_channels(self) -> None:
         """Configure a read task with all channels disabled."""
@@ -86,7 +87,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=create_channel(
@@ -112,7 +112,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=10 * sy.Rate.HZ,
             stream_rate=100 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=create_channel(
@@ -136,7 +135,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=999999999,
@@ -156,7 +154,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=create_channel(
@@ -189,7 +186,6 @@ class OPCUAInvalidConfig(SimulatorCase):
                 device=self.device.key,
                 sample_rate=100 * sy.Rate.HZ,
                 stream_rate=25 * sy.Rate.HZ,
-                data_saving=True,
                 channels=[
                     sy.opcua.ReadChannel(
                         channel=shared_ch_key,
