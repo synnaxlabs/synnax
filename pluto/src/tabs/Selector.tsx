@@ -204,6 +204,32 @@ const findSelected = (selector: HTMLElement, keys: Set<string>): HTMLElement | n
   return null;
 };
 
+/**
+ * scrollOffset returns the least scroll offset that brings a child at start, spanning
+ * size, into a port of the given size. An oversized child aligns to its start edge.
+ */
+const scrollOffset = (
+  scroll: number,
+  start: number,
+  size: number,
+  port: number,
+): number => {
+  if (start < scroll) return start;
+  if (start + size > scroll + port) return start + size - port;
+  return scroll;
+};
+
+/**
+ * scrollToTab scrolls the strip the least amount that brings the tab into view. It
+ * moves the strip alone, never an ancestor or the page.
+ */
+const scrollToTab = (selector: HTMLElement, tab: HTMLElement): void => {
+  const { scrollLeft, scrollTop, clientWidth, clientHeight } = selector;
+  const { offsetLeft, offsetTop, offsetWidth, offsetHeight } = tab;
+  selector.scrollLeft = scrollOffset(scrollLeft, offsetLeft, offsetWidth, clientWidth);
+  selector.scrollTop = scrollOffset(scrollTop, offsetTop, offsetHeight, clientHeight);
+};
+
 /** The dragging state a strip drop reports, plus the resolved insertion index. */
 export interface SelectorOnDropParams extends Haul.OnDropProps {
   /**
@@ -327,6 +353,17 @@ export const Selector = ({
     },
     [updateOverflow],
   );
+  // A preview shifting tabs toward the end grows the scrollable overflow, so a
+  // measurement taken before the reset reads a strip that only the drag made
+  // scrollable. Clearing and measuring together keeps the two in step wherever a
+  // preview ends.
+  const clearPreview = useCallback(
+    (el: HTMLElement, snap: boolean): void => {
+      resetTabs(el, snap);
+      updateOverflow();
+    },
+    [updateOverflow],
+  );
   const resizeRef = useResize(updateOverflow);
   // Tabs mount, close, and rename without firing scroll or resize, so re-measure
   // after every render.
@@ -411,7 +448,7 @@ export const Selector = ({
     const key = tab?.getAttribute(KEY_ATTRIBUTE);
     if (tab == null || key == null || key === scrolledRef.current) return;
     scrolledRef.current = key;
-    tab.scrollIntoView({ block: "nearest", inline: "nearest" });
+    scrollToTab(el, tab);
   }, [selected]);
 
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
@@ -459,13 +496,13 @@ export const Selector = ({
       previewRef.current = null;
       if (params.event == null || el == null || onDrop == null) {
         committingRef.current = false;
-        if (el != null) resetTabs(el, false);
+        if (el != null) clearPreview(el, false);
         return [];
       }
       const cursor = { x: params.event.clientX, y: params.event.clientY };
       return onDrop({ ...params, index: getInsertionIndex(el, cursor) });
     },
-    [onDrop],
+    [onDrop, clearPreview],
   );
 
   const dropProps = Haul.useDrop({
@@ -485,11 +522,11 @@ export const Selector = ({
         return;
       setIndicatorOffset(null);
       if (el != null && previewRef.current != null) {
-        resetTabs(el, false);
+        clearPreview(el, false);
         previewRef.current = null;
       }
     },
-    [onDragLeave],
+    [onDragLeave, clearPreview],
   );
 
   // Snap the transforms away the frame a dropped reorder commits, before paint, so the
@@ -498,7 +535,7 @@ export const Selector = ({
     const el = internalRef.current;
     if (el == null || !committingRef.current) return;
     committingRef.current = false;
-    resetTabs(el, true);
+    clearPreview(el, true);
   });
 
   // Cleanup for a drag that ends without dropping here (Escape, dropped outside). The
@@ -513,10 +550,10 @@ export const Selector = ({
     setIndicatorOffset(null);
     const el = internalRef.current;
     if (el != null && previewRef.current != null && !committingRef.current) {
-      resetTabs(el, false);
+      clearPreview(el, false);
       previewRef.current = null;
     }
-  }, [dragging]);
+  }, [dragging, clearPreview]);
 
   const indicatorStyle: CSSProperties | undefined =
     indicatorOffset == null

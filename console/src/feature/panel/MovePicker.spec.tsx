@@ -29,7 +29,20 @@ interface Harness {
   source: panel.Panel;
   tab: panel.Tab;
   destination: panel.Panel;
+  other: panel.Panel;
 }
+
+const createTab = (): panel.Tab => ({
+  variant: "view",
+  key: uuid.create(),
+  type: "t",
+  args: {},
+});
+
+const rowNames = (): (string | null)[] =>
+  Array.from(document.querySelectorAll(".console-panel-move-picker__row")).map(
+    (row) => row.textContent,
+  );
 
 const createPanel = async (
   projectKey: project.Key,
@@ -47,11 +60,10 @@ const createHarness = async (): Promise<Harness> => {
     name: uniqueName("project"),
     layout: {},
   });
-  const tab: panel.Tab = { variant: "view", key: uuid.create(), type: "t", args: {} };
+  const tab = createTab();
   const source = await createPanel(projectKey, [tab]);
-  const destination = await createPanel(projectKey, [
-    { variant: "view", key: uuid.create(), type: "t", args: {} },
-  ]);
+  const destination = await createPanel(projectKey, [createTab()]);
+  const other = await createPanel(projectKey, [createTab()]);
   const { wrapper, store } = await createPanelWrapper({ client, project: projectKey });
   store.dispatch(Session.Panel.select({ key: source.key }));
 
@@ -77,7 +89,7 @@ const createHarness = async (): Promise<Harness> => {
     fireEvent.click(screen.getByText(OPEN));
   });
   await screen.findByText("Move to panel");
-  return { store, source, tab, destination };
+  return { store, source, tab, destination, other };
 };
 
 describe("Panel.MovePicker", () => {
@@ -118,6 +130,24 @@ describe("Panel.MovePicker", () => {
       expect(panel.findTab(mintedDoc.root, tab.key)).toEqual(tab);
       expect(panel.findTab(srcDoc.root, tab.key)).toBeUndefined();
     });
+  });
+
+  // The picker offers the same panels the strip shows, so it has to list them in the
+  // order the user set there.
+  it("should list the panels in the strip's order", async () => {
+    const { store, source, destination, other } = await createHarness();
+    await screen.findByText(destination.name);
+    await screen.findByText(other.name);
+    const order = [source, destination, other].map(({ key, name }) => ({ key, name }));
+    act(() => {
+      store.dispatch(Session.Panel.reconcileOrder({ panels: order }));
+      store.dispatch(Session.Panel.reorder({ key: destination.key, index: 0 }));
+    });
+    expect(rowNames()).toEqual([destination.name, other.name, "New panel"]);
+    act(() => {
+      store.dispatch(Session.Panel.reorder({ key: other.key, index: 0 }));
+    });
+    expect(rowNames()).toEqual([other.name, destination.name, "New panel"]);
   });
 
   // Moving a tab to the panel it already sits in is not a move, so the panel it came

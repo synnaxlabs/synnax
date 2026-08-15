@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, panel } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -18,7 +18,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Haul } from "@/haul";
@@ -29,6 +29,12 @@ const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client
 // must pick up through the action channel.
 const writer = createTestClient();
+
+// Panel creation requires a parent; every panel here shares one throwaway project.
+let defaultParent: ontology.ID;
+beforeAll(async () => {
+  defaultParent = await createPanelParent(client);
+});
 
 const ROUND_TRIP = { timeout: 5000 };
 
@@ -55,11 +61,16 @@ const selectorTab = (): panel.Tab => ({
 });
 
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
-  const created = await client.panels.create({ name: `mosaic-${uuid.create()}` });
+  const created = await client.panels.create({
+    name: `mosaic-${uuid.create()}`,
+    parent: defaultParent,
+  });
   if (tabs.length > 0)
     await client.panels.dispatch(
       created.key,
-      tabs.map((tab) => panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })),
+      tabs.map((tab) =>
+        panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
+      ),
     );
   return created;
 };

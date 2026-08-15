@@ -10,9 +10,10 @@
 import { panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul, Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
+import { fireDragEvent } from "@synnaxlabs/pluto/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Selector } from "@/feature/panel/Selector";
@@ -31,16 +32,43 @@ const createTab = (): panel.Tab => ({
   args: {},
 });
 
+interface CreateProjectPanelProps {
+  name?: string;
+  key?: panel.Key;
+  tab?: panel.Tab;
+}
+
 const createProjectPanel = async (
   projectKey: project.Key,
-  tab: panel.Tab = createTab(),
+  {
+    name = "panel",
+    key = uuid.create(),
+    tab = createTab(),
+  }: CreateProjectPanelProps = {},
 ): Promise<panel.Panel> =>
   await client.panels.create({
-    key: uuid.create(),
-    name: uniqueName("panel"),
+    key,
+    name: uniqueName(name),
     parent: project.ontologyID(projectKey),
     root: { variant: "leaf", tabs: [tab] },
   });
+
+/**
+ * Nests the wrapper in the haul provider the app mounts through Pluto.Context, so a
+ * pill drag resolves against the same redux-backed drag state as production.
+ */
+const withHaul = (Wrapper: FC<PropsWithChildren>): FC<PropsWithChildren> => {
+  const HaulWrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Wrapper>
+      <Haul.Provider {...Session.Haul.PROVIDER_PROPS}>{children}</Haul.Provider>
+    </Wrapper>
+  );
+  HaulWrapper.displayName = "HaulWrapper";
+  return HaulWrapper;
+};
+
+const pillNames = (): (string | null)[] =>
+  screen.getAllByRole("tab").map((tab) => tab.textContent);
 
 // The strip's own order decides which panel is a neighbor, so the row is read back
 // from the rendered pills instead of assumed from creation order.
@@ -102,13 +130,11 @@ const TabDragSource = ({ source, tab }: TabDragSourceProps): ReactElement => {
   );
 };
 
-// jsdom has no DragEvent, and testing-library's fallback drops the coordinate init the
-// drop targets read. A MouseEvent carries it.
-const fireDrop = (el: Element): boolean =>
-  fireEvent(el, new MouseEvent("drop", { bubbles: true, clientX: 0, clientY: 0 }));
+const CURSOR = { x: 1, y: 1 };
 
-const fireDragOver = (el: Element): boolean =>
-  fireEvent(el, new MouseEvent("dragover", { bubbles: true, clientX: 1, clientY: 1 }));
+const fireDrop = (el: Element): void => fireDragEvent(el, "drop", CURSOR);
+
+const fireDragOver = (el: Element): void => fireDragEvent(el, "dragOver", CURSOR);
 
 describe("Panel.Selector", () => {
   it("should select a newly created panel", async () => {
@@ -128,6 +154,112 @@ describe("Panel.Selector", () => {
     await waitFor(() => expect(screen.getByText("New Panel")).toBeTruthy());
   });
 
+  // The membership query answers in an order the user never chose; the session's
+  // strip order is what the pills must follow.
+  it("should render the pills in the session's strip order", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
+    });
+    const alpha = await createProjectPanel(proj.key, { name: "alpha" });
+    const bravo = await createProjectPanel(proj.key, { name: "bravo" });
+    const { wrapper, store } = await createPanelWrapper({
+      client,
+      project: proj.key,
+    });
+    act(() => {
+      store.dispatch(
+        Session.Panel.reconcileOrder({
+          panels: [
+            { key: alpha.key, name: alpha.name },
+            { key: bravo.key, name: bravo.name },
+          ],
+        }),
+      );
+      store.dispatch(Session.Panel.reorder({ key: bravo.key, index: 0 }));
+    });
+    await act(async () => {
+      render(<Selector />, { wrapper });
+    });
+    await screen.findByText(alpha.name);
+    await screen.findByText(bravo.name);
+    expect(pillNames()).toEqual([bravo.name, alpha.name]);
+  });
+
+  // A panel the session has not reconciled yet must not displace the panels the
+  // user ordered, however early it lands in the membership answer.
+  it("should render a panel missing from the strip order last", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
+    });
+    // The membership answer arrives in key order, so the unreconciled panel takes
+    // the lower key: a correct sort cannot pass by luck.
+    const [lowKey, highKey] = [uuid.create(), uuid.create()].sort();
+    const pending = await createProjectPanel(proj.key, {
+      name: "pending",
+      key: lowKey,
+    });
+    const known = await createProjectPanel(proj.key, { name: "known", key: highKey });
+    const { wrapper, store } = await createPanelWrapper({
+      client,
+      project: proj.key,
+    });
+    act(() => {
+      store.dispatch(
+        Session.Panel.reconcileOrder({
+          panels: [{ key: known.key, name: known.name }],
+        }),
+      );
+    });
+    await act(async () => {
+      render(<Selector />, { wrapper });
+    });
+    await screen.findByText(pending.name);
+    await screen.findByText(known.name);
+    expect(pillNames()).toEqual([known.name, pending.name]);
+  });
+
+  // Pluto resolves the insertion slot and the slice applies the move; nothing else
+  // proves the strip hands one to the other, so a mis-wired drop is invisible.
+  it("should reorder the strip when a pill is dragged past the last slot", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
+    });
+    const alpha = await createProjectPanel(proj.key, { name: "alpha" });
+    const bravo = await createProjectPanel(proj.key, { name: "bravo" });
+    const { wrapper, store } = await createPanelWrapper({
+      client,
+      project: proj.key,
+    });
+    act(() => {
+      store.dispatch(
+        Session.Panel.reconcileOrder({
+          panels: [
+            { key: alpha.key, name: alpha.name },
+            { key: bravo.key, name: bravo.name },
+          ],
+        }),
+      );
+    });
+    await act(async () => {
+      render(<Selector />, { wrapper: withHaul(wrapper) });
+    });
+    await screen.findByText(alpha.name);
+    await screen.findByText(bravo.name);
+    expect(pillNames()).toEqual([alpha.name, bravo.name]);
+    const [first] = screen.getAllByRole("tab");
+    // Every element shares one faked 100-wide rect, so a cursor past the common
+    // center of the pills resolves to the slot after the last one.
+    act(() => {
+      fireEvent.dragStart(first);
+      fireDragEvent(screen.getByRole("tablist"), "drop", { x: 200, y: 16 });
+    });
+    await waitFor(() => expect(pillNames()).toEqual([bravo.name, alpha.name]));
+    expect(Session.Panel.selectOrder(store.getState())).toEqual([bravo.key, alpha.key]);
+  });
+
   // The strip is the only destination a tab can reach without opening a second
   // window, so a pill has to accept a tab and the create button has to mint one.
   describe("tab drop", () => {
@@ -144,7 +276,7 @@ describe("Panel.Selector", () => {
         layout: {},
       });
       const tab = createTab();
-      const source = await createProjectPanel(projectKey, tab);
+      const source = await createProjectPanel(projectKey, { tab });
       const others: panel.Panel[] = [];
       for (let i = 0; i < otherCount; i++)
         others.push(await createProjectPanel(projectKey));
@@ -237,7 +369,7 @@ describe("Panel.Selector", () => {
         layout: {},
       });
       const tab = createTab();
-      const source = await createProjectPanel(projectKey, tab);
+      const source = await createProjectPanel(projectKey, { tab });
       const destination = await createProjectPanel(projectKey);
       const { wrapper, store } = await createPanelWrapper({
         client,

@@ -23,7 +23,6 @@ import { assert, describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { type Import } from "@/platform/import";
-import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 import { assertDefined, createConsoleWrapper, type TestStore } from "@/testutil";
 
@@ -99,7 +98,6 @@ const legacyLayoutSlice = (): unknown => ({
 });
 
 interface HarnessValue {
-  openTab: Panel.OpenTab;
   granted: boolean;
 }
 
@@ -118,10 +116,7 @@ describe("project import", () => {
   const runImport = async (fileList: Import.File[]): Promise<TestStore> => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     const { result } = renderHook<HarnessValue, unknown>(
-      () => ({
-        openTab: Panel.useOpenTab(),
-        granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
-      }),
+      () => ({ granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID) }),
       { wrapper },
     );
     await waitFor(() => expect(result.current.granted).toBe(true));
@@ -129,7 +124,6 @@ describe("project import", () => {
       await Project.ingest(`proj-${id.create()}`, fileList, {
         client,
         fileIngesters: {},
-        openTab: result.current.openTab,
         store,
       });
     });

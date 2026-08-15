@@ -46,13 +46,7 @@ import { Triggers } from "@/triggers";
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
-  | "onDrop"
-  | "onCreate"
-  | "onFileDrop"
-  | "onResize"
-  | "onSelect"
-  | "children"
-  | "contextMenu"
+  "onDrop" | "onCreate" | "onResize" | "onSelect" | "children" | "contextMenu"
 > {
   selected?: panel.TabKey[];
   onSelect?: (tabKey: panel.TabKey) => void;
@@ -380,9 +374,11 @@ export const Mosaic = ({
     (path: number) => {
       const tab = onCreateTab?.();
       if (tab == null) return;
-      const action = panel.insertTab({ tab, targetLeaf: path });
+      const action = panel.insertTabs({ tabs: [tab], targetLeaf: path });
       dispatch(action);
-      if (action.type === "insert_tab") onSelect?.(action.insertTab.tab.key);
+      const inserted =
+        action.type === "insert_tabs" ? action.insertTabs.tabs[0] : undefined;
+      if (inserted != null) onSelect?.(inserted.key);
     },
     [dispatch, onSelect, onCreateTab],
   );
@@ -393,20 +389,11 @@ export const Mosaic = ({
         .map((tabKey) => resolveDroppedTab?.(tabKey))
         .filter((tab): tab is panel.NewTab => tab != null);
       if (tabs.length === 0) return;
-      const restLeaf =
-        location === "center"
-          ? nodeKey
-          : panel.childNodeKey(nodeKey, panel.splitSide(location));
-      const actions = tabs.map((tab, i) =>
-        panel.insertTab(
-          i === 0
-            ? { tab, targetLeaf: nodeKey, location, index }
-            : { tab, targetLeaf: restLeaf },
-        ),
-      );
-      dispatch(actions);
-      const last = actions.at(-1);
-      if (last?.type === "insert_tab") onSelect?.(last.insertTab.tab.key);
+      const action = panel.insertTabs({ tabs, targetLeaf: nodeKey, location, index });
+      dispatch(action);
+      const last =
+        action.type === "insert_tabs" ? action.insertTabs.tabs.at(-1) : undefined;
+      if (last != null) onSelect?.(last.key);
     },
     [dispatch, onSelect, resolveDroppedTab],
   );

@@ -221,10 +221,12 @@ The text editor shows compile-time errors inline:
 
 Write intermediate values to channels for debugging:
 
-```arc
+```arc channels="setpoint, gain, debug_error"
 func debug_controller(value f64) f64 {
     error := value - setpoint
-    debug_error = error // Write to channel for visibility
+
+    // Write to channel for visibility
+    debug_log = f"Error is: {error}"
     return error * gain
 }
 ```

@@ -10,8 +10,7 @@
     }
   },
   "files": [
-    "dist",
-    "syntaxes"
+    "dist"
   ],
   "scripts": {
     "build": "tsc --noEmit && vite build",

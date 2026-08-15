@@ -62,8 +62,7 @@ const Content = ({
   origin,
   close,
 }: Session.Modals.ContentProps<MovePickerParams, void>): ReactElement => {
-  const projectKey = Session.Project.useSelectSelected();
-  const keys = Panel.useKeysByProject({ project: projectKey });
+  const keys = Session.Panel.useSelectOrderedKeys();
   const moveTab = useMoveTab();
   const moveToNewPanel = useMoveTabToNewPanel();
   const handleSelect = useCallback(

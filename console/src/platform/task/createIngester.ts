@@ -17,12 +17,10 @@ export const createIngester =
   <S extends task.Schemas = task.Schemas>(
     params: CreateUseCreateParams<S>,
   ): Import.FileIngester =>
-  async (data, { openTab, client }) => {
+  async (data, { client }) => {
     if (!Access.createGranted({ id: task.TYPE_ONTOLOGY_ID, client }))
       throw new Error("You do not have permission to import tasks");
     if (client == null) throw new DisconnectedError();
     const created = await create({ client, config: data, ...params });
-    const id = task.ontologyID(created.key);
-    openTab({ variant: "resource", resource: id });
-    return id;
+    return task.ontologyID(created.key);
   };

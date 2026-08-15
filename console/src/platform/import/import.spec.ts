@@ -14,18 +14,9 @@ import { ZodError } from "zod";
 
 import { Import } from "@/platform/import";
 import { createFileIngesterContext } from "@/platform/import/testutil";
-import { type Panel } from "@/platform/panel";
-import { uniqueName } from "@/testutil";
+import { assertDefined, uniqueName } from "@/testutil";
 
 const ctx = createFileIngesterContext();
-
-const openedResource = (openTab: ReturnType<typeof vi.fn<Panel.OpenTab>>) => {
-  expect(openTab).toHaveBeenCalledTimes(1);
-  const [tab] = openTab.mock.calls[0];
-  if (tab.variant !== "resource" || typeof tab.resource === "string")
-    throw new Error("expected a resource tab");
-  return tab.resource;
-};
 
 describe("ingestComponent", () => {
   it("dispatches typed data to the ingester matching its type", async () => {
@@ -78,14 +69,14 @@ describe("ingestComponent", () => {
     });
     const data = JSON.parse(await new Response(stream).text());
     const task = vi.fn();
-    const openTab = vi.fn<Panel.OpenTab>();
-    await Import.ingestComponent(
+    const id = await Import.ingestComponent(
       data,
       { some_task: task },
-      createFileIngesterContext({ openTab, client, projectKey: proj.key }),
+      createFileIngesterContext({ client, projectKey: proj.key }),
     );
     expect(task).not.toHaveBeenCalled();
-    const created = await client.logs.retrieve({ key: openedResource(openTab).key });
+    assertDefined(id, "server ingest returned no resource");
+    const created = await client.logs.retrieve({ key: id.key });
     expect(created.name).toBe(original.name);
   });
 
@@ -96,9 +87,7 @@ describe("ingestComponent", () => {
       layout: {},
     });
     const task = vi.fn().mockRejectedValue(new ZodError([]));
-    const openTab = vi.fn<Panel.OpenTab>();
     const serverCtx = createFileIngesterContext({
-      openTab,
       client,
       projectKey: proj.key,
       fileName: "Legacy Log.json",
@@ -106,9 +95,10 @@ describe("ingestComponent", () => {
     // A legacy Console log state: version-stamped, no type, no name. The server
     // recognizes it by its frozen channels-array marker and names it after the file.
     const state = { version: "0.0.0", channels: [1, 2, 3], remoteCreated: false };
-    await Import.ingestComponent(state, { task }, serverCtx);
+    const id = await Import.ingestComponent(state, { task }, serverCtx);
     expect(task).toHaveBeenCalledWith(state, serverCtx);
-    const created = await client.logs.retrieve({ key: openedResource(openTab).key });
+    assertDefined(id, "server ingest returned no resource");
+    const created = await client.logs.retrieve({ key: id.key });
     expect(created.name).toBe("Legacy Log");
   });
 });

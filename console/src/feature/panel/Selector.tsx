@@ -30,7 +30,11 @@ import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { createPillHaulItem } from "@/feature/panel/haul";
+import {
+  createPillHaulItem,
+  isPillHaulItem,
+  PILL_HAUL_TYPE,
+} from "@/feature/panel/haul";
 import { useCreate } from "@/feature/panel/useCreate";
 import { type Dwell, useDwell } from "@/feature/panel/useDwell";
 import {
@@ -230,8 +234,7 @@ const CreateButton = (): ReactElement => {
 const Internal = (): ReactElement => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
-  const projectKey = Session.Project.useSelectSelected();
-  const keys = Panel.useKeysByProject({ project: projectKey });
+  const ordered = Session.Panel.useSelectOrderedKeys();
   const dwell = useDwell();
 
   const handleSelect = useCallback(
@@ -239,10 +242,20 @@ const Internal = (): ReactElement => {
     [dispatch],
   );
 
+  const handleDrop = useCallback(
+    ({ items, index }: Tabs.SelectorOnDropParams): Haul.Item[] => {
+      const pills = items.filter(isPillHaulItem);
+      if (pills.length > 0)
+        dispatch(Session.Panel.reorder({ key: pills[0].key, index }));
+      return pills;
+    },
+    [dispatch],
+  );
+
   const menuProps = Menu.useContextMenu();
   const contextMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
-    (props) => <ContextMenu {...props} order={keys} />,
-    [keys],
+    (props) => <ContextMenu {...props} order={ordered} />,
+    [ordered],
   );
 
   return (
@@ -256,8 +269,14 @@ const Internal = (): ReactElement => {
         empty={false}
         gap="small"
       >
-        <Tabs.Selector size="medium" variant="pill" onContextMenu={menuProps.open}>
-          {keys.map((key) => (
+        <Tabs.Selector
+          size="medium"
+          variant="pill"
+          haulType={PILL_HAUL_TYPE}
+          onDrop={handleDrop}
+          onContextMenu={menuProps.open}
+        >
+          {ordered.map((key) => (
             <Tab key={key} tabKey={key} dwell={dwell} />
           ))}
         </Tabs.Selector>

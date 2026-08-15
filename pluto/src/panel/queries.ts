@@ -324,7 +324,7 @@ export const useCloseResourceTabs = (): ((
 };
 
 export interface MoveTabToPanelParams extends Pick<
-  panel.InsertTabPayload,
+  panel.InsertTabsPayload,
   "targetLeaf" | "index" | "location"
 > {
   /** Panel currently holding the tab. */
@@ -358,7 +358,7 @@ export const useMoveTabToPanel = (): ((
     async ({ source, destination, tab, targetLeaf, index, location }) => {
       const inserted = await dispatchAsync({
         key: destination,
-        actions: panel.insertTab({ tab, targetLeaf, index, location }),
+        actions: panel.insertTabs({ tabs: [tab], targetLeaf, index, location }),
       });
       if (!inserted) return undefined;
       await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
