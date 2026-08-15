@@ -19,7 +19,6 @@ import (
 type Field struct {
 	Name      string
 	Primitive string
-	Generate  bool
 }
 
 // SkipFunc is a predicate that determines whether to skip a type when collecting keys.

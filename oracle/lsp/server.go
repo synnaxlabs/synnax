@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/diagnostics"
 	xlsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -40,12 +39,7 @@ const translateSource = "oracle-analyzer"
 
 // Document represents an open document in the LSP server.
 type Document struct {
-	Schema      parser.ISchemaContext
-	Table       *resolution.Table
-	Diagnostics *diagnostics.Diagnostics
-	URI         uri.URI
-	Content     string
-	Version     int32
+	Content string
 }
 
 var _ protocol.Server = (*Server)(nil)
@@ -131,11 +125,7 @@ func (s *Server) DidOpen(
 ) error {
 	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	s.documents[docURI] = &Document{
-		URI:     docURI,
-		Version: params.TextDocument.Version,
-		Content: params.TextDocument.Text,
-	}
+	s.documents[docURI] = &Document{Content: params.TextDocument.Text}
 	s.mu.Unlock()
 	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
 	return nil
@@ -150,7 +140,6 @@ func (s *Server) DidChange(
 	s.mu.Lock()
 	if doc, ok := s.documents[docURI]; ok {
 		if len(params.ContentChanges) > 0 {
-			doc.Version = params.TextDocument.Version
 			for _, change := range params.ContentChanges {
 				doc.Content = xlsp.ApplyIncrementalChange(doc.Content, change)
 			}
@@ -191,23 +180,20 @@ func (s *Server) publishDiagnostics(
 	content string,
 ) {
 	s.mu.Lock()
-	doc, ok := s.documents[docURI]
+	_, ok := s.documents[docURI]
 	s.mu.Unlock()
 	if !ok {
 		return
 	}
 
-	ast, parseDiag := parser.Parse(content)
+	_, parseDiag := parser.Parse(content)
 	if parseDiag != nil && !parseDiag.Ok() {
-		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         docURI,
 			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateSource),
 		})
 		return
 	}
-
-	doc.Schema = ast
 	namespace := deriveNamespaceFromURI(docURI)
 	// The real file path distinguishes version files from live schemas so the
 	// analyzer's placement rules key correctly.
@@ -218,17 +204,12 @@ func (s *Server) publishDiagnostics(
 	)
 	if analyzeDiag != nil {
 		flat := analyzeDiag.Flat()
-		doc.Diagnostics = &flat
-		doc.Table = table
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         docURI,
 			Diagnostics: xlsp.TranslateDiagnostics(flat, translateSource),
 		})
 		return
 	}
-
-	doc.Table = table
-	doc.Diagnostics = &diagnostics.Diagnostics{}
 	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},

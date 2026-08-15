@@ -434,7 +434,7 @@ func (g VersionsGate) checkPinCurrency(
 		if err != nil {
 			return
 		}
-		t, ok := definedType(f, name)
+		t, ok := versions.DefinedType(f, name)
 		if !ok {
 			return
 		}
@@ -542,16 +542,6 @@ func storedRefs(
 		locals = localRefNames(f, form.Target)
 	}
 	return locals
-}
-
-// definedType returns a file's full declaration for name.
-func definedType(f *versions.File, name string) (resolution.Type, bool) {
-	for _, t := range f.Defined {
-		if t.Name == name {
-			return t, true
-		}
-	}
-	return resolution.Type{}, false
 }
 
 // localRefNames returns the same-chain type names a reference reaches.

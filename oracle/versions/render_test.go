@@ -27,7 +27,7 @@ Key = uuid {
 }
 
 Size uint32 {
-	@go pinned
+	@go marshal flex
 }
 
 Kind enum {
@@ -119,15 +119,15 @@ var _ = Describe("Render", func() {
 		}
 	})
 
-	It("Should preserve @go pinned and @doc through a round trip", func(
+	It("Should preserve unknown expressions and @doc through a round trip", func(
 		ctx SpecContext,
 	) {
 		table := analyzeFixture(ctx, renderFixture)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
 		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
 		size := MustBeOk(again.Get("test.Size"))
-		_, pinned := size.Domains["go"].Expressions.Find("pinned")
-		Expect(pinned).To(BeTrue())
+		_, marshal := size.Domains["go"].Expressions.Find("marshal")
+		Expect(marshal).To(BeTrue())
 		sample := MustBeOk(again.Get("test.Sample"))
 		doc := sample.Domains["doc"]
 		Expect(doc.Expressions[0].Values[0].StringValue).

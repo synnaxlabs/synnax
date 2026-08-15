@@ -92,7 +92,7 @@ func (g *aliasFileGenerator) GenerateFile(
 		Package:    pkg,
 		OutputPath: ctx.OutputPath,
 		Namespace:  namespace,
-		imports:    imp,
+		Manager:    imp,
 		table:      ctx.Table,
 		repoRoot:   ctx.RepoRoot,
 		resolver:   r,

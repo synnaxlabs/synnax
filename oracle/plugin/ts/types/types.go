@@ -41,14 +41,12 @@ import (
 type Plugin struct{ Options Options }
 
 type Options struct {
-	OutputPath      string
 	FileNamePattern string
 	GenerateTypes   bool
 }
 
 func DefaultOptions() Options {
 	return Options{
-		OutputPath:      "{{.Namespace}}",
 		FileNamePattern: "types.gen.ts",
 		GenerateTypes:   true,
 	}
@@ -302,7 +300,6 @@ func (p *Plugin) generateFile(
 		Namespace:     namespace,
 		OutputPath:    outputPath,
 		Request:       req,
-		Structs:       make([]structData, 0, len(structs)),
 		Enums:         make([]enumData, 0, len(enums)),
 		TypeDefs:      make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls:   make([]sortedDeclData, 0),
@@ -940,8 +937,6 @@ func (p *Plugin) processStruct(
 			sd.HasExtends = true
 			sd.ExtendsName = sd.ExtendsParents[0].Name
 			sd.ExtendsTypeName = sd.ExtendsParents[0].TypeName
-			sd.ExtendsParentIsGeneric = sd.ExtendsParents[0].IsGeneric
-			sd.ExtendsParentSchemaArgs = sd.ExtendsParents[0].SchemaArgs
 
 			for _, f := range form.OmittedFields {
 				sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
@@ -2936,7 +2931,6 @@ type templateData struct {
 	DeclOrder        map[string]int
 	Namespace        string
 	OutputPath       string
-	Structs          []structData
 	Enums            []enumData
 	TypeDefs         []typeDefData
 	SortedDecls      []sortedDeclData
@@ -2987,19 +2981,18 @@ func primitiveZeroValue(primitive string) string {
 }
 
 type structData struct {
-	ExtendsName             string
-	TSName                  string
-	AliasOf                 string
-	Doc                     string
-	ExtendsTypeName         string
-	Name                    string
-	TypeParams              []typeParamData
-	ExtendsParentSchemaArgs []string
-	BaseFields              []fieldData
-	ConditionalFields       []conditionalFieldData
-	ExtendFields            []fieldData
-	PartialFields           []fieldData
-	OmittedFields           []string
+	ExtendsName       string
+	TSName            string
+	AliasOf           string
+	Doc               string
+	ExtendsTypeName   string
+	Name              string
+	TypeParams        []typeParamData
+	BaseFields        []fieldData
+	ConditionalFields []conditionalFieldData
+	ExtendFields      []fieldData
+	PartialFields     []fieldData
+	OmittedFields     []string
 	// ConditionalOmittedFields names the conditional (type-param-typed) base fields a
 	// synthesized @create New strips from its inner optional.Optional base before
 	// re-appending them as z.input conditionals. The New's template wraps the base in
@@ -3011,7 +3004,6 @@ type structData struct {
 	HasExtends               bool
 	UseInput                 bool
 	AllParamsOptional        bool
-	ExtendsParentIsGeneric   bool
 	Handwritten              bool
 	IsRecursive              bool
 	IsAlias                  bool

@@ -26,9 +26,9 @@ func newMigrateCmd() *cobra.Command {
 		Use:   "migrate <resource>...",
 		Short: "Scaffold the next version file for the named resources",
 		Long: `Migrate writes v(N+1).oracle for each named resource: every current
-type as an alias line to its defining version, pinned declarations redeclared,
-imports carried forward. Edit the scaffold — convert the changed types to full
-declarations, bump stale pins — then run oracle sync. To amend a version that
+type as an alias line to its defining version, omit-transient declarations
+redeclared, imports carried forward. Edit the scaffold — convert the changed
+types to full declarations, bump stale pins — then run oracle sync. To amend a version that
 has not shipped, edit its file directly; there is no amend command.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := runMigrate(cmd, args); err != nil {

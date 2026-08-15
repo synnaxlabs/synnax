@@ -20,7 +20,6 @@ const (
 	CategoryString
 	CategoryNumber
 	CategoryBoolean
-	CategoryTemporal
 	CategoryBinary
 )
 

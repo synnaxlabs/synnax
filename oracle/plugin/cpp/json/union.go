@@ -13,6 +13,7 @@ import (
 	"github.com/samber/lo"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -36,24 +37,23 @@ type unionDispatchVariant struct {
 	Value string
 }
 
-// processUnion builds a serializer for every variant struct of a discriminated
-// union (so each gets parse/to_json bodies like a regular struct) plus the
-// dispatch data for the union's free parse and to_json functions. The variant
-// serializers carry the discriminator as a leading std::string field followed
-// by the flattened base and variant fields, matching the declarations emitted
-// by the cpp/types plugin.
+// processUnion builds a serializer for every variant struct of a discriminated union
+// (so each gets parse/to_json bodies like a regular struct) plus the dispatch data for
+// the union's free parse and to_json functions. The variant serializers carry the
+// discriminator as a leading std::string field followed by the flattened base and
+// variant fields, matching the declarations emitted by the cpp/types plugin.
 func (p *Plugin) processUnion(
 	u resolution.Type,
 	data *templateData,
 ) ([]serializerData, unionDispatchData) {
 	form := u.Form.(resolution.UnionForm)
 	name := domain.GetName(u, "cpp")
-	data.includes.addSystem("variant")
+	data.AddSystem("variant")
 
 	dispatch := unionDispatchData{
 		Name:      name,
 		SnakeName: lo.SnakeCase(name),
-		DiscJSON:  toSnakeCase(form.Discriminator),
+		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
 	discField := resolution.Field{
 		Name: form.Discriminator,

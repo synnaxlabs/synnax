@@ -94,7 +94,6 @@ func (p *Plugin) generateFile(
 
 	data := &templateData{
 		Manager:        mgr,
-		TargetType:     casing.TypeCamel(typ.Name),
 		TargetTypeName: typ.Name,
 	}
 
@@ -127,7 +126,6 @@ func (p *Plugin) generateFile(
 
 type templateData struct {
 	*imports.Manager
-	TargetType     string
 	TargetTypeName string
 	Actions        []actionData
 }

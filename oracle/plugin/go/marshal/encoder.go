@@ -60,7 +60,6 @@ type genericCodec struct {
 type encoderFileOutput struct {
 	Package        string
 	ExtraImports   map[string]string
-	NeedsMath      bool
 	NeedsJSON      bool
 	HasFlex        bool
 	ConcreteCodecs []concreteCodec
@@ -117,9 +116,6 @@ func generateEncoderCodecFile(
 					e.GoName,
 				)
 			}
-			if b.needsMath {
-				fo.NeedsMath = true
-			}
 			if b.needsJSON {
 				fo.NeedsJSON = true
 			}
@@ -159,9 +155,6 @@ func generateEncoderCodecFile(
 					e.GoName,
 				)
 			}
-			if b.needsMath {
-				fo.NeedsMath = true
-			}
 			if b.needsJSON {
 				fo.NeedsJSON = true
 			}
@@ -182,9 +175,6 @@ func generateEncoderCodecFile(
 					"failed to generate codec for %s",
 					e.GoName,
 				)
-			}
-			if b.needsMath {
-				fo.NeedsMath = true
 			}
 			if b.needsJSON {
 				fo.NeedsJSON = true

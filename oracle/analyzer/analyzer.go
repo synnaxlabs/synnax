@@ -70,7 +70,7 @@ func Analyze(
 			loader:      loader,
 			ast:         ast,
 			filePath:    filePath,
-			namespace:   DeriveNamespace(filePath),
+			namespace:   paths.DeriveNamespace(filePath),
 			fileDomains: make(map[string]resolution.Domain),
 		}
 		analyze(c)
@@ -215,7 +215,7 @@ func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	names := usedQualifiedNames(c.ast)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
-		ns := DeriveNamespace(iu.path)
+		ns := paths.DeriveNamespace(iu.path)
 		byNS[ns] = append(byNS[ns], iu)
 	}
 	for ns, group := range byNS {
@@ -317,7 +317,7 @@ func analyze(c *analysisCtx) {
 			loader:      c.loader,
 			ast:         ast,
 			filePath:    filePath,
-			namespace:   DeriveNamespace(filePath),
+			namespace:   paths.DeriveNamespace(filePath),
 			fileDomains: make(map[string]resolution.Domain),
 		}
 		analyze(ic)

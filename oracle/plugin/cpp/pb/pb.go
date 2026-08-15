@@ -15,11 +15,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/internal/includes"
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
+	"github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/internal/casing"
@@ -205,25 +206,23 @@ func (p *Plugin) generateProto(
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
-		OutputPath:       outputPath,
-		Namespace:        deriveNamespace(outputPath),
-		Translators:      make([]translatorData, 0, len(structs)),
-		EnumTranslators:  make([]enumTranslatorData, 0),
-		ArrayWrappers:    make([]arrayWrapperTranslatorData, 0),
-		includes:         newIncludeManager(),
-		table:            req.Resolutions,
-		jsonPaths:        jsonPaths,
-		protoPaths:       protoPaths,
-		rawNs:            namespace,
-		processedEnums:   make(set.Set[string]),
-		processedStructs: make(set.Set[string]),
+		Namespace:       naming.Namespace(outputPath),
+		Translators:     make([]translatorData, 0, len(structs)),
+		EnumTranslators: make([]enumTranslatorData, 0),
+		ArrayWrappers:   make([]arrayWrapperTranslatorData, 0),
+		Manager:         includes.NewManager(),
+		table:           req.Resolutions,
+		jsonPaths:       jsonPaths,
+		protoPaths:      protoPaths,
+		rawNs:           namespace,
+		processedEnums:  make(set.Set[string]),
 	}
 
-	data.includes.addSystem("utility")
-	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
-	data.includes.addInternal(data.jsonInclude(outputPath))
-	data.includes.addInternal("x/cpp/errors/errors.h")
-	data.includes.addInternal("x/cpp/pb/pb.h")
+	data.AddSystem("utility")
+	data.AddInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.AddInternal(data.jsonInclude(outputPath))
+	data.AddInternal("x/cpp/errors/errors.h")
+	data.AddInternal("x/cpp/pb/pb.h")
 
 	pbOutputPaths := make(set.Set[string])
 	for _, s := range structs {
@@ -232,7 +231,7 @@ func (p *Plugin) generateProto(
 			pbOutputPaths.Add(pbPath)
 			protoInclude := deriveProtoInclude(pbPath, s.Namespace)
 			if protoInclude != "" {
-				data.includes.addInternal(protoInclude)
+				data.AddInternal(protoInclude)
 			}
 		}
 	}
@@ -258,7 +257,7 @@ func (p *Plugin) generateProto(
 	// Add type_traits include only if there are generic translators
 	for _, t := range data.Translators {
 		if t.IsGeneric {
-			data.includes.addSystem("type_traits")
+			data.AddSystem("type_traits")
 			break
 		}
 	}
@@ -283,8 +282,8 @@ func (p *Plugin) generateProto(
 
 	// Add includes for enum translators (string enums use unordered_map)
 	if len(data.EnumTranslators) > 0 {
-		data.includes.addSystem("string")
-		data.includes.addSystem("unordered_map")
+		data.AddSystem("string")
+		data.AddSystem("unordered_map")
 	}
 
 	for _, dt := range req.Resolutions.DistinctTypes() {
@@ -332,9 +331,9 @@ func (p *Plugin) resolveExtendsType(
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
 			if data.protoPaths.Contains(targetOutputPath) {
-				data.includes.addInternal(targetOutputPath + "/proto.gen.h")
+				data.AddInternal(targetOutputPath + "/proto.gen.h")
 			}
-			ns := deriveNamespace(targetOutputPath)
+			ns := naming.Namespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
@@ -370,9 +369,9 @@ func (p *Plugin) processStructForTranslation(
 ) *translatorData {
 	cppName := domain.GetName(s, "cpp")
 
-	pbName := getPBName(s)
+	pbName := naming.PBName(s)
 	pbOutputPath := output.GetPBPath(s)
-	pbNamespace := derivePBCppNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath)
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
@@ -395,8 +394,8 @@ func (p *Plugin) processStructForTranslation(
 	}
 
 	if len(typeParams) > 0 {
-		data.includes.addInternal("x/cpp/json/any.h")
-		data.includes.addInternal("x/cpp/json/json.h")
+		data.AddInternal("x/cpp/json/any.h")
+		data.AddInternal("x/cpp/json/json.h")
 	}
 
 	if resolver.CanUseInheritance(form, data.table) {
@@ -468,8 +467,6 @@ func (p *Plugin) processFieldForTranslation(
 		BackwardExpr:     backwardExpr,
 		ForwardJSONExpr:  forwardJSONExpr,
 		BackwardJSONExpr: backwardJSONExpr,
-		IsOptional:       field.Optional,
-		IsArray:          field.Type.Name == "Array",
 		IsGenericField:   isGenericField,
 		TypeParamName:    typeParamName,
 	}
@@ -646,7 +643,7 @@ func (p *Plugin) generatePrimitiveConversion(
 				pbAccessorName,
 			)
 	case "record":
-		data.includes.addInternal("x/cpp/json/struct.h")
+		data.AddInternal("x/cpp/json/struct.h")
 		if isOptional {
 			forward = fmt.Sprintf(`if (this->%s.has_value()) {
         auto [v, err] = x::json::to_struct(*this->%s);
@@ -672,7 +669,7 @@ func (p *Plugin) generatePrimitiveConversion(
 		}
 		return forward, backward
 	case "any":
-		data.includes.addInternal("x/cpp/json/json.h")
+		data.AddInternal("x/cpp/json/json.h")
 		if isOptional {
 			forward = fmt.Sprintf(
 				"if (this->%s.has_value()) pb.set_%s((*this->%s).dump())",
@@ -800,7 +797,7 @@ func (p *Plugin) typeRefToCppForTranslator(
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			ns := deriveNamespace(targetOutputPath)
+			ns := naming.Namespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
@@ -898,14 +895,14 @@ func (p *Plugin) generateEnumConversion(
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			ns := deriveNamespace(targetOutputPath)
+			ns := naming.Namespace(targetOutputPath)
 			cppEnumType = fmt.Sprintf("::%s::%s", ns, cppEnumType)
 			funcNamespace = fmt.Sprintf("::%s::", ns)
 		}
 	}
 
 	pbOutputPath := enum.FindPBOutputPath(resolved, data.table)
-	pbNamespace := derivePBCppNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath)
 
 	if form.IsIntEnum {
 		forward = fmt.Sprintf(
@@ -949,7 +946,7 @@ func (p *Plugin) generateDistinctConversion(
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			ns := deriveNamespace(targetOutputPath)
+			ns := naming.Namespace(targetOutputPath)
 			cppName = fmt.Sprintf("::%s::%s", ns, cppName)
 		}
 	}
@@ -1057,7 +1054,7 @@ func (p *Plugin) generateAliasConversion(
 		if resolved.Namespace != data.rawNs {
 			aliasOutputPath := output.GetPath(resolved, "cpp")
 			if aliasOutputPath != "" {
-				ns := deriveNamespace(aliasOutputPath)
+				ns := naming.Namespace(aliasOutputPath)
 				cppType = fmt.Sprintf("::%s::%s", ns, cppType)
 			}
 		}
@@ -1243,7 +1240,7 @@ func (p *Plugin) generateMapConversion(
 	valueType := typeRef.TypeArgs[1]
 
 	if valueType.Name == "record" {
-		data.includes.addInternal("x/cpp/json/struct.h")
+		data.AddInternal("x/cpp/json/struct.h")
 		forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
         auto [pb_v, err] = x::json::to_struct(v);
         if (err) return {{}, err};
@@ -1343,7 +1340,7 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 		accessorName,
 		fieldName,
 	)
-	data.includes.addSystem("algorithm")
+	data.AddSystem("algorithm")
 
 	return forward, backward
 }
@@ -1469,19 +1466,19 @@ func (p *Plugin) processEnumForTranslation(
 	}
 
 	pbOutputPath := enum.FindPBOutputPath(e, data.table)
-	pbNamespace := derivePBCppNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath)
 
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 	for _, v := range form.Values {
 		cppValueName := fmt.Sprintf(
 			"%s_%s",
-			toScreamingSnake(e.Name),
-			toScreamingSnake(v.Name),
+			naming.ScreamingSnake(e.Name),
+			naming.ScreamingSnake(v.Name),
 		)
 		pbValueName := fmt.Sprintf(
 			"%s_%s",
-			toScreamingSnake(e.Name),
-			toScreamingSnake(v.Name),
+			naming.ScreamingSnake(e.Name),
+			naming.ScreamingSnake(v.Name),
 		)
 
 		values = append(values, enumValueTranslatorData{
@@ -1508,26 +1505,17 @@ func (p *Plugin) processArrayWrapperForTranslation(
 	}
 
 	cppName := domain.GetName(dt, "cpp")
-	pbName := getPBName(dt)
+	pbName := naming.PBName(dt)
 	pbOutputPath := output.GetPBPath(dt)
-	pbNamespace := derivePBCppNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath)
 
 	elemType := form.Base.TypeArgs[0]
 	elemCppType := p.typeRefToCppForTranslator(elemType, data)
 
 	elementNeedsConvert := false
-	forwardConv := "pb.add_%s(item)"
-	backwardConv := "cpp.push_back(item)"
-
 	if !resolution.IsPrimitive(elemType.Name) {
 		if resolved, ok := elemType.Resolve(data.table); ok {
-			if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-				elementNeedsConvert = true
-				forwardConv = "*pb.add_%s() = item.to_proto()"
-				backwardConv = fmt.Sprintf(`auto [v, err] = %s::from_proto(item);
-        if (err) return {{}, err};
-        cpp.push_back(v)`, elemCppType)
-			}
+			_, elementNeedsConvert = resolved.Form.(resolution.StructForm)
 		}
 	}
 
@@ -1537,66 +1525,7 @@ func (p *Plugin) processArrayWrapperForTranslation(
 		PBNamespace:         pbNamespace,
 		ElementType:         elemCppType,
 		ElementNeedsConvert: elementNeedsConvert,
-		ForwardConv:         forwardConv,
-		BackwardConv:        backwardConv,
 	}
-}
-
-func deriveNamespace(outputPath string) string {
-	parts := strings.Split(outputPath, "/")
-	if len(parts) == 0 {
-		return "synnax"
-	}
-
-	var topLevel string
-	rest := parts[len(parts)-1:]
-	switch {
-	case len(parts) >= 2 && parts[0] == "x" && parts[1] == "cpp":
-		topLevel = "x"
-		rest = parts[2:]
-	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
-		topLevel = "synnax"
-		rest = parts[2:]
-	case len(parts) >= 2 && parts[0] == "arc" && parts[1] == "cpp":
-		topLevel = "arc"
-		rest = parts[2:]
-	case parts[0] == "driver":
-		topLevel = "driver"
-		rest = parts[1:]
-	default:
-		topLevel = "synnax"
-	}
-
-	if len(rest) == 0 {
-		return topLevel
-	}
-	return topLevel + "::" + strings.Join(rest, "::")
-}
-
-func derivePBCppNamespace(pbOutputPath string) string {
-	if pbOutputPath == "" {
-		return "pb"
-	}
-	parts := strings.Split(pbOutputPath, "/")
-	if len(parts) == 0 {
-		return "pb"
-	}
-
-	namespace := parts[len(parts)-1]
-	if namespace == "pb" && len(parts) >= 2 {
-		namespace = parts[len(parts)-2]
-	}
-
-	var prefix string
-	if len(parts) >= 3 && parts[0] == "core" && parts[1] == "pkg" {
-		prefix = parts[2] // e.g., "distribution", "service", "api"
-	} else if len(parts) >= 1 && parts[0] != "" {
-		prefix = parts[0] // e.g., "x", "freighter"
-	} else {
-		prefix = "synnax"
-	}
-
-	return fmt.Sprintf("::%s::%s::pb", prefix, namespace)
 }
 
 func deriveProtoInclude(pbOutputPath, namespace string) string {
@@ -1604,17 +1533,6 @@ func deriveProtoInclude(pbOutputPath, namespace string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s.pb.h", pbOutputPath, namespace)
-}
-
-func getPBName(s resolution.Type) string {
-	if domain, ok := s.Domains["pb"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return s.Name
 }
 
 func primitiveToProtoType(primitive string) string {
@@ -1640,44 +1558,17 @@ func primitiveToProtoType(primitive string) string {
 	}
 }
 
-func toScreamingSnake(s string) string {
-	return strings.ToUpper(lo.SnakeCase(s))
-}
-
-type includeManager struct {
-	system   []string
-	internal []string
-}
-
-func newIncludeManager() *includeManager {
-	return &includeManager{}
-}
-
-func (m *includeManager) addSystem(name string) {
-	if !lo.Contains(m.system, name) {
-		m.system = append(m.system, name)
-	}
-}
-
-func (m *includeManager) addInternal(path string) {
-	if !lo.Contains(m.internal, path) {
-		m.internal = append(m.internal, path)
-	}
-}
-
 type templateData struct {
-	processedEnums   set.Set[string]
-	processedStructs set.Set[string]
-	includes         *includeManager
-	table            *resolution.Table
-	jsonPaths        set.Set[string]
-	protoPaths       set.Set[string]
-	OutputPath       string
-	Namespace        string
-	rawNs            string
-	Translators      []translatorData
-	EnumTranslators  []enumTranslatorData
-	ArrayWrappers    []arrayWrapperTranslatorData
+	processedEnums set.Set[string]
+	*includes.Manager
+	table           *resolution.Table
+	jsonPaths       set.Set[string]
+	protoPaths      set.Set[string]
+	Namespace       string
+	rawNs           string
+	Translators     []translatorData
+	EnumTranslators []enumTranslatorData
+	ArrayWrappers   []arrayWrapperTranslatorData
 }
 
 // jsonInclude returns the header to include for a reference to types generated at
@@ -1691,9 +1582,9 @@ func (d *templateData) jsonInclude(outputPath string) string {
 // hand-written next to the type) and its JSON header.
 func (d *templateData) addConversionIncludes(targetOutputPath string) {
 	if d.protoPaths.Contains(targetOutputPath) {
-		d.includes.addInternal(targetOutputPath + "/proto.gen.h")
+		d.AddInternal(targetOutputPath + "/proto.gen.h")
 	}
-	d.includes.addInternal(d.jsonInclude(targetOutputPath))
+	d.AddInternal(d.jsonInclude(targetOutputPath))
 }
 
 type arrayWrapperTranslatorData struct {
@@ -1701,16 +1592,8 @@ type arrayWrapperTranslatorData struct {
 	PBName              string
 	PBNamespace         string
 	ElementType         string
-	ForwardConv         string
-	BackwardConv        string
 	ElementNeedsConvert bool
 }
-
-func (d *templateData) HasIncludes() bool {
-	return len(d.includes.system) > 0 || len(d.includes.internal) > 0
-}
-func (d *templateData) SystemIncludes() []string   { return d.includes.system }
-func (d *templateData) InternalIncludes() []string { return d.includes.internal }
 
 type translatorData struct {
 	CppName        string
@@ -1741,8 +1624,6 @@ type fieldTranslatorData struct {
 	ForwardJSONExpr  string
 	BackwardJSONExpr string
 	TypeParamName    string
-	IsOptional       bool
-	IsArray          bool
 	IsGenericField   bool
 }
 

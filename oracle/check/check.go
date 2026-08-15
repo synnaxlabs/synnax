@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package check is the read-only validation layer for oracle. It runs a set
-// of named gates - format drift, analyzer diagnostics, generated-output
-// drift, orphaned generated files, cache coherence - against a pipeline
-// Result and produces a structured Report. It does not modify any file.
+// Package check is the read-only validation layer for oracle. It runs a set of named
+// gates - format drift, analyzer diagnostics, generated-output drift, persistence
+// violations, cache coherence, versions drift - against a pipeline Result and produces
+// a structured Report. It does not modify any file.
 //
-// Each gate is an independently testable Checker implementation. The
-// Checker contract is intentionally narrow: take a pipeline Result, look
-// at the on-disk projection of that result if needed, return a GateReport
-// describing what passed, what failed, and what the user should do about
-// it.
+// Each gate is an independently testable Checker implementation. The Checker contract
+// is intentionally narrow: take a pipeline Result, look at the on-disk projection of
+// that result if needed, return a GateReport describing what passed, what failed, and
+// what the user should do about it.
 //
-// Consumers (today only the `oracle check` command, tomorrow also CI hooks
-// and editor integrations) drive the Checkers via Run, get back a Report,
-// and choose how to render it. Pretty and JSON renderers live in this
-// package so every consumer prints the same way.
+// Consumers (today only the `oracle check` command, tomorrow also CI hooks and editor
+// integrations) drive the Checkers via Run, get back a Report, and choose how to render
+// it. Pretty and JSON renderers live in this package so every consumer prints the same
+// way.
 package check
 
 import (
@@ -34,21 +33,20 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Checker is one validation gate. Name is a stable identifier used for
-// flag selection (`--gates=format,analyze`), exit codes, and JSON output.
+// Checker is one validation gate. Name is a stable identifier used for flag selection
+// (`--gates=format,analyze`), exit codes, and JSON output.
 type Checker interface {
 	Name() string
 	Run(ctx context.Context, p *pipeline.Result, env Env) GateReport
 }
 
-// Env carries everything a Checker needs that is not part of the pipeline
-// Result. Concrete fields are populated by the CLI driver and passed
-// uniformly to every gate.
+// Env carries everything a Checker needs that is not part of the pipeline Result.
+// Concrete fields are populated by the CLI driver and passed uniformly to every gate.
 type Env struct {
 	// RepoRoot is the absolute path to the repository root.
 	RepoRoot string
-	// IncludeDiffs requests that gates capture per-finding unified diffs.
-	// Off by default because diffs blow up output size.
+	// IncludeDiffs requests that gates capture per-finding unified diffs. Off by
+	// default because diffs blow up output size.
 	IncludeDiffs bool
 }
 
@@ -58,8 +56,8 @@ type Severity int
 const (
 	// SeverityInfo is informational and does not affect status.
 	SeverityInfo Severity = iota
-	// SeverityWarning is a non-blocking concern. Promoted to Fail by the
-	// driver only when warnings-as-errors is set.
+	// SeverityWarning is a non-blocking concern. Promoted to Fail by the driver only
+	// when warnings-as-errors is set.
 	SeverityWarning
 	// SeverityError causes the owning gate to Fail.
 	SeverityError
@@ -78,8 +76,8 @@ func (s Severity) String() string {
 	}
 }
 
-// MarshalJSON serializes Severity as its lower-case string form so the
-// JSON report is consumable without an out-of-band enum table.
+// MarshalJSON serializes Severity as its lower-case string form so the JSON report is
+// consumable without an out-of-band enum table.
 func (s Severity) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
@@ -116,19 +114,18 @@ func (s Status) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
 
-// Finding is one observation produced by a Checker. The driver renders
-// findings; gates do not print directly.
+// Finding is one observation produced by a Checker. The driver renders findings; gates
+// do not print directly.
 type Finding struct {
 	Path     string   `json:"path,omitempty"`
 	Line     int      `json:"line,omitempty"`
 	Col      int      `json:"col,omitempty"`
 	Severity Severity `json:"severity"`
 	Message  string   `json:"message"`
-	// FixHint is a one-line suggestion shown to the user (e.g.
-	// "run `oracle sync`").
+	// FixHint is a one-line suggestion shown to the user (e.g. "run `oracle sync`").
 	FixHint string `json:"fix_hint,omitempty"`
-	// Diff is an optional unified-diff body for drift findings. Only
-	// populated when Env.IncludeDiffs is true.
+	// Diff is an optional unified-diff body for drift findings. Only populated when
+	// Env.IncludeDiffs is true.
 	Diff string `json:"diff,omitempty"`
 }
 
@@ -149,23 +146,23 @@ type Report struct {
 	Elapsed     time.Duration `json:"elapsed_ns"`
 }
 
-// FailureCodes is the per-gate exit-code contract. CI consumers can branch
-// on these to attribute failures. Codes are stable; never re-number.
+// FailureCodes is the per-gate exit-code contract. CI consumers can branch on these to
+// attribute failures. Codes are stable; never re-number.
 //
-// The values intentionally start at 10 to leave 1 for "internal error" and
-// 2 for cobra's usage-error default. 13 is reserved for a future orphan
-// gate; do not reuse.
+// The values intentionally start at 10 to leave 1 for "internal error" and 2 for
+// cobra's usage-error default.
 var FailureCodes = map[string]int{
-	"format":    10,
-	"analyze":   11,
-	"generated": 12,
-	"cache":     14,
-	"versions":  15,
+	"format":      10,
+	"analyze":     11,
+	"generated":   12,
+	"persistence": 13,
+	"cache":       14,
+	"versions":    15,
 }
 
-// FirstExitCode returns the exit code for the first failed gate, in the
-// order Run executed them, or 0 when every gate passed. The driver uses
-// this when no other failure (e.g. internal error) takes precedence.
+// FirstExitCode returns the exit code for the first failed gate, in the order Run
+// executed them, or 0 when every gate passed. The driver uses this when no other
+// failure (e.g. internal error) takes precedence.
 func (r *Report) FirstExitCode() int {
 	for _, g := range r.Gates {
 		if g.Status != StatusFail {
@@ -179,14 +176,13 @@ func (r *Report) FirstExitCode() int {
 	return 0
 }
 
-// Run executes every Checker in checkers against the pipeline result and
-// aggregates their reports. Skipped gates (excluded by `gates` filter, if
-// non-empty) record StatusSkipped so JSON consumers see the full set
-// regardless of which subset ran.
+// Run executes every Checker in checkers against the pipeline result and aggregates
+// their reports. Skipped gates (excluded by `gates` filter, if non-empty) record
+// StatusSkipped so JSON consumers see the full set regardless of which subset ran.
 //
-// The order in checkers is preserved in the output so callers can rely on
-// "format runs before analyze runs before generated" without the gate
-// definitions having to know about each other.
+// The order in checkers is preserved in the output so callers can rely on "format runs
+// before analyze runs before generated" without the gate definitions having to know
+// about each other.
 func Run(
 	ctx context.Context,
 	p *pipeline.Result,

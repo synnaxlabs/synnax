@@ -98,16 +98,6 @@ func Survey(
 	return entries, members, nil
 }
 
-// EntryPaths maps every chain-covered versioned @go output path to its
-// chain's current version. These packages emit their current version into
-// versions/vN.
-func EntryPaths(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
-) (map[string]int, error) {
-	entries, _, err := Survey(ctx, table, res)
-	return entries, err
-}
-
 // RewriteCurrent returns a table with every version-laid-out package's @go output
 // rewritten to its current versions/vN sub-path, plus the applied path map keyed
 // by original path and the current-surface member set.
@@ -139,9 +129,8 @@ func RewriteOutputPaths(
 	members set.Set[string],
 ) *resolution.Table {
 	clone := &resolution.Table{
-		Imports:    table.Imports,
-		Namespaces: table.Namespaces,
-		Types:      make([]resolution.Type, 0, len(table.Types)),
+		Imports: table.Imports,
+		Types:   make([]resolution.Type, 0, len(table.Types)),
 	}
 	for _, typ := range table.Types {
 		goPath := output.GetPath(typ, "go")

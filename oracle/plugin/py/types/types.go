@@ -40,16 +40,10 @@ var primitiveMapper = pyprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
-type Options struct {
-	OutputPath      string
-	FileNamePattern string
-}
+type Options struct{ FileNamePattern string }
 
 func DefaultOptions() Options {
-	return Options{
-		OutputPath:      "{{.Namespace}}",
-		FileNamePattern: "types_gen.py",
-	}
+	return Options{FileNamePattern: "types_gen.py"}
 }
 
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }

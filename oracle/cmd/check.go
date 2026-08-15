@@ -44,6 +44,8 @@ Gates:
   analyze      schemas pass semantic analysis (errors and warnings surfaced)
   generated    on-disk generated files match what 'oracle sync' would produce
   cache        sync cache is internally consistent
+  persistence  persisted shapes only reference persisted types
+  versions     version files, live projections, and pins are consistent
 
 Exit codes:
   0   all gates passed
@@ -51,7 +53,9 @@ Exit codes:
   10  format drift
   11  analyzer errors
   12  generated drift
+  13  persistence violations
   14  cache incoherence
+  15  versions drift
 
 Examples:
   oracle check
@@ -217,7 +221,6 @@ type exitCodeError struct {
 }
 
 func (e *exitCodeError) Error() string { return e.msg }
-func (e *exitCodeError) ExitCode() int { return e.code }
 
 // gateSet is a small helper for "is this gate name in the enabled subset?". Empty set
 // means "all gates" (no --gates filter passed).

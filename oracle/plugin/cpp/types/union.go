@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -55,15 +56,15 @@ func (p *Plugin) processUnion(
 ) ([]structData, unionData) {
 	form := entry.Form.(resolution.UnionForm)
 	name := domain.GetName(entry, "cpp")
-	data.includes.addSystem("variant")
-	data.includes.addSystem("string")
+	data.AddSystem("variant")
+	data.AddSystem("string")
 
-	discField := keywords.Escape(toSnakeCase(form.Discriminator))
+	discField := keywords.Escape(casing.FieldSnake(form.Discriminator))
 	ud := unionData{
 		Name:      name,
-		SnakeName: toSnakeCase(name),
+		SnakeName: casing.FieldSnake(name),
 		Doc:       doc.Get(entry.Domains),
-		DiscJSON:  toSnakeCase(form.Discriminator),
+		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
 
 	variants := make([]structData, 0, len(form.Variants))
@@ -106,7 +107,7 @@ func (p *Plugin) processUnion(
 			}
 		}
 		sd.HasExtends = len(sd.ExtendsTypes) > 0
-		data.includes.addInternal("x/cpp/json/json.h")
+		data.AddInternal("x/cpp/json/json.h")
 		variants = append(variants, sd)
 		ud.Variants = append(ud.Variants, unionVariantData{
 			TypeName: variantName,

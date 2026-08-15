@@ -290,7 +290,7 @@ func (p *Plugin) generateFile(
 		EnumTranslators:       make([]enumTranslatorData, 0),
 		AnyHelpers:            make([]anyHelperData, 0),
 		DelegationTranslators: make([]delegationTranslatorData, 0),
-		imports:               imports.NewManager(),
+		Manager:               imports.NewManager(),
 		repoRoot:              req.RepoRoot,
 		table:                 req.Resolutions,
 		usedEnums:             make(map[string]*resolution.Type),
@@ -302,7 +302,7 @@ func (p *Plugin) generateFile(
 		return nil, errors.Wrap(err, "failed to resolve parent package import")
 	}
 	parentAlias := naming.DerivePackageName(parentGoPath)
-	data.imports.AddInternal(parentAlias, parentImportPath)
+	data.AddInternal(parentAlias, parentImportPath)
 	data.parentAlias = parentAlias
 
 	for _, s := range structs {
@@ -393,7 +393,7 @@ func (p *Plugin) generateFile(
 		}
 	}
 	if len(data.UnionTranslators) > 0 {
-		data.imports.AddExternal("github.com/synnaxlabs/x/errors")
+		data.AddExternal("github.com/synnaxlabs/x/errors")
 	}
 
 	for i := range enums {
@@ -421,7 +421,7 @@ func (p *Plugin) generateFile(
 	}
 
 	if len(data.EnumTranslators) > 0 {
-		data.imports.AddExternal("github.com/synnaxlabs/x/errors")
+		data.AddExternal("github.com/synnaxlabs/x/errors")
 	}
 
 	for _, td := range typeDefs {
@@ -608,7 +608,7 @@ func (p *Plugin) resolveUnionTranslatorName(
 	if u.Namespace != data.Namespace || (pbPath != "" && pbPath != data.OutputPath) {
 		if importPath, err := resolveGoImportPath(pbPath, data.repoRoot); err == nil {
 			alias := strings.ToLower(u.Namespace) + "pb"
-			data.imports.AddInternal(alias, importPath)
+			data.AddInternal(alias, importPath)
 			prefix = alias + "."
 		}
 	}
@@ -767,11 +767,11 @@ func (p *Plugin) buildMapValueConversion(
 	if resolution.IsPrimitive(valArg.Name) {
 		switch valArg.Name {
 		case "record":
-			data.imports.AddInternal(
+			data.AddInternal(
 				"msgpack",
 				"github.com/synnaxlabs/x/encoding/msgpack",
 			)
-			data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+			data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 			return &mapValueConversionData{
 				GoMapType:         fmt.Sprintf("map[%s]msgpack.EncodedJSON", keyType),
 				PBMapType:         fmt.Sprintf("map[%s]*structpb.Struct", keyType),
@@ -868,7 +868,7 @@ func (p *Plugin) processGenericStructForTranslation(
 	// generics survive default-substitution; for fully-defaulted generics the
 	// emitted translator is concrete and the import would be unused.
 	if len(typeParamNames) > 0 {
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
+		data.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	}
 
 	goTypeBase := fmt.Sprintf("%s.%s", data.parentAlias, goName)
@@ -884,7 +884,6 @@ func (p *Plugin) processGenericStructForTranslation(
 	translator := &genericTranslatorData{
 		Name:            pbName,
 		GoType:          goTypeWithParams,
-		GoTypeBase:      goTypeBase,
 		PBType:          pbName,
 		GoTypeShort:     goName,
 		PBTypeShort:     pbName,
@@ -1072,17 +1071,17 @@ func (p *Plugin) processDelegationTranslator(
 		return nil, err
 	}
 	underlyingGoAlias := naming.DerivePackageAlias(underlyingGoPath, data.parentAlias)
-	data.imports.AddInternal(underlyingGoAlias, underlyingGoImportPath)
+	data.AddInternal(underlyingGoAlias, underlyingGoImportPath)
 
 	underlyingPBImportPath, err := resolveGoImportPath(underlyingPBPath, data.repoRoot)
 	if err != nil {
 		return nil, err
 	}
 	underlyingPBAlias := underlyingGoAlias + "_pb"
-	data.imports.AddInternal(underlyingPBAlias, underlyingPBImportPath)
+	data.AddInternal(underlyingPBAlias, underlyingPBImportPath)
 
 	if len(typeParams) > 0 {
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
+		data.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	}
 
 	underlyingGoType := fmt.Sprintf("%s.%s", underlyingGoAlias, underlyingGoName)
@@ -1288,7 +1287,7 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	}
 
 	alias := naming.DerivePackageName(goOutput)
-	data.imports.AddInternal(alias, importPath)
+	data.AddInternal(alias, importPath)
 
 	forward = fmt.Sprintf("%s.Bytes()", goField)
 	backward = fmt.Sprintf("%s.FromBytes(%s)", alias, pbField)
@@ -1329,7 +1328,7 @@ func (p *Plugin) generateFieldConversion(
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
 				keyPkgAlias = naming.DerivePackageName(goOutput)
-				data.imports.AddInternal(keyPkgAlias, importPath)
+				data.AddInternal(keyPkgAlias, importPath)
 			}
 		}
 		return fmt.Sprintf("%s(%s)", protoType, goFieldName),
@@ -1465,39 +1464,39 @@ func (p *Plugin) generatePrimitiveConversion(
 ) (forward, backward string, hasError, hasBackwardError bool) {
 	switch primitive {
 	case "uuid":
-		data.imports.AddExternal("github.com/google/uuid")
+		data.AddExternal("github.com/google/uuid")
 		return fmt.Sprintf("%s.String()", goField),
 			fmt.Sprintf("uuid.Parse(%s)", pbField), false, true
 	case "timestamp":
-		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
 			fmt.Sprintf("telem.TimeStamp(%s)", pbField), false, false
 	case "timespan":
-		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
 			fmt.Sprintf("telem.TimeSpan(%s)", pbField), false, false
 	case "time_range", "time_range_bounded":
-		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("telem.TranslateTimeRangeForward(%s)", goField),
 			fmt.Sprintf("telem.TranslateTimeRangeBackward(%s)", pbField), false, false
 	case "record":
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+		data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
 			fmt.Sprintf("%s.AsMap()", pbField), true, false
 	case "uint12":
-		data.imports.AddExternal("github.com/synnaxlabs/x/types")
+		data.AddExternal("github.com/synnaxlabs/x/types")
 		return fmt.Sprintf("uint32(%s)", goField),
 			fmt.Sprintf("types.Uint12(%s)", pbField), false, false
 	case "uint20":
-		data.imports.AddExternal("github.com/synnaxlabs/x/types")
+		data.AddExternal("github.com/synnaxlabs/x/types")
 		return fmt.Sprintf("uint32(%s)", goField),
 			fmt.Sprintf("types.Uint20(%s)", pbField), false, false
 	case "data_type":
-		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("string(%s)", goField),
 			fmt.Sprintf("telem.DataType(%s)", pbField), false, false
 	case "any":
-		data.imports.AddExternal("encoding/json")
+		data.AddExternal("encoding/json")
 		return fmt.Sprintf("json.Marshal(%s)", goField),
 			fmt.Sprintf(
 				"func() any { var v any; _ = json.Unmarshal(%s, &v); return v }()",
@@ -1677,7 +1676,7 @@ func (p *Plugin) generateGenericStructConversion(
 		forwardConverters = append(forwardConverters, "nil")
 		backwardConverters = append(backwardConverters, "nil")
 		if typeArg.Name == "nil" {
-			data.imports.AddInternal("gotypes", "go/types")
+			data.AddInternal("gotypes", "go/types")
 			explicitTypeArgs = append(explicitTypeArgs, "gotypes.Nil")
 		} else {
 			explicitTypeArgs = append(explicitTypeArgs, "any")
@@ -1726,11 +1725,11 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	}
 	data.generatedAnyHelpers.Add(key)
 
-	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
-	data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
-	data.imports.AddExternal("google.golang.org/protobuf/encoding/protojson")
-	data.imports.AddExternal("google.golang.org/protobuf/proto")
-	data.imports.AddExternal("encoding/json")
+	data.AddExternal("google.golang.org/protobuf/types/known/anypb")
+	data.AddExternal("google.golang.org/protobuf/types/known/structpb")
+	data.AddExternal("google.golang.org/protobuf/encoding/protojson")
+	data.AddExternal("google.golang.org/protobuf/proto")
+	data.AddExternal("encoding/json")
 
 	goName := naming.GetGoName(s)
 
@@ -1766,7 +1765,7 @@ func (p *Plugin) generateEnumConversion(
 			importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 			if err == nil {
 				alias := strings.ToLower(resolved.Namespace) + "pb"
-				data.imports.AddInternal(alias, importPath)
+				data.AddInternal(alias, importPath)
 				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
 					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, backwardArg)
 			}
@@ -1800,7 +1799,7 @@ func (p *Plugin) generateTypeDefConversion(
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
 				alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-				data.imports.AddInternal(alias, importPath)
+				data.AddInternal(alias, importPath)
 				typedefPrefix = alias + "."
 			}
 		}
@@ -1811,7 +1810,7 @@ func (p *Plugin) generateTypeDefConversion(
 	resolvedGoName := naming.GetGoName(resolved)
 
 	if baseType.Name == "uuid" {
-		data.imports.AddExternal("github.com/google/uuid")
+		data.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
 		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolvedGoName)
@@ -1842,7 +1841,7 @@ func (p *Plugin) generateAliasConversion(
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
 				alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-				data.imports.AddInternal(alias, importPath)
+				data.AddInternal(alias, importPath)
 				aliasPrefix = alias + "."
 			}
 		}
@@ -1854,7 +1853,7 @@ func (p *Plugin) generateAliasConversion(
 
 	// Handle uuid specially
 	if primitiveName == "uuid" {
-		data.imports.AddExternal("github.com/google/uuid")
+		data.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
 		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolvedGoName)
@@ -1886,8 +1885,8 @@ func (p *Plugin) generateArrayConversion(
 
 	if elemType.Name == "record" {
 		data.NeedsRecordArrayHelpers = true
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
-		data.imports.AddExternal("github.com/synnaxlabs/x/encoding/msgpack")
+		data.AddExternal("google.golang.org/protobuf/types/known/structpb")
+		data.AddExternal("github.com/synnaxlabs/x/encoding/msgpack")
 		return fmt.Sprintf("recordsToPB(%s)", goField),
 			fmt.Sprintf("recordsFromPB(%s)", pbField),
 			true, false
@@ -1953,8 +1952,8 @@ func (p *Plugin) generateArrayConversion(
 	if resolution.IsPrimitive(elemType.Name) {
 		switch elemType.Name {
 		case "uuid":
-			data.imports.AddExternal("github.com/google/uuid")
-			data.imports.AddExternal("github.com/samber/lo")
+			data.AddExternal("github.com/google/uuid")
+			data.AddExternal("github.com/samber/lo")
 			// Forward conversion uses lo.Map (no error possible)
 			// Backward conversion uses IIFE with proper error handling
 			backward = fmt.Sprintf(`func() ([]uuid.UUID, error) {
@@ -1983,7 +1982,7 @@ func (p *Plugin) generateArrayConversion(
 		if distinctForm, isDistinct := elemResolved.Form.(resolution.DistinctForm); isDistinct {
 			if resolution.IsPrimitive(distinctForm.Base.Name) &&
 				distinctForm.Base.Name != "uuid" {
-				data.imports.AddExternal("github.com/samber/lo")
+				data.AddExternal("github.com/samber/lo")
 				elemGoType, ok := p.qualifiedDistinctGoName(elemResolved, data)
 				if ok {
 					protoType := primitiveToProtoType(distinctForm.Base.Name)
@@ -2029,7 +2028,7 @@ func (p *Plugin) qualifiedDistinctGoName(
 			return "", false
 		}
 		alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-		data.imports.AddInternal(alias, importPath)
+		data.AddInternal(alias, importPath)
 		prefix = alias + "."
 	} else {
 		prefix = data.parentAlias + "."
@@ -2060,7 +2059,7 @@ func (p *Plugin) generateNestedArrayConversion(
 		return f, b, true
 	}
 
-	data.imports.AddExternal("github.com/samber/lo")
+	data.AddExternal("github.com/samber/lo")
 	forward = fmt.Sprintf(
 		"lo.Map(%s, func(inner []string, _ int) *%s { return &%s{Values: inner} })",
 		goField,
@@ -2258,7 +2257,7 @@ func (p *Plugin) resolvePBTranslatorInfo(
 		importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 		if err == nil {
 			alias := strings.ToLower(pbStruct.Namespace) + "pb"
-			data.imports.AddInternal(alias, importPath)
+			data.AddInternal(alias, importPath)
 			translatorPrefix = alias + "."
 		}
 	}
@@ -2367,14 +2366,14 @@ func (p *Plugin) resolveGoTypeLiteral(
 		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
 	}
 	alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-	data.imports.AddInternal(alias, importPath)
+	data.AddInternal(alias, importPath)
 	return fmt.Sprintf("%s.%s", alias, goName)
 }
 
 type templateData struct {
-	usedEnums             map[string]*resolution.Type
-	table                 *resolution.Table
-	imports               *imports.Manager
+	usedEnums map[string]*resolution.Type
+	table     *resolution.Table
+	*imports.Manager
 	generatedAnyHelpers   set.Set[string]
 	ParentGoPath          string
 	Package               string
@@ -2391,17 +2390,6 @@ type templateData struct {
 	// NeedsRecordArrayHelpers reports whether any field converts a []record,
 	// requiring the shared recordsToPB/recordsFromPB helpers.
 	NeedsRecordArrayHelpers bool
-}
-
-// HasImports returns true if any imports are needed.
-func (d *templateData) HasImports() bool { return d.imports.HasImports() }
-
-// ExternalImports returns sorted external imports.
-func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
-
-// InternalImports returns sorted internal imports.
-func (d *templateData) InternalImports() []imports.InternalImportData {
-	return d.imports.InternalImports()
 }
 
 // translatorData holds data for a single type's translators.
@@ -2489,9 +2477,7 @@ type enumValueTranslatorData struct {
 type genericTranslatorData struct {
 	Name string
 	// GoType is the full generic type with parameters (e.g., "status.Status[D]").
-	GoType string
-	// GoTypeBase is the type without parameters (e.g., "status.Status").
-	GoTypeBase  string
+	GoType      string
 	PBType      string
 	GoTypeShort string
 	PBTypeShort string

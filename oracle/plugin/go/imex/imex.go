@@ -41,10 +41,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// goModulePrefix resolves repo-relative output paths to Go import paths when no go.mod
-// is discoverable, mirroring the go/types plugin.
-const goModulePrefix = "github.com/synnaxlabs/synnax/"
-
 // Options configures the imex plugin output.
 type Options struct {
 	// FileNamePattern is the basename written for each output package.
@@ -188,7 +184,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		for _, k := range exported {
 			data.Imports = append(data.Imports, gomod.ResolveImportPath(
-				versioning.VersionedPath(outputPath, k), req.RepoRoot, goModulePrefix,
+				versioning.VersionedPath(
+					outputPath,
+					k,
+				),
+				req.RepoRoot,
+				gomod.DefaultModulePrefix,
 			))
 		}
 		var buf bytes.Buffer
@@ -206,7 +207,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Package: naming.DerivePackageName(outputPath),
 			Type:    goName,
 			Versions: gomod.ResolveImportPath(
-				outputPath+"/versions", req.RepoRoot, goModulePrefix,
+				outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
 			),
 			Runtime:  p.options.RuntimeImportPath,
 			Ontology: p.options.OntologyImportPath,

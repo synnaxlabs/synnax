@@ -107,7 +107,7 @@ func (p *Plugin) generateFile(
 	data := templateData{
 		Package:    pkg,
 		TargetType: naming.GetGoName(typ),
-		imports:    mgr,
+		Manager:    mgr,
 	}
 
 	for _, action := range form.Actions {
@@ -160,13 +160,7 @@ type templateData struct {
 	Package    string
 	TargetType string
 	Actions    []actionData
-	imports    *imports.Manager
-}
-
-func (d *templateData) HasImports() bool          { return d.imports.HasImports() }
-func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
-func (d *templateData) InternalImports() []imports.InternalImportData {
-	return d.imports.InternalImports()
+	*imports.Manager
 }
 
 type actionData struct {

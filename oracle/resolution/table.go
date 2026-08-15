@@ -18,16 +18,14 @@ import (
 )
 
 type Table struct {
-	Imports    set.Set[string]
-	Namespaces set.Set[string]
-	Types      []Type
+	Imports set.Set[string]
+	Types   []Type
 }
 
 func NewTable() *Table {
 	t := &Table{
-		Types:      make([]Type, 0),
-		Imports:    make(set.Set[string]),
-		Namespaces: make(set.Set[string]),
+		Types:   make([]Type, 0),
+		Imports: make(set.Set[string]),
 	}
 	t.registerBuiltins()
 	return t

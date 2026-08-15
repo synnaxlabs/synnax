@@ -62,7 +62,3 @@ func (l *StandardFileLoader) Versioned(importPath string) bool {
 	info, err := os.Stat(paths.Resolve(dir, l.repoRoot))
 	return err == nil && info.IsDir()
 }
-
-// DeriveNamespace extracts namespace from path: "schema/label.oracle" -> "label" This
-// is a convenience wrapper around paths.DeriveNamespace.
-func DeriveNamespace(path string) string { return paths.DeriveNamespace(path) }

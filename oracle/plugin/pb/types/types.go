@@ -262,7 +262,6 @@ func (p *Plugin) generateFile(
 		Enums:      make([]enumData, 0, len(enums)),
 		imports:    newImportManager(),
 		table:      table,
-		repoRoot:   repoRoot,
 	}
 
 	for _, e := range enums {
@@ -957,7 +956,6 @@ type templateData struct {
 	GoPackage       string
 	OutputPath      string
 	Namespace       string
-	repoRoot        string
 	Messages        []messageData
 	Enums           []enumData
 }

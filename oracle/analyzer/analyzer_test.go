@@ -1081,19 +1081,6 @@ Entry struct {
 		})
 	})
 
-	Describe("DeriveNamespace", func() {
-		It("Should extract namespace from file path", func() {
-			Expect(
-				analyzer.DeriveNamespace("schema/core/label.oracle"),
-			).To(Equal("label"))
-			Expect(analyzer.DeriveNamespace("schema/core/label")).To(Equal("label"))
-			Expect(
-				analyzer.DeriveNamespace("/path/to/channel.oracle"),
-			).To(Equal("channel"))
-			Expect(analyzer.DeriveNamespace("ranger")).To(Equal("ranger"))
-		})
-	})
-
 	Describe("File-level Domain Merging", func() {
 		It(
 			"Should merge multiple file-level domains with the same name",

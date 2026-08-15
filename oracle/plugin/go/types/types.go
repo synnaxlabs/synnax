@@ -40,8 +40,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-const goModulePrefix = "github.com/synnaxlabs/synnax/"
-
 // fieldDocIndent is the display width of the single tab indenting field-level doc
 // comments (tabs render at four columns per .editorconfig).
 const fieldDocIndent = 4
@@ -509,7 +507,7 @@ func renderGoFile(
 		Package:        pkg,
 		OutputPath:     outputPath,
 		Namespace:      namespace,
-		imports:        imports,
+		Manager:        imports,
 		table:          table,
 		repoRoot:       repoRoot,
 		resolver:       r,
@@ -578,7 +576,7 @@ func renderGoFile(
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) string {
-	return gomod.ResolveImportPath(outputPath, repoRoot, goModulePrefix)
+	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix)
 }
 
 type declKind int
@@ -800,10 +798,10 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	}
 	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 ||
 		len(sd.ValidateRecurse) > 0 {
-		data.imports.AddExternal(validateImportPath)
+		data.AddExternal(validateImportPath)
 	}
 	if hasSliceRecurse(sd.ValidateRecurse) {
-		data.imports.AddExternal(strconvImportPath)
+		data.AddExternal(strconvImportPath)
 	}
 	if len(sd.Name) > 0 {
 		sd.Receiver = receiverName(sd.Name)
@@ -812,7 +810,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
 
 	for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
-		data.imports.AddExternal(imp)
+		data.AddExternal(imp)
 	}
 
 	return sd
@@ -948,7 +946,7 @@ func resolveExtendsType(
 		return name
 	}
 	alias := data.importAlias(targetOutputPath)
-	data.imports.AddInternal(
+	data.AddInternal(
 		alias,
 		resolveGoImportPath(targetOutputPath, data.repoRoot),
 	)
@@ -972,7 +970,7 @@ func pathHasMarshalRoot(structs []resolution.Type) bool {
 }
 
 type templateData struct {
-	imports  *imports.Manager
+	*imports.Manager
 	table    *resolution.Table
 	resolver *resolver.Resolver
 	ctx      *resolver.Context
@@ -1008,25 +1006,6 @@ type declData struct {
 	// Alias re-exports a type from the predecessor version package instead of
 	// defining it.
 	Alias *aliasDecl
-}
-
-// HasImports returns true if any imports are needed.
-func (d *templateData) HasImports() bool { return d.imports.HasImports() }
-
-// ExternalImports returns sorted external imports.
-func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
-
-// StdImports returns sorted standard-library imports.
-func (d *templateData) StdImports() []string { return d.imports.StdImports() }
-
-// NonStdImports returns every non-standard-library import sorted by path.
-func (d *templateData) NonStdImports() []imports.InternalImportData {
-	return d.imports.NonStdImports()
-}
-
-// InternalImports returns sorted internal imports.
-func (d *templateData) InternalImports() []imports.InternalImportData {
-	return d.imports.InternalImports()
 }
 
 type structData struct {
@@ -1560,54 +1539,3 @@ func (u {{.Name}}) Validate() error {
 {{- end}}
 `),
 )
-
-// WalkTypeRefs visits every type t directly references: all struct fields (omitted
-// included), extends, type parameters, alias targets, distinct bases, and union
-// variants.
-func WalkTypeRefs(
-	t resolution.Type,
-	table *resolution.Table,
-	visit func(resolution.Type),
-) {
-	var walkRef func(ref resolution.TypeRef)
-	walkRef = func(ref resolution.TypeRef) {
-		for _, arg := range ref.TypeArgs {
-			walkRef(arg)
-		}
-		if resolved, ok := ref.Resolve(table); ok {
-			visit(resolved)
-		}
-	}
-	switch form := t.Form.(type) {
-	case resolution.StructForm:
-		for _, ext := range form.Extends {
-			walkRef(ext)
-		}
-		for _, tp := range form.TypeParams {
-			if tp.Constraint != nil {
-				walkRef(*tp.Constraint)
-			}
-			if tp.Default != nil {
-				walkRef(*tp.Default)
-			}
-		}
-		for _, f := range resolution.UnifiedFields(t, table) {
-			walkRef(f.Type)
-		}
-	case resolution.EnumForm:
-		for _, ext := range form.Extends {
-			walkRef(ext)
-		}
-	case resolution.AliasForm:
-		walkRef(form.Target)
-	case resolution.DistinctForm:
-		walkRef(form.Base)
-	case resolution.UnionForm:
-		for _, ext := range form.Extends {
-			walkRef(ext)
-		}
-		for _, v := range form.Variants {
-			walkRef(v.Type)
-		}
-	}
-}

@@ -407,7 +407,7 @@ func (r *Resolver) followAlias(
 		if err != nil {
 			return 0, resolution.Type{}, err
 		}
-		if def, ok := findDefined(target, cur.Name); ok {
+		if def, ok := DefinedType(target, cur.Name); ok {
 			return cur.Version, def, nil
 		}
 		next, ok := target.Aliases[cur.Name]
@@ -427,7 +427,9 @@ func (r *Resolver) followAlias(
 	}
 }
 
-func findDefined(f *File, name string) (resolution.Type, bool) {
+// DefinedType returns f's full declaration for name, when the file redeclares it
+// rather than aliasing.
+func DefinedType(f *File, name string) (resolution.Type, bool) {
 	for _, t := range f.Defined {
 		if t.Name == name {
 			return t, true

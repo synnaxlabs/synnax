@@ -156,31 +156,6 @@ func ValidateOutput(path, repoRoot string) error {
 	return nil
 }
 
-// RelativeImport calculates the relative import path from one repo-relative path to
-// another. Both paths should be repo-relative directory paths (not file paths). Returns
-// a path suitable for use in import statements (e.g., "./sibling" or
-// "../parent/other").
-func RelativeImport(from, to string) (string, error) {
-	if from == to {
-		return ".", nil
-	}
-
-	rel, err := filepath.Rel(from, to)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to compute relative import")
-	}
-
-	// Ensure forward slashes for import paths
-	rel = filepath.ToSlash(rel)
-
-	// If it doesn't start with . or .., prefix with ./
-	if !strings.HasPrefix(rel, ".") {
-		rel = "./" + rel
-	}
-
-	return rel, nil
-}
-
 // EnsureOracleExtension adds the .oracle extension if not present.
 func EnsureOracleExtension(path string) string {
 	if !strings.HasSuffix(path, ".oracle") {
@@ -189,10 +164,10 @@ func EnsureOracleExtension(path string) string {
 	return path
 }
 
-// DeriveNamespace extracts the namespace from a file path.
-// For "schema/core/label.oracle" returns "label". A version file's namespace
-// is its resource: "schemas/x/versions/telem/v0.oracle" derives "telem" — the
-// file name carries the version, the directory carries the qualifier.
+// DeriveNamespace extracts the namespace from a file path. For
+// "schema/core/label.oracle" returns "label". A version file's namespace is its
+// resource: "schemas/x/versions/telem/v0.oracle" derives "telem" — the file name
+// carries the version, the directory carries the qualifier.
 func DeriveNamespace(path string) string {
 	if resource, _, ok := VersionFile(path); ok {
 		return resource
