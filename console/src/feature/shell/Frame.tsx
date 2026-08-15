@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/shell/Shell.css";
+import "@/feature/shell/Shell.css";
 
 import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode } from "react";
 
+import { Nav } from "@/feature/shell/Nav";
 import { CSS } from "@/platform/css";
-import { type ConnectionCluster } from "@/platform/shell/Connection";
-import { Nav } from "@/platform/shell/Nav";
-import { Nebula } from "@/platform/shell/Nebula";
+import { Shell } from "@/platform/shell";
 
 export interface FrameProps {
   className?: string;
   /** Target Core shown in the connection island; omit to hide it. */
-  connection?: ConnectionCluster | null;
+  connection?: Shell.ConnectionCluster | null;
   children: ReactNode;
 }
 
@@ -45,7 +44,7 @@ export const Frame = ({
       data-tauri-drag-region
       className={CSS.BE("shell", "content")}
     >
-      <Nebula />
+      <Shell.Nebula />
       <Flex.Box className={CSS.BE("shell", "stage")} grow={false}>
         <Flex.Box
           y

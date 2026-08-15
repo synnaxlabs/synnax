@@ -10,15 +10,13 @@
 import { Flex, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/platform/css";
-import { Connection, type ConnectionCluster } from "@/platform/shell/Connection";
-import { Island } from "@/platform/shell/Island";
+import { Shell } from "@/platform/shell";
 import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 import { Session } from "@/session";
 
 export interface NavProps {
-  connection?: ConnectionCluster | null;
+  connection?: Shell.ConnectionCluster | null;
 }
 
 /**
@@ -30,27 +28,27 @@ export const Nav = ({ connection }: NavProps): ReactElement => {
   const os = OS.use();
   const chrome = Session.Runtime.ENGINE === "tauri" && Session.Runtime.isMainWindow();
   return (
-    <Flex.Box x justify="between" align="start" className={CSS.BE("shell", "islands")}>
+    <Shell.Islands>
       <Flex.Box x align="center" gap="medium">
         {chrome && os === "macOS" && (
-          <Island>
+          <Shell.Island>
             <Window.Controls visibleIfOS="macOS" forceOS={os} />
-          </Island>
+          </Shell.Island>
         )}
         {chrome && (
-          <Island data-tauri-drag-region>
+          <Shell.Island data-tauri-drag-region>
             <Version.Badge />
-          </Island>
+          </Shell.Island>
         )}
       </Flex.Box>
       <Flex.Box x align="center" gap="medium">
-        <Connection cluster={connection} />
+        <Shell.Connection cluster={connection} />
         {chrome && os === "Windows" && (
-          <Island>
+          <Shell.Island>
             <Window.Controls visibleIfOS="Windows" forceOS={os} />
-          </Island>
+          </Shell.Island>
         )}
       </Flex.Box>
-    </Flex.Box>
+    </Shell.Islands>
   );
 };
