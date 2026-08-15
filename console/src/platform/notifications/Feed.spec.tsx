@@ -11,10 +11,10 @@ import { type status } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Notifications } from "@/platform/notifications";
-import { renderWithConsole } from "@/testutil";
+import { installPortalRoot, renderWithConsole } from "@/testutil";
 
 const Harness = ({
   crude,
@@ -49,12 +49,7 @@ Content.match = (status) => status.key === "special";
 const Suppressed = Notifications.createSuppressed((status) => status.key === "hidden");
 
 describe("Notifications", () => {
-  beforeEach(() => {
-    const root = document.createElement("div");
-    root.id = "root";
-    document.body.appendChild(root);
-  });
-  afterEach(() => document.getElementById("root")?.remove());
+  installPortalRoot();
 
   it("renders the default notification for an unmatched status", async () => {
     await addStatus({ key: "n1", variant: "info", message: "Hello there" });
