@@ -207,6 +207,18 @@ def run_and_expect_rejection(
     return None
 
 
+def assert_configure_rejected(client: sy.Synnax, task: sy.Task, label: str) -> str:
+    """Save a task and assert the client rejects it before it reaches the
+    driver. Configure resolves the task's device to update its properties, so a
+    dangling device reference fails here. Returns the rejection message."""
+    try:
+        client.tasks.configure(task)
+    except sy.NotFoundError as e:
+        return str(e)
+    cleanup_task(client, task)
+    raise AssertionError(f"Configure did not reject {label}")
+
+
 def assert_start_rejected(
     client: sy.Synnax,
     task: sy.Task,
@@ -505,7 +517,7 @@ class ReadTaskCase(TaskCase):
         """Disable data saving and verify no samples are persisted."""
         assert self.tsk is not None
         self.log("Testing: Disable data saving")
-        self.tsk.config.data_saving = False
+        self.tsk.config.data_saving_disabled = True
         self.client.tasks.configure(self.tsk)
         self.assert_no_samples_persisted(task=self.tsk, duration=self.TASK_DURATION)
 
@@ -513,7 +525,7 @@ class ReadTaskCase(TaskCase):
         """Re-enable data saving and verify samples are persisted again."""
         assert self.tsk is not None
         self.log("Testing: Enable data saving")
-        self.tsk.config.data_saving = True
+        self.tsk.config.data_saving_disabled = False
         self.client.tasks.configure(self.tsk)
         self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 

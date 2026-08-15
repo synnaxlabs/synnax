@@ -18,6 +18,7 @@ from examples.modbus import ModbusSim
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
+    assert_configure_rejected,
     assert_start_rejected,
     cleanup_task,
     create_channel,
@@ -31,7 +32,7 @@ class ModbusInvalidConfig(SimulatorCase):
 
     Tests (run sequentially):
         1. Nonexistent device — device key that doesn't exist.
-        2. Zero stream rate — stream rate of zero.
+        2. Zero stream rate — heals to the schema default.
         3. Invalid rates — sample rate less than stream rate.
         4. Nonexistent channel key — Synnax channel that doesn't exist.
         5. Invalid address — register address the device doesn't serve.
@@ -61,7 +62,6 @@ class ModbusInvalidConfig(SimulatorCase):
             device="nonexistent_device_key_12345",
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
@@ -75,18 +75,22 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "nonexistent device")
+        message = assert_configure_rejected(self.client, task, "nonexistent device")
+        self.log(f"  Correctly rejected (nonexistent device): {message}")
 
     def test_zero_stream_rate(self) -> None:
-        """Configure a read task with stream rate of zero."""
-        self.log("Testing: Zero stream rate")
+        """Configure a read task with a stream rate of zero.
+
+        A zero rate means unset, so the core heals it to the schema default
+        instead of rejecting the task.
+        """
+        self.log("Testing: Zero stream rate heals to the schema default")
         idx = create_index(self.client, "modbus_inv_rate0_idx")
         task = sy.modbus.ReadTask(
             name="Modbus Zero Stream Rate Test",
             device=self.device.key,
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=0,
-            data_saving=True,
             channels=[
                 sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
@@ -100,7 +104,14 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "zero stream rate")
+        self.client.tasks.configure(task)
+        try:
+            stored = self.client.tasks.retrieve(keys=[task.key])[0]
+            rate = stored.config.get("stream_rate", stored.config.get("streamRate"))
+            assert rate == 5, f"stream rate should heal to the default 5, got {rate}"
+            self.log(f"  Healed to default stream rate: {rate}")
+        finally:
+            cleanup_task(self.client, task)
 
     def test_invalid_rates(self) -> None:
         """Construct a read task with sample rate less than stream rate.
@@ -116,7 +127,6 @@ class ModbusInvalidConfig(SimulatorCase):
                 device=self.device.key,
                 sample_rate=10 * sy.Rate.HZ,
                 stream_rate=100 * sy.Rate.HZ,
-                data_saving=True,
                 channels=[
                     sy.modbus.InputRegisterReadChannel(
                         channel=create_channel(
@@ -146,7 +156,6 @@ class ModbusInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.modbus.InputRegisterReadChannel(
                     channel=999999999,
@@ -166,7 +175,6 @@ class ModbusInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
@@ -199,7 +207,6 @@ class ModbusInvalidConfig(SimulatorCase):
                 device=self.device.key,
                 sample_rate=50 * sy.Rate.HZ,
                 stream_rate=10 * sy.Rate.HZ,
-                data_saving=True,
                 channels=[
                     sy.modbus.InputRegisterReadChannel(
                         channel=shared_ch_key,
