@@ -12,10 +12,15 @@ import { Drift } from "@synnaxlabs/drift";
 import { destructor } from "@synnaxlabs/x";
 import { useRef } from "react";
 
-import { selectActiveWindow, selectSelected } from "@/session/panel/selectors";
+import {
+  selectActiveWindow,
+  selectOrder,
+  selectSelected,
+} from "@/session/panel/selectors";
 import {
   type Action,
   clearSelected,
+  reconcileOrder,
   reconcileSelection,
   remove,
   select,
@@ -50,24 +55,34 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers<
   }),
 ];
 
-const applySelection = ({ client, store }: Params, candidates: panel.Key[]): void => {
+const applyMembership = (
+  { client, store }: Params,
+  candidates: panel.Panel[],
+): void => {
   // A retrieve can race a delete and return an already-deleted panel; the
   // local tombstone is authoritative.
-  const keys = candidates.filter(
-    (key) => !query.Deleted.matches(client.panels.getCached(key)),
+  const live = candidates.filter(
+    ({ key }) => !query.Deleted.matches(client.panels.getCached(key)),
+  );
+  store.dispatch(
+    reconcileOrder({ panels: live.map(({ key, name }) => ({ key, name })) }),
   );
   const win = selectActiveWindow(store.getState());
   if (win == null) return;
   const { selected } = win.state;
+  const keys = live.map(({ key }) => key);
   if (selected != null && keys.includes(selected)) return;
   if (keys.length === 0) {
     if (selected != null) store.dispatch(clearSelected({ windowKey: win.key }));
     return;
   }
-  store.dispatch(select({ key: keys[0], windowKey: win.key }));
+  // The reconcile above put every live key in the order, so the first live
+  // entry is the strip's leftmost pill.
+  const first = selectOrder(store.getState()).find((key) => keys.includes(key));
+  store.dispatch(select({ key: first ?? keys[0], windowKey: win.key }));
 };
 
-const repairSelection = async (params: Params): Promise<void> => {
+const repairMembership = async (params: Params): Promise<void> => {
   const { client, store } = params;
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
@@ -75,20 +90,20 @@ const repairSelection = async (params: Params): Promise<void> => {
     parent: project.ontologyID(projectKey),
   });
   if (store.getState().project.selected !== projectKey) return;
-  applySelection(
-    params,
-    panels.map(({ key }) => key),
-  );
+  applyMembership(params, panels);
 };
 
-// The session's selection outlives the project it was made in, so a panel
-// outside the active project must never stay selected.
-const selection: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
-  reconcile: repairSelection,
+// The session's strip order and selection both follow the project's live
+// membership: the order converges first, then the selection, so a repaired
+// selection always lands on the strip's leftmost pill. The selection outlives
+// the project it was made in, so a panel outside the active project must
+// never stay selected.
+const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
+  reconcile: repairMembership,
   listen: (params) => {
     const { client, store } = params;
     const repair = (): void => {
-      repairSelection(params).catch(console.error);
+      repairMembership(params).catch(console.error);
     };
     // The client maintains the by-project answer itself, tracking optimistic
     // creates and ontology changes a manual retrieve would race.
@@ -101,10 +116,7 @@ const selection: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
         { parent: project.ontologyID(projectKey) },
         (result) => {
           if (!query.isLive(result)) return repair();
-          applySelection(
-            params,
-            result.map(({ key }) => key),
-          );
+          applyMembership(params, result);
         },
       );
     };
@@ -231,7 +243,7 @@ export const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
 > = [
-  { name: "reconcile panel selection", use: () => selection },
+  { name: "reconcile panel order and selection", use: () => membership },
   { name: "sync window title", use: () => windowTitle },
   { name: "reconcile tab selections", use: useTabSelections },
 ];

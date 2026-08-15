@@ -31,12 +31,15 @@ var _ = Describe("Reduce", func() {
 		Expect(next.Name).To(Equal("new"))
 	})
 
-	It("Should route an InsertTab action", func() {
+	It("Should route an InsertTabs action", func() {
 		k := uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode()},
-			panel.NewInsertTabAction(
-				panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))},
+			panel.NewInsertTabsAction(
+				panel.InsertTabsPayload{
+					Tabs:       []panel.Tab{tab(k)},
+					TargetLeaf: new(int32(1)),
+				},
 			),
 		))
 		Expect(tabKeys(next.Root)).To(ContainElement(k))
@@ -118,8 +121,11 @@ var _ = Describe("Reduce", func() {
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Name: "old", Root: leafNode()},
 			panel.NewRenameAction(panel.RenamePayload{Name: "new"}),
-			panel.NewInsertTabAction(
-				panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))},
+			panel.NewInsertTabsAction(
+				panel.InsertTabsPayload{
+					Tabs:       []panel.Tab{tab(k)},
+					TargetLeaf: new(int32(1)),
+				},
 			),
 		))
 		Expect(next.Name).To(Equal("new"))
@@ -138,7 +144,7 @@ var _ = Describe("Reduce", func() {
 			Expect(res).To(Equal(p))
 		},
 		Entry("Rename", panel.ActionTypeRename),
-		Entry("InsertTab", panel.ActionTypeInsertTab),
+		Entry("InsertTabs", panel.ActionTypeInsertTabs),
 		Entry("RemoveTab", panel.ActionTypeRemoveTab),
 		Entry("MoveTab", panel.ActionTypeMoveTab),
 		Entry("SplitTab", panel.ActionTypeSplitTab),

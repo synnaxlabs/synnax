@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/shell/Connection";
-export * from "@/platform/shell/Frame";
+export * from "@/platform/shell/Island";
 export * from "@/platform/shell/Mark";
+export * from "@/platform/shell/Nebula";
 export * from "@/platform/shell/useCountdown";

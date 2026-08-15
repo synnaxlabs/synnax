@@ -9,13 +9,12 @@
 
 import { DisconnectedError, log } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Import } from "@/platform/import";
-import { createFileIngesterContext, openedResource } from "@/platform/import/testutil";
-import { type Panel } from "@/platform/panel";
-import { uniqueName } from "@/testutil";
+import { createFileIngesterContext } from "@/platform/import/testutil";
+import { assertDefined, uniqueName } from "@/testutil";
 
 describe("ingestServer", () => {
   it("fails when disconnected", async () => {
@@ -24,7 +23,7 @@ describe("ingestServer", () => {
     ).rejects.toThrow(DisconnectedError);
   });
 
-  it("streams typed data to the Core and opens the created resource", async () => {
+  it("streams typed data to the Core and returns the created resource", async () => {
     const client = createTestClient();
     const proj = await client.projects.create({
       name: uniqueName("project"),
@@ -35,12 +34,12 @@ describe("ingestServer", () => {
       encoding: "JSON",
     });
     const data = JSON.parse(await new Response(stream).text());
-    const openTab = vi.fn<Panel.OpenTab>();
-    await Import.ingestServer(
+    const id = await Import.ingestServer(
       data,
-      createFileIngesterContext({ openTab, client, projectKey: proj.key }),
+      createFileIngesterContext({ client, projectKey: proj.key }),
     );
-    const created = await client.logs.retrieve({ key: openedResource(openTab).key });
+    assertDefined(id, "server ingest returned no resource");
+    const created = await client.logs.retrieve({ key: id.key });
     expect(created.name).toBe(original.name);
   });
 
@@ -50,20 +49,19 @@ describe("ingestServer", () => {
       name: uniqueName("project"),
       layout: {},
     });
-    const openTab = vi.fn<Panel.OpenTab>();
     // A legacy Console log state: version-stamped, no type, no name. The server
     // recognizes it by its frozen channels-array marker and names it after the file.
     const state = { version: "0.0.0", channels: [1, 2, 3], remoteCreated: false };
-    await Import.ingestServer(
+    const id = await Import.ingestServer(
       state,
       createFileIngesterContext({
-        openTab,
         client,
         projectKey: proj.key,
         fileName: "Legacy Log.json",
       }),
     );
-    const created = await client.logs.retrieve({ key: openedResource(openTab).key });
+    assertDefined(id, "server ingest returned no resource");
+    const created = await client.logs.retrieve({ key: id.key });
     expect(created.name).toBe("Legacy Log");
   });
 
@@ -73,7 +71,6 @@ describe("ingestServer", () => {
       name: uniqueName("project"),
       layout: {},
     });
-    const openTab = vi.fn<Panel.OpenTab>();
     // A legacy Console task export: the camelCase config with only a type marker.
     const legacy = {
       type: "pagerduty_alert",
@@ -81,17 +78,17 @@ describe("ingestServer", () => {
       autoStart: true,
       alerts: [],
     };
-    await Import.ingestServer(
+    const id = await Import.ingestServer(
       legacy,
       createFileIngesterContext({
-        openTab,
         client,
         projectKey: proj.key,
         fileName: "PD Alerts.json",
       }),
     );
+    assertDefined(id, "server ingest returned no resource");
     const created = await client.tasks.retrieve({
-      key: openedResource(openTab).key,
+      key: id.key,
       schemas: {
         type: z.literal("pagerduty_alert"),
         config: z.looseObject({ routingKey: z.string(), autoStart: z.boolean() }),
