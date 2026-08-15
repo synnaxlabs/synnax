@@ -416,6 +416,23 @@ describe("Mosaic", () => {
       beginDrag(leaf());
       expect(shield()).toBeNull();
     });
+
+    // Without the shield a tab's own content swallows the drag, so the leaf never
+    // resolves a region and an OS file drop lands nowhere.
+    it("should shield the leaf's content while an OS file drag is in flight", () => {
+      render(<Harness onFileDrop={vi.fn()} items={[Haul.FILE]} />);
+      expect(shield()).toBeNull();
+      beginDrag(leaf());
+      expect(shield()).not.toBeNull();
+      drop(leaf(), 200, 150);
+      expect(shield()).toBeNull();
+    });
+
+    it("should not shield the leaf for a file drag the frame does not accept", () => {
+      render(<Harness items={[Haul.FILE]} />);
+      beginDrag(leaf());
+      expect(shield()).toBeNull();
+    });
   });
 
   describe("useDragTab", () => {

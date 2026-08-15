@@ -68,7 +68,9 @@ const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
   if (tabs.length > 0)
     await client.panels.dispatch(
       created.key,
-      tabs.map((tab) => panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })),
+      tabs.map((tab) =>
+        panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
+      ),
     );
   return created;
 };

@@ -112,8 +112,8 @@ describe("Panel queries", () => {
       await ops.result.current.dispatchAsync({
         key: created.key,
         actions: [
-          panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-          panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
           panel.splitTab({ key: tabA.key, direction: "x" }),
         ],
       });
@@ -511,7 +511,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
       });
       await waitFor(() =>
@@ -532,13 +532,15 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+          ],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({
-              tab: tabB,
+            panel.insertTabs({
+              tabs: [tabB],
               targetLeaf: panel.ROOT_NODE_KEY,
               location: "right",
             }),
@@ -567,8 +569,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -596,8 +598,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
           ],
         });
         await result.current.dispatch.dispatchAsync({
@@ -626,7 +628,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -660,8 +662,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
           ],
         });
         await result.current.dispatch.dispatchAsync({
@@ -693,7 +695,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -726,7 +728,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -756,8 +758,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -796,9 +798,9 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabC, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabC], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -832,16 +834,16 @@ describe("Panel queries", () => {
           });
         });
       await dispatchOne(
-        panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
+        panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
       );
       await dispatchOne(
-        panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+        panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
       );
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabC, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabC], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabC.key, direction: "x" }),
           ],
         });
@@ -869,8 +871,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -916,8 +918,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -960,7 +962,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
       });
 
@@ -995,8 +997,8 @@ describe("Panel queries", () => {
         await ops.result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
           ],
         });
       });
@@ -1026,7 +1028,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
       });
       return { created, ops };
@@ -1171,8 +1173,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -1389,7 +1391,7 @@ describe("Panel queries", () => {
       const tab = newTab();
       await act(async () => {
         result.current.dispatch(
-          panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
         );
       });
       await waitFor(() =>
@@ -1406,8 +1408,8 @@ describe("Panel queries", () => {
       const [tabA, tabB] = [newTab(), newTab()];
       await act(async () => {
         result.current.dispatch([
-          panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-          panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
         ]);
       });
       await waitFor(() =>
@@ -1440,7 +1442,7 @@ describe("Panel queries", () => {
       const tab = newTab();
       await act(async () => {
         result.current.dispatch(
-          panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
         );
       });
       await waitFor(() =>
@@ -1479,8 +1481,8 @@ describe("Panel queries", () => {
       const [tabA, tabB] = [newTab(), newTab()];
       await writer.panels.retrieve(created.key);
       await writer.panels.dispatch(created.key, [
-        panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-        panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+        panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+        panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
         panel.splitTab({ key: tabB.key, direction: "x" }),
       ]);
 
@@ -1527,7 +1529,7 @@ describe("Panel queries", () => {
         await dispatch.dispatchAsync({
           key,
           actions: tabs.map((tab) =>
-            panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
           ),
         });
       });

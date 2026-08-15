@@ -10,7 +10,7 @@
 import { type panel } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Icon, Panel as PPanel, Text, Triggers } from "@synnaxlabs/pluto";
+import { Haul, Icon, Panel as PPanel, Text, Triggers } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
@@ -20,15 +20,23 @@ import {
   useCallback,
   useEffect,
 } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Mosaic } from "@/feature/panel/Mosaic";
+import {
+  createJSONFile,
+  fakeFileEntry,
+  FileDragSource,
+  fireFileDrop,
+  startFileDrag,
+} from "@/platform/import/testutil";
 import { Panel } from "@/platform/panel";
 import { createServerPanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
+  getBySelector,
   type TestStore,
   uniqueName,
 } from "@/testutil";
@@ -180,6 +188,27 @@ describe("Panel.Mosaic keep-alive", () => {
     render(<Mosaic onCreateTab={createTab} />, { wrapper });
 
     await waitFor(() => expect(screen.getByText(`content-${a.key}`)).toBeTruthy());
+  });
+
+  // With no panel open there is no leaf to drop onto, so the empty state is the
+  // drop target itself. It reports no leaf, which opens the tabs in a new panel.
+  it("should report a file dropped on the empty state with no leaf", async () => {
+    const onFileDrop = vi.fn();
+    const { wrapper } = await setup();
+    render(
+      <Haul.Provider>
+        <FileDragSource />
+        <Mosaic onCreateTab={createTab} onFileDrop={onFileDrop} />
+      </Haul.Provider>,
+      { wrapper },
+    );
+    await screen.findByText("No panels open.");
+    startFileDrag();
+    fireFileDrop(getBySelector(document, ".console-mosaic--empty"), [
+      fakeFileEntry(createJSONFile("widget.json", { type: "log" })),
+    ]);
+    await waitFor(() => expect(onFileDrop).toHaveBeenCalledTimes(1));
+    expect(onFileDrop.mock.calls[0][0]).not.toHaveProperty("nodeKey");
   });
 
   it("should show the empty state while keeping visited panels mounted", async () => {

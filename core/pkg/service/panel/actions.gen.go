@@ -21,7 +21,7 @@ import (
 const (
 	ActionTypeCreate         = "create"
 	ActionTypeRename         = "rename"
-	ActionTypeInsertTab      = "insert_tab"
+	ActionTypeInsertTabs     = "insert_tabs"
 	ActionTypeRemoveTab      = "remove_tab"
 	ActionTypeMoveTab        = "move_tab"
 	ActionTypeSplitTab       = "split_tab"
@@ -41,19 +41,25 @@ type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// InsertTabPayload inserts a tab into a leaf at the given index, appending when index
-// is absent. The destination leaf is resolved from target_tab (the leaf holding that
-// tab) when set, otherwise from the target_leaf path-derived key, otherwise the first
-// leaf in traversal order. When location is an edge, the resolved leaf is first split
-// at that location and the tab is inserted into the new empty leaf; a center location
-// places the tab directly in the resolved leaf, equivalent to absent. Inserting a
-// resource tab whose resource already backs a tab in the panel is a no-op: a resource
-// may back at most one tab per panel, and callers select the existing tab instead. When
-// singleton is set and the tab is a view, the insert is a no-op if a view of the same
-// type already backs a tab in the panel: a singleton view backs at most one tab per
-// panel, and callers select the existing tab instead.
-type InsertTabPayload struct {
-	Tab        Tab               `json:"tab" msgpack:"tab"`
+// InsertTabsPayload inserts tabs into a leaf in order, starting at the given index and
+// appending when index is absent or past the leaf's end. The destination leaf is
+// resolved from target_tab (the leaf holding that tab) when set, otherwise from the
+// target_leaf path-derived key, otherwise the first leaf in traversal order. Both are
+// hints: a target that no longer resolves to a leaf falls back to the first leaf
+// instead of failing, so a placement invalidated between the gesture and the dispatch
+// still opens the tabs. The fallback drops location too, leaving a leaf the caller
+// never pointed at unsplit. When location is an edge, the resolved leaf is split once
+// at that location and every tab is inserted into the new empty leaf; a center location
+// places the tabs directly in the resolved leaf, equivalent to absent. The split is
+// deferred to the first tab that lands, so a batch whose every tab is skipped leaves no
+// empty pane behind. A tab whose key is already in the tree has its content refreshed
+// and keeps its position unless the payload carries an explicit placement, in which
+// case it is relocated with the rest. Inserting a resource tab whose resource already
+// backs a different tab is skipped, as is a view tab of a type already backing a tab
+// when singleton is set: each may back at most one tab per panel, and callers select
+// the existing tab instead. Skipping one tab does not stop the others.
+type InsertTabsPayload struct {
+	Tabs       []Tab             `json:"tabs" msgpack:"tabs"`
 	TargetLeaf *int32            `json:"target_leaf,omitempty" msgpack:"target_leaf,omitempty"`
 	TargetTab  *TabKey           `json:"target_tab,omitempty" msgpack:"target_tab,omitempty"`
 	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
@@ -71,7 +77,7 @@ type RemoveTabPayload struct {
 // the target leaf is first split at that location and the tab moves into the new empty
 // leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. A center
 // location places the tab directly in the target leaf, equivalent to absent.
-// Cross-panel moves are RemoveTab on the source plus InsertTab on the destination (two
+// Cross-panel moves are RemoveTab on the source plus InsertTabs on the destination (two
 // dispatches; not atomic).
 type MoveTabPayload struct {
 	Key        uuid.UUID         `json:"key" msgpack:"key"`
@@ -119,7 +125,7 @@ type Action struct {
 	Type           string                 `json:"type" msgpack:"type"`
 	Create         *CreatePayload         `json:"create,omitempty" msgpack:"create,omitempty"`
 	Rename         *RenamePayload         `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	InsertTab      *InsertTabPayload      `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
+	InsertTabs     *InsertTabsPayload     `json:"insert_tabs,omitempty" msgpack:"insert_tabs,omitempty"`
 	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
 	MoveTab        *MoveTabPayload        `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
 	SplitTab       *SplitTabPayload       `json:"split_tab,omitempty" msgpack:"split_tab,omitempty"`
@@ -147,11 +153,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
-		case ActionTypeInsertTab:
-			if a.InsertTab == nil {
+		case ActionTypeInsertTabs:
+			if a.InsertTabs == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.InsertTab.Handle(state)
+			state, err = a.InsertTabs.Handle(state)
 		case ActionTypeRemoveTab:
 			if a.RemoveTab == nil {
 				return state, union.MissingPayload(a.Type)
@@ -202,9 +208,9 @@ func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
-// NewInsertTabAction wraps a InsertTabPayload in an Action envelope.
-func NewInsertTabAction(p InsertTabPayload) Action {
-	return Action{Type: ActionTypeInsertTab, InsertTab: &p}
+// NewInsertTabsAction wraps a InsertTabsPayload in an Action envelope.
+func NewInsertTabsAction(p InsertTabsPayload) Action {
+	return Action{Type: ActionTypeInsertTabs, InsertTabs: &p}
 }
 
 // NewRemoveTabAction wraps a RemoveTabPayload in an Action envelope.
