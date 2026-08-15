@@ -1590,4 +1590,90 @@ describe("Panel queries", () => {
       expect(leafTabKeys(result.current.retrieve?.root)).toEqual([tab.key]);
     });
   });
+
+  describe("useMoveTabToPanel", () => {
+    const createLabel = async (): Promise<ontology.ID> => {
+      const created = await client.labels.create({
+        name: `label-${uuid.create()}`,
+        color: "#000000",
+      });
+      return label.ontologyID(created.key);
+    };
+
+    const loadPair = async (source: panel.Key, destination: panel.Key) => {
+      await loadAndUse(destination, () => null);
+      return await loadAndUse(source, () => ({
+        dispatch: Panel.useDispatch(),
+        move: Panel.useMoveTabToPanel(),
+      }));
+    };
+
+    const insert = async (
+      dispatch: ReturnType<typeof Panel.useDispatch>,
+      key: panel.Key,
+      ...tabs: panel.Tab[]
+    ) =>
+      await act(async () => {
+        await dispatch.dispatchAsync({
+          key,
+          actions: tabs.map((tab) =>
+            panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
+          ),
+        });
+      });
+
+    it("lands the tab in the destination and takes it out of the source", async () => {
+      const [source, destination] = [await createPanel(), await createPanel()];
+      const [moved, stays] = [newTab(), newTab()];
+      const { result } = await loadPair(source.key, destination.key);
+      await insert(result.current.dispatch, source.key, moved, stays);
+
+      let landed: panel.TabKey | undefined;
+      await act(async () => {
+        landed = await result.current.move({
+          source: source.key,
+          destination: destination.key,
+          tab: moved,
+          targetLeaf: panel.ROOT_NODE_KEY,
+        });
+      });
+      expect(landed).toEqual(moved.key);
+
+      const [src, dst] = await Promise.all([
+        client.panels.retrieve(source.key),
+        client.panels.retrieve(destination.key),
+      ]);
+      expect(leafTabKeys(src.root)).toEqual([stays.key]);
+      expect(leafTabKeys(dst.root)).toEqual([moved.key]);
+    });
+
+    // The destination refuses a second tab on a resource it already shows, so the tab
+    // the caller must select is the one that was already open, not the one it sent.
+    it("hands back the open tab when the destination already shows the resource", async () => {
+      const [source, destination] = [await createPanel(), await createPanel()];
+      const resource = await createLabel();
+      const [sent, open] = [newResourceTab(resource), newResourceTab(resource)];
+      const { result } = await loadPair(source.key, destination.key);
+      await insert(result.current.dispatch, source.key, sent);
+      await insert(result.current.dispatch, destination.key, open);
+
+      let landed: panel.TabKey | undefined;
+      await act(async () => {
+        landed = await result.current.move({
+          source: source.key,
+          destination: destination.key,
+          tab: sent,
+          targetLeaf: panel.ROOT_NODE_KEY,
+        });
+      });
+      expect(landed).toEqual(open.key);
+
+      const [src, dst] = await Promise.all([
+        client.panels.retrieve(source.key),
+        client.panels.retrieve(destination.key),
+      ]);
+      expect(leafTabKeys(src.root)).toEqual([]);
+      expect(leafTabKeys(dst.root)).toEqual([open.key]);
+    });
+  });
 });
