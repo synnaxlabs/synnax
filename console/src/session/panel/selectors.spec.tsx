@@ -9,7 +9,7 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { panel, type Synnax } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -48,7 +48,13 @@ const createState = (win?: Panel.WindowState): TestState => {
   if (win == null) return base;
   const windowKey = Drift.selectWindowKey(base);
   assertDefined(windowKey, "expected an active window key");
-  return { ...base, [Panel.SLICE_NAME]: { windows: { [windowKey]: win } } };
+  return {
+    ...base,
+    [Panel.SLICE_NAME]: {
+      ...base[Panel.SLICE_NAME],
+      windows: { [windowKey]: win },
+    },
+  };
 };
 
 const window = (overrides: Partial<Panel.WindowState>): Panel.WindowState => ({
@@ -628,13 +634,14 @@ describe("panel selectors", () => {
         store.dispatch(Panel.select({ key: PANEL }));
       });
       await act(async () => {
-        await client.panels.create(
-          panel.panelZ.parse({
+        await client.panels.create({
+          ...panel.panelZ.parse({
             key: PANEL,
             name: "panel",
             root: { variant: "leaf", tabs: [{ variant: "view", key: TAB, type: "t" }] },
           }),
-        );
+          parent: await createPanelParent(client),
+        });
       });
       expect(result.current).toBe(true);
     });
@@ -658,7 +665,7 @@ describe("panel selectors", () => {
           ],
         },
       });
-      await client.panels.create(doc);
+      await client.panels.create({ ...doc, parent: await createPanelParent(client) });
       await client.panels.retrieve(PANEL);
       const { result } = renderHook(() => Panel.useStartOverlaying(PANEL), {
         wrapper: Wrapper,

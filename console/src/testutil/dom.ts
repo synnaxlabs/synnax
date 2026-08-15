@@ -8,6 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach } from "vitest";
+
+/**
+ * Adds the #root element index.html carries and the notification feed portals into,
+ * removing it after each test. Call it inside the describe block that needs it.
+ */
+export const installPortalRoot = (): void => {
+  beforeEach(() => {
+    const root = document.createElement("div");
+    root.id = "root";
+    document.body.appendChild(root);
+  });
+  afterEach(() => document.getElementById("root")?.remove());
+};
 
 /**
  * Right-clicks the element with the given text and waits for the context menu to

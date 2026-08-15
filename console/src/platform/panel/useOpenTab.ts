@@ -9,9 +9,18 @@
 
 import { NotFoundError, panel, project, query } from "@synnaxlabs/client";
 import { type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
+import { type location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Session } from "@/session";
+
+/** Where in a panel's mosaic a tab lands. */
+export interface Placement {
+  /** Key of the leaf node the tab lands in. */
+  leaf: number;
+  /** An edge splits the leaf and takes the new half; "center" inserts in place. */
+  location: location.Location;
+}
 
 export interface OpenTabOptions {
   /**
@@ -19,11 +28,38 @@ export interface OpenTabOptions {
    * instead of opening a duplicate, making the view a per-panel singleton.
    */
   singleton?: boolean;
+  /**
+   * Places the tab in a specific leaf instead of beside the current one. Ignored when
+   * the leaf is gone, which an await between the drop and the open allows.
+   */
+  placement?: Placement;
 }
 
 export type OpenTab = (params: panel.NewTab, options?: OpenTabOptions) => void;
 
-export const useOpenTab = (): OpenTab => {
+export type OpenTabs = (params: panel.NewTab[], options?: OpenTabOptions) => void;
+
+// focusedTabKey reads back which tab a request landed on, after the dispatch has
+// applied. An insert the reducer skipped as a duplicate resolves to the tab already
+// holding that content, so the caller focuses it instead of opening a second one.
+const focusedTabKey = (
+  root: panel.Node,
+  tab: panel.Tab,
+  singleton?: boolean,
+): panel.TabKey | undefined => {
+  if (tab.variant === "resource")
+    return panel.findTabByResource(root, tab.resource)?.key;
+  if (singleton) return panel.findTabByType(root, tab.type)?.key;
+  return panel.findTab(root, tab.key)?.key;
+};
+
+/**
+ * Returns a callback that opens tabs in the scoped panel, the session-selected panel,
+ * or a panel it creates when neither exists. Every tab lands in one dispatch, so a
+ * batch is a single request and a single undo entry. A placement splits once: the first
+ * tab takes the new half and the rest join it.
+ */
+export const useOpenTabs = (): OpenTabs => {
   const dispatchSession = Session.useDispatch();
   const { dispatch } = Panel.useDispatch();
   const selectTab = Session.Panel.useSelectTab();
@@ -32,35 +68,33 @@ export const useOpenTab = (): OpenTab => {
   const getSelectedProject = Session.Project.useGetSelected();
   const parentTabKey = Panel.useOptionalTabKey();
   const client = Synnax.use();
-  // insertIntoExisting adds the tab to a panel that is already on the cluster
-  // (the scoped parent or the selected panel), so a remote dispatch is correct.
+  // insertIntoExisting adds the tabs to a panel that is already on the cluster (the
+  // scoped parent or the selected panel), so a remote dispatch is correct.
   const insertIntoExisting = useCallback(
-    (panelKey: panel.Key, params: panel.NewTab, singleton?: boolean) => {
-      const cached = client?.panels.getCached(panelKey);
-      if (!query.isLive(cached))
+    (panelKey: panel.Key, params: panel.NewTab[], options?: OpenTabOptions) => {
+      if (!query.isLive(client?.panels.getCached(panelKey)))
         throw new NotFoundError(`Panel with key ${panelKey} not found`);
-      const { root } = cached;
-      const tab: panel.Tab = panel.tabZ.parse({ ...params });
-      if (tab.variant === "resource") {
-        const existing = panel.findTabByResource(root, tab.resource);
-        if (existing != null) return selectTab(existing.key, panelKey);
-      }
-      if (tab.variant === "view" && singleton) {
-        const existing = panel.findTabByType(root, tab.type);
-        if (existing != null) return selectTab(existing.key, panelKey);
-      }
-      // A keyless tab opens beside the current one, but only when that tab lives in
-      // this panel; otherwise its leaf can't be resolved and the insert would no-op,
-      // so fall back to the first leaf.
-      const besideCurrent =
-        params.key == null &&
-        parentTabKey != null &&
-        panel.findTab(root, parentTabKey) != null;
-      const action = besideCurrent
-        ? panel.insertTab({ tab, targetTab: parentTabKey, singleton })
-        : panel.insertTab({ tab, singleton });
-      dispatch({ key: panelKey, actions: [action] });
-      selectTab(tab.key, panelKey);
+      const { singleton, placement } = options ?? {};
+      const tabs = params.map((p): panel.Tab => panel.tabZ.parse({ ...p }));
+      const last = tabs.at(-1);
+      if (last == null) return;
+      // A keyless tab opens beside the current one. A keyed one is a reopen, so it
+      // carries no placement and keeps wherever it already sits.
+      const besideCurrent = params[0]?.key == null ? parentTabKey : undefined;
+      dispatch({
+        key: panelKey,
+        actions: panel.insertTabs({
+          tabs,
+          singleton,
+          ...(placement != null
+            ? { targetLeaf: placement.leaf, location: placement.location }
+            : { targetTab: besideCurrent }),
+        }),
+      });
+      const applied = client?.panels.getCached(panelKey);
+      if (!query.isLive(applied)) return;
+      const focus = focusedTabKey(applied.root, last, singleton);
+      if (focus != null) selectTab(focus, panelKey);
     },
     [parentTabKey, client, dispatch, selectTab],
   );
@@ -69,15 +103,15 @@ export const useOpenTab = (): OpenTab => {
       ({ data: { key, root }, rollbacks }: Flux.AfterOptimisticParams<panel.Panel>) => {
         dispatchSession(Session.Panel.select({ key }));
         rollbacks.push(() => dispatchSession(Session.Panel.clearSelected({})));
-        // This hook only creates panels with a single-tab leaf root (below), so the
-        // tab to focus is the one seeded into the root. Focus is dispatched
-        // directly: the panel is not yet retrievable, so useSelectTab's cached
-        // leaf lookup would fail.
-        if (root.variant === "leaf")
+        // This hook only creates panels with a single leaf root (below), so focus goes
+        // to the last tab seeded into it. Focus is dispatched directly: the panel is
+        // not yet retrievable, so useSelectTab's cached leaf lookup would fail.
+        const last = root.variant === "leaf" ? root.tabs.at(-1) : undefined;
+        if (root.variant === "leaf" && last != null)
           dispatchSession(
             Session.Panel.internalSelectTab({
               key,
-              tabKey: root.tabs[0].key,
+              tabKey: last.key,
               otherTabKeys: root.tabs.map((t) => t.key),
             }),
           );
@@ -86,21 +120,29 @@ export const useOpenTab = (): OpenTab => {
     ),
   });
   return useCallback(
-    (params: panel.NewTab, options?: OpenTabOptions) => {
+    (params: panel.NewTab[], options?: OpenTabOptions) => {
+      if (params.length === 0) return;
       const panelKey = parentPanelKey ?? getSelected();
-      if (panelKey != null)
-        return insertIntoExisting(panelKey, params, options?.singleton);
-      // No panel to insert into: seed the tab into the new panel's initial root
-      // so the create persists both in a single request. This avoids a second
-      // remote dispatch that would race the create and fail with "panel not
-      // found", while the local store update keeps focus optimistic.
-      const tab: panel.Tab = panel.tabZ.parse({ ...params });
+      if (panelKey != null) return insertIntoExisting(panelKey, params, options);
+      // No panel to insert into: seed the tabs into the new panel's initial root so the
+      // create persists them in a single request. This avoids a second remote dispatch
+      // that would race the create and fail with "panel not found", while the local
+      // store update keeps focus optimistic.
       createPanel({
         name: "New Panel",
-        root: { variant: "leaf", tabs: [tab] },
+        root: { variant: "leaf", tabs: params.map((p) => panel.tabZ.parse({ ...p })) },
         parent: project.ontologyID(getSelectedProject()),
       });
     },
     [parentPanelKey, getSelected, getSelectedProject, insertIntoExisting, createPanel],
+  );
+};
+
+/** Opens a single tab. See {@link useOpenTabs} for placement and focus. */
+export const useOpenTab = (): OpenTab => {
+  const openTabs = useOpenTabs();
+  return useCallback(
+    (params: panel.NewTab, options?: OpenTabOptions) => openTabs([params], options),
+    [openTabs],
   );
 };

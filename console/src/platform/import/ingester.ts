@@ -10,8 +10,6 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type project, type Synnax } from "@synnaxlabs/client";
 
-import { type Panel } from "@/platform/panel";
-
 export interface File {
   data: unknown;
   name: string;
@@ -20,7 +18,6 @@ export interface File {
 export interface FileIngesterContext {
   /** name is the fallback component name derived from the imported file. */
   name?: string;
-  openTab: Panel.OpenTab;
   client: Synnax | null;
   projectKey: project.Key;
   /**
@@ -31,6 +28,10 @@ export interface FileIngesterContext {
   fileName: string;
 }
 
+/**
+ * Creates the resource the data describes and returns its ID. Opening a tab for it
+ * belongs to the caller, which decides where it lands.
+ */
 export interface FileIngester {
   (
     data: unknown,
@@ -43,7 +44,6 @@ export interface FileIngesters extends Record<string, FileIngester> {}
 interface DirectoryIngesterContext {
   client: Synnax | null;
   fileIngesters: FileIngesters;
-  openTab: Panel.OpenTab;
   store: Store;
 }
 

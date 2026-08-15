@@ -11,11 +11,11 @@ import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
-import { createConsoleWrapper } from "@/testutil";
+import { assertDefined, createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -41,34 +41,23 @@ const awaitCreateGranted = async (): Promise<void> => {
   await waitFor(() => expect(result.current).toBe(true));
 };
 
+const ctx = { client, projectKey: "", fileName: "test.json" };
+
 describe("createIngester", () => {
-  it("should reject an invalid config without opening a tab", async () => {
+  it("should reject an invalid config", async () => {
     await awaitCreateGranted();
     const ingest = Task.createIngester({ getInitialValues });
-    const openTab = vi.fn();
-    await expect(
-      ingest(
-        { device: "dev-1" },
-        { openTab, client, projectKey: "", fileName: "test.json" },
-      ),
-    ).rejects.toThrow();
-    expect(openTab).not.toHaveBeenCalled();
+    await expect(ingest({ device: "dev-1" }, ctx)).rejects.toThrow();
   });
 
-  it("should create a draft task and open its resource tab", async () => {
+  it("should create a draft task and return its ontology ID", async () => {
     await awaitCreateGranted();
     const ingest = Task.createIngester({ getInitialValues });
-    const openTab = vi.fn();
     const data = { device: "dev-1", sampleRate: 100 };
-    await ingest(data, { openTab, client, projectKey: "", fileName: "test.json" });
-    expect(openTab).toHaveBeenCalledTimes(1);
-    const opened = openTab.mock.calls[0][0];
-    expect(opened.variant).toBe("resource");
-    expect(opened.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
-    const created = await client.tasks.retrieve({
-      key: opened.resource.key,
-      schemas,
-    });
+    const id = await ingest(data, ctx);
+    assertDefined(id, "ingest returned no resource");
+    expect(id.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: id.key, schemas });
     expect(created.rack).toBe(0);
     expect(created.config).toEqual(data);
     expect(created.name).toBe("Imported Task");

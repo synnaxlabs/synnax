@@ -25,111 +25,141 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle upserts Tab into the tree keyed on its tab key. A tab whose key is
-// already present always has its content refreshed; it keeps its current
-// position unless the payload carries an explicit placement (TargetTab,
-// TargetLeaf, Location, or Index), in which case it is relocated. A tab whose
-// key is absent is inserted at the resolved destination. Inserting a resource
-// tab whose resource already backs a different tab is a no-op: a resource may
-// back at most one tab per panel, and callers select the existing tab instead.
-// With Singleton set, inserting a view is likewise a no-op when a view of the
-// same type already backs a tab in the panel.
+// Handle upserts each tab in Tabs, in order, into one destination leaf. A tab
+// whose key is already present always has its content refreshed; it keeps its
+// current position unless the payload carries an explicit placement (TargetTab,
+// TargetLeaf, Location, or Index), in which case it is relocated with the rest. A
+// tab whose key is absent is inserted at the resolved destination.
 //
-// The destination is resolved in priority order: the leaf holding TargetTab when
-// set, otherwise the TargetLeaf path key, otherwise the first leaf in traversal
-// order. Appends when Index is nil; otherwise the caller is responsible for
-// choosing a valid index in [0, len(leaf.Tabs)]. When Location is an edge, the
-// resolved leaf is first split at that location and the tab is inserted into the
-// new empty sibling leaf; a center Location places the tab directly in the
-// resolved leaf, equivalent to absent. Empty leaves left under a split are
-// collapsed afterwards, so an edge insert into an empty leaf degrades to a
-// direct insert. Errors when TargetTab is set but unmatched, when the resolved
-// leaf path does not resolve or resolves to a split, when index is outside
+// The destination is resolved in priority order: the leaf holding TargetTab, the
+// TargetLeaf path key, then the first leaf in traversal order. Both are hints; one
+// that no longer resolves to a leaf falls through to the next, so a placement
+// invalidated between the gesture and the dispatch still lands the tabs. The
+// fallback drops Location too, leaving a leaf the caller never pointed at unsplit.
+// Index positions the first tab and the rest follow it; when Index is nil each tab
+// appends. When Location is an edge, the resolved leaf is split once at that
+// location and every tab is inserted into the new empty sibling leaf; a center
+// Location places the tabs directly in the resolved leaf, equivalent to absent.
+// The split is deferred to the first tab that lands, so a batch whose every tab is
+// skipped leaves no empty pane behind.
+//
+// A tab that would put a second tab behind the same resource is skipped, as is a
+// view whose type already backs a tab when Singleton is set: each may back at most
+// one tab per panel, and callers select the existing tab instead. Skipping one tab
+// does not stop the others.
+//
+// Errors when the tree holds no leaf to default to, when Index is outside
 // [0, len(leaf.Tabs)], or when Location cannot produce a split. On any error the
-// returned state is the zero Panel; the dispatch substrate aborts the
-// transaction on error, so partial state would not be meaningful.
-func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
-	if r, ok := p.Tab.Variant.(TabResource); ok {
-		if existing, found := findTabByResource(state.Root, r.Resource); found &&
-			existing.Key() != p.Tab.Key() {
-			return state, nil
-		}
-	}
-	if v, ok := p.Tab.Variant.(TabView); ok && p.Singleton != nil && *p.Singleton {
-		if existing, found := findTabByType(state.Root, v.Type); found &&
-			existing.Key() != p.Tab.Key() {
-			return state, nil
-		}
-	}
-	existingLeaf, existingIdx, exists := findTab(state.Root, p.Tab.Key())
+// returned state is the zero Panel; the dispatch substrate aborts the transaction
+// on error, so partial state would not be meaningful.
+func (p InsertTabsPayload) Handle(state Panel) (Panel, error) {
 	placementGiven := p.TargetTab != nil || p.TargetLeaf != nil ||
 		p.Location != nil || p.Index != nil
-	if exists && !placementGiven {
-		if err := updateLeafAt(
-			&state.Root,
-			existingLeaf,
-			func(leaf Leaf) (Leaf, error) {
-				tabs := append([]Tab{}, leaf.Tabs...)
-				tabs[existingIdx] = p.Tab
-				leaf.Tabs = tabs
-				return leaf, nil
-			},
-		); err != nil {
-			return Panel{}, err
-		}
-		return state, nil
-	}
-	targetLeaf, err := p.resolveTargetLeaf(state.Root)
+	targetLeaf, stale, err := p.resolveTargetLeaf(state.Root)
 	if err != nil {
 		return Panel{}, err
 	}
-	if p.Location != nil && *p.Location != spatial.LocationCenter {
-		targetLeaf, err = splitLeafForPlacement(&state.Root, targetLeaf, *p.Location)
+	var pendingSplit *spatial.Location
+	if !stale && p.Location != nil && *p.Location != spatial.LocationCenter {
+		pendingSplit = p.Location
+	}
+	index := p.Index
+	changed := false
+	for _, tab := range p.Tabs {
+		if r, ok := tab.Variant.(TabResource); ok {
+			if existing, found := findTabByResource(state.Root, r.Resource); found &&
+				existing.Key() != tab.Key() {
+				continue
+			}
+		}
+		if v, ok := tab.Variant.(TabView); ok && p.Singleton != nil && *p.Singleton {
+			if existing, found := findTabByType(state.Root, v.Type); found &&
+				existing.Key() != tab.Key() {
+				continue
+			}
+		}
+		existingLeaf, existingIdx, exists := findTab(state.Root, tab.Key())
+		if exists && !placementGiven {
+			if err := updateLeafAt(
+				&state.Root,
+				existingLeaf,
+				func(leaf Leaf) (Leaf, error) {
+					tabs := append([]Tab{}, leaf.Tabs...)
+					tabs[existingIdx] = tab
+					leaf.Tabs = tabs
+					return leaf, nil
+				},
+			); err != nil {
+				return Panel{}, err
+			}
+			changed = true
+			continue
+		}
+		if pendingSplit != nil {
+			targetLeaf, err = splitLeafForPlacement(
+				&state.Root,
+				targetLeaf,
+				*pendingSplit,
+			)
+			if err != nil {
+				return Panel{}, err
+			}
+			pendingSplit = nil
+		}
+		if exists {
+			if _, ok := removeTab(&state.Root, tab.Key()); !ok {
+				return Panel{}, errTabNotFound
+			}
+		}
+		leaf, err := walkLeaf(state.Root, targetLeaf)
 		if err != nil {
 			return Panel{}, err
 		}
-	}
-	if exists {
-		if _, ok := removeTab(&state.Root, p.Tab.Key()); !ok {
-			return Panel{}, errTabNotFound
+		// An index past the leaf's end is a drop position invalidated between the
+		// gesture and the dispatch. It clamps to the end.
+		at := int32(len(leaf.Tabs))
+		if index != nil && *index >= 0 && *index <= at {
+			at = *index
 		}
+		if err := insertTabAt(&state.Root, targetLeaf, tab, at); err != nil {
+			return Panel{}, err
+		}
+		if index != nil {
+			index = new(at + 1)
+		}
+		changed = true
 	}
-	leaf, err := walkLeaf(state.Root, targetLeaf)
-	if err != nil {
-		return Panel{}, err
-	}
-	index := int32(len(leaf.Tabs))
-	if p.Index != nil {
-		index = *p.Index
-	}
-	if err := insertTabAt(&state.Root, targetLeaf, p.Tab, index); err != nil {
-		return Panel{}, err
+	if !changed {
+		return state, nil
 	}
 	collapseEmptyLeaves(&state.Root)
 	return state, nil
 }
 
 // resolveTargetLeaf resolves the destination leaf's path-derived key from the
-// payload's addressing fields, in priority order: the leaf holding TargetTab
-// when set, then the TargetLeaf path key, then the first leaf in traversal
-// order. Errors when TargetTab is set but no tab matches it, or when the tree
-// contains no leaf to default to.
-func (p InsertTabPayload) resolveTargetLeaf(root Node) (int32, error) {
+// payload's addressing hints, in priority order: the leaf holding TargetTab, the
+// TargetLeaf path key, then the first leaf in traversal order. stale reports that a
+// hint was given and no longer resolves, which drops the Location along with it:
+// the tabs still land, but a leaf the caller never pointed at is not split. Errors
+// only when the tree contains no leaf to default to.
+func (p InsertTabsPayload) resolveTargetLeaf(
+	root Node,
+) (leaf int32, stale bool, err error) {
 	if p.TargetTab != nil {
-		leafPath, _, ok := findTab(root, *p.TargetTab)
-		if !ok {
-			return 0, errTabNotFound
+		if leafPath, _, ok := findTab(root, *p.TargetTab); ok {
+			return leafPath, false, nil
 		}
-		return leafPath, nil
 	}
 	if p.TargetLeaf != nil {
-		return *p.TargetLeaf, nil
+		if _, err := walkLeaf(root, *p.TargetLeaf); err == nil {
+			return *p.TargetLeaf, false, nil
+		}
 	}
 	leafPath, ok := firstLeafPath(root)
 	if !ok {
-		return 0, errInvalidPath
+		return 0, false, errInvalidPath
 	}
-	return leafPath, nil
+	return leafPath, p.TargetTab != nil || p.TargetLeaf != nil, nil
 }
 
 // Handle removes the tab with the given key. When the containing leaf is left

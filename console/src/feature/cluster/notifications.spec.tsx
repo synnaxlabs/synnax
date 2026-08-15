@@ -10,11 +10,11 @@
 import { type status } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
 import { Notifications } from "@/platform/notifications";
-import { renderWithConsole } from "@/testutil";
+import { installPortalRoot, renderWithConsole } from "@/testutil";
 
 interface HarnessProps {
   crude: status.Crude;
@@ -46,12 +46,7 @@ const addStatus = async (details?: Record<string, unknown>): Promise<void> => {
 };
 
 describe("cluster notification", () => {
-  beforeEach(() => {
-    const root = document.createElement("div");
-    root.id = "root";
-    document.body.appendChild(root);
-  });
-  afterEach(() => document.getElementById("root")?.remove());
+  installPortalRoot();
 
   it("should leave statuses without version details untouched", async () => {
     await addStatus();

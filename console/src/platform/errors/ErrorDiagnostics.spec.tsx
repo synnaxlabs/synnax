@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, panel, status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Errors } from "@synnaxlabs/pluto";
 import { render } from "@testing-library/react";
 import { act, type ReactElement } from "react";
@@ -100,7 +100,7 @@ describe("ErrorDiagnostics", () => {
       name: "fridge_schem",
       root: { variant: "leaf", tabs: [] },
     });
-    await client.panels.create(doc);
+    await client.panels.create({ ...doc, parent: await createPanelParent(client) });
     // Prime the query cache the way the mosaic's retrieve does.
     await client.panels.retrieve(doc.key);
     render(

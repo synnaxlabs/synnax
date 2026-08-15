@@ -23,9 +23,10 @@ import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
+import { Shell } from "@/feature/shell";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
-import { Shell } from "@/platform/shell";
+import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
 const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
@@ -123,7 +124,7 @@ export const Login = (): ReactElement => {
           )}
           <Form.Form<typeof credentialsZ> {...methods}>
             <Flex.Box y align="center" justify="center" grow gap="huge" shrink={false}>
-              <Shell.Mark />
+              <PlatformShell.Mark />
               <Flex.Box y full="x" empty>
                 <Form.TextField
                   path="username"

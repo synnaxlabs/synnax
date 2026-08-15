@@ -13,7 +13,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Icon } from "@/icon";
+import { type Icon } from "@/icon";
+import { Indicator } from "@/status/base/Indicator";
 import { Text as BaseText } from "@/text";
 
 export interface SummaryProps
@@ -41,7 +42,7 @@ export const Summary = ({
     const { key: _, ...restStatus } = status;
     return <Summary {...rest} {...restStatus} />;
   }
-  if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
+  if (!hideIcon) icon = <Indicator variant={variant} />;
   const hasDescription = primitive.isNonZero(description);
   children ??= message;
   const baseText = (
