@@ -72,7 +72,9 @@ struct InputChan {
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the device representing the OPC UA server to read from.
     const std::string device_key;
-    /// @brief array_size;
+    /// @brief whether each read returns an array of samples per node.
+    const bool array_mode;
+    /// @brief the number of samples in each array when array_mode is true.
     const size_t array_size;
     /// @brief the config for connecting to the OPC UA server.
     /// Dynamically populated from device properties.
@@ -89,6 +91,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
+        array_mode(other.array_mode),
         array_size(other.array_size),
         connection(std::move(other.connection)),
         index_keys(std::move(other.index_keys)),
@@ -108,9 +111,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         common::BaseReadTaskConfig(
             parser,
             common::TimingConfig(),
-            parser.field<std::size_t>("array_size", 1) <= 1
+            !parser.field<bool>("array_mode", false)
         ),
         device_key(parser.field<std::string>("device")),
+        array_mode(parser.field<bool>("array_mode", false)),
         array_size(parser.field<std::size_t>("array_size", 1)),
         samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](x::json::Parser &cp) {
