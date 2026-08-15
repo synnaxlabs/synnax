@@ -121,11 +121,7 @@ export const splitZ = z.object({
 });
 export interface Split extends z.infer<typeof splitZ> {}
 
-/**
- * Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
- * a project (project panel) or by a user (draft); renaming a draft promotes it to
- * project ownership.
- */
+/** Panel is a project-owned tab holding a tree of visualization tabs. */
 export const panelZ = z.object({
   /** key is the unique identifier for this panel. */
   key: keyZ.default(uuid.create),
@@ -136,10 +132,9 @@ export const panelZ = z.object({
     return nodeZ.prefault({ variant: "leaf", tabs: [] });
   },
   /**
-   * parent is an optional parent resource for the panel in the ontology. When absent on
-   * create, the panel is parented to the creating user as a draft. Parenthood lives in
-   * the ontology graph, so the field is not persisted on the panel record and is absent
-   * on retrieve.
+   * parent is the parent resource for the panel in the ontology, required on create.
+   * Parenthood lives in the ontology graph, so the field is not persisted on the panel
+   * record and is absent on retrieve.
    */
   parent: ontology.idZ.optional(),
 });

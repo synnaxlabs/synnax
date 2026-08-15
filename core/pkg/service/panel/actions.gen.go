@@ -36,8 +36,7 @@ type CreatePayload struct {
 	Panel Panel `json:"panel" msgpack:"panel"`
 }
 
-// RenamePayload renames the panel. When the panel is owned by a user (draft), the
-// writer promotes it to project ownership in the same transaction.
+// RenamePayload renames the panel.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }

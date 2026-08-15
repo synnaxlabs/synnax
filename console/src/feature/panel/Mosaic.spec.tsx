@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type panel } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon, Panel as PPanel, Text, Triggers } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -37,6 +37,7 @@ import {
 // cleared, since it is excluded from persistence.
 const hydrated = (key: panel.Key): ConsolePreloadedState => ({
   [Session.Panel.SLICE_NAME]: {
+    ...Session.Panel.ZERO_SLICE_STATE,
     windows: {
       [Drift.MAIN_WINDOW]: { ...Session.Panel.ZERO_WINDOW_STATE, selected: key },
     },
@@ -264,6 +265,7 @@ describe("Panel.Mosaic not found", () => {
         variant: "leaf",
         tabs: [{ variant: "view", key: uuid.create(), type: "probe" }],
       },
+      parent: await createPanelParent(client),
     });
     fireEvent.click(screen.getByText("Retry"));
     await waitFor(() => expect(screen.getByText(`content-${key}`)).toBeTruthy());
