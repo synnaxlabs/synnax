@@ -259,14 +259,14 @@ var _ = Describe("Writer", func() {
 		})
 
 		It(
-			"Should apply an InsertTab action and persist the tab",
+			"Should apply an InsertTabs action and persist the tab",
 			func(ctx SpecContext) {
 				tabKey := uuid.New()
 				key := create(ctx, leafNode())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-					panel.NewInsertTabAction(
-						panel.InsertTabPayload{
-							Tab:        tab(tabKey),
+					panel.NewInsertTabsAction(
+						panel.InsertTabsPayload{
+							Tabs:       []panel.Tab{tab(tabKey)},
 							TargetLeaf: new(int32(1)),
 						},
 					),
@@ -282,8 +282,11 @@ var _ = Describe("Writer", func() {
 			key := create(ctx, leafNode())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "batched"}),
-				panel.NewInsertTabAction(
-					panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: new(int32(1))},
+				panel.NewInsertTabsAction(
+					panel.InsertTabsPayload{
+						Tabs:       []panel.Tab{tab(tabKey)},
+						TargetLeaf: new(int32(1)),
+					},
 				),
 			})).To(Succeed())
 			res := retrieve(ctx, key)
@@ -297,13 +300,14 @@ var _ = Describe("Writer", func() {
 				key := create(ctx, leafNode())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
-					panel.NewInsertTabAction(
-						panel.InsertTabPayload{
-							Tab:        tab(uuid.New()),
-							TargetLeaf: new(int32(99)),
+					panel.NewInsertTabsAction(
+						panel.InsertTabsPayload{
+							Tabs:       []panel.Tab{tab(uuid.New())},
+							TargetLeaf: new(int32(1)),
+							Index:      new(int32(99)),
 						},
 					),
-				})).Error().To(MatchError(ContainSubstring("invalid node path")))
+				})).Error().To(MatchError(ContainSubstring("index out of range")))
 				Expect(retrieve(ctx, key).Name).To(Equal("test"))
 			},
 		)
@@ -314,9 +318,9 @@ var _ = Describe("Writer", func() {
 				tabKey := uuid.New()
 				key := create(ctx, leafNode(viewTab(tabKey, "selector")))
 				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-					panel.NewInsertTabAction(
-						panel.InsertTabPayload{
-							Tab:        tab(tabKey),
+					panel.NewInsertTabsAction(
+						panel.InsertTabsPayload{
+							Tabs:       []panel.Tab{tab(tabKey)},
 							TargetLeaf: new(int32(1)),
 						},
 					),
@@ -375,13 +379,14 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-					panel.NewInsertTabAction(
-						panel.InsertTabPayload{
-							Tab:        tab(uuid.New()),
-							TargetLeaf: new(int32(99)),
+					panel.NewInsertTabsAction(
+						panel.InsertTabsPayload{
+							Tabs:       []panel.Tab{tab(uuid.New())},
+							TargetLeaf: new(int32(1)),
+							Index:      new(int32(99)),
 						},
 					),
-				})).Error().To(MatchError(ContainSubstring("invalid node path")))
+				})).Error().To(MatchError(ContainSubstring("index out of range")))
 				Expect(rec.Snapshot()).To(BeEmpty())
 			},
 		)

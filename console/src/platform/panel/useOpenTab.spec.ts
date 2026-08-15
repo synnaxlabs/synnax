@@ -368,4 +368,55 @@ describe("Panel.useOpenTabs", () => {
       expect(leafTabs(root.last).map((t) => t.key)).toEqual([seedTabKey]);
     });
   });
+
+  it("opens the rest of the batch when one tab's resource is already open", async () => {
+    const seedTabKey = uuid.create();
+    const resource = ranger.ontologyID(uuid.create());
+    const existing = await createServerPanel(client, {
+      variant: "leaf",
+      tabs: [{ variant: "resource", key: seedTabKey, resource }],
+    });
+    const { wrapper } = await createPanelWrapper({ client, panelKey: existing.key });
+    await primePanel(wrapper, existing.key);
+    const { result } = renderHook(() => Panel.useOpenTabs(), { wrapper });
+    const freshKey = uuid.create();
+    await act(async () => {
+      result.current([
+        { variant: "resource", key: uuid.create(), resource },
+        { variant: "view", key: freshKey, type: "added", args: {} },
+      ]);
+    });
+    await waitFor(async () => {
+      const doc = await client.panels.retrieve(existing.key);
+      expect(leafTabs(doc.root).map((t) => t.key)).toEqual([seedTabKey, freshKey]);
+    });
+  });
+
+  // Focus follows the last requested tab. When that tab is a duplicate the reducer
+  // skips it, so focus has to resolve to the tab already holding the resource.
+  it("focuses the tab already holding the resource when the batch ends on a duplicate", async () => {
+    const seedTabKey = uuid.create();
+    const resource = ranger.ontologyID(uuid.create());
+    const existing = await createServerPanel(client, {
+      variant: "leaf",
+      tabs: [{ variant: "resource", key: seedTabKey, resource }],
+    });
+    const { wrapper, store } = await createPanelWrapper({
+      client,
+      panelKey: existing.key,
+    });
+    await primePanel(wrapper, existing.key);
+    const { result } = renderHook(() => Panel.useOpenTabs(), { wrapper });
+    await act(async () => {
+      result.current([
+        { variant: "view", key: uuid.create(), type: "added", args: {} },
+        { variant: "resource", key: uuid.create(), resource },
+      ]);
+    });
+    await waitFor(() =>
+      expect(Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0]).toBe(
+        seedTabKey,
+      ),
+    );
+  });
 });

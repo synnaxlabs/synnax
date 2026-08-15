@@ -39,10 +39,19 @@ export type OpenTab = (params: panel.NewTab, options?: OpenTabOptions) => void;
 
 export type OpenTabs = (params: panel.NewTab[], options?: OpenTabOptions) => void;
 
-type InsertTarget = Pick<
-  panel.InsertTabPayload,
-  "targetLeaf" | "targetTab" | "location"
->;
+// focusedTabKey reads back which tab a request landed on, after the dispatch has
+// applied. An insert the reducer skipped as a duplicate resolves to the tab already
+// holding that content, so the caller focuses it instead of opening a second one.
+const focusedTabKey = (
+  root: panel.Node,
+  tab: panel.Tab,
+  singleton?: boolean,
+): panel.TabKey | undefined => {
+  if (tab.variant === "resource")
+    return panel.findTabByResource(root, tab.resource)?.key;
+  if (singleton) return panel.findTabByType(root, tab.type)?.key;
+  return panel.findTab(root, tab.key)?.key;
+};
 
 /**
  * Returns a callback that opens tabs in the scoped panel, the session-selected panel,
@@ -63,52 +72,28 @@ export const useOpenTabs = (): OpenTabs => {
   // scoped parent or the selected panel), so a remote dispatch is correct.
   const insertIntoExisting = useCallback(
     (panelKey: panel.Key, params: panel.NewTab[], options?: OpenTabOptions) => {
-      const cached = client?.panels.getCached(panelKey);
-      if (!query.isLive(cached))
+      if (!query.isLive(client?.panels.getCached(panelKey)))
         throw new NotFoundError(`Panel with key ${panelKey} not found`);
-      const { root } = cached;
       const { singleton, placement } = options ?? {};
-      // A keyless tab opens beside the current one, but only when that tab lives in
-      // this panel; otherwise its leaf can't be resolved and the insert would no-op, so
-      // fall back to the first leaf.
-      const besideCurrent =
-        params[0]?.key == null &&
-        parentTabKey != null &&
-        panel.findTab(root, parentTabKey) != null;
-      const placed =
-        placement != null && panel.findNode(root, placement.leaf)?.variant === "leaf"
-          ? placement
-          : undefined;
-      let target: InsertTarget = placed
-        ? { targetLeaf: placed.leaf, location: placed.location }
-        : besideCurrent
-          ? { targetTab: parentTabKey }
-          : {};
-      const actions: panel.Action[] = [];
-      let focus: panel.TabKey | undefined;
-      params.forEach((p) => {
-        const tab: panel.Tab = panel.tabZ.parse({ ...p });
-        if (tab.variant === "resource") {
-          const existing = panel.findTabByResource(root, tab.resource);
-          if (existing != null) {
-            focus = existing.key;
-            return;
-          }
-        }
-        if (tab.variant === "view" && singleton) {
-          const existing = panel.findTabByType(root, tab.type);
-          if (existing != null) {
-            focus = existing.key;
-            return;
-          }
-        }
-        actions.push(panel.insertTab({ tab, ...target, singleton }));
-        // Later tabs target the one before them so they join its leaf, whether the
-        // first insert split the placed leaf or landed in an existing one.
-        target = { targetTab: tab.key };
-        focus = tab.key;
+      const tabs = params.map((p): panel.Tab => panel.tabZ.parse({ ...p }));
+      const last = tabs.at(-1);
+      if (last == null) return;
+      // A keyless tab opens beside the current one. A keyed one is a reopen, so it
+      // carries no placement and keeps wherever it already sits.
+      const besideCurrent = params[0]?.key == null ? parentTabKey : undefined;
+      dispatch({
+        key: panelKey,
+        actions: panel.insertTabs({
+          tabs,
+          singleton,
+          ...(placement != null
+            ? { targetLeaf: placement.leaf, location: placement.location }
+            : { targetTab: besideCurrent }),
+        }),
       });
-      if (actions.length > 0) dispatch({ key: panelKey, actions });
+      const applied = client?.panels.getCached(panelKey);
+      if (!query.isLive(applied)) return;
+      const focus = focusedTabKey(applied.root, last, singleton);
       if (focus != null) selectTab(focus, panelKey);
     },
     [parentTabKey, client, dispatch, selectTab],
