@@ -30,7 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/opc"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
@@ -312,7 +312,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		stores = append(stores, MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
 			DB: db,
 		})).Stores()...)
-		stores = append(stores, MustOpen(opc.OpenService(ctx, opc.ServiceConfig{
+		stores = append(stores, MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
 			DB: db,
 		})).Stores()...)
 		stores = append(

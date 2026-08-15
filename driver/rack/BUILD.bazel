@@ -41,7 +41,7 @@ cc_library(
         "//driver/http",
         "//driver/labjack",
         "//driver/ni",
-        "//driver/opc",
+        "//driver/opcua",
         "//driver/rack/status",
         "//driver/task",
         "//x/cpp/args",

@@ -16,7 +16,7 @@ from synnax import (
     modbus,
     ni,
     node,
-    opc,
+    opcua,
     pagerduty,
     status,
 )
@@ -104,7 +104,6 @@ from x.exceptions import ContiguityError
 __version__ = _version("synnax")
 
 _DEPRECATED: dict[str, str | tuple[str, str]] = {
-    "opcua": ("synnax.opc", "opc"),
     "ArcTask": ("synnax.arc.Task", "ArcTask"),
     "TaskStatus": ("synnax.task.Status", "TaskStatus"),
     "TaskStatusDetails": ("synnax.task.StatusDetails", "TaskStatusDetails"),
@@ -194,7 +193,6 @@ __all__ = [
     "modbus",
     "ni",
     "node",
-    "opc",
     "opcua",
     "pagerduty",
     "ontology",

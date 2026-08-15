@@ -85,11 +85,11 @@ class TestOPCReadTask:
     def test_parse_opc_read_task(self, test_data):
         """Test that ReadConfig can parse various configurations correctly."""
         input_data = test_data["data"]
-        sy.opc.ReadConfig.model_validate(input_data)
+        sy.opcua.ReadConfig.model_validate(input_data)
 
     def test_create_and_retrieve_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
-        task = sy.opc.ReadTask(
+        task = sy.opcua.ReadTask(
             name="test-task",
             device="some-device-key",
             sample_rate=10,
@@ -97,7 +97,7 @@ class TestOPCReadTask:
             array_mode=False,
             array_size=1,
             channels=[
-                sy.opc.ReadChannel(
+                sy.opcua.ReadChannel(
                     key="k09AWoiyLxN",
                     node_id="NS=2;I=8",
                     channel=1234,
@@ -109,7 +109,7 @@ class TestOPCReadTask:
             type="opc_read",
             config=task.config,
         )
-        sy.opc.ReadTask(createdTask)
+        sy.opcua.ReadTask(createdTask)
 
 
 @pytest.mark.opcua
@@ -158,16 +158,16 @@ class TestOPCWriteTask:
     def test_parse_opc_write_task(self, test_data):
         """Test that WriteConfig can parse various configurations correctly."""
         input_data = test_data["data"]
-        sy.opc.WriteConfig.model_validate(input_data)
+        sy.opcua.WriteConfig.model_validate(input_data)
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
         """Test that WriteTask can be created and retrieved from the database."""
-        task = sy.opc.WriteTask(
+        task = sy.opcua.WriteTask(
             name="test-write-task",
             device="some-device-key",
             auto_start=True,
             channels=[
-                sy.opc.WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
@@ -179,22 +179,22 @@ class TestOPCWriteTask:
             type="opc_write",
             config=task.config,
         )
-        sy.opc.WriteTask(createdTask)
+        sy.opcua.WriteTask(createdTask)
 
     def test_write_task_disabled_channels(self, client: sy.Synnax):
         """Test that disabled channels are handled correctly."""
-        task = sy.opc.WriteTask(
+        task = sy.opcua.WriteTask(
             name="test-disabled-channels",
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.opc.WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                     disabled=False,
                 ),
-                sy.opc.WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=9",
                     cmd_channel=5678,
@@ -209,11 +209,11 @@ class TestOPCWriteTask:
 
     def test_write_channel_auto_key_generation(self):
         """Test that the WriteTask assigns keys to channels missing one."""
-        task = sy.opc.WriteTask(
+        task = sy.opcua.WriteTask(
             name="test",
             device="some-device-key",
             channels=[
-                sy.opc.WriteChannel(
+                sy.opcua.WriteChannel(
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                 )
@@ -225,18 +225,18 @@ class TestOPCWriteTask:
 
     def test_write_task_serialization_round_trip(self, client: sy.Synnax):
         """Test that task can be serialized and deserialized correctly."""
-        original_task = sy.opc.WriteTask(
+        original_task = sy.opcua.WriteTask(
             name="test-round-trip",
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.opc.WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                     disabled=False,
                 ),
-                sy.opc.WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=10",
                     cmd_channel=5678,
@@ -253,7 +253,7 @@ class TestOPCWriteTask:
         )
 
         # Deserialize from database
-        retrieved_task = sy.opc.WriteTask(created_task)
+        retrieved_task = sy.opcua.WriteTask(created_task)
 
         # Verify all fields match
         assert retrieved_task.config.device == original_task.config.device
@@ -270,9 +270,15 @@ class TestOPCWriteTask:
 
 
 @pytest.mark.opcua
-class TestOPCUAAlias:
-    def test_opcua_module_aliases_opc(self):
-        """Test that the deprecated synnax.opcua module re-exports synnax.opc."""
-        assert sy.opcua.ReadTask is sy.opc.ReadTask
-        assert sy.opcua.WriteTask is sy.opc.WriteTask
-        assert sy.opcua.Device is sy.opc.Device
+class TestOPCUADeprecatedNames:
+    def test_should_resolve_released_channel_aliases(self):
+        """Test that names released clients used still resolve."""
+        assert sy.opcua.Channel is sy.opcua.ReadChannel
+        assert sy.opcua.WriteTaskConfig is sy.opcua.WriteConfig
+
+    def test_should_forward_the_hardware_module(self):
+        """Test that the deprecated synnax.hardware.opcua module still forwards."""
+        from synnax.hardware import opcua as hardware_opcua
+
+        assert hardware_opcua.ReadTask is sy.opcua.ReadTask
+        assert hardware_opcua.Device is sy.opcua.Device

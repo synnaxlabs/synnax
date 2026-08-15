@@ -42,7 +42,7 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
   swap config. Readers: `RegisterReader` (holding/input registers), `BitReader`
   (coils/discrete inputs). Channel types: `holding_register`, `input_register`, `coil`,
   `discrete_input`. **Excluded on NI Linux Real-Time.**
-- **OPC UA** (`/driver/opc/`) — vendored open62541 + mbedtls. `util::ConnectionPool`
+- **OPC UA** (`/driver/opcua/`) — vendored open62541 + mbedtls. `util::ConnectionPool`
   shared clients; ReadTask modes for array vs scalar reads; NodeId-based writes;
   security policy support. Windows/Linux/macOS.
 
