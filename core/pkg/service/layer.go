@@ -589,6 +589,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 		Configs:         taskConfigs,
+		// An Arc task holds a key and hash pointing at an Arc document, so it has no
+		// file form of its own, and the Arc service owns the "arc" file type.
+		ImExExcluded: []string{arctask.Type},
 	}); !ok(err, l.Task) {
 		return nil, err
 	}

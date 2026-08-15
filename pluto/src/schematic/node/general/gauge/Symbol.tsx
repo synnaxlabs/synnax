@@ -32,7 +32,18 @@ export const Symbol = ({
   position,
   onConfigChange,
   selected,
-  config: { label, level = "p", color, telem, units, notation, bounds, barWidth },
+  config: {
+    label,
+    level = "p",
+    color,
+    telem,
+    units,
+    notation,
+    bounds,
+    barWidth,
+    stalenessColor,
+    stalenessTimeout,
+  },
 }: NodeProps<Config>): ReactElement => {
   const dims = useMemo(
     () => dimensions.construct(GAUGE_SIZE_MULTIPLIER[level] ?? 100),
@@ -48,6 +59,8 @@ export const Symbol = ({
     bounds,
     notation,
     barWidth,
+    stalenessColor,
+    stalenessTimeout,
   });
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>

@@ -103,26 +103,21 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("analog variant", v2.ReadChannel{Variant: v2.AnalogReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
-				Port:            "test_1",
-				Range:           2.5,
-				NegChan:         4,
-				Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 5.5, Offset: 6.5}},
+				Range:           1.5,
+				NegChan:         3,
+				Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 4.5, Offset: 5.5}},
 			}}),
-			Entry("digital variant", v2.ReadChannel{Variant: v2.DigitalReadChannel{
-				BaseReadChannel: fullyPopulatedBaseReadChannel,
-				Port:            "test_1",
-			}}),
+			Entry("digital variant", v2.ReadChannel{Variant: v2.DigitalReadChannel{BaseReadChannel: fullyPopulatedBaseReadChannel}}),
 			Entry("thermocouple variant", v2.ReadChannel{Variant: v2.ThermocoupleReadChannel{
 				BaseReadChannel:  fullyPopulatedBaseReadChannel,
-				Port:             "test_1",
 				ThermocoupleType: v2.ThermocoupleType("J"),
-				PosChan:          4,
-				NegChan:          5,
-				CjcSource:        "test_5",
-				CjcSlope:         6.5,
-				CjcOffset:        7.5,
+				PosChan:          3,
+				NegChan:          4,
+				CjcSource:        "test_4",
+				CjcSlope:         5.5,
+				CjcOffset:        6.5,
 				Units:            v2.TemperatureUnits("C"),
-				Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 10.5, Offset: 11.5}},
+				Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 9.5, Offset: 10.5}},
 			}}),
 		)
 	})
@@ -153,14 +148,13 @@ var _ = Describe("Codec", func() {
 				Channels: []v2.ReadChannel{
 					{Variant: v2.AnalogReadChannel{
 						BaseReadChannel: fullyPopulatedBaseReadChannel,
-						Port:            "test_8",
-						Range:           9.5,
-						NegChan:         11,
-						Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 12.5, Offset: 13.5}},
+						Range:           8.5,
+						NegChan:         10,
+						Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 11.5, Offset: 12.5}},
 					}},
 				},
-				DeviceScanBacklogWarnOnCount: 15,
-				LjmScanBacklogWarnOnCount:    16,
+				DeviceScanBacklogWarnOnCount: 14,
+				LjmScanBacklogWarnOnCount:    15,
 			}),
 			Entry("zero values", v2.ReadConfig{
 				BaseRead: config.BaseRead{
@@ -256,14 +250,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("analog variant", v2.WriteChannel{Variant: v2.AnalogWriteChannel{
-				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-				Port:             "test_1",
-			}}),
-			Entry("digital variant", v2.WriteChannel{Variant: v2.DigitalWriteChannel{
-				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-				Port:             "test_1",
-			}}),
+			Entry("analog variant", v2.WriteChannel{Variant: v2.AnalogWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}),
+			Entry("digital variant", v2.WriteChannel{Variant: v2.DigitalWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}),
 		)
 	})
 	Describe("WriteConfig", func() {
@@ -289,12 +277,7 @@ var _ = Describe("Codec", func() {
 					Device: "test_4",
 				},
 				StateRate: telem.Rate(5.5),
-				Channels: []v2.WriteChannel{
-					{Variant: v2.AnalogWriteChannel{
-						BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-						Port:             "test_7",
-					}},
-				},
+				Channels:  []v2.WriteChannel{{Variant: v2.AnalogWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}},
 			}),
 			Entry("zero values", v2.WriteConfig{
 				BaseWrite: config.BaseWrite{
@@ -362,10 +345,9 @@ func BenchmarkEncodeDecodeBaseWriteChannel(b *testing.B) {
 func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 	seed := v2.ReadChannel{Variant: v2.AnalogReadChannel{
 		BaseReadChannel: fullyPopulatedBaseReadChannel,
-		Port:            "test_1",
-		Range:           2.5,
-		NegChan:         4,
-		Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 5.5, Offset: 6.5}},
+		Range:           1.5,
+		NegChan:         3,
+		Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 4.5, Offset: 5.5}},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -399,14 +381,13 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		Channels: []v2.ReadChannel{
 			{Variant: v2.AnalogReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
-				Port:            "test_8",
-				Range:           9.5,
-				NegChan:         11,
-				Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 12.5, Offset: 13.5}},
+				Range:           8.5,
+				NegChan:         10,
+				Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 11.5, Offset: 12.5}},
 			}},
 		},
-		DeviceScanBacklogWarnOnCount: 15,
-		LjmScanBacklogWarnOnCount:    16,
+		DeviceScanBacklogWarnOnCount: 14,
+		LjmScanBacklogWarnOnCount:    15,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -465,10 +446,7 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeWriteChannel(b *testing.B) {
-	seed := v2.WriteChannel{Variant: v2.AnalogWriteChannel{
-		BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-		Port:             "test_1",
-	}}
+	seed := v2.WriteChannel{Variant: v2.AnalogWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -497,12 +475,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 			Device: "test_4",
 		},
 		StateRate: telem.Rate(5.5),
-		Channels: []v2.WriteChannel{
-			{Variant: v2.AnalogWriteChannel{
-				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-				Port:             "test_7",
-			}},
-		},
+		Channels:  []v2.WriteChannel{{Variant: v2.AnalogWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -615,10 +588,9 @@ func FuzzDecodeReadChannel(f *testing.F) {
 	{
 		seed := v2.ReadChannel{Variant: v2.AnalogReadChannel{
 			BaseReadChannel: fullyPopulatedBaseReadChannel,
-			Port:            "test_1",
-			Range:           2.5,
-			NegChan:         4,
-			Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 5.5, Offset: 6.5}},
+			Range:           1.5,
+			NegChan:         3,
+			Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 4.5, Offset: 5.5}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -627,10 +599,7 @@ func FuzzDecodeReadChannel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.ReadChannel{Variant: v2.DigitalReadChannel{
-			BaseReadChannel: fullyPopulatedBaseReadChannel,
-			Port:            "test_1",
-		}}
+		seed := v2.ReadChannel{Variant: v2.DigitalReadChannel{BaseReadChannel: fullyPopulatedBaseReadChannel}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -640,15 +609,14 @@ func FuzzDecodeReadChannel(f *testing.F) {
 	{
 		seed := v2.ReadChannel{Variant: v2.ThermocoupleReadChannel{
 			BaseReadChannel:  fullyPopulatedBaseReadChannel,
-			Port:             "test_1",
 			ThermocoupleType: v2.ThermocoupleType("J"),
-			PosChan:          4,
-			NegChan:          5,
-			CjcSource:        "test_5",
-			CjcSlope:         6.5,
-			CjcOffset:        7.5,
+			PosChan:          3,
+			NegChan:          4,
+			CjcSource:        "test_4",
+			CjcSlope:         5.5,
+			CjcOffset:        6.5,
 			Units:            v2.TemperatureUnits("C"),
-			Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 10.5, Offset: 11.5}},
+			Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 9.5, Offset: 10.5}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -696,14 +664,13 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Channels: []v2.ReadChannel{
 				{Variant: v2.AnalogReadChannel{
 					BaseReadChannel: fullyPopulatedBaseReadChannel,
-					Port:            "test_8",
-					Range:           9.5,
-					NegChan:         11,
-					Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 12.5, Offset: 13.5}},
+					Range:           8.5,
+					NegChan:         10,
+					Scale:           v2.Scale{Variant: v2.LinearScale{Slope: 11.5, Offset: 12.5}},
 				}},
 			},
-			DeviceScanBacklogWarnOnCount: 15,
-			LjmScanBacklogWarnOnCount:    16,
+			DeviceScanBacklogWarnOnCount: 14,
+			LjmScanBacklogWarnOnCount:    15,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -885,10 +852,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 
 func FuzzDecodeWriteChannel(f *testing.F) {
 	{
-		seed := v2.WriteChannel{Variant: v2.AnalogWriteChannel{
-			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-			Port:             "test_1",
-		}}
+		seed := v2.WriteChannel{Variant: v2.AnalogWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -896,10 +860,7 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.WriteChannel{Variant: v2.DigitalWriteChannel{
-			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-			Port:             "test_1",
-		}}
+		seed := v2.WriteChannel{Variant: v2.DigitalWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -942,12 +903,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				Device: "test_4",
 			},
 			StateRate: telem.Rate(5.5),
-			Channels: []v2.WriteChannel{
-				{Variant: v2.AnalogWriteChannel{
-					BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-					Port:             "test_7",
-				}},
-			},
+			Channels:  []v2.WriteChannel{{Variant: v2.AnalogWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

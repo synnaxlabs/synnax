@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -627,7 +628,11 @@ func buildUnionCodec(
 				}
 				embeds = append(embeds, naming.GetGoName(parent))
 			}
-			inlineFields = pform.Fields
+			inlineFields = declaredFields(
+				append(slices.Clone(form.Extends), pform.Extends...),
+				pform.Fields,
+				table,
+			)
 		} else {
 			embeds = append(embeds, naming.GetGoName(payload))
 		}

@@ -166,7 +166,7 @@ const Internal = (): ReactElement => {
             <Tab key={key} tabKey={key} />
           ))}
         </Tabs.Selector>
-        <Button.Button variant="text" onClick={handleCreate}>
+        <Button.Button variant="text" textColor={9} onClick={handleCreate}>
           <Icon.Add />
           {selected == null && "New Panel"}
         </Button.Button>

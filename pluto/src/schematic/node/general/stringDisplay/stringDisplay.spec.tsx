@@ -21,15 +21,12 @@ import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
 import { telem } from "@/telem/aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
-import { Theming } from "@/theming";
-
-const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   const methods = Form.use<typeof StringDisplay.configZ>({
-    values: deep.copy(StringDisplay.defaultConfig(theme)),
+    values: deep.copy(StringDisplay.defaultConfig()),
     schema: StringDisplay.configZ,
   });
   return (
@@ -56,12 +53,12 @@ const LONG_VALUE = "a".repeat(500);
 describe("StringDisplay", () => {
   describe("defaultConfig", () => {
     it("should produce a config that satisfies its own schema", () => {
-      const config = StringDisplay.defaultConfig(theme);
+      const config = StringDisplay.defaultConfig();
       expect(StringDisplay.configZ.parse(config)).toEqual(config);
     });
 
     it("should source telemetry from a bare string source, not a pipeline", () => {
-      const { telem: t } = StringDisplay.defaultConfig(theme);
+      const { telem: t } = StringDisplay.defaultConfig();
       expect(t?.variant).toBe("source");
       expect(t?.valueType).toBe("string");
       expect(t?.type).toBe("stream-channel-string-value");
@@ -71,7 +68,7 @@ describe("StringDisplay", () => {
   describe("configZ", () => {
     it("should reject a telem spec that emits numbers", () => {
       const config = {
-        ...StringDisplay.defaultConfig(theme),
+        ...StringDisplay.defaultConfig(),
         telem: telem.streamChannelValue({ channel: 1 }),
       };
       const { success, error } = StringDisplay.configZ.safeParse(config);
@@ -152,7 +149,7 @@ describe("StringDisplay", () => {
     it("should render the telemetry controls", () => {
       const { getByText } = renderForm();
       fireEvent.click(getByText("Telemetry"));
-      expect(getByText("Input channel")).toBeDefined();
+      expect(getByText("Channel")).toBeDefined();
       expect(getByText("Stale color")).toBeDefined();
       expect(getByText("Stale timeout")).toBeDefined();
     });

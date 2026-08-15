@@ -138,7 +138,8 @@ Scale parse_scale(x::json::Parser parser);
 /// @brief AnalogWriteChannel drives an analog output on a DAC port.
 struct AnalogWriteChannel : public BaseWriteChannel {
     std::string type = "analog";
-    std::string port = "DAC0";
+
+    AnalogWriteChannel() { this->port = "DAC0"; }
 
     static AnalogWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -147,7 +148,8 @@ struct AnalogWriteChannel : public BaseWriteChannel {
 /// @brief DigitalWriteChannel drives a digital output line on a DIO port.
 struct DigitalWriteChannel : public BaseWriteChannel {
     std::string type = "digital";
-    std::string port = "DIO4";
+
+    DigitalWriteChannel() { this->port = "DIO4"; }
 
     static DigitalWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -163,7 +165,6 @@ WriteChannel parse_write_channel(x::json::Parser parser);
 /// @brief AnalogReadChannel reads a voltage from an analog input port.
 struct AnalogReadChannel : public BaseReadChannel {
     std::string type = "analog";
-    std::string port = "AIN0";
     /// @brief range is the upper bound of the voltage input range, in volts.
     double range = 10;
     /// @brief neg_chan is the negative channel for differential readings on T7 devices.
@@ -173,6 +174,8 @@ struct AnalogReadChannel : public BaseReadChannel {
     /// @brief scale is the scale applied to raw samples after acquisition.
     Scale scale = NoneScale{};
 
+    AnalogReadChannel() { this->port = "AIN0"; }
+
     static AnalogReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
@@ -180,7 +183,8 @@ struct AnalogReadChannel : public BaseReadChannel {
 /// @brief DigitalReadChannel reads a digital input line.
 struct DigitalReadChannel : public BaseReadChannel {
     std::string type = "digital";
-    std::string port = "DIO4";
+
+    DigitalReadChannel() { this->port = "DIO4"; }
 
     static DigitalReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -189,7 +193,6 @@ struct DigitalReadChannel : public BaseReadChannel {
 /// @brief ThermocoupleReadChannel reads temperature from a thermocouple.
 struct ThermocoupleReadChannel : public BaseReadChannel {
     std::string type = "thermocouple";
-    std::string port = "AIN0";
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_K;
     /// @brief pos_chan is the AIN port the thermocouple's positive lead is wired to.
@@ -211,6 +214,8 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     std::string units = TEMPERATURE_UNITS_KELVIN;
     /// @brief scale is the scale applied to raw samples after acquisition.
     Scale scale = NoneScale{};
+
+    ThermocoupleReadChannel() { this->port = "AIN0"; }
 
     static ThermocoupleReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -20,7 +20,8 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number> {
+interface RenderProps
+  extends Omit<Config, "variant">, Omit<BaseInput.Control<number>, "value"> {
   className?: string;
   style?: CSSProperties;
 }
@@ -29,14 +30,13 @@ export const Setpoint = ({
   orientation = "left",
   className,
   style,
-  value,
   units,
   color,
   onChange,
   size = "small",
   disabled,
 }: RenderProps): ReactElement => {
-  const [currValue, setCurrValue] = useState(value);
+  const [currValue, setCurrValue] = useState(0);
   const symbolColor = symbolColorVar(color);
   const mergedStyle = useMemo(
     () => ({ ...style, [CSS.var("symbol-color")]: symbolColor }),

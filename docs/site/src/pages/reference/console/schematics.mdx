@@ -189,9 +189,10 @@ orientation, color, and other visual properties.
 
 ### Telemetry Tab
 
-The telemetry tab is available on symbols that receive data, such as the value and light
-symbols. After selecting a channel from the dropdown, the schematic will fetch and
-display the live data from that channel.
+The telemetry tab is available on symbols that receive data, such as the value, gauge,
+string display, light, switch, valve, and state indicator symbols. After selecting a
+channel from the dropdown, the schematic will fetch and display the live data from that
+channel.
 
 The telemetry tab can have the following properties:
 
@@ -205,7 +206,7 @@ The telemetry tab can have the following properties:
   <tbody>
     <tr>
       <td>
-        <b>Input channel</b>
+        <b>Channel</b>
       </td>
       <td>The channel to stream data from.</td>
     </tr>
@@ -221,8 +222,8 @@ The telemetry tab can have the following properties:
       </td>
       {
         <td>
-          Display a rolling average for the input channel. This does not change the
-          underlying value written to the Synnax Core.
+          Display a rolling average for the channel. This does not change the underlying
+          value written to the Synnax Core.
         </td>
       }
     </tr>
@@ -232,8 +233,8 @@ The telemetry tab can have the following properties:
       </td>
       {
         <td>
-          The amount of seconds without input channel telemetry before the element state
-          registers as stale.
+          The time in seconds without data from the channel before the symbol registers
+          as stale.
         </td>
       }
     </tr>
@@ -241,10 +242,21 @@ The telemetry tab can have the following properties:
       <td>
         <b>Stale color</b>
       </td>
-      {<td>The color the element will change to when telemetry is stale.</td>}
+      {
+        <td>
+          The color the symbol changes to when its channel is stale. An unset color uses
+          the warning color of the current theme.
+        </td>
+      }
     </tr>
   </tbody>
 </table>
+
+<Note.Note variant="info">
+  A channel that writes on change can pass its stale timeout while it is healthy. Give
+  such a channel a timeout longer than the longest gap you expect between changes. A
+  symbol registers as stale only after data arrives and then stops.
+</Note.Note>
 
 <Video client:only="react" id="console/schematics/value" />
 

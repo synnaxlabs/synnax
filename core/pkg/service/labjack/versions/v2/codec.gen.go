@@ -108,7 +108,6 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Port)
 		w.Float64(float64(v.Range))
 		w.Int32(int32(v.NegChan))
 		if err := v.Scale.EncodeOrc(w); err != nil {
@@ -119,13 +118,11 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Port)
 	case ThermocoupleReadChannel:
 		w.String("thermocouple")
 		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Port)
 		w.String(string(v.ThermocoupleType))
 		w.Int32(int32(v.PosChan))
 		w.Int32(int32(v.NegChan))
@@ -154,9 +151,6 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.Port, err = r.String(); err != nil {
-			return err
-		}
 		if v.Range, err = r.Float64(); err != nil {
 			return err
 		}
@@ -172,16 +166,10 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.Port, err = r.String(); err != nil {
-			return err
-		}
 		rc.Variant = v
 	case "thermocouple":
 		var v ThermocoupleReadChannel
 		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
-			return err
-		}
-		if v.Port, err = r.String(); err != nil {
 			return err
 		}
 		{
@@ -401,13 +389,11 @@ func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Port)
 	case DigitalWriteChannel:
 		w.String("digital")
 		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Port)
 	default:
 		return errors.Newf("WriteChannel: nil or unknown variant %T", wc.Variant)
 	}
@@ -426,16 +412,10 @@ func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.Port, err = r.String(); err != nil {
-			return err
-		}
 		wc.Variant = v
 	case "digital":
 		var v DigitalWriteChannel
 		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
-			return err
-		}
-		if v.Port, err = r.String(); err != nil {
 			return err
 		}
 		wc.Variant = v
