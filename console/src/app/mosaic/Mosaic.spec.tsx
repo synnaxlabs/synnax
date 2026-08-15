@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ontology, type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul, Icon, Text } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Mosaic } from "@/app/mosaic";
-import { Import } from "@/platform/import";
 import {
   createJSONFile,
   fakeFileEntry,
@@ -30,17 +30,23 @@ import {
   getMosaicLeaf,
   primePanel,
 } from "@/platform/panel/testutil";
-import { renderSuspended } from "@/testutil";
+import { assertDefined, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
 const SeedContent: Panel.Content = () => <Text.Text>seed content</Text.Text>;
 const SeedName: Panel.TabName = () => <Text.Text>seed</Text.Text>;
 const SeedIcon: Panel.TabIcon = () => <Icon.Visualize />;
+const SEED: Panel.Tab = { Content: SeedContent, Name: SeedName, Icon: SeedIcon };
 
-const REGISTRY: Panel.Tabs = {
-  seed: { Content: SeedContent, Name: SeedName, Icon: SeedIcon },
-};
+// The drop opens a resource tab for the log the Core creates, so the registry has to
+// render one.
+const REGISTRY: Panel.Tabs = { seed: SEED, log: SEED };
+
+const resourceIDs = (node: panel.Node): ontology.ID[] =>
+  node.variant === "leaf"
+    ? node.tabs.flatMap((tab) => (tab.variant === "resource" ? [tab.resource] : []))
+    : [...resourceIDs(node.first), ...resourceIDs(node.last)];
 
 describe("Mosaic file drop", () => {
   it("imports a JSON file dropped on the mosaic", async () => {
@@ -53,14 +59,11 @@ describe("Mosaic file drop", () => {
       panelKey: existing.key,
     });
     await primePanel(Console, existing.key);
-    const log = vi.fn();
     const Harness = ({ children }: PropsWithChildren): ReactElement => (
       <Console>
-        <Import.FileIngestersProvider fileIngesters={{ log }}>
-          <Panel.RendererContext value={REGISTRY}>
-            <Haul.Provider>{children}</Haul.Provider>
-          </Panel.RendererContext>
-        </Import.FileIngestersProvider>
+        <Panel.RendererContext value={REGISTRY}>
+          <Haul.Provider>{children}</Haul.Provider>
+        </Panel.RendererContext>
       </Console>
     );
     await renderSuspended(
@@ -72,10 +75,25 @@ describe("Mosaic file drop", () => {
     );
     await screen.findByText("seed content");
     startFileDrag();
+    // A legacy Console log state: the Core names the log it creates after the file.
     fireFileDrop(getMosaicLeaf(), [
-      fakeFileEntry(createJSONFile("widget.json", { type: "log", key: "abc" })),
+      fakeFileEntry(
+        createJSONFile("Mosaic Drop.json", {
+          version: "0.0.0",
+          channels: [1, 2, 3],
+          remoteCreated: false,
+        }),
+      ),
     ]);
-    await waitFor(() => expect(log).toHaveBeenCalledTimes(1));
-    expect(log.mock.calls[0][0]).toEqual({ type: "log", key: "abc" });
+    await waitFor(
+      async () => {
+        const { root } = await client.panels.retrieve(existing.key);
+        const [resource] = resourceIDs(root);
+        assertDefined(resource, "the drop opened no resource tab");
+        const created = await client.logs.retrieve({ key: resource.key });
+        expect(created.name).toBe("Mosaic Drop");
+      },
+      { timeout: 5000 },
+    );
   });
 });

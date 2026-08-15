@@ -166,10 +166,6 @@ export const useCreateDigitalRead = Task.createUseCreate({
   getInitialValues,
 });
 
-export const digitalReadIngester = Task.createIngester({
-  getInitialValues,
-});
-
 export const DigitalReadSelectable = Selector.createSelectable({
   type: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",

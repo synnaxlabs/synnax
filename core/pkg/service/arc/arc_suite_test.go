@@ -103,14 +103,15 @@ var (
 		}))
 		configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Rack:     rackSvc,
-			Status:   statusSvc,
-			Search:   searchIdx,
-			ImEx:     imexSvc,
-			Configs:  configs,
+			DB:           db,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Rack:         rackSvc,
+			Status:       statusSvc,
+			Search:       searchIdx,
+			ImEx:         imexSvc,
+			Configs:      configs,
+			ImExExcluded: []string{arctask.Type},
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())

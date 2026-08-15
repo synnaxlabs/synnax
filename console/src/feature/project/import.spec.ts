@@ -121,11 +121,7 @@ describe("project import", () => {
     );
     await waitFor(() => expect(result.current.granted).toBe(true));
     await act(async () => {
-      await Project.ingest(`proj-${id.create()}`, fileList, {
-        client,
-        fileIngesters: {},
-        store,
-      });
+      await Project.ingest(`proj-${id.create()}`, fileList, { client, store });
     });
     return store;
   };

@@ -16,14 +16,11 @@ export interface File {
 }
 
 export interface FileIngesterContext {
-  /** name is the fallback component name derived from the imported file. */
-  name?: string;
   client: Synnax | null;
   projectKey: project.Key;
   /**
-   * The name of the file the data was read from, extension included. Server-side
-   * ingesters forward it so the Core can name the resource after the file when the
-   * file's contents carry no name.
+   * The name of the file the data was read from, extension included. The Core names
+   * the resource after the file when the file's contents carry no name.
    */
   fileName: string;
 }
@@ -39,11 +36,8 @@ export interface FileIngester {
   ): void | ontology.ID | Promise<void | ontology.ID>;
 }
 
-export interface FileIngesters extends Record<string, FileIngester> {}
-
 interface DirectoryIngesterContext {
   client: Synnax | null;
-  fileIngesters: FileIngesters;
   store: Store;
 }
 

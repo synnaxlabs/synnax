@@ -95,14 +95,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		Search:   searchIdx,
-		ImEx:     imexSvc,
-		Configs:  configs,
+		DB:           db,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Rack:         rackSvc,
+		Status:       statusSvc,
+		Search:       searchIdx,
+		ImEx:         imexSvc,
+		Configs:      configs,
+		ImExExcluded: []string{arctask.Type},
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,

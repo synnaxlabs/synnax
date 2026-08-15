@@ -214,10 +214,6 @@ export const useCreateDigitalWrite = Task.createUseCreate({
   getInitialValues,
 });
 
-export const digitalWriteIngester = Task.createIngester({
-  getInitialValues,
-});
-
 export const DigitalWriteSelectable = Selector.createSelectable({
   type: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",

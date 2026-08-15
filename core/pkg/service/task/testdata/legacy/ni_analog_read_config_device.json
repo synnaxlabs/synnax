@@ -1,0 +1,71 @@
+{
+  "type": "ni_analog_read",
+  "device": "fixture-ni-config-device",
+  "autoStart": false,
+  "dataSaving": true,
+  "sampleRate": 1000.25,
+  "streamRate": 50.5,
+  "channels": [
+    {
+      "enabled": true,
+      "key": "ch-v0-ai-voltage",
+      "channel": 2010,
+      "name": "fixture_v0_ai_voltage",
+      "port": 1,
+      "type": "ai_voltage",
+      "units": "Volts",
+      "terminalConfig": "RSE",
+      "minVal": -10.5,
+      "maxVal": 10.5,
+      "customScale": {
+        "type": "linear",
+        "slope": 0.5,
+        "yIntercept": 1.25,
+        "preScaledUnits": "Volts",
+        "scaledUnits": "v0-custom"
+      }
+    },
+    {
+      "enabled": false,
+      "key": "ch-v0-ai-freq",
+      "channel": 2020,
+      "name": "fixture_v0_ai_frequency_voltage",
+      "port": 2,
+      "type": "ai_frequency_voltage",
+      "units": "Hz",
+      "thresholdLevel": 2.25,
+      "hysteresis": 0.125,
+      "minVal": 1.5,
+      "maxVal": 10000.5,
+      "customScale": { "type": "none" }
+    },
+    {
+      "enabled": true,
+      "key": "ch-v0-ai-tc-chan",
+      "channel": 2030,
+      "name": "fixture_v0_ai_thermocouple_chan",
+      "port": 3,
+      "type": "ai_thermocouple",
+      "units": "DegC",
+      "thermocoupleType": "K",
+      "minVal": -100.5,
+      "maxVal": 900.5,
+      "cjcSource": "Chan",
+      "cjcPort": 7
+    },
+    {
+      "enabled": true,
+      "key": "ch-v0-ai-tc-builtin",
+      "channel": 2040,
+      "name": "fixture_v0_ai_thermocouple_builtin",
+      "port": 4,
+      "device": "fixture-ni-channel-device",
+      "type": "ai_thermocouple",
+      "units": "Kelvins",
+      "thermocoupleType": "J",
+      "minVal": 0.5,
+      "maxVal": 1500.5,
+      "cjcSource": "BuiltIn"
+    }
+  ]
+}

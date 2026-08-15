@@ -234,10 +234,6 @@ export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
 });
 
-export const writeIngester = Task.createIngester({
-  getInitialValues,
-});
-
 export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
   title: "Modbus Write Task",

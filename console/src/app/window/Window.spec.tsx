@@ -11,7 +11,6 @@ import { Haul } from "@synnaxlabs/pluto";
 import { createEvent, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Imex } from "@/app/imex";
 import { Window } from "@/app/window";
 import { Session } from "@/session";
 import { getBySelector, installPortalRoot, renderWithConsole } from "@/testutil";
@@ -32,9 +31,7 @@ describe("app/window/Window", () => {
   it("hauls a file when an OS file enters the window", async () => {
     const { store, container } = await renderWithConsole(
       <Haul.Provider {...Session.Haul.PROVIDER_PROPS}>
-        <Imex.Context>
-          <Window.Window />
-        </Imex.Context>
+        <Window.Window />
       </Haul.Provider>,
     );
     fireFileDragOver(getBySelector<HTMLElement>(container, ".console-main"));

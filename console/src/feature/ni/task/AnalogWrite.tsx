@@ -226,10 +226,6 @@ export const useCreateAnalogWrite = Task.createUseCreate({
   getInitialValues,
 });
 
-export const analogWriteIngester = Task.createIngester({
-  getInitialValues,
-});
-
 export const AnalogWriteSelectable = Selector.createSelectable({
   type: ANALOG_WRITE_TYPE,
   title: "NI Analog Write Task",

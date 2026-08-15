@@ -12,11 +12,9 @@ import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useFileIngesters } from "@/platform/import/FileIngestersProvider";
-import { ingestComponent } from "@/platform/import/import";
+import { ingestServer } from "@/platform/import/import";
 import { ingestBatch } from "@/platform/import/ingestBatch";
-import { type DirectoryIngester, type FileIngesters } from "@/platform/import/ingester";
-import { trimFileName } from "@/platform/import/trimFileName";
+import { type DirectoryIngester } from "@/platform/import/ingester";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
@@ -55,7 +53,6 @@ const readJSON = async (file: File): Promise<unknown> => JSON.parse(await file.t
 
 interface IngestContext {
   client: Client | null;
-  fileIngesters: FileIngesters;
   ingestDirectory: DirectoryIngester;
   projectKey: project.Key;
   store: Store;
@@ -65,24 +62,19 @@ interface IngestContext {
 // brings its own panels, so it opens no tab here.
 const ingestEntry = async (
   entry: FileSystemEntry,
-  { client, fileIngesters, ingestDirectory, projectKey, store }: IngestContext,
+  { client, ingestDirectory, projectKey, store }: IngestContext,
 ): Promise<void | ontology.ID> => {
   if (isDirectory(entry)) {
     const files = await readDirectory(entry);
     const parsed = await Promise.all(
       files.map(async (file) => ({ name: file.name, data: await readJSON(file) })),
     );
-    return await ingestDirectory(entry.name, parsed, {
-      client,
-      fileIngesters,
-      store,
-    });
+    return await ingestDirectory(entry.name, parsed, { client, store });
   }
   if (!isFile(entry)) return;
   const file = await readFile(entry);
   if (file.type !== "application/json") throw new Error("not a JSON file");
-  return await ingestComponent(await readJSON(file), fileIngesters, {
-    name: trimFileName(file.name),
+  return await ingestServer(await readJSON(file), {
     client,
     projectKey,
     fileName: file.name,
@@ -114,7 +106,6 @@ export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop =>
   const store = Session.useStore();
   const openTabs = Panel.useOpenTabs();
   const handleError = Status.useErrorHandler();
-  const fileIngesters = useFileIngesters();
   return useCallback(
     ({ nodeKey, location, event }: FileDropProps) => {
       const entries = captureEntries(event.dataTransfer);
@@ -128,19 +119,13 @@ export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop =>
           await ingestBatch({
             items: entries,
             ingest: async (entry) =>
-              await ingestEntry(entry, {
-                client,
-                fileIngesters,
-                ingestDirectory,
-                projectKey,
-                store,
-              }),
+              await ingestEntry(entry, { client, ingestDirectory, projectKey, store }),
             handleError,
             openTabs,
             placement,
           }),
       );
     },
-    [client, fileIngesters, ingestDirectory, openTabs, store, handleError],
+    [client, ingestDirectory, openTabs, store, handleError],
   );
 };

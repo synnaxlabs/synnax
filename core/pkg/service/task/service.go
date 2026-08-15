@@ -12,6 +12,7 @@ package task
 import (
 	"context"
 	"io"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -80,6 +81,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Configs config.Registry
+	// ImExExcluded lists the task types with no file form. Export refuses them and no
+	// importer is registered for them.
+	//
+	// [OPTIONAL]
+	ImExExcluded []string
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -101,6 +107,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Configs = override.Zero(c.Configs, other.Configs)
+	c.ImExExcluded = override.Slice(c.ImExExcluded, other.ImExExcluded)
 	return c
 }
 
@@ -165,7 +172,19 @@ func OpenService(
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	cfg.ImEx.RegisterExporter(s)
+	if err = cfg.ImEx.RegisterExporter(s); !ok(err, nil) {
+		return nil, err
+	}
+	// Task files carry the fine-grained type ("opc_read") while export routes under
+	// the coarse "task" ontology type, so the importer registers per config type.
+	for _, t := range cfg.Configs.Types() {
+		if slices.Contains(cfg.ImExExcluded, t) {
+			continue
+		}
+		if err = cfg.ImEx.RegisterImporter(t, s); !ok(err, nil) {
+			return nil, err
+		}
+	}
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
 			Name:     "sy_task_cmd",

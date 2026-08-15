@@ -39,7 +39,6 @@ export const startFileDrag = (): void => {
 export const createFileIngesterContext = (
   overrides: Partial<FileIngesterContext> = {},
 ): FileIngesterContext => ({
-  name: "test",
   client: null,
   projectKey: "project-1",
   fileName: "test.json",

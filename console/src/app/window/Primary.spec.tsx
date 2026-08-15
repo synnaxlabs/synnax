@@ -23,7 +23,6 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-import { Imex } from "@/app/imex";
 import { Primary } from "@/app/window/Primary";
 import { Session } from "@/session";
 import { type ConsolePreloadedState, renderWithConsole } from "@/testutil";
@@ -48,13 +47,9 @@ const TOP_BAR = ".console-nav__bar.pluto--location-top";
 
 const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
   mocks.engine = engine;
-  // App.tsx mounts the ingesters above the window; the mosaic's file drop reads them.
-  const { container } = await renderWithConsole(
-    <Imex.Context>
-      <Primary />
-    </Imex.Context>,
-    { preloadedState: withWorkspace() },
-  );
+  const { container } = await renderWithConsole(<Primary />, {
+    preloadedState: withWorkspace(),
+  });
   const workspace = container.querySelector<HTMLElement>(WORKSPACE);
   assert(workspace != null);
   return workspace;
