@@ -42,6 +42,13 @@ class BaseChannel(BaseModel):
         return hash(self.key)
 
 
+class ScanConfig(task.KeyedConfig):
+    """Configures an OPC UA scan task, which carries no settings."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class InputChannel(BaseChannel):
     """Is a single OPC UA node the task reads from.
 
@@ -85,6 +92,9 @@ class ReadConfig(task.BaseReadConfig):
     array_size: int = Field(default=1, ge=-2147483648, le=2147483647)
     channels: list[InputChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class WriteConfig(task.BaseWriteConfig):
     """Configures an OPC UA write task.
@@ -94,3 +104,6 @@ class WriteConfig(task.BaseWriteConfig):
     """
 
     channels: list[OutputChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

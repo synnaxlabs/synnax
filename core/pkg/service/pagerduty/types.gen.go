@@ -11,33 +11,11 @@
 
 package pagerduty
 
-import "github.com/synnaxlabs/synnax/pkg/service/task/common"
+import "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 
 // Alert maps a Synnax status to a PagerDuty event routing rule.
-type Alert struct {
-	// Key uniquely identifies the alert within the task.
-	Key string `json:"key" msgpack:"key"`
-	// Status is the key of the Synnax status the alert watches.
-	Status string `json:"status" msgpack:"status"`
-	// TreatErrorAsCritical maps the error variant to PagerDuty critical instead of
-	// error.
-	TreatErrorAsCritical bool `json:"treat_error_as_critical" msgpack:"treat_error_as_critical"`
-	// Component is the PagerDuty component attached to triggered events.
-	Component string `json:"component" msgpack:"component"`
-	// Group is the PagerDuty group attached to triggered events.
-	Group string `json:"group" msgpack:"group"`
-	// Class is the PagerDuty class attached to triggered events.
-	Class string `json:"class" msgpack:"class"`
-	// Disabled is true when the alert is excluded from the task.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-}
+type Alert = versions.Alert
 
 // TaskConfig configures a PagerDuty alert task, which forwards Synnax status changes to
 // PagerDuty as events.
-type TaskConfig struct {
-	common.BaseStartConfig
-	// RoutingKey is the PagerDuty Events API v2 routing key.
-	RoutingKey string `json:"routing_key" msgpack:"routing_key"`
-	// Alerts are the alerts the task evaluates.
-	Alerts []Alert `json:"alerts,omitzero" msgpack:"alerts,omitzero"`
-}
+type TaskConfig = versions.TaskConfig

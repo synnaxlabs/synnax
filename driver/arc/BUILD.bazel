@@ -29,7 +29,7 @@ cc_library(
         "//arc/cpp/runtime",
         "//arc/cpp/runtime/loop",
         "//client/cpp/arc",
-        "//client/cpp/task/common",
+        "//client/cpp/task/config",
         "//driver/arc/ranges",
         "//driver/arc/status",
         "//driver/bypass",

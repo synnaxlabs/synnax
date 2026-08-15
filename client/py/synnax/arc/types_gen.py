@@ -77,6 +77,9 @@ class TaskConfig(task.BasePersistConfig):
     cpu_affinity: int = Field(default=-1, ge=-2147483648, le=2147483647)
     lock_memory: bool = False
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 Status: TypeAlias = status_.Status[StatusDetails]
 

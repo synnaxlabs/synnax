@@ -85,6 +85,13 @@ class BaseOutputChannel(BaseModel):
         return hash(self.key)
 
 
+class ScanConfig(task.KeyedConfig):
+    """Configures an EtherCAT scan task, which carries no settings."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class InputChannelAutomatic(BaseInputChannel):
     """Resolves its PDO address from the slave's discovered PDOs."""
 
@@ -137,6 +144,9 @@ class ReadConfig(task.BaseReadConfig):
 
     channels: list[InputChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class WriteConfig(task.BasePersistConfig):
     """Configures an EtherCAT write task. Each channel addresses a PDO entry on its own
@@ -151,3 +161,6 @@ class WriteConfig(task.BasePersistConfig):
     state_rate: telem.Rate = telem.Rate(25)
     execution_rate: telem.Rate = telem.Rate(1000)
     channels: list[OutputChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

@@ -44,6 +44,11 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator
 
 from synnax import channel, device, task
+
+# Transitional: the config cutover deletes this alias and the hand-written task
+# config models below, leaving the generated types_gen models as the only config
+# surface.
+from synnax.task import client as task_client
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match driver expectations
@@ -247,7 +252,7 @@ class ManualOutputChan(BaseChan):
 OutputChan = AutomaticOutputChan | ManualOutputChan
 
 
-class ReadTaskConfig(task.BaseReadConfig):
+class ReadTaskConfig(task_client.BaseReadConfig):
     """Configuration for an EtherCAT read task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -280,7 +285,7 @@ class ReadTaskConfig(task.BaseReadConfig):
         return v
 
 
-class WriteTaskConfig(task.BaseWriteConfig):
+class WriteTaskConfig(task_client.BaseWriteConfig):
     """Configuration for an EtherCAT write task.
 
     Inherits common write task fields (device, auto_start) from BaseWriteTaskConfig

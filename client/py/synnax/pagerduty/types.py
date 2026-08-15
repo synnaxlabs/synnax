@@ -11,6 +11,11 @@ from pydantic import BaseModel, Field, model_validator
 
 from synnax import task
 
+# Transitional: the config cutover deletes this alias and the hand-written task
+# config models below, leaving the generated types_gen models as the only config
+# surface.
+from synnax.task import client as task_client
+
 
 class AlertConfig(BaseModel):
     """Configuration for a single PagerDuty alert, mapping a Synnax status to an alert.
@@ -35,7 +40,7 @@ class AlertConfig(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class AlertTaskConfig(task.BaseConfig):
+class AlertTaskConfig(task_client.BaseConfig):
     """Configuration for a PagerDuty alert task.
 
     :param routing_key: The 32-character Integration Key for a PagerDuty service

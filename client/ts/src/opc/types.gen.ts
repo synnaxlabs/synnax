@@ -32,6 +32,9 @@ export const baseChannelZ = z.object({
 });
 export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
 
+export const scanConfigZ = task.keyedConfigZ;
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
+
 export const inputChannelZ = baseChannelZ.extend({
   channel: channel.keyZ.default(0),
   useAsIndex: z.boolean().default(false),

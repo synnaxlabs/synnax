@@ -19,7 +19,7 @@
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/ethercat/types.gen.h"
-#include "client/cpp/task/common/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -103,9 +103,9 @@ inline x::json::json BaseOutputChannel::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::task::common::BaseReadConfig &>(
+    static_cast<::synnax::task::config::BaseRead &>(
         result
-    ) = ::synnax::task::common::BaseReadConfig::parse(parser);
+    ) = ::synnax::task::config::BaseRead::parse(parser);
     result.channels = [&] {
         std::vector<InputChannel> result;
         if (parser.has("channels"))
@@ -119,7 +119,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BaseReadConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BaseRead::to_json().items())
         j[k] = v;
     {
         auto arr = x::json::json::array();
@@ -132,9 +132,9 @@ inline x::json::json ReadConfig::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::task::common::BasePersistConfig &>(
+    static_cast<::synnax::task::config::BasePersist &>(
         result
-    ) = ::synnax::task::common::BasePersistConfig::parse(parser);
+    ) = ::synnax::task::config::BasePersist::parse(parser);
     result.state_rate = parser.field<::x::telem::Rate>(
         "state_rate",
         ::x::telem::Rate(25)
@@ -156,7 +156,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BasePersistConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
     j["execution_rate"] = this->execution_rate;
@@ -166,6 +166,21 @@ inline x::json::json WriteConfig::to_json() const {
             arr.push_back(::synnax::ethercat::to_json(item));
         j["channels"] = arr;
     }
+    return j;
+}
+
+inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
+    ScanConfig result;
+    static_cast<::synnax::task::config::Keyed &>(
+        result
+    ) = ::synnax::task::config::Keyed::parse(parser);
+    return result;
+}
+
+inline x::json::json ScanConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ::synnax::task::config::Keyed::to_json().items())
+        j[k] = v;
     return j;
 }
 

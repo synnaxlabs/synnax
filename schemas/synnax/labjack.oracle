@@ -22,7 +22,8 @@ TemperatureUnits enum {
     fahrenheit = "F"
     kelvin     = "K"
 
-    @doc value "are the engineering units for a temperature measurement."
+    @doc value  "are the engineering units for a temperature measurement."
+    @go version 0
 }
 
 ThermocoupleType enum {
@@ -36,7 +37,8 @@ ThermocoupleType enum {
     e = "E"
     c = "C"
 
-    @doc value "selects the thermocouple alloy type."
+    @doc value  "selects the thermocouple alloy type."
+    @go version 0
 }
 
 LinearScale struct {
@@ -47,7 +49,8 @@ LinearScale struct {
         @doc value "is the offset added after scaling."
     }
 
-    @doc value "maps raw values to engineering units with a slope and offset."
+    @doc value  "maps raw values to engineering units with a slope and offset."
+    @go version 0
 }
 
 MapScale struct {
@@ -64,11 +67,13 @@ MapScale struct {
         @doc value "is the upper bound of the scaled output range."
     }
 
-    @doc value "maps a raw range linearly onto a scaled range."
+    @doc value  "maps a raw range linearly onto a scaled range."
+    @go version 0
 }
 
 NoneScale struct {
-    @doc value "applies no scaling; the raw value is used directly."
+    @doc value  "applies no scaling; the raw value is used directly."
+    @go version 0
 }
 
 Scale union on type {
@@ -76,7 +81,8 @@ Scale union on type {
     map    MapScale
     none   NoneScale
 
-    @doc value "determines how raw sensor values are transformed to engineering units."
+    @doc value  "determines how raw sensor values are transformed to engineering units."
+    @go version 0
 }
 
 BaseInputChannel struct {
@@ -97,7 +103,8 @@ BaseInputChannel struct {
         @doc value "is the physical port the channel reads from (e.g. 'AIN0', 'DIO4')."
     }
 
-    @doc value "carries the fields every LabJack input channel shares."
+    @doc value  "carries the fields every LabJack input channel shares."
+    @go version 0
 }
 
 InputChannel union on type extends BaseInputChannel {
@@ -156,10 +163,11 @@ InputChannel union on type extends BaseInputChannel {
         @doc value "reads temperature from a thermocouple."
     }
 
-    @doc value """
+    @doc value  """
         is a single LabJack input channel. The type field selects the input mode
         and the fields that accompany it.
     """
+    @go version 0
 }
 
 BaseOutputChannel struct {
@@ -186,7 +194,8 @@ BaseOutputChannel struct {
         @doc value "is the physical port the channel writes to (e.g. 'DAC0', 'DIO4')."
     }
 
-    @doc value "carries the fields every LabJack output channel shares."
+    @doc value  "carries the fields every LabJack output channel shares."
+    @go version 0
 }
 
 OutputChannel union on type extends BaseOutputChannel {
@@ -197,10 +206,11 @@ OutputChannel union on type extends BaseOutputChannel {
         @doc value "drives a digital output line on a DIO port."
     }
 
-    @doc value """
+    @doc value  """
         is a single LabJack output channel. The type field selects the output
         mode.
     """
+    @go version 0
 }
 
 ReadConfig struct extends task.BaseReadConfig {
@@ -223,7 +233,10 @@ ReadConfig struct extends task.BaseReadConfig {
         """
     }
 
-    @doc value "configures a LabJack read task."
+    @doc value  "configures a LabJack read task."
+    @go version 0
+    @go marshal
+    @go migrate
 }
 
 WriteConfig struct extends task.BaseWriteConfig {
@@ -235,5 +248,15 @@ WriteConfig struct extends task.BaseWriteConfig {
         @doc value "are the output channels the task drives."
     }
 
-    @doc value "configures a LabJack write task."
+    @doc value  "configures a LabJack write task."
+    @go version 0
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.KeyedConfig {
+    @doc value  "configures a LabJack scan task, which carries no settings."
+    @go version 0
+    @go marshal
+    @go migrate
 }

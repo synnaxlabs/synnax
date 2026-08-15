@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+# Transitional: the config cutover deletes this module; OPC UA task models fold
+# into the opc package and its generated types.
+
 from typing import Literal
 from uuid import uuid4
 from warnings import warn
@@ -16,6 +19,7 @@ from typing_extensions import deprecated
 
 from synnax import channel as channel_
 from synnax import device, task
+from synnax.task import client as task_client
 from synnax.telem import CrudeDataType, CrudeRate, Rate
 
 # Security mode constants
@@ -250,7 +254,7 @@ class WriteChannel(BaseModel):
         )
 
 
-class BaseConfig(task.BaseConfig):
+class BaseConfig(task_client.BaseConfig):
     """Base configuration for OPC UA read tasks.
 
     Inherits auto_start from BaseTaskConfig and adds OPC UA-specific fields.
@@ -376,7 +380,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         return device_client.create(dev)
 
 
-class WriteTaskConfig(task.BaseWriteConfig):
+class WriteTaskConfig(task_client.BaseWriteConfig):
     """Configuration for an OPC UA write task.
 
     Inherits common write task fields (device, auto_start) from

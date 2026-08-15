@@ -221,8 +221,9 @@ ExecutionMode enum {
     hybrid       = "HYBRID"
     event_driven = "EVENT_DRIVEN"
 
-    @doc value "selects how the Arc runtime loop schedules execution."
-    @go output "core/pkg/service/arc/task"
+    @doc value  "selects how the Arc runtime loop schedules execution."
+    @go version 0
+    @go output  "core/pkg/service/arc/task"
     @pb omit
 }
 
@@ -243,8 +244,11 @@ TaskConfig struct extends task.BasePersistConfig {
         @doc value "locks the runtime's memory to prevent paging."
     }
 
-    @doc value "configures an Arc task, which runs a compiled Arc module."
-    @go output "core/pkg/service/arc/task"
-    @go name   "Config"
+    @doc value  "configures an Arc task, which runs a compiled Arc module."
+    @go version 0
+    @go marshal
+    @go migrate
+    @go output  "core/pkg/service/arc/task"
+    @go name    "Config"
     @pb omit
 }

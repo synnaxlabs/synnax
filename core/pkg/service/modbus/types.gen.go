@@ -11,351 +11,75 @@
 
 package modbus
 
-import (
-	"encoding/json"
-
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
-type RegisterValue struct {
-	// DataType is the data type the register contents are interpreted as.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// SwapBytes is true when the byte order within each 16-bit word is swapped.
-	SwapBytes bool `json:"swap_bytes" msgpack:"swap_bytes"`
-	// SwapWords is true when the word order of multi-register values is swapped.
-	SwapWords bool `json:"swap_words" msgpack:"swap_words"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RegisterValue) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "uint8"
-	}
-}
+type RegisterValue = versions.RegisterValue
 
 // BaseInputChannel carries the fields every Modbus input channel shares.
-type BaseInputChannel struct {
-	// Key uniquely identifies the channel within the task.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the human-readable channel name.
-	Name string `json:"name" msgpack:"name"`
-	// Disabled is true when the channel is excluded from acquisition.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Channel is the Synnax channel that samples are written to.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Address is the Modbus address the channel reads from.
-	Address uint16 `json:"address" msgpack:"address"`
-}
-
-type InputChannelType string
-
-const (
-	InputChannelTypeCoilInput            InputChannelType = "coil_input"
-	InputChannelTypeDiscreteInput        InputChannelType = "discrete_input"
-	InputChannelTypeHoldingRegisterInput InputChannelType = "holding_register_input"
-	InputChannelTypeRegisterInput        InputChannelType = "register_input"
-)
-
-type InputChannelVariant interface {
-	isInputChannelVariant()
-}
-
-// InputChannelCoilInput reads a single bit from a coil.
-type InputChannelCoilInput struct {
-	BaseInputChannel
-}
-
-func (InputChannelCoilInput) isInputChannelVariant() {}
-
-// InputChannelDiscreteInput reads a single bit from a discrete input.
-type InputChannelDiscreteInput struct {
-	BaseInputChannel
-}
-
-func (InputChannelDiscreteInput) isInputChannelVariant() {}
-
-// InputChannelHoldingRegisterInput reads a typed value from one or more holding
-// registers.
-type InputChannelHoldingRegisterInput struct {
-	BaseInputChannel
-	RegisterValue
-	// StringLength is the length, in characters, when data_type is a string.
-	StringLength int32 `json:"string_length" msgpack:"string_length"`
-}
-
-func (InputChannelHoldingRegisterInput) isInputChannelVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannelHoldingRegisterInput) ApplyDefaults() {
-	i.RegisterValue.ApplyDefaults()
-}
-
-// InputChannelRegisterInput reads a typed value from one or more input registers.
-type InputChannelRegisterInput struct {
-	BaseInputChannel
-	RegisterValue
-	// StringLength is the length, in characters, when data_type is a string.
-	StringLength int32 `json:"string_length" msgpack:"string_length"`
-}
-
-func (InputChannelRegisterInput) isInputChannelVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannelRegisterInput) ApplyDefaults() {
-	i.RegisterValue.ApplyDefaults()
-}
+type BaseInputChannel = versions.BaseInputChannel
 
 // InputChannel is a single Modbus input channel. The type field selects the register
 // space the channel reads from and the fields that accompany it.
-type InputChannel struct {
-	Variant InputChannelVariant
-}
-
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u InputChannel) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t InputChannelType
-	switch u.Variant.(type) {
-	case InputChannelCoilInput:
-		t = InputChannelTypeCoilInput
-	case InputChannelDiscreteInput:
-		t = InputChannelTypeDiscreteInput
-	case InputChannelHoldingRegisterInput:
-		t = InputChannelTypeHoldingRegisterInput
-	case InputChannelRegisterInput:
-		t = InputChannelTypeRegisterInput
-	default:
-		return nil, errors.Newf("InputChannel: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
-}
-
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *InputChannel) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type InputChannelType `json:"type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case InputChannelTypeCoilInput:
-		var v InputChannelCoilInput
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case InputChannelTypeDiscreteInput:
-		var v InputChannelDiscreteInput
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case InputChannelTypeHoldingRegisterInput:
-		var v InputChannelHoldingRegisterInput
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case InputChannelTypeRegisterInput:
-		var v InputChannelRegisterInput
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("InputChannel: unknown type %q", disc.Type)
-	}
-	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *InputChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case InputChannelHoldingRegisterInput:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case InputChannelRegisterInput:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// BaseOutputChannel carries the fields every Modbus output channel shares.
-type BaseOutputChannel struct {
-	// Key uniquely identifies the channel within the task.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the human-readable channel name.
-	Name string `json:"name" msgpack:"name"`
-	// Disabled is true when the channel is excluded from the task.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Channel is the Synnax channel commands are read from.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Address is the Modbus address the channel writes to.
-	Address uint16 `json:"address" msgpack:"address"`
-}
-
-type OutputChannelType string
+type InputChannel = versions.InputChannel
+type InputChannelVariant = versions.InputChannelVariant
+type InputChannelType = versions.InputChannelType
 
 const (
-	OutputChannelTypeCoilOutput            OutputChannelType = "coil_output"
-	OutputChannelTypeHoldingRegisterOutput OutputChannelType = "holding_register_output"
+	// InputChannelTypeCoilInput reads a single bit from a coil.
+	InputChannelTypeCoilInput InputChannelType = versions.InputChannelTypeCoilInput
+	// InputChannelTypeDiscreteInput reads a single bit from a discrete input.
+	InputChannelTypeDiscreteInput InputChannelType = versions.InputChannelTypeDiscreteInput
+	// InputChannelTypeHoldingRegisterInput reads a typed value from one or more holding
+	// registers.
+	InputChannelTypeHoldingRegisterInput InputChannelType = versions.InputChannelTypeHoldingRegisterInput
+	// InputChannelTypeRegisterInput reads a typed value from one or more input
+	// registers.
+	InputChannelTypeRegisterInput InputChannelType = versions.InputChannelTypeRegisterInput
 )
 
-type OutputChannelVariant interface {
-	isOutputChannelVariant()
-}
+// InputChannelCoilInput reads a single bit from a coil.
+type InputChannelCoilInput = versions.InputChannelCoilInput
 
-// OutputChannelCoilOutput writes a single bit to a coil.
-type OutputChannelCoilOutput struct {
-	BaseOutputChannel
-}
+// InputChannelDiscreteInput reads a single bit from a discrete input.
+type InputChannelDiscreteInput = versions.InputChannelDiscreteInput
 
-func (OutputChannelCoilOutput) isOutputChannelVariant() {}
-
-// OutputChannelHoldingRegisterOutput writes a typed value to one or more holding
+// InputChannelHoldingRegisterInput reads a typed value from one or more holding
 // registers.
-type OutputChannelHoldingRegisterOutput struct {
-	BaseOutputChannel
-	RegisterValue
-}
+type InputChannelHoldingRegisterInput = versions.InputChannelHoldingRegisterInput
 
-func (OutputChannelHoldingRegisterOutput) isOutputChannelVariant() {}
+// InputChannelRegisterInput reads a typed value from one or more input registers.
+type InputChannelRegisterInput = versions.InputChannelRegisterInput
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OutputChannelHoldingRegisterOutput) ApplyDefaults() {
-	o.RegisterValue.ApplyDefaults()
-}
+// BaseOutputChannel carries the fields every Modbus output channel shares.
+type BaseOutputChannel = versions.BaseOutputChannel
 
 // OutputChannel is a single Modbus output channel. The type field selects the register
 // space the channel writes to and the fields that accompany it.
-type OutputChannel struct {
-	Variant OutputChannelVariant
-}
+type OutputChannel = versions.OutputChannel
+type OutputChannelVariant = versions.OutputChannelVariant
+type OutputChannelType = versions.OutputChannelType
 
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u OutputChannel) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t OutputChannelType
-	switch u.Variant.(type) {
-	case OutputChannelCoilOutput:
-		t = OutputChannelTypeCoilOutput
-	case OutputChannelHoldingRegisterOutput:
-		t = OutputChannelTypeHoldingRegisterOutput
-	default:
-		return nil, errors.Newf("OutputChannel: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
-}
+const (
+	// OutputChannelTypeCoilOutput writes a single bit to a coil.
+	OutputChannelTypeCoilOutput OutputChannelType = versions.OutputChannelTypeCoilOutput
+	// OutputChannelTypeHoldingRegisterOutput writes a typed value to one or more
+	// holding registers.
+	OutputChannelTypeHoldingRegisterOutput OutputChannelType = versions.OutputChannelTypeHoldingRegisterOutput
+)
 
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *OutputChannel) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type OutputChannelType `json:"type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case OutputChannelTypeCoilOutput:
-		var v OutputChannelCoilOutput
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case OutputChannelTypeHoldingRegisterOutput:
-		var v OutputChannelHoldingRegisterOutput
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("OutputChannel: unknown type %q", disc.Type)
-	}
-	return nil
-}
+// OutputChannelCoilOutput writes a single bit to a coil.
+type OutputChannelCoilOutput = versions.OutputChannelCoilOutput
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *OutputChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case OutputChannelHoldingRegisterOutput:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
+// OutputChannelHoldingRegisterOutput writes a typed value to one or more holding
+// registers.
+type OutputChannelHoldingRegisterOutput = versions.OutputChannelHoldingRegisterOutput
 
 // ReadConfig configures a Modbus read task.
-type ReadConfig struct {
-	common.BaseReadConfig
-	// Device is the key of the device the task acquires from.
-	Device device.Key `json:"device" msgpack:"device"`
-	// Channels are the input channels the task acquires.
-	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.BaseReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
+type ReadConfig = versions.ReadConfig
 
 // WriteConfig configures a Modbus write task.
-type WriteConfig struct {
-	common.BaseWriteConfig
-	// Channels are the output channels the task drives.
-	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
+type WriteConfig = versions.WriteConfig
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
-	}
-}
+// ScanConfig configures a Modbus scan task, which carries no settings.
+type ScanConfig = versions.ScanConfig

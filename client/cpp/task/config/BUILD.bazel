@@ -11,7 +11,7 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "common",
+    name = "config",
     hdrs = [
         "json.gen.h",
         "types.gen.h",
@@ -25,10 +25,10 @@ cc_library(
 )
 
 cc_test(
-    name = "common_test",
-    srcs = ["common_test.cpp"],
+    name = "config_test",
+    srcs = ["config_test.cpp"],
     deps = [
-        ":common",
+        ":config",
         "//x/cpp/json",
         "@googletest//:gtest_main",
     ],

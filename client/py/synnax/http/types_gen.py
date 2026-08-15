@@ -125,6 +125,13 @@ class BaseWriteField(BaseModel):
         return hash(self.key)
 
 
+class ScanConfig(task.KeyedConfig):
+    """Configures an HTTP scan task, which carries no settings."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class ReadField(BaseModel):
     """Is a single value extracted from an endpoint's JSON response.
 
@@ -272,6 +279,9 @@ class ReadConfig(task.BasePersistConfig):
     rate: telem.Rate = telem.Rate(1)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class WriteConfig(task.BaseStartConfig):
     """Configures an HTTP write task, which sends an HTTP request whenever a value is
@@ -284,3 +294,6 @@ class WriteConfig(task.BaseStartConfig):
 
     device: device_.Key = ""
     endpoints: list[WriteEndpoint] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

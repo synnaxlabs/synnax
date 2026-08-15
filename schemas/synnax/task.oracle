@@ -155,14 +155,32 @@ Command struct {
     @doc value "is a command to execute on a task in the Driver system."
 }
 
-BaseStartConfig struct {
+KeyedConfig struct {
+    key uuid = create {
+        @key
+        @doc value "is the unique identifier for the stored configuration record."
+    }
+
+    @doc value  "is the base for every stored task configuration record."
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "Keyed"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "Keyed"
+    @pb omit
+}
+
+BaseStartConfig struct extends KeyedConfig {
     auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
 
     @doc value  "carries the configuration fields shared by every task."
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseStart"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseStart"
     @pb omit
 }
 
@@ -172,8 +190,11 @@ BasePersistConfig struct extends BaseStartConfig {
     }
 
     @doc value  "carries the configuration fields shared by tasks that write telemetry."
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BasePersist"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BasePersist"
     @pb omit
 }
 
@@ -188,8 +209,11 @@ BaseReadConfig struct extends BasePersistConfig {
     }
 
     @doc value  "carries the configuration fields shared by hardware acquisition tasks."
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseRead"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseRead"
     @pb omit
 }
 
@@ -199,7 +223,10 @@ BaseWriteConfig struct extends BasePersistConfig {
     }
 
     @doc value  "carries the configuration fields shared by hardware control tasks."
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseWrite"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseWrite"
     @pb omit
 }

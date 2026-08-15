@@ -14,6 +14,11 @@ from pydantic import BaseModel, Field, field_validator
 
 from synnax import device, task
 from synnax.exceptions import ValidationError
+
+# Transitional: the config cutover deletes this alias and the hand-written task
+# config models below, leaving the generated types_gen models as the only config
+# surface.
+from synnax.task import client as task_client
 from synnax.telem import CrudeRate
 
 UnitsVolts = Literal["Volts"]
@@ -2311,7 +2316,7 @@ class DOChan(BaseChan):
     line: int
 
 
-class AnalogReadTaskConfig(task.BaseReadConfig):
+class AnalogReadTaskConfig(task_client.BaseReadConfig):
     """Configuration for NI Analog Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2339,7 +2344,7 @@ class AnalogReadTaskConfig(task.BaseReadConfig):
         return v
 
 
-class AnalogWriteConfig(task.BaseWriteConfig):
+class AnalogWriteConfig(task_client.BaseWriteConfig):
     """Configuration for NI Analog Write Task.
 
     Inherits common write task fields (device, auto_start) from
@@ -2354,7 +2359,7 @@ class AnalogWriteConfig(task.BaseWriteConfig):
     channels: list[AOChan]
 
 
-class CounterReadConfig(task.BaseReadConfig):
+class CounterReadConfig(task_client.BaseReadConfig):
     """Configuration for NI Counter Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2382,7 +2387,7 @@ class CounterReadConfig(task.BaseReadConfig):
         return v
 
 
-class DigitalReadConfig(task.BaseReadConfig):
+class DigitalReadConfig(task_client.BaseReadConfig):
     """Configuration for NI Digital Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2396,7 +2401,7 @@ class DigitalReadConfig(task.BaseReadConfig):
     channels: list[DIChan]
 
 
-class DigitalWriteConfig(task.BaseWriteConfig):
+class DigitalWriteConfig(task_client.BaseWriteConfig):
     """Configuration for NI Digital Write Task.
 
     Inherits common write task fields (device, auto_start) from

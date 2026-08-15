@@ -11,96 +11,22 @@
 
 package opc
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/opc/versions"
 
 // BaseChannel carries the fields every OPC UA channel shares.
-type BaseChannel struct {
-	// Key uniquely identifies the channel within the task.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the human-readable channel name.
-	Name string `json:"name" msgpack:"name"`
-	// Disabled is true when the channel is excluded from the task.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// NodeID is the OPC UA node id the channel is bound to.
-	NodeID string `json:"node_id" msgpack:"node_id"`
-	// NodeName is the browse name of the OPC UA node.
-	NodeName string `json:"node_name" msgpack:"node_name"`
-	// DataType is the data type of the Synnax channel.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseChannel) ApplyDefaults() {
-	if b.DataType == "" {
-		b.DataType = "float32"
-	}
-}
+type BaseChannel = versions.BaseChannel
 
 // InputChannel is a single OPC UA node the task reads from.
-type InputChannel struct {
-	BaseChannel
-	// Channel is the Synnax channel that samples are written to.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// UseAsIndex is true when the channel's Synnax channel is the task's index.
-	UseAsIndex bool `json:"use_as_index" msgpack:"use_as_index"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannel) ApplyDefaults() {
-	i.BaseChannel.ApplyDefaults()
-}
+type InputChannel = versions.InputChannel
 
 // OutputChannel is a single OPC UA node the task drives.
-type OutputChannel struct {
-	BaseChannel
-	// CmdChannel is the Synnax channel commands are read from.
-	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OutputChannel) ApplyDefaults() {
-	o.BaseChannel.ApplyDefaults()
-}
+type OutputChannel = versions.OutputChannel
 
 // ReadConfig configures an OPC UA read task.
-type ReadConfig struct {
-	common.BaseReadConfig
-	// Device is the key of the device representing the OPC UA server.
-	Device device.Key `json:"device" msgpack:"device"`
-	// ArrayMode is true when each read returns an array of samples per node.
-	ArrayMode bool `json:"array_mode" msgpack:"array_mode"`
-	// ArraySize is the number of samples in each array when array_mode is true.
-	ArraySize int32 `json:"array_size" msgpack:"array_size"`
-	// Channels are the OPC UA nodes the task acquires.
-	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.ArraySize == 0 {
-		r.ArraySize = 1
-	}
-	r.BaseReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
+type ReadConfig = versions.ReadConfig
 
 // WriteConfig configures an OPC UA write task.
-type WriteConfig struct {
-	common.BaseWriteConfig
-	// Channels are the OPC UA nodes the task drives.
-	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
+type WriteConfig = versions.WriteConfig
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
-	}
-}
+// ScanConfig configures an OPC UA scan task, which carries no settings.
+type ScanConfig = versions.ScanConfig

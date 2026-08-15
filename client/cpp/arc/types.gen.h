@@ -18,7 +18,7 @@
 
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/status/types.gen.h"
-#include "client/cpp/task/common/types.gen.h"
+#include "client/cpp/task/config/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -64,7 +64,7 @@ struct StatusDetails {
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief TaskConfig configures an Arc task, which runs a compiled Arc module.
-struct TaskConfig : public ::synnax::task::common::BasePersistConfig {
+struct TaskConfig : public ::synnax::task::config::BasePersist {
     /// @brief arc_key is the key of the Arc module the task executes.
     Key arc_key;
     /// @brief execution_mode overrides the runtime's automatic loop mode selection.

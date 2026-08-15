@@ -39,7 +39,8 @@ BaseChannel struct {
         @ts type   "string"
     }
 
-    @doc value "carries the fields every OPC UA channel shares."
+    @doc value  "carries the fields every OPC UA channel shares."
+    @go version 0
 }
 
 InputChannel struct extends BaseChannel {
@@ -50,7 +51,8 @@ InputChannel struct extends BaseChannel {
         @doc value "is true when the channel's Synnax channel is the task's index."
     }
 
-    @doc value "is a single OPC UA node the task reads from."
+    @doc value  "is a single OPC UA node the task reads from."
+    @go version 0
 }
 
 OutputChannel struct extends BaseChannel {
@@ -58,7 +60,8 @@ OutputChannel struct extends BaseChannel {
         @doc value "is the Synnax channel commands are read from."
     }
 
-    @doc value "is a single OPC UA node the task drives."
+    @doc value  "is a single OPC UA node the task drives."
+    @go version 0
 }
 
 ReadConfig struct extends task.BaseReadConfig {
@@ -75,7 +78,10 @@ ReadConfig struct extends task.BaseReadConfig {
         @doc value "are the OPC UA nodes the task acquires."
     }
 
-    @doc value "configures an OPC UA read task."
+    @doc value  "configures an OPC UA read task."
+    @go version 0
+    @go marshal
+    @go migrate
 }
 
 WriteConfig struct extends task.BaseWriteConfig {
@@ -83,5 +89,15 @@ WriteConfig struct extends task.BaseWriteConfig {
         @doc value "are the OPC UA nodes the task drives."
     }
 
-    @doc value "configures an OPC UA write task."
+    @doc value  "configures an OPC UA write task."
+    @go version 0
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.KeyedConfig {
+    @doc value  "configures an OPC UA scan task, which carries no settings."
+    @go version 0
+    @go marshal
+    @go migrate
 }
