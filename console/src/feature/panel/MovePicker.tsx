@@ -10,8 +10,8 @@
 import "@/feature/panel/MovePicker.css";
 
 import { type panel } from "@synnaxlabs/client";
-import { Button, Errors, Flex, Icon, Panel, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { Component, Errors, Icon, List, Panel, Select, Text } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import {
   type TabOrigin,
@@ -22,36 +22,37 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-interface RowProps {
-  panelKey: panel.Key;
-  onSelect: (key: panel.Key) => void;
-}
+// The row that mints a panel, listed last. Panel keys are UUIDs, so nothing collides.
+const NEW_PANEL_KEY = "new";
+
+const ROW_CLASS = CSS.BE("panel-move-picker", "row");
 
 // A panel deleted between the list answer and the retrieve renders no row.
 const RowFallback = (): null => null;
 
-const Row = ({ panelKey, onSelect }: RowProps): ReactElement => (
-  <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
-    <RowContent panelKey={panelKey} onSelect={onSelect} />
-  </Errors.SuspenseBoundary>
-);
-
-const RowContent = ({ panelKey, onSelect }: RowProps): ReactElement => {
-  const name = Panel.useName({ key: panelKey });
-  const handleClick = useCallback(() => onSelect(panelKey), [onSelect, panelKey]);
+const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
+  const name = Panel.useName({ key: props.itemKey });
   return (
-    <Button.Button
-      variant="text"
-      align="center"
-      justify="start"
-      className={CSS.BE("panel-move-picker", "row")}
-      onClick={handleClick}
-    >
+    <Select.ListItem {...props} align="center" gap="medium" className={ROW_CLASS}>
       <Icon.Panel />
       <Text.Text overflow="ellipsis">{name}</Text.Text>
-    </Button.Button>
+    </Select.ListItem>
   );
 };
+
+const listItem = Component.renderProp(
+  (props: List.ItemProps<panel.Key>): ReactElement =>
+    props.itemKey === NEW_PANEL_KEY ? (
+      <Select.ListItem {...props} align="center" gap="medium" className={ROW_CLASS}>
+        <Icon.Add />
+        <Text.Text>New panel</Text.Text>
+      </Select.ListItem>
+    ) : (
+      <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
+        <Row {...props} />
+      </Errors.SuspenseBoundary>
+    ),
+);
 
 export interface MovePickerParams {
   /** The tab being moved, and the panel it currently sits in. */
@@ -65,38 +66,29 @@ const Content = ({
   const keys = Session.Panel.useSelectOrderedKeys();
   const moveTab = useMoveTab();
   const moveToNewPanel = useMoveTabToNewPanel();
-  const handleSelect = useCallback(
+  const data = useMemo(
+    () => [...keys.filter((key) => key !== origin.panel), NEW_PANEL_KEY],
+    [keys, origin.panel],
+  );
+  const handleChange = useCallback(
     (key: panel.Key) => {
-      moveTab(origin, key);
+      if (key === NEW_PANEL_KEY) moveToNewPanel(origin);
+      else moveTab(origin, key);
       close();
     },
-    [moveTab, origin, close],
+    [moveTab, moveToNewPanel, origin, close],
   );
-  const handleCreate = useCallback(() => {
-    moveToNewPanel(origin);
-    close();
-  }, [moveToNewPanel, origin, close]);
   return (
-    <Modals.Frame>
-      <Modals.Header icon={<Icon.Panel />}>Move to panel</Modals.Header>
+    <Modals.Frame className={CSS.B("panel-move-picker")}>
+      <Modals.Header hideClose icon={<Icon.Panel />}>
+        Move to panel
+      </Modals.Header>
       <Modals.Body>
-        <Flex.Box y empty className={CSS.BE("panel-move-picker", "list")}>
-          {keys
-            .filter((key) => key !== origin.panel)
-            .map((key) => (
-              <Row key={key} panelKey={key} onSelect={handleSelect} />
-            ))}
-          <Button.Button
-            variant="text"
-            align="center"
-            justify="start"
-            className={CSS.BE("panel-move-picker", "row")}
-            onClick={handleCreate}
-          >
-            <Icon.Add />
-            <Text.Text>New panel</Text.Text>
-          </Button.Button>
-        </Flex.Box>
+        <Select.Frame<panel.Key> data={data} allowNone onChange={handleChange}>
+          <List.Items<panel.Key> className={CSS.BE("panel-move-picker", "list")}>
+            {listItem}
+          </List.Items>
+        </Select.Frame>
       </Modals.Body>
     </Modals.Frame>
   );

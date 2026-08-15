@@ -9,14 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The list brings its own inset, so the body adds none. */
+.console-panel-move-picker .console-modal__body {
+    padding: 0;
+}
+
 /* The list scrolls inside the body rather than growing the modal, so a project with
    many panels keeps the modal a fixed size. */
 .console-panel-move-picker__list {
     max-height: 40vh;
-    overflow-y: auto;
-}
-
-.console-panel-move-picker__row {
-    flex-shrink: 0;
-    width: 100%;
 }
