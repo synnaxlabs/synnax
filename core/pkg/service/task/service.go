@@ -188,7 +188,9 @@ func OpenService(
 	// Retired types register too so an old export fails with a retirement message
 	// instead of "no importer registered".
 	for t := range retiredTypes {
-		cfg.ImEx.RegisterImporter(t, s)
+		if err = cfg.ImEx.RegisterImporter(t, s); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
