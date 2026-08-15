@@ -10,8 +10,13 @@
 import { type ReactElement } from "react";
 
 import { Panel } from "@/feature/panel";
+import { Project } from "@/feature/project";
+import { Import } from "@/platform/import";
 import { Selector } from "@/platform/selector";
 
-export const Mosaic = (): ReactElement => (
-  <Panel.Mosaic onCreateTab={Selector.createEmptyTab} />
-);
+export const Mosaic = (): ReactElement => {
+  const handleFileDrop = Import.useFileDrop({ ingestDirectory: Project.ingest });
+  return (
+    <Panel.Mosaic onCreateTab={Selector.createEmptyTab} onFileDrop={handleFileDrop} />
+  );
+};

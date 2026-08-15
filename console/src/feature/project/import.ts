@@ -26,7 +26,6 @@ import { z } from "zod";
 
 import { PANELS_FILE_NAME } from "@/feature/project/export";
 import { Import } from "@/platform/import";
-import { type Panel } from "@/platform/panel";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
@@ -44,10 +43,6 @@ const legacyLayoutZ = z.object({
 const legacySliceZ = z.object({
   layouts: z.record(z.string(), legacyLayoutZ),
 });
-
-// Imported panels carry the project's tab placement, so component ingesters must
-// not also open tabs in the current window.
-const noopOpenTab: Panel.OpenTab = () => {};
 
 // Rewrites every panel-tab reference to an imported component's original key with
 // the ontology ID of the resource actually created for it. Without it the imported
@@ -163,7 +158,7 @@ export const ingest: Import.DirectoryIngester = async (
   // Create the project first so imported components can be parented to it; its
   // panels are created below once the components' real keys are known.
   await client.projects.create({ key: projectKey, name, layout: {} });
-  const ctx: ComponentContext = { openTab: noopOpenTab, client, projectKey };
+  const ctx: ComponentContext = { client, projectKey };
   if (panelsFile != null) {
     const panels = panel.panelZ.array().parse(panelsFile.data);
     const remap = await ingestComponents(
@@ -186,11 +181,10 @@ export const ingest: Import.DirectoryIngester = async (
 export interface IngestContext {
   handleError: Status.ErrorHandler;
   client: Synnax | null;
-  openTab: Panel.OpenTab;
   store: Store;
 }
 
-export const import_ = ({ handleError, client, openTab, store }: IngestContext) => {
+export const import_ = ({ handleError, client, store }: IngestContext) => {
   let name: string | undefined = "project";
   handleError(async () => {
     const directory = await Runtime.pickDirectory({ title: "Import a Project" });
@@ -202,6 +196,6 @@ export const import_ = ({ handleError, client, openTab, store }: IngestContext) 
         data: JSON.parse(await file.read()),
       })),
     );
-    await ingest(name, fileData, { client, openTab, store });
+    await ingest(name, fileData, { client, store });
   }, `Failed to import ${name}`);
 };

@@ -27,11 +27,11 @@ import {
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { ContextMenu, listItem } from "@/feature/project/Selector";
+import { Shell } from "@/feature/shell";
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
-import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
 
 /** Full-window project picker shown when the session has no active project. */
