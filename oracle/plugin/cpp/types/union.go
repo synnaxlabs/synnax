@@ -11,11 +11,13 @@ package types
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -95,8 +97,27 @@ func (p *Plugin) processUnion(
 							p.resolveExtendsType(ext, parent, data))
 					}
 				}
+				// A field that only restates an inherited default keeps the base's
+				// member; the new default moves into a generated constructor.
+				inherited := append(
+					slices.Clone(form.Extends), pform.Extends...,
+				)
+				defaultOnly := resolver.DefaultOnlyOverrides(
+					inherited, pform.Fields, data.table,
+				)
 				for _, f := range pform.Fields {
-					sd.Fields = append(sd.Fields, p.processField(f, payload, data))
+					fd := p.processField(f, payload, data)
+					if !defaultOnly.Contains(f.Name) {
+						sd.Fields = append(sd.Fields, fd)
+						continue
+					}
+					if fd.DefaultValue == "" {
+						continue
+					}
+					sd.InheritedDefaults = append(
+						sd.InheritedDefaults,
+						inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
+					)
 				}
 			} else {
 				sd.ExtendsTypes = append(

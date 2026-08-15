@@ -266,7 +266,6 @@ type InputChannelVariant interface {
 // InputChannelAI reads a voltage from an analog input port.
 type InputChannelAI struct {
 	BaseInputChannel
-	Port string `json:"port" msgpack:"port"`
 	// Range is the upper bound of the voltage input range, in volts.
 	Range float64 `json:"range" msgpack:"range"`
 	// NegChan is the negative channel for differential readings on T7 devices. 199
@@ -295,7 +294,6 @@ func (i *InputChannelAI) ApplyDefaults() {
 // InputChannelDI reads a digital input line.
 type InputChannelDI struct {
 	BaseInputChannel
-	Port string `json:"port" msgpack:"port"`
 }
 
 func (InputChannelDI) isInputChannelVariant() {}
@@ -310,7 +308,6 @@ func (i *InputChannelDI) ApplyDefaults() {
 // InputChannelTc reads temperature from a thermocouple.
 type InputChannelTc struct {
 	BaseInputChannel
-	Port string `json:"port" msgpack:"port"`
 	// ThermocoupleType selects the thermocouple alloy type.
 	ThermocoupleType ThermocoupleType `json:"thermocouple_type" msgpack:"thermocouple_type"`
 	// PosChan is the AIN port the thermocouple's positive lead is wired to.
@@ -499,7 +496,6 @@ type OutputChannelVariant interface {
 // OutputChannelAO drives an analog output on a DAC port.
 type OutputChannelAO struct {
 	BaseOutputChannel
-	Port string `json:"port" msgpack:"port"`
 }
 
 func (OutputChannelAO) isOutputChannelVariant() {}
@@ -514,7 +510,6 @@ func (o *OutputChannelAO) ApplyDefaults() {
 // OutputChannelDO drives a digital output line on a DIO port.
 type OutputChannelDO struct {
 	BaseOutputChannel
-	Port string `json:"port" msgpack:"port"`
 }
 
 func (OutputChannelDO) isOutputChannelVariant() {}

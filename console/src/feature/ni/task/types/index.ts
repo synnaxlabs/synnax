@@ -81,9 +81,6 @@ export const SCALE_SCHEMAS = {
   table: tableScaleZ,
 } as Record<ScaleType, z.ZodType<Scale>>;
 
-const NO_SCALE: Scale = { type: "none" };
-const BUILT_IN_CJC: CJC = { source: "built_in" };
-
 export const createScale = (type: ScaleType): Scale =>
   SCALE_SCHEMAS[type].parse({ type });
 
@@ -91,14 +88,8 @@ export type AIChannel = ni.AIChannel;
 export type AIChannelType = ni.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 
-// Neither customScale's nor cjc's union has a schema default, so every analog blank
-// seeds both.
 export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
-  ni.AI_CHANNEL_SCHEMAS[type].parse({
-    type,
-    customScale: NO_SCALE,
-    cjc: BUILT_IN_CJC,
-  });
+  ni.AI_CHANNEL_SCHEMAS[type].parse({ type });
 
 export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   ai_accel: "Accelerometer",
@@ -186,7 +177,7 @@ export type CIDecodingType = ni.CIDecodingType;
 export const CI_CHANNEL_SCHEMAS = ni.CI_CHANNEL_SCHEMAS;
 
 export const createCIChannel = (type: CIChannelType = "ci_frequency"): CIChannel =>
-  ni.CI_CHANNEL_SCHEMAS[type].parse({ type, customScale: NO_SCALE });
+  ni.CI_CHANNEL_SCHEMAS[type].parse({ type });
 
 export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   ci_frequency: "Frequency",
@@ -226,7 +217,7 @@ export const AO_CHANNEL_SCHEMAS = ni.AO_CHANNEL_SCHEMAS;
 export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
 
 export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>
-  ni.AO_CHANNEL_SCHEMAS[type].parse({ type, customScale: NO_SCALE });
+  ni.AO_CHANNEL_SCHEMAS[type].parse({ type });
 
 export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   ao_current: "Current",

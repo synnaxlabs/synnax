@@ -79,11 +79,6 @@ struct OutputChannel : public BaseChannel {
 
 /// @brief ReadConfig configures an OPC UA read task.
 struct ReadConfig : public ::synnax::task::config::BaseRead {
-    /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
-    ::x::telem::Rate sample_rate = ::x::telem::Rate(50);
-    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
-    /// hertz.
-    ::x::telem::Rate stream_rate = ::x::telem::Rate(25);
     /// @brief device is the key of the device representing the OPC UA server.
     ::synnax::device::Key device = "";
     /// @brief array_mode is true when each read returns an array of samples per node.
@@ -93,6 +88,11 @@ struct ReadConfig : public ::synnax::task::config::BaseRead {
     std::int32_t array_size = 1;
     /// @brief channels are the OPC UA nodes the task acquires.
     std::vector<InputChannel> channels;
+
+    ReadConfig() {
+        this->sample_rate = ::x::telem::Rate(50);
+        this->stream_rate = ::x::telem::Rate(25);
+    }
 
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
