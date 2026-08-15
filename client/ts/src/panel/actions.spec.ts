@@ -189,11 +189,11 @@ describe("reduceAll", () => {
     });
   });
 
-  describe("insertTab", () => {
+  describe("insertTabs", () => {
     it("should split the target leaf and insert into the new sibling when location is present", () => {
       const { next } = panel.reduceAll(state(leaf(a)), [
-        panel.insertTab({
-          tab: viewTab(b),
+        panel.insertTabs({
+          tabs: [viewTab(b)],
           targetLeaf: panel.ROOT_NODE_KEY,
           location: "bottom",
         }),
@@ -206,8 +206,8 @@ describe("reduceAll", () => {
 
     it("should insert directly into the target leaf for a center location", () => {
       const { next } = panel.reduceAll(state(leaf(a)), [
-        panel.insertTab({
-          tab: viewTab(b),
+        panel.insertTabs({
+          tabs: [viewTab(b)],
           targetLeaf: panel.ROOT_NODE_KEY,
           location: "center",
         }),
@@ -218,8 +218,8 @@ describe("reduceAll", () => {
 
     it("should degrade an edge insert into an empty leaf to a direct insert", () => {
       const { next } = panel.reduceAll(state(leaf()), [
-        panel.insertTab({
-          tab: viewTab(a),
+        panel.insertTabs({
+          tabs: [viewTab(a)],
           targetLeaf: panel.ROOT_NODE_KEY,
           location: "right",
         }),
@@ -230,30 +230,16 @@ describe("reduceAll", () => {
 
     it("should insert into the leaf holding targetTab when set", () => {
       const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
-        panel.insertTab({
-          tab: viewTab(c),
-          targetTab: b,
-        }),
+        panel.insertTabs({ tabs: [viewTab(c)], targetTab: b }),
       ]);
       const root = asSplit(next.root);
       expect(tabKeys(root.first)).toEqual([a]);
       expect(tabKeys(root.last)).toEqual([b, c]);
     });
 
-    it("should no-op when targetTab matches no tab", () => {
-      const prev = state(leaf(a));
-      const { next } = panel.reduceAll(prev, [
-        panel.insertTab({
-          tab: viewTab(b),
-          targetTab: z,
-        }),
-      ]);
-      expect(next).toBe(prev);
-    });
-
     it("should default to the first leaf in traversal order when no target is set", () => {
       const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
-        panel.insertTab({ tab: viewTab(c) }),
+        panel.insertTabs({ tabs: [viewTab(c)] }),
       ]);
       const root = asSplit(next.root);
       expect(tabKeys(root.first)).toEqual([a, c]);
@@ -262,7 +248,7 @@ describe("reduceAll", () => {
 
     it("should default to the root leaf when no target is set on a single-leaf tree", () => {
       const { next } = panel.reduceAll(state(leaf(a)), [
-        panel.insertTab({ tab: viewTab(b) }),
+        panel.insertTabs({ tabs: [viewTab(b)] }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual([a, b]);
@@ -270,7 +256,7 @@ describe("reduceAll", () => {
 
     it("should refresh an existing tab's content in place when no placement is given", () => {
       const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
-        panel.insertTab({ tab: resourceTab(b) }),
+        panel.insertTabs({ tabs: [resourceTab(b)] }),
       ]);
       const root = asSplit(next.root);
       expect(tabKeys(root.first)).toEqual([a]);
@@ -280,7 +266,7 @@ describe("reduceAll", () => {
 
     it("should not duplicate an existing tab when no placement is given", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
-        panel.insertTab({ tab: resourceTab(a) }),
+        panel.insertTabs({ tabs: [resourceTab(a)] }),
       ]);
       expect(tabKeys(next.root)).toEqual([a, b]);
     });
@@ -288,7 +274,7 @@ describe("reduceAll", () => {
     it("should no-op when the resource already backs a different tab", () => {
       const prev = state({ variant: "leaf", tabs: [resourceTab(a), viewTab(b)] });
       const { next } = panel.reduceAll(prev, [
-        panel.insertTab({ tab: resourceTab(c, a) }),
+        panel.insertTabs({ tabs: [resourceTab(c, a)] }),
       ]);
       expect(next).toBe(prev);
     });
@@ -296,8 +282,8 @@ describe("reduceAll", () => {
     it("should no-op even when the duplicate insert carries a placement", () => {
       const prev = state({ variant: "leaf", tabs: [resourceTab(a), viewTab(b)] });
       const { next } = panel.reduceAll(prev, [
-        panel.insertTab({
-          tab: resourceTab(c, a),
+        panel.insertTabs({
+          tabs: [resourceTab(c, a)],
           targetLeaf: panel.ROOT_NODE_KEY,
           location: "right",
         }),
@@ -308,7 +294,7 @@ describe("reduceAll", () => {
     it("should no-op when a singleton view of the same type already exists", () => {
       const prev = state({ variant: "leaf", tabs: [viewTab(a, "range_explorer")] });
       const { next } = panel.reduceAll(prev, [
-        panel.insertTab({ tab: viewTab(b, "range_explorer"), singleton: true }),
+        panel.insertTabs({ tabs: [viewTab(b, "range_explorer")], singleton: true }),
       ]);
       expect(next).toBe(prev);
     });
@@ -321,7 +307,7 @@ describe("reduceAll", () => {
         }),
       );
       const { next } = panel.reduceAll(prev, [
-        panel.insertTab({ tab: viewTab(c, "range_explorer"), singleton: true }),
+        panel.insertTabs({ tabs: [viewTab(c, "range_explorer")], singleton: true }),
       ]);
       expect(next).toBe(prev);
     });
@@ -329,7 +315,7 @@ describe("reduceAll", () => {
     it("should insert a singleton view when no view of that type exists", () => {
       const { next } = panel.reduceAll(
         state({ variant: "leaf", tabs: [viewTab(a, "docs")] }),
-        [panel.insertTab({ tab: viewTab(b, "range_explorer"), singleton: true })],
+        [panel.insertTabs({ tabs: [viewTab(b, "range_explorer")], singleton: true })],
       );
       expect(tabKeys(next.root)).toEqual([a, b]);
     });
@@ -337,15 +323,15 @@ describe("reduceAll", () => {
     it("should allow a duplicate view type when singleton is unset", () => {
       const { next } = panel.reduceAll(
         state({ variant: "leaf", tabs: [viewTab(a, "range_explorer")] }),
-        [panel.insertTab({ tab: viewTab(b, "range_explorer") })],
+        [panel.insertTabs({ tabs: [viewTab(b, "range_explorer")] })],
       );
       expect(tabKeys(next.root)).toEqual([a, b]);
     });
 
     it("should relocate an existing tab and refresh its content when a placement is given", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
-        panel.insertTab({
-          tab: resourceTab(b),
+        panel.insertTabs({
+          tabs: [resourceTab(b)],
           targetLeaf: panel.ROOT_NODE_KEY,
           location: "right",
         }),
@@ -359,17 +345,187 @@ describe("reduceAll", () => {
 
     it("should reorder an existing tab within its leaf when only an index is given", () => {
       const { next } = panel.reduceAll(state(leaf(a, b, c)), [
-        panel.insertTab({ tab: viewTab(c), index: 0 }),
+        panel.insertTabs({ tabs: [viewTab(c)], index: 0 }),
       ]);
       expect(tabKeys(next.root)).toEqual([c, a, b]);
     });
 
     it("should move an existing tab into the leaf holding targetTab without duplicating it", () => {
       const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
-        panel.insertTab({ tab: viewTab(a), targetTab: b }),
+        panel.insertTabs({ tabs: [viewTab(a)], targetTab: b }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual([b, a]);
+    });
+
+    describe("target hints", () => {
+      it("should fall back to the first leaf when targetTab matches no tab", () => {
+        const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
+          panel.insertTabs({ tabs: [viewTab(c)], targetTab: z }),
+        ]);
+        const root = asSplit(next.root);
+        expect(tabKeys(root.first)).toEqual([a, c]);
+        expect(tabKeys(root.last)).toEqual([b]);
+      });
+
+      it("should fall back to the first leaf when targetLeaf resolves to nothing", () => {
+        const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
+          panel.insertTabs({ tabs: [viewTab(c)], targetLeaf: 128 }),
+        ]);
+        const root = asSplit(next.root);
+        expect(tabKeys(root.first)).toEqual([a, c]);
+        expect(tabKeys(root.last)).toEqual([b]);
+      });
+
+      it("should fall back to the first leaf when targetLeaf resolves to a split", () => {
+        const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
+          panel.insertTabs({ tabs: [viewTab(c)], targetLeaf: panel.ROOT_NODE_KEY }),
+        ]);
+        const root = asSplit(next.root);
+        expect(tabKeys(root.first)).toEqual([a, c]);
+        expect(tabKeys(root.last)).toEqual([b]);
+      });
+
+      // The location belongs to the leaf the caller pointed at. Once that leaf is
+      // gone the tabs still land, but the fallback leaf is not split: the user never
+      // aimed at its edge.
+      it("should drop the location along with a stale targetLeaf", () => {
+        const { next } = panel.reduceAll(state(leaf(a)), [
+          panel.insertTabs({ tabs: [viewTab(b)], targetLeaf: 128, location: "right" }),
+        ]);
+        expect(next.root.variant).toEqual("leaf");
+        expect(tabKeys(next.root)).toEqual([a, b]);
+      });
+
+      it("should still split when a location is given with no target at all", () => {
+        const { next } = panel.reduceAll(state(leaf(a)), [
+          panel.insertTabs({ tabs: [viewTab(b)], location: "right" }),
+        ]);
+        const root = asSplit(next.root);
+        expect(tabKeys(root.first)).toEqual([a]);
+        expect(tabKeys(root.last)).toEqual([b]);
+      });
+    });
+
+    describe("batches", () => {
+      it("should insert every tab into one leaf in order", () => {
+        const { next } = panel.reduceAll(state(leaf(a)), [
+          panel.insertTabs({ tabs: [viewTab(b), viewTab(c)] }),
+        ]);
+        expect(next.root.variant).toEqual("leaf");
+        expect(tabKeys(next.root)).toEqual([a, b, c]);
+      });
+
+      it("should split once and fill the new half with the whole batch", () => {
+        const { next } = panel.reduceAll(state(leaf(a)), [
+          panel.insertTabs({
+            tabs: [viewTab(b), viewTab(c)],
+            targetLeaf: panel.ROOT_NODE_KEY,
+            location: "right",
+          }),
+        ]);
+        const root = asSplit(next.root);
+        expect(tabKeys(root.first)).toEqual([a]);
+        expect(tabKeys(root.last)).toEqual([b, c]);
+      });
+
+      it("should position the first tab at the index and keep the rest behind it", () => {
+        const { next } = panel.reduceAll(state(leaf(a, z)), [
+          panel.insertTabs({ tabs: [viewTab(b), viewTab(c)], index: 1 }),
+        ]);
+        expect(tabKeys(next.root)).toEqual([a, b, c, z]);
+      });
+
+      it("should skip a duplicate and still land the rest of the batch", () => {
+        const { next } = panel.reduceAll(
+          state({ variant: "leaf", tabs: [resourceTab(a)] }),
+          [panel.insertTabs({ tabs: [resourceTab(z, a), viewTab(b)] })],
+        );
+        expect(tabKeys(next.root)).toEqual([a, b]);
+      });
+
+      it("should report only the tabs that landed as targets", () => {
+        const { targets } = panel.reduceAll(
+          state({ variant: "leaf", tabs: [resourceTab(a)] }),
+          [panel.insertTabs({ tabs: [resourceTab(z, a), viewTab(b)] })],
+        );
+        expect(targets).toEqual([b]);
+      });
+
+      it("should collapse a resource repeated within one batch to a single tab", () => {
+        const { next } = panel.reduceAll(state(leaf()), [
+          panel.insertTabs({ tabs: [resourceTab(b, a), resourceTab(c, a)] }),
+        ]);
+        expect(tabKeys(next.root)).toEqual([b]);
+      });
+
+      it("should collapse a singleton view repeated within one batch to a single tab", () => {
+        const { next } = panel.reduceAll(state(leaf()), [
+          panel.insertTabs({
+            tabs: [viewTab(b, "range_explorer"), viewTab(c, "range_explorer")],
+            singleton: true,
+          }),
+        ]);
+        expect(tabKeys(next.root)).toEqual([b]);
+      });
+
+      // The split is deferred to the first tab that lands, so a batch the reducer
+      // skips entirely must not leave a stranded empty pane behind.
+      it("should leave no empty pane when every tab in a placed batch is a duplicate", () => {
+        const prev = state({ variant: "leaf", tabs: [resourceTab(a), resourceTab(b)] });
+        const { next } = panel.reduceAll(prev, [
+          panel.insertTabs({
+            tabs: [resourceTab(z, a), resourceTab(c, b)],
+            targetLeaf: panel.ROOT_NODE_KEY,
+            location: "right",
+          }),
+        ]);
+        expect(next).toBe(prev);
+      });
+
+      it("should split for the first tab that lands when an earlier one was skipped", () => {
+        const { next } = panel.reduceAll(
+          state({ variant: "leaf", tabs: [resourceTab(a)] }),
+          [
+            panel.insertTabs({
+              tabs: [resourceTab(z, a), viewTab(b)],
+              targetLeaf: panel.ROOT_NODE_KEY,
+              location: "right",
+            }),
+          ],
+        );
+        const root = asSplit(next.root);
+        expect(tabKeys(root.first)).toEqual([a]);
+        expect(tabKeys(root.last)).toEqual([b]);
+      });
+
+      it("should no-op on an empty batch", () => {
+        const prev = state(leaf(a));
+        const { next } = panel.reduceAll(prev, [panel.insertTabs({ tabs: [] })]);
+        expect(next).toBe(prev);
+      });
+
+      it("should append when the index is past the leaf's end", () => {
+        const { next } = panel.reduceAll(state(leaf(a)), [
+          panel.insertTabs({
+            tabs: [viewTab(b)],
+            targetLeaf: panel.ROOT_NODE_KEY,
+            index: 5,
+          }),
+        ]);
+        expect(tabKeys(next.root)).toEqual([a, b]);
+      });
+
+      it("should keep a relocated tab when the index is past the end", () => {
+        const { next } = panel.reduceAll(state(leaf(a, b)), [
+          panel.insertTabs({
+            tabs: [viewTab(a)],
+            targetLeaf: panel.ROOT_NODE_KEY,
+            index: 2,
+          }),
+        ]);
+        expect(tabKeys(next.root)).toEqual([b, a]);
+      });
     });
   });
 

@@ -302,9 +302,7 @@ func (u Node) Validate() error {
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
 
-// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
-// a project (project panel) or by a user (draft); renaming a draft promotes it to
-// project ownership.
+// Panel is a project-owned tab holding a tree of visualization tabs.
 type Panel struct {
 	// Key is the unique identifier for this panel.
 	Key Key `json:"key" msgpack:"key"`
@@ -312,10 +310,9 @@ type Panel struct {
 	Name string `json:"name" msgpack:"name"`
 	// Root is the root of the panel tree.
 	Root Node `json:"root" msgpack:"root"`
-	// Parent is an optional parent resource for the panel in the ontology. When absent
-	// on create, the panel is parented to the creating user as a draft. Parenthood
-	// lives in the ontology graph, so the field is not persisted on the panel record
-	// and is absent on retrieve.
+	// Parent is the parent resource for the panel in the ontology, required on create.
+	// Parenthood lives in the ontology graph, so the field is not persisted on the
+	// panel record and is absent on retrieve.
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, panel, project, query } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -19,7 +19,7 @@ import {
   within,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
 import { Ontology } from "@/ontology";
@@ -51,7 +51,13 @@ const newResourceTab = (resource: ontology.ID): panel.ResourceTab => ({
 describe("Panel queries", () => {
   let controller: AbortController;
   let wrapper: FC<PropsWithChildren>;
+  // Panel creation requires a parent; panels whose project is irrelevant to the
+  // test at hand share this one.
+  let defaultParent: ontology.ID;
 
+  beforeAll(async () => {
+    defaultParent = await createPanelParent(client);
+  });
   beforeEach(async () => {
     controller = new AbortController();
     wrapper = await createAsyncSynnaxWrapper({ client });
@@ -61,7 +67,10 @@ describe("Panel queries", () => {
   });
 
   const createPanel = async (): Promise<panel.Panel> =>
-    await client.panels.create({ name: `panel-${uuid.create()}` });
+    await client.panels.create({
+      name: `panel-${uuid.create()}`,
+      parent: defaultParent,
+    });
 
   const asSplit = (node?: panel.Node): panel.SplitNode | undefined =>
     node?.variant === "split" ? node : undefined;
@@ -103,8 +112,8 @@ describe("Panel queries", () => {
       await ops.result.current.dispatchAsync({
         key: created.key,
         actions: [
-          panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-          panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
           panel.splitTab({ key: tabA.key, direction: "x" }),
         ],
       });
@@ -114,7 +123,10 @@ describe("Panel queries", () => {
 
   describe("use", () => {
     it("should fetch a panel by key", async () => {
-      const created = await client.panels.create({ name: "retrieve-target" });
+      const created = await client.panels.create({
+        name: "retrieve-target",
+        parent: defaultParent,
+      });
       const { result } = await renderHookSuspended(
         () => Panel.use({ key: created.key }),
         {
@@ -219,7 +231,11 @@ describe("Panel queries", () => {
       });
       const key = uuid.create();
       await act(async () => {
-        await result.current.updateAsync({ key, name: "created-panel" });
+        await result.current.updateAsync({
+          key,
+          name: "created-panel",
+          parent: defaultParent,
+        });
       });
       expect(result.current.variant).toEqual("success");
       expect(result.current.data?.name).toEqual("created-panel");
@@ -239,7 +255,11 @@ describe("Panel queries", () => {
       const { result } = renderHook(() => Panel.useCreate(), { wrapper });
       const key = uuid.create();
       await act(async () => {
-        await result.current.updateAsync({ key, name: "stored-panel" });
+        await result.current.updateAsync({
+          key,
+          name: "stored-panel",
+          parent: defaultParent,
+        });
       });
 
       const { result: root } = await loadAndUse(key, () => Panel.useRoot({ key }));
@@ -266,8 +286,8 @@ describe("Panel queries", () => {
 
   describe("useList", () => {
     it("should return panels including those created beforehand", async () => {
-      const p1 = await client.panels.create({ name: "list-a" });
-      const p2 = await client.panels.create({ name: "list-b" });
+      const p1 = await client.panels.create({ name: "list-a", parent: defaultParent });
+      const p2 = await client.panels.create({ name: "list-b", parent: defaultParent });
 
       const { result } = renderHook(() => Panel.useList(), { wrapper });
       act(() => {
@@ -281,7 +301,10 @@ describe("Panel queries", () => {
     });
 
     it("should expose individual panels via getItem", async () => {
-      const target = await client.panels.create({ name: "get-item-target" });
+      const target = await client.panels.create({
+        name: "get-item-target",
+        parent: defaultParent,
+      });
       const { result } = renderHook(() => Panel.useList(), { wrapper });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -333,12 +356,14 @@ describe("Panel queries", () => {
         name: "theirs",
         parent: project.ontologyID(await newProject()),
       });
-      const draft = await client.panels.create({ name: "draft" });
 
       const { result } = await retrieveKeys(projectKey);
       expect(result.current).toEqual([mine.key]);
       expect(result.current).not.toContain(theirs.key);
-      expect(result.current).not.toContain(draft.key);
+    });
+
+    it("should reject creating a panel without a parent", async () => {
+      await expect(client.panels.create({ name: "orphan" })).rejects.toThrow(/parent/);
     });
 
     it("should return an empty list for a project with no panels", async () => {
@@ -376,7 +401,10 @@ describe("Panel queries", () => {
       const projectKey = await newProject();
       const { result } = await retrieveKeys(projectKey);
 
-      const outside = await client.panels.create({ name: "outside" });
+      const outside = await client.panels.create({
+        name: "outside",
+        parent: defaultParent,
+      });
       await act(async () => {
         await client.panels.rename(outside.key, "outside-renamed");
       });
@@ -425,7 +453,10 @@ describe("Panel queries", () => {
 
   describe("useRename", () => {
     it("should rename an existing panel", async () => {
-      const target = await client.panels.create({ name: "before-rename" });
+      const target = await client.panels.create({
+        name: "before-rename",
+        parent: defaultParent,
+      });
       const { result } = renderHook(() => Panel.useRename(), { wrapper });
 
       await act(async () => {
@@ -440,7 +471,10 @@ describe("Panel queries", () => {
 
   describe("useDelete", () => {
     it("should delete an existing panel", async () => {
-      const target = await client.panels.create({ name: "to-delete" });
+      const target = await client.panels.create({
+        name: "to-delete",
+        parent: defaultParent,
+      });
       const { result } = renderHook(() => Panel.useDelete(), { wrapper });
 
       await act(async () => {
@@ -477,7 +511,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
       });
       await waitFor(() =>
@@ -498,13 +532,15 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+          ],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({
-              tab: tabB,
+            panel.insertTabs({
+              tabs: [tabB],
               targetLeaf: panel.ROOT_NODE_KEY,
               location: "right",
             }),
@@ -533,8 +569,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -562,8 +598,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
           ],
         });
         await result.current.dispatch.dispatchAsync({
@@ -592,7 +628,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -626,8 +662,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
           ],
         });
         await result.current.dispatch.dispatchAsync({
@@ -659,7 +695,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -692,7 +728,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -722,8 +758,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -762,9 +798,9 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabC, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabC], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -798,16 +834,16 @@ describe("Panel queries", () => {
           });
         });
       await dispatchOne(
-        panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
+        panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
       );
       await dispatchOne(
-        panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+        panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
       );
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabC, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabC], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabC.key, direction: "x" }),
           ],
         });
@@ -835,8 +871,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -882,8 +918,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -926,7 +962,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
       });
 
@@ -961,8 +997,8 @@ describe("Panel queries", () => {
         await ops.result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
           ],
         });
       });
@@ -992,7 +1028,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatchAsync({
           key: created.key,
-          actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })],
+          actions: [panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY })],
         });
       });
       return { created, ops };
@@ -1137,8 +1173,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
             panel.splitTab({ key: tabA.key, direction: "x" }),
           ],
         });
@@ -1300,7 +1336,10 @@ describe("Panel queries", () => {
     });
 
     it("useName returns the name and updates after a rename", async () => {
-      const created = await client.panels.create({ name: "name-before" });
+      const created = await client.panels.create({
+        name: "name-before",
+        parent: defaultParent,
+      });
       const ops = await loadAndUse(created.key, () => Panel.useRename());
       const { result } = await loadAndUse(created.key, () =>
         Panel.useName({ key: created.key }),
@@ -1352,7 +1391,7 @@ describe("Panel queries", () => {
       const tab = newTab();
       await act(async () => {
         result.current.dispatch(
-          panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
         );
       });
       await waitFor(() =>
@@ -1369,8 +1408,8 @@ describe("Panel queries", () => {
       const [tabA, tabB] = [newTab(), newTab()];
       await act(async () => {
         result.current.dispatch([
-          panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-          panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
         ]);
       });
       await waitFor(() =>
@@ -1403,7 +1442,7 @@ describe("Panel queries", () => {
       const tab = newTab();
       await act(async () => {
         result.current.dispatch(
-          panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
+          panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
         );
       });
       await waitFor(() =>
@@ -1414,7 +1453,10 @@ describe("Panel queries", () => {
 
   describe("reactive sync", () => {
     it("should propagate rename through the channel listener to use", async () => {
-      const target = await client.panels.create({ name: "reactive-before" });
+      const target = await client.panels.create({
+        name: "reactive-before",
+        parent: defaultParent,
+      });
       const { result } = await renderHookSuspended(
         () => Panel.use({ key: target.key }),
         {
@@ -1439,8 +1481,8 @@ describe("Panel queries", () => {
       const [tabA, tabB] = [newTab(), newTab()];
       await writer.panels.retrieve(created.key);
       await writer.panels.dispatch(created.key, [
-        panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_NODE_KEY }),
-        panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_NODE_KEY }),
+        panel.insertTabs({ tabs: [tabA], targetLeaf: panel.ROOT_NODE_KEY }),
+        panel.insertTabs({ tabs: [tabB], targetLeaf: panel.ROOT_NODE_KEY }),
         panel.splitTab({ key: tabB.key, direction: "x" }),
       ]);
 
@@ -1453,7 +1495,10 @@ describe("Panel queries", () => {
     });
 
     it("should propagate deletes through the channel listener", async () => {
-      const target = await client.panels.create({ name: "reactive-delete" });
+      const target = await client.panels.create({
+        name: "reactive-delete",
+        parent: defaultParent,
+      });
       const { result } = renderHook(() => Panel.useList(), { wrapper });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -1484,7 +1529,7 @@ describe("Panel queries", () => {
         await dispatch.dispatchAsync({
           key,
           actions: tabs.map((tab) =>
-            panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
           ),
         });
       });

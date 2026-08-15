@@ -28,10 +28,9 @@ type Writer struct {
 // Create creates a new panel. If the panel's key is uuid.Nil, a new key is generated.
 // The panel is registered with the ontology.
 //
-// Project-vs-draft ownership is enforced by the caller: set p.Parent to attach the
-// panel to a project (project panel) or to a user (draft). When Parent is nil or
-// zero, the panel has no parent in the ontology. Parent is not persisted on the
-// record; parenthood lives in the ontology graph.
+// Set p.Parent to attach the panel to a parent resource in the ontology; when nil or
+// zero, the panel has no parent. Parent is not persisted on the record; parenthood
+// lives in the ontology graph.
 func (w Writer) Create(
 	ctx context.Context,
 	p *Panel,
