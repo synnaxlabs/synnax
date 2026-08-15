@@ -23,7 +23,6 @@ type Network struct {
 	subscribe *mock.Network[control.SubscribeRequest, control.SubscribeResponse]
 }
 
-// NewNetwork constructs a Network with freshly initialized per-operation networks.
 func NewNetwork() *Network {
 	return &Network{
 		retrieve: mock.NewNetwork[control.RetrieveRequest, control.RetrieveResponse](),

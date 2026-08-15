@@ -11,16 +11,11 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -64,28 +59,13 @@ func PublishSignals[K comparable, A any](
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	translator := observe.Translator[Scoped[K, A], []xchange.Change[[]byte, struct{}]]{
-		Observable: cfg.State.observer,
-		Translate: func(_ context.Context, sa Scoped[K, A]) ([]xchange.Change[[]byte, struct{}], bool) {
-			b, err := json.Marshal(sa)
-			if err != nil {
-				return nil, false
-			}
-			return []xchange.Change[[]byte, struct{}]{
-				{Variant: xchange.VariantSet, Key: telem.MarshalVariableSample(b)},
-			}, true
-		},
-	}
-	closer, err := cfg.Provider.PublishFromObservable(
+	closer, err := signals.PublishJSON(
 		ctx,
-		signals.ObservablePublisherConfig{
+		cfg.Provider,
+		signals.JSONPublisherConfig[Scoped[K, A]]{
 			Name:       fmt.Sprintf("%s_actions", cfg.Name),
-			Observable: translator,
-			SetChannel: channel.Channel{
-				Name:     fmt.Sprintf("sy_%s_set", cfg.Name),
-				DataType: telem.JSONT,
-				Internal: true,
-			},
+			Observable: cfg.State.observer,
+			SetName:    fmt.Sprintf("sy_%s_set", cfg.Name),
 		},
 	)
 	if err != nil {

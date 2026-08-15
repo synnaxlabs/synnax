@@ -17,7 +17,7 @@ import { type KeyedState, keyedStateZ, updateZ } from "@/control/state";
 import { query } from "@/query";
 
 /** The free virtual channel carrying control updates for the entire cluster. */
-export const CHANNEL_NAME = "sy_control";
+const CHANNEL_NAME = "sy_control";
 
 const RETRIEVE_ENDPOINT = "/control/retrieve";
 

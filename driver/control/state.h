@@ -55,8 +55,13 @@ public:
             this->states[state.resource] = state;
     }
 
+    /// @brief applies the control updates carried by a series from the control channel.
     void apply(const x::telem::Series &series) {
-        if (series.data_type() != x::telem::JSON_T) return;
+        if (series.data_type() != x::telem::JSON_T) {
+            LOG(ERROR) << "[bus.authority] expected a JSON control state series, got "
+                       << series.data_type();
+            return;
+        }
         for (const auto &json_str: series.strings()) {
             x::json::Parser parser(json_str);
             if (!parser.ok()) continue;

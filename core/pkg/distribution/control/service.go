@@ -270,8 +270,6 @@ func (s *Service) handleSubscribe(
 	if err := send(); err != nil {
 		return err
 	}
-	// The subscriber sends nothing after the open, so the subscription ends when the
-	// stream is cancelled, the service closes, or a send fails.
 	for {
 		select {
 		case <-ctx.Done():
@@ -347,7 +345,7 @@ func (s *Service) subscribeToPeer(
 			openErr = s.readPeerStream(ctx, target, stream)
 		}
 		if ctx.Err() != nil {
-			return nil
+			return ctx.Err()
 		}
 		s.cfg.L.Debug(
 			"control subscription to peer ended, retrying",
@@ -356,7 +354,7 @@ func (s *Service) subscribeToPeer(
 		)
 		if !b.Wait() {
 			if ctx.Err() != nil {
-				return nil
+				return ctx.Err()
 			}
 			return errors.Wrapf(
 				openErr,
@@ -379,7 +377,6 @@ func (s *Service) openPeerStream(
 	return s.cfg.Transport.SubscribeClient().Stream(ctx, addr)
 }
 
-// readPeerStream applies every snapshot the peer sends until the stream fails.
 func (s *Service) readPeerStream(
 	ctx context.Context,
 	target node.Key,

@@ -55,7 +55,6 @@ func (s *subscribeServer) Exec(stream pb.SubscribeService_ExecServer) error {
 
 // Transport is a gRPC-backed implementation of the control.Transport interface.
 type Transport struct {
-	// ReportProvider provides a report for the transport.
 	alamos.ReportProvider
 	retrieveClient  *retrieveClient
 	retrieveServer  *retrieveServer

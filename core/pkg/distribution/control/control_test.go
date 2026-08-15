@@ -11,6 +11,8 @@ package control_test
 
 import (
 	"context"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,6 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	mockcontrol "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/control"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/breaker"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -77,7 +82,79 @@ func holders(states []control.State) map[channel.Key]string {
 	return out
 }
 
+// fastBreaker retries as often as the real one but without the wait, so a spec that
+// depends on a reopen does not pay the default backoff.
+var fastBreaker = breaker.Config{
+	BaseInterval: time.Millisecond,
+	Scale:        1,
+	MaxRetries:   breaker.InfiniteRetries,
+}
+
+// openIsolated opens a control service on n backed by net rather than the cluster's own
+// transport, so a spec can decide which peers the service can reach.
+func openIsolated(
+	ctx context.Context,
+	n mock.Node,
+	net *mockcontrol.Network,
+	addr address.Address,
+) *control.Service {
+	GinkgoHelper()
+	return MustOpen(control.OpenService(ctx, control.ServiceConfig{
+		Cluster:   n.Cluster,
+		TS:        n.Storage.TS,
+		Transport: net.New(addr, 1),
+		Breaker:   fastBreaker,
+	}))
+}
+
+// peerState is the state a stub peer reports for key under the given subject.
+func peerState(key channel.Key, subject string) control.State {
+	return control.State{
+		Subject:   xcontrol.Subject{Key: subject, Name: subject},
+		Resource:  key,
+		Authority: xcontrol.AuthorityAbsolute,
+	}
+}
+
 var _ = Describe("Control", func() {
+	Describe("ServiceConfig", func() {
+		full := func(ctx context.Context) control.ServiceConfig {
+			GinkgoHelper()
+			n := mock.NewNode(ctx)
+			return control.ServiceConfig{
+				Cluster:   n.Cluster,
+				TS:        n.Storage.TS,
+				Transport: mockcontrol.NewNetwork().New("gateway"),
+			}
+		}
+
+		It("Should open when all required fields are set", func(ctx SpecContext) {
+			Expect(full(ctx).Validate()).To(Succeed())
+		})
+
+		DescribeTable(
+			"Should fail to open when a required field is missing",
+			func(ctx SpecContext, clear func(*control.ServiceConfig), field string) {
+				cfg := full(ctx)
+				clear(&cfg)
+				Expect(control.OpenService(ctx, cfg)).Error().To(
+					MatchError(ContainSubstring(field)),
+				)
+			},
+			Entry(
+				"cluster",
+				func(c *control.ServiceConfig) { c.Cluster = nil },
+				"cluster",
+			),
+			Entry("ts", func(c *control.ServiceConfig) { c.TS = nil }, "ts"),
+			Entry(
+				"transport",
+				func(c *control.ServiceConfig) { c.Transport = nil },
+				"transport",
+			),
+		)
+	})
+
 	Describe("Retrieve", func() {
 		It("Should return the state of a channel the host arbitrates", func(
 			ctx SpecContext,
@@ -188,6 +265,113 @@ var _ = Describe("Control", func() {
 					Resource:  ch.Key(),
 					Authority: xcontrol.AuthorityAbsolute,
 				}}),
+			)))
+		})
+	})
+
+	// These specs replace the cluster's own control transport with a network that binds
+	// the gateway alone, so the peer is unreachable until the spec binds it.
+	Describe("Unreachable peers", func() {
+		var (
+			cluster  *mock.Cluster
+			gw, peer mock.Node
+			net      *mockcontrol.Network
+			peerAddr address.Address
+			svc      *control.Service
+		)
+		BeforeEach(func(ctx SpecContext) {
+			cluster = mock.NewCluster(ctx, 2)
+			gw, peer = cluster.Nodes[1], cluster.Nodes[2]
+			net = mockcontrol.NewNetwork()
+			peerAddr = MustSucceed(gw.Cluster.Resolve(peer.Cluster.HostKey()))
+			svc = openIsolated(ctx, gw, net, MustSucceed(
+				gw.Cluster.Resolve(gw.Cluster.HostKey()),
+			))
+		})
+
+		It("Should return an error when a keyed retrieve cannot reach the peer", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, gw, "remote", 2)
+			Expect(svc.Retrieve(ctx, ch.Key())).Error().To(MatchError(
+				ContainSubstring("failed to retrieve control state from 2"),
+			))
+		})
+
+		It("Should return an error when retrieving every channel", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Retrieve(ctx)).Error().To(MatchError(
+				ContainSubstring("failed to retrieve control state from 2"),
+			))
+		})
+
+		It("Should deliver a peer's transfers once its subscription opens", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, gw, "remote", 2)
+			updates := collect(svc)
+			// The service has been retrying against an unbound address since it opened.
+			// Binding the peer lets the next attempt through.
+			net.New(peerAddr, 1).SubscribeServer().BindHandler(func(
+				_ context.Context,
+				stream control.SubscribeStream,
+			) error {
+				if err := stream.Send(control.SubscribeResponse{
+					States: []control.State{peerState(ch.Key(), "reno")},
+				}); err != nil {
+					return err
+				}
+				<-ctx.Done()
+				return nil
+			})
+			Eventually(updates).Should(Receive(WithTransform(
+				func(u control.Update) []control.Transfer { return u.Transfers },
+				ConsistOf(control.Transfer{
+					To: new(peerState(ch.Key(), "reno")),
+				}),
+			)))
+		})
+
+		It("Should reopen a dropped subscription and emit only the diff", func(
+			ctx SpecContext,
+		) {
+			first := createChannel(ctx, gw, "first", 2)
+			second := createChannel(ctx, gw, "second", 2)
+			updates := collect(svc)
+			var opens atomic.Int32
+			net.New(peerAddr, 1).SubscribeServer().BindHandler(func(
+				_ context.Context,
+				stream control.SubscribeStream,
+			) error {
+				// The first open sends one state and ends, dropping the stream. The
+				// reopen reports both, so the service must emit the second alone.
+				states := []control.State{peerState(first.Key(), "reno")}
+				if opens.Add(1) > 1 {
+					states = append(states, peerState(second.Key(), "tahoe"))
+				}
+				if err := stream.Send(
+					control.SubscribeResponse{States: states},
+				); err != nil {
+					return err
+				}
+				if opens.Load() == 1 {
+					return nil
+				}
+				<-ctx.Done()
+				return nil
+			})
+			Eventually(updates).Should(Receive(WithTransform(
+				func(u control.Update) []control.Transfer { return u.Transfers },
+				ConsistOf(control.Transfer{
+					To: new(peerState(first.Key(), "reno")),
+				}),
+			)))
+			Eventually(updates).Should(Receive(WithTransform(
+				func(u control.Update) []control.Transfer { return u.Transfers },
+				ConsistOf(control.Transfer{
+					To: new(peerState(second.Key(), "tahoe")),
+				}),
 			)))
 		})
 	})

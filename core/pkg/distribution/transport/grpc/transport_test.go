@@ -20,6 +20,7 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	transportgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,19 +37,21 @@ func openPool() *fgrpc.Pool {
 
 var _ = Describe("Transport", func() {
 	Describe("Construction", func() {
-		It("Should bundle the channel and framer transports", func() {
+		It("Should bundle the channel, framer, and control transports", func() {
 			t := transportgrpc.New(openPool())
 			Expect(t.Channel()).ToNot(BeNil())
 			Expect(t.Framer()).ToNot(BeNil())
+			Expect(t.Control()).ToNot(BeNil())
 		})
 
-		It("Should register both the channel and framer services on bind", func() {
+		It("Should register every bundled service on bind", func() {
 			t := transportgrpc.New(openPool())
 			srv := grpc.NewServer()
 			t.BindTo(srv)
 			info := srv.GetServiceInfo()
 			Expect(info).To(HaveKey(HavePrefix("distribution.channel.pb.")))
 			Expect(info).To(HaveKey(HavePrefix("synnax.distribution.framer.")))
+			Expect(info).To(HaveKey(HavePrefix("distribution.control.pb.")))
 		})
 
 		It("Should report the gRPC protocol and protobuf encoding", func() {
@@ -95,13 +98,39 @@ var _ = Describe("Transport", func() {
 				Expect(received.Keys).To(Equal(channel.Keys{1, 2, 3}))
 			},
 		)
+
+		It(
+			"Should round-trip a control retrieve through the bundled transport",
+			func(ctx SpecContext) {
+				var received control.RetrieveRequest
+				transport.Control().RetrieveServer().BindHandler(func(
+					_ context.Context,
+					req control.RetrieveRequest,
+				) (control.RetrieveResponse, error) {
+					received = req
+					return control.RetrieveResponse{
+						States: []control.State{{Resource: 4, Authority: 100}},
+					}, nil
+				})
+				res := MustSucceed(transport.Control().RetrieveClient().Send(
+					ctx,
+					addr,
+					control.RetrieveRequest{Keys: channel.Keys{4}},
+				))
+				Expect(received.Keys).To(Equal(channel.Keys{4}))
+				Expect(res.States).To(ConsistOf(control.State{
+					Resource:  4,
+					Authority: 100,
+				}))
+			},
+		)
 	})
 
 	// Use is exercised against an isolated transport and server so the registered
 	// middleware does not leak into the shared transport used by the other specs.
 	Describe("Use", func() {
 		It(
-			"Should apply middleware to both the channel and framer transports",
+			"Should apply middleware to every bundled transport",
 			func(ctx SpecContext) {
 				var t transportgrpc.Transport
 				useAddr := StartServer(
@@ -147,8 +176,20 @@ var _ = Describe("Transport", func() {
 					deleter.Request{Keys: channel.Keys{1}},
 				)).To(Equal(types.Nil{}))
 
-				Expect(clientCalls.Load()).To(Equal(int32(2)))
-				Expect(serverCalls.Load()).To(Equal(int32(2)))
+				t.Control().RetrieveServer().BindHandler(func(
+					_ context.Context,
+					_ control.RetrieveRequest,
+				) (control.RetrieveResponse, error) {
+					return control.RetrieveResponse{}, nil
+				})
+				MustSucceed(t.Control().RetrieveClient().Send(
+					ctx,
+					useAddr,
+					control.RetrieveRequest{Keys: channel.Keys{1}},
+				))
+
+				Expect(clientCalls.Load()).To(Equal(int32(3)))
+				Expect(serverCalls.Load()).To(Equal(int32(3)))
 			},
 		)
 	})

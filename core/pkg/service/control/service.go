@@ -11,20 +11,15 @@ package control
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig configures the service-layer control service.
@@ -63,7 +58,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Service answers control state reads and publishes every control transfer in the
-// cluster on the ChannelName channel.
+// cluster on the sy_control channel.
 //
 // The Service must be closed after use.
 type Service struct {
@@ -81,19 +76,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.shutdown, err = cfg.Signals.PublishFromObservable(
+	if s.shutdown, err = signals.PublishJSON(
 		ctx,
-		signals.ObservablePublisherConfig{
-			Name: ChannelName,
-			Observable: observe.Translator[Update, []change.Change[[]byte, struct{}]]{
-				Observable: cfg.Control,
-				Translate:  s.encode,
-			},
-			SetChannel: channel.Channel{
-				Name:     ChannelName,
-				DataType: telem.JSONT,
-				Internal: true,
-			},
+		cfg.Signals,
+		signals.JSONPublisherConfig[Update]{
+			Observable: cfg.Control,
+			SetName:    channelName,
 		},
 	); err != nil {
 		return nil, err
@@ -113,17 +101,3 @@ func (s *Service) Retrieve(
 
 // Close stops publishing updates and releases the service's resources.
 func (s *Service) Close() error { return s.shutdown.Close() }
-
-func (s *Service) encode(
-	_ context.Context,
-	u Update,
-) ([]change.Change[[]byte, struct{}], bool) {
-	b, err := json.Marshal(u)
-	if err != nil {
-		s.cfg.L.Error("failed to encode control update", zap.Error(err))
-		return nil, false
-	}
-	return []change.Change[[]byte, struct{}]{
-		{Variant: change.VariantSet, Key: telem.MarshalVariableSample(b)},
-	}, true
-}

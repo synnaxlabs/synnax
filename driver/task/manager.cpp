@@ -202,7 +202,7 @@ void Manager::seed_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) {
         // The mirror treats an absent entry as uncontrolled and the Core arbitrates
-        // every write, so an unseeded driver starts optimistic and converges as
+        // every write, so an unseeded Driver starts optimistic and converges as
         // transfers arrive on the stream.
         LOG(WARNING) << "failed to seed control state: " << err;
         return;

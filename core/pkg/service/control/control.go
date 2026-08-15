@@ -26,6 +26,6 @@ type (
 	Update = control.Update
 )
 
-// ChannelName is the name of the free virtual channel carrying control updates for the
+// channelName is the name of the free virtual channel carrying control updates for the
 // entire cluster.
-const ChannelName = "sy_control"
+const channelName = "sy_control"

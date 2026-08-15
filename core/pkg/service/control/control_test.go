@@ -54,7 +54,7 @@ func openControlStreamer(ctx SpecContext) confluence.Outlet[framer.StreamerRespo
 	GinkgoHelper()
 	var ch channel.Channel
 	Expect(channelSvc.NewRetrieve().
-		Where(channel.MatchNames(control.ChannelName)).
+		Where(channel.MatchNames("sy_control")).
 		Entry(&ch).
 		Exec(ctx, nil),
 	).To(Succeed())
@@ -93,13 +93,13 @@ func receiveUpdates(
 }
 
 var _ = Describe("Control", func() {
-	Describe("ChannelName", func() {
+	Describe("Control channel", func() {
 		It("Should be created as a free, internal, virtual JSON channel", func(
 			ctx SpecContext,
 		) {
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().
-				Where(channel.MatchNames(control.ChannelName)).
+				Where(channel.MatchNames("sy_control")).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())

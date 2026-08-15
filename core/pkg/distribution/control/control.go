@@ -14,27 +14,27 @@
 package control
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/control"
 )
 
 type (
 	// Subject is an entity that can hold control authority over a channel.
-	Subject = xcontrol.Subject
+	Subject = control.Subject
 	// State is the control state of a single channel: the subject holding authority
 	// over it, and the level of that authority.
-	State = xcontrol.State[channel.Key]
+	State = control.State[channel.Key]
 	// Transfer is a transition of control over a single channel. A nil From is an
 	// acquire; a nil To is a release.
-	Transfer = xcontrol.Transfer[channel.Key]
+	Transfer = control.Transfer[channel.Key]
 	// Update is a batch of transfers that a Core applied atomically.
-	Update = xcontrol.Update[channel.Key]
+	Update = control.Update[channel.Key]
 )
 
-// stateFromStorage converts a storage-layer control state into a distribution-layer
-// state. It returns nil when s is nil, so the acquire and release ends of a transfer
-// survive the conversion.
+// stateFromStorage returns nil when s is nil, so the acquire and release ends of a
+// transfer survive the conversion.
 func stateFromStorage(s *ts.ControlState) *State {
 	if s == nil {
 		return nil
@@ -46,22 +46,17 @@ func stateFromStorage(s *ts.ControlState) *State {
 	}
 }
 
-// updateFromStorage converts a storage-layer control update into a distribution-layer
-// update.
 func updateFromStorage(u ts.ControlUpdate) Update {
-	transfers := make([]Transfer, 0, len(u.Transfers))
-	for _, t := range u.Transfers {
-		transfers = append(transfers, Transfer{
-			From: stateFromStorage(t.From),
-			To:   stateFromStorage(t.To),
-		})
-	}
-	return Update{Transfers: transfers}
+	return Update{Transfers: lo.Map(
+		u.Transfers,
+		func(t ts.ControlTransfer, _ int) Transfer {
+			return Transfer{From: stateFromStorage(t.From), To: stateFromStorage(t.To)}
+		},
+	)}
 }
 
-// statesFromStorage converts a storage-layer control update into the states it holds.
-// Updates returned by ts.DB.ControlStates carry only the To end of each transfer, so
-// releases in a delta update are dropped.
+// statesFromStorage drops releases: updates returned by ts.DB.ControlStates carry only
+// the To end of each transfer.
 func statesFromStorage(u ts.ControlUpdate) []State {
 	states := make([]State, 0, len(u.Transfers))
 	for _, t := range u.Transfers {
@@ -97,7 +92,6 @@ func diff(prev, next map[channel.Key]State) []Transfer {
 	return transfers
 }
 
-// statesByChannel indexes states by the channel each one controls.
 func statesByChannel(states []State) map[channel.Key]State {
 	m := make(map[channel.Key]State, len(states))
 	for _, s := range states {
