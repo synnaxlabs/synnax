@@ -15,7 +15,7 @@ import {
   TimeRange,
 } from "@synnaxlabs/client";
 import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { createFactory } from "@/telem/aether/factory";
 import {
@@ -37,6 +37,19 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   const handleChange = vi.fn();
   source.onChange(handleChange);
   await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
+  return source.value();
+};
+
+// A value source with nothing to report does not notify when its stream opens, so a
+// spec that only needs the read to finish waits on the stream registration. The count
+// is captured up front so a re-open after cleanup is not read as the first one.
+const waitForStream = async <T>(
+  source: Source<T>,
+  client: { streamF: Mock },
+): Promise<T> => {
+  const opens = client.streamF.mock.calls.length;
+  source.value();
+  await expect.poll(() => client.streamF.mock.calls.length > opens).toBe(true);
   return source.value();
 };
 
@@ -108,10 +121,29 @@ describe("remote", () => {
         channel: c.channel.key,
       };
       const scv = new StreamChannelValue(c, props);
-      await waitForResolve(scv);
+      await waitForStream(scv, c);
       expect(c.streamHandler).not.toBeNull();
       expect(c.streamF).toHaveBeenCalled();
       expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
+    });
+
+    // A consumer that counts arrivals reads the open as a sample, and then reports the
+    // channel stale one timeout later while it waits for real data.
+    it("should not notify when the stream opens with no data", async () => {
+      const scv = new StreamChannelValue(c, { channel: c.channel.key });
+      const handleChange = vi.fn();
+      scv.onChange(handleChange);
+      await waitForStream(scv, c);
+      expect(handleChange).not.toHaveBeenCalled();
+      c.streamHandler?.(
+        new Map([
+          [
+            c.channel.key,
+            new MultiSeries([new Series({ data: new Float32Array([1]) })]),
+          ],
+        ]),
+      );
+      await expect.poll(() => handleChange.mock.calls.length).toBe(1);
     });
 
     it("should destroy the stream handler when cleanup is called", async () => {
@@ -119,7 +151,7 @@ describe("remote", () => {
         channel: c.channel.key,
       };
       const scv = new StreamChannelValue(c, props);
-      await waitForResolve(scv);
+      await waitForStream(scv, c);
       scv.cleanup();
       expect(c.streamDestructorF).toHaveBeenCalled();
     });
@@ -131,14 +163,13 @@ describe("remote", () => {
       const scv = new StreamChannelValue(c, props);
       const handleChange = vi.fn();
       scv.onChange(handleChange);
-      scv.value();
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
+      await waitForStream(scv, c);
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
       });
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       expect(scv.testingOnlyLeadingBuffer).toBe(series);
       expect(scv.value()).toBe(3);
     });
@@ -151,16 +182,16 @@ describe("remote", () => {
       const handleChange = vi.fn();
       scv.onChange(handleChange);
       expect(scv.value()).toBe(NaN);
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
+      await waitForStream(scv, c);
       const series = Series.alloc({ dataType: DataType.FLOAT32, capacity: 3 });
 
       // Call onChange to set the leading buffer
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       // Append to the leading buffer
       series.write(new Series({ data: new Float32Array([1, 2, 5]) }));
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
       const v = scv.value();
       expect(v).toBe(5);
     });
@@ -172,8 +203,7 @@ describe("remote", () => {
       const scv = new StreamChannelValue(c, props);
       const handleChange = vi.fn();
       scv.onChange(handleChange);
-      scv.value();
-      await expect.poll(() => handleChange).toHaveBeenCalledTimes(1);
+      await waitForStream(scv, c);
       const newSeriesOne = new Series({
         data: new Float32Array([1, 2, 3]),
       });
@@ -182,13 +212,13 @@ describe("remote", () => {
       });
       // Call onChange to set the leading buffer
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesOne])]]));
-      await expect.poll(() => handleChange).toHaveBeenCalledTimes(2);
+      await expect.poll(() => handleChange).toHaveBeenCalledTimes(1);
       // It should increment the reference count of the buffer
       expect(newSeriesOne.refCount).toBe(1);
       expect(scv.value()).toBe(3);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesTwo])]]));
       expect(newSeriesOne.refCount).toBe(0);
-      await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
       expect(scv.value()).toBe(6);
       expect(newSeriesTwo.refCount).toBe(1);
     });
@@ -258,27 +288,40 @@ describe("remote", () => {
 
     it("should return an empty string when no data has been received", async () => {
       const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-      expect(await waitForResolve(scsv)).toBe("");
+      expect(await waitForStream(scsv, c)).toBe("");
       expect(c.streamF).toHaveBeenCalledTimes(1);
       expect(c.streamKeys).toEqual([c.channel.key]);
+    });
+
+    // A consumer that counts arrivals reads the open as a sample, and then reports the
+    // channel stale one timeout later while it waits for real data.
+    it("should not notify when the stream opens with no data", async () => {
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      const handleChange = vi.fn();
+      scsv.onChange(handleChange);
+      await waitForStream(scsv, c);
+      expect(handleChange).not.toHaveBeenCalled();
+      c.streamHandler?.(
+        new Map([[c.channel.key, new MultiSeries([new Series(["ARMED"])])]]),
+      );
+      await expect.poll(() => handleChange.mock.calls.length).toBe(1);
     });
 
     it("should decode the leading sample of a string series", async () => {
       const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
       const handleChange = vi.fn();
       scsv.onChange(handleChange);
-      scsv.value();
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
+      await waitForStream(scsv, c);
       const series = new Series(["IDLE", "ARMED"]);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       expect(scsv.value()).toBe("ARMED");
       expect(series.refCount).toBe(1);
     });
 
     it("should preserve spaces and punctuation", async () => {
       const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-      await waitForResolve(scsv);
+      await waitForStream(scsv, c);
       c.streamHandler?.(
         new Map([
           [c.channel.key, new MultiSeries([new Series(["Hello, World! (42%)"])])],
@@ -294,22 +337,22 @@ describe("remote", () => {
       const handleChange = vi.fn();
       scsv.onChange(handleChange);
       expect(scsv.value()).toBe("");
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
+      await waitForStream(scsv, c);
       const series = Series.alloc({ dataType: DataType.STRING, capacity: 64 });
       series.write(new Series(["IDLE"]));
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       expect(scsv.value()).toBe("IDLE");
 
       series.write(new Series(["ARMED"]));
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
       expect(scsv.value()).toBe("ARMED");
     });
 
     it("should replace and release the leading buffer when a new one arrives", async () => {
       const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-      await waitForResolve(scsv);
+      await waitForStream(scsv, c);
       const first = new Series(["FIRST"]);
       const second = new Series(["SECOND"]);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([first])]]));
@@ -329,7 +372,7 @@ describe("remote", () => {
         isIndex: false,
       });
       const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-      await waitForResolve(scsv);
+      await waitForStream(scsv, c);
       c.streamHandler?.(
         new Map([
           [
@@ -343,7 +386,7 @@ describe("remote", () => {
 
     it("should release the leading buffer and stop streaming on cleanup", async () => {
       const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-      await waitForResolve(scsv);
+      await waitForStream(scsv, c);
       const series = new Series(["IDLE"]);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
       await expect.poll(() => scsv.value()).toBe("IDLE");
@@ -374,7 +417,7 @@ describe("remote", () => {
 
       it("should not acquire buffers delivered to a stale handler", async () => {
         const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-        await waitForResolve(scsv);
+        await waitForStream(scsv, c);
         const staleHandler = c.streamHandler;
         scsv.cleanup();
         const series = new Series(["ARMED"]);
@@ -384,7 +427,7 @@ describe("remote", () => {
 
       it("should not notify listeners from a stale handler", async () => {
         const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-        await waitForResolve(scsv);
+        await waitForStream(scsv, c);
         const staleHandler = c.streamHandler;
         const handleChange = vi.fn();
         scsv.onChange(handleChange);
@@ -397,9 +440,9 @@ describe("remote", () => {
 
       it("should stream again after cleanup", async () => {
         const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-        await waitForResolve(scsv);
+        await waitForStream(scsv, c);
         scsv.cleanup();
-        expect(await waitForResolve(scsv)).toBe("");
+        expect(await waitForStream(scsv, c)).toBe("");
         expect(c.streamF).toHaveBeenCalledTimes(2);
         c.streamHandler?.(
           new Map([[c.channel.key, new MultiSeries([new Series(["ARMED"])])]]),
@@ -409,10 +452,10 @@ describe("remote", () => {
 
       it("should not let a stale handler overwrite a later read's buffer", async () => {
         const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-        await waitForResolve(scsv);
+        await waitForStream(scsv, c);
         const staleHandler = c.streamHandler;
         scsv.cleanup();
-        await waitForResolve(scsv);
+        await waitForStream(scsv, c);
         const fresh = new Series(["ARMED"]);
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([fresh])]]));
         await expect.poll(() => scsv.value()).toBe("ARMED");

@@ -271,7 +271,7 @@ export const Table = ({
     ],
   );
 
-  const [{ path }, , setState] = Aether.use({
+  const { path, setState } = Aether.useLifecycle({
     type: aetherTable.Table.TYPE,
     schema: aetherTable.Table.stateZ,
     initialState: { region: box.ZERO, visible },
@@ -284,6 +284,12 @@ export const Table = ({
     setRegion(b);
     setState((s) => ({ ...s, region: b }));
   });
+
+  const handleScroll = useCallback(
+    ({ currentTarget: { scrollLeft, scrollTop } }: React.UIEvent<HTMLDivElement>) =>
+      setState((s) => ({ ...s, scroll: { x: scrollLeft, y: scrollTop } })),
+    [setState],
+  );
 
   const selectedRef = useSyncedRef(selected);
   const lastSelectedRef = useRef<string | null>(null);
@@ -517,75 +523,77 @@ export const Table = ({
       {...rest}
     >
       <div ref={canvasRef} className={CSS.BE("table-surface", "canvas")} />
-      <div
-        className={CSS(CSS.B("table-frame"), CSS.editable(editable))}
-        style={frameStyle}
-        onPointerDown={handlePointerDown}
-      >
-        <Menu.ContextMenu menu={renderMenu} {...menuProps}>
-          <table
-            ref={tableElRef}
-            className={CSS(CSS.B("table"), menuProps.className)}
-            style={tableStyle}
-            onCopy={onCopy}
-            onPaste={editable ? onPaste : undefined}
-            onKeyDown={handleKeyDown}
-            tabIndex={-1}
-          >
-            <tbody>
-              <Aether.Composite path={path}>
-                <Selection.Context value={selected}>
-                  {showIndicators && (
-                    <ColumnIndicators
-                      columns={colSizes}
-                      rows={rows}
-                      selected={selected}
-                      editable={editable}
-                      onSelect={handleColSelect}
-                      onSelectAll={handleSelectAll}
-                      onResize={handleColResize}
-                    />
-                  )}
-                  {rows.map((row, rowIndex) => {
-                    const yPos = rowYCursor;
-                    rowYCursor += row.size;
-                    return (
-                      <Row
-                        key={rowIndex}
-                        index={rowIndex}
-                        resourceKey={key}
-                        cells={row.cells}
+      <div className={CSS.BE("table-surface", "scroll")} onScroll={handleScroll}>
+        <div
+          className={CSS(CSS.B("table-frame"), CSS.editable(editable))}
+          style={frameStyle}
+          onPointerDown={handlePointerDown}
+        >
+          <Menu.ContextMenu menu={renderMenu} {...menuProps}>
+            <table
+              ref={tableElRef}
+              className={CSS(CSS.B("table"), menuProps.className)}
+              style={tableStyle}
+              onCopy={onCopy}
+              onPaste={editable ? onPaste : undefined}
+              onKeyDown={handleKeyDown}
+              tabIndex={-1}
+            >
+              <tbody>
+                <Aether.Composite path={path}>
+                  <Selection.Context value={selected}>
+                    {showIndicators && (
+                      <ColumnIndicators
                         columns={colSizes}
-                        x={cellXOrigin}
-                        y={yPos}
-                        size={row.size}
+                        rows={rows}
+                        selected={selected}
                         editable={editable}
-                        showIndicator={showIndicators}
-                        onSelect={handleRowSelect}
-                        onResize={handleRowResize}
-                        onCellSelect={handleCellSelect}
+                        onSelect={handleColSelect}
+                        onSelectAll={handleSelectAll}
+                        onResize={handleColResize}
                       />
-                    );
-                  })}
-                </Selection.Context>
-              </Aether.Composite>
-            </tbody>
-          </table>
-        </Menu.ContextMenu>
-        {editable && (
-          <>
-            <AddCountControl
-              className={CSS.BE("table-frame", "add-col")}
-              resourceName="column"
-              onAdd={(n) => addCol(undefined, n)}
-            />
-            <AddCountControl
-              className={CSS.BE("table-frame", "add-row")}
-              resourceName="row"
-              onAdd={(n) => addRow(undefined, n)}
-            />
-          </>
-        )}
+                    )}
+                    {rows.map((row, rowIndex) => {
+                      const yPos = rowYCursor;
+                      rowYCursor += row.size;
+                      return (
+                        <Row
+                          key={rowIndex}
+                          index={rowIndex}
+                          resourceKey={key}
+                          cells={row.cells}
+                          columns={colSizes}
+                          x={cellXOrigin}
+                          y={yPos}
+                          size={row.size}
+                          editable={editable}
+                          showIndicator={showIndicators}
+                          onSelect={handleRowSelect}
+                          onResize={handleRowResize}
+                          onCellSelect={handleCellSelect}
+                        />
+                      );
+                    })}
+                  </Selection.Context>
+                </Aether.Composite>
+              </tbody>
+            </table>
+          </Menu.ContextMenu>
+          {editable && (
+            <>
+              <AddCountControl
+                className={CSS.BE("table-frame", "add-col")}
+                resourceName="column"
+                onAdd={(n) => addCol(undefined, n)}
+              />
+              <AddCountControl
+                className={CSS.BE("table-frame", "add-row")}
+                resourceName="row"
+                onAdd={(n) => addRow(undefined, n)}
+              />
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

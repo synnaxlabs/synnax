@@ -23,6 +23,12 @@
         position: absolute;
         inset: 0;
     }
+
+    & .pluto-table-surface__scroll {
+        position: absolute;
+        inset: 0;
+        overflow: auto;
+    }
 }
 
 .pluto-table-frame {

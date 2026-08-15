@@ -18,6 +18,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
@@ -39,12 +40,13 @@ const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
         />
       </Input.Item>
+      <Staleness.Fields />
     </Form.Wrapper>
   );
 };
