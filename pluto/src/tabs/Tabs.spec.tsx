@@ -9,7 +9,13 @@
 
 import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type MouseEventHandler, type ReactElement, useEffect, useState } from "react";
+import {
+  type CSSProperties,
+  type MouseEventHandler,
+  type ReactElement,
+  useEffect,
+  useState,
+} from "react";
 import {
   afterEach,
   assert,
@@ -775,6 +781,8 @@ describe("Tabs", () => {
       canDrop?: Haul.CanDrop;
       onDrop?: (params: Tabs.SelectorOnDropParams) => Haul.Item[];
       items?: Haul.Item[];
+      // jsdom loads no stylesheet, so a strip needing a real gap sets one inline.
+      style?: CSSProperties;
     }
 
     const DragTabs = ({
@@ -782,11 +790,17 @@ describe("Tabs", () => {
       canDrop,
       onDrop,
       items = [{ type: TAB_TYPE, key: "x" }],
+      style,
     }: DragTabsProps): ReactElement => (
       <Haul.Provider>
         <DragSource items={items} />
         <Tabs.Frame initialValue="a">
-          <Tabs.Selector haulType={haulType} canDrop={canDrop} onDrop={onDrop}>
+          <Tabs.Selector
+            haulType={haulType}
+            canDrop={canDrop}
+            onDrop={onDrop}
+            style={style}
+          >
             <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
             <Tabs.Tab itemKey="b">Tab B</Tabs.Tab>
             <Tabs.Tab itemKey="c">Tab C</Tabs.Tab>
@@ -803,15 +817,36 @@ describe("Tabs", () => {
     const fireStripDrag = (type: "dragOver" | "drop", x: number): void =>
       fireDragEvent(screen.getByRole("tablist"), type, { x, y: 16 });
 
-    const indicator = (): HTMLElement | null =>
-      document.querySelector(".pluto-tabs__insertion");
+    const ghost = (): HTMLElement | null =>
+      document.querySelector(".pluto-tabs__ghost");
 
-    it("should render an insertion indicator while dragging an accepted item", () => {
+    it("should render a ghost slot while dragging an accepted item", () => {
       render(<DragTabs />);
-      expect(indicator()).toBeNull();
+      expect(ghost()).toBeNull();
       beginDrag();
       fireStripDrag("dragOver", 150);
-      expect(indicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
+    });
+
+    // An empty strip has no tab to measure the slot from, so it falls back to its own
+    // leading padding and to the standard width the stylesheet gives the ghost.
+    it("should render the ghost at the leading padding of an empty strip", () => {
+      render(
+        <Haul.Provider>
+          <DragSource items={[{ type: TAB_TYPE, key: "x" }]} />
+          <Tabs.Frame initialValue="a">
+            <Tabs.Selector
+              haulType={TAB_TYPE}
+              onDrop={() => []}
+              style={{ paddingLeft: 12 }}
+            />
+          </Tabs.Frame>
+        </Haul.Provider>,
+      );
+      fireEvent.click(screen.getByTestId("drag-source"));
+      fireStripDrag("dragOver", 150);
+      expect(ghost()?.style.left).toEqual("12px");
+      expect(ghost()?.style.width).toEqual("");
     });
 
     it("should report the resolved insertion index on drop", () => {
@@ -834,22 +869,22 @@ describe("Tabs", () => {
       expect(onDrop.mock.calls.map(([p]) => p.index)).toEqual([0, 1, 2, 3]);
     });
 
-    it("should clear the indicator once a drop lands", () => {
+    it("should clear the ghost once a drop lands", () => {
       render(<DragTabs onDrop={() => []} />);
       beginDrag();
       fireStripDrag("dragOver", 150);
-      expect(indicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
       fireStripDrag("drop", 150);
-      expect(indicator()).toBeNull();
+      expect(ghost()).toBeNull();
     });
 
-    it("should clear the indicator when the drag leaves the strip", () => {
+    it("should clear the ghost when the drag leaves the strip", () => {
       render(<DragTabs />);
       beginDrag();
       fireStripDrag("dragOver", 150);
-      expect(indicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
       fireEvent.dragLeave(screen.getByRole("tablist"));
-      expect(indicator()).toBeNull();
+      expect(ghost()).toBeNull();
     });
 
     it("should register no drop zone when haulType is empty", () => {
@@ -857,7 +892,7 @@ describe("Tabs", () => {
       render(<DragTabs haulType="" onDrop={onDrop} />);
       beginDrag();
       fireStripDrag("dragOver", 150);
-      expect(indicator()).toBeNull();
+      expect(ghost()).toBeNull();
       fireStripDrag("drop", 150);
       expect(onDrop).not.toHaveBeenCalled();
     });
@@ -867,7 +902,7 @@ describe("Tabs", () => {
       render(<DragTabs onDrop={onDrop} items={[{ type: "other", key: "y" }]} />);
       beginDrag();
       fireStripDrag("dragOver", 150);
-      expect(indicator()).toBeNull();
+      expect(ghost()).toBeNull();
       fireStripDrag("drop", 150);
       expect(onDrop).not.toHaveBeenCalled();
     });
@@ -877,7 +912,7 @@ describe("Tabs", () => {
       render(<DragTabs canDrop={() => false} onDrop={onDrop} />);
       beginDrag();
       fireStripDrag("dragOver", 150);
-      expect(indicator()).toBeNull();
+      expect(ghost()).toBeNull();
       fireStripDrag("drop", 150);
       expect(onDrop).not.toHaveBeenCalled();
     });
@@ -890,16 +925,21 @@ describe("Tabs", () => {
           .getByRole("tablist")
           .querySelector<HTMLElement>(`[data-tab-key="${key}"]`)!;
 
-      // jsdom reports offsetWidth as 0, so the shift distance would collapse; stub the
-      // tabs to a uniform 100px, matching the stubbed strip rects.
+      // jsdom reports every offset as 0, so the shift distance would collapse and every
+      // slot would resolve to the strip's start; lay the tabs out 100px wide from 0,
+      // matching the stubbed strip rects.
       const beginReorder = (): void => {
         beginDrag();
         screen
           .getByRole("tablist")
           .querySelectorAll<HTMLElement>("[data-tab-key]")
-          .forEach((t) =>
-            Object.defineProperty(t, "offsetWidth", { configurable: true, value: 100 }),
-          );
+          .forEach((t, i) => {
+            Object.defineProperty(t, "offsetWidth", { configurable: true, value: 100 });
+            Object.defineProperty(t, "offsetLeft", {
+              configurable: true,
+              value: i * 100,
+            });
+          });
       };
 
       const fireDragLeave = (relatedTarget: Node | null): void => {
@@ -918,6 +958,8 @@ describe("Tabs", () => {
         expect(tabByKey("a").classList.contains(HAULED)).toBe(true);
         expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
         expect(tabByKey("c").style.transform).toBe("");
+        // b slid back over a's slot, opening the one between b and c.
+        expect(ghost()?.style.left).toEqual("100px");
       });
 
       it("should slide passed tabs aside dragging left", () => {
@@ -927,6 +969,7 @@ describe("Tabs", () => {
         expect(tabByKey("c").classList.contains(HAULED)).toBe(true);
         expect(tabByKey("a").style.transform).toBe("translateX(100px)");
         expect(tabByKey("b").style.transform).toBe("translateX(100px)");
+        expect(ghost()?.style.left).toEqual("0px");
       });
 
       it("should not shift any tab while the drag hovers its own slot", () => {
@@ -936,14 +979,54 @@ describe("Tabs", () => {
         expect(tabByKey("a").style.transform).toBe("");
         expect(tabByKey("b").style.transform).toBe("");
         expect(tabByKey("c").style.transform).toBe("");
+        // The slot the drag would land in is the one it came from.
+        expect(ghost()?.style.left).toEqual("100px");
       });
 
-      it("should fall back to the indicator for a foreign item", () => {
-        render(<DragTabs items={draggingTab("x")} onDrop={() => []} />);
+      // A tab leaving the flow frees the gap that followed it too, so the tabs it
+      // passes slide by both and the ghost keeps even gaps on either side.
+      it("should slide the passed tabs by the strip's gap as well", () => {
+        render(
+          <DragTabs
+            items={draggingTab("a")}
+            style={{ columnGap: 10 }}
+            onDrop={() => []}
+          />,
+        );
+        beginReorder();
+        fireStripDrag("dragOver", 210);
+        expect(tabByKey("b").style.transform).toBe("translateX(-110px)");
+        expect(ghost()?.style.left).toEqual("100px");
+      });
+
+      it("should leave a gap before a ghost landing past the last tab", () => {
+        render(
+          <DragTabs
+            items={draggingTab("x")}
+            style={{ columnGap: 10 }}
+            onDrop={() => []}
+          />,
+        );
+        beginReorder();
+        fireStripDrag("dragOver", 400);
+        expect(ghost()?.style.left).toEqual("310px");
+      });
+
+      it("should open a ghost slot for an item hauled in from elsewhere", () => {
+        render(
+          <DragTabs
+            items={draggingTab("x")}
+            style={{ columnGap: 10 }}
+            onDrop={() => []}
+          />,
+        );
         beginReorder();
         fireStripDrag("dragOver", 150);
-        expect(indicator()).not.toBeNull();
-        ["a", "b", "c"].forEach((k) => expect(tabByKey(k).style.transform).toBe(""));
+        expect(ghost()?.style.width).toEqual("100px");
+        expect(ghost()?.style.left).toEqual("200px");
+        expect(tabByKey("a").style.transform).toBe("");
+        expect(tabByKey("b").style.transform).toBe("");
+        expect(tabByKey("c").style.transform).toBe("translateX(110px)");
         expect(document.querySelector(`.${HAULED}`)).toBeNull();
       });
 

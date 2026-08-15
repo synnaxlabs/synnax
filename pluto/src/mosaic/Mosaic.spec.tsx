@@ -148,8 +148,7 @@ const mask = (): HTMLElement | null => document.querySelector(".pluto-mosaic__ma
 const shield = (): HTMLElement | null =>
   document.querySelector(".pluto-mosaic__shield");
 
-const insertionIndicator = (): HTMLElement | null =>
-  document.querySelector(".pluto-tabs__insertion");
+const ghost = (): HTMLElement | null => document.querySelector(".pluto-tabs__ghost");
 
 describe("Mosaic", () => {
   afterEach(() => {
@@ -362,7 +361,7 @@ describe("Mosaic", () => {
       expect(el?.className).toContain("pluto-mosaic__mask--left");
     });
 
-    it("should swap the mask for the strip's insertion indicator over the strip", () => {
+    it("should swap the mask for the strip's ghost slot over the strip", () => {
       render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
       beginDrag(leaf());
       dragOver(leaf(), 40, 150);
@@ -372,14 +371,14 @@ describe("Mosaic", () => {
       fireEvent.dragLeave(leaf(), { relatedTarget: strip() });
       dragOver(strip(), 150, 16);
       expect(mask()).toBeNull();
-      expect(insertionIndicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
     });
 
     it("should not re-mask the leaf while dragging over the strip", () => {
       render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
       beginDrag(leaf());
       dragOver(strip(), 150, 16);
-      expect(insertionIndicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
       expect(mask()).toBeNull();
     });
 
@@ -392,13 +391,13 @@ describe("Mosaic", () => {
       expect(mask()).toBeNull();
     });
 
-    it("should clear the mask and indicator once a drop lands", () => {
+    it("should clear the mask and ghost once a drop lands", () => {
       render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
       beginDrag(leaf());
       dragOver(strip(), 150, 16);
-      expect(insertionIndicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
       drop(strip(), 150, 16);
-      expect(insertionIndicator()).toBeNull();
+      expect(ghost()).toBeNull();
       expect(mask()).toBeNull();
     });
 
