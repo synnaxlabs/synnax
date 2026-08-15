@@ -1,0 +1,66 @@
+{
+  "type": "http_read",
+  "autoStart": true,
+  "device": "fixture-http-device",
+  "dataSaving": false,
+  "rate": 2.5,
+  "endpoints": [
+    {
+      "key": "ep-list-get",
+      "method": "GET",
+      "path": "/api/v1/fixtureListTelemetry",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Api-Key", "value": "fixture-api-key-456" }
+      ],
+      "queryParams": [
+        { "parameter": "siteId", "value": "fixture-site-9" },
+        { "parameter": "verbose", "value": "false" }
+      ],
+      "index": "fixture_http_list_index",
+      "fields": [
+        {
+          "enabled": true,
+          "key": "fld-list-ts",
+          "channel": 10110,
+          "name": "fixture_http_list_timestamp",
+          "pointer": "/data/timestamp",
+          "dataType": "timestamp",
+          "timestampFormat": "iso8601"
+        },
+        {
+          "enabled": true,
+          "key": "fld-list-mode",
+          "channel": 10120,
+          "name": "fixture_http_list_mode",
+          "pointer": "/data/modeLabel",
+          "dataType": "uint8",
+          "enumValues": [
+            { "label": "idle", "value": 1 },
+            { "label": "running", "value": 2 },
+            { "label": "faulted", "value": 3 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ep-list-post",
+      "method": "POST",
+      "path": "/api/v1/fixtureListQuery",
+      "body": "{\"deviceId\": \"fixture-43\"}",
+      "headers": [{ "name": "X-Request-Source", "value": "fixture" }],
+      "queryParams": [{ "parameter": "limitCount", "value": "50" }],
+      "index": null,
+      "fields": [
+        {
+          "enabled": false,
+          "key": "fld-list-temp",
+          "channel": 10140,
+          "name": "fixture_http_list_temperature",
+          "pointer": "/results/0/tempC",
+          "dataType": "float64"
+        }
+      ]
+    }
+  ]
+}

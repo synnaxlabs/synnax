@@ -56,7 +56,7 @@ describe("OPC Write Task Types", () => {
 });
 
 describe("OPC Read Task Config Validation", () => {
-  const createConfig = (channels: Partial<OPC.Task.InputChannel>[]): unknown => ({
+  const createConfig = (channels: Partial<OPC.Task.ReadChannel>[]): unknown => ({
     device: "dev",
     arrayMode: false,
     sampleRate: 50,

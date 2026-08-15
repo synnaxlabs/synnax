@@ -38,13 +38,11 @@ var (
 	fullyPopulatedMinMaxVal   = v2.MinMaxVal{MinVal: 1.5, MaxVal: 2.5}
 	fullyPopulatedTerminal    = v2.Terminal{TerminalConfig: v2.TerminalConfig("Cfg_Default")}
 	fullyPopulatedCustomScale = v2.CustomScale{
-		CustomScale: v2.Scale{Variant: v2.ScaleLinear{
-			LinearScale: v2.LinearScale{
-				Slope:          2.5,
-				YIntercept:     3.5,
-				PreScaledUnits: v2.Units("Volts"),
-				ScaledUnits:    "test_5",
-			},
+		CustomScale: v2.Scale{Variant: v2.LinearScale{
+			Slope:          2.5,
+			YIntercept:     3.5,
+			PreScaledUnits: v2.Units("Volts"),
+			ScaledUnits:    "test_5",
 		}},
 	}
 	fullyPopulatedSensitivity       = v2.Sensitivity{Sensitivity: 1.5}
@@ -101,33 +99,6 @@ var (
 		ZIndexPhase:  v2.ZIndexPhase("AHighBHigh"),
 		TerminalZ:    "test_4",
 	}
-	fullyPopulatedLinearScale = v2.LinearScale{
-		Slope:          1.5,
-		YIntercept:     2.5,
-		PreScaledUnits: v2.Units("Volts"),
-		ScaledUnits:    "test_4",
-	}
-	fullyPopulatedMapScale = v2.MapScale{
-		PreScaledMin:   1.5,
-		PreScaledMax:   2.5,
-		ScaledMin:      3.5,
-		ScaledMax:      4.5,
-		PreScaledUnits: v2.Units("Volts"),
-		ScaledUnits:    "test_6",
-	}
-	fullyPopulatedTableScale = v2.TableScale{
-		PreScaledVals:  []float64{1.5},
-		ScaledVals:     []float64{2.5},
-		PreScaledUnits: v2.Units("Volts"),
-		ScaledUnits:    "test_4",
-	}
-	fullyPopulatedPolynomialScale = v2.PolynomialScale{
-		ForwardCoeffs:  []float64{1.5},
-		ReverseCoeffs:  []float64{2.5},
-		PreScaledUnits: v2.Units("Volts"),
-		ScaledUnits:    "test_4",
-	}
-	fullyPopulatedNoneScale = v2.NoneScale{}
 )
 
 var _ = Describe("Codec", func() {
@@ -274,7 +245,7 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:        fullyPopulatedMinMaxVal,
 				Units:            v2.TemperatureUnits("DegC"),
 				ThermocoupleType: v2.ThermocoupleType("J"),
-				Cjc:              v2.CJC{Variant: v2.CJCBuiltIn{}},
+				Cjc:              v2.CJC{Variant: v2.BuiltInCJC{}},
 			}}),
 			Entry("ai_torque_bridge_table variant", v2.AIChannel{Variant: v2.AITorqueBridgeTableChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -818,9 +789,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("built_in variant", v2.CJC{Variant: v2.CJCBuiltIn{}}),
-			Entry("const_val variant", v2.CJC{Variant: v2.CJCConstVal{Val: 1.5}}),
-			Entry("chan variant", v2.CJC{Variant: v2.CJCChan{Port: 2}}),
+			Entry("built_in variant", v2.CJC{Variant: v2.BuiltInCJC{}}),
+			Entry("const_val variant", v2.CJC{Variant: v2.ConstValCJC{Val: 1.5}}),
+			Entry("chan variant", v2.CJC{Variant: v2.ChanCJC{Port: 2}}),
 		)
 	})
 	Describe("CounterReadConfig", func() {
@@ -919,13 +890,11 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedCustomScale),
 			Entry("zero values", v2.CustomScale{
-				CustomScale: v2.Scale{Variant: v2.ScaleLinear{
-					LinearScale: v2.LinearScale{
-						Slope:          0,
-						YIntercept:     0,
-						PreScaledUnits: v2.Units(""),
-						ScaledUnits:    "",
-					},
+				CustomScale: v2.Scale{Variant: v2.LinearScale{
+					Slope:          0,
+					YIntercept:     0,
+					PreScaledUnits: v2.Units(""),
+					ScaledUnits:    "",
 				}},
 			}),
 		)
@@ -941,14 +910,22 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("digital_input variant", v2.DIChannel{Variant: v2.DigitalInputChannel{
+			Entry("fully populated", v2.DIChannel{
 				Key:      "test_1",
 				Name:     "test_2",
 				Disabled: true,
 				Channel:  channel.Key(5),
 				Port:     6,
 				Line:     7,
-			}}),
+			}),
+			Entry("zero values", v2.DIChannel{
+				Key:      "",
+				Name:     "",
+				Disabled: false,
+				Channel:  channel.Key(0),
+				Port:     0,
+				Line:     0,
+			}),
 		)
 	})
 	Describe("DOChannel", func() {
@@ -962,7 +939,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("digital_output variant", v2.DOChannel{Variant: v2.DOChannelDigitalOutput{
+			Entry("fully populated", v2.DOChannel{
 				Key:              "test_1",
 				Disabled:         false,
 				CmdChannel:       channel.Key(4),
@@ -971,7 +948,17 @@ var _ = Describe("Codec", func() {
 				StateChannelName: "test_6",
 				Port:             8,
 				Line:             9,
-			}}),
+			}),
+			Entry("zero values", v2.DOChannel{
+				Key:              "",
+				Disabled:         false,
+				CmdChannel:       channel.Key(0),
+				StateChannel:     channel.Key(0),
+				CmdChannelName:   "",
+				StateChannelName: "",
+				Port:             0,
+				Line:             0,
+			}),
 		)
 	})
 	Describe("DigitalReadConfig", func() {
@@ -999,14 +986,14 @@ var _ = Describe("Codec", func() {
 				},
 				Device: "test_6",
 				Channels: []v2.DIChannel{
-					{Variant: v2.DigitalInputChannel{
+					{
 						Key:      "test_8",
 						Name:     "test_9",
 						Disabled: false,
 						Channel:  channel.Key(12),
 						Port:     13,
 						Line:     14,
-					}},
+					},
 				},
 			}),
 			Entry("zero values", v2.DigitalReadConfig{
@@ -1064,7 +1051,7 @@ var _ = Describe("Codec", func() {
 					StateRate: telem.Rate(5.5),
 				},
 				Channels: []v2.DOChannel{
-					{Variant: v2.DOChannelDigitalOutput{
+					{
 						Key:              "test_7",
 						Disabled:         false,
 						CmdChannel:       channel.Key(10),
@@ -1073,7 +1060,7 @@ var _ = Describe("Codec", func() {
 						StateChannelName: "test_12",
 						Port:             14,
 						Line:             15,
-					}},
+					},
 				},
 			}),
 			Entry("zero values", v2.DigitalWriteConfig{
@@ -1107,48 +1094,6 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("LinearScale", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.LinearScale) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.LinearScale
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedLinearScale),
-			Entry("zero values", v2.LinearScale{
-				Slope:          0,
-				YIntercept:     0,
-				PreScaledUnits: v2.Units(""),
-				ScaledUnits:    "",
-			}),
-		)
-	})
-	Describe("MapScale", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.MapScale) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.MapScale
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedMapScale),
-			Entry("zero values", v2.MapScale{
-				PreScaledMin:   0,
-				PreScaledMax:   0,
-				ScaledMin:      0,
-				ScaledMax:      0,
-				PreScaledUnits: v2.Units(""),
-				ScaledUnits:    "",
-			}),
-		)
-	})
 	Describe("MinMaxVal", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v2.MinMaxVal) {
@@ -1162,47 +1107,6 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedMinMaxVal),
 			Entry("zero values", v2.MinMaxVal{MinVal: 0, MaxVal: 0}),
-		)
-	})
-	Describe("NoneScale", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.NoneScale) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.NoneScale
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedNoneScale),
-			Entry("zero values", v2.NoneScale{}),
-		)
-	})
-	Describe("PolynomialScale", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.PolynomialScale) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.PolynomialScale
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedPolynomialScale),
-			Entry("zero values", v2.PolynomialScale{
-				ForwardCoeffs:  nil,
-				ReverseCoeffs:  nil,
-				PreScaledUnits: v2.Units(""),
-				ScaledUnits:    "",
-			}),
-			Entry("empty collections", v2.PolynomialScale{
-				ForwardCoeffs:  []float64{},
-				ReverseCoeffs:  []float64{},
-				PreScaledUnits: v2.Units("Volts"),
-				ScaledUnits:    "test_4",
-			}),
 		)
 	})
 	Describe("Resistance", func() {
@@ -1231,11 +1135,33 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("linear variant", v2.Scale{Variant: v2.ScaleLinear{LinearScale: fullyPopulatedLinearScale}}),
-			Entry("map variant", v2.Scale{Variant: v2.ScaleMap{MapScale: fullyPopulatedMapScale}}),
-			Entry("table variant", v2.Scale{Variant: v2.ScaleTable{TableScale: fullyPopulatedTableScale}}),
-			Entry("polynomial variant", v2.Scale{Variant: v2.ScalePolynomial{PolynomialScale: fullyPopulatedPolynomialScale}}),
-			Entry("none variant", v2.Scale{Variant: v2.ScaleNone{NoneScale: fullyPopulatedNoneScale}}),
+			Entry("linear variant", v2.Scale{Variant: v2.LinearScale{
+				Slope:          1.5,
+				YIntercept:     2.5,
+				PreScaledUnits: v2.Units("Volts"),
+				ScaledUnits:    "test_4",
+			}}),
+			Entry("map variant", v2.Scale{Variant: v2.MapScale{
+				PreScaledMin:   1.5,
+				PreScaledMax:   2.5,
+				ScaledMin:      3.5,
+				ScaledMax:      4.5,
+				PreScaledUnits: v2.Units("Volts"),
+				ScaledUnits:    "test_6",
+			}}),
+			Entry("table variant", v2.Scale{Variant: v2.TableScale{
+				PreScaledVals:  []float64{1.5},
+				ScaledVals:     []float64{2.5},
+				PreScaledUnits: v2.Units("Volts"),
+				ScaledUnits:    "test_4",
+			}}),
+			Entry("polynomial variant", v2.Scale{Variant: v2.PolynomialScale{
+				ForwardCoeffs:  []float64{1.5},
+				ReverseCoeffs:  []float64{2.5},
+				PreScaledUnits: v2.Units("Volts"),
+				ScaledUnits:    "test_4",
+			}}),
+			Entry("none variant", v2.Scale{Variant: v2.NoneScale{}}),
 		)
 	})
 	Describe("ScanConfig", func() {
@@ -1311,32 +1237,6 @@ var _ = Describe("Codec", func() {
 				ElectricalVals:  []float64{},
 				ElectricalUnits: v2.ElectricalUnits("mVoltsPerVolt"),
 				PhysicalVals:    []float64{},
-			}),
-		)
-	})
-	Describe("TableScale", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.TableScale) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.TableScale
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedTableScale),
-			Entry("zero values", v2.TableScale{
-				PreScaledVals:  nil,
-				ScaledVals:     nil,
-				PreScaledUnits: v2.Units(""),
-				ScaledUnits:    "",
-			}),
-			Entry("empty collections", v2.TableScale{
-				PreScaledVals:  []float64{},
-				ScaledVals:     []float64{},
-				PreScaledUnits: v2.Units("Volts"),
-				ScaledUnits:    "test_4",
 			}),
 		)
 	})
@@ -1688,7 +1588,7 @@ func BenchmarkEncodeDecodeCIChannel(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeCJC(b *testing.B) {
-	seed := v2.CJC{Variant: v2.CJCBuiltIn{}}
+	seed := v2.CJC{Variant: v2.BuiltInCJC{}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -1782,14 +1682,14 @@ func BenchmarkEncodeDecodeCustomScale(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeDIChannel(b *testing.B) {
-	seed := v2.DIChannel{Variant: v2.DigitalInputChannel{
+	seed := v2.DIChannel{
 		Key:      "test_1",
 		Name:     "test_2",
 		Disabled: true,
 		Channel:  channel.Key(5),
 		Port:     6,
 		Line:     7,
-	}}
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -1806,7 +1706,7 @@ func BenchmarkEncodeDecodeDIChannel(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeDOChannel(b *testing.B) {
-	seed := v2.DOChannel{Variant: v2.DOChannelDigitalOutput{
+	seed := v2.DOChannel{
 		Key:              "test_1",
 		Disabled:         false,
 		CmdChannel:       channel.Key(4),
@@ -1815,7 +1715,7 @@ func BenchmarkEncodeDecodeDOChannel(b *testing.B) {
 		StateChannelName: "test_6",
 		Port:             8,
 		Line:             9,
-	}}
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -1846,14 +1746,14 @@ func BenchmarkEncodeDecodeDigitalReadConfig(b *testing.B) {
 		},
 		Device: "test_6",
 		Channels: []v2.DIChannel{
-			{Variant: v2.DigitalInputChannel{
+			{
 				Key:      "test_8",
 				Name:     "test_9",
 				Disabled: false,
 				Channel:  channel.Key(12),
 				Port:     13,
 				Line:     14,
-			}},
+			},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -1887,7 +1787,7 @@ func BenchmarkEncodeDecodeDigitalWriteConfig(b *testing.B) {
 			StateRate: telem.Rate(5.5),
 		},
 		Channels: []v2.DOChannel{
-			{Variant: v2.DOChannelDigitalOutput{
+			{
 				Key:              "test_7",
 				Disabled:         false,
 				CmdChannel:       channel.Key(10),
@@ -1896,7 +1796,7 @@ func BenchmarkEncodeDecodeDigitalWriteConfig(b *testing.B) {
 				StateChannelName: "test_12",
 				Port:             14,
 				Line:             15,
-			}},
+			},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -1914,40 +1814,6 @@ func BenchmarkEncodeDecodeDigitalWriteConfig(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeLinearScale(b *testing.B) {
-	seed := fullyPopulatedLinearScale
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.LinearScale
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeMapScale(b *testing.B) {
-	seed := fullyPopulatedMapScale
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.MapScale
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeMinMaxVal(b *testing.B) {
 	seed := fullyPopulatedMinMaxVal
 	w := orc.NewWriter(0)
@@ -1958,40 +1824,6 @@ func BenchmarkEncodeDecodeMinMaxVal(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v2.MinMaxVal
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeNoneScale(b *testing.B) {
-	seed := fullyPopulatedNoneScale
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.NoneScale
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodePolynomialScale(b *testing.B) {
-	seed := fullyPopulatedPolynomialScale
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.PolynomialScale
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2017,7 +1849,12 @@ func BenchmarkEncodeDecodeResistance(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeScale(b *testing.B) {
-	seed := v2.Scale{Variant: v2.ScaleLinear{LinearScale: fullyPopulatedLinearScale}}
+	seed := v2.Scale{Variant: v2.LinearScale{
+		Slope:          1.5,
+		YIntercept:     2.5,
+		PreScaledUnits: v2.Units("Volts"),
+		ScaledUnits:    "test_4",
+	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -2084,23 +1921,6 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v2.Table
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeTableScale(b *testing.B) {
-	seed := fullyPopulatedTableScale
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.TableScale
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2437,7 +2257,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:        fullyPopulatedMinMaxVal,
 			Units:            v2.TemperatureUnits("DegC"),
 			ThermocoupleType: v2.ThermocoupleType("J"),
-			Cjc:              v2.CJC{Variant: v2.CJCBuiltIn{}},
+			Cjc:              v2.CJC{Variant: v2.BuiltInCJC{}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3410,7 +3230,7 @@ func FuzzDecodeCIChannel(f *testing.F) {
 
 func FuzzDecodeCJC(f *testing.F) {
 	{
-		seed := v2.CJC{Variant: v2.CJCBuiltIn{}}
+		seed := v2.CJC{Variant: v2.BuiltInCJC{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3418,7 +3238,7 @@ func FuzzDecodeCJC(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.CJC{Variant: v2.CJCConstVal{Val: 1.5}}
+		seed := v2.CJC{Variant: v2.ConstValCJC{Val: 1.5}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3426,7 +3246,7 @@ func FuzzDecodeCJC(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.CJC{Variant: v2.CJCChan{Port: 2}}
+		seed := v2.CJC{Variant: v2.ChanCJC{Port: 2}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3604,13 +3424,11 @@ func FuzzDecodeCustomScale(f *testing.F) {
 	}
 	{
 		seed := v2.CustomScale{
-			CustomScale: v2.Scale{Variant: v2.ScaleLinear{
-				LinearScale: v2.LinearScale{
-					Slope:          0,
-					YIntercept:     0,
-					PreScaledUnits: v2.Units(""),
-					ScaledUnits:    "",
-				},
+			CustomScale: v2.Scale{Variant: v2.LinearScale{
+				Slope:          0,
+				YIntercept:     0,
+				PreScaledUnits: v2.Units(""),
+				ScaledUnits:    "",
 			}},
 		}
 		w := orc.NewWriter(0)
@@ -3643,14 +3461,29 @@ func FuzzDecodeCustomScale(f *testing.F) {
 
 func FuzzDecodeDIChannel(f *testing.F) {
 	{
-		seed := v2.DIChannel{Variant: v2.DigitalInputChannel{
+		seed := v2.DIChannel{
 			Key:      "test_1",
 			Name:     "test_2",
 			Disabled: true,
 			Channel:  channel.Key(5),
 			Port:     6,
 			Line:     7,
-		}}
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.DIChannel{
+			Key:      "",
+			Name:     "",
+			Disabled: false,
+			Channel:  channel.Key(0),
+			Port:     0,
+			Line:     0,
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3681,7 +3514,7 @@ func FuzzDecodeDIChannel(f *testing.F) {
 
 func FuzzDecodeDOChannel(f *testing.F) {
 	{
-		seed := v2.DOChannel{Variant: v2.DOChannelDigitalOutput{
+		seed := v2.DOChannel{
 			Key:              "test_1",
 			Disabled:         false,
 			CmdChannel:       channel.Key(4),
@@ -3690,7 +3523,24 @@ func FuzzDecodeDOChannel(f *testing.F) {
 			StateChannelName: "test_6",
 			Port:             8,
 			Line:             9,
-		}}
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.DOChannel{
+			Key:              "",
+			Disabled:         false,
+			CmdChannel:       channel.Key(0),
+			StateChannel:     channel.Key(0),
+			CmdChannelName:   "",
+			StateChannelName: "",
+			Port:             0,
+			Line:             0,
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3735,14 +3585,14 @@ func FuzzDecodeDigitalReadConfig(f *testing.F) {
 			},
 			Device: "test_6",
 			Channels: []v2.DIChannel{
-				{Variant: v2.DigitalInputChannel{
+				{
 					Key:      "test_8",
 					Name:     "test_9",
 					Disabled: false,
 					Channel:  channel.Key(12),
 					Port:     13,
 					Line:     14,
-				}},
+				},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -3831,7 +3681,7 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 				StateRate: telem.Rate(5.5),
 			},
 			Channels: []v2.DOChannel{
-				{Variant: v2.DOChannelDigitalOutput{
+				{
 					Key:              "test_7",
 					Disabled:         false,
 					CmdChannel:       channel.Key(10),
@@ -3840,7 +3690,7 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 					StateChannelName: "test_12",
 					Port:             14,
 					Line:             15,
-				}},
+				},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -3914,96 +3764,6 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 	})
 }
 
-func FuzzDecodeLinearScale(f *testing.F) {
-	{
-		seed := fullyPopulatedLinearScale
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.LinearScale{
-			Slope:          0,
-			YIntercept:     0,
-			PreScaledUnits: v2.Units(""),
-			ScaledUnits:    "",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.LinearScale
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.LinearScale
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeMapScale(f *testing.F) {
-	{
-		seed := fullyPopulatedMapScale
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.MapScale{
-			PreScaledMin:   0,
-			PreScaledMax:   0,
-			ScaledMin:      0,
-			ScaledMax:      0,
-			PreScaledUnits: v2.Units(""),
-			ScaledUnits:    "",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.MapScale
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.MapScale
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeMinMaxVal(f *testing.F) {
 	{
 		seed := fullyPopulatedMinMaxVal
@@ -4033,102 +3793,6 @@ func FuzzDecodeMinMaxVal(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.MinMaxVal
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeNoneScale(f *testing.F) {
-	{
-		seed := fullyPopulatedNoneScale
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.NoneScale{}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.NoneScale
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.NoneScale
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodePolynomialScale(f *testing.F) {
-	{
-		seed := fullyPopulatedPolynomialScale
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.PolynomialScale{
-			ForwardCoeffs:  nil,
-			ReverseCoeffs:  nil,
-			PreScaledUnits: v2.Units(""),
-			ScaledUnits:    "",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.PolynomialScale{
-			ForwardCoeffs:  []float64{},
-			ReverseCoeffs:  []float64{},
-			PreScaledUnits: v2.Units("Volts"),
-			ScaledUnits:    "test_4",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.PolynomialScale
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.PolynomialScale
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -4180,7 +3844,12 @@ func FuzzDecodeResistance(f *testing.F) {
 
 func FuzzDecodeScale(f *testing.F) {
 	{
-		seed := v2.Scale{Variant: v2.ScaleLinear{LinearScale: fullyPopulatedLinearScale}}
+		seed := v2.Scale{Variant: v2.LinearScale{
+			Slope:          1.5,
+			YIntercept:     2.5,
+			PreScaledUnits: v2.Units("Volts"),
+			ScaledUnits:    "test_4",
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4188,7 +3857,14 @@ func FuzzDecodeScale(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Scale{Variant: v2.ScaleMap{MapScale: fullyPopulatedMapScale}}
+		seed := v2.Scale{Variant: v2.MapScale{
+			PreScaledMin:   1.5,
+			PreScaledMax:   2.5,
+			ScaledMin:      3.5,
+			ScaledMax:      4.5,
+			PreScaledUnits: v2.Units("Volts"),
+			ScaledUnits:    "test_6",
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4196,7 +3872,12 @@ func FuzzDecodeScale(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Scale{Variant: v2.ScaleTable{TableScale: fullyPopulatedTableScale}}
+		seed := v2.Scale{Variant: v2.TableScale{
+			PreScaledVals:  []float64{1.5},
+			ScaledVals:     []float64{2.5},
+			PreScaledUnits: v2.Units("Volts"),
+			ScaledUnits:    "test_4",
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4204,7 +3885,12 @@ func FuzzDecodeScale(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Scale{Variant: v2.ScalePolynomial{PolynomialScale: fullyPopulatedPolynomialScale}}
+		seed := v2.Scale{Variant: v2.PolynomialScale{
+			ForwardCoeffs:  []float64{1.5},
+			ReverseCoeffs:  []float64{2.5},
+			PreScaledUnits: v2.Units("Volts"),
+			ScaledUnits:    "test_4",
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4212,7 +3898,7 @@ func FuzzDecodeScale(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Scale{Variant: v2.ScaleNone{NoneScale: fullyPopulatedNoneScale}}
+		seed := v2.Scale{Variant: v2.NoneScale{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4393,63 +4079,6 @@ func FuzzDecodeTable(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.Table
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeTableScale(f *testing.F) {
-	{
-		seed := fullyPopulatedTableScale
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.TableScale{
-			PreScaledVals:  nil,
-			ScaledVals:     nil,
-			PreScaledUnits: v2.Units(""),
-			ScaledUnits:    "",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.TableScale{
-			PreScaledVals:  []float64{},
-			ScaledVals:     []float64{},
-			PreScaledUnits: v2.Units("Volts"),
-			ScaledUnits:    "test_4",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.TableScale
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.TableScale
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

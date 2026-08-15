@@ -28,7 +28,7 @@ func tabResource(key uuid.UUID) ontology.ID {
 // tab constructs a resource Tab with a fixed UUID and a key-derived resource. Tests
 // use the UUID directly to assert on tab identity.
 func tab(key uuid.UUID) panel.Tab {
-	return panel.Tab{Variant: panel.TabResource{
+	return panel.Tab{Variant: panel.ResourceTab{
 		TabBase:  panel.TabBase{Key: key},
 		Resource: tabResource(key),
 	}}
@@ -36,7 +36,7 @@ func tab(key uuid.UUID) panel.Tab {
 
 // viewTab constructs a view Tab with a fixed UUID and an inline view of the given type.
 func viewTab(key uuid.UUID, viewType string) panel.Tab {
-	return panel.Tab{Variant: panel.TabView{
+	return panel.Tab{Variant: panel.ViewTab{
 		TabBase: panel.TabBase{Key: key},
 		View:    panel.View{Type: viewType},
 	}}
@@ -44,31 +44,31 @@ func viewTab(key uuid.UUID, viewType string) panel.Tab {
 
 // leafNode wraps a tab list as a leaf node.
 func leafNode(tabs ...panel.Tab) panel.Node {
-	return panel.Node{Variant: panel.NodeLeaf{
-		Leaf: panel.Leaf{Tabs: append([]panel.Tab{}, tabs...)},
+	return panel.Node{Variant: panel.LeafNode{
+		Tabs: append([]panel.Tab{}, tabs...),
 	}}
 }
 
 // splitNode wraps two child nodes as a split node.
 func splitNode(dir spatial.Direction, size float64, first, last panel.Node) panel.Node {
-	return panel.Node{Variant: panel.NodeSplit{Split: panel.Split{
+	return panel.Node{Variant: panel.SplitNode{
 		Direction: dir,
 		Size:      size,
 		First:     first,
 		Last:      last,
-	}}}
+	}}
 }
 
 // asLeaf returns the leaf variant of n and whether n is a leaf.
-func asLeaf(n panel.Node) (panel.Leaf, bool) {
-	v, ok := n.Variant.(panel.NodeLeaf)
-	return v.Leaf, ok
+func asLeaf(n panel.Node) (panel.LeafNode, bool) {
+	v, ok := n.Variant.(panel.LeafNode)
+	return v, ok
 }
 
 // asSplit returns the split variant of n and whether n is a split.
-func asSplit(n panel.Node) (panel.Split, bool) {
-	v, ok := n.Variant.(panel.NodeSplit)
-	return v.Split, ok
+func asSplit(n panel.Node) (panel.SplitNode, bool) {
+	v, ok := n.Variant.(panel.SplitNode)
+	return v, ok
 }
 
 // tabKeys returns the keys of the tabs in n's leaf, in order, or nil when n is
@@ -89,14 +89,14 @@ func tabKeys(n panel.Node) []uuid.UUID {
 // it was found.
 func tabByKey(n panel.Node, key uuid.UUID) (panel.Tab, bool) {
 	switch v := n.Variant.(type) {
-	case panel.NodeLeaf:
+	case panel.LeafNode:
 		for _, t := range v.Tabs {
 			if t.Key() == key {
 				return t, true
 			}
 		}
 		return panel.Tab{}, false
-	case panel.NodeSplit:
+	case panel.SplitNode:
 		if t, ok := tabByKey(v.First, key); ok {
 			return t, true
 		}
@@ -259,7 +259,7 @@ var _ = Describe("Actions", func() {
 				Expect(tabKeys(split.First)).To(Equal([]uuid.UUID{tab1}))
 				Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab2))
-				Expect(refreshed.Variant).To(Equal(panel.TabResource{
+				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
 					TabBase:  panel.TabBase{Key: tab2},
 					Resource: tabResource(tab2),
 				}))
@@ -276,7 +276,7 @@ var _ = Describe("Actions", func() {
 
 		It("Should be a no-op when the resource already backs a different tab", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
-			duplicate := panel.Tab{Variant: panel.TabResource{
+			duplicate := panel.Tab{Variant: panel.ResourceTab{
 				TabBase:  panel.TabBase{Key: tab3},
 				Resource: tabResource(tab1),
 			}}
@@ -290,7 +290,7 @@ var _ = Describe("Actions", func() {
 			"Should be a no-op even when the duplicate insert carries a placement",
 			func() {
 				p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
-				duplicate := panel.Tab{Variant: panel.TabResource{
+				duplicate := panel.Tab{Variant: panel.ResourceTab{
 					TabBase:  panel.TabBase{Key: tab3},
 					Resource: tabResource(tab1),
 				}}
@@ -370,7 +370,7 @@ var _ = Describe("Actions", func() {
 				Expect(tabKeys(split.First)).To(Equal([]uuid.UUID{tab1}))
 				Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab2))
-				Expect(refreshed.Variant).To(Equal(panel.TabResource{
+				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
 					TabBase:  panel.TabBase{Key: tab2},
 					Resource: tabResource(tab2),
 				}))
@@ -527,7 +527,7 @@ var _ = Describe("Actions", func() {
 
 			It("Should skip a duplicate and still land the rest of the batch", func() {
 				p := panel.Panel{Root: leafNode(tab(tab1))}
-				duplicate := panel.Tab{Variant: panel.TabResource{
+				duplicate := panel.Tab{Variant: panel.ResourceTab{
 					TabBase:  panel.TabBase{Key: tab3},
 					Resource: tabResource(tab1),
 				}}
@@ -541,7 +541,7 @@ var _ = Describe("Actions", func() {
 				"Should collapse a resource repeated within one batch to a single tab",
 				func() {
 					p := panel.Panel{Root: leafNode()}
-					repeat := panel.Tab{Variant: panel.TabResource{
+					repeat := panel.Tab{Variant: panel.ResourceTab{
 						TabBase:  panel.TabBase{Key: tab3},
 						Resource: tabResource(tab2),
 					}}
@@ -570,11 +570,11 @@ var _ = Describe("Actions", func() {
 				"Should leave no empty pane when every tab in a placed batch is a duplicate",
 				func() {
 					p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
-					dup1 := panel.Tab{Variant: panel.TabResource{
+					dup1 := panel.Tab{Variant: panel.ResourceTab{
 						TabBase:  panel.TabBase{Key: tab3},
 						Resource: tabResource(tab1),
 					}}
-					dup2 := panel.Tab{Variant: panel.TabResource{
+					dup2 := panel.Tab{Variant: panel.ResourceTab{
 						TabBase:  panel.TabBase{Key: uuid.New()},
 						Resource: tabResource(tab2),
 					}}
@@ -591,7 +591,7 @@ var _ = Describe("Actions", func() {
 				"Should split for the first tab that lands when an earlier one was skipped",
 				func() {
 					p := panel.Panel{Root: leafNode(tab(tab1))}
-					duplicate := panel.Tab{Variant: panel.TabResource{
+					duplicate := panel.Tab{Variant: panel.ResourceTab{
 						TabBase:  panel.TabBase{Key: tab3},
 						Resource: tabResource(tab1),
 					}}
@@ -946,7 +946,7 @@ var _ = Describe("Actions", func() {
 		)
 	})
 
-	Describe("SetTabResource", func() {
+	Describe("SetResourceTab", func() {
 		It("Should swap a view tab to the resource in place", func() {
 			p := panel.Panel{Root: leafNode(viewTab(tab1, "selector"))}
 			next := MustSucceed(
@@ -958,7 +958,7 @@ var _ = Describe("Actions", func() {
 				),
 			)
 			leaf := MustBeOk(asLeaf(next.Root))
-			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.TabResource{
+			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ResourceTab{
 				TabBase:  panel.TabBase{Key: tab1},
 				Resource: tabResource(tab2),
 			}}))
@@ -978,7 +978,7 @@ var _ = Describe("Actions", func() {
 				)
 				Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab1))
-				Expect(refreshed.Variant).To(Equal(panel.TabResource{
+				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
 					TabBase:  panel.TabBase{Key: tab1},
 					Resource: tabResource(tab3),
 				}))
@@ -1011,7 +1011,7 @@ var _ = Describe("Actions", func() {
 		})
 	})
 
-	Describe("SetTabView", func() {
+	Describe("SetViewTab", func() {
 		It("Should swap a resource tab to the view in place", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			view := panel.View{Type: "docs"}
@@ -1019,7 +1019,7 @@ var _ = Describe("Actions", func() {
 				panel.SetTabViewPayload{Key: tab1, View: view}.Handle(p),
 			)
 			leaf := MustBeOk(asLeaf(next.Root))
-			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.TabView{
+			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ViewTab{
 				TabBase: panel.TabBase{Key: tab1},
 				View:    view,
 			}}))

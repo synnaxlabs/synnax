@@ -773,7 +773,6 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
 
 TEST(ChannelsTest, ParseDIChan) {
     x::json::json j = {
-        {"type", "digital_input"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
         {"line", 1},
@@ -798,7 +797,6 @@ TEST(ChannelsTest, ParseDIChan) {
 
 TEST(ChannelsTest, ParseDOChan) {
     x::json::json j = {
-        {"type", "digital_output"},
         {"key", "XBQejNmAyaO"},
         {"port", 0},
         {"line", 1},

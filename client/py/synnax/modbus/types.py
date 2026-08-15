@@ -11,9 +11,9 @@ from uuid import uuid4
 
 from synnax import device, task
 from synnax.modbus.types_gen import (
-    InputChannel,
-    OutputChannel,
+    ReadChannel,
     ReadConfig,
+    WriteChannel,
     WriteConfig,
 )
 from synnax.telem import CrudeRate, Rate
@@ -21,6 +21,20 @@ from synnax.telem import CrudeRate, Rate
 # Device identifiers - must match Console expectations
 MAKE = "Modbus"
 MODEL = "Modbus"
+
+# Device map keys keep the released type spellings, so channels created before the
+# labels were renamed keep matching.
+_READ_NAME_TYPES = {
+    "coil": "coil_input",
+    "discrete_input": "discrete_input",
+    "holding_register": "holding_register_input",
+    "input_register": "register_input",
+}
+
+_WRITE_NAME_TYPES = {
+    "coil": "coil_output",
+    "holding_register": "holding_register_output",
+}
 
 
 class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
@@ -36,9 +50,9 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param data_saving_disabled: Whether to only stream data for real-time consumption
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when it is created.
-    :param channels: The input channels to acquire data from (InputChannel variants:
-        InputChannelCoilInput, InputChannelDiscreteInput,
-        InputChannelHoldingRegisterInput, InputChannelRegisterInput).
+    :param channels: The input channels to acquire data from (ReadChannel variants:
+        CoilReadChannel, DiscreteInputReadChannel,
+        HoldingRegisterReadChannel, InputRegisterReadChannel).
     """
 
     TYPE = "modbus_read"
@@ -55,7 +69,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[InputChannel] | None = None,
+        channels: list[ReadChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -84,7 +98,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
         for ch in self.config.channels:
-            key = f"{ch.type}-{ch.address}"
+            key = f"{_READ_NAME_TYPES[ch.type]}-{ch.address}"
             if hasattr(ch, "data_type"):
                 key += f"-{ch.data_type}"
             key = key.replace("_", "-")
@@ -101,8 +115,8 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param device: The key of the Synnax Modbus device to write to.
     :param name: A human-readable name for the task.
     :param auto_start: Whether to start the task automatically when it is created.
-    :param channels: The output channels to write to (OutputChannel variants:
-        OutputChannelCoilOutput, OutputChannelHoldingRegisterOutput).
+    :param channels: The output channels to write to (WriteChannel variants:
+        CoilWriteChannel, HoldingRegisterWriteChannel).
     """
 
     TYPE = "modbus_write"
@@ -116,7 +130,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[OutputChannel] | None = None,
+        channels: list[WriteChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -142,7 +156,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         if "write" not in props:
             props["write"] = {"channels": {}}
         for ch in self.config.channels:
-            key = f"{ch.type}-{ch.address}".replace("_", "-")
+            key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}".replace("_", "-")
             props["write"]["channels"][key] = ch.channel
         dev.properties = props
         return device_client.create(dev)

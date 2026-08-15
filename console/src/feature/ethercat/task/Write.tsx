@@ -20,15 +20,15 @@ import {
 } from "@/feature/ethercat/task/configure";
 import {
   channelMapKey,
-  createOutputChannel,
+  createWriteChannel,
   deployWriteConfigZ,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
-  type OutputChannel,
   resolvePDODataType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
+  type WriteChannel,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
@@ -52,7 +52,7 @@ const EXECUTION_RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<OutputChannel>(path);
+  const ch = PForm.useFieldValue<WriteChannel>(path);
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -73,10 +73,10 @@ const channelDetails = Component.renderProp(WriteChannelDetails);
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => (
-  <Task.Views.ListAndDetails<OutputChannel>
+  <Task.Views.ListAndDetails<WriteChannel>
     listItem={listItem}
     details={channelDetails}
-    createChannel={createOutputChannel}
+    createChannel={createWriteChannel}
     contextMenuItems={Task.writeChannelContextMenuItems}
   />
 );
@@ -98,7 +98,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   config,
 ) => {
   const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<OutputChannel>(client, config.channels);
+    await retrieveAndValidateSlaves<WriteChannel>(client, config.channels);
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];

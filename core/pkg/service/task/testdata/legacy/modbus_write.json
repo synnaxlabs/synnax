@@ -1,6 +1,7 @@
 {
   "type": "modbus_write",
   "autoStart": true,
+  "dataSaving": false,
   "device": "fixture-modbus-write-device",
   "channels": [
     {

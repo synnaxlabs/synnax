@@ -15,26 +15,26 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "modbus";
 
-export type InputChannel = modbus.InputChannel;
-export type InputChannelType = modbus.InputChannelType;
-export type TypedInput =
-  modbus.InputChannelHoldingRegisterInput | modbus.InputChannelRegisterInput;
+export type ReadChannel = modbus.ReadChannel;
+export type ReadChannelType = modbus.ReadChannelType;
+export type TypedReadChannel =
+  modbus.HoldingRegisterReadChannel | modbus.InputRegisterReadChannel;
 
-export const INPUT_CHANNEL_SCHEMAS = modbus.INPUT_CHANNEL_SCHEMAS;
+export const READ_CHANNEL_SCHEMAS = modbus.READ_CHANNEL_SCHEMAS;
 
-const VARIABLE_DENSITY_INPUT_CHANNEL_TYPES = new Set<InputChannelType>([
-  "holding_register_input",
-  "register_input",
+const VARIABLE_DENSITY_READ_CHANNEL_TYPES = new Set<ReadChannelType>([
+  "holding_register",
+  "input_register",
 ]);
 
-export const isVariableDensityInputChannel = (
-  channel: InputChannel,
-): channel is TypedInput => VARIABLE_DENSITY_INPUT_CHANNEL_TYPES.has(channel.type);
+export const isVariableDensityReadChannel = (
+  channel: ReadChannel,
+): channel is TypedReadChannel => VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
 
-export type OutputChannel = modbus.OutputChannel;
-export type OutputChannelType = modbus.OutputChannelType;
+export type WriteChannel = modbus.WriteChannel;
+export type WriteChannelType = modbus.WriteChannelType;
 
-export const OUTPUT_CHANNEL_SCHEMAS = modbus.OUTPUT_CHANNEL_SCHEMAS;
+export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
 
 export const READ_TYPE = `${PREFIX}_read`;
 

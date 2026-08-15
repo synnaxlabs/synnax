@@ -25,7 +25,7 @@ struct Input {
     /// @brief The synnax channel object
     synnax::channel::Channel ch;
 
-    explicit Input(const ::synnax::modbus::BaseInputChannel &cfg):
+    explicit Input(const ::synnax::modbus::BaseReadChannel &cfg):
         address(cfg.address), synnax_key(cfg.channel) {}
 
     /// @brief Binds remote channel information
@@ -51,7 +51,7 @@ struct InputRegister final : Input {
     int string_length;
 
     InputRegister(
-        const ::synnax::modbus::BaseInputChannel &base,
+        const ::synnax::modbus::BaseReadChannel &base,
         const ::synnax::modbus::RegisterValue &value,
         const std::int32_t string_length
     ):
@@ -61,12 +61,10 @@ struct InputRegister final : Input {
         swap_words(value.swap_words),
         string_length(string_length) {}
 
-    explicit InputRegister(
-        const ::synnax::modbus::InputChannelHoldingRegisterInput &cfg
-    ):
+    explicit InputRegister(const ::synnax::modbus::HoldingRegisterReadChannel &cfg):
         InputRegister(cfg, cfg, cfg.string_length) {}
 
-    explicit InputRegister(const ::synnax::modbus::InputChannelRegisterInput &cfg):
+    explicit InputRegister(const ::synnax::modbus::InputRegisterReadChannel &cfg):
         InputRegister(cfg, cfg, cfg.string_length) {}
 };
 
@@ -77,7 +75,7 @@ struct Output {
     /// @brief The key of the channel to receive commands from
     synnax::channel::Key channel;
 
-    explicit Output(const ::synnax::modbus::BaseOutputChannel &cfg):
+    explicit Output(const ::synnax::modbus::BaseWriteChannel &cfg):
         address(cfg.address), channel(cfg.channel) {}
 };
 
@@ -96,7 +94,7 @@ struct OutputHoldingRegister final : Output {
     bool swap_words;
 
     explicit OutputHoldingRegister(
-        const ::synnax::modbus::OutputChannelHoldingRegisterOutput &cfg
+        const ::synnax::modbus::HoldingRegisterWriteChannel &cfg
     ):
         Output(cfg),
         value_type(cfg.data_type),

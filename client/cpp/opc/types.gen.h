@@ -25,8 +25,8 @@ namespace synnax::opc {
 
 struct BaseChannel;
 struct ScanConfig;
-struct InputChannel;
-struct OutputChannel;
+struct ReadChannel;
+struct WriteChannel;
 struct ReadConfig;
 struct WriteConfig;
 
@@ -56,24 +56,24 @@ struct ScanConfig : public ::synnax::task::config::BaseScan {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputChannel is a single OPC UA node the task reads from.
-struct InputChannel : public BaseChannel {
+/// @brief ReadChannel is a single OPC UA node the task reads from.
+struct ReadChannel : public BaseChannel {
     /// @brief channel is the Synnax channel that samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief use_as_index is true when the channel's Synnax channel is the task's
     /// index.
     bool use_as_index = false;
 
-    static InputChannel parse(x::json::Parser parser);
+    static ReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief OutputChannel is a single OPC UA node the task drives.
-struct OutputChannel : public BaseChannel {
+/// @brief WriteChannel is a single OPC UA node the task drives.
+struct WriteChannel : public BaseChannel {
     /// @brief cmd_channel is the Synnax channel commands are read from.
     ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
 
-    static OutputChannel parse(x::json::Parser parser);
+    static WriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -87,7 +87,7 @@ struct ReadConfig : public ::synnax::task::config::BaseRead {
     /// true.
     std::int32_t array_size = 1;
     /// @brief channels are the OPC UA nodes the task acquires.
-    std::vector<InputChannel> channels;
+    std::vector<ReadChannel> channels;
 
     ReadConfig() {
         this->sample_rate = ::x::telem::Rate(50);
@@ -101,7 +101,7 @@ struct ReadConfig : public ::synnax::task::config::BaseRead {
 /// @brief WriteConfig configures an OPC UA write task.
 struct WriteConfig : public ::synnax::task::config::BaseWrite {
     /// @brief channels are the OPC UA nodes the task drives.
-    std::vector<OutputChannel> channels;
+    std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

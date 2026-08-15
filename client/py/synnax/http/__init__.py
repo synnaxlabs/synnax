@@ -20,6 +20,7 @@ from synnax.http.types_gen import (
     BaseWriteField,
     ChannelField,
     EnumEntry,
+    GeneratedWriteField,
     GeneratorType,
     Header,
     JSONType,
@@ -29,13 +30,26 @@ from synnax.http.types_gen import (
     ReadEndpoint,
     ReadField,
     ScanConfig,
+    StaticWriteField,
     TimeFormat,
     WriteConfig,
     WriteEndpoint,
     WriteField,
-    WriteFieldGenerated,
-    WriteFieldStatic,
 )
+from x.deprecation import deprecated_getattr
+
+_DEPRECATED: dict[str, str | tuple[str, str]] = {
+    "GeneratedField": "GeneratedWriteField",
+    "StaticField": "StaticWriteField",
+    "HeaderEntry": "Header",
+    "QueryParamEntry": "QueryParam",
+    "ReadEnumEntry": "EnumEntry",
+    "WriteEnumEntry": "EnumEntry",
+    "ReadTaskConfig": "ReadConfig",
+    "WriteTaskConfig": "WriteConfig",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "BaseWriteField",
@@ -43,6 +57,7 @@ __all__ = [
     "Device",
     "EnumEntry",
     "ExpectedResponse",
+    "GeneratedWriteField",
     "GeneratorType",
     "Header",
     "HealthCheck",
@@ -56,11 +71,10 @@ __all__ = [
     "ReadField",
     "ReadTask",
     "ScanConfig",
+    "StaticWriteField",
     "TimeFormat",
     "WriteConfig",
     "WriteEndpoint",
     "WriteField",
-    "WriteFieldGenerated",
-    "WriteFieldStatic",
     "WriteTask",
 ]

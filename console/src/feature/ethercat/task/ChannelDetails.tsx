@@ -16,8 +16,8 @@ import { SelectPDOField } from "@/feature/ethercat/task/SelectPDOField";
 import {
   type ChannelMode,
   type ChannelSchemas,
-  INPUT_CHANNEL_SCHEMAS,
-  OUTPUT_CHANNEL_SCHEMAS,
+  READ_CHANNEL_SCHEMAS,
+  WRITE_CHANNEL_SCHEMAS,
 } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
@@ -82,9 +82,9 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schemas }) => 
 const CHANNEL_DETAILS_STYLE = { padding: "1rem" } as const;
 
 export const ReadChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="inputs" schemas={INPUT_CHANNEL_SCHEMAS} />
+  <ChannelDetails {...props} pdoType="inputs" schemas={READ_CHANNEL_SCHEMAS} />
 );
 
 export const WriteChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="outputs" schemas={OUTPUT_CHANNEL_SCHEMAS} />
+  <ChannelDetails {...props} pdoType="outputs" schemas={WRITE_CHANNEL_SCHEMAS} />
 );

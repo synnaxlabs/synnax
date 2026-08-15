@@ -97,7 +97,7 @@ class TestOPCReadTask:
             array_mode=False,
             array_size=1,
             channels=[
-                sy.opc.InputChannel(
+                sy.opc.ReadChannel(
                     key="k09AWoiyLxN",
                     node_id="NS=2;I=8",
                     channel=1234,
@@ -167,7 +167,7 @@ class TestOPCWriteTask:
             device="some-device-key",
             auto_start=True,
             channels=[
-                sy.opc.OutputChannel(
+                sy.opc.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
@@ -188,13 +188,13 @@ class TestOPCWriteTask:
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.opc.OutputChannel(
+                sy.opc.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                     disabled=False,
                 ),
-                sy.opc.OutputChannel(
+                sy.opc.WriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=9",
                     cmd_channel=5678,
@@ -213,7 +213,7 @@ class TestOPCWriteTask:
             name="test",
             device="some-device-key",
             channels=[
-                sy.opc.OutputChannel(
+                sy.opc.WriteChannel(
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                 )
@@ -230,13 +230,13 @@ class TestOPCWriteTask:
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.opc.OutputChannel(
+                sy.opc.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                     disabled=False,
                 ),
-                sy.opc.OutputChannel(
+                sy.opc.WriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=10",
                     cmd_channel=5678,

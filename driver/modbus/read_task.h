@@ -207,9 +207,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
 
         cfg.iter("channels", [&, this](x::json::Parser &ch) {
-            const auto parsed = ::synnax::modbus::parse_input_channel(ch);
+            const auto parsed = ::synnax::modbus::parse_read_channel(ch);
             const auto &base = std::visit(
-                [](const auto &c) -> const ::synnax::modbus::BaseInputChannel & {
+                [](const auto &c) -> const ::synnax::modbus::BaseReadChannel & {
                     return c;
                 },
                 parsed
@@ -218,22 +218,21 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (base.channel == 0)
                 return ch.field_err("channel", "channel must be specified");
             if (const auto *c = std::get_if<
-                    ::synnax::modbus::InputChannelHoldingRegisterInput>(&parsed))
+                    ::synnax::modbus::HoldingRegisterReadChannel>(&parsed))
                 holding_registers.emplace_back(*c);
             else if (
-                const auto *c = std::get_if<
-                    ::synnax::modbus::InputChannelRegisterInput>(&parsed)
+                const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
+                    &parsed
+                )
             )
                 input_registers.emplace_back(*c);
             else if (
-                const auto *c = std::get_if<::synnax::modbus::InputChannelCoilInput>(
-                    &parsed
-                )
+                const auto *c = std::get_if<::synnax::modbus::CoilReadChannel>(&parsed)
             )
                 coils.emplace_back(*c);
             else
                 discrete_inputs.emplace_back(
-                    std::get<::synnax::modbus::InputChannelDiscreteInput>(parsed)
+                    std::get<::synnax::modbus::DiscreteInputReadChannel>(parsed)
                 );
             this->data_channel_count++;
         });

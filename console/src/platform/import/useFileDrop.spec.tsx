@@ -40,12 +40,12 @@ const LEGACY_LOG_STATE = {
   remoteCreated: false,
 };
 
-const leaf = (node: panel.Node): panel.NodeLeaf => {
+const leaf = (node: panel.Node): panel.LeafNode => {
   if (node.variant !== "leaf") throw new Error("expected a leaf");
   return node;
 };
 
-const resourceIDs = ({ tabs }: panel.NodeLeaf): ontology.ID[] =>
+const resourceIDs = ({ tabs }: panel.LeafNode): ontology.ID[] =>
   tabs.map((tab) => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     return tab.resource;

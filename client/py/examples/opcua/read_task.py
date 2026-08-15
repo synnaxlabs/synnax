@@ -86,12 +86,12 @@ tsk = sy.opc.ReadTask(
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_float_0 and my_float_1 in the OPC UA server
-        sy.opc.InputChannel(
+        sy.opc.ReadChannel(
             channel=my_float_0.key,
             node_id="NS=2;I=8",  # my_float_0
             data_type="float32",
         ),
-        sy.opc.InputChannel(
+        sy.opc.ReadChannel(
             channel=my_float_1.key,
             node_id="NS=2;I=9",  # my_float_1
             data_type="float32",

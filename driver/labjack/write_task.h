@@ -24,13 +24,13 @@ namespace driver::labjack {
 /// @brief configuration for an output channel on a LabJack device.
 struct OutputChan {
     /// @brief the parsed generated wire configuration for the channel.
-    const ::synnax::labjack::BaseOutputChannel cfg;
+    const ::synnax::labjack::BaseWriteChannel cfg;
     /// @brief whether the channel is enabled.
     const bool enabled;
     /// @brief the synnax channel object for the state channel.
     synnax::channel::Channel state_ch;
 
-    explicit OutputChan(const ::synnax::labjack::BaseOutputChannel &cfg):
+    explicit OutputChan(const ::synnax::labjack::BaseWriteChannel &cfg):
         cfg(cfg), enabled(!cfg.disabled) {}
 
     /// @brief binds cluster information about the channel after it has been

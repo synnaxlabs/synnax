@@ -82,7 +82,7 @@ struct Input final : Channel {
     synnax::channel::Channel ch;
 
     Input(
-        const ::synnax::ethercat::InputChannelAutomatic &cfg,
+        const ::synnax::ethercat::AutomaticReadChannel &cfg,
         const slave::Properties &slave,
         const x::json::Parser &parser,
         const std::string &path = ""
@@ -92,7 +92,7 @@ struct Input final : Channel {
     }
 
     Input(
-        const ::synnax::ethercat::InputChannelManual &cfg,
+        const ::synnax::ethercat::ManualReadChannel &cfg,
         const slave::Properties &slave
     ):
         Channel(slave, true, cfg.disabled, cfg.device), synnax_key(cfg.channel) {
@@ -115,7 +115,7 @@ struct Output final : Channel {
     synnax::channel::Channel state_ch;
 
     Output(
-        const ::synnax::ethercat::OutputChannelAutomatic &cfg,
+        const ::synnax::ethercat::AutomaticWriteChannel &cfg,
         const slave::Properties &slave,
         const x::json::Parser &parser,
         const std::string &path = ""
@@ -127,7 +127,7 @@ struct Output final : Channel {
     }
 
     Output(
-        const ::synnax::ethercat::OutputChannelManual &cfg,
+        const ::synnax::ethercat::ManualWriteChannel &cfg,
         const slave::Properties &slave
     ):
         Channel(slave, false, cfg.disabled, cfg.device),
@@ -142,21 +142,19 @@ struct Output final : Channel {
 };
 
 /// @brief the shared base fields of a parsed input channel configuration.
-inline const ::synnax::ethercat::BaseInputChannel &
-base(const ::synnax::ethercat::InputChannel &cfg) {
+inline const ::synnax::ethercat::BaseReadChannel &
+base(const ::synnax::ethercat::ReadChannel &cfg) {
     return std::visit(
-        [](const auto &c) -> const ::synnax::ethercat::BaseInputChannel & { return c; },
+        [](const auto &c) -> const ::synnax::ethercat::BaseReadChannel & { return c; },
         cfg
     );
 }
 
 /// @brief the shared base fields of a parsed output channel configuration.
-inline const ::synnax::ethercat::BaseOutputChannel &
-base(const ::synnax::ethercat::OutputChannel &cfg) {
+inline const ::synnax::ethercat::BaseWriteChannel &
+base(const ::synnax::ethercat::WriteChannel &cfg) {
     return std::visit(
-        [](const auto &c) -> const ::synnax::ethercat::BaseOutputChannel & {
-            return c;
-        },
+        [](const auto &c) -> const ::synnax::ethercat::BaseWriteChannel & { return c; },
         cfg
     );
 }
@@ -164,7 +162,7 @@ base(const ::synnax::ethercat::OutputChannel &cfg) {
 /// @brief constructs a runtime input channel from a parsed configuration,
 /// accumulating errors on the parser under the given path prefix.
 inline std::unique_ptr<Input> make_input(
-    const ::synnax::ethercat::InputChannel &cfg,
+    const ::synnax::ethercat::ReadChannel &cfg,
     const slave::Properties &slave,
     const x::json::Parser &parser,
     const std::string &path = ""
@@ -172,7 +170,7 @@ inline std::unique_ptr<Input> make_input(
     return std::visit(
         [&](const auto &c) -> std::unique_ptr<Input> {
             using T = std::decay_t<decltype(c)>;
-            if constexpr (std::is_same_v<T, ::synnax::ethercat::InputChannelAutomatic>)
+            if constexpr (std::is_same_v<T, ::synnax::ethercat::AutomaticReadChannel>)
                 return std::make_unique<Input>(c, slave, parser, path);
             else
                 return std::make_unique<Input>(c, slave);
@@ -184,7 +182,7 @@ inline std::unique_ptr<Input> make_input(
 /// @brief constructs a runtime output channel from a parsed configuration,
 /// accumulating errors on the parser under the given path prefix.
 inline std::unique_ptr<Output> make_output(
-    const ::synnax::ethercat::OutputChannel &cfg,
+    const ::synnax::ethercat::WriteChannel &cfg,
     const slave::Properties &slave,
     const x::json::Parser &parser,
     const std::string &path = ""
@@ -192,7 +190,7 @@ inline std::unique_ptr<Output> make_output(
     return std::visit(
         [&](const auto &c) -> std::unique_ptr<Output> {
             using T = std::decay_t<decltype(c)>;
-            if constexpr (std::is_same_v<T, ::synnax::ethercat::OutputChannelAutomatic>)
+            if constexpr (std::is_same_v<T, ::synnax::ethercat::AutomaticWriteChannel>)
                 return std::make_unique<Output>(c, slave, parser, path);
             else
                 return std::make_unique<Output>(c, slave);

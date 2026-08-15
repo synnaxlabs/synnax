@@ -52,9 +52,9 @@ const state = (root: panel.Node): panel.Panel => ({
   root,
 });
 
-const asSplit = (node: panel.Node): panel.NodeSplit => {
+const asSplit = (node: panel.Node): panel.SplitNode => {
   expect(node.variant).toEqual("split");
-  return node as panel.NodeSplit;
+  return node as panel.SplitNode;
 };
 
 const tabKeys = (node: panel.Node | undefined): string[] =>

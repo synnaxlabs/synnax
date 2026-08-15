@@ -29,7 +29,6 @@ describe("createChannel", () => {
         line: 0,
         port: 0,
         name: "",
-        type: "digital_input",
         disabled: false,
       });
     });
@@ -59,7 +58,6 @@ describe("createChannel", () => {
         port: 0,
         cmdChannelName: "",
         stateChannelName: "",
-        type: "digital_output",
         disabled: false,
       });
     });

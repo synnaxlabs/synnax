@@ -15,9 +15,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createAutoOutputChannel,
+  createAutoWriteChannel,
   createIdentifier,
-  createManualOutputChannel,
+  createManualWriteChannel,
   createPDOs,
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
@@ -84,8 +84,8 @@ describe("EtherCAT Write", () => {
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createAutoOutputChannel(slave.key, "Control"),
-        createManualOutputChannel(slave.key, 0x7000, 3),
+        createAutoWriteChannel(slave.key, "Control"),
+        createManualWriteChannel(slave.key, 0x7000, 3),
       ],
     });
     await waitFor(() =>
@@ -101,7 +101,7 @@ describe("EtherCAT Write", () => {
     });
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createManualOutputChannel(slave.key, 0x7000, 4)],
+      channels: [createManualWriteChannel(slave.key, 0x7000, 4)],
     });
     fireEvent.click(await screen.findByText("0x7000:4"));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
@@ -119,7 +119,7 @@ describe("EtherCAT Write", () => {
       });
       const { container, draft } = await renderWrite({
         ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-        channels: [createAutoOutputChannel(slave.key, "Control")],
+        channels: [createAutoWriteChannel(slave.key, "Control")],
       });
       const created = await deployAndAwaitTask(
         client,
@@ -171,7 +171,7 @@ describe("EtherCAT Write", () => {
       const { container, draft } = await renderWrite({
         ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
         channels: [
-          createAutoOutputChannel(slave.key, "Control", {
+          createAutoWriteChannel(slave.key, "Control", {
             cmdChannelName: cmdName,
             stateChannelName: stateName,
           }),
@@ -204,8 +204,8 @@ describe("EtherCAT Write", () => {
       const { container, statuses } = await renderWrite({
         ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
         channels: [
-          createAutoOutputChannel(slaveA.key, "Control"),
-          createAutoOutputChannel(slaveB.key, "Control"),
+          createAutoWriteChannel(slaveA.key, "Control"),
+          createAutoWriteChannel(slaveB.key, "Control"),
         ],
       });
       await clickDeploy(container);
@@ -221,7 +221,7 @@ describe("EtherCAT Write", () => {
       });
       const { container, statuses } = await renderWrite({
         ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-        channels: [createAutoOutputChannel(slave.key, "Control")],
+        channels: [createAutoWriteChannel(slave.key, "Control")],
       });
       await clickDeploy(container);
       await awaitStatus(statuses, /Failed to/);

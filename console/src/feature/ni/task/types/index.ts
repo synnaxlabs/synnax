@@ -39,7 +39,7 @@ export type CJCType = ni.CJCType;
 
 // Cross-field scale validation is not generated; re-attach it to the map and table
 // scale schemas the console exposes.
-const mapScaleZ = ni.scaleMapZ
+const mapScaleZ = ni.mapScaleZ
   .refine(({ preScaledMin, preScaledMax }) => preScaledMin < preScaledMax, {
     message: "Pre-scaled min must be less than pre-scaled max",
     path: ["preScaledMin"],
@@ -49,7 +49,7 @@ const mapScaleZ = ni.scaleMapZ
     path: ["scaledMin"],
   });
 
-const tableScaleZ = ni.scaleTableZ
+const tableScaleZ = ni.tableScaleZ
   .check(({ value, issues }) => {
     const { preScaledVals, scaledVals } = value;
     if (preScaledVals.length !== scaledVals.length) {

@@ -38,8 +38,8 @@ func (r *RegisterValue) ApplyDefaults() {
 	}
 }
 
-// BaseInputChannel carries the fields every Modbus input channel shares.
-type BaseInputChannel struct {
+// BaseReadChannel carries the fields every Modbus read channel shares.
+type BaseReadChannel struct {
 	// Key uniquely identifies the channel within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
@@ -52,87 +52,86 @@ type BaseInputChannel struct {
 	Address uint16 `json:"address" msgpack:"address"`
 }
 
-type InputChannelType string
+type ReadChannelType string
 
 const (
-	InputChannelTypeCoilInput            InputChannelType = "coil_input"
-	InputChannelTypeDiscreteInput        InputChannelType = "discrete_input"
-	InputChannelTypeHoldingRegisterInput InputChannelType = "holding_register_input"
-	InputChannelTypeRegisterInput        InputChannelType = "register_input"
+	CoilReadChannelType            ReadChannelType = "coil"
+	DiscreteInputReadChannelType   ReadChannelType = "discrete_input"
+	HoldingRegisterReadChannelType ReadChannelType = "holding_register"
+	InputRegisterReadChannelType   ReadChannelType = "input_register"
 )
 
-type InputChannelVariant interface {
-	isInputChannelVariant()
+type ReadChannelVariant interface {
+	isReadChannelVariant()
 }
 
-// InputChannelCoilInput reads a single bit from a coil.
-type InputChannelCoilInput struct {
-	BaseInputChannel
+// CoilReadChannel reads a single bit from a coil.
+type CoilReadChannel struct {
+	BaseReadChannel
 }
 
-func (InputChannelCoilInput) isInputChannelVariant() {}
+func (CoilReadChannel) isReadChannelVariant() {}
 
-// InputChannelDiscreteInput reads a single bit from a discrete input.
-type InputChannelDiscreteInput struct {
-	BaseInputChannel
+// DiscreteInputReadChannel reads a single bit from a discrete input.
+type DiscreteInputReadChannel struct {
+	BaseReadChannel
 }
 
-func (InputChannelDiscreteInput) isInputChannelVariant() {}
+func (DiscreteInputReadChannel) isReadChannelVariant() {}
 
-// InputChannelHoldingRegisterInput reads a typed value from one or more holding
-// registers.
-type InputChannelHoldingRegisterInput struct {
-	BaseInputChannel
+// HoldingRegisterReadChannel reads a typed value from one or more holding registers.
+type HoldingRegisterReadChannel struct {
+	BaseReadChannel
 	RegisterValue
 	// StringLength is the length, in characters, when data_type is a string.
 	StringLength int32 `json:"string_length" msgpack:"string_length"`
 }
 
-func (InputChannelHoldingRegisterInput) isInputChannelVariant() {}
+func (HoldingRegisterReadChannel) isReadChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannelHoldingRegisterInput) ApplyDefaults() {
-	i.RegisterValue.ApplyDefaults()
+func (h *HoldingRegisterReadChannel) ApplyDefaults() {
+	h.RegisterValue.ApplyDefaults()
 }
 
-// InputChannelRegisterInput reads a typed value from one or more input registers.
-type InputChannelRegisterInput struct {
-	BaseInputChannel
+// InputRegisterReadChannel reads a typed value from one or more input registers.
+type InputRegisterReadChannel struct {
+	BaseReadChannel
 	RegisterValue
 	// StringLength is the length, in characters, when data_type is a string.
 	StringLength int32 `json:"string_length" msgpack:"string_length"`
 }
 
-func (InputChannelRegisterInput) isInputChannelVariant() {}
+func (InputRegisterReadChannel) isReadChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannelRegisterInput) ApplyDefaults() {
+func (i *InputRegisterReadChannel) ApplyDefaults() {
 	i.RegisterValue.ApplyDefaults()
 }
 
-// InputChannel is a single Modbus input channel. The type field selects the register
+// ReadChannel is a single Modbus read channel. The type field selects the register
 // space the channel reads from and the fields that accompany it.
-type InputChannel struct {
-	Variant InputChannelVariant
+type ReadChannel struct {
+	Variant ReadChannelVariant
 }
 
 // MarshalJSON encodes the active variant with its "type" tag injected.
-func (u InputChannel) MarshalJSON() ([]byte, error) {
+func (u ReadChannel) MarshalJSON() ([]byte, error) {
 	if u.Variant == nil {
 		return []byte("null"), nil
 	}
-	var t InputChannelType
+	var t ReadChannelType
 	switch u.Variant.(type) {
-	case InputChannelCoilInput:
-		t = InputChannelTypeCoilInput
-	case InputChannelDiscreteInput:
-		t = InputChannelTypeDiscreteInput
-	case InputChannelHoldingRegisterInput:
-		t = InputChannelTypeHoldingRegisterInput
-	case InputChannelRegisterInput:
-		t = InputChannelTypeRegisterInput
+	case CoilReadChannel:
+		t = CoilReadChannelType
+	case DiscreteInputReadChannel:
+		t = DiscreteInputReadChannelType
+	case HoldingRegisterReadChannel:
+		t = HoldingRegisterReadChannelType
+	case InputRegisterReadChannel:
+		t = InputRegisterReadChannelType
 	default:
-		return nil, errors.Newf("InputChannel: nil or unknown variant %T", u.Variant)
+		return nil, errors.Newf("ReadChannel: nil or unknown variant %T", u.Variant)
 	}
 	raw, err := json.Marshal(u.Variant)
 	if err != nil {
@@ -151,63 +150,63 @@ func (u InputChannel) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *InputChannel) UnmarshalJSON(data []byte) error {
+func (u *ReadChannel) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		u.Variant = nil
 		return nil
 	}
 	var disc struct {
-		Type InputChannelType `json:"type"`
+		Type ReadChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(data, &disc); err != nil {
 		return err
 	}
 	switch disc.Type {
-	case InputChannelTypeCoilInput:
-		var v InputChannelCoilInput
+	case CoilReadChannelType:
+		var v CoilReadChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case InputChannelTypeDiscreteInput:
-		var v InputChannelDiscreteInput
+	case DiscreteInputReadChannelType:
+		var v DiscreteInputReadChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case InputChannelTypeHoldingRegisterInput:
-		var v InputChannelHoldingRegisterInput
+	case HoldingRegisterReadChannelType:
+		var v HoldingRegisterReadChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case InputChannelTypeRegisterInput:
-		var v InputChannelRegisterInput
+	case InputRegisterReadChannelType:
+		var v InputRegisterReadChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
 	default:
-		return errors.Newf("InputChannel: unknown type %q", disc.Type)
+		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
 	}
 	return nil
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
-func (u *InputChannel) ApplyDefaults() {
+func (u *ReadChannel) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
-	case InputChannelHoldingRegisterInput:
+	case HoldingRegisterReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case InputChannelRegisterInput:
+	case InputRegisterReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
 }
 
-// BaseOutputChannel carries the fields every Modbus output channel shares.
-type BaseOutputChannel struct {
+// BaseWriteChannel carries the fields every Modbus write channel shares.
+type BaseWriteChannel struct {
 	// Key uniquely identifies the channel within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
@@ -220,57 +219,56 @@ type BaseOutputChannel struct {
 	Address uint16 `json:"address" msgpack:"address"`
 }
 
-type OutputChannelType string
+type WriteChannelType string
 
 const (
-	OutputChannelTypeCoilOutput            OutputChannelType = "coil_output"
-	OutputChannelTypeHoldingRegisterOutput OutputChannelType = "holding_register_output"
+	CoilWriteChannelType            WriteChannelType = "coil"
+	HoldingRegisterWriteChannelType WriteChannelType = "holding_register"
 )
 
-type OutputChannelVariant interface {
-	isOutputChannelVariant()
+type WriteChannelVariant interface {
+	isWriteChannelVariant()
 }
 
-// OutputChannelCoilOutput writes a single bit to a coil.
-type OutputChannelCoilOutput struct {
-	BaseOutputChannel
+// CoilWriteChannel writes a single bit to a coil.
+type CoilWriteChannel struct {
+	BaseWriteChannel
 }
 
-func (OutputChannelCoilOutput) isOutputChannelVariant() {}
+func (CoilWriteChannel) isWriteChannelVariant() {}
 
-// OutputChannelHoldingRegisterOutput writes a typed value to one or more holding
-// registers.
-type OutputChannelHoldingRegisterOutput struct {
-	BaseOutputChannel
+// HoldingRegisterWriteChannel writes a typed value to one or more holding registers.
+type HoldingRegisterWriteChannel struct {
+	BaseWriteChannel
 	RegisterValue
 }
 
-func (OutputChannelHoldingRegisterOutput) isOutputChannelVariant() {}
+func (HoldingRegisterWriteChannel) isWriteChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OutputChannelHoldingRegisterOutput) ApplyDefaults() {
-	o.RegisterValue.ApplyDefaults()
+func (h *HoldingRegisterWriteChannel) ApplyDefaults() {
+	h.RegisterValue.ApplyDefaults()
 }
 
-// OutputChannel is a single Modbus output channel. The type field selects the register
+// WriteChannel is a single Modbus write channel. The type field selects the register
 // space the channel writes to and the fields that accompany it.
-type OutputChannel struct {
-	Variant OutputChannelVariant
+type WriteChannel struct {
+	Variant WriteChannelVariant
 }
 
 // MarshalJSON encodes the active variant with its "type" tag injected.
-func (u OutputChannel) MarshalJSON() ([]byte, error) {
+func (u WriteChannel) MarshalJSON() ([]byte, error) {
 	if u.Variant == nil {
 		return []byte("null"), nil
 	}
-	var t OutputChannelType
+	var t WriteChannelType
 	switch u.Variant.(type) {
-	case OutputChannelCoilOutput:
-		t = OutputChannelTypeCoilOutput
-	case OutputChannelHoldingRegisterOutput:
-		t = OutputChannelTypeHoldingRegisterOutput
+	case CoilWriteChannel:
+		t = CoilWriteChannelType
+	case HoldingRegisterWriteChannel:
+		t = HoldingRegisterWriteChannelType
 	default:
-		return nil, errors.Newf("OutputChannel: nil or unknown variant %T", u.Variant)
+		return nil, errors.Newf("WriteChannel: nil or unknown variant %T", u.Variant)
 	}
 	raw, err := json.Marshal(u.Variant)
 	if err != nil {
@@ -289,41 +287,41 @@ func (u OutputChannel) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *OutputChannel) UnmarshalJSON(data []byte) error {
+func (u *WriteChannel) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		u.Variant = nil
 		return nil
 	}
 	var disc struct {
-		Type OutputChannelType `json:"type"`
+		Type WriteChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(data, &disc); err != nil {
 		return err
 	}
 	switch disc.Type {
-	case OutputChannelTypeCoilOutput:
-		var v OutputChannelCoilOutput
+	case CoilWriteChannelType:
+		var v CoilWriteChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case OutputChannelTypeHoldingRegisterOutput:
-		var v OutputChannelHoldingRegisterOutput
+	case HoldingRegisterWriteChannelType:
+		var v HoldingRegisterWriteChannel
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
 	default:
-		return errors.Newf("OutputChannel: unknown type %q", disc.Type)
+		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
 	return nil
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
-func (u *OutputChannel) ApplyDefaults() {
+func (u *WriteChannel) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
-	case OutputChannelHoldingRegisterOutput:
+	case HoldingRegisterWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
@@ -334,8 +332,8 @@ type ReadConfig struct {
 	config.BaseRead
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
-	// Channels are the input channels the task acquires.
-	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	// Channels are the channels the task acquires.
+	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -349,8 +347,8 @@ func (r *ReadConfig) ApplyDefaults() {
 // WriteConfig configures a Modbus write task.
 type WriteConfig struct {
 	config.BaseWrite
-	// Channels are the output channels the task drives.
-	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	// Channels are the channels the task drives.
+	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

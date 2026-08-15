@@ -14,8 +14,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -113,8 +113,11 @@ func (p *Plugin) processUnion(
 						}
 					}
 					for _, f := range pform.Fields {
+						// The union entry is the parent, not the synthesized
+						// payload, so a field referencing the union itself (a
+						// recursive variant) renders as a lazy getter.
 						vd.Fields = append(vd.Fields,
-							p.processField(f, payload, table, data, false))
+							p.processField(f, entry, table, data, false))
 					}
 				}
 			}

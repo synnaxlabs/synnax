@@ -87,39 +87,33 @@ Tab union on variant extends TabBase {
     @create
 }
 
-Leaf struct {
-    tabs Tab[] {
-        @doc value "is the ordered list of tabs in this leaf."
-    }
-
-    @go version 0
-    @doc value  "is a leaf node in the panel tree displaying a tab strip."
-}
-
-Split struct {
-    direction spatial.Direction {
-        @doc value "is the axis along which this node is split."
-    }
-    size      spatial.Decimal   {
-        @doc value """
-            is the fraction in [0, 1] of the parent area allocated to first.
-            The remainder is allocated to last.
-        """
-    }
-    first     Node              {
-        @doc value "is the first child (left for x, top for y)."
-    }
-    last      Node              {
-        @doc value "is the second child (right for x, bottom for y)."
-    }
-
-    @go version 0
-    @doc value  "is an interior split node dividing its area between two children."
-}
-
 Node union on variant {
-    leaf  Leaf
-    split Split
+    leaf {
+        tabs Tab[] {
+            @doc value "is the ordered list of tabs in this leaf."
+        }
+
+        @doc value "is a leaf node in the panel tree displaying a tab strip."
+    }
+    split {
+        direction spatial.Direction {
+            @doc value "is the axis along which this node is split."
+        }
+        size      spatial.Decimal   {
+            @doc value """
+                is the fraction in [0, 1] of the parent area allocated to first.
+                The remainder is allocated to last.
+            """
+        }
+        first     Node              {
+            @doc value "is the first child (left for x, top for y)."
+        }
+        last      Node              {
+            @doc value "is the second child (right for x, bottom for y)."
+        }
+
+        @doc value "is an interior split node dividing its area between two children."
+    }
 
     @go version 0
     @doc value  """

@@ -67,10 +67,10 @@ describe("Modbus.Write", () => {
     const config = created.config;
     expect(config.channels).toHaveLength(2);
     const [coil, holding] = config.channels;
-    expect(coil.type).toBe("coil_output");
+    expect(coil.type).toBe("coil");
     expect(coil.address).toBe(0);
     expect(coil.channel).not.toBe(0);
-    expect(holding.type).toBe("holding_register_output");
+    expect(holding.type).toBe("holding_register");
     expect(holding.address).toBe(1);
     expect(holding.channel).not.toBe(0);
 

@@ -119,7 +119,7 @@ export const useNodeVariant = Scope.bindHook(
 
 // useLeafNode selects the leaf node at the given path, including its tab keys.
 export const useLeafNode = Scope.bindHook(
-  createSelector<Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] }, NodeParams>(
+  createSelector<Omit<panel.LeafNode, "tabs"> & { tabs: panel.TabKey[] }, NodeParams>(
     ({ root }, { nodeKey }) => {
       const node = requireNode(root, nodeKey);
       if (node.variant !== "leaf") throw new UnexpectedError("node is not a leaf");
@@ -132,7 +132,7 @@ export const useLeafNode = Scope.bindHook(
 // useSplitNode selects the split node at the given path, including its direction
 // and size.
 export const useSplitNode = Scope.bindHook(
-  createSelector<panel.NodeSplit, NodeParams>(({ root }, { nodeKey }) => {
+  createSelector<panel.SplitNode, NodeParams>(({ root }, { nodeKey }) => {
     const node = requireNode(root, nodeKey);
     if (node.variant !== "split") throw new UnexpectedError("node is not a split");
     return node;
@@ -177,7 +177,7 @@ export const useTab = bindTabHook(
 // reference into the stored tree, so immer's structural sharing gives it stable
 // identity across dispatches that don't touch it.
 export const useTabLeaf = bindTabHook(
-  createSelector<panel.NodeLeaf, TabContentParams>(({ root }, { key, tabKey }) => {
+  createSelector<panel.LeafNode, TabContentParams>(({ root }, { key, tabKey }) => {
     const leaf = panel.findTabLeaf(root, tabKey);
     if (leaf == null)
       throw new NotFoundError(`Leaf holding tab ${tabKey} not found in panel ${key}`);

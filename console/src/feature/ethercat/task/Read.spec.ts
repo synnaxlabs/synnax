@@ -15,9 +15,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createAutoInputChannel,
+  createAutoReadChannel,
   createIdentifier,
-  createManualInputChannel,
+  createManualReadChannel,
   createPDOs,
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
@@ -84,8 +84,8 @@ describe("EtherCAT Read", () => {
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createAutoInputChannel(slave.key, "Status"),
-        createManualInputChannel(slave.key, 0x6000, 5),
+        createAutoReadChannel(slave.key, "Status"),
+        createManualReadChannel(slave.key, 0x6000, 5),
       ],
     });
     await waitFor(() =>
@@ -102,7 +102,7 @@ describe("EtherCAT Read", () => {
     });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createAutoInputChannel(slave.key, "Status")],
+      channels: [createAutoReadChannel(slave.key, "Status")],
     });
     fireEvent.click((await screen.findAllByText("Status"))[0]);
     await waitFor(() => expect(screen.getByText("Slave Device")).toBeTruthy());
@@ -118,7 +118,7 @@ describe("EtherCAT Read", () => {
     });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createManualInputChannel(slave.key, 0x6000, 7)],
+      channels: [createManualReadChannel(slave.key, 0x6000, 7)],
     });
     fireEvent.click(await screen.findByText("0x6000:7"));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
@@ -137,7 +137,7 @@ describe("EtherCAT Read", () => {
     });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createAutoInputChannel(slave.key, "Status")],
+      channels: [createAutoReadChannel(slave.key, "Status")],
     });
     fireEvent.click((await screen.findAllByText("Status"))[0]);
     fireEvent.click(await screen.findByText("Automatic (PDO)"));
@@ -159,8 +159,8 @@ describe("EtherCAT Read", () => {
       const { container, draft } = await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: [
-          createAutoInputChannel(slave.key, "Status"),
-          createManualInputChannel(slave.key, 0x6001, 2, { name: namedChannel }),
+          createAutoReadChannel(slave.key, "Status"),
+          createManualReadChannel(slave.key, 0x6001, 2, { name: namedChannel }),
         ],
       });
       const created = await deployAndAwaitTask(
@@ -203,7 +203,7 @@ describe("EtherCAT Read", () => {
       });
       const config = {
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createAutoInputChannel(slave.key, "Status")],
+        channels: [createAutoReadChannel(slave.key, "Status")],
       };
       const first = await renderRead(config);
       const firstTask = await deployAndAwaitTask(
@@ -245,7 +245,7 @@ describe("EtherCAT Read", () => {
       );
       const { container, statuses } = await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createAutoInputChannel(slave.key, "Status")],
+        channels: [createAutoReadChannel(slave.key, "Status")],
       });
       await clickDeploy(container);
       await awaitStatus(statuses, /Failed to/);

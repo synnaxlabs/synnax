@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
 from x.strings import random_name
 
 
@@ -31,7 +32,7 @@ class TestModbusReadTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "holding_register_input",
+                            "type": "holding_register",
                             "key": "holding-reg-1",
                             "disabled": False,
                             "address": 0,
@@ -54,7 +55,7 @@ class TestModbusReadTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "register_input",
+                            "type": "input_register",
                             "key": "input-reg-1",
                             "disabled": False,
                             "address": 100,
@@ -77,7 +78,7 @@ class TestModbusReadTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "coil_input",
+                            "type": "coil",
                             "key": "coil-1",
                             "disabled": False,
                             "address": 0,
@@ -115,7 +116,7 @@ class TestModbusReadTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "holding_register_input",
+                            "type": "holding_register",
                             "key": "holding-1",
                             "disabled": False,
                             "address": 0,
@@ -126,7 +127,7 @@ class TestModbusReadTask:
                             "string_length": 0,
                         },
                         {
-                            "type": "register_input",
+                            "type": "input_register",
                             "key": "input-1",
                             "disabled": False,
                             "address": 50,
@@ -137,7 +138,7 @@ class TestModbusReadTask:
                             "string_length": 0,
                         },
                         {
-                            "type": "coil_input",
+                            "type": "coil",
                             "key": "coil-1",
                             "disabled": False,
                             "address": 0,
@@ -175,8 +176,8 @@ class TestModbusReadTask:
             name="test",
             device="test-device",
             channels=[
-                sy.modbus.InputChannelHoldingRegisterInput(
-                    type="holding_register_input",
+                sy.modbus.HoldingRegisterReadChannel(
+                    type="holding_register",
                     address=0,
                     channel=1234,
                     data_type="float32",
@@ -190,11 +191,11 @@ class TestModbusReadTask:
     def test_read_task_address_bounds(self):
         """Test that address validation works (0-65535)."""
         # Valid address
-        sy.modbus.InputChannelHoldingRegisterInput(
-            type="holding_register_input", address=0, channel=1234, data_type="float32"
+        sy.modbus.HoldingRegisterReadChannel(
+            type="holding_register", address=0, channel=1234, data_type="float32"
         )
-        sy.modbus.InputChannelHoldingRegisterInput(
-            type="holding_register_input",
+        sy.modbus.HoldingRegisterReadChannel(
+            type="holding_register",
             address=65535,
             channel=1234,
             data_type="float32",
@@ -202,15 +203,15 @@ class TestModbusReadTask:
 
         # Invalid addresses
         with pytest.raises(ValidationError):
-            sy.modbus.InputChannelHoldingRegisterInput(
-                type="holding_register_input",
+            sy.modbus.HoldingRegisterReadChannel(
+                type="holding_register",
                 address=-1,
                 channel=1234,
                 data_type="float32",
             )
         with pytest.raises(ValidationError):
-            sy.modbus.InputChannelHoldingRegisterInput(
-                type="holding_register_input",
+            sy.modbus.HoldingRegisterReadChannel(
+                type="holding_register",
                 address=65536,
                 channel=1234,
                 data_type="float32",
@@ -230,8 +231,8 @@ class TestModbusReadTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.modbus.InputChannelHoldingRegisterInput(
-                    type="holding_register_input",
+                sy.modbus.HoldingRegisterReadChannel(
+                    type="holding_register",
                     key="holding-reg-1",
                     address=0,
                     channel=1234,
@@ -264,15 +265,15 @@ class TestModbusReadTask:
             data_saving_disabled=True,
             auto_start=False,
             channels=[
-                sy.modbus.InputChannelHoldingRegisterInput(
-                    type="holding_register_input",
+                sy.modbus.HoldingRegisterReadChannel(
+                    type="holding_register",
                     key="holding-reg-1",
                     address=0,
                     channel=1234,
                     data_type="float32",
                 ),
-                sy.modbus.InputChannelCoilInput(
-                    type="coil_input",
+                sy.modbus.CoilReadChannel(
+                    type="coil",
                     key="coil-1",
                     address=0,
                     channel=5678,
@@ -301,7 +302,7 @@ class TestModbusWriteTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "coil_output",
+                            "type": "coil",
                             "key": "coil-cmd-1",
                             "disabled": False,
                             "address": 0,
@@ -317,7 +318,7 @@ class TestModbusWriteTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "holding_register_output",
+                            "type": "holding_register",
                             "key": "hold-cmd-1",
                             "disabled": False,
                             "address": 100,
@@ -336,21 +337,21 @@ class TestModbusWriteTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "coil_output",
+                            "type": "coil",
                             "key": "coil-cmd-1",
                             "disabled": False,
                             "address": 0,
                             "channel": 1000,
                         },
                         {
-                            "type": "coil_output",
+                            "type": "coil",
                             "key": "coil-cmd-2",
                             "disabled": True,
                             "address": 1,
                             "channel": 2000,
                         },
                         {
-                            "type": "holding_register_output",
+                            "type": "holding_register",
                             "key": "hold-cmd-1",
                             "disabled": False,
                             "address": 0,
@@ -360,7 +361,7 @@ class TestModbusWriteTask:
                             "swap_words": False,
                         },
                         {
-                            "type": "holding_register_output",
+                            "type": "holding_register",
                             "key": "hold-cmd-2",
                             "disabled": False,
                             "address": 10,
@@ -385,15 +386,15 @@ class TestModbusWriteTask:
             device="test-device",
             auto_start=False,
             channels=[
-                sy.modbus.OutputChannelCoilOutput(
-                    type="coil_output",
+                sy.modbus.CoilWriteChannel(
+                    type="coil",
                     key="coil-1",
                     address=0,
                     channel=1234,
                     disabled=False,
                 ),
-                sy.modbus.OutputChannelCoilOutput(
-                    type="coil_output",
+                sy.modbus.CoilWriteChannel(
+                    type="coil",
                     key="coil-2",
                     address=1,
                     channel=5678,
@@ -411,8 +412,8 @@ class TestModbusWriteTask:
             name="test",
             device="test-device",
             channels=[
-                sy.modbus.OutputChannelCoilOutput(
-                    type="coil_output",
+                sy.modbus.CoilWriteChannel(
+                    type="coil",
                     address=0,
                     channel=1234,
                 )
@@ -433,8 +434,8 @@ class TestModbusWriteTask:
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.modbus.OutputChannelCoilOutput(
-                    type="coil_output",
+                sy.modbus.CoilWriteChannel(
+                    type="coil",
                     key="coil-1",
                     address=5,
                     channel=1234,
@@ -459,14 +460,14 @@ class TestModbusWriteTask:
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.modbus.OutputChannelCoilOutput(
-                    type="coil_output",
+                sy.modbus.CoilWriteChannel(
+                    type="coil",
                     key="coil-cmd-1",
                     address=0,
                     channel=1234,
                 ),
-                sy.modbus.OutputChannelHoldingRegisterOutput(
-                    type="holding_register_output",
+                sy.modbus.HoldingRegisterWriteChannel(
+                    type="holding_register",
                     key="hold-cmd-1",
                     address=0,
                     channel=5678,
@@ -488,15 +489,15 @@ class TestModbusWriteTask:
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.modbus.OutputChannelCoilOutput(
-                    type="coil_output",
+                sy.modbus.CoilWriteChannel(
+                    type="coil",
                     key="coil-cmd-1",
                     address=0,
                     channel=1234,
                     disabled=False,
                 ),
-                sy.modbus.OutputChannelHoldingRegisterOutput(
-                    type="holding_register_output",
+                sy.modbus.HoldingRegisterWriteChannel(
+                    type="holding_register",
                     key="hold-cmd-1",
                     address=10,
                     channel=5678,
@@ -530,8 +531,8 @@ class TestModbusWriteTask:
             assert retr_ch.address == orig_ch.address
             assert retr_ch.channel == orig_ch.channel
             assert retr_ch.disabled == orig_ch.disabled
-            if isinstance(orig_ch, sy.modbus.OutputChannelHoldingRegisterOutput):
-                assert isinstance(retr_ch, sy.modbus.OutputChannelHoldingRegisterOutput)
+            if isinstance(orig_ch, sy.modbus.HoldingRegisterWriteChannel):
+                assert isinstance(retr_ch, sy.modbus.HoldingRegisterWriteChannel)
                 assert retr_ch.data_type == orig_ch.data_type
                 assert retr_ch.swap_bytes == orig_ch.swap_bytes
                 assert retr_ch.swap_words == orig_ch.swap_words
@@ -586,14 +587,14 @@ class TestModbusDevicePropertyUpdates:
             sample_rate=10,
             stream_rate=10,
             channels=[
-                sy.modbus.InputChannelRegisterInput(
-                    type="register_input",
+                sy.modbus.InputRegisterReadChannel(
+                    type="input_register",
                     channel=ch1.key,
                     address=0,
                     data_type="uint8",
                 ),
-                sy.modbus.InputChannelHoldingRegisterInput(
-                    type="holding_register_input",
+                sy.modbus.HoldingRegisterReadChannel(
+                    type="holding_register",
                     channel=ch2.key,
                     address=5,
                     data_type="uint16",
@@ -612,16 +613,16 @@ class TestModbusDevicePropertyUpdates:
         assert "channels" in updated_device.properties["read"]
 
         # Verify channel keys match Console format:
-        # InputChannelRegisterInput: "register-input-{address}-{dataType}"
-        # InputChannelHoldingRegisterInput: "holding-register-input-{address}-{dataType}"
+        # InputRegisterReadChannel: "register-input-{address}-{dataType}"
+        # HoldingRegisterReadChannel: "holding-register-input-{address}-{dataType}"
         channels = updated_device.properties["read"]["channels"]
 
-        # Check InputChannelRegisterInput mapping (type-address-dataType,
+        # Check InputRegisterReadChannel mapping (type-address-dataType,
         # underscores replaced with hyphens)
         assert "register-input-0-uint8" in channels
         assert channels["register-input-0-uint8"] == ch1.key
 
-        # Check InputChannelHoldingRegisterInput mapping
+        # Check HoldingRegisterReadChannel mapping
         assert "holding-register-input-5-uint16" in channels
         assert channels["holding-register-input-5-uint16"] == ch2.key
 
@@ -668,13 +669,13 @@ class TestModbusDevicePropertyUpdates:
             name="Test Write Task",
             device=device.key,
             channels=[
-                sy.modbus.OutputChannelCoilOutput(
-                    type="coil_output",
+                sy.modbus.CoilWriteChannel(
+                    type="coil",
                     channel=coil_cmd.key,
                     address=10,
                 ),
-                sy.modbus.OutputChannelHoldingRegisterOutput(
-                    type="holding_register_output",
+                sy.modbus.HoldingRegisterWriteChannel(
+                    type="holding_register",
                     channel=holding_cmd.key,
                     address=20,
                     data_type="float32",
@@ -704,41 +705,41 @@ class TestModbusDevicePropertyUpdates:
         assert channels["holding-register-output-20"] == holding_cmd.key
 
     def test_device_property_key_format(self):
-        """Test that the key format matches Console expectations."""
-        # Test InputChannelRegisterInput key format
-        ch = sy.modbus.InputChannelRegisterInput(
-            type="register_input",
+        """Test that map keys keep the released type spellings after the rename."""
+        # Test InputRegisterReadChannel key format
+        ch = sy.modbus.InputRegisterReadChannel(
+            type="input_register",
             channel=123,
             address=5,
             data_type="uint8",
         )
         expected_key = "register-input-5-uint8"
-        key = f"{ch.type}-{ch.address}"
+        key = f"{_READ_NAME_TYPES[ch.type]}-{ch.address}"
         if hasattr(ch, "data_type"):
             key += f"-{ch.data_type}"
         key = key.replace("_", "-")
         assert key == expected_key
 
-        # Test InputChannelHoldingRegisterInput key format
-        ch2 = sy.modbus.InputChannelHoldingRegisterInput(
-            type="holding_register_input",
+        # Test HoldingRegisterReadChannel key format
+        ch2 = sy.modbus.HoldingRegisterReadChannel(
+            type="holding_register",
             channel=456,
             address=10,
             data_type="float32",
         )
         expected_key2 = "holding-register-input-10-float32"
-        key2 = f"{ch2.type}-{ch2.address}"
+        key2 = f"{_READ_NAME_TYPES[ch2.type]}-{ch2.address}"
         if hasattr(ch2, "data_type"):
             key2 += f"-{ch2.data_type}"
         key2 = key2.replace("_", "-")
         assert key2 == expected_key2
 
         # Test coil output key format (no dataType)
-        ch3 = sy.modbus.OutputChannelCoilOutput(
-            type="coil_output",
+        ch3 = sy.modbus.CoilWriteChannel(
+            type="coil",
             channel=789,
             address=15,
         )
         expected_key3 = "coil-output-15"
-        key3 = f"{ch3.type}-{ch3.address}".replace("_", "-")
+        key3 = f"{_WRITE_NAME_TYPES[ch3.type]}-{ch3.address}".replace("_", "-")
         assert key3 == expected_key3

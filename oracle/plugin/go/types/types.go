@@ -21,6 +21,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
@@ -30,7 +31,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"

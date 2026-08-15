@@ -41,51 +41,42 @@ ThermocoupleType enum {
     @go version 2
 }
 
-LinearScale struct {
-    slope  float64 = 1 {
-        @doc value "is the multiplier applied to the raw value."
-    }
-    offset float64 = 0 {
-        @doc value "is the offset added after scaling."
-    }
-
-    @doc value  "maps raw values to engineering units with a slope and offset."
-    @go version 2
-}
-
-MapScale struct {
-    pre_scaled_min float64 = 0 {
-        @doc value "is the lower bound of the raw input range."
-    }
-    pre_scaled_max float64 = 1 {
-        @doc value "is the upper bound of the raw input range."
-    }
-    scaled_min     float64 = 0 {
-        @doc value "is the lower bound of the scaled output range."
-    }
-    scaled_max     float64 = 1 {
-        @doc value "is the upper bound of the scaled output range."
-    }
-
-    @doc value  "maps a raw range linearly onto a scaled range."
-    @go version 2
-}
-
-NoneScale struct {
-    @doc value  "applies no scaling; the raw value is used directly."
-    @go version 2
-}
-
 Scale union on type {
-    linear LinearScale
-    map    MapScale
-    none   NoneScale
+    linear {
+        slope  float64 = 1 {
+            @doc value "is the multiplier applied to the raw value."
+        }
+        offset float64 = 0 {
+            @doc value "is the offset added after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a slope and offset."
+    }
+    map {
+        pre_scaled_min float64 = 0 {
+            @doc value "is the lower bound of the raw input range."
+        }
+        pre_scaled_max float64 = 1 {
+            @doc value "is the upper bound of the raw input range."
+        }
+        scaled_min     float64 = 0 {
+            @doc value "is the lower bound of the scaled output range."
+        }
+        scaled_max     float64 = 1 {
+            @doc value "is the upper bound of the scaled output range."
+        }
+
+        @doc value "maps a raw range linearly onto a scaled range."
+    }
+    none {
+        @doc value "applies no scaling; the raw value is used directly."
+    }
 
     @doc value  "determines how raw sensor values are transformed to engineering units."
     @go version 2
 }
 
-BaseInputChannel struct {
+BaseReadChannel struct {
     key      string = "" {
         @doc value "uniquely identifies the channel within the task."
         @key
@@ -103,12 +94,12 @@ BaseInputChannel struct {
         @doc value "is the physical port the channel reads from (e.g. 'AIN0', 'DIO4')."
     }
 
-    @doc value  "carries the fields every LabJack input channel shares."
+    @doc value  "carries the fields every LabJack read channel shares."
     @go version 2
 }
 
-InputChannel union on type extends BaseInputChannel {
-    AI {
+ReadChannel union on type extends BaseReadChannel {
+    analog {
         port     string = "AIN0"
         range    float64 = 10 {
             @doc value "is the upper bound of the voltage input range, in volts."
@@ -119,18 +110,18 @@ InputChannel union on type extends BaseInputChannel {
                 199 selects single-ended.
             """
         }
-        scale    Scale   {
+        scale    Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
         }
 
         @doc value "reads a voltage from an analog input port."
     }
-    DI {
+    digital {
         port string = "DIO4"
 
         @doc value "reads a digital input line."
     }
-    TC {
+    thermocouple {
         port              string = "AIN0"
         thermocouple_type ThermocoupleType = k {
             @doc value "selects the thermocouple alloy type."
@@ -160,7 +151,7 @@ InputChannel union on type extends BaseInputChannel {
         units             TemperatureUnits = kelvin {
             @doc value "are the units of the temperature measurement."
         }
-        scale             Scale            {
+        scale             Scale = none {
             @doc value "is the scale applied to raw samples after acquisition."
         }
 
@@ -168,13 +159,13 @@ InputChannel union on type extends BaseInputChannel {
     }
 
     @doc value  """
-        is a single LabJack input channel. The type field selects the input mode
+        is a single LabJack read channel. The type field selects the input mode
         and the fields that accompany it.
     """
     @go version 2
 }
 
-BaseOutputChannel struct {
+BaseWriteChannel struct {
     key                string = "" {
         @doc value "uniquely identifies the channel within the task."
         @key
@@ -198,24 +189,24 @@ BaseOutputChannel struct {
         @doc value "is the physical port the channel writes to (e.g. 'DAC0', 'DIO4')."
     }
 
-    @doc value  "carries the fields every LabJack output channel shares."
+    @doc value  "carries the fields every LabJack write channel shares."
     @go version 2
 }
 
-OutputChannel union on type extends BaseOutputChannel {
-    AO {
+WriteChannel union on type extends BaseWriteChannel {
+    analog {
         port string = "DAC0"
 
         @doc value "drives an analog output on a DAC port."
     }
-    DO {
+    digital {
         port string = "DIO4"
 
         @doc value "drives a digital output line on a DIO port."
     }
 
     @doc value  """
-        is a single LabJack output channel. The type field selects the output
+        is a single LabJack write channel. The type field selects the output
         mode.
     """
     @go version 2
@@ -225,8 +216,8 @@ ReadConfig struct extends task.BaseReadConfig {
     device                            device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
-    channels                          InputChannel[] {
-        @doc value "are the input channels the task acquires."
+    channels                          ReadChannel[] {
+        @doc value "are the channels the task acquires."
     }
     device_scan_backlog_warn_on_count uint32 = 0 {
         @doc value """
@@ -252,8 +243,8 @@ WriteConfig struct extends task.BaseWriteConfig {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
         @ts type   "number"
     }
-    channels   OutputChannel[] {
-        @doc value "are the output channels the task drives."
+    channels   WriteChannel[] {
+        @doc value "are the channels the task drives."
     }
 
     @doc value  "configures a LabJack write task."

@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )

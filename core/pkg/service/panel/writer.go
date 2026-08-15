@@ -41,7 +41,7 @@ func (w Writer) Create(
 	// Default a freshly-created panel to a single empty leaf so action dispatchers
 	// always operate against a well-formed tree.
 	if p.Root.Variant == nil {
-		p.Root = Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
+		p.Root = Node{Variant: LeafNode{Tabs: []Tab{}}}
 	}
 	if err := validateTree(p.Root); err != nil {
 		return err

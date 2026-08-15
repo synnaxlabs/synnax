@@ -9,7 +9,7 @@
 
 // Package legacy converts the LabJack config shapes released Consoles wrote: v0 keyed
 // write channels with cmdKey and stateKey, v1 renamed them to cmdChannel and
-// stateChannel.
+// stateChannel, and channel type tags were port-mode acronyms.
 package legacy
 
 import (
@@ -22,6 +22,31 @@ import (
 // above it.
 const LastVersion imex.Version = 1
 
+// readTypes maps released read channel type tags to their current labels.
+var readTypes = map[string]string{
+	"AI": "analog",
+	"DI": "digital",
+	"TC": "thermocouple",
+}
+
+// writeTypes maps released write channel type tags to their current labels.
+var writeTypes = map[string]string{
+	"AO": "analog",
+	"DO": "digital",
+}
+
+// Read converts the released read shape. Released Python clients wrote pos_chan on
+// analog channels; the driver only ever read it on thermocouples, and the current
+// analog schema drops it.
+var Read = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
+	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
+		legacy.RemapValue(ch, "type", readTypes)
+		if ch["type"] == "analog" {
+			delete(ch, "pos_chan")
+		}
+	})
+}}
+
 // Write converts both released write shapes.
 var Write = legacy.Rewrite{Post: write}
 
@@ -32,5 +57,6 @@ func write(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		legacy.RenameKey(ch, "cmd_key", "cmd_channel")
 		legacy.RenameKey(ch, "state_key", "state_channel")
+		legacy.RemapValue(ch, "type", writeTypes)
 	})
 }

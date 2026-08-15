@@ -1,0 +1,35 @@
+{
+  "auto_start": true,
+  "channels": [
+    {
+      "cmd_channel": 9110,
+      "cmd_channel_name": "fixture_ecat_auto_out_cmd",
+      "device": "fixture-ecat-slave-1",
+      "disabled": false,
+      "key": "ch-ecat-auto-out",
+      "name": "fixture_ecat_auto_out",
+      "pdo": "Analog Output Ch2",
+      "state_channel": 9111,
+      "state_channel_name": "fixture_ecat_auto_out_state",
+      "type": "automatic"
+    },
+    {
+      "bit_length": 8,
+      "cmd_channel": 9120,
+      "cmd_channel_name": "fixture_ecat_manual_out_cmd",
+      "data_type": "uint8",
+      "device": "fixture-ecat-slave-2",
+      "disabled": true,
+      "index": 28688,
+      "key": "ch-ecat-manual-out",
+      "name": "fixture_ecat_manual_out",
+      "state_channel": 9121,
+      "state_channel_name": "fixture_ecat_manual_out_state",
+      "sub_index": 2,
+      "type": "manual"
+    }
+  ],
+  "data_saving_disabled": true,
+  "execution_rate": 512.5,
+  "state_rate": 38.5
+}

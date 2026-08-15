@@ -109,7 +109,7 @@ struct InputChan {
 
     synnax::channel::Channel ch;
 
-    explicit InputChan(const ::synnax::labjack::BaseInputChannel &cfg):
+    explicit InputChan(const ::synnax::labjack::BaseReadChannel &cfg):
         enabled(!cfg.disabled), port(cfg.port), synnax_key(cfg.channel) {}
 
     /// @brief applies the configuration to the device.
@@ -172,7 +172,7 @@ struct ThermocoupleChan final : InputChan {
     const ::synnax::labjack::Scale scale_cfg;
 
     ThermocoupleChan(
-        const ::synnax::labjack::InputChannelTc &cfg,
+        const ::synnax::labjack::ThermocoupleReadChannel &cfg,
         x::json::Parser &parser
     ):
         InputChan(cfg),
@@ -253,7 +253,7 @@ struct AIChan final : InputChan {
     /// @brief the scale applied to raw samples after acquisition.
     const ::synnax::labjack::Scale scale_cfg;
 
-    explicit AIChan(const ::synnax::labjack::InputChannelAI &cfg):
+    explicit AIChan(const ::synnax::labjack::AnalogReadChannel &cfg):
         InputChan(cfg),
         range(cfg.range),
         neg_chan(cfg.neg_chan),
@@ -287,7 +287,7 @@ struct AIChan final : InputChan {
 
 /// @brief configuration for a digital input channel.
 struct DIChan final : InputChan {
-    explicit DIChan(const ::synnax::labjack::InputChannelDI &cfg): InputChan(cfg) {}
+    explicit DIChan(const ::synnax::labjack::DigitalReadChannel &cfg): InputChan(cfg) {}
 };
 
 /// @brief parses the input channel from the provided configuration.
@@ -295,15 +295,19 @@ struct DIChan final : InputChan {
 /// field errors to the config.
 inline std::unique_ptr<InputChan> parse_input_chan(x::json::Parser &cfg) {
     const auto type = cfg.field<std::string>("type");
-    if (type == "TC")
+    if (type == "thermocouple")
         return std::make_unique<ThermocoupleChan>(
-            ::synnax::labjack::InputChannelTc::parse(cfg),
+            ::synnax::labjack::ThermocoupleReadChannel::parse(cfg),
             cfg
         );
-    if (type == "AI")
-        return std::make_unique<AIChan>(::synnax::labjack::InputChannelAI::parse(cfg));
-    if (type == "DI")
-        return std::make_unique<DIChan>(::synnax::labjack::InputChannelDI::parse(cfg));
+    if (type == "analog")
+        return std::make_unique<AIChan>(
+            ::synnax::labjack::AnalogReadChannel::parse(cfg)
+        );
+    if (type == "digital")
+        return std::make_unique<DIChan>(
+            ::synnax::labjack::DigitalReadChannel::parse(cfg)
+        );
     cfg.field_err("type", "unknown channel type: " + type);
     return nullptr;
 }
@@ -315,9 +319,9 @@ inline void add_scale(
     const x::telem::DataType &dt,
     const ::synnax::labjack::Scale &scale
 ) {
-    if (const auto *l = std::get_if<::synnax::labjack::ScaleLinear>(&scale))
+    if (const auto *l = std::get_if<::synnax::labjack::LinearScale>(&scale))
         scales.add(key, transform::UnaryLinearScale(l->slope, l->offset, dt));
-    else if (const auto *m = std::get_if<::synnax::labjack::ScaleMap>(&scale))
+    else if (const auto *m = std::get_if<::synnax::labjack::MapScale>(&scale))
         scales.add(
             key,
             transform::UnaryMapScale(

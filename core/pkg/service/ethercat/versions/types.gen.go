@@ -16,51 +16,51 @@ import "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 // PDOAddress addresses a PDO entry explicitly in the CoE object dictionary.
 type PDOAddress = v1.PDOAddress
 
-// BaseInputChannel carries the fields every EtherCAT input channel shares.
-type BaseInputChannel = v1.BaseInputChannel
+// BaseReadChannel carries the fields every EtherCAT read channel shares.
+type BaseReadChannel = v1.BaseReadChannel
 
-// InputChannel is a single EtherCAT input channel (TxPDO, slave to master). The type
+// ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
 // field selects how the PDO entry is addressed.
-type InputChannel = v1.InputChannel
-type InputChannelVariant = v1.InputChannelVariant
-type InputChannelType = v1.InputChannelType
+type ReadChannel = v1.ReadChannel
+type ReadChannelVariant = v1.ReadChannelVariant
+type ReadChannelType = v1.ReadChannelType
 
 const (
-	// InputChannelTypeAutomatic resolves its PDO address from the slave's discovered
+	// AutomaticReadChannelType resolves its PDO address from the slave's discovered
 	// PDOs.
-	InputChannelTypeAutomatic InputChannelType = v1.InputChannelTypeAutomatic
-	// InputChannelTypeManual specifies its PDO address inline.
-	InputChannelTypeManual InputChannelType = v1.InputChannelTypeManual
+	AutomaticReadChannelType ReadChannelType = v1.AutomaticReadChannelType
+	// ManualReadChannelType specifies its PDO address inline.
+	ManualReadChannelType ReadChannelType = v1.ManualReadChannelType
 )
 
-// InputChannelAutomatic resolves its PDO address from the slave's discovered PDOs.
-type InputChannelAutomatic = v1.InputChannelAutomatic
+// AutomaticReadChannel resolves its PDO address from the slave's discovered PDOs.
+type AutomaticReadChannel = v1.AutomaticReadChannel
 
-// InputChannelManual specifies its PDO address inline.
-type InputChannelManual = v1.InputChannelManual
+// ManualReadChannel specifies its PDO address inline.
+type ManualReadChannel = v1.ManualReadChannel
 
-// BaseOutputChannel carries the fields every EtherCAT output channel shares.
-type BaseOutputChannel = v1.BaseOutputChannel
+// BaseWriteChannel carries the fields every EtherCAT write channel shares.
+type BaseWriteChannel = v1.BaseWriteChannel
 
-// OutputChannel is a single EtherCAT output channel (RxPDO, master to slave). The type
+// WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
 // field selects how the PDO entry is addressed.
-type OutputChannel = v1.OutputChannel
-type OutputChannelVariant = v1.OutputChannelVariant
-type OutputChannelType = v1.OutputChannelType
+type WriteChannel = v1.WriteChannel
+type WriteChannelVariant = v1.WriteChannelVariant
+type WriteChannelType = v1.WriteChannelType
 
 const (
-	// OutputChannelTypeAutomatic resolves its PDO address from the slave's discovered
+	// AutomaticWriteChannelType resolves its PDO address from the slave's discovered
 	// PDOs.
-	OutputChannelTypeAutomatic OutputChannelType = v1.OutputChannelTypeAutomatic
-	// OutputChannelTypeManual specifies its PDO address inline.
-	OutputChannelTypeManual OutputChannelType = v1.OutputChannelTypeManual
+	AutomaticWriteChannelType WriteChannelType = v1.AutomaticWriteChannelType
+	// ManualWriteChannelType specifies its PDO address inline.
+	ManualWriteChannelType WriteChannelType = v1.ManualWriteChannelType
 )
 
-// OutputChannelAutomatic resolves its PDO address from the slave's discovered PDOs.
-type OutputChannelAutomatic = v1.OutputChannelAutomatic
+// AutomaticWriteChannel resolves its PDO address from the slave's discovered PDOs.
+type AutomaticWriteChannel = v1.AutomaticWriteChannel
 
-// OutputChannelManual specifies its PDO address inline.
-type OutputChannelManual = v1.OutputChannelManual
+// ManualWriteChannel specifies its PDO address inline.
+type ManualWriteChannel = v1.ManualWriteChannel
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.

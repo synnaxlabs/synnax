@@ -33,34 +33,8 @@ export const THERMOCOUPLE_TYPES = [
 export const thermocoupleTypeZ = z.enum(THERMOCOUPLE_TYPES);
 export type ThermocoupleType = z.infer<typeof thermocoupleTypeZ>;
 
-/** LinearScale maps raw values to engineering units with a slope and offset. */
-export const linearScaleZ = z.object({
-  /** slope is the multiplier applied to the raw value. */
-  slope: z.number().default(1),
-  /** offset is the offset added after scaling. */
-  offset: z.number().default(0),
-});
-export interface LinearScale extends z.infer<typeof linearScaleZ> {}
-
-/** MapScale maps a raw range linearly onto a scaled range. */
-export const mapScaleZ = z.object({
-  /** preScaledMin is the lower bound of the raw input range. */
-  preScaledMin: z.number().default(0),
-  /** preScaledMax is the upper bound of the raw input range. */
-  preScaledMax: z.number().default(1),
-  /** scaledMin is the lower bound of the scaled output range. */
-  scaledMin: z.number().default(0),
-  /** scaledMax is the upper bound of the scaled output range. */
-  scaledMax: z.number().default(1),
-});
-export interface MapScale extends z.infer<typeof mapScaleZ> {}
-
-/** NoneScale applies no scaling; the raw value is used directly. */
-export const noneScaleZ = z.object({});
-export interface NoneScale extends z.infer<typeof noneScaleZ> {}
-
-/** BaseInputChannel carries the fields every LabJack input channel shares. */
-export const baseInputChannelZ = z.object({
+/** BaseReadChannel carries the fields every LabJack read channel shares. */
+export const baseReadChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(""),
   /** name is the human-readable channel name. */
@@ -72,10 +46,10 @@ export const baseInputChannelZ = z.object({
   /** port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4'). */
   port: z.string().default(""),
 });
-export interface BaseInputChannel extends z.infer<typeof baseInputChannelZ> {}
+export interface BaseReadChannel extends z.infer<typeof baseReadChannelZ> {}
 
-/** BaseOutputChannel carries the fields every LabJack output channel shares. */
-export const baseOutputChannelZ = z.object({
+/** BaseWriteChannel carries the fields every LabJack write channel shares. */
+export const baseWriteChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(""),
   /** disabled is true when the channel is excluded from the task. */
@@ -91,27 +65,42 @@ export const baseOutputChannelZ = z.object({
   /** port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4'). */
   port: z.string().default(""),
 });
-export interface BaseOutputChannel extends z.infer<typeof baseOutputChannelZ> {}
+export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
 export const scanConfigZ = task.baseScanConfigZ.extend({
   tcpScanMultiplier: z.int32().default(10),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-export const scaleLinearZ = linearScaleZ.extend({
+/** LinearScale maps raw values to engineering units with a slope and offset. */
+export const linearScaleZ = z.object({
   type: z.literal("linear"),
+  /** slope is the multiplier applied to the raw value. */
+  slope: z.number().default(1),
+  /** offset is the offset added after scaling. */
+  offset: z.number().default(0),
 });
-export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}
+export interface LinearScale extends z.infer<typeof linearScaleZ> {}
 
-export const scaleMapZ = mapScaleZ.extend({
+/** MapScale maps a raw range linearly onto a scaled range. */
+export const mapScaleZ = z.object({
   type: z.literal("map"),
+  /** preScaledMin is the lower bound of the raw input range. */
+  preScaledMin: z.number().default(0),
+  /** preScaledMax is the upper bound of the raw input range. */
+  preScaledMax: z.number().default(1),
+  /** scaledMin is the lower bound of the scaled output range. */
+  scaledMin: z.number().default(0),
+  /** scaledMax is the upper bound of the scaled output range. */
+  scaledMax: z.number().default(1),
 });
-export interface ScaleMap extends z.infer<typeof scaleMapZ> {}
+export interface MapScale extends z.infer<typeof mapScaleZ> {}
 
-export const scaleNoneZ = noneScaleZ.extend({
+/** NoneScale applies no scaling; the raw value is used directly. */
+export const noneScaleZ = z.object({
   type: z.literal("none"),
 });
-export interface ScaleNone extends z.infer<typeof scaleNoneZ> {}
+export interface NoneScale extends z.infer<typeof noneScaleZ> {}
 
 export const SCALE_TYPES = ["linear", "map", "none"] as const;
 export const scaleTypeZ = z.enum(SCALE_TYPES);
@@ -119,58 +108,58 @@ export type ScaleType = z.infer<typeof scaleTypeZ>;
 
 /** Scale determines how raw sensor values are transformed to engineering units. */
 export const scaleZ = z.discriminatedUnion("type", [
-  scaleLinearZ,
-  scaleMapZ,
-  scaleNoneZ,
+  linearScaleZ,
+  mapScaleZ,
+  noneScaleZ,
 ]);
-export type Scale = ScaleLinear | ScaleMap | ScaleNone;
+export type Scale = LinearScale | MapScale | NoneScale;
 
 export const SCALE_SCHEMAS: {
   [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;
 } = {
-  linear: scaleLinearZ,
-  map: scaleMapZ,
-  none: scaleNoneZ,
+  linear: linearScaleZ,
+  map: mapScaleZ,
+  none: noneScaleZ,
 };
 
-/** OutputChannelAO drives an analog output on a DAC port. */
-export const outputChannelAOZ = baseOutputChannelZ.extend({
-  type: z.literal("AO"),
+/** AnalogWriteChannel drives an analog output on a DAC port. */
+export const analogWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("analog"),
   port: z.string().default("DAC0"),
 });
-export interface OutputChannelAO extends z.infer<typeof outputChannelAOZ> {}
+export interface AnalogWriteChannel extends z.infer<typeof analogWriteChannelZ> {}
 
-/** OutputChannelDO drives a digital output line on a DIO port. */
-export const outputChannelDOZ = baseOutputChannelZ.extend({
-  type: z.literal("DO"),
+/** DigitalWriteChannel drives a digital output line on a DIO port. */
+export const digitalWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("digital"),
   port: z.string().default("DIO4"),
 });
-export interface OutputChannelDO extends z.infer<typeof outputChannelDOZ> {}
+export interface DigitalWriteChannel extends z.infer<typeof digitalWriteChannelZ> {}
 
-export const OUTPUT_CHANNEL_TYPES = ["AO", "DO"] as const;
-export const outputChannelTypeZ = z.enum(OUTPUT_CHANNEL_TYPES);
-export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
+export const WRITE_CHANNEL_TYPES = ["analog", "digital"] as const;
+export const writeChannelTypeZ = z.enum(WRITE_CHANNEL_TYPES);
+export type WriteChannelType = z.infer<typeof writeChannelTypeZ>;
 
 /**
- * OutputChannel is a single LabJack output channel. The type field selects the output
+ * WriteChannel is a single LabJack write channel. The type field selects the output
  * mode.
  */
-export const outputChannelZ = z.discriminatedUnion("type", [
-  outputChannelAOZ,
-  outputChannelDOZ,
+export const writeChannelZ = z.discriminatedUnion("type", [
+  analogWriteChannelZ,
+  digitalWriteChannelZ,
 ]);
-export type OutputChannel = OutputChannelAO | OutputChannelDO;
+export type WriteChannel = AnalogWriteChannel | DigitalWriteChannel;
 
-export const OUTPUT_CHANNEL_SCHEMAS: {
-  [K in OutputChannelType]: z.ZodType<Extract<OutputChannel, { type: K }>>;
+export const WRITE_CHANNEL_SCHEMAS: {
+  [K in WriteChannelType]: z.ZodType<Extract<WriteChannel, { type: K }>>;
 } = {
-  AO: outputChannelAOZ,
-  DO: outputChannelDOZ,
+  analog: analogWriteChannelZ,
+  digital: digitalWriteChannelZ,
 };
 
-/** InputChannelAI reads a voltage from an analog input port. */
-export const inputChannelAIZ = baseInputChannelZ.extend({
-  type: z.literal("AI"),
+/** AnalogReadChannel reads a voltage from an analog input port. */
+export const analogReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("analog"),
   port: z.string().default("AIN0"),
   /** range is the upper bound of the voltage input range, in volts. */
   range: z.number().default(10),
@@ -180,20 +169,20 @@ export const inputChannelAIZ = baseInputChannelZ.extend({
    */
   negChan: z.int32().default(199),
   /** scale is the scale applied to raw samples after acquisition. */
-  scale: scaleZ,
+  scale: scaleZ.prefault({ type: "none" }),
 });
-export interface InputChannelAI extends z.infer<typeof inputChannelAIZ> {}
+export interface AnalogReadChannel extends z.infer<typeof analogReadChannelZ> {}
 
-/** InputChannelDI reads a digital input line. */
-export const inputChannelDIZ = baseInputChannelZ.extend({
-  type: z.literal("DI"),
+/** DigitalReadChannel reads a digital input line. */
+export const digitalReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("digital"),
   port: z.string().default("DIO4"),
 });
-export interface InputChannelDI extends z.infer<typeof inputChannelDIZ> {}
+export interface DigitalReadChannel extends z.infer<typeof digitalReadChannelZ> {}
 
-/** InputChannelTc reads temperature from a thermocouple. */
-export const inputChannelTcZ = baseInputChannelZ.extend({
-  type: z.literal("TC"),
+/** ThermocoupleReadChannel reads temperature from a thermocouple. */
+export const thermocoupleReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("thermocouple"),
   port: z.string().default("AIN0"),
   /** thermocoupleType selects the thermocouple alloy type. */
   thermocoupleType: thermocoupleTypeZ.default("K"),
@@ -217,42 +206,45 @@ export const inputChannelTcZ = baseInputChannelZ.extend({
   /** units are the units of the temperature measurement. */
   units: temperatureUnitsZ.default("K"),
   /** scale is the scale applied to raw samples after acquisition. */
-  scale: scaleZ,
+  scale: scaleZ.prefault({ type: "none" }),
 });
-export interface InputChannelTc extends z.infer<typeof inputChannelTcZ> {}
+export interface ThermocoupleReadChannel extends z.infer<
+  typeof thermocoupleReadChannelZ
+> {}
 
-export const INPUT_CHANNEL_TYPES = ["AI", "DI", "TC"] as const;
-export const inputChannelTypeZ = z.enum(INPUT_CHANNEL_TYPES);
-export type InputChannelType = z.infer<typeof inputChannelTypeZ>;
+export const READ_CHANNEL_TYPES = ["analog", "digital", "thermocouple"] as const;
+export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
+export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
 
 /**
- * InputChannel is a single LabJack input channel. The type field selects the input mode
+ * ReadChannel is a single LabJack read channel. The type field selects the input mode
  * and the fields that accompany it.
  */
-export const inputChannelZ = z.discriminatedUnion("type", [
-  inputChannelAIZ,
-  inputChannelDIZ,
-  inputChannelTcZ,
+export const readChannelZ = z.discriminatedUnion("type", [
+  analogReadChannelZ,
+  digitalReadChannelZ,
+  thermocoupleReadChannelZ,
 ]);
-export type InputChannel = InputChannelAI | InputChannelDI | InputChannelTc;
+export type ReadChannel =
+  AnalogReadChannel | DigitalReadChannel | ThermocoupleReadChannel;
 
-export const INPUT_CHANNEL_SCHEMAS: {
-  [K in InputChannelType]: z.ZodType<Extract<InputChannel, { type: K }>>;
+export const READ_CHANNEL_SCHEMAS: {
+  [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
 } = {
-  AI: inputChannelAIZ,
-  DI: inputChannelDIZ,
-  TC: inputChannelTcZ,
+  analog: analogReadChannelZ,
+  digital: digitalReadChannelZ,
+  thermocouple: thermocoupleReadChannelZ,
 };
 
 export const writeConfigZ = task.baseWriteConfigZ.extend({
   stateRate: z.number().default(10),
-  channels: outputChannelZ.array().default(() => []),
+  channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export const readConfigZ = task.baseReadConfigZ.extend({
   device: device.keyZ.default(""),
-  channels: inputChannelZ.array().default(() => []),
+  channels: readChannelZ.array().default(() => []),
   deviceScanBacklogWarnOnCount: z.uint32().default(0),
   ljmScanBacklogWarnOnCount: z.uint32().default(0),
 });

@@ -93,13 +93,13 @@ const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
 };
 
 // The form edits primitive values; the stored shape accepts any JSON.
-const writeFieldStaticZ = http.writeFieldStaticZ.extend({
+const staticWriteFieldZ = http.staticWriteFieldZ.extend({
   value: json.primitiveZ,
 });
 
 const writeFieldZ = z.discriminatedUnion("type", [
-  http.writeFieldStaticZ,
-  http.writeFieldGeneratedZ,
+  http.staticWriteFieldZ,
+  http.generatedWriteFieldZ,
 ]);
 
 export type WriteField = z.infer<typeof writeFieldZ>;
@@ -157,8 +157,8 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
 const deployPointerZ = json.pointerZ.min(1, "Pointer cannot be empty");
 
 const deployWriteFieldZ = z.discriminatedUnion("type", [
-  writeFieldStaticZ.extend({ pointer: deployPointerZ }),
-  http.writeFieldGeneratedZ.extend({ pointer: deployPointerZ }),
+  staticWriteFieldZ.extend({ pointer: deployPointerZ }),
+  http.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
 ]);
 
 const deployWriteEndpointZ = writeEndpointZ

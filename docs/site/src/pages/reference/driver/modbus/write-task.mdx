@@ -49,7 +49,7 @@ state, configure a [read task](/reference/driver/modbus/read-task) for the same 
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Output ([`holding_register_output`](https://www.modbustools.com/modbus.html#function06))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Output ([`holding_register`](https://www.modbustools.com/modbus.html#function06))</Text.Text>
 
 Writes to 16-bit read/write registers (Function Code 06/16). Typically used for
 setpoints, control values, and configuration parameters.
@@ -70,7 +70,7 @@ setpoints, control values, and configuration parameters.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Output ([`coil_output`](https://www.modbustools.com/modbus.html#function05))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Output ([`coil`](https://www.modbustools.com/modbus.html#function05))</Text.Text>
 
 Writes to 1-bit read/write coils (Function Code 05/15). Typically used for binary
 control signals like relay states and valve positions.
@@ -152,11 +152,11 @@ task = modbus.WriteTask(
     name="Modbus Write Task",
     device=dev.key,
     channels=[
-        modbus.CoilOutputChan(
+        modbus.CoilWriteChannel(
             channel=coil_cmd.key,
             address=0,
         ),
-        modbus.HoldingRegisterOutputChan(
+        modbus.HoldingRegisterWriteChannel(
             channel=holding_reg_cmd.key,
             address=2,
             data_type="uint8",
@@ -251,12 +251,12 @@ const task = await client.tasks.create({
     device: dev.key,
     channels: [
       {
-        type: "coil_output",
+        type: "coil",
         channel: coilCmd.key,
         address: 0,
       },
       {
-        type: "holding_register_output",
+        type: "holding_register",
         channel: holdingRegCmd.key,
         address: 2,
         data_type: "uint8",

@@ -358,7 +358,7 @@ var _ = Describe("Codec", func() {
 							EnumValues: []v2.EnumEntry{{Label: "test_23", Value: 24.5}},
 						},
 						Fields: []v2.WriteField{
-							{Variant: v2.WriteFieldStatic{
+							{Variant: v2.StaticWriteField{
 								BaseWriteField: fullyPopulatedBaseWriteField,
 								JSONType:       v2.JSONType("number"),
 								Value:          any(map[string]any{"key_27": "value_27"}),
@@ -410,7 +410,7 @@ var _ = Describe("Codec", func() {
 					EnumValues: []v2.EnumEntry{{Label: "test_19", Value: 20.5}},
 				},
 				Fields: []v2.WriteField{
-					{Variant: v2.WriteFieldStatic{
+					{Variant: v2.StaticWriteField{
 						BaseWriteField: fullyPopulatedBaseWriteField,
 						JSONType:       v2.JSONType("number"),
 						Value:          any(map[string]any{"key_23": "value_23"}),
@@ -466,12 +466,12 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("static variant", v2.WriteField{Variant: v2.WriteFieldStatic{
+			Entry("static variant", v2.WriteField{Variant: v2.StaticWriteField{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				JSONType:       v2.JSONType("number"),
 				Value:          any(map[string]any{"key_2": "value_2"}),
 			}}),
-			Entry("generated variant", v2.WriteField{Variant: v2.WriteFieldGenerated{
+			Entry("generated variant", v2.WriteField{Variant: v2.GeneratedWriteField{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				Generator:      v2.GeneratorType("uuid"),
 				TimeFormat:     new(v2.TimeFormat("iso8601")),
@@ -734,7 +734,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 					EnumValues: []v2.EnumEntry{{Label: "test_23", Value: 24.5}},
 				},
 				Fields: []v2.WriteField{
-					{Variant: v2.WriteFieldStatic{
+					{Variant: v2.StaticWriteField{
 						BaseWriteField: fullyPopulatedBaseWriteField,
 						JSONType:       v2.JSONType("number"),
 						Value:          any(map[string]any{"key_27": "value_27"}),
@@ -776,7 +776,7 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 			EnumValues: []v2.EnumEntry{{Label: "test_19", Value: 20.5}},
 		},
 		Fields: []v2.WriteField{
-			{Variant: v2.WriteFieldStatic{
+			{Variant: v2.StaticWriteField{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				JSONType:       v2.JSONType("number"),
 				Value:          any(map[string]any{"key_23": "value_23"}),
@@ -799,7 +799,7 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeWriteField(b *testing.B) {
-	seed := v2.WriteField{Variant: v2.WriteFieldStatic{
+	seed := v2.WriteField{Variant: v2.StaticWriteField{
 		BaseWriteField: fullyPopulatedBaseWriteField,
 		JSONType:       v2.JSONType("number"),
 		Value:          any(map[string]any{"key_2": "value_2"}),
@@ -1381,7 +1381,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 						EnumValues: []v2.EnumEntry{{Label: "test_23", Value: 24.5}},
 					},
 					Fields: []v2.WriteField{
-						{Variant: v2.WriteFieldStatic{
+						{Variant: v2.StaticWriteField{
 							BaseWriteField: fullyPopulatedBaseWriteField,
 							JSONType:       v2.JSONType("number"),
 							Value:          any(map[string]any{"key_27": "value_27"}),
@@ -1464,7 +1464,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 				EnumValues: []v2.EnumEntry{{Label: "test_19", Value: 20.5}},
 			},
 			Fields: []v2.WriteField{
-				{Variant: v2.WriteFieldStatic{
+				{Variant: v2.StaticWriteField{
 					BaseWriteField: fullyPopulatedBaseWriteField,
 					JSONType:       v2.JSONType("number"),
 					Value:          any(map[string]any{"key_23": "value_23"}),
@@ -1551,7 +1551,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 
 func FuzzDecodeWriteField(f *testing.F) {
 	{
-		seed := v2.WriteField{Variant: v2.WriteFieldStatic{
+		seed := v2.WriteField{Variant: v2.StaticWriteField{
 			BaseWriteField: fullyPopulatedBaseWriteField,
 			JSONType:       v2.JSONType("number"),
 			Value:          any(map[string]any{"key_2": "value_2"}),
@@ -1563,7 +1563,7 @@ func FuzzDecodeWriteField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.WriteField{Variant: v2.WriteFieldGenerated{
+		seed := v2.WriteField{Variant: v2.GeneratedWriteField{
 			BaseWriteField: fullyPopulatedBaseWriteField,
 			Generator:      v2.GeneratorType("uuid"),
 			TimeFormat:     new(v2.TimeFormat("iso8601")),

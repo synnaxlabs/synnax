@@ -284,8 +284,8 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
-inline WriteFieldStatic WriteFieldStatic::parse(x::json::Parser parser) {
-    WriteFieldStatic result;
+inline StaticWriteField StaticWriteField::parse(x::json::Parser parser) {
+    StaticWriteField result;
     static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
     result.json_type = parser.field<std::string>("json_type", "number");
     result.value = parser.field<x::json::json>("value");
@@ -293,7 +293,7 @@ inline WriteFieldStatic WriteFieldStatic::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json WriteFieldStatic::to_json() const {
+inline x::json::json StaticWriteField::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseWriteField::to_json().items())
         j[k] = v;
@@ -303,8 +303,8 @@ inline x::json::json WriteFieldStatic::to_json() const {
     return j;
 }
 
-inline WriteFieldGenerated WriteFieldGenerated::parse(x::json::Parser parser) {
-    WriteFieldGenerated result;
+inline GeneratedWriteField GeneratedWriteField::parse(x::json::Parser parser) {
+    GeneratedWriteField result;
     static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
     result.generator = parser.field<std::string>("generator", "uuid");
     result.time_format = parser.field<std::optional<std::string>>("time_format");
@@ -312,7 +312,7 @@ inline WriteFieldGenerated WriteFieldGenerated::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json WriteFieldGenerated::to_json() const {
+inline x::json::json GeneratedWriteField::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseWriteField::to_json().items())
         j[k] = v;
@@ -324,8 +324,8 @@ inline x::json::json WriteFieldGenerated::to_json() const {
 
 inline WriteField parse_write_field(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "static") return WriteFieldStatic::parse(parser);
-    if (discriminator == "generated") return WriteFieldGenerated::parse(parser);
+    if (discriminator == "static") return StaticWriteField::parse(parser);
+    if (discriminator == "generated") return GeneratedWriteField::parse(parser);
     parser.field_err("type", "unknown WriteField type: " + discriminator);
     return {};
 }

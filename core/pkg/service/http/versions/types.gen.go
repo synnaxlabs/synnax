@@ -89,17 +89,17 @@ type WriteFieldVariant = v2.WriteFieldVariant
 type WriteFieldType = v2.WriteFieldType
 
 const (
-	// WriteFieldTypeStatic places a fixed value in the request body.
-	WriteFieldTypeStatic WriteFieldType = v2.WriteFieldTypeStatic
-	// WriteFieldTypeGenerated places a freshly generated UUID or timestamp in the body.
-	WriteFieldTypeGenerated WriteFieldType = v2.WriteFieldTypeGenerated
+	// StaticWriteFieldType places a fixed value in the request body.
+	StaticWriteFieldType WriteFieldType = v2.StaticWriteFieldType
+	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the body.
+	GeneratedWriteFieldType WriteFieldType = v2.GeneratedWriteFieldType
 )
 
-// WriteFieldStatic places a fixed value in the request body.
-type WriteFieldStatic = v2.WriteFieldStatic
+// StaticWriteField places a fixed value in the request body.
+type StaticWriteField = v2.StaticWriteField
 
-// WriteFieldGenerated places a freshly generated UUID or timestamp in the body.
-type WriteFieldGenerated = v2.WriteFieldGenerated
+// GeneratedWriteField places a freshly generated UUID or timestamp in the body.
+type GeneratedWriteField = v2.GeneratedWriteField
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
 type WriteEndpoint = v2.WriteEndpoint

@@ -11,7 +11,7 @@
 // cpp/json plugins, so the header and its JSON codec cannot disagree on a name.
 package naming
 
-import "github.com/synnaxlabs/oracle/plugin/internal/casing"
+import "github.com/synnaxlabs/oracle/internal/casing"
 
 // VariantTypeName returns the C++ struct name for one variant of a discriminated
 // union (e.g. union "Scale" + value "linear" -> "ScaleLinear", union "AIChannel" +

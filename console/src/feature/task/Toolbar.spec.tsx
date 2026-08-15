@@ -106,7 +106,7 @@ const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unk
     const doc = await client.panels.retrieve(created.panelKey);
     assert(doc.root.variant === "leaf", "panel root is not a leaf");
     const tab = doc.root.tabs.find(
-      (t): t is panel.TabView => t.variant === "view" && t.type === type,
+      (t): t is panel.ViewTab => t.variant === "view" && t.type === type,
     );
     assertDefined(tab, `no ${type} tab was opened`);
     return tab.args;

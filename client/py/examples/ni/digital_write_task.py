@@ -57,7 +57,6 @@ tsk = sy.ni.DigitalWriteTask(
     # The mapping of the digital output channels on the device to the Synnax channels.
     channels=[
         sy.ni.DOChannelDigitalOutput(
-            type="digital_output",
             # The cmd channel will be used to send commands to the device.
             cmd_channel=do_1_cmd.key,
             # The state channel will be used to store the state of the digital output

@@ -49,7 +49,7 @@ struct InputChan {
     /// be provided via the JSON configuration.
     synnax::channel::Channel ch;
 
-    InputChan(const ::synnax::opc::InputChannel &parsed, x::json::Parser &parser):
+    InputChan(const ::synnax::opc::ReadChannel &parsed, x::json::Parser &parser):
         node(types::NodeId::parse("node_id", parser)), synnax_key(parsed.channel) {
         if (this->synnax_key == 0)
             parser.field_err("channel", "channel must be specified");
@@ -114,7 +114,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         array_size(parser.field<std::size_t>("array_size", 1)),
         samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](x::json::Parser &cp) {
-            const auto parsed = ::synnax::opc::InputChannel::parse(cp);
+            const auto parsed = ::synnax::opc::ReadChannel::parse(cp);
             if (parsed.disabled) return;
             channels.push_back(std::make_unique<InputChan>(parsed, cp));
         });

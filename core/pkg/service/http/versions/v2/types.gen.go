@@ -285,16 +285,16 @@ type BaseWriteField struct {
 type WriteFieldType string
 
 const (
-	WriteFieldTypeStatic    WriteFieldType = "static"
-	WriteFieldTypeGenerated WriteFieldType = "generated"
+	StaticWriteFieldType    WriteFieldType = "static"
+	GeneratedWriteFieldType WriteFieldType = "generated"
 )
 
 type WriteFieldVariant interface {
 	isWriteFieldVariant()
 }
 
-// WriteFieldStatic places a fixed value in the request body.
-type WriteFieldStatic struct {
+// StaticWriteField places a fixed value in the request body.
+type StaticWriteField struct {
 	BaseWriteField
 	// JSONType is the JSON type the value is serialized as.
 	JSONType JSONType `json:"json_type" msgpack:"json_type"`
@@ -302,25 +302,25 @@ type WriteFieldStatic struct {
 	Value any `json:"value" msgpack:"value"`
 }
 
-func (WriteFieldStatic) isWriteFieldVariant() {}
+func (StaticWriteField) isWriteFieldVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteFieldStatic) ApplyDefaults() {
-	if w.JSONType == "" {
-		w.JSONType = JSONTypeNumber
+func (s *StaticWriteField) ApplyDefaults() {
+	if s.JSONType == "" {
+		s.JSONType = JSONTypeNumber
 	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (w WriteFieldStatic) Validate() error {
-	v := validate.New("WriteFieldStatic")
-	v.Ternaryf("json_type", !w.JSONType.IsValid(), "invalid json_type: %v", w.JSONType)
+func (s StaticWriteField) Validate() error {
+	v := validate.New("StaticWriteField")
+	v.Ternaryf("json_type", !s.JSONType.IsValid(), "invalid json_type: %v", s.JSONType)
 	return v.Error()
 }
 
-// WriteFieldGenerated places a freshly generated UUID or timestamp in the body.
-type WriteFieldGenerated struct {
+// GeneratedWriteField places a freshly generated UUID or timestamp in the body.
+type GeneratedWriteField struct {
 	BaseWriteField
 	// Generator is the generator that produces a fresh value per request.
 	Generator GeneratorType `json:"generator" msgpack:"generator"`
@@ -328,20 +328,20 @@ type WriteFieldGenerated struct {
 	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
 }
 
-func (WriteFieldGenerated) isWriteFieldVariant() {}
+func (GeneratedWriteField) isWriteFieldVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteFieldGenerated) ApplyDefaults() {
-	if w.Generator == "" {
-		w.Generator = GeneratorTypeUUID
+func (g *GeneratedWriteField) ApplyDefaults() {
+	if g.Generator == "" {
+		g.Generator = GeneratorTypeUUID
 	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (w WriteFieldGenerated) Validate() error {
-	v := validate.New("WriteFieldGenerated")
-	v.Ternaryf("generator", !w.Generator.IsValid(), "invalid generator: %v", w.Generator)
+func (g GeneratedWriteField) Validate() error {
+	v := validate.New("GeneratedWriteField")
+	v.Ternaryf("generator", !g.Generator.IsValid(), "invalid generator: %v", g.Generator)
 	return v.Error()
 }
 
@@ -358,10 +358,10 @@ func (u WriteField) MarshalJSON() ([]byte, error) {
 	}
 	var t WriteFieldType
 	switch u.Variant.(type) {
-	case WriteFieldStatic:
-		t = WriteFieldTypeStatic
-	case WriteFieldGenerated:
-		t = WriteFieldTypeGenerated
+	case StaticWriteField:
+		t = StaticWriteFieldType
+	case GeneratedWriteField:
+		t = GeneratedWriteFieldType
 	default:
 		return nil, errors.Newf("WriteField: nil or unknown variant %T", u.Variant)
 	}
@@ -394,14 +394,14 @@ func (u *WriteField) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case WriteFieldTypeStatic:
-		var v WriteFieldStatic
+	case StaticWriteFieldType:
+		var v StaticWriteField
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case WriteFieldTypeGenerated:
-		var v WriteFieldGenerated
+	case GeneratedWriteFieldType:
+		var v GeneratedWriteField
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -416,10 +416,10 @@ func (u *WriteField) UnmarshalJSON(data []byte) error {
 // schema-declared defaults.
 func (u *WriteField) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
-	case WriteFieldStatic:
+	case StaticWriteField:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case WriteFieldGenerated:
+	case GeneratedWriteField:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
@@ -429,9 +429,9 @@ func (u *WriteField) ApplyDefaults() {
 // violates its schema constraints.
 func (u WriteField) Validate() error {
 	switch variant := u.Variant.(type) {
-	case WriteFieldStatic:
+	case StaticWriteField:
 		return variant.Validate()
-	case WriteFieldGenerated:
+	case GeneratedWriteField:
 		return variant.Validate()
 	}
 	return nil

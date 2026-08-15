@@ -90,15 +90,15 @@ tsk = sy.labjack.WriteTask(
     state_rate=sy.Rate.HZ * 20,  # Update state at 20 Hz
     channels=[
         # Analog output (DAC0) - voltage control
-        sy.labjack.OutputChannelAO(
-            type="AO",
+        sy.labjack.AnalogWriteChannel(
+            type="analog",
             port="DAC0",
             cmd_channel=dac0_cmd.key,
             state_channel=dac0_state.key,
         ),
         # Digital output (FIO4) - binary control
-        sy.labjack.OutputChannelDO(
-            type="DO",
+        sy.labjack.DigitalWriteChannel(
+            type="digital",
             port="FIO4",
             cmd_channel=fio4_cmd.key,
             state_channel=fio4_state.key,

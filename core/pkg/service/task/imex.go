@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -70,6 +71,10 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 
 var _ imex.Importer = (*Service)(nil)
 
+// retiredTypes are task types released builds created that no longer exist. An import
+// of one fails with a retirement message instead of "unknown task type".
+var retiredTypes = set.New("sequence", "heartbeat", "opcScanner", "Rack State")
+
 // Match always reports false: task files always carry a type header, so a typeless
 // body is never a task.
 func (*Service) Match(map[string]any) bool { return false }
@@ -91,6 +96,12 @@ func (s *Service) Import(
 ) (ontology.ID, error) {
 	store, ok := s.cfg.Configs.Store(env.Type)
 	if !ok {
+		if retiredTypes.Contains(env.Type) {
+			return ontology.ID{}, errors.Wrapf(
+				validate.ErrValidation,
+				"task type %q was removed and can no longer be imported", env.Type,
+			)
+		}
 		return ontology.ID{}, errors.Wrapf(
 			validate.ErrValidation, "unknown task type %q", env.Type,
 		)

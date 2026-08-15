@@ -340,7 +340,7 @@ task = ni.CounterReadTask(
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
     channels=[
-        ni.CIFrequencyChan(
+        ni.CIFrequencyChannel(
             channel=frequency_ch.key,
             device=counter_dev.key,
             port=0,
@@ -350,7 +350,7 @@ task = ni.CounterReadTask(
             edge="Rising",
             meas_method="DynAvg",
         ),
-        ni.CIEdgeCountChan(
+        ni.CIEdgeCountChannel(
             channel=edge_count_ch.key,
             device=counter_dev.key,
             port=1,
@@ -358,7 +358,7 @@ task = ni.CounterReadTask(
             count_direction="CountUp",
             initial_count=0,
         ),
-        ni.CIPositionAngularChan(
+        ni.CIPositionAngularChannel(
             channel=angular_pos_ch.key,
             device=counter_dev.key,
             port=2,

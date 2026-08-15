@@ -2575,12 +2575,12 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (cjc CJC) EncodeOrc(w *orc.Writer) error {
 	switch v := cjc.Variant.(type) {
-	case CJCBuiltIn:
+	case BuiltInCJC:
 		w.String("built_in")
-	case CJCConstVal:
+	case ConstValCJC:
 		w.String("const_val")
 		w.Float64(float64(v.Val))
-	case CJCChan:
+	case ChanCJC:
 		w.String("chan")
 		w.Int32(int32(v.Port))
 	default:
@@ -2597,16 +2597,16 @@ func (cjc *CJC) DecodeOrc(r *orc.Reader) error {
 	}
 	switch tag {
 	case "built_in":
-		var v CJCBuiltIn
+		var v BuiltInCJC
 		cjc.Variant = v
 	case "const_val":
-		var v CJCConstVal
+		var v ConstValCJC
 		if v.Val, err = r.Float64(); err != nil {
 			return err
 		}
 		cjc.Variant = v
 	case "chan":
-		var v CJCChan
+		var v ChanCJC
 		if v.Port, err = r.Int32(); err != nil {
 			return err
 		}
@@ -2725,122 +2725,90 @@ func (cs *CustomScale) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (dic DIChannel) EncodeOrc(w *orc.Writer) error {
-	switch v := dic.Variant.(type) {
-	case DigitalInputChannel:
-		w.String("digital_input")
-		w.String(v.Key)
-		w.String(v.Name)
-		w.Bool(v.Disabled)
-		w.Uint32(uint32(v.Channel))
-		w.Int32(int32(v.Port))
-		w.Int32(int32(v.Line))
-	default:
-		return errors.Newf("DIChannel: nil or unknown variant %T", dic.Variant)
-	}
+	w.String(dic.Key)
+	w.String(dic.Name)
+	w.Bool(dic.Disabled)
+	w.Uint32(uint32(dic.Channel))
+	w.Int32(int32(dic.Port))
+	w.Int32(int32(dic.Line))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (dic *DIChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
-	if err != nil {
+	var err error
+	if dic.Key, err = r.String(); err != nil {
 		return err
 	}
-	switch tag {
-	case "digital_input":
-		var v DigitalInputChannel
-		if v.Key, err = r.String(); err != nil {
+	if dic.Name, err = r.String(); err != nil {
+		return err
+	}
+	if dic.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
 			return err
 		}
-		if v.Name, err = r.String(); err != nil {
-			return err
-		}
-		if v.Disabled, err = r.Bool(); err != nil {
-			return err
-		}
-		{
-			rawV, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			v.Channel = channel.Key(rawV)
-		}
-		if v.Port, err = r.Int32(); err != nil {
-			return err
-		}
-		if v.Line, err = r.Int32(); err != nil {
-			return err
-		}
-		dic.Variant = v
-	default:
-		return errors.Newf("DIChannel: unknown variant %q", tag)
+		dic.Channel = channel.Key(rawV)
+	}
+	if dic.Port, err = r.Int32(); err != nil {
+		return err
+	}
+	if dic.Line, err = r.Int32(); err != nil {
+		return err
 	}
 	return nil
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (doc DOChannel) EncodeOrc(w *orc.Writer) error {
-	switch v := doc.Variant.(type) {
-	case DOChannelDigitalOutput:
-		w.String("digital_output")
-		w.String(v.Key)
-		w.Bool(v.Disabled)
-		w.Uint32(uint32(v.CmdChannel))
-		w.Uint32(uint32(v.StateChannel))
-		w.String(v.CmdChannelName)
-		w.String(v.StateChannelName)
-		w.Int32(int32(v.Port))
-		w.Int32(int32(v.Line))
-	default:
-		return errors.Newf("DOChannel: nil or unknown variant %T", doc.Variant)
-	}
+	w.String(doc.Key)
+	w.Bool(doc.Disabled)
+	w.Uint32(uint32(doc.CmdChannel))
+	w.Uint32(uint32(doc.StateChannel))
+	w.String(doc.CmdChannelName)
+	w.String(doc.StateChannelName)
+	w.Int32(int32(doc.Port))
+	w.Int32(int32(doc.Line))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (doc *DOChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
-	if err != nil {
+	var err error
+	if doc.Key, err = r.String(); err != nil {
 		return err
 	}
-	switch tag {
-	case "digital_output":
-		var v DOChannelDigitalOutput
-		if v.Key, err = r.String(); err != nil {
+	if doc.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
 			return err
 		}
-		if v.Disabled, err = r.Bool(); err != nil {
+		doc.CmdChannel = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
 			return err
 		}
-		{
-			rawV, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			v.CmdChannel = channel.Key(rawV)
-		}
-		{
-			rawV, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			v.StateChannel = channel.Key(rawV)
-		}
-		if v.CmdChannelName, err = r.String(); err != nil {
-			return err
-		}
-		if v.StateChannelName, err = r.String(); err != nil {
-			return err
-		}
-		if v.Port, err = r.Int32(); err != nil {
-			return err
-		}
-		if v.Line, err = r.Int32(); err != nil {
-			return err
-		}
-		doc.Variant = v
-	default:
-		return errors.Newf("DOChannel: unknown variant %q", tag)
+		doc.StateChannel = channel.Key(rawV)
+	}
+	if doc.CmdChannelName, err = r.String(); err != nil {
+		return err
+	}
+	if doc.StateChannelName, err = r.String(); err != nil {
+		return err
+	}
+	if doc.Port, err = r.Int32(); err != nil {
+		return err
+	}
+	if doc.Line, err = r.Int32(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -2978,76 +2946,6 @@ func (dwc *DigitalWriteConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (ls LinearScale) EncodeOrc(w *orc.Writer) error {
-	w.Float64(float64(ls.Slope))
-	w.Float64(float64(ls.YIntercept))
-	w.String(string(ls.PreScaledUnits))
-	w.String(ls.ScaledUnits)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ls *LinearScale) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if ls.Slope, err = r.Float64(); err != nil {
-		return err
-	}
-	if ls.YIntercept, err = r.Float64(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		ls.PreScaledUnits = Units(rawV)
-	}
-	if ls.ScaledUnits, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ms MapScale) EncodeOrc(w *orc.Writer) error {
-	w.Float64(float64(ms.PreScaledMin))
-	w.Float64(float64(ms.PreScaledMax))
-	w.Float64(float64(ms.ScaledMin))
-	w.Float64(float64(ms.ScaledMax))
-	w.String(string(ms.PreScaledUnits))
-	w.String(ms.ScaledUnits)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ms *MapScale) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if ms.PreScaledMin, err = r.Float64(); err != nil {
-		return err
-	}
-	if ms.PreScaledMax, err = r.Float64(); err != nil {
-		return err
-	}
-	if ms.ScaledMin, err = r.Float64(); err != nil {
-		return err
-	}
-	if ms.ScaledMax, err = r.Float64(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		ms.PreScaledUnits = Units(rawV)
-	}
-	if ms.ScaledUnits, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (mmv MinMaxVal) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(mmv.MinVal))
 	w.Float64(float64(mmv.MaxVal))
@@ -3061,91 +2959,6 @@ func (mmv *MinMaxVal) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if mmv.MaxVal, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ns NoneScale) EncodeOrc(w *orc.Writer) error {
-
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ns *NoneScale) DecodeOrc(r *orc.Reader) error {
-
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ps PolynomialScale) EncodeOrc(w *orc.Writer) error {
-	w.Bool(ps.ForwardCoeffs != nil)
-	if ps.ForwardCoeffs != nil {
-		w.Uint32(uint32(len(ps.ForwardCoeffs)))
-		for i := range ps.ForwardCoeffs {
-			w.Float64(float64(ps.ForwardCoeffs[i]))
-		}
-	}
-	w.Bool(ps.ReverseCoeffs != nil)
-	if ps.ReverseCoeffs != nil {
-		w.Uint32(uint32(len(ps.ReverseCoeffs)))
-		for i := range ps.ReverseCoeffs {
-			w.Float64(float64(ps.ReverseCoeffs[i]))
-		}
-	}
-	w.String(string(ps.PreScaledUnits))
-	w.String(ps.ScaledUnits)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ps *PolynomialScale) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			ps.ForwardCoeffs = make([]float64, n)
-			for i := range ps.ForwardCoeffs {
-				if ps.ForwardCoeffs[i], err = r.Float64(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			ps.ReverseCoeffs = make([]float64, n)
-			for i := range ps.ReverseCoeffs {
-				if ps.ReverseCoeffs[i], err = r.Float64(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		ps.PreScaledUnits = Units(rawV)
-	}
-	if ps.ScaledUnits, err = r.String(); err != nil {
 		return err
 	}
 	return nil
@@ -3172,31 +2985,58 @@ func (rv *Resistance) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (s Scale) EncodeOrc(w *orc.Writer) error {
 	switch v := s.Variant.(type) {
-	case ScaleLinear:
+	case LinearScale:
 		w.String("linear")
-		if err := v.LinearScale.EncodeOrc(w); err != nil {
-			return err
-		}
-	case ScaleMap:
+		w.Float64(float64(v.Slope))
+		w.Float64(float64(v.YIntercept))
+		w.String(string(v.PreScaledUnits))
+		w.String(v.ScaledUnits)
+	case MapScale:
 		w.String("map")
-		if err := v.MapScale.EncodeOrc(w); err != nil {
-			return err
-		}
-	case ScaleTable:
+		w.Float64(float64(v.PreScaledMin))
+		w.Float64(float64(v.PreScaledMax))
+		w.Float64(float64(v.ScaledMin))
+		w.Float64(float64(v.ScaledMax))
+		w.String(string(v.PreScaledUnits))
+		w.String(v.ScaledUnits)
+	case TableScale:
 		w.String("table")
-		if err := v.TableScale.EncodeOrc(w); err != nil {
-			return err
+		w.Bool(v.PreScaledVals != nil)
+		if v.PreScaledVals != nil {
+			w.Uint32(uint32(len(v.PreScaledVals)))
+			for i := range v.PreScaledVals {
+				w.Float64(float64(v.PreScaledVals[i]))
+			}
 		}
-	case ScalePolynomial:
+		w.Bool(v.ScaledVals != nil)
+		if v.ScaledVals != nil {
+			w.Uint32(uint32(len(v.ScaledVals)))
+			for i := range v.ScaledVals {
+				w.Float64(float64(v.ScaledVals[i]))
+			}
+		}
+		w.String(string(v.PreScaledUnits))
+		w.String(v.ScaledUnits)
+	case PolynomialScale:
 		w.String("polynomial")
-		if err := v.PolynomialScale.EncodeOrc(w); err != nil {
-			return err
+		w.Bool(v.ForwardCoeffs != nil)
+		if v.ForwardCoeffs != nil {
+			w.Uint32(uint32(len(v.ForwardCoeffs)))
+			for i := range v.ForwardCoeffs {
+				w.Float64(float64(v.ForwardCoeffs[i]))
+			}
 		}
-	case ScaleNone:
+		w.Bool(v.ReverseCoeffs != nil)
+		if v.ReverseCoeffs != nil {
+			w.Uint32(uint32(len(v.ReverseCoeffs)))
+			for i := range v.ReverseCoeffs {
+				w.Float64(float64(v.ReverseCoeffs[i]))
+			}
+		}
+		w.String(string(v.PreScaledUnits))
+		w.String(v.ScaledUnits)
+	case NoneScale:
 		w.String("none")
-		if err := v.NoneScale.EncodeOrc(w); err != nil {
-			return err
-		}
 	default:
 		return errors.Newf("Scale: nil or unknown variant %T", s.Variant)
 	}
@@ -3211,34 +3051,149 @@ func (s *Scale) DecodeOrc(r *orc.Reader) error {
 	}
 	switch tag {
 	case "linear":
-		var v ScaleLinear
-		if err := v.LinearScale.DecodeOrc(r); err != nil {
+		var v LinearScale
+		if v.Slope, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.YIntercept, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.PreScaledUnits = Units(rawV)
+		}
+		if v.ScaledUnits, err = r.String(); err != nil {
 			return err
 		}
 		s.Variant = v
 	case "map":
-		var v ScaleMap
-		if err := v.MapScale.DecodeOrc(r); err != nil {
+		var v MapScale
+		if v.PreScaledMin, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.PreScaledMax, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.ScaledMin, err = r.Float64(); err != nil {
+			return err
+		}
+		if v.ScaledMax, err = r.Float64(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.PreScaledUnits = Units(rawV)
+		}
+		if v.ScaledUnits, err = r.String(); err != nil {
 			return err
 		}
 		s.Variant = v
 	case "table":
-		var v ScaleTable
-		if err := v.TableScale.DecodeOrc(r); err != nil {
+		var v TableScale
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.PreScaledVals = make([]float64, n)
+				for i := range v.PreScaledVals {
+					if v.PreScaledVals[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.ScaledVals = make([]float64, n)
+				for i := range v.ScaledVals {
+					if v.ScaledVals[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.PreScaledUnits = Units(rawV)
+		}
+		if v.ScaledUnits, err = r.String(); err != nil {
 			return err
 		}
 		s.Variant = v
 	case "polynomial":
-		var v ScalePolynomial
-		if err := v.PolynomialScale.DecodeOrc(r); err != nil {
+		var v PolynomialScale
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.ForwardCoeffs = make([]float64, n)
+				for i := range v.ForwardCoeffs {
+					if v.ForwardCoeffs[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.ReverseCoeffs = make([]float64, n)
+				for i := range v.ReverseCoeffs {
+					if v.ReverseCoeffs[i], err = r.Float64(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.PreScaledUnits = Units(rawV)
+		}
+		if v.ScaledUnits, err = r.String(); err != nil {
 			return err
 		}
 		s.Variant = v
 	case "none":
-		var v ScaleNone
-		if err := v.NoneScale.DecodeOrc(r); err != nil {
-			return err
-		}
+		var v NoneScale
 		s.Variant = v
 	default:
 		return errors.Newf("Scale: unknown variant %q", tag)
@@ -3377,79 +3332,6 @@ func (t *Table) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ts TableScale) EncodeOrc(w *orc.Writer) error {
-	w.Bool(ts.PreScaledVals != nil)
-	if ts.PreScaledVals != nil {
-		w.Uint32(uint32(len(ts.PreScaledVals)))
-		for i := range ts.PreScaledVals {
-			w.Float64(float64(ts.PreScaledVals[i]))
-		}
-	}
-	w.Bool(ts.ScaledVals != nil)
-	if ts.ScaledVals != nil {
-		w.Uint32(uint32(len(ts.ScaledVals)))
-		for i := range ts.ScaledVals {
-			w.Float64(float64(ts.ScaledVals[i]))
-		}
-	}
-	w.String(string(ts.PreScaledUnits))
-	w.String(ts.ScaledUnits)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ts *TableScale) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			ts.PreScaledVals = make([]float64, n)
-			for i := range ts.PreScaledVals {
-				if ts.PreScaledVals[i], err = r.Float64(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			ts.ScaledVals = make([]float64, n)
-			for i := range ts.ScaledVals {
-				if ts.ScaledVals[i], err = r.Float64(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		ts.PreScaledUnits = Units(rawV)
-	}
-	if ts.ScaledUnits, err = r.String(); err != nil {
-		return err
 	}
 	return nil
 }

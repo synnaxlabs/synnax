@@ -266,12 +266,29 @@ var _ = Describe("ImEx", Ordered, func() {
 			func(ctx SpecContext) {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
-					[]byte(`{"type": "sequence", "name": "old sequence"}`),
+					[]byte(`{"type": "not_a_task", "name": "mystery"}`),
 					&env,
 				)).To(Succeed())
 				Expect(imexSvc.Import(
 					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
 				)).Error().To(MatchError(ContainSubstring("no importer registered")))
+			},
+		)
+
+		It(
+			"Should reject a retired task type with a retirement message",
+			func(ctx SpecContext) {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(`{"type": "sequence", "name": "old sequence"}`),
+					&env,
+				)).To(Succeed())
+				Expect(imexSvc.Import(
+					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
+				)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("was removed")),
+				))
 			},
 		)
 	})

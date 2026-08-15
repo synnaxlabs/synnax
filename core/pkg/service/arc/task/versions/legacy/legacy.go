@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package legacy marks the Arc task config shape released Consoles stored: {arcKey},
-// never exported to a file. It needs only era normalization.
+// Package legacy marks the Arc task config shape released Consoles stored and
+// exported: {arcKey}. It needs only era normalization.
 package legacy
 
 import "github.com/synnaxlabs/synnax/pkg/service/imex"

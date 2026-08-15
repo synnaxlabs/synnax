@@ -27,11 +27,11 @@ const client = createTestClient();
 const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(OPC.Task.Read, options);
 
-interface CreateInputChannelOverrides extends Partial<OPC.Task.InputChannel> {}
+interface CreateReadChannelOverrides extends Partial<OPC.Task.ReadChannel> {}
 
-const createInputChannel = (
-  overrides: CreateInputChannelOverrides = {},
-): OPC.Task.InputChannel => {
+const createReadChannel = (
+  overrides: CreateReadChannelOverrides = {},
+): OPC.Task.ReadChannel => {
   // Underscore-free so the device-properties record keys survive the server's
   // snake-to-camel decode untouched.
   const nodeName = uniqueName("node").replace(/_/g, "");
@@ -50,7 +50,7 @@ const createInputChannel = (
 
 const createReadConfig = (
   device: string,
-  channels: OPC.Task.InputChannel[],
+  channels: OPC.Task.ReadChannel[],
 ): OPC.Task.ReadPayload["config"] => ({
   ...OPC.Task.READ_SCHEMAS.config.parse({}),
   device,
@@ -70,8 +70,8 @@ const createDraft = async (client: Synnax, config: OPC.Task.ReadPayload["config"
 describe("OPC.Read", () => {
   it("should create channels under a new index on deploy", async () => {
     const dev = await createOPCDevice(client);
-    const chA = createInputChannel();
-    const chB = createInputChannel();
+    const chA = createReadChannel();
+    const chB = createReadChannel();
     const draft = await createDraft(client, createReadConfig(dev.key, [chA, chB]));
     const { container } = await renderRead({ client, taskKey: draft.key });
     await screen.findByText(new RegExp(chA.nodeName));
@@ -112,8 +112,8 @@ describe("OPC.Read", () => {
 
   it("should use the flagged timestamp channel as the index and reuse it on redeploy", async () => {
     const dev = await createOPCDevice(client);
-    const tsChannel = createInputChannel({ useAsIndex: true, dataType: "timestamp" });
-    const dataChannel = createInputChannel();
+    const tsChannel = createReadChannel({ useAsIndex: true, dataType: "timestamp" });
+    const dataChannel = createReadChannel();
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [tsChannel, dataChannel]),
@@ -167,7 +167,7 @@ describe("OPC.Read", () => {
 
   it("should swap the stream rate field for an array size field in array mode", async () => {
     const dev = await createOPCDevice(client);
-    const ch = createInputChannel();
+    const ch = createReadChannel();
     const draft = await createDraft(client, createReadConfig(dev.key, [ch]));
     await renderRead({ client, taskKey: draft.key });
     // The seeded channel appearing means the task row's config has loaded.

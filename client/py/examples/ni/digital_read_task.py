@@ -56,12 +56,8 @@ tsk = sy.ni.DigitalReadTask(
     stream_rate=sy.Rate.HZ * 25,
     # The list of physical channels we'd like to acquire data from.
     channels=[
-        sy.ni.DigitalInputChannel(
-            type="digital_input", channel=di_0.key, port=0, line=0
-        ),
-        sy.ni.DigitalInputChannel(
-            type="digital_input", channel=di_1.key, port=0, line=1
-        ),
+        sy.ni.DIChannel(channel=di_0.key, port=0, line=0),
+        sy.ni.DIChannel(channel=di_1.key, port=0, line=1),
     ],
 )
 

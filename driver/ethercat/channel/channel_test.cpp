@@ -43,7 +43,7 @@ TEST(Input, ResolvesAutomaticPdoFromSlaveProperties) {
     };
 
     auto parser = x::json::Parser(j);
-    const auto parsed = ::synnax::ethercat::parse_input_channel(parser);
+    const auto parsed = ::synnax::ethercat::parse_read_channel(parser);
     ASSERT_EQ(base(parsed).device, "dev-001");
     const auto ch = make_input(parsed, slave, parser);
 
@@ -82,7 +82,7 @@ TEST(Input, ReportsErrorWhenPdoNotFound) {
     };
 
     auto parser = x::json::Parser(j);
-    const auto parsed = ::synnax::ethercat::parse_input_channel(parser);
+    const auto parsed = ::synnax::ethercat::parse_read_channel(parser);
     make_input(parsed, slave, parser);
 
     ASSERT_FALSE(parser.ok());
@@ -103,7 +103,7 @@ TEST(Input, ParsesManualPdoAddressFromJson) {
     };
 
     auto parser = x::json::Parser(j);
-    const auto parsed = ::synnax::ethercat::parse_input_channel(parser);
+    const auto parsed = ::synnax::ethercat::parse_read_channel(parser);
     const auto ch = make_input(parsed, slave, parser);
 
     ASSERT_TRUE(parser.ok());
@@ -142,7 +142,7 @@ TEST(MakeInput, ResolvesAutomaticChannel) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_input(
-        ::synnax::ethercat::parse_input_channel(parser),
+        ::synnax::ethercat::parse_read_channel(parser),
         slave,
         parser
     );
@@ -169,7 +169,7 @@ TEST(MakeInput, BindsManualChannel) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_input(
-        ::synnax::ethercat::parse_input_channel(parser),
+        ::synnax::ethercat::parse_read_channel(parser),
         slave,
         parser
     );
@@ -191,7 +191,7 @@ TEST(MakeInput, ReportsErrorForUnknownType) {
     };
 
     auto parser = x::json::Parser(j);
-    ::synnax::ethercat::parse_input_channel(parser);
+    ::synnax::ethercat::parse_read_channel(parser);
 
     ASSERT_FALSE(parser.ok());
 }
@@ -227,7 +227,7 @@ TEST(Output, ResolvesAutomaticPdoFromSlaveProperties) {
     };
 
     auto parser = x::json::Parser(j);
-    const auto parsed = ::synnax::ethercat::parse_output_channel(parser);
+    const auto parsed = ::synnax::ethercat::parse_write_channel(parser);
     ASSERT_EQ(base(parsed).device, "dev-006");
     const auto ch = make_output(parsed, slave, parser);
 
@@ -267,7 +267,7 @@ TEST(Output, ReportsErrorWhenPdoNotFound) {
     };
 
     auto parser = x::json::Parser(j);
-    const auto parsed = ::synnax::ethercat::parse_output_channel(parser);
+    const auto parsed = ::synnax::ethercat::parse_write_channel(parser);
     make_output(parsed, slave, parser);
 
     ASSERT_FALSE(parser.ok());
@@ -290,7 +290,7 @@ TEST(Output, ParsesManualPdoAddressFromJson) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_output(
-        ::synnax::ethercat::parse_output_channel(parser),
+        ::synnax::ethercat::parse_write_channel(parser),
         slave,
         parser
     );
@@ -333,7 +333,7 @@ TEST(MakeOutput, ResolvesAutomaticChannel) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_output(
-        ::synnax::ethercat::parse_output_channel(parser),
+        ::synnax::ethercat::parse_write_channel(parser),
         slave,
         parser
     );
@@ -361,7 +361,7 @@ TEST(MakeOutput, BindsManualChannel) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_output(
-        ::synnax::ethercat::parse_output_channel(parser),
+        ::synnax::ethercat::parse_write_channel(parser),
         slave,
         parser
     );
@@ -383,7 +383,7 @@ TEST(MakeOutput, ReportsErrorForUnknownType) {
     };
 
     auto parser = x::json::Parser(j);
-    ::synnax::ethercat::parse_output_channel(parser);
+    ::synnax::ethercat::parse_write_channel(parser);
 
     ASSERT_FALSE(parser.ok());
 }
@@ -432,13 +432,13 @@ TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
 
     std::vector<std::unique_ptr<Input>> channels;
     channels.push_back(
-        make_input(::synnax::ethercat::parse_input_channel(parser1), slave1, parser1)
+        make_input(::synnax::ethercat::parse_read_channel(parser1), slave1, parser1)
     );
     channels.push_back(
-        make_input(::synnax::ethercat::parse_input_channel(parser2), slave2, parser2)
+        make_input(::synnax::ethercat::parse_read_channel(parser2), slave2, parser2)
     );
     channels.push_back(
-        make_input(::synnax::ethercat::parse_input_channel(parser3), slave3, parser3)
+        make_input(::synnax::ethercat::parse_read_channel(parser3), slave3, parser3)
     );
 
     sort_by_position(channels);
@@ -474,7 +474,7 @@ TEST(Channel, EnabledDefaultsToTrue) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_input(
-        ::synnax::ethercat::parse_input_channel(parser),
+        ::synnax::ethercat::parse_read_channel(parser),
         slave,
         parser
     );
@@ -507,7 +507,7 @@ TEST(Output, StateKeyDefaultsToZero) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_output(
-        ::synnax::ethercat::parse_output_channel(parser),
+        ::synnax::ethercat::parse_write_channel(parser),
         slave,
         parser
     );
@@ -540,7 +540,7 @@ TEST(Input, BindRemoteInfoCopiesChannelInformation) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_input(
-        ::synnax::ethercat::parse_input_channel(parser),
+        ::synnax::ethercat::parse_read_channel(parser),
         slave,
         parser
     );
@@ -582,7 +582,7 @@ TEST(Output, BindRemoteInfoCopiesStateChannelInformation) {
 
     auto parser = x::json::Parser(j);
     const auto ch = make_output(
-        ::synnax::ethercat::parse_output_channel(parser),
+        ::synnax::ethercat::parse_write_channel(parser),
         slave,
         parser
     );

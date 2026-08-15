@@ -86,12 +86,12 @@ tsk = sy.opc.ReadTask(
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_bool_0 and my_bool_1 in the OPC UA server
-        sy.opc.InputChannel(
+        sy.opc.ReadChannel(
             channel=my_bool_0.key,
             node_id="NS=2;I=13",
             data_type="bool",  # my_bool_0
         ),
-        sy.opc.InputChannel(
+        sy.opc.ReadChannel(
             channel=my_bool_1.key,
             node_id="NS=2;I=14",
             data_type="bool",  # my_bool_1

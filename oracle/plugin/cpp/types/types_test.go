@@ -2071,12 +2071,12 @@ var _ = Describe("C++ Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 
 				@doc value "determines how raw values are transformed."
 			}
@@ -2084,11 +2084,11 @@ var _ = Describe("C++ Union Generation", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
-					`struct ScaleLinear : public LinearScale {`,
+					`struct LinearScale : public LinearParams {`,
 					`std::string type = "linear";`,
-					`struct ScaleNone : public NoneScale {`,
+					`struct NoneScale : public NoneParams {`,
 					`std::string type = "none";`,
-					"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<ScaleLinear, ScaleNone>;",
+					"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<LinearScale, NoneScale>;",
 					`Scale parse_scale(x::json::Parser parser);`,
 					`[[nodiscard]] x::json::json to_json(const Scale& value);`,
 				)
@@ -2114,12 +2114,12 @@ var _ = Describe("C++ Union Generation", func() {
 			resp := MustGenerate(ctx, source, "panel", loader, cppPlugin)
 			content := ExpectContent(resp, "types.gen.h")
 			content.ToContain(
-				`struct TabView : public TabBase, public Labeled {`,
+				`struct ViewTab : public TabBase, public Labeled {`,
 				`std::string type;`,
-				`struct TabEmpty : public TabBase {`,
-				`using Tab = std::variant<TabView, TabEmpty>;`,
+				`struct EmptyTab : public TabBase {`,
+				`using Tab = std::variant<ViewTab, EmptyTab>;`,
 			)
-			content.ToNotContain("TabViewPayload")
+			content.ToNotContain("ViewTabPayload")
 		},
 	)
 
@@ -2139,8 +2139,8 @@ var _ = Describe("C++ Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			content := ExpectContent(resp, "types.gen.h")
-			content.ToContain(`struct DigitalInputChannel {`)
-			content.ToNotContain(`struct DigitalInputChannel : {`)
+			content.ToContain(`struct DigitalInputDIChannel {`)
+			content.ToNotContain(`struct DigitalInputDIChannel : {`)
 		},
 	)
 
@@ -2190,9 +2190,9 @@ var _ = Describe("C++ Union Generation", func() {
 			// reference held through a base type.
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
-					`struct InputChannelAI : public BaseInputChannel {`,
-					"InputChannelAI() {\n        this->port = \"AIN0\";\n    }",
-					"InputChannelDI() {\n        this->port = \"DIO4\";\n    }",
+					`struct AIInputChannel : public BaseInputChannel {`,
+					"AIInputChannel() {\n        this->port = \"AIN0\";\n    }",
+					"DIInputChannel() {\n        this->port = \"DIO4\";\n    }",
 				).
 				ToNotContain(`std::string port = "AIN0";`, `std::string port = "DIO4";`)
 		},
@@ -2234,12 +2234,12 @@ var _ = Describe("C++ Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -2258,12 +2258,12 @@ var _ = Describe("C++ Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 = 1 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 = 1 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -2272,7 +2272,7 @@ var _ = Describe("C++ Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
-				ToContain(`Scale custom_scale = ScaleNone{};`)
+				ToContain(`Scale custom_scale = NoneScale{};`)
 		},
 	)
 })
@@ -2294,12 +2294,12 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 			loader.Add("schemas/scale", `
 			@cpp output "client/cpp/scale"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none   NoneScale
+				linear LinearParams
+				none   NoneParams
 			}
 		`)
 			source := `
@@ -2326,19 +2326,19 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale {
+				linear LinearParams {
 					@doc value "a linear scale."
 				}
-				none NoneScale
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
-				ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear : public LinearScale {")
+				ToContain("/// @brief LinearScale a linear scale.", "struct LinearScale : public LinearParams {")
 		},
 	)
 

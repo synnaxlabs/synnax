@@ -66,13 +66,13 @@ func (p InsertTabsPayload) Handle(state Panel) (Panel, error) {
 	index := p.Index
 	changed := false
 	for _, tab := range p.Tabs {
-		if r, ok := tab.Variant.(TabResource); ok {
+		if r, ok := tab.Variant.(ResourceTab); ok {
 			if existing, found := findTabByResource(state.Root, r.Resource); found &&
 				existing.Key() != tab.Key() {
 				continue
 			}
 		}
-		if v, ok := tab.Variant.(TabView); ok && p.Singleton != nil && *p.Singleton {
+		if v, ok := tab.Variant.(ViewTab); ok && p.Singleton != nil && *p.Singleton {
 			if existing, found := findTabByType(state.Root, v.Type); found &&
 				existing.Key() != tab.Key() {
 				continue
@@ -83,7 +83,7 @@ func (p InsertTabsPayload) Handle(state Panel) (Panel, error) {
 			if err := updateLeafAt(
 				&state.Root,
 				existingLeaf,
-				func(leaf Leaf) (Leaf, error) {
+				func(leaf LeafNode) (LeafNode, error) {
 					tabs := append([]Tab{}, leaf.Tabs...)
 					tabs[existingIdx] = tab
 					leaf.Tabs = tabs
@@ -212,24 +212,28 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 	if !ok {
 		return Panel{}, errTabNotFound
 	}
-	if err := updateLeafAt(&state.Root, targetLeaf, func(leaf Leaf) (Leaf, error) {
-		idx := len(leaf.Tabs)
-		if p.Index != nil {
-			idx = int(*p.Index)
-			if srcLeaf == targetLeaf && srcIdx < idx {
-				idx--
+	if err := updateLeafAt(
+		&state.Root,
+		targetLeaf,
+		func(leaf LeafNode) (LeafNode, error) {
+			idx := len(leaf.Tabs)
+			if p.Index != nil {
+				idx = int(*p.Index)
+				if srcLeaf == targetLeaf && srcIdx < idx {
+					idx--
+				}
 			}
-		}
-		if idx < 0 || idx > len(leaf.Tabs) {
-			return Leaf{}, errIndexOutOfRange
-		}
-		tabs := make([]Tab, 0, len(leaf.Tabs)+1)
-		tabs = append(tabs, leaf.Tabs[:idx]...)
-		tabs = append(tabs, removed)
-		tabs = append(tabs, leaf.Tabs[idx:]...)
-		leaf.Tabs = tabs
-		return leaf, nil
-	}); err != nil {
+			if idx < 0 || idx > len(leaf.Tabs) {
+				return LeafNode{}, errIndexOutOfRange
+			}
+			tabs := make([]Tab, 0, len(leaf.Tabs)+1)
+			tabs = append(tabs, leaf.Tabs[:idx]...)
+			tabs = append(tabs, removed)
+			tabs = append(tabs, leaf.Tabs[idx:]...)
+			leaf.Tabs = tabs
+			return leaf, nil
+		},
+	); err != nil {
 		return Panel{}, err
 	}
 	collapseEmptyLeaves(&state.Root)
@@ -282,7 +286,7 @@ func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
 		state.Root,
 		pathDirections(p.Split),
 		func(n Node) (Node, error) {
-			split, ok := n.Variant.(NodeSplit)
+			split, ok := n.Variant.(SplitNode)
 			if !ok {
 				return Node{}, errors.New("node at path is not a split")
 			}
@@ -310,9 +314,9 @@ func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
 	if !ok {
 		return Panel{}, errTabNotFound
 	}
-	if err := updateLeafAt(&state.Root, path, func(leaf Leaf) (Leaf, error) {
+	if err := updateLeafAt(&state.Root, path, func(leaf LeafNode) (LeafNode, error) {
 		tabs := append([]Tab{}, leaf.Tabs...)
-		tabs[idx] = Tab{Variant: TabResource{
+		tabs[idx] = Tab{Variant: ResourceTab{
 			TabBase:  TabBase{Key: p.Key},
 			Resource: p.Resource,
 		}}
@@ -331,9 +335,9 @@ func (p SetTabViewPayload) Handle(state Panel) (Panel, error) {
 	if !ok {
 		return Panel{}, errTabNotFound
 	}
-	if err := updateLeafAt(&state.Root, path, func(leaf Leaf) (Leaf, error) {
+	if err := updateLeafAt(&state.Root, path, func(leaf LeafNode) (LeafNode, error) {
 		tabs := append([]Tab{}, leaf.Tabs...)
-		tabs[idx] = Tab{Variant: TabView{
+		tabs[idx] = Tab{Variant: ViewTab{
 			TabBase: TabBase{Key: p.Key},
 			View:    p.View,
 		}}

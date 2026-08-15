@@ -186,18 +186,18 @@ class ChannelField(BaseModel):
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
 
-class WriteFieldStatic(BaseWriteField):
+class StaticWriteField(BaseWriteField):
     """Places a fixed value in the request body."""
 
-    type: Literal["static"]
+    type: Literal["static"] = "static"
     json_type: JSONType = "number"
     value: Any
 
 
-class WriteFieldGenerated(BaseWriteField):
+class GeneratedWriteField(BaseWriteField):
     """Places a freshly generated UUID or timestamp in the body."""
 
-    type: Literal["generated"]
+    type: Literal["generated"] = "generated"
     generator: GeneratorType = "uuid"
     time_format: TimeFormat | None = None
 
@@ -205,7 +205,7 @@ class WriteFieldGenerated(BaseWriteField):
 # Is an additional body field on a write endpoint. The type field selects
 # whether the value is fixed or generated per request.
 WriteField = Annotated[
-    Union[WriteFieldStatic, WriteFieldGenerated],
+    Union[StaticWriteField, GeneratedWriteField],
     Field(discriminator="type"),
 ]
 

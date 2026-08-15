@@ -20,14 +20,14 @@ import {
 } from "@/feature/ethercat/task/configure";
 import {
   channelMapKey,
-  createInputChannel,
+  createReadChannel,
   deployReadConfigZ,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
-  type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
+  type ReadChannel,
   type ReadSchemas,
   resolvePDODataType,
 } from "@/feature/ethercat/task/types";
@@ -46,7 +46,7 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<InputChannel>(path);
+  const ch = PForm.useFieldValue<ReadChannel>(path);
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -66,10 +66,10 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => (
-  <Task.Views.ListAndDetails<InputChannel>
+  <Task.Views.ListAndDetails<ReadChannel>
     listItem={listItem}
     details={channelDetails}
-    createChannel={createInputChannel}
+    createChannel={createReadChannel}
     contextMenuItems={Task.readChannelContextMenuItem}
   />
 );
@@ -88,7 +88,7 @@ const READ_INDEX_OPTIONS = {
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<InputChannel>(client, config.channels);
+    await retrieveAndValidateSlaves<ReadChannel>(client, config.channels);
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];

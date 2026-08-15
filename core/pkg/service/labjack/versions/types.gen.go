@@ -37,6 +37,20 @@ const (
 	ThermocoupleTypeC ThermocoupleType = v2.ThermocoupleTypeC
 )
 
+// Scale determines how raw sensor values are transformed to engineering units.
+type Scale = v2.Scale
+type ScaleVariant = v2.ScaleVariant
+type ScaleType = v2.ScaleType
+
+const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
+	LinearScaleType ScaleType = v2.LinearScaleType
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = v2.MapScaleType
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = v2.NoneScaleType
+)
+
 // LinearScale maps raw values to engineering units with a slope and offset.
 type LinearScale = v2.LinearScale
 
@@ -46,69 +60,54 @@ type MapScale = v2.MapScale
 // NoneScale applies no scaling; the raw value is used directly.
 type NoneScale = v2.NoneScale
 
-// Scale determines how raw sensor values are transformed to engineering units.
-type Scale = v2.Scale
-type ScaleVariant = v2.ScaleVariant
-type ScaleType = v2.ScaleType
+// BaseReadChannel carries the fields every LabJack read channel shares.
+type BaseReadChannel = v2.BaseReadChannel
 
-const (
-	ScaleTypeLinear ScaleType = v2.ScaleTypeLinear
-	ScaleTypeMap    ScaleType = v2.ScaleTypeMap
-	ScaleTypeNone   ScaleType = v2.ScaleTypeNone
-)
-
-type ScaleLinear = v2.ScaleLinear
-type ScaleMap = v2.ScaleMap
-type ScaleNone = v2.ScaleNone
-
-// BaseInputChannel carries the fields every LabJack input channel shares.
-type BaseInputChannel = v2.BaseInputChannel
-
-// InputChannel is a single LabJack input channel. The type field selects the input mode
+// ReadChannel is a single LabJack read channel. The type field selects the input mode
 // and the fields that accompany it.
-type InputChannel = v2.InputChannel
-type InputChannelVariant = v2.InputChannelVariant
-type InputChannelType = v2.InputChannelType
+type ReadChannel = v2.ReadChannel
+type ReadChannelVariant = v2.ReadChannelVariant
+type ReadChannelType = v2.ReadChannelType
 
 const (
-	// InputChannelTypeAI reads a voltage from an analog input port.
-	InputChannelTypeAI InputChannelType = v2.InputChannelTypeAI
-	// InputChannelTypeDI reads a digital input line.
-	InputChannelTypeDI InputChannelType = v2.InputChannelTypeDI
-	// InputChannelTypeTc reads temperature from a thermocouple.
-	InputChannelTypeTc InputChannelType = v2.InputChannelTypeTc
+	// AnalogReadChannelType reads a voltage from an analog input port.
+	AnalogReadChannelType ReadChannelType = v2.AnalogReadChannelType
+	// DigitalReadChannelType reads a digital input line.
+	DigitalReadChannelType ReadChannelType = v2.DigitalReadChannelType
+	// ThermocoupleReadChannelType reads temperature from a thermocouple.
+	ThermocoupleReadChannelType ReadChannelType = v2.ThermocoupleReadChannelType
 )
 
-// InputChannelAI reads a voltage from an analog input port.
-type InputChannelAI = v2.InputChannelAI
+// AnalogReadChannel reads a voltage from an analog input port.
+type AnalogReadChannel = v2.AnalogReadChannel
 
-// InputChannelDI reads a digital input line.
-type InputChannelDI = v2.InputChannelDI
+// DigitalReadChannel reads a digital input line.
+type DigitalReadChannel = v2.DigitalReadChannel
 
-// InputChannelTc reads temperature from a thermocouple.
-type InputChannelTc = v2.InputChannelTc
+// ThermocoupleReadChannel reads temperature from a thermocouple.
+type ThermocoupleReadChannel = v2.ThermocoupleReadChannel
 
-// BaseOutputChannel carries the fields every LabJack output channel shares.
-type BaseOutputChannel = v2.BaseOutputChannel
+// BaseWriteChannel carries the fields every LabJack write channel shares.
+type BaseWriteChannel = v2.BaseWriteChannel
 
-// OutputChannel is a single LabJack output channel. The type field selects the output
+// WriteChannel is a single LabJack write channel. The type field selects the output
 // mode.
-type OutputChannel = v2.OutputChannel
-type OutputChannelVariant = v2.OutputChannelVariant
-type OutputChannelType = v2.OutputChannelType
+type WriteChannel = v2.WriteChannel
+type WriteChannelVariant = v2.WriteChannelVariant
+type WriteChannelType = v2.WriteChannelType
 
 const (
-	// OutputChannelTypeAO drives an analog output on a DAC port.
-	OutputChannelTypeAO OutputChannelType = v2.OutputChannelTypeAO
-	// OutputChannelTypeDO drives a digital output line on a DIO port.
-	OutputChannelTypeDO OutputChannelType = v2.OutputChannelTypeDO
+	// AnalogWriteChannelType drives an analog output on a DAC port.
+	AnalogWriteChannelType WriteChannelType = v2.AnalogWriteChannelType
+	// DigitalWriteChannelType drives a digital output line on a DIO port.
+	DigitalWriteChannelType WriteChannelType = v2.DigitalWriteChannelType
 )
 
-// OutputChannelAO drives an analog output on a DAC port.
-type OutputChannelAO = v2.OutputChannelAO
+// AnalogWriteChannel drives an analog output on a DAC port.
+type AnalogWriteChannel = v2.AnalogWriteChannel
 
-// OutputChannelDO drives a digital output line on a DIO port.
-type OutputChannelDO = v2.OutputChannelDO
+// DigitalWriteChannel drives a digital output line on a DIO port.
+type DigitalWriteChannel = v2.DigitalWriteChannel
 
 // ReadConfig configures a LabJack read task.
 type ReadConfig = v2.ReadConfig

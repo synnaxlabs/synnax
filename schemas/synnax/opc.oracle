@@ -43,7 +43,7 @@ BaseChannel struct {
     @go version 1
 }
 
-InputChannel struct extends BaseChannel {
+ReadChannel struct extends BaseChannel {
     channel      channel.Key = 0 {
         @doc value "is the Synnax channel that samples are written to."
     }
@@ -55,7 +55,7 @@ InputChannel struct extends BaseChannel {
     @go version 1
 }
 
-OutputChannel struct extends BaseChannel {
+WriteChannel struct extends BaseChannel {
     cmd_channel channel.Key = 0 {
         @doc value "is the Synnax channel commands are read from."
     }
@@ -76,7 +76,7 @@ ReadConfig struct extends task.BaseReadConfig {
     array_size  int32 = 1 {
         @doc value "is the number of samples in each array when array_mode is true."
     }
-    channels    InputChannel[] {
+    channels    ReadChannel[] {
         @doc value "are the OPC UA nodes the task acquires."
     }
 
@@ -87,7 +87,7 @@ ReadConfig struct extends task.BaseReadConfig {
 }
 
 WriteConfig struct extends task.BaseWriteConfig {
-    channels OutputChannel[] {
+    channels WriteChannel[] {
         @doc value "are the OPC UA nodes the task drives."
     }
 

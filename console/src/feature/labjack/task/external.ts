@@ -15,8 +15,8 @@ import { type Task } from "@/platform/task";
 
 export * from "@/feature/labjack/task/commands";
 export * from "@/feature/labjack/task/Read";
-export * from "@/feature/labjack/task/SelectInputChannelTypeField";
-export * from "@/feature/labjack/task/SelectOutputChannelType";
+export * from "@/feature/labjack/task/SelectReadChannelTypeField";
+export * from "@/feature/labjack/task/SelectWriteChannelType";
 export * from "@/feature/labjack/task/types";
 export * from "@/feature/labjack/task/Write";
 

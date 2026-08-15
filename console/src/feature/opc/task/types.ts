@@ -16,9 +16,9 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "opc";
 
-export interface InputChannel extends opc.InputChannel {}
-export interface OutputChannel extends opc.OutputChannel {}
-export type Channel = InputChannel | OutputChannel;
+export interface ReadChannel extends opc.ReadChannel {}
+export interface WriteChannel extends opc.WriteChannel {}
+export type Channel = ReadChannel | WriteChannel;
 
 const validateNodeIDs = ({
   value: channels,
@@ -47,7 +47,7 @@ const readConfigZ = opc.readConfigZ;
 const validateIndexChannels = ({
   value: channels,
   issues,
-}: z.core.ParsePayload<InputChannel[]>) => {
+}: z.core.ParsePayload<ReadChannel[]>) => {
   const indexChannelIndexes = channels
     .map(({ useAsIndex }, i) => (useAsIndex ? i : -1))
     .filter((i) => i !== -1);
@@ -66,7 +66,7 @@ export const deployReadConfigZ = opc.readConfigZ
   .extend({
     device: Task.deviceKeyZ,
     sampleRate: z.number().positive().max(10000),
-    channels: opc.inputChannelZ
+    channels: opc.readChannelZ
       .array()
       .check(Task.validateReadChannels)
       .check(validateNodeIDs)
@@ -118,7 +118,7 @@ const writeConfigZ = opc.writeConfigZ;
 
 export const deployWriteConfigZ = opc.writeConfigZ.extend({
   device: Task.deviceKeyZ,
-  channels: opc.outputChannelZ
+  channels: opc.writeChannelZ
     .array()
     .check(Task.validateChannels)
     .check(({ value: channels, issues }) => {

@@ -33,7 +33,7 @@ struct OutputChan {
     /// be provided via the JSON configuration.
     synnax::channel::Channel ch;
 
-    OutputChan(const ::synnax::opc::OutputChannel &parsed, x::json::Parser &parser):
+    OutputChan(const ::synnax::opc::WriteChannel &parsed, x::json::Parser &parser):
         node(types::NodeId::parse("node_id", parser)), cmd_channel(parsed.cmd_channel) {
         if (this->cmd_channel == 0)
             parser.field_err("cmd_channel", "channel must be specified");
@@ -53,7 +53,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     ):
         common::BaseWriteTaskConfig(parser) {
         parser.iter("channels", [&](x::json::Parser &cp) {
-            const auto parsed = ::synnax::opc::OutputChannel::parse(cp);
+            const auto parsed = ::synnax::opc::WriteChannel::parse(cp);
             if (parsed.disabled) return;
             channels[parsed.cmd_channel] = std::make_unique<OutputChan>(parsed, cp);
         });

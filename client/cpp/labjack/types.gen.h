@@ -24,11 +24,8 @@
 
 namespace synnax::labjack {
 
-struct LinearScale;
-struct MapScale;
-struct NoneScale;
-struct BaseInputChannel;
-struct BaseOutputChannel;
+struct BaseReadChannel;
+struct BaseWriteChannel;
 struct ScanConfig;
 struct WriteConfig;
 struct ReadConfig;
@@ -47,41 +44,8 @@ constexpr const char *THERMOCOUPLE_TYPE_B = "B";
 constexpr const char *THERMOCOUPLE_TYPE_E = "E";
 constexpr const char *THERMOCOUPLE_TYPE_C = "C";
 
-/// @brief LinearScale maps raw values to engineering units with a slope and offset.
-struct LinearScale {
-    /// @brief slope is the multiplier applied to the raw value.
-    double slope = 1;
-    /// @brief offset is the offset added after scaling.
-    double offset = 0;
-
-    static LinearScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief MapScale maps a raw range linearly onto a scaled range.
-struct MapScale {
-    /// @brief pre_scaled_min is the lower bound of the raw input range.
-    double pre_scaled_min = 0;
-    /// @brief pre_scaled_max is the upper bound of the raw input range.
-    double pre_scaled_max = 1;
-    /// @brief scaled_min is the lower bound of the scaled output range.
-    double scaled_min = 0;
-    /// @brief scaled_max is the upper bound of the scaled output range.
-    double scaled_max = 1;
-
-    static MapScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief NoneScale applies no scaling; the raw value is used directly.
-struct NoneScale {
-
-    static NoneScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief BaseInputChannel carries the fields every LabJack input channel shares.
-struct BaseInputChannel {
+/// @brief BaseReadChannel carries the fields every LabJack read channel shares.
+struct BaseReadChannel {
     /// @brief key uniquely identifies the channel within the task.
     std::string key = "";
     /// @brief name is the human-readable channel name.
@@ -93,12 +57,12 @@ struct BaseInputChannel {
     /// @brief port is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
     std::string port = "";
 
-    static BaseInputChannel parse(x::json::Parser parser);
+    static BaseReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseOutputChannel carries the fields every LabJack output channel shares.
-struct BaseOutputChannel {
+/// @brief BaseWriteChannel carries the fields every LabJack write channel shares.
+struct BaseWriteChannel {
     /// @brief key uniquely identifies the channel within the task.
     std::string key = "";
     /// @brief disabled is true when the channel is excluded from the task.
@@ -114,7 +78,7 @@ struct BaseOutputChannel {
     /// @brief port is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
     std::string port = "";
 
-    static BaseOutputChannel parse(x::json::Parser parser);
+    static BaseWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -129,63 +93,78 @@ struct ScanConfig : public ::synnax::task::config::BaseScan {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-struct ScaleLinear : public LinearScale {
+/// @brief LinearScale maps raw values to engineering units with a slope and offset.
+struct LinearScale {
     std::string type = "linear";
+    /// @brief slope is the multiplier applied to the raw value.
+    double slope = 1;
+    /// @brief offset is the offset added after scaling.
+    double offset = 0;
 
-    static ScaleLinear parse(x::json::Parser parser);
+    static LinearScale parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-struct ScaleMap : public MapScale {
+/// @brief MapScale maps a raw range linearly onto a scaled range.
+struct MapScale {
     std::string type = "map";
+    /// @brief pre_scaled_min is the lower bound of the raw input range.
+    double pre_scaled_min = 0;
+    /// @brief pre_scaled_max is the upper bound of the raw input range.
+    double pre_scaled_max = 1;
+    /// @brief scaled_min is the lower bound of the scaled output range.
+    double scaled_min = 0;
+    /// @brief scaled_max is the upper bound of the scaled output range.
+    double scaled_max = 1;
 
-    static ScaleMap parse(x::json::Parser parser);
+    static MapScale parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-struct ScaleNone : public NoneScale {
+/// @brief NoneScale applies no scaling; the raw value is used directly.
+struct NoneScale {
     std::string type = "none";
 
-    static ScaleNone parse(x::json::Parser parser);
+    static NoneScale parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief Scale determines how raw sensor values are transformed to engineering units.
-using Scale = std::variant<ScaleLinear, ScaleMap, ScaleNone>;
+using Scale = std::variant<LinearScale, MapScale, NoneScale>;
 
 Scale parse_scale(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Scale &value);
 
-/// @brief OutputChannelAO drives an analog output on a DAC port.
-struct OutputChannelAO : public BaseOutputChannel {
-    std::string type = "AO";
+/// @brief AnalogWriteChannel drives an analog output on a DAC port.
+struct AnalogWriteChannel : public BaseWriteChannel {
+    std::string type = "analog";
 
-    OutputChannelAO() { this->port = "DAC0"; }
+    AnalogWriteChannel() { this->port = "DAC0"; }
 
-    static OutputChannelAO parse(x::json::Parser parser);
+    static AnalogWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief OutputChannelDO drives a digital output line on a DIO port.
-struct OutputChannelDO : public BaseOutputChannel {
-    std::string type = "DO";
+/// @brief DigitalWriteChannel drives a digital output line on a DIO port.
+struct DigitalWriteChannel : public BaseWriteChannel {
+    std::string type = "digital";
 
-    OutputChannelDO() { this->port = "DIO4"; }
+    DigitalWriteChannel() { this->port = "DIO4"; }
 
-    static OutputChannelDO parse(x::json::Parser parser);
+    static DigitalWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief OutputChannel is a single LabJack output channel. The type field selects the
+/// @brief WriteChannel is a single LabJack write channel. The type field selects the
 /// output mode.
-using OutputChannel = std::variant<OutputChannelAO, OutputChannelDO>;
+using WriteChannel = std::variant<AnalogWriteChannel, DigitalWriteChannel>;
 
-OutputChannel parse_output_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const OutputChannel &value);
+WriteChannel parse_write_channel(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteChannel &value);
 
-/// @brief InputChannelAI reads a voltage from an analog input port.
-struct InputChannelAI : public BaseInputChannel {
-    std::string type = "AI";
+/// @brief AnalogReadChannel reads a voltage from an analog input port.
+struct AnalogReadChannel : public BaseReadChannel {
+    std::string type = "analog";
     /// @brief range is the upper bound of the voltage input range, in volts.
     double range = 10;
     /// @brief neg_chan is the negative channel for differential readings on T7 devices.
@@ -193,27 +172,27 @@ struct InputChannelAI : public BaseInputChannel {
     /// selects single-ended.
     std::int32_t neg_chan = 199;
     /// @brief scale is the scale applied to raw samples after acquisition.
-    Scale scale;
+    Scale scale = NoneScale{};
 
-    InputChannelAI() { this->port = "AIN0"; }
+    AnalogReadChannel() { this->port = "AIN0"; }
 
-    static InputChannelAI parse(x::json::Parser parser);
+    static AnalogReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputChannelDI reads a digital input line.
-struct InputChannelDI : public BaseInputChannel {
-    std::string type = "DI";
+/// @brief DigitalReadChannel reads a digital input line.
+struct DigitalReadChannel : public BaseReadChannel {
+    std::string type = "digital";
 
-    InputChannelDI() { this->port = "DIO4"; }
+    DigitalReadChannel() { this->port = "DIO4"; }
 
-    static InputChannelDI parse(x::json::Parser parser);
+    static DigitalReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputChannelTc reads temperature from a thermocouple.
-struct InputChannelTc : public BaseInputChannel {
-    std::string type = "TC";
+/// @brief ThermocoupleReadChannel reads temperature from a thermocouple.
+struct ThermocoupleReadChannel : public BaseReadChannel {
+    std::string type = "thermocouple";
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_K;
     /// @brief pos_chan is the AIN port the thermocouple's positive lead is wired to.
@@ -234,28 +213,29 @@ struct InputChannelTc : public BaseInputChannel {
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_KELVIN;
     /// @brief scale is the scale applied to raw samples after acquisition.
-    Scale scale;
+    Scale scale = NoneScale{};
 
-    InputChannelTc() { this->port = "AIN0"; }
+    ThermocoupleReadChannel() { this->port = "AIN0"; }
 
-    static InputChannelTc parse(x::json::Parser parser);
+    static ThermocoupleReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputChannel is a single LabJack input channel. The type field selects the
+/// @brief ReadChannel is a single LabJack read channel. The type field selects the
 /// input mode and the fields that accompany it.
-using InputChannel = std::variant<InputChannelAI, InputChannelDI, InputChannelTc>;
+using ReadChannel = std::
+    variant<AnalogReadChannel, DigitalReadChannel, ThermocoupleReadChannel>;
 
-InputChannel parse_input_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const InputChannel &value);
+ReadChannel parse_read_channel(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ReadChannel &value);
 
 /// @brief WriteConfig configures a LabJack write task.
 struct WriteConfig : public ::synnax::task::config::BaseWrite {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(10);
-    /// @brief channels are the output channels the task drives.
-    std::vector<OutputChannel> channels;
+    /// @brief channels are the channels the task drives.
+    std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -265,8 +245,8 @@ struct WriteConfig : public ::synnax::task::config::BaseWrite {
 struct ReadConfig : public ::synnax::task::config::BaseRead {
     /// @brief device is the key of the device the task acquires from.
     ::synnax::device::Key device = "";
-    /// @brief channels are the input channels the task acquires.
-    std::vector<InputChannel> channels;
+    /// @brief channels are the channels the task acquires.
+    std::vector<ReadChannel> channels;
     /// @brief device_scan_backlog_warn_on_count is the device-side scan backlog above
     /// which
     /// the task reports a skew warning. Zero lets the driver pick two seconds of scans.

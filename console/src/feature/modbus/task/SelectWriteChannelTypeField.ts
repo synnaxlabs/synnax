@@ -11,28 +11,28 @@ import { modbus } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import { type OutputChannelType } from "@/feature/modbus/task/types";
+import { type WriteChannelType } from "@/feature/modbus/task/types";
 
-export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
+export interface WriteChannelTypeEntry extends record.KeyedNamed<WriteChannelType> {}
 
-const NAMES: Record<OutputChannelType, string> = {
-  coil_output: "Coil",
-  holding_register_output: "Holding Register",
+const NAMES: Record<WriteChannelType, string> = {
+  coil: "Coil",
+  holding_register: "Holding Register",
 };
 
-const DATA: OutputChannelTypeEntry[] = modbus.OUTPUT_CHANNEL_TYPES.map((key) => ({
+const DATA: WriteChannelTypeEntry[] = modbus.WRITE_CHANNEL_TYPES.map((key) => ({
   key,
   name: NAMES[key],
 }));
 
-export interface SelectOutputChannelTypeFieldProps extends Omit<
-  Form.SelectFieldProps<OutputChannelType, OutputChannelTypeEntry>,
+export interface SelectWriteChannelTypeFieldProps extends Omit<
+  Form.SelectFieldProps<WriteChannelType, WriteChannelTypeEntry>,
   "data" | "entryRenderKey" | "columns"
 > {}
 
-export const SelectOutputChannelTypeField = Form.buildSelectField<
-  OutputChannelType,
-  OutputChannelTypeEntry
+export const SelectWriteChannelTypeField = Form.buildSelectField<
+  WriteChannelType,
+  WriteChannelTypeEntry
 >({
   fieldKey: "type",
   fieldProps: {

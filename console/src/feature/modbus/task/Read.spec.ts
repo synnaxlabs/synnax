@@ -68,10 +68,10 @@ describe("Modbus.Read", () => {
     expect(config.device).toBe(dev.key);
     expect(config.channels).toHaveLength(2);
     const [coil, register] = config.channels;
-    expect(coil.type).toBe("coil_input");
+    expect(coil.type).toBe("coil");
     expect(coil.address).toBe(0);
     expect(coil.channel).not.toBe(0);
-    expect(register.type).toBe("register_input");
+    expect(register.type).toBe("input_register");
     expect(register.address).toBe(1);
     expect(register.channel).not.toBe(0);
 

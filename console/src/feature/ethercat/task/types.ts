@@ -16,26 +16,19 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
 
-export type InputChannel = ethercat.InputChannel;
+export type ReadChannel = ethercat.ReadChannel;
 
-export const INPUT_CHANNEL_SCHEMAS = {
-  automatic: ethercat.inputChannelAutomaticZ,
-  manual: ethercat.inputChannelManualZ,
-} as const;
+export const READ_CHANNEL_SCHEMAS = ethercat.READ_CHANNEL_SCHEMAS;
 
-export type OutputChannel = ethercat.OutputChannel;
+export type WriteChannel = ethercat.WriteChannel;
 
-export const OUTPUT_CHANNEL_SCHEMAS = {
-  automatic: ethercat.outputChannelAutomaticZ,
-  manual: ethercat.outputChannelManualZ,
-} as const;
+export const WRITE_CHANNEL_SCHEMAS = ethercat.WRITE_CHANNEL_SCHEMAS;
 
-export type Channel = InputChannel | OutputChannel;
+export type Channel = ReadChannel | WriteChannel;
 
 export type ChannelMode = Channel["type"];
 
-export type ChannelSchemas =
-  typeof INPUT_CHANNEL_SCHEMAS | typeof OUTPUT_CHANNEL_SCHEMAS;
+export type ChannelSchemas = typeof READ_CHANNEL_SCHEMAS | typeof WRITE_CHANNEL_SCHEMAS;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
@@ -101,22 +94,22 @@ export const channelMapKey = (ch: Channel): string => {
   return `manual_${ch.index}_${ch.subIndex}`;
 };
 
-/** Creates a new input channel, copying from the last channel if available. */
-export const createInputChannel = (channels: InputChannel[]): InputChannel => {
+/** Creates a new read channel, copying from the last channel if available. */
+export const createReadChannel = (channels: ReadChannel[]): ReadChannel => {
   if (channels.length === 0)
     return {
-      ...INPUT_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
+      ...READ_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
       key: id.create(),
     };
   const last = channels[channels.length - 1];
   return { ...last, ...Task.READ_CHANNEL_OVERRIDE, key: id.create() };
 };
 
-/** Creates a new output channel, copying from the last channel if available. */
-export const createOutputChannel = (channels: OutputChannel[]): OutputChannel => {
+/** Creates a new write channel, copying from the last channel if available. */
+export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
   if (channels.length === 0)
     return {
-      ...OUTPUT_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
+      ...WRITE_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
       key: id.create(),
     };
   const last = channels[channels.length - 1];

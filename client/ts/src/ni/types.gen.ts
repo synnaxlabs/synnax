@@ -15,39 +15,6 @@ import { channel } from "@/channel";
 import { device } from "@/device";
 import { task } from "@/task";
 
-export const UNITS = [
-  "Volts",
-  "Amps",
-  "DegF",
-  "DegC",
-  "DegR",
-  "Kelvins",
-  "Strain",
-  "Ohms",
-  "Hz",
-  "Seconds",
-  "Meters",
-  "Inches",
-  "Degrees",
-  "Radians",
-  "g",
-  "MetersPerSecondSquared",
-  "Newtons",
-  "Pounds",
-  "KilogramForce",
-  "PoundsPerSquareInch",
-  "Bar",
-  "Pascals",
-  "VoltsPerVolt",
-  "mVoltsPerVolt",
-  "NewtonMeters",
-  "InchPounds",
-  "InchOunces",
-  "FootPounds",
-] as const;
-export const unitsZ = z.enum(UNITS);
-export type Units = z.infer<typeof unitsZ>;
-
 export const TERMINAL_CONFIGS = [
   "Cfg_Default",
   "RSE",
@@ -82,6 +49,39 @@ export const Z_INDEX_PHASES = [
 ] as const;
 export const zIndexPhaseZ = z.enum(Z_INDEX_PHASES);
 export type ZIndexPhase = z.infer<typeof zIndexPhaseZ>;
+
+export const UNITS = [
+  "Volts",
+  "Amps",
+  "DegF",
+  "DegC",
+  "DegR",
+  "Kelvins",
+  "Strain",
+  "Ohms",
+  "Hz",
+  "Seconds",
+  "Meters",
+  "Inches",
+  "Degrees",
+  "Radians",
+  "g",
+  "MetersPerSecondSquared",
+  "Newtons",
+  "Pounds",
+  "KilogramForce",
+  "PoundsPerSquareInch",
+  "Bar",
+  "Pascals",
+  "VoltsPerVolt",
+  "mVoltsPerVolt",
+  "NewtonMeters",
+  "InchPounds",
+  "InchOunces",
+  "FootPounds",
+] as const;
+export const unitsZ = z.enum(UNITS);
+export type Units = z.infer<typeof unitsZ>;
 
 export const ACCEL_SENSITIVITY_UNITS = ["mVoltsPerG", "VoltsPerG"] as const;
 export const accelSensitivityUnitsZ = z.enum(ACCEL_SENSITIVITY_UNITS);
@@ -179,7 +179,7 @@ export const CI_MEAS_METHODS = [
 export const ciMeasMethodZ = z.enum(CI_MEAS_METHODS);
 export type CIMeasMethod = z.infer<typeof ciMeasMethodZ>;
 
-export const CI_FREQ_UNITS = ["Hz", "Ticks"] as const;
+export const CI_FREQ_UNITS = ["Hz", "Seconds", "Ticks"] as const;
 export const ciFreqUnitsZ = z.enum(CI_FREQ_UNITS);
 export type CIFreqUnits = z.infer<typeof ciFreqUnitsZ>;
 
@@ -218,78 +218,6 @@ export type CIAngularPositionUnits = z.infer<typeof ciAngularPositionUnitsZ>;
 export const WAVE_TYPES = ["Sine", "Triangle", "Square", "Sawtooth"] as const;
 export const waveTypeZ = z.enum(WAVE_TYPES);
 export type WaveType = z.infer<typeof waveTypeZ>;
-
-/** LinearScale maps raw values to engineering units with a slope and intercept. */
-export const linearScaleZ = z.object({
-  /** slope is the multiplier applied to the raw value. */
-  slope: z.number().default(1),
-  /** yIntercept is the offset added after scaling. */
-  yIntercept: z.number().default(0),
-  /** preScaledUnits are the units of the raw value before scaling. */
-  preScaledUnits: unitsZ.default("Volts"),
-  /** scaledUnits are the units of the value after scaling. */
-  scaledUnits: z.string().default("Volts"),
-});
-export interface LinearScale extends z.infer<typeof linearScaleZ> {}
-
-/** MapScale maps a raw range linearly onto a scaled range. */
-export const mapScaleZ = z.object({
-  /** preScaledMin is the lower bound of the raw input range. */
-  preScaledMin: z.number().default(0),
-  /** preScaledMax is the upper bound of the raw input range. */
-  preScaledMax: z.number().default(1),
-  /** scaledMin is the lower bound of the scaled output range. */
-  scaledMin: z.number().default(0),
-  /** scaledMax is the upper bound of the scaled output range. */
-  scaledMax: z.number().default(1),
-  /** preScaledUnits are the units of the raw value before scaling. */
-  preScaledUnits: unitsZ.default("Volts"),
-  /** scaledUnits are the units of the value after scaling. */
-  scaledUnits: z.string().default("Volts"),
-});
-export interface MapScale extends z.infer<typeof mapScaleZ> {}
-
-/** TableScale maps raw values to engineering units via a lookup table. */
-export const tableScaleZ = z.object({
-  /** preScaledVals are the raw breakpoints, monotonically increasing. */
-  preScaledVals: z
-    .number()
-    .array()
-    .default(() => []),
-  /** scaledVals are the engineering-unit values at each breakpoint. */
-  scaledVals: z
-    .number()
-    .array()
-    .default(() => []),
-  /** preScaledUnits are the units of the raw values before scaling. */
-  preScaledUnits: unitsZ.default("Volts"),
-  /** scaledUnits are the units of the values after scaling. */
-  scaledUnits: z.string().default("Volts"),
-});
-export interface TableScale extends z.infer<typeof tableScaleZ> {}
-
-/** NoneScale applies no scaling; the raw value is used directly. */
-export const noneScaleZ = z.object({});
-export interface NoneScale extends z.infer<typeof noneScaleZ> {}
-
-/** PolynomialScale maps raw values to engineering units with a polynomial. */
-export const polynomialScaleZ = z.object({
-  /** forwardCoeffs are the coefficients mapping pre-scaled to scaled values. */
-  forwardCoeffs: z
-    .number()
-    .array()
-    .default(() => []),
-  /** reverseCoeffs are the coefficients mapping scaled to pre-scaled values. */
-  reverseCoeffs: z
-    .number()
-    .array()
-    .default(() => []),
-  /** preScaledUnits are the units of the raw value before scaling. */
-  preScaledUnits: unitsZ.default("Volts"),
-  /** scaledUnits are the units of the value after scaling. */
-  scaledUnits: z.string().default("Volts"),
-});
-export interface PolynomialScale extends z.infer<typeof polynomialScaleZ> {}
 
 /** MinMaxVal bounds the expected signal range in scaled units. */
 export const minMaxValZ = z.object({
@@ -472,64 +400,8 @@ export const baseAOChannelZ = z.object({
 });
 export interface BaseAOChannel extends z.infer<typeof baseAOChannelZ> {}
 
-export const writeConfigZ = task.baseWriteConfigZ.extend({
-  stateRate: z.number().default(10),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-export const scanConfigZ = task.baseScanConfigZ.extend({
-  ignoredModels: z.string().array().default(["^cRIO.*", "^nown.*"]),
-});
-export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
-
-/** CJCBuiltIn reads the reference temperature from the device's own sensor. */
-export const cjcBuiltInZ = z.object({
-  source: z.literal("built_in"),
-});
-export interface CJCBuiltIn extends z.infer<typeof cjcBuiltInZ> {}
-
-/** CJCConstVal uses a fixed reference temperature. */
-export const cjcConstValZ = z.object({
-  source: z.literal("const_val"),
-  /** val is the reference temperature, in the channel's units. */
-  val: z.number().default(0),
-});
-export interface CJCConstVal extends z.infer<typeof cjcConstValZ> {}
-
-/** CJCChan reads the reference temperature from another channel. */
-export const cjcChanZ = z.object({
-  source: z.literal("chan"),
-  /** port is the port of the channel that measures the reference. */
-  port: z.int32().default(0),
-});
-export interface CJCChan extends z.infer<typeof cjcChanZ> {}
-
-export const CJC_TYPES = ["built_in", "const_val", "chan"] as const;
-export const cjcTypeZ = z.enum(CJC_TYPES);
-export type CJCType = z.infer<typeof cjcTypeZ>;
-
-/**
- * CJC is the cold-junction compensation for a thermocouple. The source selects where
- * the reference temperature comes from.
- */
-export const cjcZ = z.discriminatedUnion("source", [
-  cjcBuiltInZ,
-  cjcConstValZ,
-  cjcChanZ,
-]);
-export type CJC = CJCBuiltIn | CJCConstVal | CJCChan;
-
-export const CJC_SCHEMAS: {
-  [K in CJCType]: z.ZodType<Extract<CJC, { source: K }>>;
-} = {
-  built_in: cjcBuiltInZ,
-  const_val: cjcConstValZ,
-  chan: cjcChanZ,
-};
-
-/** DigitalInputChannel carries the fields of an NI digital input channel. */
-export const digitalInputChannelZ = z.object({
-  type: z.literal("digital_input"),
+/** DIChannel is a digital input channel the task acquires from. */
+export const diChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(""),
   /** name is the human-readable channel name. */
@@ -543,25 +415,10 @@ export const digitalInputChannelZ = z.object({
   /** line is the digital line within the port the channel reads from. */
   line: z.int32().default(0),
 });
-export interface DigitalInputChannel extends z.infer<typeof digitalInputChannelZ> {}
+export interface DIChannel extends z.infer<typeof diChannelZ> {}
 
-export const DI_CHANNEL_TYPES = ["digital_input"] as const;
-export const diChannelTypeZ = z.enum(DI_CHANNEL_TYPES);
-export type DIChannelType = z.infer<typeof diChannelTypeZ>;
-
-/** DIChannel is a digital input channel the task acquires from. */
-export const diChannelZ = z.discriminatedUnion("type", [digitalInputChannelZ]);
-export type DIChannel = DigitalInputChannel;
-
-export const DI_CHANNEL_SCHEMAS: {
-  [K in DIChannelType]: z.ZodType<Extract<DIChannel, { type: K }>>;
-} = {
-  digital_input: digitalInputChannelZ,
-};
-
-/** DOChannelDigitalOutput carries the fields of an NI digital output channel. */
-export const doChannelDigitalOutputZ = z.object({
-  type: z.literal("digital_output"),
+/** DOChannel is a digital output channel the task drives. */
+export const doChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(""),
   /** disabled is true when the channel is excluded from the task. */
@@ -579,48 +436,140 @@ export const doChannelDigitalOutputZ = z.object({
   /** line is the digital line within the port the channel writes to. */
   line: z.int32().default(0),
 });
-export interface DOChannelDigitalOutput extends z.infer<
-  typeof doChannelDigitalOutputZ
-> {}
+export interface DOChannel extends z.infer<typeof doChannelZ> {}
 
-export const DO_CHANNEL_TYPES = ["digital_output"] as const;
-export const doChannelTypeZ = z.enum(DO_CHANNEL_TYPES);
-export type DOChannelType = z.infer<typeof doChannelTypeZ>;
+export const writeConfigZ = task.baseWriteConfigZ.extend({
+  stateRate: z.number().default(10),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-/** DOChannel is a digital output channel the task drives. */
-export const doChannelZ = z.discriminatedUnion("type", [doChannelDigitalOutputZ]);
-export type DOChannel = DOChannelDigitalOutput;
+export const scanConfigZ = task.baseScanConfigZ.extend({
+  ignoredModels: z.string().array().default(["^cRIO.*", "^nown.*"]),
+});
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-export const DO_CHANNEL_SCHEMAS: {
-  [K in DOChannelType]: z.ZodType<Extract<DOChannel, { type: K }>>;
+/** BuiltInCJC reads the reference temperature from the device's own sensor. */
+export const builtInCJCZ = z.object({
+  source: z.literal("built_in"),
+});
+export interface BuiltInCJC extends z.infer<typeof builtInCJCZ> {}
+
+/** ConstValCJC uses a fixed reference temperature. */
+export const constValCJCZ = z.object({
+  source: z.literal("const_val"),
+  /** val is the reference temperature, in the channel's units. */
+  val: z.number().default(0),
+});
+export interface ConstValCJC extends z.infer<typeof constValCJCZ> {}
+
+/** ChanCJC reads the reference temperature from another channel. */
+export const chanCJCZ = z.object({
+  source: z.literal("chan"),
+  /** port is the port of the channel that measures the reference. */
+  port: z.int32().default(0),
+});
+export interface ChanCJC extends z.infer<typeof chanCJCZ> {}
+
+export const CJC_TYPES = ["built_in", "const_val", "chan"] as const;
+export const cjcTypeZ = z.enum(CJC_TYPES);
+export type CJCType = z.infer<typeof cjcTypeZ>;
+
+/**
+ * CJC is the cold-junction compensation for a thermocouple. The source selects where
+ * the reference temperature comes from.
+ */
+export const cjcZ = z.discriminatedUnion("source", [
+  builtInCJCZ,
+  constValCJCZ,
+  chanCJCZ,
+]);
+export type CJC = BuiltInCJC | ConstValCJC | ChanCJC;
+
+export const CJC_SCHEMAS: {
+  [K in CJCType]: z.ZodType<Extract<CJC, { source: K }>>;
 } = {
-  digital_output: doChannelDigitalOutputZ,
+  built_in: builtInCJCZ,
+  const_val: constValCJCZ,
+  chan: chanCJCZ,
 };
 
-export const scaleLinearZ = linearScaleZ.extend({
+/** LinearScale maps raw values to engineering units with a slope and intercept. */
+export const linearScaleZ = z.object({
   type: z.literal("linear"),
+  /** slope is the multiplier applied to the raw value. */
+  slope: z.number().default(1),
+  /** yIntercept is the offset added after scaling. */
+  yIntercept: z.number().default(0),
+  /** preScaledUnits are the units of the raw value before scaling. */
+  preScaledUnits: unitsZ.default("Volts"),
+  /** scaledUnits are the units of the value after scaling. */
+  scaledUnits: z.string().default("Volts"),
 });
-export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}
+export interface LinearScale extends z.infer<typeof linearScaleZ> {}
 
-export const scaleMapZ = mapScaleZ.extend({
+/** MapScale maps a raw range linearly onto a scaled range. */
+export const mapScaleZ = z.object({
   type: z.literal("map"),
+  /** preScaledMin is the lower bound of the raw input range. */
+  preScaledMin: z.number().default(0),
+  /** preScaledMax is the upper bound of the raw input range. */
+  preScaledMax: z.number().default(1),
+  /** scaledMin is the lower bound of the scaled output range. */
+  scaledMin: z.number().default(0),
+  /** scaledMax is the upper bound of the scaled output range. */
+  scaledMax: z.number().default(1),
+  /** preScaledUnits are the units of the raw value before scaling. */
+  preScaledUnits: unitsZ.default("Volts"),
+  /** scaledUnits are the units of the value after scaling. */
+  scaledUnits: z.string().default("Volts"),
 });
-export interface ScaleMap extends z.infer<typeof scaleMapZ> {}
+export interface MapScale extends z.infer<typeof mapScaleZ> {}
 
-export const scaleTableZ = tableScaleZ.extend({
+/** TableScale maps raw values to engineering units via a lookup table. */
+export const tableScaleZ = z.object({
   type: z.literal("table"),
+  /** preScaledVals are the raw breakpoints, monotonically increasing. */
+  preScaledVals: z
+    .number()
+    .array()
+    .default(() => []),
+  /** scaledVals are the engineering-unit values at each breakpoint. */
+  scaledVals: z
+    .number()
+    .array()
+    .default(() => []),
+  /** preScaledUnits are the units of the raw values before scaling. */
+  preScaledUnits: unitsZ.default("Volts"),
+  /** scaledUnits are the units of the values after scaling. */
+  scaledUnits: z.string().default("Volts"),
 });
-export interface ScaleTable extends z.infer<typeof scaleTableZ> {}
+export interface TableScale extends z.infer<typeof tableScaleZ> {}
 
-export const scalePolynomialZ = polynomialScaleZ.extend({
+/** PolynomialScale maps raw values to engineering units with a polynomial. */
+export const polynomialScaleZ = z.object({
   type: z.literal("polynomial"),
+  /** forwardCoeffs are the coefficients mapping pre-scaled to scaled values. */
+  forwardCoeffs: z
+    .number()
+    .array()
+    .default(() => []),
+  /** reverseCoeffs are the coefficients mapping scaled to pre-scaled values. */
+  reverseCoeffs: z
+    .number()
+    .array()
+    .default(() => []),
+  /** preScaledUnits are the units of the raw value before scaling. */
+  preScaledUnits: unitsZ.default("Volts"),
+  /** scaledUnits are the units of the value after scaling. */
+  scaledUnits: z.string().default("Volts"),
 });
-export interface ScalePolynomial extends z.infer<typeof scalePolynomialZ> {}
+export interface PolynomialScale extends z.infer<typeof polynomialScaleZ> {}
 
-export const scaleNoneZ = noneScaleZ.extend({
+/** NoneScale applies no scaling; the raw value is used directly. */
+export const noneScaleZ = z.object({
   type: z.literal("none"),
 });
-export interface ScaleNone extends z.infer<typeof scaleNoneZ> {}
+export interface NoneScale extends z.infer<typeof noneScaleZ> {}
 
 export const SCALE_TYPES = ["linear", "map", "table", "polynomial", "none"] as const;
 export const scaleTypeZ = z.enum(SCALE_TYPES);
@@ -628,22 +577,22 @@ export type ScaleType = z.infer<typeof scaleTypeZ>;
 
 /** Scale determines how raw sensor values are transformed to engineering units. */
 export const scaleZ = z.discriminatedUnion("type", [
-  scaleLinearZ,
-  scaleMapZ,
-  scaleTableZ,
-  scalePolynomialZ,
-  scaleNoneZ,
+  linearScaleZ,
+  mapScaleZ,
+  tableScaleZ,
+  polynomialScaleZ,
+  noneScaleZ,
 ]);
-export type Scale = ScaleLinear | ScaleMap | ScaleTable | ScalePolynomial | ScaleNone;
+export type Scale = LinearScale | MapScale | TableScale | PolynomialScale | NoneScale;
 
 export const SCALE_SCHEMAS: {
   [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;
 } = {
-  linear: scaleLinearZ,
-  map: scaleMapZ,
-  table: scaleTableZ,
-  polynomial: scalePolynomialZ,
-  none: scaleNoneZ,
+  linear: linearScaleZ,
+  map: mapScaleZ,
+  table: tableScaleZ,
+  polynomial: polynomialScaleZ,
+  none: noneScaleZ,
 };
 
 export const digitalReadConfigZ = task.baseReadConfigZ.extend({

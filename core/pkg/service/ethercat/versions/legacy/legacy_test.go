@@ -17,35 +17,12 @@ import (
 )
 
 var _ = Describe("Read", func() {
-	It("Should normalize both sub-index spellings", func() {
+	It("Should normalize the sub-index spelling", func() {
 		in := msgpack.EncodedJSON{
-			"channels": []any{
-				map[string]any{"subindex": float64(1)},
-				map[string]any{
-					"address": map[string]any{"subIndex": float64(2)},
-				},
-			},
+			"channels": []any{map[string]any{"subindex": float64(1)}},
 		}
 		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
-			"channels": []any{
-				map[string]any{"sub_index": float64(1)},
-				map[string]any{
-					"address": map[string]any{"sub_index": float64(2)},
-				},
-			},
-		}))
-	})
-
-	It("Should normalize the lowercase spelling inside an address", func() {
-		in := msgpack.EncodedJSON{
-			"channels": []any{map[string]any{
-				"address": map[string]any{"subindex": float64(3)},
-			}},
-		}
-		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
-			"channels": []any{map[string]any{
-				"address": map[string]any{"sub_index": float64(3)},
-			}},
+			"channels": []any{map[string]any{"sub_index": float64(1)}},
 		}))
 	})
 })

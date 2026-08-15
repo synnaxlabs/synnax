@@ -13,6 +13,7 @@
       "name": "fixture_lj_ain2",
       "type": "AI",
       "port": "AIN2",
+      "negChan": 3,
       "range": 4.5,
       "scale": { "type": "linear", "slope": 2.25, "offset": -1.125 }
     },

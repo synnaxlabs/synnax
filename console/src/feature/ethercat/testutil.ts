@@ -20,16 +20,16 @@ import {
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
 import {
-  INPUT_CHANNEL_SCHEMAS,
-  type InputChannel,
-  OUTPUT_CHANNEL_SCHEMAS,
-  type OutputChannel,
+  READ_CHANNEL_SCHEMAS,
+  type ReadChannel,
+  WRITE_CHANNEL_SCHEMAS,
+  type WriteChannel,
 } from "@/feature/ethercat/task/types";
 
-type AutoInputChannel = Extract<InputChannel, { type: "automatic" }>;
-type ManualInputChannel = Extract<InputChannel, { type: "manual" }>;
-type AutoOutputChannel = Extract<OutputChannel, { type: "automatic" }>;
-type ManualOutputChannel = Extract<OutputChannel, { type: "manual" }>;
+type AutoReadChannel = Extract<ReadChannel, { type: "automatic" }>;
+type ManualReadChannel = Extract<ReadChannel, { type: "manual" }>;
+type AutoWriteChannel = Extract<WriteChannel, { type: "automatic" }>;
+type ManualWriteChannel = Extract<WriteChannel, { type: "manual" }>;
 
 /** Builds a cluster-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
@@ -46,12 +46,12 @@ export const createPDOs = (): PDOs => ({
 });
 
 /** Builds an automatic (PDO-driven) input channel bound to a slave device. */
-export const createAutoInputChannel = (
+export const createAutoReadChannel = (
   device: string,
   pdo: string,
-  overrides: Partial<AutoInputChannel> = {},
-): AutoInputChannel => ({
-  ...INPUT_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
+  overrides: Partial<AutoReadChannel> = {},
+): AutoReadChannel => ({
+  ...READ_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
   key: id.create(),
   device,
   pdo,
@@ -59,13 +59,13 @@ export const createAutoInputChannel = (
 });
 
 /** Builds a manual (address-driven) input channel bound to a slave device. */
-export const createManualInputChannel = (
+export const createManualReadChannel = (
   device: string,
   index: number,
   subIndex: number,
-  overrides: Partial<ManualInputChannel> = {},
-): ManualInputChannel => ({
-  ...INPUT_CHANNEL_SCHEMAS.manual.parse({ type: "manual" }),
+  overrides: Partial<ManualReadChannel> = {},
+): ManualReadChannel => ({
+  ...READ_CHANNEL_SCHEMAS.manual.parse({ type: "manual" }),
   key: id.create(),
   device,
   index,
@@ -74,12 +74,12 @@ export const createManualInputChannel = (
 });
 
 /** Builds an automatic (PDO-driven) output channel bound to a slave device. */
-export const createAutoOutputChannel = (
+export const createAutoWriteChannel = (
   device: string,
   pdo: string,
-  overrides: Partial<AutoOutputChannel> = {},
-): AutoOutputChannel => ({
-  ...OUTPUT_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
+  overrides: Partial<AutoWriteChannel> = {},
+): AutoWriteChannel => ({
+  ...WRITE_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
   key: id.create(),
   device,
   pdo,
@@ -87,13 +87,13 @@ export const createAutoOutputChannel = (
 });
 
 /** Builds a manual (address-driven) output channel bound to a slave device. */
-export const createManualOutputChannel = (
+export const createManualWriteChannel = (
   device: string,
   index: number,
   subIndex: number,
-  overrides: Partial<ManualOutputChannel> = {},
-): ManualOutputChannel => ({
-  ...OUTPUT_CHANNEL_SCHEMAS.manual.parse({ type: "manual" }),
+  overrides: Partial<ManualWriteChannel> = {},
+): ManualWriteChannel => ({
+  ...WRITE_CHANNEL_SCHEMAS.manual.parse({ type: "manual" }),
   key: id.create(),
   device,
   index,

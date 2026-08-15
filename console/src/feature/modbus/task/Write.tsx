@@ -25,14 +25,14 @@ import { type FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
-import { SelectOutputChannelTypeField } from "@/feature/modbus/task/SelectOutputChannelTypeField";
+import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
   deployWriteConfigZ,
-  OUTPUT_CHANNEL_SCHEMAS,
-  type OutputChannel,
-  type OutputChannelType,
+  WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
+  type WriteChannel,
+  type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/modbus/task/types";
 import { ContextMenu } from "@/platform/context-menu";
@@ -53,19 +53,19 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const { type, channel } = PForm.useFieldValue<OutputChannel>(path);
+  const { type, channel } = PForm.useFieldValue<WriteChannel>(path);
   return (
     <Select.ListItem {...props} justify="between" align="center" x full="x">
       <Flex.Box x pack className={CSS.B("channel-item")}>
-        <SelectOutputChannelTypeField
+        <SelectWriteChannelTypeField
           path={path}
           onChange={(value, { get, set, path }) => {
-            const prevType = get<OutputChannelType>(path).value;
+            const prevType = get<WriteChannelType>(path).value;
             if (prevType === value) return;
-            const next = OUTPUT_CHANNEL_SCHEMAS[value].parse({ type: value });
+            const next = WRITE_CHANNEL_SCHEMAS[value].parse({ type: value });
             const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<OutputChannel>(parentPath).value;
-            const schema = OUTPUT_CHANNEL_SCHEMAS[value];
+            const prevParent = get<WriteChannel>(parentPath).value;
+            const schema = WRITE_CHANNEL_SCHEMAS[value];
             set(parentPath, {
               ...deep.overrideValidItems(next, prevParent, schema),
               type: value,
@@ -79,7 +79,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           showHelpText={false}
           path={`${path}.address`}
         />
-        {type === "holding_register_output" && (
+        {type === "holding_register" && (
           <PForm.Field<string>
             path={`${path}.dataType`}
             showLabel={false}
@@ -108,10 +108,10 @@ const renderTelemSelectDataType = Component.renderProp(
   ),
 );
 
-const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
+const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
   if (channels.length === 0)
     return {
-      ...OUTPUT_CHANNEL_SCHEMAS.coil_output.parse({ type: "coil_output" }),
+      ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
   const channelToCopy = channels[channels.length - 1];
@@ -125,7 +125,7 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-interface ContextMenuItemProps extends Task.ContextMenuItemProps<OutputChannel> {}
+interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
   if (keys.length !== 1) return null;
@@ -144,15 +144,22 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const Form: FC = () => (
-  <Task.Views.List<OutputChannel>
+  <Task.Views.List<WriteChannel>
     createChannel={getOpenChannel}
     listItem={listItem}
     contextMenuItems={contextMenuItems}
   />
 );
 
-const writeMapKey = (channel: OutputChannel) =>
-  `${channel.type}-${channel.address.toString()}`.replace("_", "-");
+// Auto-generated channel names and device map keys keep the released type
+// spellings, so channels created before the labels were renamed keep matching.
+const NAME_TYPES: Record<WriteChannelType, string> = {
+  coil: "coil_output",
+  holding_register: "holding_register_output",
+};
+
+const writeMapKey = (channel: WriteChannel) =>
+  `${NAME_TYPES[channel.type]}-${channel.address.toString()}`.replace("_", "-");
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => {
   const config = WRITE_SCHEMAS.config.parse({});
@@ -168,7 +175,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  const commandsToCreate: OutputChannel[] = [];
+  const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {
     const key = writeMapKey(channel);
     const existing = dev.properties.write.channels[key];
@@ -190,7 +197,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       commandsToCreate.map((c) => ({
         name: primitive.isNonZero(c.name)
           ? `${c.name}_time`
-          : `${safeName}_${c.type}_${c.address}_cmd_time`,
+          : `${safeName}_${NAME_TYPES[c.type]}_${c.address}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
@@ -199,8 +206,8 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       commandsToCreate.map((c, i) => ({
         name: primitive.isNonZero(c.name)
           ? c.name
-          : `${safeName}_${c.type}_${c.address}_cmd`,
-        dataType: c.type === "holding_register_output" ? c.dataType : "uint8",
+          : `${safeName}_${NAME_TYPES[c.type]}_${c.address}_cmd`,
+        dataType: c.type === "holding_register" ? c.dataType : "uint8",
         index: commandIndexes[i].key,
       })),
     );
