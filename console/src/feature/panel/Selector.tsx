@@ -226,7 +226,7 @@ const CreateButton = (): ReactElement => {
       {...dropProps}
     >
       <Icon.Add />
-      {selected == null && "New Panel"}
+      {selected == null && "Create panel"}
     </Button.Button>
   );
 };
