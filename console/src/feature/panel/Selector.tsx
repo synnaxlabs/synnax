@@ -20,13 +20,14 @@ import {
   Haul,
   Icon,
   Menu,
+  Mosaic,
   Panel,
   Synnax,
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import {
@@ -35,6 +36,12 @@ import {
   PILL_HAUL_TYPE,
 } from "@/feature/panel/haul";
 import { useCreate } from "@/feature/panel/useCreate";
+import { type Dwell, useDwell } from "@/feature/panel/useDwell";
+import {
+  type TabOrigin,
+  useMoveTab,
+  useMoveTabToNewPanel,
+} from "@/feature/panel/useMoveTab";
 import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -92,21 +99,70 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
   );
 };
 
+// Only a tab dragged out of a mosaic can be dropped onto the strip. A pill dragged
+// along the strip is a window gesture, resolved over the desktop.
+const canDropTab: Haul.CanDrop = ({ items }) =>
+  items.length === 1 && Mosaic.isTabDropHaulItem(items[0]);
+
+interface TabDropReturn extends Haul.UseDropReturn {
+  onDragLeave: () => void;
+  /** Class marking the target as the one a dragged tab would land on. */
+  className: string | false;
+}
+
+// The strip has no drop indicators of its own, so a target that accepts a tab has to
+// say so itself.
+const useTabDrop = (
+  key: panel.Key | undefined,
+  onDrop: (origin: TabOrigin) => void,
+  onEnter?: () => void,
+): TabDropReturn => {
+  const [over, setOver] = useState(false);
+  const handleDragOver = useCallback(() => {
+    setOver(true);
+    onEnter?.();
+  }, [onEnter]);
+  const handleDragLeave = useCallback(() => setOver(false), []);
+  const { onDragOver, onDrop: handleDrop } = Haul.useDrop({
+    type: "PanelSelector",
+    key,
+    canDrop: canDropTab,
+    onDragOver: handleDragOver,
+    onDrop: useCallback(
+      ({ items }: Haul.OnDropProps) => {
+        setOver(false);
+        const origin = Panel.parseTabDragPayload(items[0]?.data);
+        if (origin == null || origin.panel === key) return [];
+        onDrop(origin);
+        return items;
+      },
+      [key, onDrop],
+    ),
+  });
+  return {
+    onDragOver,
+    onDrop: handleDrop,
+    onDragLeave: handleDragLeave,
+    className: over && CSS.M("tab-target"),
+  };
+};
+
 interface TabProps {
   tabKey: panel.Key;
+  dwell: Dwell;
 }
 
 // A pill whose panel vanished between the list answer and the retrieve
 // renders nothing; the by-project subscription evicts the key right after.
 const TabFallback = (): null => null;
 
-const Tab = ({ tabKey }: TabProps): ReactElement => (
+const Tab = ({ tabKey, dwell }: TabProps): ReactElement => (
   <Errors.SuspenseBoundary loading={null} FallbackComponent={TabFallback}>
-    <TabContent tabKey={tabKey} />
+    <TabContent tabKey={tabKey} dwell={dwell} />
   </Errors.SuspenseBoundary>
 );
 
-const TabContent = ({ tabKey }: TabProps): ReactElement => {
+const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
   Panel.useEnsure({ key: tabKey });
   const name = Panel.useName({ key: tabKey });
   const { update: rename } = Panel.useRename();
@@ -119,12 +175,30 @@ const TabContent = ({ tabKey }: TabProps): ReactElement => {
     () => startDrag([createPillHaulItem(tabKey)]),
     [startDrag, tabKey],
   );
+  const moveTab = useMoveTab();
+  const handleMove = useCallback(
+    (origin: TabOrigin) => moveTab(origin, tabKey),
+    [moveTab, tabKey],
+  );
+  const handleDwell = useCallback(() => dwell.enter(tabKey), [dwell, tabKey]);
+  const { onDragLeave, className, ...dropProps } = useTabDrop(
+    tabKey,
+    handleMove,
+    handleDwell,
+  );
+  const handleDragLeave = useCallback(() => {
+    onDragLeave();
+    dwell.leave(tabKey);
+  }, [onDragLeave, dwell, tabKey]);
   return (
     <Tabs.Tab
       itemKey={tabKey}
+      className={CSS(className)}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
+      onDragLeave={handleDragLeave}
+      {...dropProps}
     >
       <Icon.Panel />
       <Text.Editable
@@ -136,21 +210,32 @@ const TabContent = ({ tabKey }: TabProps): ReactElement => {
   );
 };
 
+// The create button doubles as a drop target: releasing a tab on it mints a panel to
+// hold the tab, the drag twin of the picker's "New panel" entry.
+const CreateButton = (): ReactElement => {
+  const selected = Session.Panel.useSelectSelected();
+  const handleCreate = useCreate();
+  const moveToNewPanel = useMoveTabToNewPanel();
+  const { className, ...dropProps } = useTabDrop(undefined, moveToNewPanel);
+  return (
+    <Button.Button
+      variant="text"
+      textColor={9}
+      className={CSS(className)}
+      onClick={handleCreate}
+      {...dropProps}
+    >
+      <Icon.Add />
+      {selected == null && "Create panel"}
+    </Button.Button>
+  );
+};
+
 const Internal = (): ReactElement => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
-  const projectKey = Session.Project.useSelectSelected();
-  const keys = Panel.useKeysByProject({ project: projectKey });
-  const order = Session.Panel.useSelectOrder();
-  // The query answers membership, the session answers order. A key the session
-  // has not reconciled yet renders at the end in answer order: the sort is
-  // stable and every unknown compares equal.
-  const ordered = useMemo(() => {
-    const slots = new Map(order.map((key, index) => [key, index]));
-    return [...keys].sort(
-      (a, b) => (slots.get(a) ?? order.length) - (slots.get(b) ?? order.length),
-    );
-  }, [keys, order]);
+  const ordered = Session.Panel.useSelectOrderedKeys();
+  const dwell = useDwell();
 
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Panel.select({ key })),
@@ -167,7 +252,6 @@ const Internal = (): ReactElement => {
     [dispatch],
   );
 
-  const handleCreate = useCreate();
   const menuProps = Menu.useContextMenu();
   const contextMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
     (props) => <ContextMenu {...props} order={ordered} />,
@@ -193,13 +277,10 @@ const Internal = (): ReactElement => {
           onContextMenu={menuProps.open}
         >
           {ordered.map((key) => (
-            <Tab key={key} tabKey={key} />
+            <Tab key={key} tabKey={key} dwell={dwell} />
           ))}
         </Tabs.Selector>
-        <Button.Button variant="text" textColor={9} onClick={handleCreate}>
-          <Icon.Add />
-          {selected == null && "New Panel"}
-        </Button.Button>
+        <CreateButton />
       </Tabs.Frame>
     </Menu.ContextMenu>
   );

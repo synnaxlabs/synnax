@@ -836,7 +836,12 @@ describe("Panel.Mosaic", () => {
         drop(leaves[1]);
       });
 
-      expect(onSelectB).toHaveBeenCalledWith(moved.key);
+      // The tab is selected once it has actually landed, so the source only gives it
+      // up after the insert resolves.
+      await waitFor(
+        () => expect(onSelectB).toHaveBeenCalledWith(moved.key),
+        ROUND_TRIP,
+      );
       await waitFor(async () => {
         const [srcDoc, dstDoc] = await Promise.all([
           client.panels.retrieve(a.key),

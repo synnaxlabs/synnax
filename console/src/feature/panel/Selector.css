@@ -14,3 +14,13 @@
 .console-panel-selector > .pluto-btn {
     flex-shrink: 0;
 }
+
+/* The strip draws no insertion indicator, so the target a released tab would land in
+   marks itself. Both the fill and the inset ring go through the same custom
+   properties the tab states already use, so a selected pill keeps its own shape. */
+.console--tab-target {
+    --pluto-bg: var(--pluto-primary-z-20);
+    --pluto-hover-bg: var(--pluto-primary-z-20);
+
+    box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-primary-z);
+}

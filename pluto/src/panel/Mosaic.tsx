@@ -29,8 +29,8 @@ import { Menu } from "@/menu";
 import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
 import {
-  useDispatch,
   useLeafNode,
+  useMoveTabToPanel,
   useNodeVariant,
   useRoot,
   useSingleDispatch,
@@ -331,12 +331,9 @@ export const Mosaic = ({
   const dispatch = useSingleDispatch();
   const key = Scope.use();
   const client = Synnax.use();
-  const { dispatch: dispatchTo } = useDispatch();
 
-  // A tab dropped from another panel is removed there and inserted here: the two
-  // panels are separate documents, so the move is two dispatches (see the MoveTab
-  // contract in the panel schema). The insert runs first so a failed remove leaves
-  // the tab in both panels rather than nowhere.
+  const moveToPanel = useMoveTabToPanel();
+
   const handleDrop = useCallback(
     ({ nodeKey, tabKey, location, index, data }: Base.OnDropProps) => {
       const source = parseTabDragPayload(data);
@@ -349,19 +346,18 @@ export const Mosaic = ({
           onSelect?.(tabKey);
         return;
       }
-      dispatchTo({
-        key,
-        actions: panel.insertTabs({
-          tabs: [source.tab],
-          targetLeaf: nodeKey,
-          index,
-          location,
-        }),
+      void moveToPanel({
+        source: source.panel,
+        destination: key,
+        tab: source.tab,
+        targetLeaf: nodeKey,
+        index,
+        location,
+      }).then((landed) => {
+        if (landed != null) onSelect?.(landed);
       });
-      dispatchTo({ key: source.panel, actions: panel.removeTab({ key: tabKey }) });
-      onSelect?.(tabKey);
     },
-    [client, dispatch, dispatchTo, key, onSelect],
+    [client, dispatch, moveToPanel, key, onSelect],
   );
 
   const handleResize = useCallback(

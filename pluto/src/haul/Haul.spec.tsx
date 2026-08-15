@@ -12,6 +12,7 @@ import {
   fireEvent,
   render,
   renderHook,
+  type RenderResult,
   screen,
 } from "@testing-library/react";
 import {
@@ -540,6 +541,82 @@ describe("Haul", () => {
       fireDragEnd(screen.getByTestId("source"), 1, 1);
       expect(intercept).not.toHaveBeenCalled();
       expect(onSuccessfulDrop).not.toHaveBeenCalled();
+    });
+  });
+
+  // A drop and a cancelled drag clear the dragging state identically, so watching that
+  // state cannot tell them apart. useOnResolve is the signal that can.
+  describe("useOnResolve", () => {
+    const Watcher = ({ onResolve }: { onResolve: Haul.OnResolve }): null => {
+      Haul.useOnResolve(onResolve);
+      return null;
+    };
+
+    const renderWatched = (
+      onResolve: Haul.OnResolve,
+      extra?: ReactNode,
+    ): RenderResult =>
+      render(
+        <Haul.Provider>
+          <Source />
+          <Target testId="target" onDrop={passthroughDrop()} />
+          <Watcher onResolve={onResolve} />
+          {extra}
+        </Haul.Provider>,
+      );
+
+    it("should report a landed drag once when it reaches a drop target", () => {
+      const onResolve = vi.fn<Haul.OnResolve>();
+      renderWatched(onResolve);
+      beginDrag();
+      fireEvent.drop(screen.getByTestId("target"));
+      // Dragend still fires after a drop; the drag must be reported exactly once.
+      fireDragEnd(screen.getByTestId("source"), 1, 1);
+      expect(onResolve.mock.calls).toEqual([[true]]);
+    });
+
+    it("should report a cancelled drag as not landed", () => {
+      const onResolve = vi.fn<Haul.OnResolve>();
+      renderWatched(onResolve);
+      beginDrag();
+      fireDragEnd(screen.getByTestId("source"), 1, 1);
+      expect(onResolve.mock.calls).toEqual([[false]]);
+    });
+
+    // The reason watchers exist: an interceptor that claims a drop stops every
+    // interceptor behind it, and a watcher must survive that.
+    it("should report a drag an interceptor claimed", () => {
+      const onResolve = vi.fn<Haul.OnResolve>();
+      const intercept = vi.fn<DragEndInterceptor>((state) =>
+        state.items.length > 0
+          ? { target: { type: "outside", key: "void" }, dropped: state.items }
+          : null,
+      );
+      renderWatched(onResolve, <Interceptor intercept={intercept} />);
+      beginDrag();
+      fireDragEnd(screen.getByTestId("source"), 1, 1);
+      expect(intercept).toHaveBeenCalledTimes(1);
+      expect(onResolve.mock.calls).toEqual([[true]]);
+    });
+
+    it("should not report a dragend that ends no drag", () => {
+      const onResolve = vi.fn<Haul.OnResolve>();
+      renderWatched(onResolve);
+      fireDragEnd(screen.getByTestId("source"), 1, 1);
+      expect(onResolve).not.toHaveBeenCalled();
+    });
+
+    it("should stop reporting once the watcher unmounts", () => {
+      const onResolve = vi.fn<Haul.OnResolve>();
+      const { rerender } = renderWatched(onResolve);
+      rerender(
+        <Haul.Provider>
+          <Source />
+        </Haul.Provider>,
+      );
+      beginDrag();
+      fireDragEnd(screen.getByTestId("source"), 1, 1);
+      expect(onResolve).not.toHaveBeenCalled();
     });
   });
 

@@ -323,6 +323,52 @@ export const useCloseResourceTabs = (): ((
   );
 };
 
+export interface MoveTabToPanelParams extends Pick<
+  panel.InsertTabsPayload,
+  "targetLeaf" | "index" | "location"
+> {
+  /** Panel currently holding the tab. */
+  source: panel.Key;
+  /** Panel the tab moves into. Must differ from source. */
+  destination: panel.Key;
+  tab: panel.Tab;
+}
+
+// Inserting a resource tab whose resource already backs a tab in the destination is a
+// no-op, so the tab that landed can be the one that was already there.
+const landedTabKey = (root: panel.Node, tab: panel.Tab): panel.TabKey | undefined => {
+  if (panel.findTab(root, tab.key) != null) return tab.key;
+  if (tab.variant !== "resource") return undefined;
+  return panel.findTabByResource(root, tab.resource)?.key;
+};
+
+/**
+ * useMoveTabToPanel moves a tab between two panels. The panels are separate documents,
+ * so the move is two dispatches: the insert lands first and the source only gives the
+ * tab up once it has, leaving the tab where it was if the destination rejects it.
+ * @returns a callback resolving with the tab's key in the destination, or undefined
+ * when the tab is not there.
+ */
+export const useMoveTabToPanel = (): ((
+  params: MoveTabToPanelParams,
+) => Promise<panel.TabKey | undefined>) => {
+  const { dispatchAsync } = useDispatch();
+  const client = Synnax.use();
+  return useCallback(
+    async ({ source, destination, tab, targetLeaf, index, location }) => {
+      const inserted = await dispatchAsync({
+        key: destination,
+        actions: panel.insertTabs({ tabs: [tab], targetLeaf, index, location }),
+      });
+      if (!inserted) return undefined;
+      await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
+      const cached = client?.panels.getCached(destination);
+      return query.isLive(cached) ? landedTabKey(cached.root, tab) : undefined;
+    },
+    [dispatchAsync, client],
+  );
+};
+
 // useSetCurrentTabResource swaps the current tab's content to the given resource,
 // clearing any view. The selector flow uses this to fill the tab in place once the
 // user picks a visualization.

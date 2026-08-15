@@ -10,7 +10,7 @@
 import { type panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Panel } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -22,6 +22,7 @@ import {
   ZERO_STATE,
   ZERO_WINDOW_STATE,
 } from "@/session/panel/slice";
+import { Project } from "@/session/project";
 import { Select } from "@/session/select";
 
 /** @returns the panel slice state. */
@@ -76,7 +77,26 @@ export const selectOrder = (state: StoreState): panel.Key[] =>
   selectSliceState(state).order;
 
 /** @returns the strip's panel order, as {@link selectOrder}. */
-export const useSelectOrder = (): panel.Key[] => Select.useMemo(selectOrder, []);
+const useSelectOrder = (): panel.Key[] => Select.useMemo(selectOrder, []);
+
+/**
+ * @returns the selected project's panels in the strip's order. Every surface listing
+ * panels reads it, so the order the user set in the strip is the order they see
+ * everywhere. Suspends until the project's panels resolve.
+ */
+export const useSelectOrderedKeys = (): panel.Key[] => {
+  const keys = Panel.useKeysByProject({ project: Project.useSelectSelected() });
+  const order = useSelectOrder();
+  // The query answers membership, the session answers order. A key the session has
+  // not reconciled yet lands at the end in answer order: the sort is stable and
+  // every unknown compares equal.
+  return useMemo(() => {
+    const slots = new Map(order.map((key, index) => [key, index]));
+    return [...keys].sort(
+      (a, b) => (slots.get(a) ?? order.length) - (slots.get(b) ?? order.length),
+    );
+  }, [keys, order]);
+};
 
 /**
  * @returns the panels the active window keeps mounted, most recently selected first.

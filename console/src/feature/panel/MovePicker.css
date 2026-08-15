@@ -1,0 +1,21 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The list brings its own inset, so the body adds none. */
+.console-panel-move-picker .console-modal__body {
+    padding: 0;
+}
+
+/* The list scrolls inside the body rather than growing the modal, so a project with
+   many panels keeps the modal a fixed size. */
+.console-panel-move-picker__list {
+    max-height: 40vh;
+}
