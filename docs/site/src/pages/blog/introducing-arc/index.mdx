@@ -674,7 +674,7 @@ runtime implementation as possible.
 
 Here is a simple pressurization sequence expressed as an Arc program:
 
-```arc
+```arc channels="press_valve_cmd, vent_valve_cmd, pressure"
 sequence main {
     stage pressurizing {
         1 -> press_valve_cmd
@@ -723,7 +723,7 @@ this time:
 
 Now here's the Arc code for this sequence:
 
-```arc
+```arc channels="press_valve_cmd, vent_valve_cmd, pressure, temp"
 sequence main {
     stage pressurizing {
         1 -> press_valve_cmd
