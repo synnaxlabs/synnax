@@ -91,6 +91,51 @@ Channel struct {
 			Error().To(MatchError(ContainSubstring("chain ended at v1")))
 	})
 
+	It("Should error on a chain the resolver does not know", func(ctx SpecContext) {
+		write("schemas/synnax/versions/channel/v0.oracle", "Key = uuid\n")
+		chains := MustSucceed(versions.Discover(root))
+		r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		unknown := versions.Chain{
+			Domain: "synnax", Resource: "label", Numbers: []int{0},
+		}
+		Expect(versions.Scaffold(ctx, r, unknown)).Error().
+			To(MatchError(ContainSubstring("no version chain")))
+	})
+
+	It("Should error when the license template is missing", func(ctx SpecContext) {
+		Expect(os.Remove(
+			filepath.Join(root, "licenses/headers/template.txt"),
+		)).To(Succeed())
+		write("schemas/synnax/versions/channel/v0.oracle", "Key = uuid\n")
+		chains := MustSucceed(versions.Discover(root))
+		r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		Expect(versions.Scaffold(ctx, r, chains["schemas/synnax/channel"])).
+			Error().To(MatchError(ContainSubstring("read license template")))
+	})
+
+	It("Should carry live imports forward", func(ctx SpecContext) {
+		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/telem"
+
+Channel struct {
+    key uuid @key
+    seen telem.TimeStamp {
+        @go marshal omit
+    }
+
+    @go marshal
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		out := MustSucceed(versions.Scaffold(
+			ctx, r, chains["schemas/synnax/channel"],
+		))
+		Expect(out).To(ContainSubstring(`import "schemas/x/telem"`))
+		Expect(out).To(ContainSubstring("Channel = v0.Channel"))
+	})
+
 	It("Should redeclare omit-transient declarations in full", func(ctx SpecContext) {
 		write("schemas/synnax/versions/channel/v0.oracle", `
 Channel struct {

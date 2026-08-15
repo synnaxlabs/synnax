@@ -99,4 +99,61 @@ Entry struct {
 					"current version file"))
 		},
 	)
+
+	It("Should pass when the pipeline produced no resolutions", func(
+		ctx SpecContext,
+	) {
+		r := check.NewPersistenceGate(true).Run(ctx, &pipeline.Result{}, check.Env{})
+		Expect(r.Status).To(Equal(check.StatusPass))
+		Expect(r.Findings).To(BeEmpty())
+	})
+
+	It("Should promote warnings to errors when configured", func(ctx SpecContext) {
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			ctx, `
+			@go output "out"
+			Entry struct {
+				key uuid @key
+				sibling Sibling
+
+				@go marshal
+			}
+			Sibling struct {
+				name string
+			}
+		`, "schemas/synnax/channel.oracle", "channel",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag == nil || diag.Ok()).To(BeTrue())
+		chains := MustSucceed(versions.Discover(root))
+		p := &pipeline.Result{
+			Resolutions: table,
+			Chains:      chains,
+			Schemas:     []string{"schemas/synnax/channel.oracle"},
+			Versions: versions.NewResolver(
+				chains, analyzer.NewStandardFileLoader(root),
+			),
+		}
+		r := check.NewPersistenceGate(true).Run(ctx, p, check.Env{})
+		Expect(r.Status).To(Equal(check.StatusFail))
+		Expect(r.Findings[0].Severity).To(Equal(check.SeverityError))
+		Expect(r.Findings[0].Path).To(Equal("schemas/synnax/channel.oracle"))
+	})
+
+	It("Should fail when the chain survey errors", func(ctx SpecContext) {
+		Expect(os.WriteFile(filepath.Join(
+			root, "schemas/synnax/versions/channel/v0.oracle",
+		), []byte("Entry struct {{{\n"), 0o644)).To(Succeed())
+		r := run(ctx, `
+			@go output "out"
+			Entry struct {
+				key uuid @key
+
+				@go marshal
+			}
+		`)
+		Expect(r.Status).To(Equal(check.StatusFail))
+		Expect(r.Findings[0].Message).To(ContainSubstring("failed to parse"))
+	})
 })

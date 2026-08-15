@@ -12,6 +12,7 @@ package versions_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -252,6 +253,166 @@ Extra struct {
 		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
 		Expect(merged).To(ContainSubstring(`@doc value "is a channel."`))
 		Expect(merged).To(ContainSubstring("Extra struct"))
+	})
+
+	It("Should reject an unparsable live source", func(ctx SpecContext) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string
+}
+`)
+		r, chain := resolver()
+		Expect(versions.MergeLive(ctx, r, chain, "Channel struct {{{\n")).Error().
+			To(MatchError(ContainSubstring("failed to parse")))
+	})
+
+	It("Should reject an ambiguous dependency namespace", func(ctx SpecContext) {
+		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+		write("schemas/synnax/status.oracle", "Info struct {\n\tmessage string\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+import "schemas/synnax/status"
+
+Channel struct {
+	key uuid @key
+	info status.Info {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+		r, chain := resolver()
+		Expect(versions.MergeLive(ctx, r, chain, "")).Error().
+			To(MatchError(ContainSubstring("namespace status is ambiguous")))
+	})
+
+	It("Should carry live-owned enum value annotations", func(ctx SpecContext) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Kind enum {
+    linear = "linear"
+    log = "log"
+}
+
+Level enum {
+    low = 0
+    high = 1
+}
+
+Channel struct {
+    kind Kind
+    level Level
+
+    @go marshal
+}
+`)
+		liveSource := `Kind enum {
+    linear = "linear" {
+        @ts label "Linear"
+    }
+    log = "log"
+}
+
+Level enum {
+    low = 0
+    high = 1
+}
+
+Channel struct {
+    kind Kind
+    level Level
+
+    @go marshal
+}
+`
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+		Expect(merged).To(ContainSubstring(`@ts label "Linear"`))
+		Expect(merged).To(MatchRegexp(`low +?= 0`))
+		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+	})
+
+	It("Should project unions, distincts, aliases, and defaults", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Base struct {
+    key uuid @key
+}
+
+Leaf struct {
+    name string
+}
+
+Node union on variant {
+    leaf Leaf
+    inline {
+        depth int64
+    }
+
+    @go marshal
+}
+
+Wide struct extends Base {
+    node Node
+    weight float64 = 1.5
+    active bool = false
+    count int64 = 2
+    label string = "x"
+
+    @go marshal
+}
+
+Span int64
+
+Ref = Leaf
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring("Node union on variant {"))
+		Expect(merged).To(ContainSubstring("leaf Leaf"))
+		Expect(merged).To(ContainSubstring("depth int64"))
+		Expect(merged).To(ContainSubstring("Wide struct extends Base {"))
+		Expect(merged).To(ContainSubstring("= 1.5"))
+		Expect(merged).To(ContainSubstring("= false"))
+		Expect(merged).To(ContainSubstring("= 2"))
+		Expect(merged).To(ContainSubstring(`= "x"`))
+		Expect(merged).To(ContainSubstring("Span int64"))
+		Expect(merged).To(ContainSubstring("Ref = Leaf"))
+		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+	})
+
+	It("Should strip the hand marker from a non-current definer", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Key = uuid {
+    @go hand
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Key = v0.Key
+
+Channel struct {
+    key Key @key
+
+    @go hand
+    @go marshal
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(strings.Count(merged, "@go hand")).To(Equal(1))
+		Expect(merged).To(ContainSubstring("Key = uuid\n"))
 	})
 
 	It("Should import dependency live paths for pinned references", func(

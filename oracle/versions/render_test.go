@@ -179,4 +179,174 @@ Entry struct {
 		Expect(rendered).To(ContainSubstring("@go output"))
 		Expect(rendered).ToNot(ContainSubstring("@ts"))
 	})
+
+	It("Should render domain values of every kind", func() {
+		size := int64(16)
+		t := resolution.Type{
+			Name: "Sample",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name: "buf",
+					Type: resolution.TypeRef{
+						Name:      "Array",
+						TypeArgs:  []resolution.TypeRef{{Name: "uint8"}},
+						ArraySize: &size,
+					},
+				}},
+			},
+			Domains: map[string]resolution.Domain{
+				"meta": {Name: "meta", Expressions: resolution.Expressions{{
+					Name: "mixed",
+					Values: []resolution.ExpressionValue{
+						{Kind: resolution.ValueKindInt, IntValue: 7},
+						{Kind: resolution.ValueKindFloat, FloatValue: 2.5},
+						{Kind: resolution.ValueKindBool, BoolValue: true},
+						{
+							Kind:        resolution.ValueKindIdent,
+							IdentValue:  "ns.thing",
+							StringValue: "",
+						},
+						{
+							Kind: resolution.ValueKindArray,
+							Elements: []resolution.ExpressionValue{
+								{Kind: resolution.ValueKindString, StringValue: "a"},
+							},
+						},
+						{
+							Kind: resolution.ValueKindStruct,
+							Fields: []resolution.StructFieldValue{{
+								Name: "x",
+								Value: resolution.ExpressionValue{
+									Kind:        resolution.ValueKindString,
+									StringValue: "line1\nline2",
+								},
+							}},
+						},
+						{Kind: resolution.ValueKind(99)},
+					},
+				}}},
+			},
+		}
+		rendered := versions.Render(
+			[]versions.Decl{{Type: t}},
+			versions.RenderOptions{
+				Qualifier: func(ns string) string { return "other" },
+			},
+		)
+		Expect(rendered).To(ContainSubstring("buf uint8[16]"))
+		Expect(rendered).To(ContainSubstring(
+			`@meta mixed 7 2.5 true other.thing ["a"] {x = """line1` + "\n" +
+				`line2"""}`,
+		))
+	})
+
+	It("Should render type parameters with modifiers", func() {
+		constraint := resolution.TypeRef{Name: "record"}
+		def := resolution.TypeRef{Name: "record"}
+		t := resolution.Type{
+			Name: "Wrapper",
+			Form: resolution.AliasForm{
+				Target: resolution.TypeRef{
+					Name: "Map",
+					TypeArgs: []resolution.TypeRef{
+						{Name: "string"},
+						{TypeParam: &resolution.TypeParam{Name: "D"}},
+					},
+				},
+				TypeParams: []resolution.TypeParam{{
+					Name:       "D",
+					Optional:   true,
+					Constraint: &constraint,
+					Default:    &def,
+				}},
+			},
+		}
+		rendered := versions.Render(
+			[]versions.Decl{{Type: t}}, versions.RenderOptions{},
+		)
+		Expect(rendered).To(ContainSubstring(
+			"Wrapper<D? extends record = record> = map<string, D>",
+		))
+	})
+
+	It("Should render union variant domain bodies", func() {
+		payload := resolution.Type{
+			Name:      "payload",
+			Synthetic: true,
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name: "depth",
+					Type: resolution.TypeRef{Name: "int64"},
+				}},
+			},
+		}
+		t := resolution.Type{
+			Name: "Node",
+			Form: resolution.UnionForm{
+				Discriminator: "variant",
+				Variants: []resolution.UnionVariant{
+					{
+						Name: "leaf",
+						Type: resolution.TypeRef{Name: "Leaf"},
+						Domains: map[string]resolution.Domain{
+							"doc": {Name: "doc", Expressions: resolution.Expressions{{
+								Name: "value",
+								Values: []resolution.ExpressionValue{{
+									Kind:        resolution.ValueKindString,
+									StringValue: "is a leaf.",
+								}},
+							}}},
+						},
+					},
+					{
+						Name:   "inline",
+						Type:   resolution.TypeRef{Name: "payload"},
+						Inline: true,
+						Domains: map[string]resolution.Domain{
+							"doc": {Name: "doc", Expressions: resolution.Expressions{{
+								Name: "value",
+								Values: []resolution.ExpressionValue{{
+									Kind:        resolution.ValueKindString,
+									StringValue: "is inline.",
+								}},
+							}}},
+						},
+					},
+				},
+			},
+		}
+		rendered := versions.Render(
+			[]versions.Decl{{Type: t}},
+			versions.RenderOptions{
+				Resolve: func(name string) (resolution.Type, bool) {
+					if name == "payload" {
+						return payload, true
+					}
+					return resolution.Type{}, false
+				},
+			},
+		)
+		Expect(rendered).To(ContainSubstring("leaf Leaf {"))
+		Expect(rendered).To(ContainSubstring(`@doc value "is a leaf."`))
+		Expect(rendered).To(ContainSubstring("inline {"))
+		Expect(rendered).To(ContainSubstring("depth int64"))
+		Expect(rendered).To(ContainSubstring(`@doc value "is inline."`))
+	})
+
+	It("Should append extra lines to single-line declarations", func() {
+		t := resolution.Type{
+			Name: "Span",
+			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: "int64"}},
+		}
+		rendered := versions.Render(
+			[]versions.Decl{{Type: t}},
+			versions.RenderOptions{
+				ExtraTypeLines: func(name string) []string {
+					return []string{"@ts to_number"}
+				},
+			},
+		)
+		Expect(rendered).To(ContainSubstring("Span int64 {"))
+		Expect(rendered).To(ContainSubstring("@ts to_number"))
+	})
 })

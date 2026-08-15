@@ -92,6 +92,27 @@ Channel struct {
 		Expect(run(p).Status).To(Equal(check.StatusPass))
 	})
 
+	It("Should pass when the pipeline produced no resolutions", func() {
+		Expect(run(&pipeline.Result{}).Status).To(Equal(check.StatusPass))
+	})
+
+	It("Should pass when chains exist but the resolver is absent", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
+		p := analyzeLive(liveV0)
+		p.Versions = nil
+		Expect(run(p).Status).To(Equal(check.StatusPass))
+	})
+
+	It("Should fail a version file the resolver cannot analyze", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", "Channel struct {{{\n")
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Status).To(Equal(check.StatusFail))
+		Expect(report.Findings[0].Path).
+			To(Equal("schemas/synnax/versions/channel/v0.oracle"))
+		Expect(report.Findings[0].Message).To(ContainSubstring("failed to parse"))
+	})
+
 	It("Should pass a clean chain", func() {
 		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
 		p := analyzeLive(liveV0)
@@ -138,6 +159,132 @@ Channel struct {
 		Expect(report.Findings[0].Message).
 			To(ContainSubstring("drifts from its version files"))
 		Expect(report.Findings[0].FixHint).To(ContainSubstring("oracle sync"))
+	})
+
+	It("Should capture a diff on drift when the env requests it", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
+		write("schemas/synnax/channel.oracle", liveV0)
+		p := analyzeLive(liveV0)
+		p.MergedSources = map[string][]byte{
+			"schemas/synnax/channel.oracle": mergeLive(liveV0),
+		}
+		report := check.VersionsGate{}.Run(
+			GinkgoT().Context(), p,
+			check.Env{RepoRoot: root, IncludeDiffs: true},
+		)
+		Expect(report.Status).To(Equal(check.StatusFail))
+		Expect(report.Findings[0].Diff).To(ContainSubstring("@go marshal"))
+	})
+
+	It("Should fail drift when the live file is missing on disk", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
+		p := analyzeLive(liveV0)
+		p.MergedSources = map[string][]byte{
+			"schemas/synnax/channel.oracle": mergeLive(liveV0),
+		}
+		report := run(p)
+		Expect(report.Status).To(Equal(check.StatusFail))
+		Expect(report.Findings[0].Message).
+			To(ContainSubstring("drifts from its version files"))
+	})
+
+	It("Should allow a stored reference to a chainless live schema", func() {
+		write("schemas/arc/program.oracle", "Program struct {\n\twasm bytes\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/arc/program"
+
+Channel struct {
+	key uuid @key
+	compiled program.Program
+
+	@go marshal
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Findings).To(BeEmpty())
+		Expect(report.Status).To(Equal(check.StatusPass))
+	})
+
+	It("Should fail a stored pin into an ended chain", func() {
+		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+		write("schemas/x/versions/telem/v1.oracle", "// gone\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	created telem.TimeStamp
+
+	@go marshal
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Status).To(Equal(check.StatusFail))
+		var ended bool
+		for _, f := range report.Findings {
+			if f.Message == "schemas/synnax/channel's current surface stores "+
+				"telem, but schemas/x/telem's chain ended at v1; nothing may "+
+				"persist an ended resource" {
+				ended = true
+			}
+		}
+		Expect(ended).To(BeTrue(), "expected an ended-chain finding")
+	})
+
+	It("Should allow a lagging pin whose members alias the current shape", func() {
+		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+		write(
+			"schemas/x/versions/telem/v1.oracle",
+			"TimeStamp = v0.TimeStamp\n\nExtra = int32\n",
+		)
+		write("schemas/x/telem.oracle", "TimeStamp = int64\nExtra = int32\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	created telem.TimeStamp
+
+	@go marshal
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Findings).To(BeEmpty())
+		Expect(report.Status).To(Equal(check.StatusPass))
+	})
+
+	It("Should walk stored references through every declaration form", func() {
+		write(
+			"schemas/x/versions/telem/v0.oracle",
+			"TimeStamp = int64\n\nRange struct {\n\tstart TimeStamp\n}\n",
+		)
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Stamp = telem.TimeStamp
+
+Span telem.TimeStamp
+
+Event union on kind {
+	window telem.Range
+}
+
+Channel struct {
+	key uuid @key
+	stamp Stamp
+	span Span
+	event Event
+
+	@go marshal
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Findings).To(BeEmpty())
+		Expect(report.Status).To(Equal(check.StatusPass))
 	})
 
 	It("Should fail a stored reference that imports a live schema", func() {

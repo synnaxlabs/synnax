@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -88,7 +89,9 @@ type funcData struct {
 }
 
 type step struct {
-	Kind     string // "migrate", "optionalMigrate", "optionalCast", "sliceMigrate", "sliceCast"
+	// Kind is one of "migrate", "optionalMigrate", "optionalCast",
+	// "sliceMigrate", "sliceCast", or "mapMigrate".
+	Kind     string
 	VarName  string
 	Accessor string
 	Call     string
@@ -108,6 +111,9 @@ type classification struct {
 	inline        string
 	step          step
 	usesCtx       bool
+	// omit leaves the field to the hand-written migration: no copy of it
+	// type-checks.
+	omit bool
 }
 
 // --- Template ---
@@ -171,6 +177,15 @@ func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 	})
 	if err != nil {
 		return {{$fn.ZeroValue}}, err
+	}
+{{- else if eq .Kind "mapMigrate"}}
+	{{.VarName}} := make({{.Type}}, len({{.Accessor}}))
+	for k, v := range {{.Accessor}} {
+		nv, err := {{.ElemExpr}}
+		if err != nil {
+			return {{$fn.ZeroValue}}, err
+		}
+		{{.VarName}}[k] = nv
 	}
 {{- else if eq .Kind "sliceCast"}}
 	{{.VarName}} := lo.Map({{.Accessor}}, func(v {{.OldElem}}, _ int) {{.NewElem}} {
@@ -457,6 +472,9 @@ func (c *collector) addField(
 	isOptional bool,
 ) {
 	cls := c.classifyField(ref, accessor, goName, isOptional)
+	if cls.omit {
+		return
+	}
 	if cls.needsPreamble {
 		fn.Preamble = append(fn.Preamble, cls.step)
 		fn.Fields = append(fn.Fields, field{Name: goName, Value: cls.step.VarName})
@@ -531,6 +549,11 @@ func (c *collector) classifyField(
 		if bgf.Name == "Array" && len(ref.TypeArgs) > 0 {
 			return c.classifySlice(ref.TypeArgs[0], accessor, goName)
 		}
+		if bgf.Name == "Map" && len(ref.TypeArgs) >= 2 {
+			return c.classifyMap(
+				ref.TypeArgs[0], ref.TypeArgs[1], accessor, goName,
+			)
+		}
 		return classification{inline: accessor}
 	}
 	if elemRef, ok := arrayBaseRef(resolved); ok {
@@ -580,6 +603,31 @@ func (c *collector) classifySlice(
 		ElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
 		OldElem:  c.resolveTypeName(elemResolved, c.oldTable),
 		NewElem:  c.resolveNewTypeName(elemResolved),
+	}}
+}
+
+// classifyMap emits a per-entry conversion when a map field's value type changed
+// between versions. A map whose value type the incoming version cannot bridge
+// mechanically (a non-primitive key alongside a changed value) is left to the
+// hand-written migration.
+func (c *collector) classifyMap(
+	keyRef, valRef resolution.TypeRef, accessor, goName string,
+) classification {
+	valResolved, ok := c.resolveRef(valRef)
+	if !ok || c.isSameType(valResolved) {
+		return classification{inline: accessor}
+	}
+	keyGo, ok := typemap.PrimitiveGoType(keyRef.Name)
+	if !ok {
+		return classification{omit: true}
+	}
+	varName := naming.LowerFirst(goName)
+	return classification{needsPreamble: true, usesCtx: true, step: step{
+		Kind:     "mapMigrate",
+		VarName:  varName,
+		Accessor: accessor,
+		Type:     "map[" + keyGo + "]" + c.resolveNewTypeName(valResolved),
+		ElemExpr: c.requireFunc(valResolved) + "(ctx, v)",
 	}}
 }
 

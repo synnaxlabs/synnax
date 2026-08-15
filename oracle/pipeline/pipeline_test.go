@@ -12,11 +12,13 @@ package pipeline_test
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,6 +43,37 @@ func (p *stubPlugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 	}
 	return &plugin.Response{Files: files}, nil
+}
+
+// depPlugin is a stub plugin with configurable dependencies. It records the order
+// plugins ran in, so specs can assert topological scheduling.
+type depPlugin struct {
+	name     string
+	requires []string
+	err      error
+	nilResp  bool
+	mu       *sync.Mutex
+	order    *[]string
+}
+
+func (p *depPlugin) Name() string                { return p.name }
+func (p *depPlugin) Domains() []string           { return nil }
+func (p *depPlugin) Requires() []string          { return p.requires }
+func (p *depPlugin) Check(*plugin.Request) error { return nil }
+func (p *depPlugin) Generate(*plugin.Request) (*plugin.Response, error) {
+	p.mu.Lock()
+	*p.order = append(*p.order, p.name)
+	p.mu.Unlock()
+	if p.err != nil {
+		return nil, p.err
+	}
+	if p.nilResp {
+		return nil, nil
+	}
+	return &plugin.Response{
+		Files:     []plugin.File{{Path: "out/" + p.name, Content: []byte(p.name)}},
+		Deletions: []string{"out/" + p.name + ".old"},
+	}, nil
 }
 
 var _ = Describe("pipeline.Run", func() {
@@ -195,6 +228,194 @@ X struct { name string }
 			}
 		},
 	)
+
+	Describe("plugin scheduling", func() {
+		var (
+			mu    sync.Mutex
+			order []string
+		)
+
+		BeforeEach(func() {
+			order = nil
+			writeSchema("widget", `
+@go output "x/go/widget"
+Thing struct {
+    name string
+}
+`)
+		})
+
+		newDep := func(name string, requires ...string) *depPlugin {
+			return &depPlugin{
+				name: name, requires: requires, mu: &mu, order: &order,
+			}
+		}
+
+		run := func(ctx SpecContext, plugins ...plugin.Plugin) *pipeline.Result {
+			GinkgoHelper()
+			registry := plugin.NewRegistry()
+			for _, p := range plugins {
+				Expect(registry.Register(p)).To(Succeed())
+			}
+			return MustSucceed(pipeline.Run(ctx, pipeline.Options{
+				RepoRoot: repoRoot,
+				Schemas:  MustSucceed(pipeline.DiscoverSchemas(repoRoot)),
+				Plugins:  registry,
+			}))
+		}
+
+		It("runs a plugin's dependencies before the plugin", func(ctx SpecContext) {
+			result := run(ctx, newDep("late", "early"), newDep("early"))
+			Expect(result.Diagnostics.Ok()).To(BeTrue())
+			Expect(order).To(Equal([]string{"early", "late"}))
+			Expect(result.Outputs).To(HaveKey("late"))
+			Expect(result.Deletions["early"]).To(Equal([]string{"out/early.old"}))
+		})
+
+		It("fails when a plugin requires an unregistered plugin", func(
+			ctx SpecContext,
+		) {
+			result := run(ctx, newDep("lonely", "ghost"))
+			Expect(result.Diagnostics.Ok()).To(BeFalse())
+			Expect(result.Diagnostics.String()).To(
+				ContainSubstring(`plugin "lonely" requires unknown plugin "ghost"`),
+			)
+		})
+
+		It("still runs cyclically dependent plugins", func(ctx SpecContext) {
+			result := run(ctx, newDep("a", "b"), newDep("b", "a"))
+			Expect(result.Diagnostics.Ok()).To(BeTrue())
+			Expect(order).To(ConsistOf("a", "b"))
+		})
+
+		It("surfaces a plugin generation error as a diagnostic", func(
+			ctx SpecContext,
+		) {
+			failing := newDep("broken")
+			failing.err = errors.New("kaboom")
+			result := run(ctx, failing)
+			Expect(result.Diagnostics.Ok()).To(BeFalse())
+			Expect(result.Diagnostics.String()).To(SatisfyAll(
+				ContainSubstring("plugin broken"),
+				ContainSubstring("kaboom"),
+			))
+		})
+
+		It("tolerates a nil plugin response", func(ctx SpecContext) {
+			quiet := newDep("quiet")
+			quiet.nilResp = true
+			result := run(ctx, quiet)
+			Expect(result.Diagnostics.Ok()).To(BeTrue())
+			Expect(result.Outputs).NotTo(HaveKey("quiet"))
+		})
+	})
+
+	Describe("version chains", func() {
+		var write func(rel, content string)
+
+		BeforeEach(func() {
+			write = func(rel, content string) {
+				abs := filepath.Join(repoRoot, rel)
+				Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
+				Expect(os.WriteFile(abs, []byte(content), 0o644)).To(Succeed())
+			}
+			write("licenses/headers/template.txt",
+				"Copyright {{YEAR}} Synnax Labs, Inc.\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string {
+        @doc value "names the channel."
+    }
+
+    @go marshal
+}
+`)
+		})
+
+		It("merges the live projection for a versioned resource", func(
+			ctx SpecContext,
+		) {
+			write("schemas/synnax/channel.oracle", `Channel struct {
+    name string {
+        @doc value "names the channel."
+        @validate required
+    }
+
+    @go output "core/pkg/service/channel"
+}
+`)
+			result := MustSucceed(pipeline.Run(ctx, pipeline.Options{
+				RepoRoot: repoRoot,
+				Schemas:  MustSucceed(pipeline.DiscoverSchemas(repoRoot)),
+			}))
+			Expect(result.Chains).To(HaveKey("schemas/synnax/channel"))
+			Expect(result.Versions).NotTo(BeNil())
+
+			live := "schemas/synnax/channel.oracle"
+			merged := string(result.MergedSources[live])
+			Expect(merged).To(SatisfyAll(
+				ContainSubstring("@go marshal"),
+				ContainSubstring("@validate required"),
+			))
+			Expect(string(result.EffectiveSource(live))).To(Equal(merged))
+		})
+
+		It("returns the formatted source for unversioned schemas", func(
+			ctx SpecContext,
+		) {
+			write("schemas/synnax/channel.oracle", "Channel struct {\n"+
+				"    name string {\n"+
+				"        @doc value \"names the channel.\"\n"+
+				"    }\n}\n")
+			plain := writeSchema("widget", `
+@go output "x/go/widget"
+Thing struct {
+    name string
+}
+`)
+			result := MustSucceed(pipeline.Run(ctx, pipeline.Options{
+				RepoRoot: repoRoot,
+				Schemas:  MustSucceed(pipeline.DiscoverSchemas(repoRoot)),
+			}))
+			Expect(result.MergedSources).NotTo(HaveKey(plain))
+			Expect(result.EffectiveSource(plain)).
+				To(Equal(result.FormattedSources[plain]))
+		})
+
+		It("adds a merged live file missing from the input set", func(
+			ctx SpecContext,
+		) {
+			// Only the chain exists on disk; the live projection is synthesized
+			// entirely from the version file and joins the schema set.
+			writeSchema("widget", `
+@go output "x/go/widget"
+Thing struct {
+    name string
+}
+`)
+			result := MustSucceed(pipeline.Run(ctx, pipeline.Options{
+				RepoRoot: repoRoot,
+				Schemas:  MustSucceed(pipeline.DiscoverSchemas(repoRoot)),
+			}))
+			live := "schemas/synnax/channel.oracle"
+			Expect(result.Schemas).To(ContainElement(live))
+			Expect(string(result.MergedSources[live])).
+				To(ContainSubstring("@go marshal"))
+		})
+	})
+
+	It("fails when an input schema does not exist on disk", func(ctx SpecContext) {
+		// Run returns a partial, non-nil Result alongside the error, so the
+		// error and the result are asserted separately.
+		result, err := pipeline.Run(ctx, pipeline.Options{
+			RepoRoot: repoRoot,
+			Schemas:  []string{"schemas/ghost.oracle"},
+		})
+		Expect(err).To(MatchError(
+			ContainSubstring("read schema schemas/ghost.oracle"),
+		))
+		Expect(result.Sources).To(BeEmpty())
+	})
 
 	It("rejects empty schema set", func(ctx SpecContext) {
 		_, err := pipeline.Run(ctx, pipeline.Options{

@@ -41,6 +41,31 @@ var _ = Describe("Primitives", func() {
 	})
 })
 
+var _ = Describe("Mapper", func() {
+	mapper := primitives.NewMapper(map[string]primitives.Mapping{
+		"uuid": {
+			TargetType: "uuid.UUID",
+			ZeroValue:  "uuid.Nil",
+			Imports: []primitives.Import{
+				{Category: "external", Path: "github.com/google/uuid"},
+			},
+		},
+		"string": {TargetType: "string", ZeroValue: `""`},
+	}, "any")
+
+	It("should return the table mapping for a known primitive", func() {
+		mapping := mapper.Map("uuid")
+		Expect(mapping.TargetType).To(Equal("uuid.UUID"))
+		Expect(mapping.ZeroValue).To(Equal("uuid.Nil"))
+		Expect(mapping.Imports).To(HaveLen(1))
+		Expect(mapping.Imports[0].Path).To(Equal("github.com/google/uuid"))
+	})
+
+	It("should fall back to the fallback type for unknown names", func() {
+		Expect(mapper.Map("mystery")).To(Equal(primitives.Mapping{TargetType: "any"}))
+	})
+})
+
 // NOTE: Language-specific mapping tests have been moved to per-language test files:
 // - oracle/plugin/go/primitives/mapping_test.go
 // - oracle/plugin/py/primitives/mapping_test.go
