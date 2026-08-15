@@ -9,6 +9,7 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
@@ -16,7 +17,7 @@ import { Session } from "@/session";
 
 // How long a tab must rest on a pill before the strip switches to that panel. Long
 // enough that dragging across the strip to a far pill switches nothing on the way.
-const DWELL_DURATION = 600;
+const DWELL_DURATION = TimeSpan.milliseconds(450).milliseconds;
 
 export interface Dwell {
   /** Starts the switch timer for a panel. Call from a pill's drag-over. */
