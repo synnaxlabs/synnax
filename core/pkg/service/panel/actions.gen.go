@@ -43,22 +43,22 @@ type RenamePayload struct {
 }
 
 // InsertTabsPayload inserts tabs into a leaf in order, starting at the given index and
-// appending when index is absent. The destination leaf is resolved from target_tab (the
-// leaf holding that tab) when set, otherwise from the target_leaf path-derived key,
-// otherwise the first leaf in traversal order. Both are hints: a target that no longer
-// resolves to a leaf falls back to the first leaf instead of failing, so a placement
-// invalidated between the gesture and the dispatch still opens the tabs. The fallback
-// drops location too, leaving a leaf the caller never pointed at unsplit. When location
-// is an edge, the resolved leaf is split once at that location and every tab is
-// inserted into the new empty leaf; a center location places the tabs directly in the
-// resolved leaf, equivalent to absent. The split is deferred to the first tab that
-// lands, so a batch whose every tab is skipped leaves no empty pane behind. A tab whose
-// key is already in the tree has its content refreshed and keeps its position unless
-// the payload carries an explicit placement, in which case it is relocated with the
-// rest. Inserting a resource tab whose resource already backs a different tab is
-// skipped, as is a view tab of a type already backing a tab when singleton is set: each
-// may back at most one tab per panel, and callers select the existing tab instead.
-// Skipping one tab does not stop the others.
+// appending when index is absent or past the leaf's end. The destination leaf is
+// resolved from target_tab (the leaf holding that tab) when set, otherwise from the
+// target_leaf path-derived key, otherwise the first leaf in traversal order. Both are
+// hints: a target that no longer resolves to a leaf falls back to the first leaf
+// instead of failing, so a placement invalidated between the gesture and the dispatch
+// still opens the tabs. The fallback drops location too, leaving a leaf the caller
+// never pointed at unsplit. When location is an edge, the resolved leaf is split once
+// at that location and every tab is inserted into the new empty leaf; a center location
+// places the tabs directly in the resolved leaf, equivalent to absent. The split is
+// deferred to the first tab that lands, so a batch whose every tab is skipped leaves no
+// empty pane behind. A tab whose key is already in the tree has its content refreshed
+// and keeps its position unless the payload carries an explicit placement, in which
+// case it is relocated with the rest. Inserting a resource tab whose resource already
+// backs a different tab is skipped, as is a view tab of a type already backing a tab
+// when singleton is set: each may back at most one tab per panel, and callers select
+// the existing tab instead. Skipping one tab does not stop the others.
 type InsertTabsPayload struct {
 	Tabs       []Tab             `json:"tabs" msgpack:"tabs"`
 	TargetLeaf *int32            `json:"target_leaf,omitempty" msgpack:"target_leaf,omitempty"`

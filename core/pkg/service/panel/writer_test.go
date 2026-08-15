@@ -300,14 +300,13 @@ var _ = Describe("Writer", func() {
 				key := create(ctx, leafNode())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
-					panel.NewInsertTabsAction(
-						panel.InsertTabsPayload{
-							Tabs:       []panel.Tab{tab(uuid.New())},
-							TargetLeaf: new(int32(1)),
-							Index:      new(int32(99)),
+					panel.NewMoveTabAction(
+						panel.MoveTabPayload{
+							Key:        uuid.New(),
+							TargetLeaf: 1,
 						},
 					),
-				})).Error().To(MatchError(ContainSubstring("index out of range")))
+				})).Error().To(MatchError(ContainSubstring("tab not found in tree")))
 				Expect(retrieve(ctx, key).Name).To(Equal("test"))
 			},
 		)
@@ -379,14 +378,13 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-					panel.NewInsertTabsAction(
-						panel.InsertTabsPayload{
-							Tabs:       []panel.Tab{tab(uuid.New())},
-							TargetLeaf: new(int32(1)),
-							Index:      new(int32(99)),
+					panel.NewMoveTabAction(
+						panel.MoveTabPayload{
+							Key:        uuid.New(),
+							TargetLeaf: 1,
 						},
 					),
-				})).Error().To(MatchError(ContainSubstring("index out of range")))
+				})).Error().To(MatchError(ContainSubstring("tab not found in tree")))
 				Expect(rec.Snapshot()).To(BeEmpty())
 			},
 		)

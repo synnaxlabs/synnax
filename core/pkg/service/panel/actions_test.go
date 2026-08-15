@@ -613,33 +613,33 @@ var _ = Describe("Actions", func() {
 			})
 		})
 
-		DescribeTable("Should error on bad inputs",
-			func(p panel.Panel, payload panel.InsertTabsPayload, expected string) {
-				Expect(
-					payload.Handle(p),
-				).Error().
-					To(MatchError(ContainSubstring(expected)))
-			},
-			Entry(
-				"tree holds no leaf to fall back to",
-				panel.Panel{Root: panel.Node{}},
-				panel.InsertTabsPayload{
-					Tabs:       []panel.Tab{tab(uuid.New())},
-					TargetLeaf: new(int32(7)),
-				},
-				"invalid node path",
-			),
-			Entry(
-				"index exceeds tab count",
-				panel.Panel{Root: leafNode()},
-				panel.InsertTabsPayload{
-					Tabs:       []panel.Tab{tab(uuid.New())},
-					TargetLeaf: new(int32(1)),
-					Index:      new(int32(5)),
-				},
-				"index out of range",
-			),
-		)
+		It("Should append when the index is past the leaf's end", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			next := MustSucceed(panel.InsertTabsPayload{
+				Tabs:       []panel.Tab{tab(tab2)},
+				TargetLeaf: new(int32(1)),
+				Index:      new(int32(5)),
+			}.Handle(p))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
+		})
+
+		It("Should keep a relocated tab when the index is past the end", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
+			next := MustSucceed(panel.InsertTabsPayload{
+				Tabs:       []panel.Tab{tab(tab1)},
+				TargetLeaf: new(int32(1)),
+				Index:      new(int32(2)),
+			}.Handle(p))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab2, tab1}))
+		})
+
+		It("Should error when the tree holds no leaf to fall back to", func() {
+			Expect(panel.InsertTabsPayload{
+				Tabs:       []panel.Tab{tab(uuid.New())},
+				TargetLeaf: new(int32(7)),
+			}.Handle(panel.Panel{Root: panel.Node{}})).Error().
+				To(MatchError(ContainSubstring("invalid node path")))
+		})
 	})
 
 	Describe("RemoveTab", func() {

@@ -115,8 +115,10 @@ func (p InsertTabsPayload) Handle(state Panel) (Panel, error) {
 		if err != nil {
 			return Panel{}, err
 		}
+		// An index past the leaf's end is a drop position invalidated between the
+		// gesture and the dispatch. It clamps to the end.
 		at := int32(len(leaf.Tabs))
-		if index != nil {
+		if index != nil && *index >= 0 && *index <= at {
 			at = *index
 		}
 		if err := insertTabAt(&state.Root, targetLeaf, tab, at); err != nil {

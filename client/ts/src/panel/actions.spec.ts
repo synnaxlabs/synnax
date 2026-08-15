@@ -504,6 +504,28 @@ describe("reduceAll", () => {
         const { next } = panel.reduceAll(prev, [panel.insertTabs({ tabs: [] })]);
         expect(next).toBe(prev);
       });
+
+      it("should append when the index is past the leaf's end", () => {
+        const { next } = panel.reduceAll(state(leaf(a)), [
+          panel.insertTabs({
+            tabs: [viewTab(b)],
+            targetLeaf: panel.ROOT_NODE_KEY,
+            index: 5,
+          }),
+        ]);
+        expect(tabKeys(next.root)).toEqual([a, b]);
+      });
+
+      it("should keep a relocated tab when the index is past the end", () => {
+        const { next } = panel.reduceAll(state(leaf(a, b)), [
+          panel.insertTabs({
+            tabs: [viewTab(a)],
+            targetLeaf: panel.ROOT_NODE_KEY,
+            index: 2,
+          }),
+        ]);
+        expect(tabKeys(next.root)).toEqual([b, a]);
+      });
     });
   });
 

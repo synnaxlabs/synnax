@@ -186,7 +186,8 @@ Panel struct {
 
         @doc value """
             inserts tabs into a leaf in order, starting at the given index and
-            appending when index is absent. The destination leaf is resolved
+            appending when index is absent or past the leaf's end. The
+            destination leaf is resolved
             from target_tab (the leaf holding that tab) when set, otherwise
             from the target_leaf path-derived key, otherwise the first leaf in
             traversal order. Both are hints: a target that no longer resolves

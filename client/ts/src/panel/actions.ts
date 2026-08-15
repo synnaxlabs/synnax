@@ -223,11 +223,15 @@ const handlers: Handlers = {
         targetLeaf = splitLeafAt(state, targetLeaf, pendingSplit, 0.5) ?? targetLeaf;
         pendingSplit = undefined;
       }
-      if (exists) removeTab(state.root, tab.key);
       const leaf = walkLeaf(state.root, targetLeaf);
       if (leaf == null) break;
-      const at = index ?? leaf.tabs.length;
-      if (at < 0 || at > leaf.tabs.length) break;
+      if (exists) removeTab(state.root, tab.key);
+      // An index past the leaf's end is a drop position invalidated between the
+      // gesture and the dispatch. It clamps to the end, as moveTab does.
+      const at =
+        index != null && index >= 0 && index <= leaf.tabs.length
+          ? index
+          : leaf.tabs.length;
       leaf.tabs.splice(at, 0, tab);
       if (index != null) index = at + 1;
       targets.push(tab.key);
