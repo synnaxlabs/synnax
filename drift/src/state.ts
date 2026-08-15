@@ -161,9 +161,12 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
   s: SliceState,
 ): PayloadAction<T & LabelPayload> => {
   if (a.type === createWindow.type) {
-    if (s.label !== MAIN_WINDOW) return a as PayloadAction<T & LabelPayload>;
-    (a.payload as CreateWindowPayload).label = id.create();
-    (a.payload as CreateWindowPayload).prerenderLabel = id.create();
+    // The dispatching window mints the labels, whichever window that is. Every other
+    // window reads them off the emitted payload, so an assignment there would hand the
+    // same window two identities.
+    const payload = a.payload as CreateWindowPayload;
+    payload.label ??= id.create();
+    payload.prerenderLabel ??= id.create();
     return a as PayloadAction<T & LabelPayload>;
   }
   if ("label" in a.payload) return a as PayloadAction<T & LabelPayload>;
