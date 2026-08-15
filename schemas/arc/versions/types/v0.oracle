@@ -30,6 +30,7 @@ Kind enum {
     function                     = 19
     sequence                     = 20
     stage                        = 21
+    var_ref                      = 22
 
     @doc value """
         is the type category for Arc's type system, including primitives, compound
