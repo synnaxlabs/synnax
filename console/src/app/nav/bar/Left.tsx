@@ -70,15 +70,19 @@ const LeftMenu = () => {
 };
 
 export const Left = (): ReactElement => (
-  <PlatformNav.Bar location="left" size="var(--console-left-bar-size)">
-    <Nav.Bar.Start bordered align="center">
+  <PlatformNav.Bar
+    location="left"
+    size="var(--console-left-bar-size)"
+    data-tauri-drag-region
+  >
+    <Nav.Bar.Start bordered align="center" data-tauri-drag-region>
       <Project.Selector />
     </Nav.Bar.Start>
-    <Nav.Bar.Content align="center">
+    <Nav.Bar.Content align="center" data-tauri-drag-region>
       <Palette.Palette />
       <LeftMenu />
     </Nav.Bar.Content>
-    <Nav.Bar.End bordered>
+    <Nav.Bar.End bordered data-tauri-drag-region>
       <BottomMenu />
     </Nav.Bar.End>
   </PlatformNav.Bar>
