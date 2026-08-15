@@ -93,8 +93,7 @@ export interface ReconcileSelectionPayload extends PanelKeyPayload {
   previous?: panel.TabKey[][];
 }
 
-export interface OrderEntry {
-  key: panel.Key;
+export interface OrderEntry extends PanelKeyPayload {
   name: string;
 }
 
@@ -102,8 +101,7 @@ export interface ReconcileOrderPayload {
   panels: OrderEntry[];
 }
 
-export interface ReorderPayload {
-  key: panel.Key;
+export interface ReorderPayload extends PanelKeyPayload {
   index: number;
 }
 
