@@ -623,7 +623,9 @@ export class Series<T extends TelemValue = TelemValue>
   parseJSON<Z extends z.ZodType>(schema: Z): Array<z.infer<Z>> {
     if (!this.dataType.equals(DataType.JSON))
       throw new Error("cannot parse non-JSON series as JSON");
-    return this.toStrings().map((s) => schema.parse(binary.JSON_CODEC.decodeString(s)));
+    // The schema must reach the codec so its case conversion honors preserveCase
+    // markers; a schema-blind conversion mangles semantic record keys.
+    return this.toStrings().map((s) => binary.JSON_CODEC.decodeString(s, schema));
   }
 
   /**
