@@ -137,7 +137,7 @@ func generateEncoderCodecFile(
 			for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 				typeParams = append(typeParams, typeParamData{
 					Name:       tp.Name,
-					Constraint: typeParamConstraint(tp),
+					Constraint: typemap.TypeParamConstraint(tp),
 				})
 			}
 		}
@@ -201,13 +201,6 @@ func generateEncoderCodecFile(
 		return nil, errors.Wrap(err, "failed to execute encoder template")
 	}
 	return buf.Bytes(), nil
-}
-
-func typeParamConstraint(tp resolution.TypeParam) string {
-	if tp.Constraint != nil && resolution.IsConstraint(tp.Constraint.Name) {
-		return tp.Constraint.Name
-	}
-	return "any"
 }
 
 // reservedNames contains single-letter variable names used in generated method

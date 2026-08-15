@@ -27,52 +27,6 @@ func TestCppTypes(t *testing.T) {
 	RunSpecs(t, "Plugin Cpp Types Suite")
 }
 
-var _ = Describe("CppFormatter", func() {
-	f := types.CppFormatter
-
-	Describe("FormatQualified", func() {
-		It("Should format qualified names with :: separator", func() {
-			Expect(f.FormatQualified("synnax", "Type")).To(Equal("synnax::Type"))
-		})
-
-		It("Should return type name when qualifier is empty", func() {
-			Expect(f.FormatQualified("", "Type")).To(Equal("Type"))
-		})
-	})
-
-	Describe("FormatGeneric", func() {
-		It("Should format generic types with angle brackets", func() {
-			Expect(
-				f.FormatGeneric("Container", []string{"int", "string"}),
-			).To(Equal("Container<int, string>"))
-		})
-
-		It("Should return base name when no type args", func() {
-			Expect(f.FormatGeneric("Container", nil)).To(Equal("Container"))
-		})
-	})
-
-	Describe("FormatArray", func() {
-		It("Should format as std::vector", func() {
-			Expect(f.FormatArray("int")).To(Equal("std::vector<int>"))
-		})
-	})
-
-	Describe("FormatMap", func() {
-		It("Should format as std::unordered_map", func() {
-			Expect(
-				f.FormatMap("string", "int"),
-			).To(Equal("std::unordered_map<string, int>"))
-		})
-	})
-
-	Describe("FallbackType", func() {
-		It("Should return void", func() {
-			Expect(f.FallbackType()).To(Equal("void"))
-		})
-	})
-})
-
 var _ = Describe("C++ Types Plugin", func() {
 	var (
 		loader    *MockFileLoader

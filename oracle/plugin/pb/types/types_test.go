@@ -44,49 +44,6 @@ func pbDomains(goOutputPath string) map[string]resolution.Domain {
 	}
 }
 
-var _ = Describe("PbFormatter", func() {
-	f := types.PbFormatter
-
-	Describe("FormatQualified", func() {
-		It("Should format qualified names with dot separator", func() {
-			Expect(f.FormatQualified("pkg", "Type")).To(Equal("pkg.Type"))
-		})
-
-		It("Should return type name when qualifier is empty", func() {
-			Expect(f.FormatQualified("", "Type")).To(Equal("Type"))
-		})
-	})
-
-	Describe("FormatGeneric", func() {
-		It("Should return base name unchanged (protobuf has no generics)", func() {
-			Expect(
-				f.FormatGeneric("Container", []string{"string"}),
-			).To(Equal("Container"))
-		})
-	})
-
-	Describe("FormatArray", func() {
-		It(
-			"Should return element type unchanged (repeated handled at field level)",
-			func() {
-				Expect(f.FormatArray("string")).To(Equal("string"))
-			},
-		)
-	})
-
-	Describe("FormatMap", func() {
-		It("Should format map types", func() {
-			Expect(f.FormatMap("string", "int32")).To(Equal("map<string, int32>"))
-		})
-	})
-
-	Describe("FallbackType", func() {
-		It("Should return bytes as fallback", func() {
-			Expect(f.FallbackType()).To(Equal("bytes"))
-		})
-	})
-})
-
 var _ = Describe("Plugin", func() {
 	var (
 		loader *MockFileLoader

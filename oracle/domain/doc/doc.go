@@ -101,38 +101,37 @@ func wrapText(text string, firstLineWidth, subsequentLineWidth int) []string {
 //
 // Text is wrapped to 88 columns including the comment prefix and the display width
 // of the indentation the comment is emitted at (gofmt indents every comment line).
-func FormatGo(name, doc string, indent ...int) string {
-	if doc == "" {
-		return ""
-	}
-
-	width := maxLineWidth
-	if len(indent) > 0 {
-		width -= indent[0]
-	}
-
-	// Calculate available width: "// Name " for first line, "// " for subsequent
-	firstPrefix := "// " + name + " "
-	subsequentPrefix := "// "
-	firstLineWidth := width - len(firstPrefix)
-	subsequentLineWidth := width - len(subsequentPrefix)
-
-	lines := wrapText(doc, firstLineWidth, subsequentLineWidth)
+// renderComment wraps doc to width and prints one comment line per wrapped
+// line: the first behind firstPrefix, blank lines behind blank, and the rest
+// behind subsequentPrefix.
+func renderComment(doc, firstPrefix, subsequentPrefix, blank string, width int) string {
+	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
 	if len(lines) == 0 {
 		return ""
 	}
-
 	var result []string
 	for i, line := range lines {
-		if i == 0 {
+		switch {
+		case i == 0:
 			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, "//")
-		} else {
+		case line == "":
+			result = append(result, blank)
+		default:
 			result = append(result, subsequentPrefix+line)
 		}
 	}
 	return strings.Join(result, "\n")
+}
+
+func FormatGo(name, doc string, indent ...int) string {
+	if doc == "" {
+		return ""
+	}
+	width := maxLineWidth
+	if len(indent) > 0 {
+		width -= indent[0]
+	}
+	return renderComment(doc, "// "+name+" ", "// ", "//", width)
 }
 
 // FormatTS formats documentation for TypeScript JSDoc comments.
@@ -147,36 +146,22 @@ func FormatTS(name, doc string, indent ...int) string {
 	if doc == "" {
 		return ""
 	}
-
 	width := maxLineWidth
 	if len(indent) > 0 {
 		width -= indent[0]
 	}
 	firstPrefix := " * " + name + " "
-	subsequentPrefix := " * "
-	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
-	if len(lines) == 0 {
-		return ""
-	}
-
+	lines := wrapText(doc, width-len(firstPrefix), width-len(" * "))
 	if len(lines) == 1 {
 		if single := "/** " + name + " " + lines[0] + " */"; len(single) <= width {
 			return single
 		}
 	}
-
-	result := []string{"/**"}
-	for i, line := range lines {
-		if i == 0 {
-			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, " *")
-		} else {
-			result = append(result, subsequentPrefix+line)
-		}
+	body := renderComment(doc, firstPrefix, " * ", " *", width)
+	if body == "" {
+		return ""
 	}
-	result = append(result, " */")
-	return strings.Join(result, "\n")
+	return "/**\n" + body + "\n */"
 }
 
 // FormatCpp formats documentation for C++ Doxygen-style comments.
@@ -190,30 +175,7 @@ func FormatCpp(name, doc string) string {
 	if doc == "" {
 		return ""
 	}
-
-	// Calculate available width: "/// @brief Name " for first line, "/// " for
-	// subsequent
-	firstPrefix := "/// @brief " + name + " "
-	subsequentPrefix := "/// "
-	firstLineWidth := maxLineWidth - len(firstPrefix)
-	subsequentLineWidth := maxLineWidth - len(subsequentPrefix)
-
-	lines := wrapText(doc, firstLineWidth, subsequentLineWidth)
-	if len(lines) == 0 {
-		return ""
-	}
-
-	var result []string
-	for i, line := range lines {
-		if i == 0 {
-			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, "///")
-		} else {
-			result = append(result, subsequentPrefix+line)
-		}
-	}
-	return strings.Join(result, "\n")
+	return renderComment(doc, "/// @brief "+name+" ", "/// ", "///", maxLineWidth)
 }
 
 // FormatProto formats documentation for Protobuf comments (same as Go style).
@@ -225,32 +187,7 @@ func FormatCpp(name, doc string) string {
 // Text is wrapped to 88 characters including the comment prefix and the indentation the
 // comment is emitted at (buf format re-indents continuation lines to match).
 func FormatProto(name, doc string, indent ...int) string {
-	if doc == "" {
-		return ""
-	}
-
-	width := maxLineWidth
-	if len(indent) > 0 {
-		width -= indent[0]
-	}
-	firstPrefix := "// " + name + " "
-	subsequentPrefix := "// "
-	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
-	if len(lines) == 0 {
-		return ""
-	}
-
-	var result []string
-	for i, line := range lines {
-		if i == 0 {
-			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, "//")
-		} else {
-			result = append(result, subsequentPrefix+line)
-		}
-	}
-	return strings.Join(result, "\n")
+	return FormatGo(name, doc, indent...)
 }
 
 func capitalize(s string) string {

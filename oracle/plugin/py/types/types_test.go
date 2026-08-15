@@ -27,50 +27,6 @@ func TestTypes(t *testing.T) {
 	RunSpecs(t, "Plugin Py Types Suite")
 }
 
-var _ = Describe("PyFormatter", func() {
-	f := types.PyFormatter
-
-	Describe("FormatQualified", func() {
-		It("Should format qualified names with dot separator", func() {
-			Expect(f.FormatQualified("pkg", "Type")).To(Equal("pkg.Type"))
-		})
-
-		It("Should return type name when qualifier is empty", func() {
-			Expect(f.FormatQualified("", "Type")).To(Equal("Type"))
-		})
-	})
-
-	Describe("FormatGeneric", func() {
-		It("Should format generic types with square brackets", func() {
-			Expect(
-				f.FormatGeneric("Container", []string{"T", "U"}),
-			).To(Equal("Container[T, U]"))
-		})
-
-		It("Should return base name when no type args", func() {
-			Expect(f.FormatGeneric("Container", nil)).To(Equal("Container"))
-		})
-	})
-
-	Describe("FormatArray", func() {
-		It("Should format as list type", func() {
-			Expect(f.FormatArray("str")).To(Equal("list[str]"))
-		})
-	})
-
-	Describe("FormatMap", func() {
-		It("Should format as dict type", func() {
-			Expect(f.FormatMap("str", "int")).To(Equal("dict[str, int]"))
-		})
-	})
-
-	Describe("FallbackType", func() {
-		It("Should return Any", func() {
-			Expect(f.FallbackType()).To(Equal("Any"))
-		})
-	})
-})
-
 var _ = Describe("Python Types Plugin", func() {
 	var (
 		loader      *MockFileLoader

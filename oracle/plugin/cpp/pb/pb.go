@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -978,7 +979,7 @@ func (p *Plugin) generateDistinctConversion(
 	}
 
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
-		if p.isNestedArrayType(form.Base, data.table) {
+		if arrays.IsNested(form.Base, data.table) {
 			return p.generateNestedArrayConversion(
 				cppFieldName,
 				pbAccessorName,
@@ -1019,7 +1020,7 @@ func (p *Plugin) generateAliasConversion(
 	}
 
 	if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
-		if p.isNestedArrayType(form.Target, data.table) {
+		if arrays.IsNested(form.Target, data.table) {
 			return p.generateNestedArrayConversion(
 				cppFieldName,
 				pbAccessorName,
@@ -1113,7 +1114,7 @@ func (p *Plugin) generateArrayConversion(
 		return "// TODO: array without type args", "// TODO: array without type args"
 	}
 
-	if p.isNestedArrayType(typeRef, data.table) {
+	if arrays.IsNested(typeRef, data.table) {
 		return p.generateNestedArrayConversion(
 			cppFieldName,
 			pbAccessorName,
@@ -1345,63 +1346,6 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	return forward, backward
 }
 
-func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	if typeRef.Name == "Array" {
-		return true
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return false
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.AliasForm:
-		return p.isArrayType(form.Target, table)
-	case resolution.DistinctForm:
-		return p.isArrayType(form.Base, table)
-	}
-
-	return false
-}
-
-func (p *Plugin) getArrayElementType(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) (resolution.TypeRef, bool) {
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		return typeRef.TypeArgs[0], true
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return resolution.TypeRef{}, false
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.AliasForm:
-		return p.getArrayElementType(form.Target, table)
-	case resolution.DistinctForm:
-		return p.getArrayElementType(form.Base, table)
-	}
-
-	return resolution.TypeRef{}, false
-}
-
-func (p *Plugin) isNestedArrayType(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) bool {
-	if !p.isArrayType(typeRef, table) {
-		return false
-	}
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return false
-	}
-	return p.isArrayType(elemType, table)
-}
-
 func (p *Plugin) generateNestedArrayConversion(
 	cppFieldName, pbAccessorName string,
 	typeRef resolution.TypeRef,
@@ -1411,8 +1355,8 @@ func (p *Plugin) generateNestedArrayConversion(
 	// When it's a struct, delegate to its to_proto/from_proto helpers so the
 	// nested conversion type-checks and propagates errors correctly. The
 	// primitive-inner path preserves the original `add_values(v)` form.
-	if elemType, ok := p.getArrayElementType(typeRef, data.table); ok {
-		if innerElem, ok := p.getArrayElementType(elemType, data.table); ok {
+	if elemType, ok := arrays.ElementType(typeRef, data.table); ok {
+		if innerElem, ok := arrays.ElementType(elemType, data.table); ok {
 			if innerResolved, ok := innerElem.Resolve(data.table); ok {
 				if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
 					if innerResolved.Namespace != data.rawNs {

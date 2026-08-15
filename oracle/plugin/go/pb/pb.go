@@ -25,14 +25,14 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
@@ -735,8 +735,8 @@ func (p *Plugin) processFieldForTranslation(
 	// An optional list is a nullable wrapper message in proto (see pb/types). The
 	// forward converts the slice (to be wrapped in &Wrapper{Values: ...}); the
 	// backward reads from <pbField>.Values. A nil slice maps to a nil wrapper.
-	if isOptional && p.isArrayType(typeRef, data.table) &&
-		!p.isNestedArrayType(typeRef, data.table) {
+	if isOptional && arrays.IsArray(typeRef, data.table) &&
+		!arrays.IsNested(typeRef, data.table) {
 		f, b, e, be := p.generateArrayConversion(
 			field,
 			data,
@@ -744,7 +744,7 @@ func (p *Plugin) processFieldForTranslation(
 			"pb."+pbName+".Values",
 		)
 		fd.IsOptionalArrayWrapper = true
-		fd.WrapperName = p.getOptionalArrayWrapperName(typeRef, data.table)
+		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.table)
 		fd.ForwardExpr = f
 		fd.BackwardExpr = b
 		fd.HasError = e
@@ -859,7 +859,7 @@ func (p *Plugin) processGenericStructForTranslation(
 	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 		typeParams = append(
 			typeParams,
-			typeParamData{Name: tp.Name, Constraint: typeParamConstraint(tp)},
+			typeParamData{Name: tp.Name, Constraint: typemap.TypeParamConstraint(tp)},
 		)
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
@@ -990,8 +990,8 @@ func (p *Plugin) processGenericFieldForTranslation(
 
 	// An optional list is a nullable wrapper message in proto (see pb/types),
 	// matching the non-generic path in processFieldForTranslation.
-	if isOptional && p.isArrayType(typeRef, data.table) &&
-		!p.isNestedArrayType(typeRef, data.table) {
+	if isOptional && arrays.IsArray(typeRef, data.table) &&
+		!arrays.IsNested(typeRef, data.table) {
 		f, b, e, be := p.generateArrayConversion(
 			field,
 			data,
@@ -999,7 +999,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 			"pb."+pbName+".Values",
 		)
 		fd.IsOptionalArrayWrapper = true
-		fd.WrapperName = p.getOptionalArrayWrapperName(typeRef, data.table)
+		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.table)
 		fd.ForwardExpr = f
 		fd.BackwardExpr = b
 		fd.HasError = e
@@ -1021,7 +1021,7 @@ func (p *Plugin) processDelegationTranslator(
 	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 		typeParams = append(
 			typeParams,
-			typeParamData{Name: tp.Name, Constraint: typeParamConstraint(tp)},
+			typeParamData{Name: tp.Name, Constraint: typemap.TypeParamConstraint(tp)},
 		)
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
@@ -1114,158 +1114,6 @@ func (p *Plugin) processDelegationTranslator(
 	}, nil
 }
 
-func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	if typeRef.Name == "Array" {
-		return true
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return false
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.BuiltinGenericForm:
-		return form.Name == "Array"
-	case resolution.AliasForm:
-		return p.isArrayType(form.Target, table)
-	case resolution.DistinctForm:
-		return p.isArrayType(form.Base, table)
-	default:
-		return false
-	}
-}
-
-func (p *Plugin) getArrayElementType(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) (resolution.TypeRef, bool) {
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		return typeRef.TypeArgs[0], true
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return resolution.TypeRef{}, false
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.BuiltinGenericForm:
-		if form.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-			return typeRef.TypeArgs[0], true
-		}
-		return resolution.TypeRef{}, false
-	case resolution.AliasForm:
-		return p.getArrayElementType(form.Target, table)
-	case resolution.DistinctForm:
-		return p.getArrayElementType(form.Base, table)
-	default:
-		return resolution.TypeRef{}, false
-	}
-}
-
-func (p *Plugin) isNestedArrayType(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) bool {
-	if !p.isArrayType(typeRef, table) {
-		return false
-	}
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return false
-	}
-	return p.isArrayType(elemType, table)
-}
-
-func (p *Plugin) getNestedArrayWrapperName(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) string {
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return "ArrayWrapper"
-	}
-
-	resolved, ok := elemType.Resolve(table)
-	if ok {
-		return resolved.Name + "Wrapper"
-	}
-
-	if resolution.IsPrimitive(elemType.Name) {
-		return cases.Title(language.English).String(elemType.Name) + "Array"
-	}
-
-	return "ArrayWrapper"
-}
-
-// getOptionalArrayWrapperName returns the wrapper message name for an optional list.
-// It must match pb/types.getOptionalArrayWrapperName exactly ("<Elem>List").
-func (p *Plugin) getOptionalArrayWrapperName(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) string {
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return "ListWrapper"
-	}
-	if resolved, ok := elemType.Resolve(table); ok {
-		return resolved.Name + "List"
-	}
-	if resolution.IsPrimitive(elemType.Name) {
-		return cases.Title(language.English).String(elemType.Name) + "List"
-	}
-	return "ListWrapper"
-}
-
-func (p *Plugin) isFixedSizeUint8Array(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) bool {
-	arraySize := p.getArraySize(typeRef, table)
-	if arraySize == nil {
-		return false
-	}
-
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return false
-	}
-
-	resolved, ok := elemType.Resolve(table)
-	if !ok {
-		return elemType.Name == "uint8"
-	}
-
-	if prim, ok := resolved.Form.(resolution.PrimitiveForm); ok {
-		return prim.Name == "uint8"
-	}
-	return false
-}
-
-func (p *Plugin) getArraySize(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) *int64 {
-	if typeRef.Name == "Array" && typeRef.ArraySize != nil {
-		return typeRef.ArraySize
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return nil
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.AliasForm:
-		return p.getArraySize(form.Target, table)
-	case resolution.DistinctForm:
-		return p.getArraySize(form.Base, table)
-	default:
-		return nil
-	}
-}
-
 func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	typeRef resolution.TypeRef,
 	data *templateData,
@@ -1304,7 +1152,7 @@ func (p *Plugin) generateFieldConversion(
 	goFieldName := "r." + naming.GetFieldName(field)
 	pbFieldName := "pb." + lo.PascalCase(lo.SnakeCase(field.Name))
 
-	if p.isFixedSizeUint8Array(typeRef, data.table) {
+	if arrays.IsFixedSizeUint8(typeRef, data.table) {
 		f, b := p.generateFixedSizeUint8ArrayConversion(
 			typeRef,
 			data,
@@ -1314,7 +1162,7 @@ func (p *Plugin) generateFieldConversion(
 		return f, b, "", false, false
 	}
 
-	if p.isArrayType(typeRef, data.table) {
+	if arrays.IsArray(typeRef, data.table) {
 		f, b, e, be := p.generateArrayConversion(field, data, goFieldName, pbFieldName)
 		return f, b, "", e, be
 	}
@@ -1873,12 +1721,12 @@ func (p *Plugin) generateArrayConversion(
 ) (forward, backward string, hasError, hasBackwardError bool) {
 	typeRef := field.Type
 
-	if p.isNestedArrayType(typeRef, data.table) {
+	if arrays.IsNested(typeRef, data.table) {
 		f, b, e := p.generateNestedArrayConversion(typeRef, data, goField, pbField)
 		return f, b, e, e
 	}
 
-	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	elemType, ok := arrays.ElementType(typeRef, data.table)
 	if !ok {
 		return goField, pbField, false, false
 	}
@@ -2041,7 +1889,7 @@ func (p *Plugin) generateNestedArrayConversion(
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward string, hasError bool) {
-	wrapperName := p.getNestedArrayWrapperName(typeRef, data.table)
+	wrapperName := arrays.NestedWrapperName(typeRef, data.table)
 
 	// Delegate per-element conversion to the inner slice's existing
 	// XYZToPB / XYZFromPB helpers. This preserves type safety and error
@@ -2090,7 +1938,7 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	data *templateData,
 	goField, pbField, wrapperName string,
 ) (forward, backward string, ok bool) {
-	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	elemType, ok := arrays.ElementType(typeRef, data.table)
 	if !ok {
 		return "", "", false
 	}
@@ -2098,7 +1946,7 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	if !ok {
 		return "", "", false
 	}
-	innerElem, ok := p.getArrayElementType(elemType, data.table)
+	innerElem, ok := arrays.ElementType(elemType, data.table)
 	if !ok {
 		return "", "", false
 	}
@@ -2497,13 +2345,6 @@ type typeParamData struct {
 	Name string
 	// Constraint is the Go type constraint (e.g., "any").
 	Constraint string
-}
-
-func typeParamConstraint(tp resolution.TypeParam) string {
-	if tp.Constraint != nil && resolution.IsConstraint(tp.Constraint.Name) {
-		return tp.Constraint.Name
-	}
-	return "any"
 }
 
 // anyHelperData holds data for ToPBAny/FromPBAny helper functions.
