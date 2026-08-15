@@ -78,6 +78,17 @@ func asFloat(v any) (float64, bool) {
 	return 0, false
 }
 
+// legacyDiscarded lists the keys a rewrite drops on purpose, keyed by the task type
+// whose released export carried them. The current schema has no field to hold the
+// value.
+var legacyDiscarded = map[string]set.Set[string]{
+	// Only thermocouples ever read pos_chan; the driver ignored it on analog channels.
+	"labjack_read": set.New("pos_chan"),
+	// Digital channels carried a type tag with one possible value.
+	"ni_digital_read":  set.New("type"),
+	"ni_digital_write": set.New("type"),
+}
+
 // The three tables below map a legacy key to where its value lands in the stored
 // config. Each is consulted only when the key is absent under its own name, so a type
 // that kept the legacy spelling is unaffected.
@@ -128,7 +139,7 @@ func snakeKey(k string) string {
 // config, resolving the rewrites that move a value to another key. The subset check
 // cannot see a key the rewrite drops: the dropped key is missing from its output and
 // from the stored record alike, so both sides agree on nothing.
-func expectNoDroppedKeys(path string, legacy, stored any) {
+func expectNoDroppedKeys(path string, legacy, stored any, discarded set.Set[string]) {
 	GinkgoHelper()
 	switch leg := legacy.(type) {
 	case map[string]any:
@@ -138,7 +149,7 @@ func expectNoDroppedKeys(path string, legacy, stored any) {
 			Expect(list).To(HaveLen(len(leg)), "%s: record lost entries", path)
 			for k, v := range leg {
 				el := MustBeOk(findPair(list, k))
-				expectNoDroppedKeys(path+"."+k, v, el["value"])
+				expectNoDroppedKeys(path+"."+k, v, el["value"], discarded)
 			}
 			return
 		}
@@ -152,12 +163,12 @@ func expectNoDroppedKeys(path string, legacy, stored any) {
 			}
 			sk := snakeKey(k)
 			if av, ok := act[sk]; ok {
-				expectNoDroppedKeys(path+"."+k, v, av)
+				expectNoDroppedKeys(path+"."+k, v, av, discarded)
 				continue
 			}
 			if renamed, ok := legacyRenames[sk]; ok {
 				if av, ok := act[renamed]; ok {
-					expectNoDroppedKeys(path+"."+k, v, av)
+					expectNoDroppedKeys(path+"."+k, v, av, discarded)
 					continue
 				}
 			}
@@ -165,6 +176,9 @@ func expectNoDroppedKeys(path string, legacy, stored any) {
 				if _, ok := act[folded]; ok {
 					continue
 				}
+			}
+			if discarded.Contains(sk) {
+				continue
 			}
 			liftedInto, lifted := legacyLifted[sk]
 			Expect(lifted).To(BeTrue(), "%s: dropped key %q", path, k)
@@ -181,7 +195,7 @@ func expectNoDroppedKeys(path string, legacy, stored any) {
 		Expect(ok).To(BeTrue(), "%s: expected a list, got %T", path, stored)
 		Expect(act).To(HaveLen(len(leg)), "%s: list length changed", path)
 		for i, v := range leg {
-			expectNoDroppedKeys(fmt.Sprintf("%s[%d]", path, i), v, act[i])
+			expectNoDroppedKeys(fmt.Sprintf("%s[%d]", path, i), v, act[i], discarded)
 		}
 	}
 }
@@ -399,7 +413,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Expect(json.Unmarshal(raw, &fixtureBody)).To(Succeed())
 			delete(fixtureBody, "type")
 			expectNoDroppedKeys(
-				"config", fixtureBody, map[string]any(imported.Config),
+				"config",
+				fixtureBody,
+				map[string]any(imported.Config),
+				legacyDiscarded[env.Type],
 			)
 
 			var legacy map[string]any
