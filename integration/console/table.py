@@ -44,7 +44,7 @@ class Table(ConsolePage):
         self._get_cell(row, col).click()
         self.set_toolbar_variant("Value")
         self.page.get_by_text("Telemetry").click()
-        self.layout.click_btn("Input Channel")
+        self.layout.click_btn("Channel")
         self.layout.select_from_dropdown(channel_name)
 
     def get_cell_channel(self, row: int = 0, col: int = 0) -> str:
@@ -60,10 +60,7 @@ class Table(ConsolePage):
         self._select_cell(row, col)
         self.page.get_by_text("Telemetry").click()
         channel_btn = (
-            self.page.locator("text=Input Channel")
-            .locator("..")
-            .locator("button")
-            .first
+            self.page.locator('text="Channel"').locator("..").locator("button").first
         )
         return channel_btn.inner_text().strip()
 

@@ -391,9 +391,9 @@ class Plot(ConsolePage):
     ) -> None:
         """Assert the annotation visibility toggle reflects the given state.
 
-        Pluto's Button.Toggle renders the "filled" variant when on.
+        Pluto's Button.Toggle carries pluto--selected when on.
         """
-        pattern = re.compile(r"pluto-btn--filled")
+        pattern = re.compile(r"pluto--selected")
         toggle = expect(self.get_annotation_toggle())
         if visible:
             toggle.to_have_class(pattern, timeout=timeout)

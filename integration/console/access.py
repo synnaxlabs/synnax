@@ -105,7 +105,9 @@ class AccessClient:
         password_input = self.layout.page.locator(".pluto-field__password input").first
         password_input.fill(password)
 
-        self.layout.page.get_by_role("button", name="Log In", exact=True).click()
+        # The button's trailing arrow icon pollutes its accessible name, so exact
+        # name matching fails; substring matching still isolates it.
+        self.layout.page.get_by_role("button", name="Log In").click()
 
         for _ in range(20):
             sy.sleep(0.5)
@@ -236,8 +238,10 @@ class AccessClient:
 
         self.ctx_menu.action(user_item, "Change role")
 
-        if not self.layout.is_modal_open():
-            raise RuntimeError("Assign role modal did not open")
+        try:
+            self.layout.wait_for_selector_visible(self.layout.MODAL_SELECTOR)
+        except PlaywrightTimeoutError as e:
+            raise RuntimeError("Assign role modal did not open") from e
 
         self.layout.click_btn("Role")
         self.layout.select_from_dropdown(role_name, placeholder="Search")

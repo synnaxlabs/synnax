@@ -272,11 +272,15 @@ class RangeLifecycle(ConsoleCase):
             year=2024, month="January", day=2, hour=0, minute=0, second=0
         )
 
-        rng = self.client.ranges.retrieve(name=self.labeled_range_name)
-        start_ts = sy.TimeStamp(rng.time_range.start)
-        end_ts = sy.TimeStamp(rng.time_range.end)
-        start_utc = start_ts.datetime(timezone.utc)
-        end_utc = end_ts.datetime(timezone.utc)
+        # The overview form autosaves on a debounce, so poll until the last
+        # edit reaches the server before asserting.
+        for _ in range(10):
+            rng = self.client.ranges.retrieve(name=self.labeled_range_name)
+            start_utc = sy.TimeStamp(rng.time_range.start).datetime(timezone.utc)
+            end_utc = sy.TimeStamp(rng.time_range.end).datetime(timezone.utc)
+            if end_utc.day == 2:
+                break
+            sy.sleep(0.5)
         assert start_utc.year == 2024, (
             f"Start year should be 2024, got {start_utc.year}"
         )
@@ -306,6 +310,31 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.unfavorite_from_toolbar(self.labeled_range_name)
 
+    def retrieve_renamed(self, name: str) -> sy.Range:
+        """Retrieve a range by its new name, polling while the debounced
+        autosave of the rename lands."""
+        for _ in range(10):
+            try:
+                return self.client.ranges.retrieve(name=name)
+            except sy.QueryError:
+                sy.sleep(0.5)
+        return self.client.ranges.retrieve(name=name)
+
+    def assert_range_spans_now(self, name: str) -> None:
+        """Poll until the range's time range spans now.
+
+        Stage edits autosave on a debounce, so an immediate read races them.
+        """
+        now = int(sy.TimeStamp.now())
+        for _ in range(10):
+            rng = self.client.ranges.retrieve(name=name)
+            now = int(sy.TimeStamp.now())
+            if rng.time_range.start < now < rng.time_range.end:
+                break
+            sy.sleep(0.5)
+        assert rng.time_range.start < now, f"'{name}' start should be in the past"
+        assert rng.time_range.end > now, f"'{name}' end should be in the future"
+
     def test_change_stage_in_overview(self) -> None:
         """Test changing stage in the range overview (which also changes times)."""
         assert self.labeled_range_name is not None
@@ -315,11 +344,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.labeled_range_name)
 
         self.console.ranges.set_stage_in_overview("In Progress")
-
-        rng = self.client.ranges.retrieve(name=self.labeled_range_name)
-        now = int(sy.TimeStamp.now())
-        assert rng.time_range.start < now, "Start should be in the past"
-        assert rng.time_range.end > now, "End should be in the future"
+        self.assert_range_spans_now(self.labeled_range_name)
 
     def test_add_label_in_overview(self) -> None:
         """Test adding a label to a range in the overview."""
@@ -367,7 +392,7 @@ class RangeLifecycle(ConsoleCase):
             old_name=self.labeled_range_name, new_name=new_name
         )
 
-        rng = self.client.ranges.retrieve(name=new_name)
+        rng = self.retrieve_renamed(new_name)
         assert rng.name == new_name, f"Range should be renamed to '{new_name}'"
         assert rng.key == original_key, "Range key should remain the same after rename"
         self.labeled_range_name = new_name
@@ -386,7 +411,7 @@ class RangeLifecycle(ConsoleCase):
         new_name = f"RenamedOverview_{self.rand_suffix}"
         self.console.ranges.rename_from_overview(new_name)
 
-        rng = self.client.ranges.retrieve(name=new_name)
+        rng = self.retrieve_renamed(new_name)
         assert rng.name == new_name, f"Range should be renamed to '{new_name}'"
         assert rng.key == original_key, "Range key should remain the same after rename"
         self.labeled_range_name = new_name
@@ -528,8 +553,4 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.staged_range_name)
 
         self.console.ranges.set_child_range_stage(self.child_range_name, "In Progress")
-
-        rng = self.client.ranges.retrieve(name=self.child_range_name)
-        now = int(sy.TimeStamp.now())
-        assert rng.time_range.start < now, "Child range start should be in the past"
-        assert rng.time_range.end > now, "Child range end should be in the future"
+        self.assert_range_spans_now(self.child_range_name)

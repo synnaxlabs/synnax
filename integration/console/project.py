@@ -660,9 +660,8 @@ class ProjectClient:
             self.layout.command_palette("Import a project")
         fc_info.value.set_files(directory_path)
         expected_name = os.path.basename(directory_path.rstrip(os.sep))
-        self.layout.page.get_by_role("button").filter(has_text=expected_name).wait_for(
-            state="visible", timeout=10000
-        )
+        self.wait_for_active(expected_name)
+        self._active_project = expected_name
 
     def export_project(self, name: str) -> str:
         """Export a project via the real Export context menu action.
@@ -770,15 +769,10 @@ class ProjectClient:
             self.layout.command_palette("Create a project")
         else:
             self.layout.close_left_toolbar()
-            selector = (
-                self.layout.page.locator("button.pluto-dialog__trigger")
-                .filter(has=self.layout.page.locator(".pluto-icon--project"))
-                .first
-            )
-            selector.click(timeout=5000)
-            self.layout.page.get_by_role("button", name="New", exact=True).click(
-                timeout=5000
-            )
+            self._selector_trigger().click(timeout=5000)
+            self.layout.page.locator("button.console-create-list-item").filter(
+                has_text="New Project"
+            ).click(timeout=5000)
 
         name_input = self.layout.page.locator("input[placeholder='Project Name']")
         name_input.wait_for(state="visible", timeout=5000)
@@ -803,21 +797,35 @@ class ProjectClient:
                 self._wait_for_app()
             return
 
-        selector = (
-            self.layout.page.locator("button.pluto-dialog__trigger")
-            .filter(has=self.layout.page.locator(".pluto-icon--project"))
-            .first
-        )
-        if name in selector.inner_text():
-            self._active_project = name
+        if self._active_project == name:
             return
         self.layout.show_resource_toolbar("project")
         self.get_item(name).dblclick(timeout=5000)
-        self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
-            state="visible", timeout=5000
-        )
+        self.wait_for_active(name)
         self._active_project = name
         self.layout.close_left_toolbar()
+
+    def _selector_trigger(self) -> Locator:
+        return self.layout.page.locator("button.console-project-selector__trigger")
+
+    def wait_for_active(self, name: str) -> None:
+        """Wait for the project selector to mark ``name`` as the active project.
+
+        The selector trigger shows only the project's avatar, so the dialog is
+        opened and the entry for ``name`` is checked for selection styling.
+        """
+        self._selector_trigger().click(timeout=5000)
+        dialog = self.layout.page.locator(".console-project-selector-dialog")
+        dialog.wait_for(state="visible", timeout=5000)
+        dialog.get_by_placeholder("Search projects...").fill(name)
+        item = (
+            dialog.locator(".pluto-list__item.pluto--selected")
+            .filter(has_text=name)
+            .first
+        )
+        item.wait_for(state="visible", timeout=5000)
+        self._selector_trigger().click(timeout=5000)
+        dialog.wait_for(state="hidden", timeout=5000)
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename a project via context menu.
@@ -928,15 +936,17 @@ class ProjectClient:
         return True
 
     def _create_from_splash(self, name: str) -> None:
-        """Create ``name`` via the Splash New Project form."""
-        name_input = self.layout.page.locator(
-            ".console-project-splash__form input[placeholder='Project name']"
-        )
+        """Create ``name`` via the Splash New Project action."""
+        self.layout.page.locator(
+            ".console-project-splash button.console-create-list-item"
+        ).click(timeout=5000)
+        name_input = self.layout.page.locator("input[placeholder='Project Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
-        self.layout.page.get_by_role("button", name="Create Project", exact=True).click(
+        self.layout.page.get_by_role("button", name="Create", exact=True).click(
             timeout=5000
         )
+        name_input.wait_for(state="hidden", timeout=5000)
         self._active_project = name
 
     def open_plot(self, name: str) -> Plot:
