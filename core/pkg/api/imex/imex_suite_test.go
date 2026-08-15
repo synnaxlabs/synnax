@@ -75,7 +75,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	imexSvc = imex.NewService()
 	importer = &recordingImporter{}
-	imexSvc.RegisterImporter(string(importer.Type()), importer)
+	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())
 	apiSvc = MustSucceed(apiimex.NewService(apicfg.LayerConfig{
 		Distribution: &distribution.Layer{DB: db},
 		Service: &service.Layer{
