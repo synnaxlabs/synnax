@@ -7,16 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Deprecated: Use synnax.opcua instead."""
+"""Deprecated: Use synnax.opc instead."""
 
 import warnings
 
 warnings.warn(
     "synnax.hardware.opcua is deprecated and will be removed in a future version. "
-    "Use synnax.opcua instead.",
+    "Use synnax.opc instead.",
     FutureWarning,
     stacklevel=2,
 )
 
-from synnax.opcua import *  # noqa: F403
-from synnax.opcua import __all__ as __all__  # noqa: F401
+from synnax.opc import *  # noqa: F403
+from synnax.opc import __all__ as __all__  # noqa: F401

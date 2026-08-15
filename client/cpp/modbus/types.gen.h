@@ -81,8 +81,8 @@ struct BaseOutputChannel {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ScanConfig configures a Modbus scan task, which carries no settings.
-struct ScanConfig : public ::synnax::task::config::Keyed {
+/// @brief ScanConfig configures a Modbus scan task.
+struct ScanConfig : public ::synnax::task::config::BaseScan {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

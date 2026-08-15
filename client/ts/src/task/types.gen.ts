@@ -32,6 +32,12 @@ export const baseStartConfigZ = keyedConfigZ.extend({
 });
 export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}
 
+export const baseScanConfigZ = keyedConfigZ.extend({
+  rate: z.number().default(0.2),
+  disabled: z.boolean().default(false),
+});
+export interface BaseScanConfig extends z.infer<typeof baseScanConfigZ> {}
+
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
   running: z.ZodBoolean;

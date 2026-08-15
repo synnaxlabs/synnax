@@ -79,6 +79,33 @@ func (br *BaseRead) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (bs BaseScan) EncodeOrc(w *orc.Writer) error {
+	w.Write(bs.Key[:])
+	w.Float64(float64(bs.Rate))
+	w.Bool(bs.Disabled)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bs *BaseScan) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(bs.Key[:]); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		bs.Rate = telem.Rate(rawV)
+	}
+	if bs.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (bs BaseStart) EncodeOrc(w *orc.Writer) error {
 	w.Write(bs.Key[:])
 	w.Bool(bs.AutoStart)

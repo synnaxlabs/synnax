@@ -26,6 +26,13 @@ var _ = Describe("Service", func() {
 		}))
 	})
 
+	Describe("OpenService", func() {
+		It("Should reject a config missing the DB", func(ctx SpecContext) {
+			Expect(http.OpenService(ctx, http.ServiceConfig{})).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+	})
+
 	Describe("Stores", func() {
 		It("Should expose one store per HTTP task type", func() {
 			types := []string{}
@@ -58,6 +65,53 @@ var _ = Describe("Service", func() {
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
 			Expect(data["rate"]).To(BeNumerically("==", 25))
+		})
+
+		It("Should apply read config schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			Expect(data["rate"]).To(BeNumerically("==", 1))
+		})
+
+		It("Should apply write endpoint schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{"key": "ep-1"}},
+			})).To(Succeed())
+			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			Expect(data["endpoints"]).To(HaveExactElements(
+				HaveKeyWithValue("method", "POST"),
+			))
+		})
+
+		It("Should apply scan config schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			Expect(data["rate"]).To(BeNumerically("==", 0.2))
+		})
+
+		It("Should return the read validation error for an invalid endpoint", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{"method": "BOGUS"}},
+			})).To(MatchError(ContainSubstring("invalid method: BOGUS")))
+		})
+
+		It("Should return the write validation error for an invalid endpoint", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{"method": "BOGUS"}},
+			})).To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
 	})
 })

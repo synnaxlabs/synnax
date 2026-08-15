@@ -28,8 +28,8 @@ describe("layouts.List", () => {
         values: {
           config: {
             channels: [
-              { key: "a", enabled: true },
-              { key: "b", enabled: false },
+              { key: "a", disabled: false },
+              { key: "b", disabled: true },
             ],
           },
         },
@@ -40,7 +40,7 @@ describe("layouts.List", () => {
   });
 
   it("should append a channel to the form when the header add button is pressed", async () => {
-    const createChannel = vi.fn((): Channel => ({ key: "new", enabled: true }));
+    const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
     const { container, form } = await renderInTaskForm(
       <Task.Views.List<Channel> createChannel={createChannel} listItem={listItem} />,
       { values: { config: { channels: [] } } },
@@ -54,7 +54,7 @@ describe("layouts.List", () => {
   });
 
   it("should create a channel from the empty-state action", async () => {
-    const createChannel = vi.fn((): Channel => ({ key: "new", enabled: true }));
+    const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
     const { form } = await renderInTaskForm(
       <Task.Views.List<Channel> createChannel={createChannel} listItem={listItem} />,
       { values: { config: { channels: [] } } },

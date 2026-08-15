@@ -136,7 +136,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -321,7 +321,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           `${path}.fields`,
           fields.filter((f) => !isTimingField(f)),
         );
-        set(`${path}.index`, null);
+        set(`${path}.index`, "");
       }
     },
     [fields, isValueTiming, path, set],

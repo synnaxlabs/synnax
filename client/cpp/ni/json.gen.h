@@ -571,16 +571,21 @@ inline x::json::json DigitalWriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::task::config::Keyed &>(
+    static_cast<::synnax::task::config::BaseScan &>(
         result
-    ) = ::synnax::task::config::Keyed::parse(parser);
+    ) = ::synnax::task::config::BaseScan::parse(parser);
+    result.ignored_models = parser.field<std::vector<std::string>>(
+        "ignored_models",
+        std::vector<std::string>{}
+    );
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::Keyed::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BaseScan::to_json().items())
         j[k] = v;
+    j["ignored_models"] = this->ignored_models;
     return j;
 }
 

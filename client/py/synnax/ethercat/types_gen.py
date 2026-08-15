@@ -85,8 +85,8 @@ class BaseOutputChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.KeyedConfig):
-    """Configures an EtherCAT scan task, which carries no settings."""
+class ScanConfig(task.BaseScanConfig):
+    """Configures an EtherCAT scan task."""
 
     def __hash__(self) -> int:
         return hash(self.key)

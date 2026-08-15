@@ -62,3 +62,19 @@ type BaseWrite struct {
 	// Device is the key of the device the task writes to.
 	Device device.Key `json:"device" msgpack:"device"`
 }
+
+// BaseScan carries the fields shared by every scan task configuration.
+type BaseScan struct {
+	Keyed
+	// Rate is the rate at which the scan runs, in hertz.
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Disabled is true when scanning is paused.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *BaseScan) ApplyDefaults() {
+	if b.Rate == 0 {
+		b.Rate = 0.2
+	}
+}

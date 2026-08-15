@@ -45,7 +45,10 @@ import { Task } from "@/platform/task";
 const Properties = () => (
   <>
     <SelectDevice />
-    <Task.Fields.AutoStart />
+    <Flex.Box x grow>
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
+    </Flex.Box>
   </>
 );
 
@@ -95,7 +98,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -109,14 +112,7 @@ const renderTelemSelectDataType = Component.renderProp(
 
 const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
   if (channels.length === 0)
-    return {
-      type: "coil_output",
-      address: 0,
-      channel: 0,
-      enabled: true,
-      key: id.create(),
-      name: "",
-    };
+    return { ...deep.copy(ZERO_OUTPUT_CHANNELS.coil_output), key: id.create() };
   const channelToCopy = channels[channels.length - 1];
   return {
     ...channelToCopy,

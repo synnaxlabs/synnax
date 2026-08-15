@@ -92,6 +92,21 @@ class BaseStartConfig(KeyedConfig):
         return hash(self.key)
 
 
+class BaseScanConfig(KeyedConfig):
+    """Carries the fields shared by every scan task configuration.
+
+    Attributes:
+        rate: Is the rate at which the scan runs, in hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    rate: telem.Rate = telem.Rate(0.200000)
+    disabled: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 

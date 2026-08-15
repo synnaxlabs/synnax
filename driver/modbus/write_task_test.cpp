@@ -91,11 +91,11 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
          x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil_ch.key}},
               {{"type", "holding_register_output"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg_ch.key},
                {"data_type", "uint16"}}}
          )}
@@ -179,27 +179,27 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
          x::json::json::array(
              {{{"type", "holding_register_output"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", int16_ch.key},
                {"data_type", "int16"}},
               {{"type", "holding_register_output"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", uint32_ch.key},
                {"data_type", "uint32"}},
               {{"type", "holding_register_output"},
                {"address", 3},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", int32_ch.key},
                {"data_type", "int32"}},
               {{"type", "holding_register_output"},
                {"address", 5},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", float32_ch.key},
                {"data_type", "float32"}},
               {{"type", "holding_register_output"},
                {"address", 7},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", float64_ch.key},
                {"data_type", "float64"}}}
          )}
@@ -256,7 +256,7 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
          x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil_ch.key}}}
          )}
     };
@@ -279,10 +279,34 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
 
     task_cfg["channels"][0]["channel"] = reg_ch.key;
     task_cfg["channels"][0]["type"] = "holding_register_output";
-    task_cfg["channels"][0].erase("data_type");
+    task_cfg["channels"][0]["data_type"] = "uint16";
+    task_cfg["channels"][0]["address"] = "not_an_address";
     auto p4 = x::json::Parser(task_cfg);
     cfg = std::make_unique<WriteTaskConfig>(client, p4);
     ASSERT_OCCURRED_AS(p4.error(), x::errors::VALIDATION);
+}
+
+/// @brief it should configure when a disabled channel has no Synnax channel bound
+/// to it.
+TEST_F(ModbusWriteTest, testUnboundDisabledChannel) {
+    this->setup_task_config();
+
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil_output"},
+               {"address", 0},
+               {"disabled", false},
+               {"channel", coil_ch.key}},
+              {{"type", "coil_output"}, {"address", 1}, {"disabled", true}}}
+         )}
+    };
+
+    auto p = x::json::Parser(task_cfg);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(cfg->cmd_keys().size(), 1);
 }
 
 /// @brief it should handle concurrent writes to multiple channels.
@@ -323,20 +347,20 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
          x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil1.key}},
               {{"type", "coil_output"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil2.key}},
               {{"type", "holding_register_output"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg1.key},
                {"data_type", "uint16"}},
               {{"type", "holding_register_output"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg2.key},
                {"data_type", "uint16"}}}
          )}
@@ -402,11 +426,11 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
          x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil_ch.key}},
               {{"type", "holding_register_output"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg_ch.key},
                {"data_type", "uint16"}}}
          )}
@@ -485,11 +509,11 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
          x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil_ch.key}},
               {{"type", "holding_register_output"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg_ch.key},
                {"data_type", "uint16"}}}
          )}
@@ -569,17 +593,17 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
          x::json::json::array(
              {{{"type", "holding_register_output"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", holding0.key},
                {"data_type", "uint8"}},
               {{"type", "holding_register_output"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", holding1.key},
                {"data_type", "uint8"}},
               {{"type", "holding_register_output"},
                {"address", 2},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", holding2.key},
                {"data_type", "uint8"}}}
          )}

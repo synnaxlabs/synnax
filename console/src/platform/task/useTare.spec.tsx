@@ -27,7 +27,7 @@ const client = createTestClient();
 const rack = await client.racks.create({ name: uniqueName("rack") });
 
 const createTask = async () =>
-  await rack.createTask({ name: uniqueName("tsk"), type: "test_type", config: {} });
+  await rack.createTask({ name: uniqueName("tsk"), type: "opc_read", config: {} });
 
 const RUNNING_VALUES: TaskFormValues = {
   key: "task-1",

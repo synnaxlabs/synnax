@@ -39,7 +39,7 @@ const Properties = () => (
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving polarity="disabled" />
+      <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>

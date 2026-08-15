@@ -192,7 +192,7 @@ type Layer struct {
 	EtherCAT *ethercat.Service
 	// HTTP owns the stored configuration records of the HTTP task types.
 	HTTP *http.Service
-	// ArcTask owns the stored configuration records of the arc_task task type.
+	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
 	RackTask *racktask.Service

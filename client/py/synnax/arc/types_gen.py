@@ -65,6 +65,7 @@ class TaskConfig(task.BasePersistConfig):
 
     Attributes:
         arc_key: Is the key of the Arc module the task executes.
+        hash: Is the semantic hash of the Arc module at deploy time.
         execution_mode: Overrides the runtime's automatic loop mode selection.
         rt_priority: Is the thread priority used by real-time loop modes.
         cpu_affinity: Pins the loop to a CPU core. -1 selects automatically.
@@ -72,6 +73,7 @@ class TaskConfig(task.BasePersistConfig):
     """
 
     arc_key: Key
+    hash: str = ""
     execution_mode: ExecutionMode = "AUTO"
     rt_priority: int = Field(default=47, ge=-2147483648, le=2147483647)
     cpu_affinity: int = Field(default=-1, ge=-2147483648, le=2147483647)

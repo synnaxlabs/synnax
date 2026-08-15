@@ -54,6 +54,32 @@ describe("Modbus Write Task Types", () => {
   });
 });
 
+describe("deploy configs", () => {
+  it("should reject a read config without a device", () => {
+    const result = Modbus.Task.deployReadConfigZ.safeParse(
+      Modbus.Task.ZERO_READ_PAYLOAD.config,
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject a stream rate above the sample rate", () => {
+    const result = Modbus.Task.deployReadConfigZ.safeParse({
+      ...Modbus.Task.ZERO_READ_PAYLOAD.config,
+      device: "my_device",
+      sampleRate: 5,
+      streamRate: 10,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject a write config without a device", () => {
+    const result = Modbus.Task.deployWriteConfigZ.safeParse(
+      Modbus.Task.ZERO_WRITE_PAYLOAD.config,
+    );
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("draft configs", () => {
   // Drafts persist server-side before configuration, so the shape schema must
   // accept every zero config; retrieve parses with it.

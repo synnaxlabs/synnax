@@ -10,9 +10,12 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
@@ -47,23 +50,34 @@ constexpr const char *to_string(const Method m) {
     throw std::invalid_argument("unknown HTTP method");
 }
 
+/// @brief parses an HTTP method from its string form.
+/// @param str the method string (e.g. "GET").
+/// @returns the parsed method paired with an error when the string is unknown.
+inline std::pair<Method, x::errors::Error> parse_method(const std::string &str) {
+    if (str == "GET") return {Method::GET, x::errors::NIL};
+    if (str == "HEAD") return {Method::HEAD, x::errors::NIL};
+    if (str == "POST") return {Method::POST, x::errors::NIL};
+    if (str == "PUT") return {Method::PUT, x::errors::NIL};
+    if (str == "DELETE") return {Method::DEL, x::errors::NIL};
+    if (str == "PATCH") return {Method::PATCH, x::errors::NIL};
+    if (str == "OPTIONS") return {Method::OPTIONS, x::errors::NIL};
+    if (str == "TRACE") return {Method::TRACE, x::errors::NIL};
+    if (str == "CONNECT") return {Method::CONNECT, x::errors::NIL};
+    return {
+        Method::GET,
+        x::errors::Error(x::errors::VALIDATION, "unknown HTTP method '" + str + "'"),
+    };
+}
+
 /// @brief parses an HTTP method from a JSON string field.
 /// @param parser the JSON parser to read from.
 /// @param path the field path.
 /// @returns the parsed method.
 inline Method parse_method(x::json::Parser &parser, const std::string &path) {
     const auto str = parser.field<std::string>(path);
-    if (str == "GET") return Method::GET;
-    if (str == "HEAD") return Method::HEAD;
-    if (str == "POST") return Method::POST;
-    if (str == "PUT") return Method::PUT;
-    if (str == "DELETE") return Method::DEL;
-    if (str == "PATCH") return Method::PATCH;
-    if (str == "OPTIONS") return Method::OPTIONS;
-    if (str == "TRACE") return Method::TRACE;
-    if (str == "CONNECT") return Method::CONNECT;
-    parser.field_err(path, "unknown HTTP method '" + str + "'");
-    return Method::GET;
+    auto [method, err] = parse_method(str);
+    if (err) parser.field_err(path, err);
+    return method;
 }
 
 /// @brief returns true if the method allows a request body.
@@ -131,5 +145,62 @@ struct Response {
     /// @brief time range spanning the request.
     x::telem::TimeRange time_range;
 };
+
+/// @brief validates that str is a well-formed JSON Pointer, accumulating an error
+/// on parser at path when it is not.
+inline void validate_pointer(
+    const std::string &str,
+    x::json::Parser &parser,
+    const std::string &path
+) {
+    try {
+        static_cast<void>(x::json::json::json_pointer(str));
+    } catch (const x::json::json::parse_error &e) { parser.field_err(path, e.what()); }
+}
+
+/// @brief validates an endpoint's method, headers, and query parameters,
+/// accumulating errors on parser. Header and query parameter names must be
+/// non-empty and unique within the endpoint.
+template<typename Endpoint>
+void validate_request(const Endpoint &ep, x::json::Parser &parser) {
+    if (auto [method, err] = parse_method(ep.method); err)
+        parser.field_err("endpoints.method", err);
+    std::set<std::string> names;
+    for (const auto &h: ep.headers)
+        if (h.name.empty())
+            parser.field_err("endpoints.headers.name", "this field is required");
+        else if (!names.insert(h.name).second)
+            parser.field_err(
+                "endpoints.headers.name",
+                "duplicate header '" + h.name + "'"
+            );
+    std::set<std::string> params;
+    for (const auto &qp: ep.query_params)
+        if (qp.parameter.empty())
+            parser.field_err(
+                "endpoints.query_params.parameter",
+                "this field is required"
+            );
+        else if (!params.insert(qp.parameter).second)
+            parser.field_err(
+                "endpoints.query_params.parameter",
+                "duplicate query parameter '" + qp.parameter + "'"
+            );
+}
+
+/// @brief derives the static request configuration from a read or write endpoint's
+/// method, path, headers, and query parameters. Assumes the endpoint has already
+/// been validated.
+template<typename Endpoint>
+[[nodiscard]] RequestConfig request_config(const Endpoint &ep) {
+    RequestConfig req;
+    req.method = parse_method(ep.method).first;
+    req.path = ep.path;
+    for (const auto &h: ep.headers)
+        if (!h.name.empty()) req.headers.emplace(h.name, h.value);
+    for (const auto &qp: ep.query_params)
+        if (!qp.parameter.empty()) req.query_params.emplace(qp.parameter, qp.value);
+    return req;
+}
 
 }

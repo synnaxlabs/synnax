@@ -27,3 +27,6 @@ type BaseRead = v0.BaseRead
 
 // BaseWrite carries the configuration fields shared by hardware control tasks.
 type BaseWrite = v0.BaseWrite
+
+// BaseScan carries the fields shared by every scan task configuration.
+type BaseScan = v0.BaseScan

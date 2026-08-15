@@ -196,16 +196,18 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::task::config::Keyed &>(
+    static_cast<::synnax::task::config::BaseScan &>(
         result
-    ) = ::synnax::task::config::Keyed::parse(parser);
+    ) = ::synnax::task::config::BaseScan::parse(parser);
+    result.tcp_scan_multiplier = parser.field<std::int32_t>("tcp_scan_multiplier", 10);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::Keyed::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BaseScan::to_json().items())
         j[k] = v;
+    j["tcp_scan_multiplier"] = this->tcp_scan_multiplier;
     return j;
 }
 

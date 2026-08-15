@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -69,6 +70,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
 			Type:            AlertTaskType,
+			Version:         legacy.LastVersion + 1,
+			Legacy:          &legacy.Alert,
 			SetEntryKey:     (*TaskConfig).SetKey,
 		},
 	); !ok(err, s.Alert) {

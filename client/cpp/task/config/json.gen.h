@@ -99,4 +99,21 @@ inline x::json::json BaseWrite::to_json() const {
     return j;
 }
 
+inline BaseScan BaseScan::parse(x::json::Parser parser) {
+    BaseScan result;
+    static_cast<Keyed &>(result) = Keyed::parse(parser);
+    result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(0.200000));
+    result.disabled = parser.field<bool>("disabled", false);
+    return result;
+}
+
+inline x::json::json BaseScan::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: Keyed::to_json().items())
+        j[k] = v;
+    j["rate"] = this->rate;
+    j["disabled"] = this->disabled;
+    return j;
+}
+
 }

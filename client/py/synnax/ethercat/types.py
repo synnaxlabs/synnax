@@ -7,49 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""EtherCAT driver types for Synnax Python SDK.
-
-This module provides Python types for configuring EtherCAT read and write tasks
-that communicate with EtherCAT slave devices via the Synnax driver.
-
-EtherCAT channels can be configured in two modes:
-- **Automatic**: Reference PDOs by name (e.g., "Position actual value"). The driver
-  looks up the PDO address from the slave device properties discovered during scanning.
-- **Manual**: Specify PDO addresses directly (index, subindex, bit_length, data_type).
-
-Example:
-    >>> import synnax as sy
-    >>> from synnax import ethercat
-    >>>
-    >>> # Create an automatic input channel (PDO resolved by name)
-    >>> position_ch = ethercat.AutomaticInputChan(
-    ...     device="slave-device-key",
-    ...     pdo="Position actual value",
-    ...     channel=position_channel.key,
-    ... )
-    >>>
-    >>> # Create a read task
-    >>> read_task = ethercat.ReadTask(
-    ...     name="EtherCAT Read",
-    ...     sample_rate=1000,
-    ...     stream_rate=100,
-    ...     channels=[position_ch],
-    ... )
-    >>> client.tasks.configure(read_task)
-"""
-
-from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
-from synnax import channel, device, task
-
-# Transitional: the config cutover deletes this alias and the hand-written task
-# config models below, leaving the generated types_gen models as the only config
-# surface.
-from synnax.task import client as task_client
-from synnax.telem import CrudeRate
+from synnax import device, task
+from synnax.ethercat.types_gen import (
+    InputChannel,
+    OutputChannel,
+    ReadConfig,
+    WriteConfig,
+)
+from synnax.telem import CrudeRate, Rate
 
 # Device identifiers - must match driver expectations
 MAKE = "EtherCAT"
@@ -57,18 +26,14 @@ MODEL = "Slave"
 
 
 class PDOEntry(BaseModel):
-    """Information about a single PDO entry from device discovery.
+    """A single PDO entry stored in slave device properties after scanning.
 
-    This model represents a PDO (Process Data Object) entry stored in
-    slave device properties after scanning. Note that this represents an
-    individual entry within a PDO, not the PDO container itself.
-
-    :param name: Human-readable name of the PDO entry (e.g., "Position actual value").
-    :param pdo_index: Parent PDO index (e.g., 0x1A00 for TxPDO, 0x1600 for RxPDO).
-    :param index: CoE object dictionary index (e.g., 0x6064 = 24676).
+    :param name: Human-readable name of the PDO entry (e.g. "Position actual value").
+    :param pdo_index: Parent PDO index (e.g. 0x1A00 for TxPDO, 0x1600 for RxPDO).
+    :param index: CoE object dictionary index (e.g. 0x6064 = 24676).
     :param sub_index: CoE object dictionary subindex.
     :param bit_length: Size of the data in bits.
-    :param data_type: Data type string (e.g., "uint16", "int32", "float32").
+    :param data_type: Data type string (e.g. "uint16", "int32", "float32").
     """
 
     name: str
@@ -79,302 +44,24 @@ class PDOEntry(BaseModel):
     data_type: str
 
 
-class BaseChan(BaseModel):
-    """Base class for all EtherCAT channels."""
-
-    key: str = ""
-    "A unique key to identify this channel configuration."
-    enabled: bool = True
-    "Whether the channel is enabled for data exchange."
-    device: str = Field(min_length=1)
-    "The key of the Synnax slave device this channel belongs to."
-
-    def __init__(self, **data: Any) -> None:
-        if "key" not in data or not data["key"]:
-            data["key"] = str(uuid4())
-        super().__init__(**data)
-
-
-class AutomaticInputChan(BaseChan):
-    """Input channel that resolves PDO address from slave device properties by name.
-
-    Automatic channels reference PDOs by their human-readable name. The driver
-    looks up the PDO address (index, subindex, bit_length, data_type) from the
-    slave device properties that were populated during device scanning.
-
-    This is the recommended approach as it's more readable and less error-prone
-    than specifying raw PDO addresses.
-
-    Example:
-        >>> # Read position from a servo drive
-        >>> position_ch = AutomaticInputChan(
-        ...     device="servo-drive-key",
-        ...     pdo="Position actual value",
-        ...     channel=position_channel.key,
-        ... )
-
-    :param device: The key of the Synnax slave device this channel belongs to.
-    :param pdo: The name of the PDO to read (must match a name in device properties).
-    :param channel: The Synnax channel key that data will be written to.
-    :param enabled: Whether the channel is enabled for data acquisition.
-    :param key: Unique identifier (auto-generated if not provided).
-    """
-
-    type: Literal["automatic"] = "automatic"
-    pdo: str = Field(min_length=1)
-    "The name of the PDO to look up in slave device properties."
-    channel: channel.Key
-    "The Synnax channel key that will be written to during acquisition."
-
-
-class ManualInputChan(BaseChan):
-    """Input channel with PDO address specified directly.
-
-    Manual channels allow specifying the exact PDO address when the PDO name
-    is not known or when working with devices that don't have properly
-    populated PDO names.
-
-    Example:
-        >>> # Read a PDO at index 0x6064, sub_index 0
-        >>> position_ch = ManualInputChan(
-        ...     device="servo-drive-key",
-        ...     index=0x6064,
-        ...     sub_index=0,
-        ...     bit_length=32,
-        ...     data_type="int32",
-        ...     channel=position_channel.key,
-        ... )
-
-    :param device: The key of the Synnax slave device this channel belongs to.
-    :param index: CoE object dictionary index (0-65535).
-    :param sub_index: CoE object dictionary subindex (0-255).
-    :param bit_length: Size of the data in bits (1-64).
-    :param data_type: Data type string (e.g., "uint16", "int32", "float32").
-    :param channel: The Synnax channel key that data will be written to.
-    :param enabled: Whether the channel is enabled for data acquisition.
-    :param key: Unique identifier (auto-generated if not provided).
-    """
-
-    type: Literal["manual"] = "manual"
-    index: int = Field(ge=0, le=65535)
-    "CoE object dictionary index (e.g., 0x6064 = 24676)."
-    sub_index: int = Field(ge=0, le=255)
-    "CoE object dictionary subindex."
-    bit_length: int = Field(ge=1, le=64)
-    "Size of the data in bits."
-    data_type: str
-    "Data type string (e.g., 'uint8', 'int16', 'uint32', 'int32', 'float32')."
-    channel: channel.Key
-    "The Synnax channel key that will be written to during acquisition."
-
-
-# Union type for all input channels
-InputChan = AutomaticInputChan | ManualInputChan
-
-
-class AutomaticOutputChan(BaseChan):
-    """Output channel that resolves PDO address from slave device properties by name.
-
-    Automatic output channels reference PDOs by their human-readable name. The driver
-    looks up the PDO address from the slave device properties.
-
-    Example:
-        >>> # Control velocity on a servo drive
-        >>> velocity_cmd = AutomaticOutputChan(
-        ...     device="servo-drive-key",
-        ...     pdo="Target velocity",
-        ...     cmd_channel=velocity_command.key,
-        ...     state_channel=velocity_state.key,  # Optional state feedback
-        ... )
-
-    :param device: The key of the Synnax slave device this channel belongs to.
-    :param pdo: The name of the PDO to write (must match a name in device properties).
-    :param cmd_channel: The Synnax channel key to receive command values from.
-    :param state_channel: The Synnax channel key to write state feedback to (optional).
-    :param enabled: Whether the channel is enabled for output operations.
-    :param key: Unique identifier (auto-generated if not provided).
-    """
-
-    type: Literal["automatic"] = "automatic"
-    pdo: str = Field(min_length=1)
-    "The name of the PDO to look up in slave device properties."
-    cmd_channel: channel.Key
-    "The Synnax channel key to receive command values from."
-    state_channel: channel.Key = 0
-    "The Synnax channel key to write state feedback to (0 to disable)."
-
-
-class ManualOutputChan(BaseChan):
-    """Output channel with PDO address specified directly.
-
-    Manual output channels allow specifying the exact PDO address when the PDO name
-    is not known or when working with devices that don't have properly populated
-    PDO names.
-
-    Example:
-        >>> # Write to a PDO at index 0x60FF, sub_index 0
-        >>> velocity_cmd = ManualOutputChan(
-        ...     device="servo-drive-key",
-        ...     index=0x60FF,
-        ...     sub_index=0,
-        ...     bit_length=32,
-        ...     data_type="int32",
-        ...     cmd_channel=velocity_command.key,
-        ... )
-
-    :param device: The key of the Synnax slave device this channel belongs to.
-    :param index: CoE object dictionary index (0-65535).
-    :param sub_index: CoE object dictionary subindex (0-255).
-    :param bit_length: Size of the data in bits (1-64).
-    :param data_type: Data type string (e.g., "uint16", "int32", "float32").
-    :param cmd_channel: The Synnax channel key to receive command values from.
-    :param state_channel: The Synnax channel key to write state feedback to (optional).
-    :param enabled: Whether the channel is enabled for output operations.
-    :param key: Unique identifier (auto-generated if not provided).
-    """
-
-    type: Literal["manual"] = "manual"
-    index: int = Field(ge=0, le=65535)
-    "CoE object dictionary index (e.g., 0x60FF = 24831)."
-    sub_index: int = Field(ge=0, le=255)
-    "CoE object dictionary subindex."
-    bit_length: int = Field(ge=1, le=64)
-    "Size of the data in bits."
-    data_type: str
-    "Data type string (e.g., 'uint8', 'int16', 'uint32', 'int32', 'float32')."
-    cmd_channel: channel.Key
-    "The Synnax channel key to receive command values from."
-    state_channel: channel.Key = 0
-    "The Synnax channel key to write state feedback to (0 to disable)."
-
-
-# Union type for all output channels
-OutputChan = AutomaticOutputChan | ManualOutputChan
-
-
-class ReadTaskConfig(task_client.BaseReadConfig):
-    """Configuration for an EtherCAT read task.
-
-    Inherits common read task fields (sample_rate, stream_rate, data_saving,
-    auto_start) from BaseReadTaskConfig and adds EtherCAT-specific channel
-    configuration.
-
-    The sample_rate must be divisible by stream_rate. For example, a sample_rate
-    of 1000 Hz and stream_rate of 100 Hz will result in batches of 10 samples
-    being streamed to Synnax every 10ms.
-
-    EtherCAT supports high-frequency sampling. The default rate limits are set
-    to 50 kHz, but actual achievable rates depend on the number of slaves and
-    PDOs configured.
-
-    :param sample_rate: The rate at which to sample data from EtherCAT slaves (Hz).
-    :param stream_rate: The rate at which data is streamed to Synnax (Hz).
-    :param data_saving: Whether to persist data to disk (True) or only stream (False).
-    :param auto_start: Whether to start the task automatically when configured.
-    :param channels: List of input channel configurations (automatic or manual).
-    """
-
-    channels: list[InputChan]
-    "A list of input channel configurations to acquire data from."
-
-    @field_validator("channels")
-    def validate_channels_not_empty(cls, v: list[InputChan]) -> list[InputChan]:
-        """Validate that at least one channel is provided."""
-        if len(v) == 0:
-            raise ValueError("Task must have at least one channel")
-        return v
-
-
-class WriteTaskConfig(task_client.BaseWriteConfig):
-    """Configuration for an EtherCAT write task.
-
-    Inherits common write task fields (device, auto_start) from BaseWriteTaskConfig
-    and adds EtherCAT-specific fields for state feedback and execution rate.
-
-    Note: The `device` field from BaseWriteTaskConfig is not used for EtherCAT
-    write tasks since channels can span multiple slave devices. Each channel
-    specifies its own device.
-
-    :param state_rate: Rate at which state feedback is written to Synnax (Hz).
-    :param execution_rate: Rate at which commands are executed on the bus (Hz).
-    :param data_saving: Whether to persist state data to disk.
-    :param auto_start: Whether to start the task automatically when configured.
-    :param channels: List of output channel configurations (automatic or manual).
-    """
-
-    device: str = ""
-    "Not used for EtherCAT - each channel specifies its own device."
-    state_rate: float = Field(default=1.0, ge=0, le=10000)
-    "Rate at which state feedback is written to Synnax (Hz)."
-    execution_rate: float = Field(default=1000.0, ge=0, le=50000)
-    "Rate at which commands are executed on the EtherCAT bus (Hz)."
-    data_saving: bool = True
-    "Whether to persist state data to disk."
-    channels: list[OutputChan]
-    "A list of output channel configurations to write to."
-
-    @field_validator("channels")
-    def validate_channels_not_empty(cls, v: list[OutputChan]) -> list[OutputChan]:
-        """Validate that at least one channel is provided."""
-        if len(v) == 0:
-            raise ValueError("Task must have at least one channel")
-        return v
-
-
 class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A read task for sampling data from EtherCAT slave devices.
 
-    This task configures the Synnax driver to perform cyclic PDO exchange with
-    EtherCAT slaves and write the acquired data to Synnax channels.
-
     The task supports both automatic channels (PDO resolved by name) and manual
-    channels (PDO address specified directly).
-
-    Example:
-        >>> import synnax as sy
-        >>> from synnax import ethercat
-        >>>
-        >>> # Create channels for time and position
-        >>> time_ch = client.channels.create(
-        ...     name="ecat_time",
-        ...     data_type=sy.DataType.TIMESTAMP,
-        ...     is_index=True,
-        ... )
-        >>> position_ch = client.channels.create(
-        ...     name="position",
-        ...     data_type=sy.DataType.INT32,
-        ...     index=time_ch.key,
-        ... )
-        >>>
-        >>> # Create the read task
-        >>> read_task = ethercat.ReadTask(
-        ...     name="EtherCAT Position Read",
-        ...     sample_rate=1000,
-        ...     stream_rate=100,
-        ...     data_saving=True,
-        ...     channels=[
-        ...         ethercat.AutomaticInputChan(
-        ...             device="servo-drive-key",
-        ...             pdo="Position actual value",
-        ...             channel=position_ch.key,
-        ...         ),
-        ...     ],
-        ... )
-        >>>
-        >>> # Configure and start
-        >>> client.tasks.configure(read_task)
-        >>> read_task.start()
+    channels (PDO address specified inline).
 
     :param name: A human-readable name for the task.
     :param sample_rate: The rate at which to sample data from slaves (Hz).
     :param stream_rate: The rate at which data is streamed to Synnax (Hz).
-    :param data_saving: Whether to save data permanently or just stream it.
+    :param data_saving_disabled: Whether to only stream data for real-time consumption
+        instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when configured.
-    :param channels: List of input channel configurations.
+    :param channels: The input channels to acquire data from (InputChannel variants:
+        InputChannelAutomatic, InputChannelManual).
     """
 
     TYPE = "ethercat_read"
-    config: ReadTaskConfig
+    config: ReadConfig
     _internal: task.Task
 
     def __init__(
@@ -382,86 +69,45 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         internal: task.Task | None = None,
         *,
         name: str = "",
-        sample_rate: CrudeRate = 0,
-        stream_rate: CrudeRate = 0,
-        data_saving: bool = True,
+        sample_rate: CrudeRate = 10,
+        stream_rate: CrudeRate = 5,
+        data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[InputChan] | None = None,
+        channels: list[InputChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate(internal.config)
+            self.config = ReadConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
-        self.config = ReadTaskConfig(
-            sample_rate=sample_rate,
-            stream_rate=stream_rate,
-            data_saving=data_saving,
+        self.config = ReadConfig(
+            sample_rate=Rate(sample_rate),
+            stream_rate=Rate(stream_rate),
+            data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
             channels=channels if channels is not None else [],
         )
+        task.assign_keys(self.config.channels)
 
 
 class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A write task for sending commands to EtherCAT slave devices.
 
-    This task configures the Synnax driver to receive commands from Synnax
-    channels and write them to EtherCAT slave PDOs during cyclic exchange.
-
-    The task supports state feedback - if state_channel is specified on a
-    channel, the current PDO value will be written back to Synnax at the
-    configured state_rate.
-
-    Example:
-        >>> import synnax as sy
-        >>> from synnax import ethercat
-        >>>
-        >>> # Create command and state channels
-        >>> cmd_time = client.channels.create(
-        ...     name="cmd_time",
-        ...     data_type=sy.DataType.TIMESTAMP,
-        ...     is_index=True,
-        ... )
-        >>> velocity_cmd = client.channels.create(
-        ...     name="velocity_cmd",
-        ...     data_type=sy.DataType.INT32,
-        ...     index=cmd_time.key,
-        ... )
-        >>> velocity_state = client.channels.create(
-        ...     name="velocity_state",
-        ...     data_type=sy.DataType.INT32,
-        ...     index=cmd_time.key,
-        ... )
-        >>>
-        >>> # Create the write task
-        >>> write_task = ethercat.WriteTask(
-        ...     name="EtherCAT Velocity Control",
-        ...     state_rate=10,
-        ...     execution_rate=1000,
-        ...     channels=[
-        ...         ethercat.AutomaticOutputChan(
-        ...             device="servo-drive-key",
-        ...             pdo="Target velocity",
-        ...             cmd_channel=velocity_cmd.key,
-        ...             state_channel=velocity_state.key,
-        ...         ),
-        ...     ],
-        ... )
-        >>>
-        >>> # Configure and start
-        >>> client.tasks.configure(write_task)
-        >>> write_task.start()
+    If a channel specifies a state_channel, the current PDO value is written back to
+    Synnax at the configured state_rate.
 
     :param name: A human-readable name for the task.
     :param state_rate: Rate at which state feedback is written to Synnax (Hz).
     :param execution_rate: Rate at which commands are executed on the bus (Hz).
-    :param data_saving: Whether to persist state data to disk.
+    :param data_saving_disabled: Whether to only stream state data for real-time
+        consumption instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when configured.
-    :param channels: List of output channel configurations.
+    :param channels: The output channels to write to (OutputChannel variants:
+        OutputChannelAutomatic, OutputChannelManual).
     """
 
     TYPE = "ethercat_write"
-    config: WriteTaskConfig
+    config: WriteConfig
     _internal: task.Task
 
     def __init__(
@@ -469,82 +115,44 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         internal: task.Task | None = None,
         *,
         name: str = "",
-        state_rate: float = 1.0,
-        execution_rate: float = 1000.0,
-        data_saving: bool = True,
+        state_rate: CrudeRate = 25,
+        execution_rate: CrudeRate = 1000,
+        data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[OutputChan] | None = None,
+        channels: list[OutputChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate(internal.config)
+            self.config = WriteConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
-        self.config = WriteTaskConfig(
-            state_rate=state_rate,
-            execution_rate=execution_rate,
-            data_saving=data_saving,
+        self.config = WriteConfig(
+            state_rate=Rate(state_rate),
+            execution_rate=Rate(execution_rate),
+            data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
             channels=channels if channels is not None else [],
         )
+        task.assign_keys(self.config.channels)
 
 
 class Device(device.Device):
-    """EtherCAT slave device configuration.
+    """An EtherCAT slave device.
 
-    This class extends the base Device class to provide EtherCAT-specific
-    properties including vendor/product identification, bus position, and
-    PDO definitions discovered during scanning.
-
-    Typically, EtherCAT devices are created automatically by the driver's
-    scan task. However, this class can be used to create devices manually
-    or to update device properties.
-
-    Example:
-        >>> from synnax import ethercat
-        >>>
-        >>> # Create an EtherCAT slave device manually
-        >>> device = ethercat.Device(
-        ...     name="Servo Drive",
-        ...     network="eth0",
-        ...     position=0,
-        ...     vendor_id=0x00000002,
-        ...     product_code=0x12345678,
-        ...     revision=0x00010000,
-        ...     serial=12345,
-        ...     rack=rack.key,
-        ...     input_pdos=[
-        ...         ethercat.PDOEntry(
-        ...             name="Position actual value",
-        ...             index=0x6064,
-        ...             sub_index=0,
-        ...             bit_length=32,
-        ...             data_type="int32",
-        ...         ),
-        ...     ],
-        ...     output_pdos=[
-        ...         ethercat.PDOEntry(
-        ...             name="Target velocity",
-        ...             index=0x60FF,
-        ...             sub_index=0,
-        ...             bit_length=32,
-        ...             data_type="int32",
-        ...         ),
-        ...     ],
-        ... )
-        >>> client.devices.create(device)
+    Typically, EtherCAT devices are created automatically by the driver's scan task.
+    This class can be used to create devices manually or to update device properties.
 
     :param name: Human-readable name for the device.
-    :param network: Network interface name (e.g., "eth0", "enp3s0").
-    :param position: Position of the slave on the EtherCAT bus (0-indexed).
+    :param network: Network interface name (e.g. "eth0", "enp3s0").
+    :param position: Position of the slave on the EtherCAT bus, 0-indexed.
     :param vendor_id: EtherCAT vendor ID from device EEPROM.
     :param product_code: Product code identifying the device model.
     :param revision: Hardware/firmware revision number.
     :param serial: Unique serial number from device EEPROM.
     :param rack: Rack key this device belongs to.
-    :param input_pdos: List of input PDO entry definitions (TxPDO, slave->master).
-    :param output_pdos: List of output PDO entry definitions (RxPDO, master->slave).
-    :param key: Unique key for the device (auto-generated if empty).
+    :param input_pdos: Input PDO entry definitions (TxPDO, slave to master).
+    :param output_pdos: Output PDO entry definitions (RxPDO, master to slave).
+    :param key: Unique key for the device. Auto-generated if empty.
     :param configured: Whether the device has been configured.
     :param enabled: Whether the device is enabled for operation.
     """
@@ -566,10 +174,8 @@ class Device(device.Device):
         configured: bool = False,
         enabled: bool = True,
     ):
-        """Initialize an EtherCAT slave device."""
         if not key:
             key = str(uuid4())
-
         props = {
             "network": network,
             "position": position,
@@ -584,7 +190,6 @@ class Device(device.Device):
                 "outputs": [p.model_dump() for p in (output_pdos or [])],
             },
         }
-
         super().__init__(
             key=key,
             location=f"{network}:{position}",

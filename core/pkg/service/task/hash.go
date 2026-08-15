@@ -32,3 +32,16 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	}
 	return fmt.Sprintf("%016x", xxhash.Sum64(b)), nil
 }
+
+// configContent returns config without the record key, so hashes track config
+// content rather than record identity: equal configs on different tasks hash
+// equally.
+func configContent(config msgpack.EncodedJSON) msgpack.EncodedJSON {
+	content := make(msgpack.EncodedJSON, len(config))
+	for k, v := range config {
+		if k != "key" {
+			content[k] = v
+		}
+	}
+	return content
+}

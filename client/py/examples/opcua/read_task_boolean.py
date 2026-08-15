@@ -78,21 +78,20 @@ my_bool_1 = client.channels.create(
 # Create the OPC UA Read Task
 # Using node IDs to reference the OPC UA boolean variables.
 # The server creates booleans with sequential square wave patterns offset by 0.2 seconds.
-tsk = sy.opcua.ReadTask(
+tsk = sy.opc.ReadTask(
     name="OPC UA Py - Read Task (Boolean)",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz
-    data_saving=True,
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_bool_0 and my_bool_1 in the OPC UA server
-        sy.opcua.ReadChannel(
+        sy.opc.InputChannel(
             channel=my_bool_0.key,
             node_id="NS=2;I=13",
             data_type="bool",  # my_bool_0
         ),
-        sy.opcua.ReadChannel(
+        sy.opc.InputChannel(
             channel=my_bool_1.key,
             node_id="NS=2;I=14",
             data_type="bool",  # my_bool_1

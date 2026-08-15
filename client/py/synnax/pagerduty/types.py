@@ -7,58 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from pydantic import BaseModel, Field, model_validator
-
 from synnax import task
-
-# Transitional: the config cutover deletes this alias and the hand-written task
-# config models below, leaving the generated types_gen models as the only config
-# surface.
-from synnax.task import client as task_client
-
-
-class AlertConfig(BaseModel):
-    """Configuration for a single PagerDuty alert, mapping a Synnax status to an alert.
-
-    :param status: The Synnax status key to watch for changes.
-    :param treat_error_as_critical: If True, maps error variant to "critical" severity
-        instead of "error".
-    :param component: Component of the source machine (e.g., "mysql", "eth0").
-    :param group: Logical grouping of components (e.g., "app-stack").
-    :param alert_class: Class/type of the event (e.g., "ping failure", "cpu load").
-        Serialized as "class" in JSON to match the Go server schema.
-    :param enabled: Whether this alert is active.
-    """
-
-    status: str
-    treat_error_as_critical: bool = False
-    component: str = ""
-    group: str = ""
-    alert_class: str = Field(default="", alias="class")
-    enabled: bool = True
-
-    model_config = {"populate_by_name": True}
-
-
-class AlertTaskConfig(task_client.BaseConfig):
-    """Configuration for a PagerDuty alert task.
-
-    :param routing_key: The 32-character Integration Key for a PagerDuty service
-        integration or global ruleset.
-    :param alerts: List of alert configurations mapping Synnax statuses to PagerDuty
-        alerts.
-    """
-
-    routing_key: str
-    alerts: list[AlertConfig]
-
-    @model_validator(mode="after")
-    def _validate_config(self) -> "AlertTaskConfig":
-        if len(self.routing_key) != 32:
-            raise ValueError("routing_key must be exactly 32 characters")
-        if not any(a.enabled for a in self.alerts):
-            raise ValueError("at least one alert must be enabled")
-        return self
+from synnax.pagerduty.types_gen import Alert, TaskConfig
 
 
 class AlertTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
@@ -71,11 +21,11 @@ class AlertTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param name: A human-readable name for the task.
     :param routing_key: The 32-character PagerDuty Integration Key.
     :param auto_start: Whether to start the task automatically when configured.
-    :param alerts: List of alert configurations.
+    :param alerts: The alerts the task evaluates.
     """
 
     TYPE = "pagerduty_alert"
-    config: AlertTaskConfig
+    config: TaskConfig
     _internal: task.Task
 
     def __init__(
@@ -85,20 +35,16 @@ class AlertTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         name: str = "",
         routing_key: str = "",
         auto_start: bool = False,
-        alerts: list[AlertConfig] | None = None,
+        alerts: list[Alert] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = AlertTaskConfig.model_validate(internal.config)
+            self.config = TaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
-        self.config = AlertTaskConfig(
+        self.config = TaskConfig(
             routing_key=routing_key,
             auto_start=auto_start,
             alerts=alerts if alerts is not None else [],
         )
-
-    def to_payload(self) -> task.Payload:
-        pld = self._internal.to_payload()
-        pld.config = self.config.model_dump(by_alias=True, exclude_none=True)
-        return pld
+        task.assign_keys(self.config.alerts)

@@ -38,10 +38,10 @@ export const createIdentifier = (): string =>
 /** Builds a PDO set with one input ("Status") and one output ("Control") entry. */
 export const createPDOs = (): PDOs => ({
   inputs: [
-    { name: "Status", index: 0x6000, subindex: 1, bitLength: 16, dataType: "uint16" },
+    { name: "Status", index: 0x6000, subIndex: 1, bitLength: 16, dataType: "uint16" },
   ],
   outputs: [
-    { name: "Control", index: 0x7000, subindex: 1, bitLength: 16, dataType: "uint16" },
+    { name: "Control", index: 0x7000, subIndex: 1, bitLength: 16, dataType: "uint16" },
   ],
 });
 
@@ -62,14 +62,14 @@ export const createAutoInputChannel = (
 export const createManualInputChannel = (
   device: string,
   index: number,
-  subindex: number,
+  subIndex: number,
   overrides: Partial<ManualInputChannel> = {},
 ): ManualInputChannel => ({
   ...ZERO_INPUT_CHANNELS.manual,
   key: id.create(),
   device,
   index,
-  subindex,
+  subIndex,
   ...overrides,
 });
 
@@ -90,14 +90,14 @@ export const createAutoOutputChannel = (
 export const createManualOutputChannel = (
   device: string,
   index: number,
-  subindex: number,
+  subIndex: number,
   overrides: Partial<ManualOutputChannel> = {},
 ): ManualOutputChannel => ({
   ...ZERO_OUTPUT_CHANNELS.manual,
   key: id.create(),
   device,
   index,
-  subindex,
+  subIndex,
   ...overrides,
 });
 

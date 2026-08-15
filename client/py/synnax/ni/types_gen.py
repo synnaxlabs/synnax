@@ -732,8 +732,14 @@ class WriteConfig(task.BaseWriteConfig):
         return hash(self.key)
 
 
-class ScanConfig(task.KeyedConfig):
-    """Configures the NI device scanner task, which carries no settings."""
+class ScanConfig(task.BaseScanConfig):
+    """Configures the NI device scanner task.
+
+    Attributes:
+        ignored_models: Are regex patterns matching the device models the scan skips.
+    """
+
+    ignored_models: list[str] = Field(default_factory=lambda: ["^cRIO.*", "^nown.*"])
 
     def __hash__(self) -> int:
         return hash(self.key)

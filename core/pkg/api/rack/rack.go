@@ -217,5 +217,10 @@ func (s *Service) Delete(
 			return types.Nil{}, err
 		}
 	}
+	// Only internal tasks are left: the check above rejects the delete while the user
+	// still has tasks of their own on the rack.
+	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
+		return types.Nil{}, err
+	}
 	return types.Nil{}, nil
 }

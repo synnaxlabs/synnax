@@ -26,6 +26,13 @@ var _ = Describe("Service", func() {
 		}))
 	})
 
+	Describe("OpenService", func() {
+		It("Should reject a config missing the DB", func(ctx SpecContext) {
+			Expect(pd.OpenService(ctx, pd.ServiceConfig{})).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+	})
+
 	Describe("Stores", func() {
 		It("Should expose the alert store", func() {
 			types := []string{}

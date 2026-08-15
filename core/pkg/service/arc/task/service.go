@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -48,7 +49,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service owns the stored configuration records of the Arc task type.
 type Service struct {
-	// Config stores arc_task task configuration records.
+	// Config stores arc task configuration records.
 	Config *config.Service[Config]
 	closer xio.MultiCloser
 }
@@ -68,7 +69,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx, config.ServiceConfig[Config]{
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               "arc_task",
+			Type:               Type,
+			Version:            legacy.LastVersion + 1,
 			SetEntryKey:        (*Config).SetKey,
 			ApplyEntryDefaults: (*Config).ApplyDefaults,
 			ValidateEntry:      (*Config).Validate,

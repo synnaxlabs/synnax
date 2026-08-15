@@ -50,14 +50,14 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_NewTask) {
     synnax::task::Task task{
         .rack = rack.key,
         .name = "test_task",
-        .type = "test_type",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     auto created = ASSERT_NIL_P(create_if_type_not_exists_on_rack(rack, task));
     ASSERT_TRUE(created);
     ASSERT_FALSE(task.key.is_nil());
     ASSERT_EQ(task.rack, rack.key);
     ASSERT_EQ(task.name, "test_task");
-    ASSERT_EQ(task.type, "test_type");
+    ASSERT_EQ(task.type, SYNTHETIC_TASK_TYPE);
 }
 
 /// @brief it should not create task when type already exists on rack.
@@ -67,13 +67,13 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_ExistingTask) {
     synnax::task::Task existing_task{
         .rack = rack.key,
         .name = "existing_task",
-        .type = "test_type",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(existing_task));
     synnax::task::Task new_task{
         .rack = rack.key,
         .name = "new_task",
-        .type = "test_type",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     auto created = ASSERT_NIL_P(create_if_type_not_exists_on_rack(rack, new_task));
     ASSERT_FALSE(created);
@@ -91,12 +91,12 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
         ctx,
         rack,
         "test_task",
-        "test_type",
+        SYNTHETIC_TASK_TYPE,
         "test_integration"
     );
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].first.name, "test_task");
-    ASSERT_EQ(tasks[0].first.type, "test_type");
+    ASSERT_EQ(tasks[0].first.type, SYNTHETIC_TASK_TYPE);
     ASSERT_NE(tasks[0].second, nullptr);
     ASSERT_EQ(factory->configured_tasks.size(), 1);
     ASSERT_EQ(factory->cmd_keys, std::vector<std::string>{""});
@@ -111,7 +111,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
     synnax::task::Task existing_task{
         .rack = rack.key,
         .name = "existing_task",
-        .type = "test_type",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(existing_task));
     auto tasks = configure_initial_factory_tasks(
@@ -119,7 +119,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
         ctx,
         rack,
         "new_task",
-        "test_type",
+        SYNTHETIC_TASK_TYPE,
         "test_integration"
     );
     ASSERT_TRUE(tasks.empty());
@@ -138,7 +138,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
         ctx,
         rack,
         "test_task",
-        "test_type",
+        SYNTHETIC_TASK_TYPE,
         "test_integration"
     );
     ASSERT_TRUE(tasks.empty());
@@ -156,23 +156,23 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
         ctx,
         rack,
         "task1",
-        "type1",
+        SYNTHETIC_TASK_TYPE,
         "test_integration"
     );
     ASSERT_EQ(tasks1.size(), 1);
     ASSERT_EQ(tasks1[0].first.name, "task1");
-    ASSERT_EQ(tasks1[0].first.type, "type1");
+    ASSERT_EQ(tasks1[0].first.type, SYNTHETIC_TASK_TYPE);
     auto tasks2 = configure_initial_factory_tasks(
         factory.get(),
         ctx,
         rack,
         "task2",
-        "type2",
+        ALT_SYNTHETIC_TASK_TYPE,
         "test_integration"
     );
     ASSERT_EQ(tasks2.size(), 1);
     ASSERT_EQ(tasks2[0].first.name, "task2");
-    ASSERT_EQ(tasks2[0].first.type, "type2");
+    ASSERT_EQ(tasks2[0].first.type, ALT_SYNTHETIC_TASK_TYPE);
     ASSERT_EQ(factory->configured_tasks.size(), 2);
 }
 
@@ -183,12 +183,14 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
     synnax::task::Task legacy_task{
         .rack = rack.key,
         .name = "legacy_task",
-        .type = "legacy_type",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(legacy_task));
-    ASSERT_NIL(delete_legacy_task_by_type(rack, "legacy_type", "test_integration"));
+    ASSERT_NIL(
+        delete_legacy_task_by_type(rack, SYNTHETIC_TASK_TYPE, "test_integration")
+    );
     ASSERT_OCCURRED_AS_P(
-        rack.tasks.retrieve_by_type("legacy_type"),
+        rack.tasks.retrieve_by_type(SYNTHETIC_TASK_TYPE),
         x::errors::NOT_FOUND
     );
 }

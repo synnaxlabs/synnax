@@ -225,7 +225,7 @@ public:
                             .key = task_meta.key.to_string(),
                             .name = task_meta.name,
                         },
-                    .mode = common::data_saving_writer_mode(!cfg.data_saving_disabled),
+                    .mode = common::data_saving_writer_mode(cfg.data_saving_disabled),
                 },
                 std::move(source),
                 x::breaker::default_config("arc_acquisition"),

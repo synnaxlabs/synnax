@@ -40,6 +40,7 @@ const client = createTestClient();
 interface CreateTaskOptions {
   config?: Record<string, unknown>;
   running?: boolean;
+  type?: string;
   drifted?: boolean;
 }
 
@@ -61,13 +62,14 @@ afterEach(async () => {
 const createTask = async ({
   config = {},
   running,
+  type = NI.Task.ANALOG_READ_TYPE,
   drifted,
 }: CreateTaskOptions = {}) => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   createdRacks.push(rack.key);
   const t = await rack.createTask({
     name: uniqueName("task"),
-    type: NI.Task.ANALOG_READ_TYPE,
+    type,
     config,
   });
   createdTasks.push(t.key);
@@ -215,29 +217,29 @@ describe("task/Toolbar", () => {
     });
 
     it("enables data saving for a task whose config has it disabled", async () => {
-      const t = await createTask({ config: { dataSaving: false } });
+      const t = await createTask({ config: { dataSavingDisabled: true } });
       await renderToolbar();
       await openContextMenuUntil(t.name, "Enable data saving");
       fireEvent.click(screen.getByText("Enable data saving"));
       await waitFor(async () => {
         const updated = await client.tasks.retrieve(t.key);
-        expect(updated.config).toEqual({ dataSaving: true });
+        expect(updated.config).toMatchObject({ dataSavingDisabled: false });
       });
     });
 
     it("disables data saving for a task whose config has it enabled", async () => {
-      const t = await createTask({ config: { dataSaving: true } });
+      const t = await createTask({ config: { dataSavingDisabled: false } });
       await renderToolbar();
       await openContextMenuUntil(t.name, "Disable data saving");
       fireEvent.click(screen.getByText("Disable data saving"));
       await waitFor(async () => {
         const updated = await client.tasks.retrieve(t.key);
-        expect(updated.config).toEqual({ dataSaving: false });
+        expect(updated.config).toMatchObject({ dataSavingDisabled: true });
       });
     });
 
     it("hides the data saving items for a task without the config field", async () => {
-      const t = await createTask();
+      const t = await createTask({ type: "pagerduty_alert" });
       await renderToolbar();
       await openContextMenu(t.name);
       await screen.findByText("Edit configuration");

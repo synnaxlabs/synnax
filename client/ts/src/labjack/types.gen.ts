@@ -93,7 +93,9 @@ export const baseOutputChannelZ = z.object({
 });
 export interface BaseOutputChannel extends z.infer<typeof baseOutputChannelZ> {}
 
-export const scanConfigZ = task.keyedConfigZ;
+export const scanConfigZ = task.baseScanConfigZ.extend({
+  tcpScanMultiplier: z.int32().default(10),
+});
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 export const scaleLinearZ = linearScaleZ.extend({

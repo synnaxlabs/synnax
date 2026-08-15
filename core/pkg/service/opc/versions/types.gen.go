@@ -11,22 +11,22 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/opc/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/opc/versions/v1"
 
 // BaseChannel carries the fields every OPC UA channel shares.
-type BaseChannel = v0.BaseChannel
+type BaseChannel = v1.BaseChannel
 
 // InputChannel is a single OPC UA node the task reads from.
-type InputChannel = v0.InputChannel
+type InputChannel = v1.InputChannel
 
 // OutputChannel is a single OPC UA node the task drives.
-type OutputChannel = v0.OutputChannel
+type OutputChannel = v1.OutputChannel
 
 // ReadConfig configures an OPC UA read task.
-type ReadConfig = v0.ReadConfig
+type ReadConfig = v1.ReadConfig
 
 // WriteConfig configures an OPC UA write task.
-type WriteConfig = v0.WriteConfig
+type WriteConfig = v1.WriteConfig
 
-// ScanConfig configures an OPC UA scan task, which carries no settings.
-type ScanConfig = v0.ScanConfig
+// ScanConfig configures an OPC UA scan task.
+type ScanConfig = v1.ScanConfig

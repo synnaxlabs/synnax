@@ -40,7 +40,7 @@ const Properties = () => (
     <Flex.Box x>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving polarity="disabled" />
+      <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>

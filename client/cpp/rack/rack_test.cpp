@@ -62,7 +62,7 @@ TEST(RackTests, testCreateTaskOnCreatedRack) {
     ASSERT_NIL(client.racks.create(r));
     task::Task t{
         .name = "cat",
-        .type = "dog",
+        .type = "pagerduty_alert",
         .internal = false,
     };
     ASSERT_NIL(r.tasks.create(t));
@@ -76,7 +76,7 @@ TEST(RackTests, testCreateTaskOnRetrieveRack) {
     auto retrieved = ASSERT_NIL_P(client.racks.retrieve(r.key));
     task::Task t{
         .name = "cat",
-        .type = "dog",
+        .type = "pagerduty_alert",
         .internal = false,
     };
     ASSERT_NIL(retrieved.tasks.create(t));

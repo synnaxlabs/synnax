@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -90,6 +92,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:              searchIdx,
 	}))
 	imexSvc := imex.NewService()
+	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -98,6 +102,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:   statusSvc,
 		Search:   searchIdx,
 		ImEx:     imexSvc,
+		Configs:  configs,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,

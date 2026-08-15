@@ -122,7 +122,6 @@ Task struct<
         coalesce_type_params
     }
     @ontology type "task"
-    @retrieve
     @search
     @go marshal
     @go migrate
@@ -228,5 +227,23 @@ BaseWriteConfig struct extends BasePersistConfig {
     @go name    "BaseWrite"
     @cpp output "client/cpp/task/config"
     @cpp name   "BaseWrite"
+    @pb omit
+}
+
+BaseScanConfig struct extends KeyedConfig {
+    rate     telem.Rate = 0.2 {
+        @doc value "is the rate at which the scan runs, in hertz."
+        @ts type   "number"
+    }
+    disabled bool = false {
+        @doc value "is true when scanning is paused."
+    }
+
+    @doc value  "carries the fields shared by every scan task configuration."
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseScan"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseScan"
     @pb omit
 }

@@ -39,7 +39,7 @@ const Properties = () => (
     <Task.Fields.SampleRate />
     <Flex.Box x grow>
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving polarity="disabled" />
+      <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>
@@ -67,7 +67,6 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       hasTareButton={hasTareButton}
       channel={channel}
       icon={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[type] }}
-      polarity="disabled"
       portMaxChars={2}
     />
   );
@@ -100,7 +99,6 @@ const Form: FC = () => {
       createChannel={createCIChannel}
       onTare={handleTare}
       allowTare={allowTare}
-      polarity="disabled"
       contextMenuItems={Task.readChannelContextMenuItem}
     />
   );

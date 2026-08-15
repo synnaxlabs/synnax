@@ -68,7 +68,7 @@ TEST_F(TestScanTask, testBasicScan) {
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.scan_rate
+        cfg.rate
     );
 
     connection::Config conn_cfg;
@@ -147,7 +147,7 @@ TEST_F(TestScanTask, testConnectionPooling) {
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.scan_rate
+        cfg.rate
     );
 
     connection::Config conn_cfg;
@@ -190,7 +190,7 @@ TEST_F(TestScanTask, testTestConnection) {
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.scan_rate
+        cfg.rate
     );
 
     connection::Config conn_cfg;
@@ -227,7 +227,7 @@ TEST_F(TestScanTask, testInvalidConnection) {
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.scan_rate
+        cfg.rate
     );
 
     connection::Config conn_cfg;

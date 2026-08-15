@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type task } from "@synnaxlabs/client";
-import { DataType, json, record } from "@synnaxlabs/x";
+import { http, type task } from "@synnaxlabs/client";
+import { json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -18,107 +18,49 @@ import {
 } from "@/feature/http/device/types";
 import { Task } from "@/platform/task";
 
-export type { HeaderEntry, QueryParamEntry } from "@/feature/http/device/types";
-
 export const PREFIX = "http";
 
-const timeFormatZ = z.enum(["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]);
-export type TimeFormat = z.infer<typeof timeFormatZ>;
+export type TimeFormat = http.TimeFormat;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const readEnumEntryZ = z.object({ label: z.string(), value: z.number() });
-export interface ReadEnumEntry extends z.infer<typeof readEnumEntryZ> {}
+export interface ReadField extends http.ReadField {}
 
-const v0ReadEnumValuesZ = z.record(z.string(), z.number());
-const v1ReadEnumValuesZ = z.array(readEnumEntryZ);
-const readEnumValuesZ = v1ReadEnumValuesZ.or(
-  v0ReadEnumValuesZ.transform((rec) =>
-    Object.entries(rec).map(([label, value]) => ({ label, value })),
-  ),
-);
+export const ZERO_READ_FIELD: ReadField = http.readFieldZ.parse({});
 
-const readFieldZ = Task.readChannelZ.extend({
+export interface ReadEndpoint extends http.ReadEndpoint {}
+
+const readMethodZ = z.enum(["GET", "POST"]);
+export type ReadMethod = z.infer<typeof readMethodZ>;
+
+export const ZERO_READ_ENDPOINT: ReadEndpoint = http.readEndpointZ.parse({});
+
+export const readConfigZ = http.readConfigZ;
+
+export interface ReadConfig extends http.ReadConfig {}
+
+const deployReadFieldZ = http.readFieldZ.extend({
   pointer: json.pointerZ,
-  dataType: z.string(),
-  timestampFormat: timeFormatZ.optional(),
-  enumValues: readEnumValuesZ.optional(),
-});
-
-export interface ReadField extends z.infer<typeof readFieldZ> {}
-
-export const ZERO_READ_FIELD = {
-  ...Task.ZERO_READ_CHANNEL,
-  pointer: "",
-  dataType: DataType.FLOAT64.toString(),
-} as const satisfies ReadField;
-
-const baseReadEndpointZ = z.object({
-  key: z.string(),
-  path: z.string(),
-  headers: headersZ.optional(),
-  queryParams: queryParamsZ.optional(),
-  fields: z.array(readFieldZ),
-  index: z.string().nullable().default(null),
-});
-
-const getReadEndpointZ = baseReadEndpointZ.extend({ method: z.literal("GET") });
-
-const postReadEndpointZ = baseReadEndpointZ.extend({
-  method: z.literal("POST"),
-  body: z.string().optional(),
-});
-
-const readEndpointZ = z.discriminatedUnion("method", [
-  getReadEndpointZ,
-  postReadEndpointZ,
-]);
-
-export type ReadEndpoint = z.infer<typeof readEndpointZ>;
-
-export type ReadMethod = ReadEndpoint["method"];
-
-export const ZERO_READ_ENDPOINT = {
-  key: "",
-  method: "GET",
-  path: "",
-  fields: [],
-  index: null,
-} as const satisfies ReadEndpoint;
-
-const readConfigZ = Task.baseReadConfigZ.extend({
-  rate: z.number(),
-  endpoints: z.array(readEndpointZ),
-});
-
-const deployReadFieldZ = readFieldZ.extend({
-  enumValues: readEnumValuesZ
+  enumValues: http.enumEntryZ
+    .array()
     .check(checkDuplicateKeys("label", "enum label"))
-    .optional(),
+    .default(() => []),
 });
 
-const deployReadEndpointShape = {
-  fields: z.array(deployReadFieldZ).check(Task.validateReadChannels),
-};
+const deployReadEndpointZ = http.readEndpointZ.extend({
+  method: readMethodZ,
+  headers: headersZ.default(() => []),
+  queryParams: queryParamsZ.default(() => []),
+  fields: deployReadFieldZ.array().check(Task.validateReadChannels),
+});
 
-export const deployReadConfigZ = readConfigZ.extend({
+export const deployReadConfigZ = http.readConfigZ.extend({
   device: Task.deviceKeyZ,
   rate: z.number().positive("Rate must be positive"),
-  endpoints: z.array(
-    z.discriminatedUnion("method", [
-      getReadEndpointZ.extend(deployReadEndpointShape),
-      postReadEndpointZ.extend(deployReadEndpointShape),
-    ]),
-  ),
+  endpoints: deployReadEndpointZ.array(),
 });
 
-interface ReadConfig extends z.infer<typeof readConfigZ> {}
-
-const ZERO_READ_CONFIG = {
-  ...Task.ZERO_BASE_READ_CONFIG,
-  rate: 1,
-  endpoints: [],
-} as const satisfies ReadConfig;
+const ZERO_READ_CONFIG = http.readConfigZ.parse({});
 
 const readStatusDataZ = z
   .object({ running: z.boolean(), message: z.string() })
@@ -135,7 +77,7 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
-export const ZERO_READ_PAYLOAD = {
+export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
   rack: 0,
   name: "HTTP Read Task",
@@ -144,29 +86,18 @@ export const ZERO_READ_PAYLOAD = {
   type: "http_read",
   internal: false,
   snapshot: false,
-} as const satisfies ReadPayload;
+};
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const jsonTypeZ = z.enum(["number", "string", "boolean"]);
+export type GeneratorType = http.GeneratorType;
 
-const writeEnumEntryZ = z.object({ value: z.number(), label: z.string() });
+export interface ChannelField extends http.ChannelField {}
 
-const channelFieldZ = z.object({
-  pointer: json.pointerZ,
-  jsonType: jsonTypeZ,
-  channel: channel.keyZ.default(0),
-  name: z.string().default(""),
-  dataType: z.string().default(DataType.FLOAT64.toString()),
-  timeFormat: timeFormatZ.optional(),
-  enumValues: z.array(writeEnumEntryZ).optional(),
-});
-
-export interface ChannelField extends z.infer<typeof channelFieldZ> {}
+export const ZERO_CHANNEL_FIELD: ChannelField = http.channelFieldZ.parse({});
 
 const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
   const { enumValues } = ctx.value;
-  if (enumValues == null) return;
   const seen = new Set<number>();
   enumValues.forEach((entry, i) => {
     if (seen.has(entry.value))
@@ -180,54 +111,36 @@ const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
   });
 };
 
-export const ZERO_CHANNEL_FIELD = {
-  pointer: "",
-  jsonType: "number",
-  channel: 0,
-  name: "",
-  dataType: DataType.UINT8.toString(),
-} as const satisfies ChannelField;
-
-const generatorTypeZ = z.enum(["uuid", "timestamp"]);
-export type GeneratorType = z.infer<typeof generatorTypeZ>;
-
-const staticFieldZ = z.object({
-  key: z.string(),
-  pointer: json.pointerZ,
-  jsonType: jsonTypeZ,
-  type: z.literal("static"),
+// The form edits primitive values; the stored shape accepts any JSON.
+const writeFieldStaticZ = http.writeFieldStaticZ.extend({
   value: json.primitiveZ,
 });
 
-const generatedFieldZ = z.object({
-  key: z.string(),
-  pointer: json.pointerZ,
-  type: z.literal("generated"),
-  generator: generatorTypeZ,
-  timeFormat: timeFormatZ.optional(),
-});
-
-const deployPointerZ = json.pointerZ.min(1, "Pointer cannot be empty");
-
-const writeFieldZ = z.discriminatedUnion("type", [staticFieldZ, generatedFieldZ]);
+const writeFieldZ = z.discriminatedUnion("type", [
+  http.writeFieldStaticZ,
+  http.writeFieldGeneratedZ,
+]);
 
 export type WriteField = z.infer<typeof writeFieldZ>;
 
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 export type WriteMethod = z.infer<typeof writeMethodZ>;
 
-const writeEndpointZ = z.object({
-  enabled: z.boolean().default(true),
-  key: z.string(),
-  path: z.string(),
-  method: writeMethodZ,
-  headers: headersZ.optional(),
-  queryParams: queryParamsZ.optional(),
-  channel: channelFieldZ,
-  fields: z.array(writeFieldZ),
+const writeEndpointZ = http.writeEndpointZ.extend({
+  fields: writeFieldZ.array().default(() => []),
 });
 
-export type WriteEndpoint = z.infer<typeof writeEndpointZ>;
+export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
+
+export const ZERO_WRITE_ENDPOINT: WriteEndpoint = writeEndpointZ.parse({
+  channel: {},
+});
+
+export const writeConfigZ = http.writeConfigZ.extend({
+  endpoints: writeEndpointZ.array().default(() => []),
+});
+
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   const { value } = ctx;
@@ -264,44 +177,31 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   }
 };
 
-export const ZERO_WRITE_ENDPOINT = {
-  enabled: true,
-  key: "",
-  method: "POST",
-  path: "",
-  channel: ZERO_CHANNEL_FIELD,
-  fields: [],
-} as const satisfies WriteEndpoint;
+const deployPointerZ = json.pointerZ.min(1, "Pointer cannot be empty");
 
-const writeConfigZ = z.object({
-  device: z.string(),
-  autoStart: z.boolean().default(false),
-  endpoints: z.array(writeEndpointZ),
-});
+const deployWriteFieldZ = z.discriminatedUnion("type", [
+  writeFieldStaticZ.extend({ pointer: deployPointerZ }),
+  http.writeFieldGeneratedZ.extend({ pointer: deployPointerZ }),
+]);
+
+const deployWriteEndpointZ = writeEndpointZ
+  .extend({
+    method: writeMethodZ,
+    headers: headersZ.default(() => []),
+    queryParams: queryParamsZ.default(() => []),
+    channel: http.channelFieldZ
+      .extend({ pointer: json.pointerZ })
+      .check(validateEnumValues),
+    fields: deployWriteFieldZ.array(),
+  })
+  .check(validateWriteEndpoint);
 
 export const deployWriteConfigZ = writeConfigZ.extend({
-  endpoints: z.array(
-    writeEndpointZ
-      .extend({
-        channel: channelFieldZ.check(validateEnumValues),
-        fields: z.array(
-          z.discriminatedUnion("type", [
-            staticFieldZ.extend({ pointer: deployPointerZ }),
-            generatedFieldZ.extend({ pointer: deployPointerZ }),
-          ]),
-        ),
-      })
-      .check(validateWriteEndpoint),
-  ),
+  device: Task.deviceKeyZ,
+  endpoints: deployWriteEndpointZ.array(),
 });
 
-interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-const ZERO_WRITE_CONFIG = {
-  device: "",
-  autoStart: false,
-  endpoints: [],
-} as const satisfies WriteConfig;
+const ZERO_WRITE_CONFIG = writeConfigZ.parse({});
 
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
@@ -313,7 +213,7 @@ export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
 
-export const ZERO_WRITE_PAYLOAD = {
+export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",
   rack: 0,
   name: "HTTP Write Task",
@@ -322,7 +222,7 @@ export const ZERO_WRITE_PAYLOAD = {
   type: WRITE_TYPE,
   internal: false,
   snapshot: false,
-} as const satisfies WritePayload;
+};
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

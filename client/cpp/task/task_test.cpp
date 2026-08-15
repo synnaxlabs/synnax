@@ -25,8 +25,8 @@ TEST(TaskTests, testCreateTask) {
     ASSERT_NIL(client.racks.create(r));
     auto m = Task{
         .name = "test_module",
-        .type = "mock",
-        .config = x::json::json{{"key", "config"}},
+        .type = "pagerduty_alert",
+        .config = x::json::json{{"routing_key", "rk"}},
         .internal = false,
         .snapshot = true
     };
@@ -44,8 +44,8 @@ TEST(TaskTests, testRetrieveTask) {
     ASSERT_NIL(client.racks.create(r));
     auto t = Task{
         .name = "test_module",
-        .type = "mock",
-        .config = {{"key", "value"}},
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}},
         .internal = false,
         .snapshot = true
     };
@@ -63,7 +63,11 @@ TEST(TaskTests, testRetrieveTaskByName) {
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand_name = std::to_string(gen_rand_task());
-    auto t = Task{.name = rand_name, .type = "mock", .config = {{"key", "value"}}};
+    auto t = Task{
+        .name = rand_name,
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}}
+    };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
     ASSERT_EQ(t2.name, rand_name);
@@ -75,14 +79,13 @@ TEST(TaskTests, testRetrieveTaskByType) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    const auto rand_type = std::to_string(gen_rand_task());
     auto t = Task{
         .name = "test_module",
-        .type = rand_type,
-        .config = {{"key", "value"}}
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type("pagerduty_alert"));
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(t.rack, r.key);
 }
@@ -92,7 +95,11 @@ TEST(TaskTests, testListTasks) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    auto m = Task{.name = "test_module", .type = "mock", .config = {{"key", "value"}}};
+    auto m = Task{
+        .name = "test_module",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}}
+    };
     ASSERT_NIL(r.tasks.create(m));
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
     ASSERT_EQ(tasks.size(), 1);
@@ -106,7 +113,11 @@ TEST(TaskTests, testDeleteTask) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    auto t = Task{.name = "test_module", .type = "mock", .config = {{"key", "value"}}};
+    auto t = Task{
+        .name = "test_module",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}}
+    };
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.del(t.key));
     ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), x::errors::NOT_FOUND);
@@ -127,8 +138,8 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     ASSERT_NIL(client.racks.create(r));
     auto t = Task{
         .name = "test_task_with_status",
-        .type = "mock",
-        .config = {{"key", "value"}},
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}},
         .status = Status{
             .key = "task-status-key",
             .variant = synnax::status::VARIANT_SUCCESS,
@@ -155,8 +166,8 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     const auto rand_name = std::to_string(gen_rand_task());
     auto t = Task{
         .name = rand_name,
-        .type = "mock",
-        .config = {{"key", "value"}},
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}},
         .status = Status{
             .key = "task-status-by-name",
             .variant = synnax::status::VARIANT_WARNING,
@@ -179,8 +190,8 @@ TEST(TaskTests, testListTasksWithStatus) {
     ASSERT_NIL(client.racks.create(r));
     auto t = Task{
         .name = "test_task_list_status",
-        .type = "mock",
-        .config = {{"key", "value"}},
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}},
         .status = Status{
             .key = "task-list-status",
             .variant = synnax::status::VARIANT_INFO,
@@ -202,8 +213,16 @@ TEST(TaskTests, testRetrieveTasksByNames) {
     ASSERT_NIL(client.racks.create(r));
     const auto rand1 = std::to_string(gen_rand_task());
     const auto rand2 = std::to_string(gen_rand_task());
-    auto t1 = Task{.name = rand1, .type = "mock", .config = {{"config1", "value1"}}};
-    auto t2 = Task{.name = rand2, .type = "mock", .config = {{"config2", "value1"}}};
+    auto t1 = Task{
+        .name = rand1,
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk-1"}}
+    };
+    auto t2 = Task{
+        .name = rand2,
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk-2"}}
+    };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
     const std::vector<std::string> names = {rand1, rand2};
@@ -222,17 +241,17 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    const auto type1 = std::to_string(gen_rand_task());
-    const auto type2 = std::to_string(gen_rand_task());
+    const std::string type1 = "pagerduty_alert";
+    const std::string type2 = "labjack_scan";
     auto t1 = Task{
         .name = "task_by_type_1",
         .type = type1,
-        .config = {{"config1", "config2"}}
+        .config = {{"routing_key", "rk-1"}}
     };
     auto t2 = Task{
         .name = "task_by_type_2",
         .type = type2,
-        .config = {{"config2", "value2"}}
+        .config = {{"routing_key", "rk-2"}}
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
@@ -261,7 +280,7 @@ TEST(StatusDetailsTests, testParseFromJSON) {
         {"task", task_key.to_string()},
         {"cmd", "start"},
         {"running", true},
-        {"data", {{"key", "value"}}}
+        {"data", {{"routing_key", "rk"}}}
     };
     x::json::Parser parser(j);
     auto details = StatusDetails::parse(parser);
@@ -270,7 +289,7 @@ TEST(StatusDetailsTests, testParseFromJSON) {
     ASSERT_EQ(details.cmd, "start");
     ASSERT_EQ(details.running, true);
     ASSERT_TRUE(details.data.has_value());
-    ASSERT_EQ((*details.data)["key"], "value");
+    ASSERT_EQ((*details.data)["routing_key"], "rk");
 }
 
 /// @brief it should correctly serialize StatusDetails to JSON.

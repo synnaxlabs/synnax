@@ -11,741 +11,741 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 
 // Units enumerates the engineering units an NI analog channel can report.
-type Units = v0.Units
+type Units = v2.Units
 
 const (
-	UnitsVolts                  Units = v0.UnitsVolts
-	UnitsAmps                   Units = v0.UnitsAmps
-	UnitsDegF                   Units = v0.UnitsDegF
-	UnitsDegC                   Units = v0.UnitsDegC
-	UnitsDegR                   Units = v0.UnitsDegR
-	UnitsKelvins                Units = v0.UnitsKelvins
-	UnitsStrain                 Units = v0.UnitsStrain
-	UnitsOhms                   Units = v0.UnitsOhms
-	UnitsHz                     Units = v0.UnitsHz
-	UnitsSeconds                Units = v0.UnitsSeconds
-	UnitsMeters                 Units = v0.UnitsMeters
-	UnitsInches                 Units = v0.UnitsInches
-	UnitsDegrees                Units = v0.UnitsDegrees
-	UnitsRadians                Units = v0.UnitsRadians
-	UnitsG                      Units = v0.UnitsG
-	UnitsMetersPerSecondSquared Units = v0.UnitsMetersPerSecondSquared
-	UnitsNewtons                Units = v0.UnitsNewtons
-	UnitsPounds                 Units = v0.UnitsPounds
-	UnitsKilogramForce          Units = v0.UnitsKilogramForce
-	UnitsPoundsPerSquareInch    Units = v0.UnitsPoundsPerSquareInch
-	UnitsBar                    Units = v0.UnitsBar
-	UnitsPascals                Units = v0.UnitsPascals
-	UnitsVoltsPerVolt           Units = v0.UnitsVoltsPerVolt
-	UnitsMVoltsPerVolt          Units = v0.UnitsMVoltsPerVolt
-	UnitsNewtonMeters           Units = v0.UnitsNewtonMeters
-	UnitsInchPounds             Units = v0.UnitsInchPounds
-	UnitsInchOunces             Units = v0.UnitsInchOunces
-	UnitsFootPounds             Units = v0.UnitsFootPounds
+	UnitsVolts                  Units = v2.UnitsVolts
+	UnitsAmps                   Units = v2.UnitsAmps
+	UnitsDegF                   Units = v2.UnitsDegF
+	UnitsDegC                   Units = v2.UnitsDegC
+	UnitsDegR                   Units = v2.UnitsDegR
+	UnitsKelvins                Units = v2.UnitsKelvins
+	UnitsStrain                 Units = v2.UnitsStrain
+	UnitsOhms                   Units = v2.UnitsOhms
+	UnitsHz                     Units = v2.UnitsHz
+	UnitsSeconds                Units = v2.UnitsSeconds
+	UnitsMeters                 Units = v2.UnitsMeters
+	UnitsInches                 Units = v2.UnitsInches
+	UnitsDegrees                Units = v2.UnitsDegrees
+	UnitsRadians                Units = v2.UnitsRadians
+	UnitsG                      Units = v2.UnitsG
+	UnitsMetersPerSecondSquared Units = v2.UnitsMetersPerSecondSquared
+	UnitsNewtons                Units = v2.UnitsNewtons
+	UnitsPounds                 Units = v2.UnitsPounds
+	UnitsKilogramForce          Units = v2.UnitsKilogramForce
+	UnitsPoundsPerSquareInch    Units = v2.UnitsPoundsPerSquareInch
+	UnitsBar                    Units = v2.UnitsBar
+	UnitsPascals                Units = v2.UnitsPascals
+	UnitsVoltsPerVolt           Units = v2.UnitsVoltsPerVolt
+	UnitsMVoltsPerVolt          Units = v2.UnitsMVoltsPerVolt
+	UnitsNewtonMeters           Units = v2.UnitsNewtonMeters
+	UnitsInchPounds             Units = v2.UnitsInchPounds
+	UnitsInchOunces             Units = v2.UnitsInchOunces
+	UnitsFootPounds             Units = v2.UnitsFootPounds
 )
 
 // AccelSensitivityUnits are the units of an accelerometer's sensitivity rating.
-type AccelSensitivityUnits = v0.AccelSensitivityUnits
+type AccelSensitivityUnits = v2.AccelSensitivityUnits
 
 const (
-	AccelSensitivityUnitsMVoltsPerG AccelSensitivityUnits = v0.AccelSensitivityUnitsMVoltsPerG
-	AccelSensitivityUnitsVoltsPerG  AccelSensitivityUnits = v0.AccelSensitivityUnitsVoltsPerG
+	AccelSensitivityUnitsMVoltsPerG AccelSensitivityUnits = v2.AccelSensitivityUnitsMVoltsPerG
+	AccelSensitivityUnitsVoltsPerG  AccelSensitivityUnits = v2.AccelSensitivityUnitsVoltsPerG
 )
 
 // AccelUnits are the engineering units for an acceleration measurement.
-type AccelUnits = v0.AccelUnits
+type AccelUnits = v2.AccelUnits
 
 const (
-	AccelUnitsG                      AccelUnits = v0.AccelUnitsG
-	AccelUnitsMetersPerSecondSquared AccelUnits = v0.AccelUnitsMetersPerSecondSquared
-	AccelUnitsInchesPerSecondSquared AccelUnits = v0.AccelUnitsInchesPerSecondSquared
+	AccelUnitsG                      AccelUnits = v2.AccelUnitsG
+	AccelUnitsMetersPerSecondSquared AccelUnits = v2.AccelUnitsMetersPerSecondSquared
+	AccelUnitsInchesPerSecondSquared AccelUnits = v2.AccelUnitsInchesPerSecondSquared
 )
 
 // ForceUnits are the engineering units for a force measurement.
-type ForceUnits = v0.ForceUnits
+type ForceUnits = v2.ForceUnits
 
 const (
-	ForceUnitsNewtons       ForceUnits = v0.ForceUnitsNewtons
-	ForceUnitsPounds        ForceUnits = v0.ForceUnitsPounds
-	ForceUnitsKilogramForce ForceUnits = v0.ForceUnitsKilogramForce
+	ForceUnitsNewtons       ForceUnits = v2.ForceUnitsNewtons
+	ForceUnitsPounds        ForceUnits = v2.ForceUnitsPounds
+	ForceUnitsKilogramForce ForceUnits = v2.ForceUnitsKilogramForce
 )
 
 // ElectricalUnits are the electrical output units of a bridge-based sensor.
-type ElectricalUnits = v0.ElectricalUnits
+type ElectricalUnits = v2.ElectricalUnits
 
 const (
-	ElectricalUnitsMVoltsPerVolt ElectricalUnits = v0.ElectricalUnitsMVoltsPerVolt
-	ElectricalUnitsVoltsPerVolt  ElectricalUnits = v0.ElectricalUnitsVoltsPerVolt
+	ElectricalUnitsMVoltsPerVolt ElectricalUnits = v2.ElectricalUnitsMVoltsPerVolt
+	ElectricalUnitsVoltsPerVolt  ElectricalUnits = v2.ElectricalUnitsVoltsPerVolt
 )
 
 // ExcitationSource selects the source of a sensor's excitation signal.
-type ExcitationSource = v0.ExcitationSource
+type ExcitationSource = v2.ExcitationSource
 
 const (
-	ExcitationSourceInternal ExcitationSource = v0.ExcitationSourceInternal
-	ExcitationSourceExternal ExcitationSource = v0.ExcitationSourceExternal
-	ExcitationSourceNone     ExcitationSource = v0.ExcitationSourceNone
+	ExcitationSourceInternal ExcitationSource = v2.ExcitationSourceInternal
+	ExcitationSourceExternal ExcitationSource = v2.ExcitationSourceExternal
+	ExcitationSourceNone     ExcitationSource = v2.ExcitationSourceNone
 )
 
 // TerminalConfig selects the terminal configuration for an analog input channel.
-type TerminalConfig = v0.TerminalConfig
+type TerminalConfig = v2.TerminalConfig
 
 const (
-	TerminalConfigCfgDefault TerminalConfig = v0.TerminalConfigCfgDefault
-	TerminalConfigRse        TerminalConfig = v0.TerminalConfigRse
-	TerminalConfigNrse       TerminalConfig = v0.TerminalConfigNrse
-	TerminalConfigDiff       TerminalConfig = v0.TerminalConfigDiff
-	TerminalConfigPseudoDiff TerminalConfig = v0.TerminalConfigPseudoDiff
+	TerminalConfigCfgDefault TerminalConfig = v2.TerminalConfigCfgDefault
+	TerminalConfigRse        TerminalConfig = v2.TerminalConfigRse
+	TerminalConfigNrse       TerminalConfig = v2.TerminalConfigNrse
+	TerminalConfigDiff       TerminalConfig = v2.TerminalConfigDiff
+	TerminalConfigPseudoDiff TerminalConfig = v2.TerminalConfigPseudoDiff
 )
 
 // BridgeConfig selects the physical bridge wiring of a bridge-based sensor.
-type BridgeConfig = v0.BridgeConfig
+type BridgeConfig = v2.BridgeConfig
 
 const (
-	BridgeConfigFullBridge    BridgeConfig = v0.BridgeConfigFullBridge
-	BridgeConfigHalfBridge    BridgeConfig = v0.BridgeConfigHalfBridge
-	BridgeConfigQuarterBridge BridgeConfig = v0.BridgeConfigQuarterBridge
+	BridgeConfigFullBridge    BridgeConfig = v2.BridgeConfigFullBridge
+	BridgeConfigHalfBridge    BridgeConfig = v2.BridgeConfigHalfBridge
+	BridgeConfigQuarterBridge BridgeConfig = v2.BridgeConfigQuarterBridge
 )
 
 // ShuntResistorLocation selects where the shunt resistor used for current measurement
 // is located.
-type ShuntResistorLocation = v0.ShuntResistorLocation
+type ShuntResistorLocation = v2.ShuntResistorLocation
 
 const (
-	ShuntResistorLocationDefault  ShuntResistorLocation = v0.ShuntResistorLocationDefault
-	ShuntResistorLocationInternal ShuntResistorLocation = v0.ShuntResistorLocationInternal
-	ShuntResistorLocationExternal ShuntResistorLocation = v0.ShuntResistorLocationExternal
+	ShuntResistorLocationDefault  ShuntResistorLocation = v2.ShuntResistorLocationDefault
+	ShuntResistorLocationInternal ShuntResistorLocation = v2.ShuntResistorLocationInternal
+	ShuntResistorLocationExternal ShuntResistorLocation = v2.ShuntResistorLocationExternal
 )
 
 // ForceSensitivityUnits are the units of a force IEPE sensor's sensitivity rating.
-type ForceSensitivityUnits = v0.ForceSensitivityUnits
+type ForceSensitivityUnits = v2.ForceSensitivityUnits
 
 const (
-	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = v0.ForceSensitivityUnitsMVoltsPerNewton
-	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = v0.ForceSensitivityUnitsMVoltsPerPound
+	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = v2.ForceSensitivityUnitsMVoltsPerNewton
+	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = v2.ForceSensitivityUnitsMVoltsPerPound
 )
 
 // PressureUnits are the engineering units for a pressure measurement.
-type PressureUnits = v0.PressureUnits
+type PressureUnits = v2.PressureUnits
 
 const (
-	PressureUnitsPoundsPerSquareInch PressureUnits = v0.PressureUnitsPoundsPerSquareInch
-	PressureUnitsPascals             PressureUnits = v0.PressureUnitsPascals
-	PressureUnitsBar                 PressureUnits = v0.PressureUnitsBar
+	PressureUnitsPoundsPerSquareInch PressureUnits = v2.PressureUnitsPoundsPerSquareInch
+	PressureUnitsPascals             PressureUnits = v2.PressureUnitsPascals
+	PressureUnitsBar                 PressureUnits = v2.PressureUnitsBar
 )
 
 // TorqueUnits are the engineering units for a torque measurement.
-type TorqueUnits = v0.TorqueUnits
+type TorqueUnits = v2.TorqueUnits
 
 const (
-	TorqueUnitsNewtonMeters TorqueUnits = v0.TorqueUnitsNewtonMeters
-	TorqueUnitsInchOunces   TorqueUnits = v0.TorqueUnitsInchOunces
-	TorqueUnitsInchPounds   TorqueUnits = v0.TorqueUnitsInchPounds
-	TorqueUnitsFootPounds   TorqueUnits = v0.TorqueUnitsFootPounds
+	TorqueUnitsNewtonMeters TorqueUnits = v2.TorqueUnitsNewtonMeters
+	TorqueUnitsInchOunces   TorqueUnits = v2.TorqueUnitsInchOunces
+	TorqueUnitsInchPounds   TorqueUnits = v2.TorqueUnitsInchPounds
+	TorqueUnitsFootPounds   TorqueUnits = v2.TorqueUnitsFootPounds
 )
 
 // ResistanceConfig selects the number of wires used for a resistance measurement.
-type ResistanceConfig = v0.ResistanceConfig
+type ResistanceConfig = v2.ResistanceConfig
 
 const (
-	ResistanceConfigWire2 ResistanceConfig = v0.ResistanceConfigWire2
-	ResistanceConfigWire3 ResistanceConfig = v0.ResistanceConfigWire3
-	ResistanceConfigWire4 ResistanceConfig = v0.ResistanceConfigWire4
+	ResistanceConfigWire2 ResistanceConfig = v2.ResistanceConfigWire2
+	ResistanceConfigWire3 ResistanceConfig = v2.ResistanceConfigWire3
+	ResistanceConfigWire4 ResistanceConfig = v2.ResistanceConfigWire4
 )
 
 // TemperatureUnits are the engineering units for a temperature measurement.
-type TemperatureUnits = v0.TemperatureUnits
+type TemperatureUnits = v2.TemperatureUnits
 
 const (
-	TemperatureUnitsDegC    TemperatureUnits = v0.TemperatureUnitsDegC
-	TemperatureUnitsDegF    TemperatureUnits = v0.TemperatureUnitsDegF
-	TemperatureUnitsKelvins TemperatureUnits = v0.TemperatureUnitsKelvins
-	TemperatureUnitsDegR    TemperatureUnits = v0.TemperatureUnitsDegR
+	TemperatureUnitsDegC    TemperatureUnits = v2.TemperatureUnitsDegC
+	TemperatureUnitsDegF    TemperatureUnits = v2.TemperatureUnitsDegF
+	TemperatureUnitsKelvins TemperatureUnits = v2.TemperatureUnitsKelvins
+	TemperatureUnitsDegR    TemperatureUnits = v2.TemperatureUnitsDegR
 )
 
 // RTDType selects the resistance-temperature curve of an RTD sensor.
-type RTDType = v0.RTDType
+type RTDType = v2.RTDType
 
 const (
-	RTDTypePt3750 RTDType = v0.RTDTypePt3750
-	RTDTypePt3851 RTDType = v0.RTDTypePt3851
-	RTDTypePt3911 RTDType = v0.RTDTypePt3911
-	RTDTypePt3916 RTDType = v0.RTDTypePt3916
-	RTDTypePt3920 RTDType = v0.RTDTypePt3920
-	RTDTypePt3928 RTDType = v0.RTDTypePt3928
+	RTDTypePt3750 RTDType = v2.RTDTypePt3750
+	RTDTypePt3851 RTDType = v2.RTDTypePt3851
+	RTDTypePt3911 RTDType = v2.RTDTypePt3911
+	RTDTypePt3916 RTDType = v2.RTDTypePt3916
+	RTDTypePt3920 RTDType = v2.RTDTypePt3920
+	RTDTypePt3928 RTDType = v2.RTDTypePt3928
 )
 
 // StrainConfig selects the strain-gauge bridge configuration.
-type StrainConfig = v0.StrainConfig
+type StrainConfig = v2.StrainConfig
 
 const (
-	StrainConfigFullBridgeI     StrainConfig = v0.StrainConfigFullBridgeI
-	StrainConfigFullBridgeIi    StrainConfig = v0.StrainConfigFullBridgeIi
-	StrainConfigFullBridgeIii   StrainConfig = v0.StrainConfigFullBridgeIii
-	StrainConfigHalfBridgeI     StrainConfig = v0.StrainConfigHalfBridgeI
-	StrainConfigHalfBridgeIi    StrainConfig = v0.StrainConfigHalfBridgeIi
-	StrainConfigQuarterBridgeI  StrainConfig = v0.StrainConfigQuarterBridgeI
-	StrainConfigQuarterBridgeIi StrainConfig = v0.StrainConfigQuarterBridgeIi
+	StrainConfigFullBridgeI     StrainConfig = v2.StrainConfigFullBridgeI
+	StrainConfigFullBridgeIi    StrainConfig = v2.StrainConfigFullBridgeIi
+	StrainConfigFullBridgeIii   StrainConfig = v2.StrainConfigFullBridgeIii
+	StrainConfigHalfBridgeI     StrainConfig = v2.StrainConfigHalfBridgeI
+	StrainConfigHalfBridgeIi    StrainConfig = v2.StrainConfigHalfBridgeIi
+	StrainConfigQuarterBridgeI  StrainConfig = v2.StrainConfigQuarterBridgeI
+	StrainConfigQuarterBridgeIi StrainConfig = v2.StrainConfigQuarterBridgeIi
 )
 
 // ThermocoupleType selects the thermocouple alloy type.
-type ThermocoupleType = v0.ThermocoupleType
+type ThermocoupleType = v2.ThermocoupleType
 
 const (
-	ThermocoupleTypeJ ThermocoupleType = v0.ThermocoupleTypeJ
-	ThermocoupleTypeK ThermocoupleType = v0.ThermocoupleTypeK
-	ThermocoupleTypeN ThermocoupleType = v0.ThermocoupleTypeN
-	ThermocoupleTypeR ThermocoupleType = v0.ThermocoupleTypeR
-	ThermocoupleTypeS ThermocoupleType = v0.ThermocoupleTypeS
-	ThermocoupleTypeT ThermocoupleType = v0.ThermocoupleTypeT
-	ThermocoupleTypeB ThermocoupleType = v0.ThermocoupleTypeB
-	ThermocoupleTypeE ThermocoupleType = v0.ThermocoupleTypeE
+	ThermocoupleTypeJ ThermocoupleType = v2.ThermocoupleTypeJ
+	ThermocoupleTypeK ThermocoupleType = v2.ThermocoupleTypeK
+	ThermocoupleTypeN ThermocoupleType = v2.ThermocoupleTypeN
+	ThermocoupleTypeR ThermocoupleType = v2.ThermocoupleTypeR
+	ThermocoupleTypeS ThermocoupleType = v2.ThermocoupleTypeS
+	ThermocoupleTypeT ThermocoupleType = v2.ThermocoupleTypeT
+	ThermocoupleTypeB ThermocoupleType = v2.ThermocoupleTypeB
+	ThermocoupleTypeE ThermocoupleType = v2.ThermocoupleTypeE
 )
 
 // CJC is the cold-junction compensation for a thermocouple. The source selects where
 // the reference temperature comes from.
-type CJC = v0.CJC
-type CJCVariant = v0.CJCVariant
-type CJCType = v0.CJCType
+type CJC = v2.CJC
+type CJCVariant = v2.CJCVariant
+type CJCType = v2.CJCType
 
 const (
 	// CJCTypeBuiltIn reads the reference temperature from the device's own sensor.
-	CJCTypeBuiltIn CJCType = v0.CJCTypeBuiltIn
+	CJCTypeBuiltIn CJCType = v2.CJCTypeBuiltIn
 	// CJCTypeConstVal uses a fixed reference temperature.
-	CJCTypeConstVal CJCType = v0.CJCTypeConstVal
+	CJCTypeConstVal CJCType = v2.CJCTypeConstVal
 	// CJCTypeChan reads the reference temperature from another channel.
-	CJCTypeChan CJCType = v0.CJCTypeChan
+	CJCTypeChan CJCType = v2.CJCTypeChan
 )
 
 // CJCBuiltIn reads the reference temperature from the device's own sensor.
-type CJCBuiltIn = v0.CJCBuiltIn
+type CJCBuiltIn = v2.CJCBuiltIn
 
 // CJCConstVal uses a fixed reference temperature.
-type CJCConstVal = v0.CJCConstVal
+type CJCConstVal = v2.CJCConstVal
 
 // CJCChan reads the reference temperature from another channel.
-type CJCChan = v0.CJCChan
+type CJCChan = v2.CJCChan
 
 // VelocityUnits are the engineering units for a velocity measurement.
-type VelocityUnits = v0.VelocityUnits
+type VelocityUnits = v2.VelocityUnits
 
 const (
-	VelocityUnitsMetersPerSecond VelocityUnits = v0.VelocityUnitsMetersPerSecond
-	VelocityUnitsInchesPerSecond VelocityUnits = v0.VelocityUnitsInchesPerSecond
+	VelocityUnitsMetersPerSecond VelocityUnits = v2.VelocityUnitsMetersPerSecond
+	VelocityUnitsInchesPerSecond VelocityUnits = v2.VelocityUnitsInchesPerSecond
 )
 
 // VelocitySensitivityUnits are the units of a velocity IEPE sensor's sensitivity
 // rating.
-type VelocitySensitivityUnits = v0.VelocitySensitivityUnits
+type VelocitySensitivityUnits = v2.VelocitySensitivityUnits
 
 const (
-	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = v0.VelocitySensitivityUnitsMVoltsPerMmPerSecond
-	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = v0.VelocitySensitivityUnitsMVoltsPerInchPerSecond
+	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = v2.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = v2.VelocitySensitivityUnitsMVoltsPerInchPerSecond
 )
 
 // ChargeUnits are the units of a charge measurement.
-type ChargeUnits = v0.ChargeUnits
+type ChargeUnits = v2.ChargeUnits
 
 const (
-	ChargeUnitsCoulombs     ChargeUnits = v0.ChargeUnitsCoulombs
-	ChargeUnitsPicoCoulombs ChargeUnits = v0.ChargeUnitsPicoCoulombs
+	ChargeUnitsCoulombs     ChargeUnits = v2.ChargeUnitsCoulombs
+	ChargeUnitsPicoCoulombs ChargeUnits = v2.ChargeUnitsPicoCoulombs
 )
 
 // LinearScale maps raw values to engineering units with a slope and intercept.
-type LinearScale = v0.LinearScale
+type LinearScale = v2.LinearScale
 
 // MapScale maps a raw range linearly onto a scaled range.
-type MapScale = v0.MapScale
+type MapScale = v2.MapScale
 
 // TableScale maps raw values to engineering units via a lookup table.
-type TableScale = v0.TableScale
+type TableScale = v2.TableScale
 
 // NoneScale applies no scaling; the raw value is used directly.
-type NoneScale = v0.NoneScale
+type NoneScale = v2.NoneScale
 
 // PolynomialScale maps raw values to engineering units with a polynomial.
-type PolynomialScale = v0.PolynomialScale
+type PolynomialScale = v2.PolynomialScale
 
 // Scale determines how raw sensor values are transformed to engineering units.
-type Scale = v0.Scale
-type ScaleVariant = v0.ScaleVariant
-type ScaleType = v0.ScaleType
+type Scale = v2.Scale
+type ScaleVariant = v2.ScaleVariant
+type ScaleType = v2.ScaleType
 
 const (
-	ScaleTypeLinear     ScaleType = v0.ScaleTypeLinear
-	ScaleTypeMap        ScaleType = v0.ScaleTypeMap
-	ScaleTypeTable      ScaleType = v0.ScaleTypeTable
-	ScaleTypePolynomial ScaleType = v0.ScaleTypePolynomial
-	ScaleTypeNone       ScaleType = v0.ScaleTypeNone
+	ScaleTypeLinear     ScaleType = v2.ScaleTypeLinear
+	ScaleTypeMap        ScaleType = v2.ScaleTypeMap
+	ScaleTypeTable      ScaleType = v2.ScaleTypeTable
+	ScaleTypePolynomial ScaleType = v2.ScaleTypePolynomial
+	ScaleTypeNone       ScaleType = v2.ScaleTypeNone
 )
 
-type ScaleLinear = v0.ScaleLinear
-type ScaleMap = v0.ScaleMap
-type ScaleTable = v0.ScaleTable
-type ScalePolynomial = v0.ScalePolynomial
-type ScaleNone = v0.ScaleNone
+type ScaleLinear = v2.ScaleLinear
+type ScaleMap = v2.ScaleMap
+type ScaleTable = v2.ScaleTable
+type ScalePolynomial = v2.ScalePolynomial
+type ScaleNone = v2.ScaleNone
 
 // MinMaxVal bounds the expected signal range in scaled units.
-type MinMaxVal = v0.MinMaxVal
+type MinMaxVal = v2.MinMaxVal
 
 // Terminal configures the terminal wiring of an analog input channel.
-type Terminal = v0.Terminal
+type Terminal = v2.Terminal
 
 // Sensitivity specifies a sensor's sensitivity rating.
-type Sensitivity = v0.Sensitivity
+type Sensitivity = v2.Sensitivity
 
 // CurrentExcitation configures the current excitation supplied to a sensor.
-type CurrentExcitation = v0.CurrentExcitation
+type CurrentExcitation = v2.CurrentExcitation
 
 // VoltageExcitation configures the voltage excitation supplied to a sensor.
-type VoltageExcitation = v0.VoltageExcitation
+type VoltageExcitation = v2.VoltageExcitation
 
 // Bridge configures the wiring and nominal resistance of a bridge-based sensor.
-type Bridge = v0.Bridge
+type Bridge = v2.Bridge
 
 // BridgePolynomial scales bridge electrical output to physical units with a polynomial.
-type BridgePolynomial = v0.BridgePolynomial
+type BridgePolynomial = v2.BridgePolynomial
 
 // Resistance configures the wiring of a resistance measurement.
-type Resistance = v0.Resistance
+type Resistance = v2.Resistance
 
 // Table scales bridge electrical output to physical units with a lookup table.
-type Table = v0.Table
+type Table = v2.Table
 
 // TwoPointLin scales bridge electrical output to physical units between two calibration
 // points.
-type TwoPointLin = v0.TwoPointLin
+type TwoPointLin = v2.TwoPointLin
 
 // CustomScale applies a user-defined scale to the raw measurement.
-type CustomScale = v0.CustomScale
+type CustomScale = v2.CustomScale
 
 // BaseAIChannel carries the fields every NI analog input channel shares.
-type BaseAIChannel = v0.BaseAIChannel
+type BaseAIChannel = v2.BaseAIChannel
 
 // AIChannel is a single NI analog input channel. The type field selects the measurement
 // mode and the fields that accompany it.
-type AIChannel = v0.AIChannel
-type AIChannelVariant = v0.AIChannelVariant
-type AIChannelType = v0.AIChannelType
+type AIChannel = v2.AIChannel
+type AIChannelVariant = v2.AIChannelVariant
+type AIChannelType = v2.AIChannelType
 
 const (
 	// AIChannelTypeAIVoltage reads a voltage.
-	AIChannelTypeAIVoltage AIChannelType = v0.AIChannelTypeAIVoltage
+	AIChannelTypeAIVoltage AIChannelType = v2.AIChannelTypeAIVoltage
 	// AIChannelTypeAIAccel reads acceleration from an accelerometer.
-	AIChannelTypeAIAccel AIChannelType = v0.AIChannelTypeAIAccel
+	AIChannelTypeAIAccel AIChannelType = v2.AIChannelTypeAIAccel
 	// AIChannelTypeAIBridge reads a generic bridge-based sensor.
-	AIChannelTypeAIBridge AIChannelType = v0.AIChannelTypeAIBridge
+	AIChannelTypeAIBridge AIChannelType = v2.AIChannelTypeAIBridge
 	// AIChannelTypeAICurrent reads a current.
-	AIChannelTypeAICurrent AIChannelType = v0.AIChannelTypeAICurrent
+	AIChannelTypeAICurrent AIChannelType = v2.AIChannelTypeAICurrent
 	// AIChannelTypeAIForceBridgeTable reads force from a bridge with a calibration
 	// table.
-	AIChannelTypeAIForceBridgeTable AIChannelType = v0.AIChannelTypeAIForceBridgeTable
+	AIChannelTypeAIForceBridgeTable AIChannelType = v2.AIChannelTypeAIForceBridgeTable
 	// AIChannelTypeAIForceBridgeTwoPointLin reads force from a bridge with two-point
 	// linear calibration.
-	AIChannelTypeAIForceBridgeTwoPointLin AIChannelType = v0.AIChannelTypeAIForceBridgeTwoPointLin
+	AIChannelTypeAIForceBridgeTwoPointLin AIChannelType = v2.AIChannelTypeAIForceBridgeTwoPointLin
 	// AIChannelTypeAIForceIEPE reads force from an IEPE sensor.
-	AIChannelTypeAIForceIEPE AIChannelType = v0.AIChannelTypeAIForceIEPE
+	AIChannelTypeAIForceIEPE AIChannelType = v2.AIChannelTypeAIForceIEPE
 	// AIChannelTypeAIMicrophone reads sound pressure from a microphone.
-	AIChannelTypeAIMicrophone AIChannelType = v0.AIChannelTypeAIMicrophone
+	AIChannelTypeAIMicrophone AIChannelType = v2.AIChannelTypeAIMicrophone
 	// AIChannelTypeAIPressureBridgeTable reads pressure from a bridge with a
 	// calibration table.
-	AIChannelTypeAIPressureBridgeTable AIChannelType = v0.AIChannelTypeAIPressureBridgeTable
+	AIChannelTypeAIPressureBridgeTable AIChannelType = v2.AIChannelTypeAIPressureBridgeTable
 	// AIChannelTypeAIPressureBridgeTwoPointLin reads pressure from a bridge with
 	// two-point linear calibration.
-	AIChannelTypeAIPressureBridgeTwoPointLin AIChannelType = v0.AIChannelTypeAIPressureBridgeTwoPointLin
+	AIChannelTypeAIPressureBridgeTwoPointLin AIChannelType = v2.AIChannelTypeAIPressureBridgeTwoPointLin
 	// AIChannelTypeAIResistance reads a resistance.
-	AIChannelTypeAIResistance AIChannelType = v0.AIChannelTypeAIResistance
+	AIChannelTypeAIResistance AIChannelType = v2.AIChannelTypeAIResistance
 	// AIChannelTypeAIRTD reads temperature from an RTD.
-	AIChannelTypeAIRTD AIChannelType = v0.AIChannelTypeAIRTD
+	AIChannelTypeAIRTD AIChannelType = v2.AIChannelTypeAIRTD
 	// AIChannelTypeAIStrainGauge reads strain from a strain gauge.
-	AIChannelTypeAIStrainGauge AIChannelType = v0.AIChannelTypeAIStrainGauge
+	AIChannelTypeAIStrainGauge AIChannelType = v2.AIChannelTypeAIStrainGauge
 	// AIChannelTypeAITempBuiltin reads temperature from the device's built-in sensor.
-	AIChannelTypeAITempBuiltin AIChannelType = v0.AIChannelTypeAITempBuiltin
+	AIChannelTypeAITempBuiltin AIChannelType = v2.AIChannelTypeAITempBuiltin
 	// AIChannelTypeAIThermocouple reads temperature from a thermocouple.
-	AIChannelTypeAIThermocouple AIChannelType = v0.AIChannelTypeAIThermocouple
+	AIChannelTypeAIThermocouple AIChannelType = v2.AIChannelTypeAIThermocouple
 	// AIChannelTypeAITorqueBridgeTable reads torque from a bridge with a calibration
 	// table.
-	AIChannelTypeAITorqueBridgeTable AIChannelType = v0.AIChannelTypeAITorqueBridgeTable
+	AIChannelTypeAITorqueBridgeTable AIChannelType = v2.AIChannelTypeAITorqueBridgeTable
 	// AIChannelTypeAITorqueBridgeTwoPointLin reads torque from a bridge with two-point
 	// linear calibration.
-	AIChannelTypeAITorqueBridgeTwoPointLin AIChannelType = v0.AIChannelTypeAITorqueBridgeTwoPointLin
+	AIChannelTypeAITorqueBridgeTwoPointLin AIChannelType = v2.AIChannelTypeAITorqueBridgeTwoPointLin
 	// AIChannelTypeAIVelocityIEPE reads velocity from an IEPE sensor.
-	AIChannelTypeAIVelocityIEPE AIChannelType = v0.AIChannelTypeAIVelocityIEPE
+	AIChannelTypeAIVelocityIEPE AIChannelType = v2.AIChannelTypeAIVelocityIEPE
 	// AIChannelTypeAIAccel4WireDCVoltage reads acceleration from a 4-wire DC-voltage
 	// accelerometer.
-	AIChannelTypeAIAccel4WireDCVoltage AIChannelType = v0.AIChannelTypeAIAccel4WireDCVoltage
+	AIChannelTypeAIAccel4WireDCVoltage AIChannelType = v2.AIChannelTypeAIAccel4WireDCVoltage
 	// AIChannelTypeAIAccelCharge reads acceleration from a charge-mode accelerometer.
-	AIChannelTypeAIAccelCharge AIChannelType = v0.AIChannelTypeAIAccelCharge
+	AIChannelTypeAIAccelCharge AIChannelType = v2.AIChannelTypeAIAccelCharge
 	// AIChannelTypeAICharge reads a raw charge.
-	AIChannelTypeAICharge AIChannelType = v0.AIChannelTypeAICharge
+	AIChannelTypeAICharge AIChannelType = v2.AIChannelTypeAICharge
 	// AIChannelTypeAICurrentRMS reads RMS current.
-	AIChannelTypeAICurrentRMS AIChannelType = v0.AIChannelTypeAICurrentRMS
+	AIChannelTypeAICurrentRMS AIChannelType = v2.AIChannelTypeAICurrentRMS
 	// AIChannelTypeAIForceBridgePolynomial reads force from a bridge with polynomial
 	// calibration.
-	AIChannelTypeAIForceBridgePolynomial AIChannelType = v0.AIChannelTypeAIForceBridgePolynomial
+	AIChannelTypeAIForceBridgePolynomial AIChannelType = v2.AIChannelTypeAIForceBridgePolynomial
 	// AIChannelTypeAIFreqVoltage reads frequency from a voltage signal.
-	AIChannelTypeAIFreqVoltage AIChannelType = v0.AIChannelTypeAIFreqVoltage
+	AIChannelTypeAIFreqVoltage AIChannelType = v2.AIChannelTypeAIFreqVoltage
 	// AIChannelTypeAIPressureBridgePolynomial reads pressure from a bridge with
 	// polynomial calibration.
-	AIChannelTypeAIPressureBridgePolynomial AIChannelType = v0.AIChannelTypeAIPressureBridgePolynomial
+	AIChannelTypeAIPressureBridgePolynomial AIChannelType = v2.AIChannelTypeAIPressureBridgePolynomial
 	// AIChannelTypeAIThermistorIex reads temperature from a current-excited thermistor.
-	AIChannelTypeAIThermistorIex AIChannelType = v0.AIChannelTypeAIThermistorIex
+	AIChannelTypeAIThermistorIex AIChannelType = v2.AIChannelTypeAIThermistorIex
 	// AIChannelTypeAIThermistorVex reads temperature from a voltage-excited thermistor.
-	AIChannelTypeAIThermistorVex AIChannelType = v0.AIChannelTypeAIThermistorVex
+	AIChannelTypeAIThermistorVex AIChannelType = v2.AIChannelTypeAIThermistorVex
 	// AIChannelTypeAITorqueBridgePolynomial reads torque from a bridge with polynomial
 	// calibration.
-	AIChannelTypeAITorqueBridgePolynomial AIChannelType = v0.AIChannelTypeAITorqueBridgePolynomial
+	AIChannelTypeAITorqueBridgePolynomial AIChannelType = v2.AIChannelTypeAITorqueBridgePolynomial
 	// AIChannelTypeAIVoltageRMS reads RMS voltage.
-	AIChannelTypeAIVoltageRMS AIChannelType = v0.AIChannelTypeAIVoltageRMS
+	AIChannelTypeAIVoltageRMS AIChannelType = v2.AIChannelTypeAIVoltageRMS
 	// AIChannelTypeAIVoltageWithExcit reads a voltage with excitation.
-	AIChannelTypeAIVoltageWithExcit AIChannelType = v0.AIChannelTypeAIVoltageWithExcit
+	AIChannelTypeAIVoltageWithExcit AIChannelType = v2.AIChannelTypeAIVoltageWithExcit
 )
 
 // AIVoltageChannel reads a voltage.
-type AIVoltageChannel = v0.AIVoltageChannel
+type AIVoltageChannel = v2.AIVoltageChannel
 
 // AIAccelChannel reads acceleration from an accelerometer.
-type AIAccelChannel = v0.AIAccelChannel
+type AIAccelChannel = v2.AIAccelChannel
 
 // AIBridgeChannel reads a generic bridge-based sensor.
-type AIBridgeChannel = v0.AIBridgeChannel
+type AIBridgeChannel = v2.AIBridgeChannel
 
 // AICurrentChannel reads a current.
-type AICurrentChannel = v0.AICurrentChannel
+type AICurrentChannel = v2.AICurrentChannel
 
 // AIForceBridgeTableChannel reads force from a bridge with a calibration table.
-type AIForceBridgeTableChannel = v0.AIForceBridgeTableChannel
+type AIForceBridgeTableChannel = v2.AIForceBridgeTableChannel
 
 // AIForceBridgeTwoPointLinChannel reads force from a bridge with two-point linear
 // calibration.
-type AIForceBridgeTwoPointLinChannel = v0.AIForceBridgeTwoPointLinChannel
+type AIForceBridgeTwoPointLinChannel = v2.AIForceBridgeTwoPointLinChannel
 
 // AIForceIEPEChannel reads force from an IEPE sensor.
-type AIForceIEPEChannel = v0.AIForceIEPEChannel
+type AIForceIEPEChannel = v2.AIForceIEPEChannel
 
 // AIMicrophoneChannel reads sound pressure from a microphone.
-type AIMicrophoneChannel = v0.AIMicrophoneChannel
+type AIMicrophoneChannel = v2.AIMicrophoneChannel
 
 // AIPressureBridgeTableChannel reads pressure from a bridge with a calibration table.
-type AIPressureBridgeTableChannel = v0.AIPressureBridgeTableChannel
+type AIPressureBridgeTableChannel = v2.AIPressureBridgeTableChannel
 
 // AIPressureBridgeTwoPointLinChannel reads pressure from a bridge with two-point linear
 // calibration.
-type AIPressureBridgeTwoPointLinChannel = v0.AIPressureBridgeTwoPointLinChannel
+type AIPressureBridgeTwoPointLinChannel = v2.AIPressureBridgeTwoPointLinChannel
 
 // AIResistanceChannel reads a resistance.
-type AIResistanceChannel = v0.AIResistanceChannel
+type AIResistanceChannel = v2.AIResistanceChannel
 
 // AIRTDChannel reads temperature from an RTD.
-type AIRTDChannel = v0.AIRTDChannel
+type AIRTDChannel = v2.AIRTDChannel
 
 // AIStrainGaugeChannel reads strain from a strain gauge.
-type AIStrainGaugeChannel = v0.AIStrainGaugeChannel
+type AIStrainGaugeChannel = v2.AIStrainGaugeChannel
 
 // AITempBuiltinChannel reads temperature from the device's built-in sensor.
-type AITempBuiltinChannel = v0.AITempBuiltinChannel
+type AITempBuiltinChannel = v2.AITempBuiltinChannel
 
 // AIThermocoupleChannel reads temperature from a thermocouple.
-type AIThermocoupleChannel = v0.AIThermocoupleChannel
+type AIThermocoupleChannel = v2.AIThermocoupleChannel
 
 // AITorqueBridgeTableChannel reads torque from a bridge with a calibration table.
-type AITorqueBridgeTableChannel = v0.AITorqueBridgeTableChannel
+type AITorqueBridgeTableChannel = v2.AITorqueBridgeTableChannel
 
 // AITorqueBridgeTwoPointLinChannel reads torque from a bridge with two-point linear
 // calibration.
-type AITorqueBridgeTwoPointLinChannel = v0.AITorqueBridgeTwoPointLinChannel
+type AITorqueBridgeTwoPointLinChannel = v2.AITorqueBridgeTwoPointLinChannel
 
 // AIVelocityIEPEChannel reads velocity from an IEPE sensor.
-type AIVelocityIEPEChannel = v0.AIVelocityIEPEChannel
+type AIVelocityIEPEChannel = v2.AIVelocityIEPEChannel
 
 // AIAccel4WireDCVoltageChannel reads acceleration from a 4-wire DC-voltage
 // accelerometer.
-type AIAccel4WireDCVoltageChannel = v0.AIAccel4WireDCVoltageChannel
+type AIAccel4WireDCVoltageChannel = v2.AIAccel4WireDCVoltageChannel
 
 // AIAccelChargeChannel reads acceleration from a charge-mode accelerometer.
-type AIAccelChargeChannel = v0.AIAccelChargeChannel
+type AIAccelChargeChannel = v2.AIAccelChargeChannel
 
 // AIChargeChannel reads a raw charge.
-type AIChargeChannel = v0.AIChargeChannel
+type AIChargeChannel = v2.AIChargeChannel
 
 // AICurrentRMSChannel reads RMS current.
-type AICurrentRMSChannel = v0.AICurrentRMSChannel
+type AICurrentRMSChannel = v2.AICurrentRMSChannel
 
 // AIForceBridgePolynomialChannel reads force from a bridge with polynomial calibration.
-type AIForceBridgePolynomialChannel = v0.AIForceBridgePolynomialChannel
+type AIForceBridgePolynomialChannel = v2.AIForceBridgePolynomialChannel
 
 // AIFreqVoltageChannel reads frequency from a voltage signal.
-type AIFreqVoltageChannel = v0.AIFreqVoltageChannel
+type AIFreqVoltageChannel = v2.AIFreqVoltageChannel
 
 // AIPressureBridgePolynomialChannel reads pressure from a bridge with polynomial
 // calibration.
-type AIPressureBridgePolynomialChannel = v0.AIPressureBridgePolynomialChannel
+type AIPressureBridgePolynomialChannel = v2.AIPressureBridgePolynomialChannel
 
 // AIThermistorIexChannel reads temperature from a current-excited thermistor.
-type AIThermistorIexChannel = v0.AIThermistorIexChannel
+type AIThermistorIexChannel = v2.AIThermistorIexChannel
 
 // AIThermistorVexChannel reads temperature from a voltage-excited thermistor.
-type AIThermistorVexChannel = v0.AIThermistorVexChannel
+type AIThermistorVexChannel = v2.AIThermistorVexChannel
 
 // AITorqueBridgePolynomialChannel reads torque from a bridge with polynomial
 // calibration.
-type AITorqueBridgePolynomialChannel = v0.AITorqueBridgePolynomialChannel
+type AITorqueBridgePolynomialChannel = v2.AITorqueBridgePolynomialChannel
 
 // AIVoltageRMSChannel reads RMS voltage.
-type AIVoltageRMSChannel = v0.AIVoltageRMSChannel
+type AIVoltageRMSChannel = v2.AIVoltageRMSChannel
 
 // AIVoltageWithExcitChannel reads a voltage with excitation.
-type AIVoltageWithExcitChannel = v0.AIVoltageWithExcitChannel
+type AIVoltageWithExcitChannel = v2.AIVoltageWithExcitChannel
 
 // CIEdge selects the signal edge a counter responds to.
-type CIEdge = v0.CIEdge
+type CIEdge = v2.CIEdge
 
 const (
-	CIEdgeRising  CIEdge = v0.CIEdgeRising
-	CIEdgeFalling CIEdge = v0.CIEdgeFalling
+	CIEdgeRising  CIEdge = v2.CIEdgeRising
+	CIEdgeFalling CIEdge = v2.CIEdgeFalling
 )
 
 // CIMeasMethod selects the counter measurement method.
-type CIMeasMethod = v0.CIMeasMethod
+type CIMeasMethod = v2.CIMeasMethod
 
 const (
-	CIMeasMethodLowFreq1Ctr  CIMeasMethod = v0.CIMeasMethodLowFreq1Ctr
-	CIMeasMethodHighFreq2Ctr CIMeasMethod = v0.CIMeasMethodHighFreq2Ctr
-	CIMeasMethodLargeRng2Ctr CIMeasMethod = v0.CIMeasMethodLargeRng2Ctr
-	CIMeasMethodDynamicAvg   CIMeasMethod = v0.CIMeasMethodDynamicAvg
+	CIMeasMethodLowFreq1Ctr  CIMeasMethod = v2.CIMeasMethodLowFreq1Ctr
+	CIMeasMethodHighFreq2Ctr CIMeasMethod = v2.CIMeasMethodHighFreq2Ctr
+	CIMeasMethodLargeRng2Ctr CIMeasMethod = v2.CIMeasMethodLargeRng2Ctr
+	CIMeasMethodDynamicAvg   CIMeasMethod = v2.CIMeasMethodDynamicAvg
 )
 
 // CIFreqUnits are the units of a frequency measurement.
-type CIFreqUnits = v0.CIFreqUnits
+type CIFreqUnits = v2.CIFreqUnits
 
 const (
-	CIFreqUnitsHz    CIFreqUnits = v0.CIFreqUnitsHz
-	CIFreqUnitsTicks CIFreqUnits = v0.CIFreqUnitsTicks
+	CIFreqUnitsHz    CIFreqUnits = v2.CIFreqUnitsHz
+	CIFreqUnitsTicks CIFreqUnits = v2.CIFreqUnitsTicks
 )
 
 // CITimeUnits are the units of a counter time measurement (period, pulse width, ...).
-type CITimeUnits = v0.CITimeUnits
+type CITimeUnits = v2.CITimeUnits
 
 const (
-	CITimeUnitsSeconds CITimeUnits = v0.CITimeUnitsSeconds
-	CITimeUnitsTicks   CITimeUnits = v0.CITimeUnitsTicks
+	CITimeUnitsSeconds CITimeUnits = v2.CITimeUnitsSeconds
+	CITimeUnitsTicks   CITimeUnits = v2.CITimeUnitsTicks
 )
 
 // CICountDirection selects the direction an edge counter counts.
-type CICountDirection = v0.CICountDirection
+type CICountDirection = v2.CICountDirection
 
 const (
-	CICountDirectionCountUp              CICountDirection = v0.CICountDirectionCountUp
-	CICountDirectionCountDown            CICountDirection = v0.CICountDirectionCountDown
-	CICountDirectionExternallyControlled CICountDirection = v0.CICountDirectionExternallyControlled
+	CICountDirectionCountUp              CICountDirection = v2.CICountDirectionCountUp
+	CICountDirectionCountDown            CICountDirection = v2.CICountDirectionCountDown
+	CICountDirectionExternallyControlled CICountDirection = v2.CICountDirectionExternallyControlled
 )
 
 // CIDecodingType selects the quadrature decoding type of an encoder.
-type CIDecodingType = v0.CIDecodingType
+type CIDecodingType = v2.CIDecodingType
 
 const (
-	CIDecodingTypeX1       CIDecodingType = v0.CIDecodingTypeX1
-	CIDecodingTypeX2       CIDecodingType = v0.CIDecodingTypeX2
-	CIDecodingTypeX4       CIDecodingType = v0.CIDecodingTypeX4
-	CIDecodingTypeTwoPulse CIDecodingType = v0.CIDecodingTypeTwoPulse
+	CIDecodingTypeX1       CIDecodingType = v2.CIDecodingTypeX1
+	CIDecodingTypeX2       CIDecodingType = v2.CIDecodingTypeX2
+	CIDecodingTypeX4       CIDecodingType = v2.CIDecodingTypeX4
+	CIDecodingTypeTwoPulse CIDecodingType = v2.CIDecodingTypeTwoPulse
 )
 
 // CILinearVelocityUnits are the units of a linear velocity measurement.
-type CILinearVelocityUnits = v0.CILinearVelocityUnits
+type CILinearVelocityUnits = v2.CILinearVelocityUnits
 
 const (
-	CILinearVelocityUnitsMPerS  CILinearVelocityUnits = v0.CILinearVelocityUnitsMPerS
-	CILinearVelocityUnitsInPerS CILinearVelocityUnits = v0.CILinearVelocityUnitsInPerS
+	CILinearVelocityUnitsMPerS  CILinearVelocityUnits = v2.CILinearVelocityUnitsMPerS
+	CILinearVelocityUnitsInPerS CILinearVelocityUnits = v2.CILinearVelocityUnitsInPerS
 )
 
 // CIAngularVelocityUnits are the units of an angular velocity measurement.
-type CIAngularVelocityUnits = v0.CIAngularVelocityUnits
+type CIAngularVelocityUnits = v2.CIAngularVelocityUnits
 
 const (
-	CIAngularVelocityUnitsRpm              CIAngularVelocityUnits = v0.CIAngularVelocityUnitsRpm
-	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = v0.CIAngularVelocityUnitsRadiansPerSecond
-	CIAngularVelocityUnitsDegreesPerSecond CIAngularVelocityUnits = v0.CIAngularVelocityUnitsDegreesPerSecond
+	CIAngularVelocityUnitsRpm              CIAngularVelocityUnits = v2.CIAngularVelocityUnitsRpm
+	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = v2.CIAngularVelocityUnitsRadiansPerSecond
+	CIAngularVelocityUnitsDegreesPerSecond CIAngularVelocityUnits = v2.CIAngularVelocityUnitsDegreesPerSecond
 )
 
 // CILinearPositionUnits are the units of a linear position measurement.
-type CILinearPositionUnits = v0.CILinearPositionUnits
+type CILinearPositionUnits = v2.CILinearPositionUnits
 
 const (
-	CILinearPositionUnitsMeters CILinearPositionUnits = v0.CILinearPositionUnitsMeters
-	CILinearPositionUnitsInches CILinearPositionUnits = v0.CILinearPositionUnitsInches
-	CILinearPositionUnitsTicks  CILinearPositionUnits = v0.CILinearPositionUnitsTicks
+	CILinearPositionUnitsMeters CILinearPositionUnits = v2.CILinearPositionUnitsMeters
+	CILinearPositionUnitsInches CILinearPositionUnits = v2.CILinearPositionUnitsInches
+	CILinearPositionUnitsTicks  CILinearPositionUnits = v2.CILinearPositionUnitsTicks
 )
 
 // CIAngularPositionUnits are the units of an angular position measurement.
-type CIAngularPositionUnits = v0.CIAngularPositionUnits
+type CIAngularPositionUnits = v2.CIAngularPositionUnits
 
 const (
-	CIAngularPositionUnitsDegrees CIAngularPositionUnits = v0.CIAngularPositionUnitsDegrees
-	CIAngularPositionUnitsRadians CIAngularPositionUnits = v0.CIAngularPositionUnitsRadians
-	CIAngularPositionUnitsTicks   CIAngularPositionUnits = v0.CIAngularPositionUnitsTicks
+	CIAngularPositionUnitsDegrees CIAngularPositionUnits = v2.CIAngularPositionUnitsDegrees
+	CIAngularPositionUnitsRadians CIAngularPositionUnits = v2.CIAngularPositionUnitsRadians
+	CIAngularPositionUnitsTicks   CIAngularPositionUnits = v2.CIAngularPositionUnitsTicks
 )
 
 // ZIndexPhase selects the encoder channel states at which the Z index resets the count.
-type ZIndexPhase = v0.ZIndexPhase
+type ZIndexPhase = v2.ZIndexPhase
 
 const (
-	ZIndexPhaseAHighBHigh ZIndexPhase = v0.ZIndexPhaseAHighBHigh
-	ZIndexPhaseAHighBLow  ZIndexPhase = v0.ZIndexPhaseAHighBLow
-	ZIndexPhaseALowBHigh  ZIndexPhase = v0.ZIndexPhaseALowBHigh
-	ZIndexPhaseALowBLow   ZIndexPhase = v0.ZIndexPhaseALowBLow
+	ZIndexPhaseAHighBHigh ZIndexPhase = v2.ZIndexPhaseAHighBHigh
+	ZIndexPhaseAHighBLow  ZIndexPhase = v2.ZIndexPhaseAHighBLow
+	ZIndexPhaseALowBHigh  ZIndexPhase = v2.ZIndexPhaseALowBHigh
+	ZIndexPhaseALowBLow   ZIndexPhase = v2.ZIndexPhaseALowBLow
 )
 
 // ZIndex configures the Z-index reset behavior of an encoder.
-type ZIndex = v0.ZIndex
+type ZIndex = v2.ZIndex
 
 // BaseCIChannel carries the fields every NI counter input channel shares.
-type BaseCIChannel = v0.BaseCIChannel
+type BaseCIChannel = v2.BaseCIChannel
 
 // CIChannel is a single NI counter input channel. The type field selects the
 // measurement mode and the fields that accompany it.
-type CIChannel = v0.CIChannel
-type CIChannelVariant = v0.CIChannelVariant
-type CIChannelType = v0.CIChannelType
+type CIChannel = v2.CIChannel
+type CIChannelVariant = v2.CIChannelVariant
+type CIChannelType = v2.CIChannelType
 
 const (
 	// CIChannelTypeCIFrequency measures signal frequency.
-	CIChannelTypeCIFrequency CIChannelType = v0.CIChannelTypeCIFrequency
+	CIChannelTypeCIFrequency CIChannelType = v2.CIChannelTypeCIFrequency
 	// CIChannelTypeCIEdgeCount counts signal edges.
-	CIChannelTypeCIEdgeCount CIChannelType = v0.CIChannelTypeCIEdgeCount
+	CIChannelTypeCIEdgeCount CIChannelType = v2.CIChannelTypeCIEdgeCount
 	// CIChannelTypeCIPeriod measures signal period.
-	CIChannelTypeCIPeriod CIChannelType = v0.CIChannelTypeCIPeriod
+	CIChannelTypeCIPeriod CIChannelType = v2.CIChannelTypeCIPeriod
 	// CIChannelTypeCIPulseWidth measures pulse width.
-	CIChannelTypeCIPulseWidth CIChannelType = v0.CIChannelTypeCIPulseWidth
+	CIChannelTypeCIPulseWidth CIChannelType = v2.CIChannelTypeCIPulseWidth
 	// CIChannelTypeCISemiPeriod measures semi-period.
-	CIChannelTypeCISemiPeriod CIChannelType = v0.CIChannelTypeCISemiPeriod
+	CIChannelTypeCISemiPeriod CIChannelType = v2.CIChannelTypeCISemiPeriod
 	// CIChannelTypeCITwoEdgeSep measures the separation between two edges.
-	CIChannelTypeCITwoEdgeSep CIChannelType = v0.CIChannelTypeCITwoEdgeSep
+	CIChannelTypeCITwoEdgeSep CIChannelType = v2.CIChannelTypeCITwoEdgeSep
 	// CIChannelTypeCIVelocityLinear measures linear velocity from an encoder.
-	CIChannelTypeCIVelocityLinear CIChannelType = v0.CIChannelTypeCIVelocityLinear
+	CIChannelTypeCIVelocityLinear CIChannelType = v2.CIChannelTypeCIVelocityLinear
 	// CIChannelTypeCIVelocityAngular measures angular velocity from an encoder.
-	CIChannelTypeCIVelocityAngular CIChannelType = v0.CIChannelTypeCIVelocityAngular
+	CIChannelTypeCIVelocityAngular CIChannelType = v2.CIChannelTypeCIVelocityAngular
 	// CIChannelTypeCIPositionLinear measures linear position from an encoder.
-	CIChannelTypeCIPositionLinear CIChannelType = v0.CIChannelTypeCIPositionLinear
+	CIChannelTypeCIPositionLinear CIChannelType = v2.CIChannelTypeCIPositionLinear
 	// CIChannelTypeCIPositionAngular measures angular position from an encoder.
-	CIChannelTypeCIPositionAngular CIChannelType = v0.CIChannelTypeCIPositionAngular
+	CIChannelTypeCIPositionAngular CIChannelType = v2.CIChannelTypeCIPositionAngular
 	// CIChannelTypeCIDutyCycle measures the duty cycle of a signal.
-	CIChannelTypeCIDutyCycle CIChannelType = v0.CIChannelTypeCIDutyCycle
+	CIChannelTypeCIDutyCycle CIChannelType = v2.CIChannelTypeCIDutyCycle
 )
 
 // CIFrequencyChannel measures signal frequency.
-type CIFrequencyChannel = v0.CIFrequencyChannel
+type CIFrequencyChannel = v2.CIFrequencyChannel
 
 // CIEdgeCountChannel counts signal edges.
-type CIEdgeCountChannel = v0.CIEdgeCountChannel
+type CIEdgeCountChannel = v2.CIEdgeCountChannel
 
 // CIPeriodChannel measures signal period.
-type CIPeriodChannel = v0.CIPeriodChannel
+type CIPeriodChannel = v2.CIPeriodChannel
 
 // CIPulseWidthChannel measures pulse width.
-type CIPulseWidthChannel = v0.CIPulseWidthChannel
+type CIPulseWidthChannel = v2.CIPulseWidthChannel
 
 // CISemiPeriodChannel measures semi-period.
-type CISemiPeriodChannel = v0.CISemiPeriodChannel
+type CISemiPeriodChannel = v2.CISemiPeriodChannel
 
 // CITwoEdgeSepChannel measures the separation between two edges.
-type CITwoEdgeSepChannel = v0.CITwoEdgeSepChannel
+type CITwoEdgeSepChannel = v2.CITwoEdgeSepChannel
 
 // CIVelocityLinearChannel measures linear velocity from an encoder.
-type CIVelocityLinearChannel = v0.CIVelocityLinearChannel
+type CIVelocityLinearChannel = v2.CIVelocityLinearChannel
 
 // CIVelocityAngularChannel measures angular velocity from an encoder.
-type CIVelocityAngularChannel = v0.CIVelocityAngularChannel
+type CIVelocityAngularChannel = v2.CIVelocityAngularChannel
 
 // CIPositionLinearChannel measures linear position from an encoder.
-type CIPositionLinearChannel = v0.CIPositionLinearChannel
+type CIPositionLinearChannel = v2.CIPositionLinearChannel
 
 // CIPositionAngularChannel measures angular position from an encoder.
-type CIPositionAngularChannel = v0.CIPositionAngularChannel
+type CIPositionAngularChannel = v2.CIPositionAngularChannel
 
 // CIDutyCycleChannel measures the duty cycle of a signal.
-type CIDutyCycleChannel = v0.CIDutyCycleChannel
+type CIDutyCycleChannel = v2.CIDutyCycleChannel
 
 // WaveType selects the waveform a function generator produces.
-type WaveType = v0.WaveType
+type WaveType = v2.WaveType
 
 const (
-	WaveTypeSine     WaveType = v0.WaveTypeSine
-	WaveTypeTriangle WaveType = v0.WaveTypeTriangle
-	WaveTypeSquare   WaveType = v0.WaveTypeSquare
-	WaveTypeSawtooth WaveType = v0.WaveTypeSawtooth
+	WaveTypeSine     WaveType = v2.WaveTypeSine
+	WaveTypeTriangle WaveType = v2.WaveTypeTriangle
+	WaveTypeSquare   WaveType = v2.WaveTypeSquare
+	WaveTypeSawtooth WaveType = v2.WaveTypeSawtooth
 )
 
 // BaseAOChannel carries the fields every NI analog output channel shares.
-type BaseAOChannel = v0.BaseAOChannel
+type BaseAOChannel = v2.BaseAOChannel
 
 // AOChannel is a single NI analog output channel. The type field selects the output
 // mode and the fields that accompany it.
-type AOChannel = v0.AOChannel
-type AOChannelVariant = v0.AOChannelVariant
-type AOChannelType = v0.AOChannelType
+type AOChannel = v2.AOChannel
+type AOChannelVariant = v2.AOChannelVariant
+type AOChannelType = v2.AOChannelType
 
 const (
 	// AOChannelTypeAOCurrent drives a current output.
-	AOChannelTypeAOCurrent AOChannelType = v0.AOChannelTypeAOCurrent
+	AOChannelTypeAOCurrent AOChannelType = v2.AOChannelTypeAOCurrent
 	// AOChannelTypeAOFuncGen drives a function-generator output.
-	AOChannelTypeAOFuncGen AOChannelType = v0.AOChannelTypeAOFuncGen
+	AOChannelTypeAOFuncGen AOChannelType = v2.AOChannelTypeAOFuncGen
 	// AOChannelTypeAOVoltage drives a voltage output.
-	AOChannelTypeAOVoltage AOChannelType = v0.AOChannelTypeAOVoltage
+	AOChannelTypeAOVoltage AOChannelType = v2.AOChannelTypeAOVoltage
 )
 
 // AOCurrentChannel drives a current output.
-type AOCurrentChannel = v0.AOCurrentChannel
+type AOCurrentChannel = v2.AOCurrentChannel
 
 // AOFuncGenChannel drives a function-generator output.
-type AOFuncGenChannel = v0.AOFuncGenChannel
+type AOFuncGenChannel = v2.AOFuncGenChannel
 
 // AOVoltageChannel drives a voltage output.
-type AOVoltageChannel = v0.AOVoltageChannel
+type AOVoltageChannel = v2.AOVoltageChannel
 
 // DIChannel is a digital input channel the task acquires from.
-type DIChannel = v0.DIChannel
-type DIChannelVariant = v0.DIChannelVariant
-type DIChannelType = v0.DIChannelType
+type DIChannel = v2.DIChannel
+type DIChannelVariant = v2.DIChannelVariant
+type DIChannelType = v2.DIChannelType
 
 // DIChannelTypeDigitalInput carries the fields of an NI digital input channel.
-const DIChannelTypeDigitalInput DIChannelType = v0.DIChannelTypeDigitalInput
+const DIChannelTypeDigitalInput DIChannelType = v2.DIChannelTypeDigitalInput
 
 // DigitalInputChannel carries the fields of an NI digital input channel.
-type DigitalInputChannel = v0.DigitalInputChannel
+type DigitalInputChannel = v2.DigitalInputChannel
 
 // DOChannel is a digital output channel the task drives.
-type DOChannel = v0.DOChannel
-type DOChannelVariant = v0.DOChannelVariant
-type DOChannelType = v0.DOChannelType
+type DOChannel = v2.DOChannel
+type DOChannelVariant = v2.DOChannelVariant
+type DOChannelType = v2.DOChannelType
 
 // DOChannelTypeDigitalOutput carries the fields of an NI digital output channel.
-const DOChannelTypeDigitalOutput DOChannelType = v0.DOChannelTypeDigitalOutput
+const DOChannelTypeDigitalOutput DOChannelType = v2.DOChannelTypeDigitalOutput
 
 // DOChannelDigitalOutput carries the fields of an NI digital output channel.
-type DOChannelDigitalOutput = v0.DOChannelDigitalOutput
+type DOChannelDigitalOutput = v2.DOChannelDigitalOutput
 
 // AnalogReadConfig configures an NI analog read task. Each channel carries its own
 // device.
-type AnalogReadConfig = v0.AnalogReadConfig
+type AnalogReadConfig = v2.AnalogReadConfig
 
 // CounterReadConfig configures an NI counter read task. Each channel carries its own
 // device.
-type CounterReadConfig = v0.CounterReadConfig
+type CounterReadConfig = v2.CounterReadConfig
 
 // WriteConfig carries the configuration fields shared by NI write tasks.
-type WriteConfig = v0.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // AnalogWriteConfig configures an NI analog write task.
-type AnalogWriteConfig = v0.AnalogWriteConfig
+type AnalogWriteConfig = v2.AnalogWriteConfig
 
 // DigitalReadConfig configures an NI digital read task.
-type DigitalReadConfig = v0.DigitalReadConfig
+type DigitalReadConfig = v2.DigitalReadConfig
 
 // DigitalWriteConfig configures an NI digital write task.
-type DigitalWriteConfig = v0.DigitalWriteConfig
+type DigitalWriteConfig = v2.DigitalWriteConfig
 
-// ScanConfig configures the NI device scanner task, which carries no settings.
-type ScanConfig = v0.ScanConfig
+// ScanConfig configures the NI device scanner task.
+type ScanConfig = v2.ScanConfig

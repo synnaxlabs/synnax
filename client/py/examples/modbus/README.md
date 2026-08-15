@@ -142,34 +142,38 @@ This will remove the server and all associated tasks from Synnax.
 
 ### Read Channels
 
-- **InputRegisterChan**: Input register (16-bit read-only)
+- **InputChannelRegisterInput** (type="register_input"): Input register (16-bit
+  read-only)
   - Configurable data type (uint8, uint16, int16, uint32, int32, float32)
   - Address: Modbus register address
   - Use for read-only analog sensors
 
-- **HoldingRegisterInputChan**: Holding register input (16-bit read-write)
+- **InputChannelHoldingRegisterInput** (type="holding_register_input"): Holding register
+  input (16-bit read-write)
   - Same data types as input registers
   - Address: Modbus register address
   - Use for reading setpoints or analog outputs
 
-- **DiscreteInputChan**: Discrete input (1-bit read-only)
+- **InputChannelDiscreteInput** (type="discrete_input"): Discrete input (1-bit
+  read-only)
   - Data type: uint8 (0 or 1)
   - Address: Modbus coil/discrete input address
   - Use for digital sensor states
 
-- **CoilInputChan**: Coil input (1-bit read-write)
+- **InputChannelCoilInput** (type="coil_input"): Coil input (1-bit read-write)
   - Data type: uint8 (0 or 1)
   - Address: Modbus coil address
   - Use for reading digital output states
 
 ### Write Channels
 
-- **HoldingRegisterOutputChan**: Holding register output (16-bit)
+- **OutputChannelHoldingRegisterOutput** (type="holding_register_output"): Holding
+  register output (16-bit)
   - Configurable data type (uint8, uint16, int16, uint32, int32, float32)
   - Address: Modbus register address
   - Use for analog control signals
 
-- **CoilOutputChan**: Coil output (1-bit)
+- **OutputChannelCoilOutput** (type="coil_output"): Coil output (1-bit)
   - Data type: uint8 (0 or 1)
   - Address: Modbus coil address
   - Use for digital control (relays, solenoids, etc.)

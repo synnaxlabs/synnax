@@ -23,7 +23,7 @@ TemperatureUnits enum {
     kelvin     = "K"
 
     @doc value  "are the engineering units for a temperature measurement."
-    @go version 0
+    @go version 2
 }
 
 ThermocoupleType enum {
@@ -38,7 +38,7 @@ ThermocoupleType enum {
     c = "C"
 
     @doc value  "selects the thermocouple alloy type."
-    @go version 0
+    @go version 2
 }
 
 LinearScale struct {
@@ -50,7 +50,7 @@ LinearScale struct {
     }
 
     @doc value  "maps raw values to engineering units with a slope and offset."
-    @go version 0
+    @go version 2
 }
 
 MapScale struct {
@@ -68,12 +68,12 @@ MapScale struct {
     }
 
     @doc value  "maps a raw range linearly onto a scaled range."
-    @go version 0
+    @go version 2
 }
 
 NoneScale struct {
     @doc value  "applies no scaling; the raw value is used directly."
-    @go version 0
+    @go version 2
 }
 
 Scale union on type {
@@ -82,7 +82,7 @@ Scale union on type {
     none   NoneScale
 
     @doc value  "determines how raw sensor values are transformed to engineering units."
-    @go version 0
+    @go version 2
 }
 
 BaseInputChannel struct {
@@ -104,7 +104,7 @@ BaseInputChannel struct {
     }
 
     @doc value  "carries the fields every LabJack input channel shares."
-    @go version 0
+    @go version 2
 }
 
 InputChannel union on type extends BaseInputChannel {
@@ -167,7 +167,7 @@ InputChannel union on type extends BaseInputChannel {
         is a single LabJack input channel. The type field selects the input mode
         and the fields that accompany it.
     """
-    @go version 0
+    @go version 2
 }
 
 BaseOutputChannel struct {
@@ -195,7 +195,7 @@ BaseOutputChannel struct {
     }
 
     @doc value  "carries the fields every LabJack output channel shares."
-    @go version 0
+    @go version 2
 }
 
 OutputChannel union on type extends BaseOutputChannel {
@@ -210,7 +210,7 @@ OutputChannel union on type extends BaseOutputChannel {
         is a single LabJack output channel. The type field selects the output
         mode.
     """
-    @go version 0
+    @go version 2
 }
 
 ReadConfig struct extends task.BaseReadConfig {
@@ -234,7 +234,7 @@ ReadConfig struct extends task.BaseReadConfig {
     }
 
     @doc value  "configures a LabJack read task."
-    @go version 0
+    @go version 2
     @go marshal
     @go migrate
 }
@@ -249,14 +249,21 @@ WriteConfig struct extends task.BaseWriteConfig {
     }
 
     @doc value  "configures a LabJack write task."
-    @go version 0
+    @go version 2
     @go marshal
     @go migrate
 }
 
-ScanConfig struct extends task.KeyedConfig {
-    @doc value  "configures a LabJack scan task, which carries no settings."
-    @go version 0
+ScanConfig struct extends task.BaseScanConfig {
+    tcp_scan_multiplier int32 = 10 {
+        @doc value """
+            is the number of scan cycles between TCP device scans. USB devices scan
+            every cycle; TCP scans are slower, so they run every Nth cycle.
+        """
+    }
+
+    @doc value  "configures a LabJack scan task."
+    @go version 2
     @go marshal
     @go migrate
 }

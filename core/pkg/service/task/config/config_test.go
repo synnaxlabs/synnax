@@ -14,7 +14,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -193,6 +195,88 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Copy(ctx, nil, uuid.New(), uuid.New())).
 				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("Normalize", func() {
+		var versioned *config.Service[arctask.Config]
+		BeforeEach(func(ctx SpecContext) {
+			versioned = MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "versioned_test",
+					Version:     2,
+					SetEntryKey: (*arctask.Config).SetKey,
+					Legacy: &legacy.Rewrite{
+						Post: func(cfg msgpack.EncodedJSON) {
+							legacy.RenameKey(cfg, "old_name", "new_name")
+						},
+					},
+				},
+			))
+		})
+
+		It("Should reject a version above the store's version", func() {
+			Expect(versioned.Normalize(3, msgpack.EncodedJSON{})).Error().
+				To(SatisfyAll(
+					MatchError(ContainSubstring("validation")),
+					MatchError(ContainSubstring("newer than this Core supports")),
+				))
+		})
+
+		It("Should return current-version data unchanged", func() {
+			data := msgpack.EncodedJSON{"camelKey": 1, "old_name": 2}
+			Expect(versioned.Normalize(2, data)).To(Equal(data))
+		})
+
+		It("Should run the legacy rewrite on a legacy version", func() {
+			out := MustSucceed(versioned.Normalize(0, msgpack.EncodedJSON{
+				"camelKey": 1,
+				"oldName":  2,
+			}))
+			Expect(out).To(Equal(msgpack.EncodedJSON{
+				"camel_key": 1,
+				"new_name":  2,
+			}))
+		})
+
+		It("Should apply era normalization alone when no legacy rewrite is set", func(
+			ctx SpecContext,
+		) {
+			eraOnly := MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "era_only_test",
+					Version:     1,
+					SetEntryKey: (*arctask.Config).SetKey,
+				},
+			))
+			out := MustSucceed(eraOnly.Normalize(0, msgpack.EncodedJSON{
+				"camelKey":   1,
+				"dataSaving": true,
+			}))
+			Expect(out).To(Equal(msgpack.EncodedJSON{
+				"camel_key":            1,
+				"data_saving_disabled": false,
+			}))
+		})
+	})
+
+	Describe("Version", func() {
+		It("Should report the configured version", func(ctx SpecContext) {
+			versioned := MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "version_report_test",
+					Version:     3,
+					SetEntryKey: (*arctask.Config).SetKey,
+				},
+			))
+			Expect(versioned.Version()).To(Equal(imex.Version(3)))
+			Expect(svc.Version()).To(Equal(imex.Version(0)))
 		})
 	})
 })

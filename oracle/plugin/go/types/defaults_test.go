@@ -330,6 +330,78 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		})
 	})
 
+	Describe("Array field defaults", func() {
+		It("Should fill a non-empty array default", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					patterns string[]  = ["^cRIO.*", "^nown.*"]
+					limits   float64[] = [0, 1.5]
+					flags    bool[]    = [false, true]
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Cfg) ApplyDefaults() {",
+				"if c.Patterns == nil {",
+				`c.Patterns = []string{"^cRIO.*", "^nown.*"}`,
+				"c.Limits = []float64{0, 1.5}",
+				"c.Flags = []bool{false, true}",
+			)
+		})
+
+		It("Should fill an array of enum variants", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Level enum {
+					h1 = "h1"
+					h2 = "h2"
+				}
+
+				Cfg struct {
+					levels Level[] = [LevelH2, LevelH1]
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"c.Levels = []Level{LevelH2, LevelH1}",
+			)
+		})
+
+		It("Should ignore an empty array default", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					patterns string[] = []
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+		})
+
+		It("Should fill an array component of a struct default", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Filter struct {
+					patterns string[]
+				}
+
+				Cfg struct {
+					filter Filter = { patterns = ["^a.*"] }
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if c.Filter.Patterns == nil {",
+				`c.Filter.Patterns = []string{"^a.*"}`,
+			)
+		})
+	})
+
 	Describe("Recursion into nested types", func() {
 		It(
 			"Should recurse ApplyDefaults into a nested struct field",

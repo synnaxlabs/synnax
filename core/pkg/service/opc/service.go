@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/opc/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -73,6 +74,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "opc_read",
+			Version:            legacy.LastVersion + 1,
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 		},
@@ -84,6 +86,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "opc_write",
+			Version:            legacy.LastVersion + 1,
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 		},
@@ -92,10 +95,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:              cfg.DB,
-			Instrumentation: cfg.Instrumentation,
-			Type:            "opc_scan",
-			SetEntryKey:     (*ScanConfig).SetKey,
+			DB:                 cfg.DB,
+			Instrumentation:    cfg.Instrumentation,
+			Type:               "opc_scan",
+			Version:            legacy.LastVersion + 1,
+			Legacy:             &legacy.Scan,
+			SetEntryKey:        (*ScanConfig).SetKey,
+			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

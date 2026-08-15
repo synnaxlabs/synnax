@@ -19,9 +19,9 @@ import {
 } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
-const channel: Task.WriteChannel = {
+const channel = {
   key: "ch1",
-  enabled: true,
+  disabled: false,
   cmdChannel: 0,
   stateChannel: 0,
   cmdChannelName: "",

@@ -20,6 +20,7 @@ namespace synnax::task::config {
 
 struct Keyed;
 struct BaseStart;
+struct BaseScan;
 struct BasePersist;
 struct BaseRead;
 struct BaseWrite;
@@ -40,6 +41,17 @@ struct BaseStart : public Keyed {
     bool auto_start = false;
 
     static BaseStart parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BaseScan carries the fields shared by every scan task configuration.
+struct BaseScan : public Keyed {
+    /// @brief rate is the rate at which the scan runs, in hertz.
+    ::x::telem::Rate rate = ::x::telem::Rate(0.200000);
+    /// @brief disabled is true when scanning is paused.
+    bool disabled = false;
+
+    static BaseScan parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

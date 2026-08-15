@@ -7,55 +7,48 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel
 
-from synnax import channel as channel_
 from synnax import device, task
-
-# Transitional: the config cutover deletes this alias and the hand-written task
-# config models below, leaving the generated types_gen models as the only config
-# surface.
-from synnax.task import client as task_client
+from synnax.http.types_gen import (
+    Header,
+    QueryParam,
+    ReadConfig,
+    ReadEndpoint,
+    WriteConfig,
+    WriteEndpoint,
+)
+from synnax.telem import CrudeRate, Rate
 
 MAKE = "http"
 MODEL = "HTTP server"
 
 
 class ExpectedResponse(BaseModel):
-    """Expected response validation for health checks."""
+    """Expected response validation for health checks.
+
+    :param pointer: JSON Pointer into the response body (e.g. "/status").
+    :param expected_value_type: Type of the expected value: "string", "number",
+        "boolean", or "null".
+    :param expected_value: The value the response must match.
+    """
 
     pointer: str
-    """JSON Pointer into the response body (e.g., '/status')."""
     expected_value_type: str
-    """Type of the expected value: 'string', 'number', 'boolean', 'null'."""
     expected_value: str | float | int | bool | None
-
-
-class HeaderEntry(BaseModel):
-    """A single header entry."""
-
-    name: str
-    value: str
-
-
-class QueryParamEntry(BaseModel):
-    """A single query parameter entry."""
-
-    parameter: str
-    value: str
 
 
 class HealthCheck(BaseModel):
     """Health check configuration for an HTTP device.
 
-    When the driver starts, it periodically pings each HTTP device using this config.
-    If the request fails or the response doesn't match, the device is marked unhealthy.
+    The driver periodically pings each HTTP device using this config. If the request
+    fails or the response does not match, the device is marked unhealthy.
 
-    :param method: HTTP method for the health check ('GET' or 'POST').
-    :param path: URL path to ping (e.g., '/health'). Required.
+    :param method: HTTP method for the health check ("GET" or "POST").
+    :param path: URL path to ping (e.g. "/health").
     :param headers: Optional headers to include.
     :param query_params: Optional query parameters.
     :param body: Optional request body (POST only).
@@ -64,158 +57,10 @@ class HealthCheck(BaseModel):
 
     method: str = "GET"
     path: str = "/health"
-    headers: list[HeaderEntry] | None = None
-    query_params: list[QueryParamEntry] | None = None
+    headers: list[Header] | None = None
+    query_params: list[QueryParam] | None = None
     body: str | None = None
     response: ExpectedResponse | None = None
-
-
-class ReadEnumEntry(BaseModel):
-    """A single read enum mapping entry."""
-
-    label: str
-    value: float
-
-
-class ReadField(BaseModel):
-    """Configuration for a single field extracted from an HTTP response."""
-
-    enabled: bool = True
-    key: str = ""
-    pointer: str
-    """JSON Pointer path to extract (e.g., '/temperature')."""
-    channel: channel_.Key = 0
-    data_type: str = "float64"
-    name: str = ""
-    timestamp_format: str | None = None
-    """Timestamp format: 'iso8601', 'unix_sec', 'unix_ms', 'unix_us', 'unix_ns'."""
-    enum_values: list[ReadEnumEntry] | None = None
-    """String-to-number mappings for enum fields."""
-
-    def __init__(self, **data: Any) -> None:
-        if "key" not in data or not data["key"]:
-            data["key"] = str(uuid4())
-        super().__init__(**data)
-
-
-class ReadEndpoint(BaseModel):
-    """Configuration for a single HTTP endpoint to poll for data."""
-
-    key: str = ""
-    method: str = "GET"
-    """HTTP method: 'GET' or 'POST'."""
-    path: str
-    """URL path relative to the device base URL (e.g., '/api/v1/data')."""
-    headers: list[HeaderEntry] | None = None
-    query_params: list[QueryParamEntry] | None = None
-    body: str | None = None
-    """Request body (only for POST)."""
-    fields: list[ReadField] = []
-    index: str | None = None
-    """Key of the timing field for hardware timing, None for software timing."""
-
-    def __init__(self, **data: Any) -> None:
-        if "key" not in data or not data["key"]:
-            data["key"] = str(uuid4())
-        super().__init__(**data)
-
-
-class ReadTaskConfig(task_client.BaseConfig):
-    """Configuration for an HTTP read (polling) task."""
-
-    device: str
-    data_saving: bool = True
-    rate: float
-    """Polling rate in Hz."""
-    endpoints: list[ReadEndpoint]
-
-
-class WriteTaskConfig(task_client.BaseConfig):
-    """Configuration for an HTTP write task."""
-
-    device: str
-    endpoints: list["WriteEndpoint"]
-
-
-class WriteEnumEntry(BaseModel):
-    """A single write enum mapping entry."""
-
-    value: float
-    label: str
-
-
-class ChannelField(BaseModel):
-    """Configuration for mapping a Synnax channel value into an HTTP request body."""
-
-    pointer: str
-    """JSON Pointer where channel value goes in body."""
-    json_type: str = "number"
-    """JSON type: 'number', 'string', 'boolean'."""
-    channel: channel_.Key = 0
-    name: str = ""
-    data_type: str = "float64"
-    time_format: str | None = None
-    enum_values: list[WriteEnumEntry] | None = None
-
-
-class StaticField(BaseModel):
-    """A field with a fixed value in the request body."""
-
-    key: str = ""
-    pointer: str
-    json_type: str
-    type: Literal["static"] = "static"
-    value: int | float | str | bool
-
-    def __init__(self, **data: Any) -> None:
-        if "key" not in data or not data["key"]:
-            data["key"] = str(uuid4())
-        super().__init__(**data)
-
-
-class GeneratedField(BaseModel):
-    """A field with an auto-generated value (UUID or timestamp)."""
-
-    key: str = ""
-    pointer: str
-    type: Literal["generated"] = "generated"
-    generator: str
-    """Generator type: 'uuid' or 'timestamp'."""
-    time_format: str | None = None
-
-    def __init__(self, **data: Any) -> None:
-        if "key" not in data or not data["key"]:
-            data["key"] = str(uuid4())
-        super().__init__(**data)
-
-
-WriteField = StaticField | GeneratedField
-
-
-class WriteEndpoint(BaseModel):
-    """Configuration for a single HTTP endpoint to send commands to."""
-
-    enabled: bool = True
-    key: str = ""
-    method: str = "POST"
-    """HTTP method: 'POST', 'PUT', 'PATCH'."""
-    path: str
-    """URL path relative to the device base URL."""
-    headers: list[HeaderEntry] | None = None
-    query_params: list[QueryParamEntry] | None = None
-    channel: ChannelField
-    """The Synnax channel whose values drive requests to this endpoint."""
-    fields: list[WriteField] = []
-    """Additional static or generated fields in the request body."""
-
-    def __init__(self, **data: Any) -> None:
-        if "key" not in data or not data["key"]:
-            data["key"] = str(uuid4())
-        super().__init__(**data)
-
-
-# Resolve forward reference
-WriteTaskConfig.model_rebuild()
 
 
 class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
@@ -224,43 +69,42 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param device: The key of the HTTP device to read from.
     :param name: A human-readable name for the task.
     :param rate: The polling rate in Hz.
-    :param data_saving: Whether to save data permanently.
+    :param data_saving_disabled: Whether to only stream data for real-time consumption
+        instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically.
-    :param endpoints: List of endpoint configurations to poll.
+    :param endpoints: The endpoints to poll.
     """
 
     TYPE = "http_read"
-    config: ReadTaskConfig
+    config: ReadConfig
     _internal: task.Task
 
     def __init__(
         self,
         internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
-        rate: float = 1,
-        data_saving: bool = True,
+        rate: CrudeRate = 1,
+        data_saving_disabled: bool = False,
         auto_start: bool = False,
         endpoints: list[ReadEndpoint] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate(internal.config)
+            self.config = ReadConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
-        self.config = ReadTaskConfig(
+        self.config = ReadConfig(
             device=device,
-            rate=rate,
-            data_saving=data_saving,
+            rate=Rate(rate),
+            data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
             endpoints=endpoints if endpoints is not None else [],
         )
-
-    def to_payload(self) -> task.Payload:
-        pld = self._internal.to_payload()
-        pld.config = self.config.model_dump(exclude_none=True)
-        return pld
+        task.assign_keys(self.config.endpoints)
+        for ep in self.config.endpoints:
+            task.assign_keys(ep.fields)
 
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Sync channel mappings to device properties."""
@@ -273,7 +117,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             index_key: str | None = None
             for field in ep.fields:
                 channels[field.pointer] = field.channel
-                if ep.index is not None and field.key == ep.index:
+                if ep.index != "" and field.key == ep.index:
                     index_key = field.key
             props["read"][ep.path] = {"index": index_key, "channels": channels}
         dev.properties = props
@@ -286,11 +130,11 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     :param device: The key of the HTTP device to write to.
     :param name: A human-readable name for the task.
     :param auto_start: Whether to start the task automatically.
-    :param endpoints: List of endpoint configurations to send commands to.
+    :param endpoints: The endpoints to send commands to.
     """
 
     TYPE = "http_write"
-    config: WriteTaskConfig
+    config: WriteConfig
     _internal: task.Task
 
     def __init__(
@@ -304,19 +148,17 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate(internal.config)
+            self.config = WriteConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
-        self.config = WriteTaskConfig(
+        self.config = WriteConfig(
             device=device,
             auto_start=auto_start,
             endpoints=endpoints if endpoints is not None else [],
         )
-
-    def to_payload(self) -> task.Payload:
-        pld = self._internal.to_payload()
-        pld.config = self.config.model_dump(exclude_none=True)
-        return pld
+        task.assign_keys(self.config.endpoints)
+        for ep in self.config.endpoints:
+            task.assign_keys(ep.fields)
 
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Sync channel mappings to device properties."""
@@ -331,21 +173,21 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
 
 
 class Device(device.Device):
-    """HTTP server device configuration.
+    """An HTTP server device.
 
-    The device location stores the host:port (e.g., '127.0.0.1:8081'), and the
-    ``secure`` property determines the URL scheme (https:// vs http://). The C++ driver
-    constructs the full base_url from these at runtime.
+    The device location stores the host:port (e.g. "127.0.0.1:8081"), and the
+    ``secure`` property determines the URL scheme (https:// vs http://). The Driver
+    constructs the full base URL from these at runtime.
 
-    :param host: Host and port of the HTTP server (e.g., '127.0.0.1:8081').
+    :param host: Host and port of the HTTP server (e.g. "127.0.0.1:8081").
     :param secure: Whether to use HTTPS (True) or HTTP (False).
     :param timeout_ms: Request timeout in milliseconds.
     :param verify_ssl: Whether to verify SSL certificates.
     :param auth: Authentication config dict (see examples below).
-    :param health_check: Health check endpoint config dict.
+    :param health_check: Health check endpoint config.
     :param name: Human-readable name for the device.
     :param rack: Rack key this device belongs to.
-    :param key: Unique key (auto-generated if empty).
+    :param key: Unique key. Auto-generated if empty.
     :param configured: Whether the device has been configured.
 
     Auth examples::
@@ -382,10 +224,8 @@ class Device(device.Device):
     ):
         if not key:
             key = str(uuid4())
-
         if health_check is None:
             health_check = HealthCheck()
-
         props: dict[str, Any] = {
             "secure": secure,
             "verify_ssl": verify_ssl,
@@ -396,7 +236,6 @@ class Device(device.Device):
             "write": {},
             "version": 1,
         }
-
         super().__init__(
             key=key,
             location=host,
