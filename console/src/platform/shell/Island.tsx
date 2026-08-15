@@ -7,10 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/shell/Shell.css";
+
 import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+
+export interface IslandsProps extends Flex.BoxProps {}
+
+/** The row that floats islands over the top edge of a full-window surface. */
+export const Islands = ({ className, ...rest }: IslandsProps): ReactElement => (
+  <Flex.Box
+    x
+    justify="between"
+    align="start"
+    className={CSS(CSS.BE("shell", "islands"), className)}
+    {...rest}
+  />
+);
 
 export interface IslandProps extends Flex.BoxProps {}
 
