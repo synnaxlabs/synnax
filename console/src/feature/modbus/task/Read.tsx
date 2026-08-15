@@ -27,8 +27,6 @@ import {
   READ_TYPE,
   type ReadSchemas,
   type TypedInput,
-  ZERO_INPUT_CHANNELS,
-  ZERO_READ_PAYLOAD,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -64,7 +62,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           onChange={(value, { get, set, path }) => {
             const prevType = get<InputChannelType>(path).value;
             if (prevType === value) return;
-            const next = deep.copy(ZERO_INPUT_CHANNELS[value]);
+            const next = INPUT_CHANNEL_SCHEMAS[value].parse({ type: value });
             const parentPath = path.slice(0, path.lastIndexOf("."));
             const prevParent = get<InputChannel>(parentPath).value;
             const schema = INPUT_CHANNEL_SCHEMAS[value];
@@ -112,7 +110,10 @@ const renderTelemSelectDataType = Component.renderProp(
 
 const getOpenChannel = (channels: InputChannel[]): InputChannel => {
   if (channels.length === 0)
-    return { ...deep.copy(ZERO_INPUT_CHANNELS.coil_input), key: id.create() };
+    return {
+      ...INPUT_CHANNEL_SCHEMAS.coil_input.parse({ type: "coil_input" }),
+      key: id.create(),
+    };
   const channelToCopy = channels[channels.length - 1];
   return {
     ...channelToCopy,
@@ -145,13 +146,11 @@ const channelName = (deviceName: string, channel: InputChannel) => {
   return s;
 };
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
+  const config = READ_SCHEMAS.config.parse({});
+  if (deviceKey != null) config.device = deviceKey;
+  return { name: "Modbus Read Task", type: READ_TYPE, config };
+};
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({

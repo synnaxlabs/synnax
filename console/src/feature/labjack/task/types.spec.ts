@@ -430,14 +430,15 @@ describe("draft configs", () => {
   // accept every zero config; retrieve parses with it.
   it("should accept the zero read config", () => {
     expect(
-      LabJack.Task.READ_SCHEMAS.config.safeParse(LabJack.Task.ZERO_READ_PAYLOAD.config)
-        .success,
+      LabJack.Task.READ_SCHEMAS.config.safeParse(
+        LabJack.Task.READ_SCHEMAS.config.parse({}),
+      ).success,
     ).toBe(true);
   });
   it("should accept the zero write config", () => {
     expect(
       LabJack.Task.WRITE_SCHEMAS.config.safeParse(
-        LabJack.Task.ZERO_WRITE_PAYLOAD.config,
+        LabJack.Task.WRITE_SCHEMAS.config.parse({}),
       ).success,
     ).toBe(true);
   });

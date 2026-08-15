@@ -279,6 +279,9 @@ func (InputChannelAI) isInputChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputChannelAI) ApplyDefaults() {
+	if i.Port == "" {
+		i.Port = "AIN0"
+	}
 	if i.Range == 0 {
 		i.Range = 10
 	}
@@ -294,6 +297,13 @@ type InputChannelDI struct {
 }
 
 func (InputChannelDI) isInputChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (i *InputChannelDI) ApplyDefaults() {
+	if i.Port == "" {
+		i.Port = "DIO4"
+	}
+}
 
 // InputChannelTc reads temperature from a thermocouple.
 type InputChannelTc struct {
@@ -323,6 +333,9 @@ func (InputChannelTc) isInputChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputChannelTc) ApplyDefaults() {
+	if i.Port == "" {
+		i.Port = "AIN0"
+	}
 	if i.ThermocoupleType == "" {
 		i.ThermocoupleType = ThermocoupleTypeK
 	}
@@ -432,6 +445,9 @@ func (u *InputChannel) ApplyDefaults() {
 	case InputChannelAI:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	case InputChannelDI:
+		variant.ApplyDefaults()
+		u.Variant = variant
 	case InputChannelTc:
 		variant.ApplyDefaults()
 		u.Variant = variant
@@ -484,12 +500,26 @@ type OutputChannelAO struct {
 
 func (OutputChannelAO) isOutputChannelVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (o *OutputChannelAO) ApplyDefaults() {
+	if o.Port == "" {
+		o.Port = "DAC0"
+	}
+}
+
 // OutputChannelDO drives a digital output line on a DIO port.
 type OutputChannelDO struct {
 	BaseOutputChannel
 }
 
 func (OutputChannelDO) isOutputChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (o *OutputChannelDO) ApplyDefaults() {
+	if o.Port == "" {
+		o.Port = "DIO4"
+	}
+}
 
 // OutputChannel is a single LabJack output channel. The type field selects the output
 // mode.
@@ -558,6 +588,19 @@ func (u *OutputChannel) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *OutputChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case OutputChannelAO:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case OutputChannelDO:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
 // ReadConfig configures a LabJack read task.
 type ReadConfig struct {
 	config.BaseRead
@@ -604,6 +647,9 @@ type WriteConfig struct {
 func (w *WriteConfig) ApplyDefaults() {
 	if w.StateRate == 0 {
 		w.StateRate = 10
+	}
+	for i := range w.Channels {
+		w.Channels[i].ApplyDefaults()
 	}
 }
 

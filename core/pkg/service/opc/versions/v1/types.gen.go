@@ -82,6 +82,12 @@ type ReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
+	if r.SampleRate == 0 {
+		r.SampleRate = 50
+	}
+	if r.StreamRate == 0 {
+		r.StreamRate = 25
+	}
 	if r.ArraySize == 0 {
 		r.ArraySize = 1
 	}

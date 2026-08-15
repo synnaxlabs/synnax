@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -52,13 +52,17 @@ const createReadConfig = (
   device: string,
   channels: OPC.Task.InputChannel[],
 ): OPC.Task.ReadPayload["config"] => ({
-  ...OPC.Task.ZERO_READ_PAYLOAD.config,
+  ...OPC.Task.READ_SCHEMAS.config.parse({}),
   device,
   channels,
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = OPC.Task.ZERO_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<OPC.Task.ReadSchemas> = {
+  name: "OPC UA Read Task",
+  type: OPC.Task.READ_TYPE,
+  config: OPC.Task.READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (client: Synnax, config: OPC.Task.ReadPayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPC.Task.READ_SCHEMAS);

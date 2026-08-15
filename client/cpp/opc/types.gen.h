@@ -89,6 +89,11 @@ struct ReadConfig : public ::synnax::task::config::BaseRead {
     /// @brief channels are the OPC UA nodes the task acquires.
     std::vector<InputChannel> channels;
 
+    ReadConfig() {
+        this->sample_rate = ::x::telem::Rate(50);
+        this->stream_rate = ::x::telem::Rate(25);
+    }
+
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };

@@ -160,6 +160,8 @@ Scale parse_scale(x::json::Parser parser);
 struct OutputChannelAO : public BaseOutputChannel {
     std::string type = "AO";
 
+    OutputChannelAO() { this->port = "DAC0"; }
+
     static OutputChannelAO parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
@@ -167,6 +169,8 @@ struct OutputChannelAO : public BaseOutputChannel {
 /// @brief OutputChannelDO drives a digital output line on a DIO port.
 struct OutputChannelDO : public BaseOutputChannel {
     std::string type = "DO";
+
+    OutputChannelDO() { this->port = "DIO4"; }
 
     static OutputChannelDO parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -191,6 +195,8 @@ struct InputChannelAI : public BaseInputChannel {
     /// @brief scale is the scale applied to raw samples after acquisition.
     Scale scale;
 
+    InputChannelAI() { this->port = "AIN0"; }
+
     static InputChannelAI parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
@@ -198,6 +204,8 @@ struct InputChannelAI : public BaseInputChannel {
 /// @brief InputChannelDI reads a digital input line.
 struct InputChannelDI : public BaseInputChannel {
     std::string type = "DI";
+
+    InputChannelDI() { this->port = "DIO4"; }
 
     static InputChannelDI parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -227,6 +235,8 @@ struct InputChannelTc : public BaseInputChannel {
     std::string units = TEMPERATURE_UNITS_KELVIN;
     /// @brief scale is the scale applied to raw samples after acquisition.
     Scale scale;
+
+    InputChannelTc() { this->port = "AIN0"; }
 
     static InputChannelTc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

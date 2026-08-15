@@ -73,8 +73,8 @@ var _ = Describe("Service", func() {
 			key := uuid.New()
 			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
-			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
-			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
+			Expect(data["sample_rate"]).To(BeNumerically("==", 50))
+			Expect(data["stream_rate"]).To(BeNumerically("==", 25))
 			Expect(data["array_size"]).To(BeNumerically("==", 1))
 		})
 

@@ -22,14 +22,13 @@ import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { SelectOutputChannelType } from "@/feature/labjack/task/SelectOutputChannelType";
 import {
+  createOutputChannel,
   deployWriteConfigZ,
   type OutputChannel,
   type OutputChannelType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteSchemas,
-  ZERO_OUTPUT_CHANNEL,
-  ZERO_WRITE_PAYLOAD,
 } from "@/feature/labjack/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -129,8 +128,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
 const selectOutputChannelType = Component.renderProp(SelectOutputChannelType);
 
 const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
-  if (channels.length === 0)
-    return { ...deep.copy(ZERO_OUTPUT_CHANNEL), key: id.create() };
+  if (channels.length === 0) return { ...createOutputChannel("DO"), key: id.create() };
   const last = channels[channels.length - 1];
   const backupType =
     last.type === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;
@@ -184,9 +182,9 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null ? WRITE_SCHEMAS.config.parse(config) : ZERO_WRITE_PAYLOAD.config;
-  return { ...ZERO_WRITE_PAYLOAD, config: { ...cfg, device: deviceKey ?? cfg.device } };
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "LabJack Write Task", type: WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (

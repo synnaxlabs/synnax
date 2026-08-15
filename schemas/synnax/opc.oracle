@@ -65,16 +65,18 @@ OutputChannel struct extends BaseChannel {
 }
 
 ReadConfig struct extends task.BaseReadConfig {
-    device     device.Key = "" {
+    sample_rate = 50
+    stream_rate = 25
+    device      device.Key = "" {
         @doc value "is the key of the device representing the OPC UA server."
     }
-    array_mode bool = false {
+    array_mode  bool = false {
         @doc value "is true when each read returns an array of samples per node."
     }
-    array_size int32 = 1 {
+    array_size  int32 = 1 {
         @doc value "is the number of samples in each array when array_mode is true."
     }
-    channels   InputChannel[] {
+    channels    InputChannel[] {
         @doc value "are the OPC UA nodes the task acquires."
     }
 

@@ -11,6 +11,7 @@ package marshal_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -900,6 +901,31 @@ var _ = Describe("Go Marshal Plugin", func() {
 					)
 			})
 		})
+
+		Context("field that restates an inherited default", func() {
+			It("Should build the test literal through the embedded parent", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Base struct {
+						port string = ""
+					}
+
+					Child struct extends Base {
+						port string = "AIN0"
+						name string = ""
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				gen := MustContentOf(resp, "codec_gen_test.go")
+				// Child has no port member of its own, so a Child literal that
+				// assigned one would not compile.
+				Expect(strings.Count(gen, "Port:")).
+					To(Equal(strings.Count(gen, "Base{")))
+			})
+		})
 	})
 })
 
@@ -1066,6 +1092,43 @@ var _ = Describe("Union Codecs", func() {
 					"TabBase: fullyPopulatedTabBase",
 					"Type:",
 				)
+		},
+	)
+
+	It(
+		"Should encode a variant's restated base default only once",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			TabBase struct { port string = "" }
+
+			Tab union on variant extends TabBase {
+				view {
+					port string = "AIN0"
+				}
+			}
+
+			Test struct {
+				tab Tab
+			}
+		`
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			content := ExpectContent(resp, "codec.gen.go")
+			content.ToBeValidGoSource()
+			content.ToContain(
+				"if err := v.TabBase.EncodeOrc(w); err != nil { return err }",
+			)
+			// The base already carries port; writing it again would corrupt the
+			// field order every reader depends on.
+			content.ToNotContain("w.String(v.Port)")
+			gen := MustContentOf(resp, "codec_gen_test.go")
+			// Every TabBase literal sets port once; the variant never sets it
+			// again, since it declares no port member of its own.
+			Expect(strings.Count(gen, "Port:")).
+				To(Equal(strings.Count(gen, "TabBase{")))
 		},
 	)
 

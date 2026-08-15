@@ -30,7 +30,6 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteSchemas,
-  ZERO_WRITE_PAYLOAD,
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -82,11 +81,11 @@ const Form: FC = () => (
   />
 );
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => {
-  if (config != null)
-    return { ...ZERO_WRITE_PAYLOAD, config: WRITE_SCHEMAS.config.parse(config) };
-  return { ...ZERO_WRITE_PAYLOAD };
-};
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
+  name: "EtherCAT Write Task",
+  type: WRITE_TYPE,
+  config: WRITE_SCHEMAS.config.parse(config ?? {}),
+});
 
 const WRITE_INDEX_OPTIONS = {
   indexProperty: "writeStateIndex" as const,

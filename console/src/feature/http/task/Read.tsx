@@ -9,7 +9,12 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  channel,
+  http,
+  NotFoundError,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -40,11 +45,7 @@ import {
   type ReadEndpoint,
   type ReadField,
   type ReadMethod,
-  type ReadPayload,
   type ReadSchemas,
-  ZERO_READ_ENDPOINT,
-  ZERO_READ_FIELD,
-  ZERO_READ_PAYLOAD,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -204,7 +205,9 @@ const FieldList = ({ epKey }: FieldListProps) => {
     const nonIndex = fields.filter((f) => !isTimingField(f));
     const last = nonIndex[nonIndex.length - 1];
     const field: ReadField = {
-      ...(last != null ? { ...last, ...Task.READ_CHANNEL_OVERRIDE } : ZERO_READ_FIELD),
+      ...(last != null
+        ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
+        : http.readFieldZ.parse({})),
       key: id.create(),
     };
     push(field);
@@ -310,7 +313,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
     (mode: TimingMode) => {
       if (mode === "value" && !isValueTiming) {
         const indexF: ReadField = {
-          ...ZERO_READ_FIELD,
+          ...http.readFieldZ.parse({}),
           key: id.create(),
           timestampFormat: "unix_sec",
         };
@@ -423,7 +426,7 @@ const Form: FC = () => {
   const isSnapshot = Task.useIsSnapshot();
 
   const handleAddEndpoint = useCallback(() => {
-    const ep: ReadEndpoint = { ...ZERO_READ_ENDPOINT, key: id.create() };
+    const ep: ReadEndpoint = { ...http.readEndpointZ.parse({}), key: id.create() };
     push(ep);
     setSelectedEndpoints([ep.key]);
   }, [push]);
@@ -542,17 +545,9 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
-  if (config != null) {
-    const pld: ReadPayload = {
-      ...ZERO_READ_PAYLOAD,
-      config: READ_SCHEMAS.config.parse(config),
-    };
-    if (deviceKey != null) pld.config.device = deviceKey;
-    return pld;
-  }
-  const pld: ReadPayload = { ...ZERO_READ_PAYLOAD };
-  if (deviceKey != null) pld.config = { ...pld.config, device: deviceKey };
-  return pld;
+  const cfg = READ_SCHEMAS.config.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "HTTP Read Task", type: READ_TYPE, config: cfg };
 };
 
 const retrieveChannel = async (

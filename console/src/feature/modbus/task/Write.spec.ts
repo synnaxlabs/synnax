@@ -23,8 +23,12 @@ import { awaitTextEditingElement, commitTextEdit, getIconButton } from "@/testut
 
 const client = createTestClient();
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = Modbus.Task.ZERO_WRITE_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<Modbus.Task.WriteSchemas> = {
+  name: "Modbus Write Task",
+  type: Modbus.Task.WRITE_TYPE,
+  config: Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   client: Synnax,
@@ -35,7 +39,7 @@ describe("Modbus.Write", () => {
   it("should create command channels and indexes for the built channels on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
-      ...Modbus.Task.ZERO_WRITE_PAYLOAD.config,
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
     });
     const { container } = await renderTaskFormTab(Modbus.Task.Write, {
@@ -91,7 +95,7 @@ describe("Modbus.Write", () => {
   it("should reuse existing command channels when redeploying", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
-      ...Modbus.Task.ZERO_WRITE_PAYLOAD.config,
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
     });
     const first = await renderTaskFormTab(Modbus.Task.Write, {
@@ -139,7 +143,7 @@ describe("Modbus.Write", () => {
   it("should rename and remove a channel through the context menu", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
-      ...Modbus.Task.ZERO_WRITE_PAYLOAD.config,
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
     });
     const { container } = await renderTaskFormTab(Modbus.Task.Write, {

@@ -1175,6 +1175,115 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
+				"Should keep embedding when a field restates only a default",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Parent struct {
+					port string = "BASE"
+					name string = ""
+				}
+
+				Child struct extends Parent {
+					port  string = "AIN0"
+					range float64 = 10
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					// The embedded parent already declares Port. Declaring it again
+					// would shadow it with a duplicate json tag, so the override
+					// contributes a default fill alone. The child's fill must run
+					// before the parent recursion, or the parent would win.
+					content := MustContentOf(resp, "types.gen.go")
+					Expect(content).To(ContainSubstring(
+						"type Child struct {\n\tParent\n\tRange float64",
+					))
+					Expect(content).To(ContainSubstring(
+						"func (c *Child) ApplyDefaults() {\n" +
+							"\tif c.Port == \"\" {\n\t\tc.Port = \"AIN0\"\n\t}\n" +
+							"\tif c.Range == 0 {\n\t\tc.Range = 10\n\t}\n" +
+							"\tc.Parent.ApplyDefaults()\n}",
+					))
+					Expect(content).NotTo(MatchRegexp(`Child struct \{[^}]*Port`))
+				},
+			)
+
+			It(
+				"Should keep embedding for a typeless default override",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Parent struct {
+					rate float64 = 10
+				}
+
+				Child struct extends Parent {
+					rate = 50
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					content := MustContentOf(resp, "types.gen.go")
+					Expect(content).To(ContainSubstring(
+						"type Child struct {\n\tParent\n}",
+					))
+					Expect(content).To(ContainSubstring(
+						"\tif c.Rate == 0 {\n\t\tc.Rate = 50\n\t}",
+					))
+				},
+			)
+
+			It(
+				"Should flatten when a field restates an inherited type",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Parent struct {
+					port string = ""
+					name string = ""
+				}
+
+				Child struct extends Parent {
+					port int32 = 4
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					// Go cannot restate an embedded field's type, so Child flattens
+					// and declares one Port of the child's type.
+					ExpectContent(resp, "types.gen.go").
+						ToContain(
+							"type Child struct {\n",
+							"Port int32 `json:\"port\"",
+							"Name string `json:\"name\"",
+						).
+						ToNotContain("type Child struct {\n\tParent\n")
+				},
+			)
+
+			It(
+				"Should flatten when a field restates inherited optionality",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Parent struct {
+					port string = ""
+				}
+
+				Child struct extends Parent {
+					port string?
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("Port *string `json:\"port,omitempty\"").
+						ToNotContain("type Child struct {\n\tParent\n")
+				},
+			)
+
+			It(
 				"Should generate cross-namespace struct embedding with import",
 				func(ctx SpecContext) {
 					loader.Add("schemas/parent.oracle", `
@@ -2615,6 +2724,40 @@ var _ = Describe("Go Union Generation", func() {
 					`type AIChannel struct {`,
 					`Variant AIChannelVariant`,
 				)
+		},
+	)
+
+	It(
+		"Should not redeclare a variant field that restates a union base default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseInputChannel struct {
+				port string = ""
+			}
+
+			InputChannel union on type extends BaseInputChannel {
+				AI { port string = "AIN0" }
+				DI { port string = "DIO4" }
+			}
+		`
+			resp := MustGenerate(ctx, source, "labjack", loader, goPlugin)
+			// The union's base contributes Port to every variant, so restating it
+			// in a variant must change the fill alone.
+			content := MustContentOf(resp, "types.gen.go")
+			Expect(content).To(ContainSubstring(
+				"type InputChannelAI struct {\n\tBaseInputChannel\n}",
+			))
+			Expect(content).To(ContainSubstring(
+				"func (i *InputChannelAI) ApplyDefaults() {\n" +
+					"\tif i.Port == \"\" {\n\t\ti.Port = \"AIN0\"\n\t}\n}",
+			))
+			Expect(content).To(ContainSubstring(
+				"func (i *InputChannelDI) ApplyDefaults() {\n" +
+					"\tif i.Port == \"\" {\n\t\ti.Port = \"DIO4\"\n\t}\n}",
+			))
+			Expect(content).NotTo(MatchRegexp(`InputChannelAI struct \{[^}]*Port`))
 		},
 	)
 

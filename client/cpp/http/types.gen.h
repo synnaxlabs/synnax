@@ -236,7 +236,7 @@ struct WriteEndpoint {
     /// @brief query_params contains query parameters appended to the request URL.
     std::vector<QueryParam> query_params;
     /// @brief channel is the command channel whose writes trigger this endpoint.
-    ChannelField channel;
+    ChannelField channel = {};
     /// @brief fields contains additional static or generated body fields.
     std::vector<WriteField> fields;
 

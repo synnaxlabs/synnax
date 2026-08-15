@@ -81,12 +81,16 @@ class ReadConfig(task.BaseReadConfig):
     """Configures an OPC UA read task.
 
     Attributes:
+        sample_rate: Is the per-channel hardware sample rate, in hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
         device: Is the key of the device representing the OPC UA server.
         array_mode: Is true when each read returns an array of samples per node.
         array_size: Is the number of samples in each array when array_mode is true.
         channels: Are the OPC UA nodes the task acquires.
     """
 
+    sample_rate: telem.Rate = telem.Rate(50)
+    stream_rate: telem.Rate = telem.Rate(25)
     device: device_.Key = ""
     array_mode: bool = False
     array_size: int = Field(default=1, ge=-2147483648, le=2147483647)

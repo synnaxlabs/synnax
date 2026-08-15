@@ -26,14 +26,10 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadField extends http.ReadField {}
 
-export const ZERO_READ_FIELD: ReadField = http.readFieldZ.parse({});
-
 export interface ReadEndpoint extends http.ReadEndpoint {}
 
 const readMethodZ = z.enum(["GET", "POST"]);
 export type ReadMethod = z.infer<typeof readMethodZ>;
-
-export const ZERO_READ_ENDPOINT: ReadEndpoint = http.readEndpointZ.parse({});
 
 export const readConfigZ = http.readConfigZ;
 
@@ -60,8 +56,6 @@ export const deployReadConfigZ = http.readConfigZ.extend({
   endpoints: deployReadEndpointZ.array(),
 });
 
-const ZERO_READ_CONFIG = http.readConfigZ.parse({});
-
 const readStatusDataZ = z
   .object({ running: z.boolean(), message: z.string() })
   .nullish()
@@ -77,24 +71,11 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
-export const ZERO_READ_PAYLOAD: ReadPayload = {
-  key: "",
-  rack: 0,
-  name: "HTTP Read Task",
-  config: ZERO_READ_CONFIG,
-  configHash: "",
-  type: "http_read",
-  internal: false,
-  snapshot: false,
-};
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export type GeneratorType = http.GeneratorType;
 
 export interface ChannelField extends http.ChannelField {}
-
-export const ZERO_CHANNEL_FIELD: ChannelField = http.channelFieldZ.parse({});
 
 const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
   const { enumValues } = ctx.value;
@@ -126,15 +107,11 @@ export type WriteField = z.infer<typeof writeFieldZ>;
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 export type WriteMethod = z.infer<typeof writeMethodZ>;
 
-const writeEndpointZ = http.writeEndpointZ.extend({
+export const writeEndpointZ = http.writeEndpointZ.extend({
   fields: writeFieldZ.array().default(() => []),
 });
 
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
-
-export const ZERO_WRITE_ENDPOINT: WriteEndpoint = writeEndpointZ.parse({
-  channel: {},
-});
 
 export const writeConfigZ = http.writeConfigZ.extend({
   endpoints: writeEndpointZ.array().default(() => []),
@@ -201,8 +178,6 @@ export const deployWriteConfigZ = writeConfigZ.extend({
   endpoints: deployWriteEndpointZ.array(),
 });
 
-const ZERO_WRITE_CONFIG = writeConfigZ.parse({});
-
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
   config: writeConfigZ,
@@ -212,17 +187,6 @@ export const WRITE_SCHEMAS = {
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
-
-export const ZERO_WRITE_PAYLOAD: WritePayload = {
-  key: "",
-  rack: 0,
-  name: "HTTP Write Task",
-  config: ZERO_WRITE_CONFIG,
-  configHash: "",
-  type: WRITE_TYPE,
-  internal: false,
-  snapshot: false,
-};
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

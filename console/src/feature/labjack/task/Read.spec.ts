@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -37,13 +37,17 @@ const createConfig = (
   device: string,
   channels: LabJack.Task.InputChannel[],
 ): LabJack.Task.ReadPayload["config"] => ({
-  ...LabJack.Task.ZERO_READ_PAYLOAD.config,
+  ...LabJack.Task.READ_SCHEMAS.config.parse({}),
   device,
   channels,
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = LabJack.Task.ZERO_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<LabJack.Task.ReadSchemas> = {
+  name: "LabJack Read Task",
+  type: LabJack.Task.READ_TYPE,
+  config: LabJack.Task.READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   client: Synnax,

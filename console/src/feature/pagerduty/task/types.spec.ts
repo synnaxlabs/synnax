@@ -51,7 +51,7 @@ describe("PagerDuty Alert Task Types", () => {
 
     it("should reject an empty routing key", () => {
       const result = PagerDuty.Task.deployAlertTaskConfigZ.safeParse({
-        ...PagerDuty.Task.ZERO_ALERT_TASK_CONFIG,
+        ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
         alerts: [{ key: "a", status: "s", disabled: false }],
       });
       expect(result.success).toBe(false);
@@ -129,7 +129,7 @@ describe("draft configs", () => {
   it("should accept the zero alert config", () => {
     expect(
       PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(
-        PagerDuty.Task.ZERO_ALERT_PAYLOAD.config,
+        PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
       ).success,
     ).toBe(true);
   });

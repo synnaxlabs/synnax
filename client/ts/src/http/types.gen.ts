@@ -224,7 +224,7 @@ export const writeEndpointZ = z.object({
   /** queryParams contains query parameters appended to the request URL. */
   queryParams: queryParamZ.array().default(() => []),
   /** channel is the command channel whose writes trigger this endpoint. */
-  channel: channelFieldZ,
+  channel: channelFieldZ.prefault({}),
   /** fields contains additional static or generated body fields. */
   fields: writeFieldZ.array().default(() => []),
 });

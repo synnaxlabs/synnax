@@ -22,13 +22,6 @@ export type TypedInput =
 
 export const INPUT_CHANNEL_SCHEMAS = modbus.INPUT_CHANNEL_SCHEMAS;
 
-export const ZERO_INPUT_CHANNELS = Object.fromEntries(
-  modbus.INPUT_CHANNEL_TYPES.map((t) => [
-    t,
-    modbus.INPUT_CHANNEL_SCHEMAS[t].parse({ type: t }),
-  ]),
-) as Record<InputChannelType, InputChannel>;
-
 const VARIABLE_DENSITY_INPUT_CHANNEL_TYPES = new Set<InputChannelType>([
   "holding_register_input",
   "register_input",
@@ -43,13 +36,6 @@ export type OutputChannelType = modbus.OutputChannelType;
 
 export const OUTPUT_CHANNEL_SCHEMAS = modbus.OUTPUT_CHANNEL_SCHEMAS;
 
-export const ZERO_OUTPUT_CHANNELS = Object.fromEntries(
-  modbus.OUTPUT_CHANNEL_TYPES.map((t) => [
-    t,
-    modbus.OUTPUT_CHANNEL_SCHEMAS[t].parse({ type: t }),
-  ]),
-) as Record<OutputChannelType, OutputChannel>;
-
 export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadConfig extends modbus.ReadConfig {}
@@ -63,8 +49,6 @@ export const deployReadConfigZ = modbus.readConfigZ
     streamRate: z.number().positive().max(50000),
   })
   .check(Task.validateStreamRate);
-
-const ZERO_READ_CONFIG = modbus.readConfigZ.parse({});
 
 const readStatusDataZ = z
   .object({
@@ -83,19 +67,6 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-interface ReadPayload extends task.Payload<ReadSchemas> {}
-
-export const ZERO_READ_PAYLOAD: ReadPayload = {
-  key: "",
-  rack: 0,
-  name: "Modbus Read Task",
-  config: ZERO_READ_CONFIG,
-  configHash: "",
-  type: READ_TYPE,
-  internal: false,
-  snapshot: false,
-};
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export interface WriteConfig extends modbus.WriteConfig {}
@@ -105,8 +76,6 @@ export const writeConfigZ = modbus.writeConfigZ;
 export const deployWriteConfigZ = modbus.writeConfigZ.extend({
   device: Task.deviceKeyZ,
 });
-
-const ZERO_WRITE_CONFIG = modbus.writeConfigZ.parse({});
 
 const writeStatusDataZ = z
   .object({
@@ -124,19 +93,6 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-interface WritePayload extends task.Payload<WriteSchemas> {}
-
-export const ZERO_WRITE_PAYLOAD: WritePayload = {
-  key: "",
-  rack: 0,
-  name: "Modbus Write Task",
-  config: ZERO_WRITE_CONFIG,
-  configHash: "",
-  type: WRITE_TYPE,
-  internal: false,
-  snapshot: false,
-};
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
