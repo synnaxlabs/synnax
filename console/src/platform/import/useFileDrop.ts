@@ -13,7 +13,8 @@ import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useFileIngesters } from "@/platform/import/FileIngestersProvider";
-import { ingestComponent, resourceTabs } from "@/platform/import/import";
+import { ingestComponent } from "@/platform/import/import";
+import { ingestBatch } from "@/platform/import/ingestBatch";
 import { type DirectoryIngester, type FileIngesters } from "@/platform/import/ingester";
 import { trimFileName } from "@/platform/import/trimFileName";
 import { Panel } from "@/platform/panel";
@@ -122,24 +123,23 @@ export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop =>
       const projectKey = Session.Project.selectSelected(store.getState());
       const placement =
         nodeKey != null && location != null ? { leaf: nodeKey, location } : undefined;
-      handleError(async () => {
-        const ids = await Promise.all(
-          entries.map(async (entry) => {
-            try {
-              return await ingestEntry(entry, {
+      handleError(
+        async () =>
+          await ingestBatch({
+            items: entries,
+            ingest: async (entry) =>
+              await ingestEntry(entry, {
                 client,
                 fileIngesters,
                 ingestDirectory,
                 projectKey,
                 store,
-              });
-            } catch (e) {
-              handleError(e, `Failed to import ${entry.name}`);
-            }
+              }),
+            handleError,
+            openTabs,
+            placement,
           }),
-        );
-        openTabs(resourceTabs(ids), { placement });
-      });
+      );
     },
     [client, fileIngesters, ingestDirectory, openTabs, store, handleError],
   );

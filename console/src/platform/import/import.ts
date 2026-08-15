@@ -11,7 +11,6 @@ import { type Store } from "@reduxjs/toolkit";
 import {
   DisconnectedError,
   type ontology,
-  type panel,
   project,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -21,6 +20,7 @@ import { useCallback } from "react";
 import { ZodError } from "zod";
 
 import { useFileIngesters } from "@/platform/import/FileIngestersProvider";
+import { ingestBatch } from "@/platform/import/ingestBatch";
 import {
   type FileIngester,
   type FileIngesterContext,
@@ -48,10 +48,6 @@ export const ingestServer: FileIngester = async (
     parent: project.ontologyID(projectKey),
   });
 };
-
-/** Maps the resources ingest created to the tabs that open them. */
-export const resourceTabs = (ids: (ontology.ID | void)[]): panel.NewTab[] =>
-  ids.filter((id) => id != null).map((resource) => ({ variant: "resource", resource }));
 
 export const ingestComponent = async (
   data: unknown,
@@ -119,22 +115,18 @@ const importComponent = ({
       store.dispatch(Session.Project.select(proj.key));
     }
     const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
-    const ids = await Promise.all(
-      files.map(async (file) => {
-        try {
-          const data = await file.read();
-          return await ingestComponent(JSON.parse(data), fileIngesters, {
-            name: trimFileName(file.name),
-            client,
-            projectKey: activeProjectKeyAfter,
-            fileName: file.name,
-          });
-        } catch (e) {
-          handleError(e, `Failed to import ${file.name}`);
-        }
-      }),
-    );
-    openTabs(resourceTabs(ids));
+    await ingestBatch({
+      items: files,
+      ingest: async (file) =>
+        await ingestComponent(JSON.parse(await file.read()), fileIngesters, {
+          name: trimFileName(file.name),
+          client,
+          projectKey: activeProjectKeyAfter,
+          fileName: file.name,
+        }),
+      handleError,
+      openTabs,
+    });
   });
 };
 

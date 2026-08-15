@@ -9,6 +9,7 @@
 
 export * from "@/platform/import/FileIngestersProvider";
 export * from "@/platform/import/import";
+export * from "@/platform/import/ingestBatch";
 export * from "@/platform/import/ingester";
 export * from "@/platform/import/trimFileName";
 export * from "@/platform/import/useFileDrop";
