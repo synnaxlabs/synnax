@@ -48,7 +48,7 @@ type ServiceConfig struct {
 	Ontology *ontology.Ontology
 	// Group is used to create and manage groups for symbols.
 	//
-	// [OPTIONAL]
+	// [REQUIRED]
 	Group *group.Service
 	// Signals is used to propagate changes to schematics and symbols throughout the
 	// cluster.
@@ -85,6 +85,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("schematic")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
 	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
@@ -119,7 +120,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	cfg.ImEx.RegisterImportExporter(s)
+	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
+		return nil, err
+	}
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
 		Instrumentation: cfg.Child("symbol"),
 		DB:              cfg.DB,

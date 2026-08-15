@@ -85,7 +85,7 @@ class DriverNIDigitalWrite(Latency):
             state_rate=sy.Rate.HZ * 2000,
             data_saving=True,
             channels=[
-                sy.ni.DOChan(
+                sy.ni.DOChannel(
                     cmd_channel=do_1_cmd.key,
                     state_channel=do_1_state.key,
                     port=0,

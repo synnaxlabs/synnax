@@ -13,14 +13,15 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
 
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -627,7 +628,11 @@ func buildUnionCodec(
 				}
 				embeds = append(embeds, naming.GetGoName(parent))
 			}
-			inlineFields = pform.Fields
+			inlineFields = declaredFields(
+				append(slices.Clone(form.Extends), pform.Extends...),
+				pform.Fields,
+				table,
+			)
 		} else {
 			embeds = append(embeds, naming.GetGoName(payload))
 		}
@@ -985,7 +990,7 @@ func (b *encoderBuilder) processLeaf(
 				ind+fmt.Sprintf("w.String(string(%s))", valPath))
 			b.decodeLine(
 				ind + fmt.Sprintf(
-					"{ v, err := r.String(); if err != nil { return err }; %s = %s(v) }",
+					"{ rawV, err := r.String(); if err != nil { return err }; %s = %s(rawV) }",
 					setPath,
 					goTypeCast,
 				),
@@ -1135,7 +1140,7 @@ func (b *encoderBuilder) addIntLeaf(
 	if goTypeCast != "" {
 		b.decodeLine(
 			ind + fmt.Sprintf(
-				"{ v, err := r.%s(); if err != nil { return err }; %s = %s(v) }",
+				"{ rawV, err := r.%s(); if err != nil { return err }; %s = %s(rawV) }",
 				writerMethod,
 				setPath,
 				cast,

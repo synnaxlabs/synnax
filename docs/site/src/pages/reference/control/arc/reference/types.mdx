@@ -84,7 +84,7 @@ channel:
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value, ox_pt_1, ox_pt_cmd"
 sequence {
   value := ox_pt_1   // binds to ox_pt_1
   value -> ox_pt_cmd // writes to ox_pt_cmd
@@ -93,7 +93,7 @@ sequence {
 </Fragment>
 
 <Fragment slot="function">
-```arc
+```arc channels="value, ox_pt_1, ox_pt_cmd"
 func example{}(){
   value := ox_pt_1 // read from channel
   ox_pt_cmd = value // write to channel
@@ -247,6 +247,7 @@ values render as `"NaN"`, `"+Inf"`, `"-Inf"`. Casting from `str` back to a numer
 // Wrong: type error
 x i32 := 42
 y f64 := x + 1.0
+
 // Right: explicit cast
 x i32 := 42
 y f64 := f64(x) + 1.0
@@ -275,11 +276,11 @@ Strings support the following operations:
 
 ```arc
 msg := "Hello"
-greeting := msg + " World" // concatenation
-first := msg[0] // indexing (returns u8)
-sub := msg[1: 4] // slicing
-length := len(msg) // length in bytes
-equal := msg == "Hello" // equality (returns bool)
+greet := msg + " World"  // concatenation
+first := msg[0]          // indexing (returns u8)
+sub := msg[1: 4]         // slicing
+length := len(msg)       // length in bytes
+equal := msg == "Hello"  // equality (returns bool)
 ```
 
 | Operation             | Supported |

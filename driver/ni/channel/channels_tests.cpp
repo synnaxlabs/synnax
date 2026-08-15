@@ -8,18 +8,28 @@
 // included in the file licenses/APL.txt.
 
 #include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ni/channel/channels.h"
+#include "driver/ni/daqmx/mock.h"
 
 namespace driver::ni::channel {
+namespace {
+std::shared_ptr<daqmx::SugaredAPI> mock_dmx(std::shared_ptr<daqmx::MockAPI> &mock) {
+    mock = std::make_shared<daqmx::MockAPI>();
+    return std::make_shared<daqmx::SugaredAPI>(mock);
+}
+}
+
 TEST(ChannelsTest, ParseAIAccelChan) {
     x::json::json j = {
         {"type", "ai_accel"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
@@ -33,24 +43,24 @@ TEST(ChannelsTest, ParseAIAccelChan) {
         {"sensitivity_units", "mVoltsPerG"},
         {"device", "cDAQ1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto accel_chan = dynamic_cast<channel::AIAccel *>(chan.get());
-    ASSERT_NE(accel_chan, nullptr);
-    EXPECT_EQ(accel_chan->enabled, true);
-    EXPECT_EQ(accel_chan->port, 0);
-    EXPECT_EQ(accel_chan->terminal_config, DAQmx_Val_Cfg_Default);
-    EXPECT_EQ(accel_chan->min_val, 0);
-    EXPECT_EQ(accel_chan->max_val, 1);
-    EXPECT_EQ(accel_chan->sensitivity, 0);
-    EXPECT_EQ(accel_chan->excitation_config.source, DAQmx_Val_Internal);
-    EXPECT_EQ(accel_chan->excitation_config.val, 0);
-    EXPECT_EQ(accel_chan->units, DAQmx_Val_g);
-    accel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(accel_chan->loc(), "cDAQ1Mod2/ai0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIAccelChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["terminalConfig"], DAQmx_Val_Cfg_Default);
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
+    EXPECT_EQ(call["args"]["sensitivity"], 0);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_g);
 }
 
 TEST(ChannelsTest, ParseAIBridgeChan) {
@@ -58,7 +68,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
         {"type", "ai_bridge"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"bridge_config", "FullBridge"},
@@ -71,19 +81,20 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
         {"units", "mVoltsPerVolt"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto bridge_chan = dynamic_cast<channel::AIBridge *>(chan.get());
-    ASSERT_NE(bridge_chan, nullptr);
-    EXPECT_EQ(bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
-    EXPECT_EQ(bridge_chan->min_val, 0);
-    EXPECT_EQ(bridge_chan->max_val, 1);
-    EXPECT_EQ(bridge_chan->bridge_config.nominal_bridge_resistance, 1);
-    bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(bridge_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIBridgeChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAICurrentChan) {
@@ -91,7 +102,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
         {"type", "ai_current"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
@@ -103,20 +114,23 @@ TEST(ChannelsTest, ParseAICurrentChan) {
         {"ext_shunt_resistor_val", 1},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto current_chan = dynamic_cast<channel::AICurrent *>(chan.get());
-    ASSERT_NE(current_chan, nullptr);
-    EXPECT_EQ(current_chan->terminal_config, DAQmx_Val_Cfg_Default);
-    EXPECT_EQ(current_chan->min_val, 0);
-    EXPECT_EQ(current_chan->max_val, 1);
-    EXPECT_EQ(current_chan->shunt_resistor_loc, DAQmx_Val_Default);
-    EXPECT_EQ(current_chan->ext_shunt_resistor_val, 1);
-    current_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(current_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAICurrentChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["terminalConfig"], DAQmx_Val_Cfg_Default);
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
+    EXPECT_EQ(call["args"]["shuntResistorLoc"], DAQmx_Val_Default);
+    EXPECT_EQ(call["args"]["extShuntResistorVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
@@ -124,7 +138,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
         {"type", "ai_force_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -141,28 +155,20 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
         {"units", "Newtons"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTable *>(
-        chan.get()
-    );
-    ASSERT_NE(force_bridge_chan, nullptr);
-    EXPECT_EQ(force_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
-    EXPECT_EQ(force_bridge_chan->min_val, 0);
-    EXPECT_EQ(force_bridge_chan->max_val, 1);
-    EXPECT_EQ(force_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(
-        force_bridge_chan->bridge_config.voltage_excit_source,
-        DAQmx_Val_Internal
-    );
-    EXPECT_EQ(force_bridge_chan->bridge_config.voltage_excit_val, 0);
-    EXPECT_EQ(force_bridge_chan->table_config.electrical_vals[0], 1);
-    EXPECT_EQ(force_bridge_chan->table_config.electrical_vals[1], 2);
-    force_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(force_bridge_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIForceBridgeTableChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
@@ -170,7 +176,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
         {"type", "ai_force_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -189,25 +195,20 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
         {"units", "Newtons"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTwoPointLin *>(
-        chan.get()
-    );
-    ASSERT_NE(force_bridge_chan, nullptr);
-    EXPECT_EQ(force_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
-    EXPECT_EQ(force_bridge_chan->min_val, 0);
-    EXPECT_EQ(force_bridge_chan->max_val, 1);
-    EXPECT_EQ(force_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(force_bridge_chan->two_point_lin_config.first_electrical_val, 0);
-    EXPECT_EQ(force_bridge_chan->two_point_lin_config.second_electrical_val, 1);
-    EXPECT_EQ(force_bridge_chan->two_point_lin_config.first_physical_val, 0);
-    EXPECT_EQ(force_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    force_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(force_bridge_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIForceBridgeTwoPointLinChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAIForceIEPEChan) {
@@ -215,7 +216,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
         {"type", "ai_force_iepe"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
@@ -229,21 +230,22 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
         {"sensitivity_units", "mVoltsPerNewton"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto force_iepe_chan = dynamic_cast<channel::AIForceIEPE *>(chan.get());
-    ASSERT_NE(force_iepe_chan, nullptr);
-    EXPECT_EQ(force_iepe_chan->terminal_config, DAQmx_Val_Cfg_Default);
-    EXPECT_EQ(force_iepe_chan->min_val, 0);
-    EXPECT_EQ(force_iepe_chan->max_val, 1);
-    EXPECT_EQ(force_iepe_chan->sensitivity, 0);
-    EXPECT_EQ(force_iepe_chan->excitation_config.source, DAQmx_Val_Internal);
-    EXPECT_EQ(force_iepe_chan->excitation_config.val, 0);
-    force_iepe_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(force_iepe_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIForceIEPEChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["terminalConfig"], DAQmx_Val_Cfg_Default);
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
+    EXPECT_EQ(call["args"]["sensitivity"], 0);
 }
 
 TEST(ChannelsTest, ParseAIMicrophoneChan) {
@@ -251,7 +253,7 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
         {"type", "ai_microphone"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
@@ -263,20 +265,21 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
         {"max_snd_press_level", 0},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto mic_chan = dynamic_cast<channel::AIMicrophone *>(chan.get());
-    ASSERT_NE(mic_chan, nullptr);
-    EXPECT_EQ(mic_chan->terminal_config, DAQmx_Val_Cfg_Default);
-    EXPECT_EQ(mic_chan->excitation_config.source, DAQmx_Val_Internal);
-    EXPECT_EQ(mic_chan->excitation_config.val, 0);
-    EXPECT_EQ(mic_chan->mic_sensitivity, 0);
-    EXPECT_EQ(mic_chan->max_snd_press_level, 0);
-    mic_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(mic_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIMicrophoneChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["terminalConfig"], DAQmx_Val_Cfg_Default);
+    EXPECT_EQ(call["args"]["micSensitivity"], 0);
+    EXPECT_EQ(call["args"]["maxSndPressLevel"], 0);
 }
 
 TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
@@ -284,7 +287,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
         {"type", "ai_pressure_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -301,29 +304,20 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
         {"units", "Pascals"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto pressure_bridge_chan = dynamic_cast<channel::AIPressureBridgeTable *>(
-        chan.get()
-    );
-    ASSERT_NE(pressure_bridge_chan, nullptr);
-    EXPECT_EQ(
-        pressure_bridge_chan->bridge_config.ni_bridge_config,
-        DAQmx_Val_FullBridge
-    );
-    EXPECT_EQ(pressure_bridge_chan->min_val, 0);
-    EXPECT_EQ(pressure_bridge_chan->max_val, 1);
-    EXPECT_EQ(pressure_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(
-        pressure_bridge_chan->bridge_config.voltage_excit_source,
-        DAQmx_Val_Internal
-    );
-    EXPECT_EQ(pressure_bridge_chan->bridge_config.voltage_excit_val, 0);
-    pressure_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIPressureBridgeTableChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
@@ -331,7 +325,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
         {"type", "ai_pressure_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -350,29 +344,20 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
         {"units", "Pascals"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto
-        pressure_bridge_chan = dynamic_cast<channel::AIPressureBridgeTwoPointLin *>(
-            chan.get()
-        );
-    ASSERT_NE(pressure_bridge_chan, nullptr);
-    EXPECT_EQ(
-        pressure_bridge_chan->bridge_config.ni_bridge_config,
-        DAQmx_Val_FullBridge
-    );
-    EXPECT_EQ(pressure_bridge_chan->min_val, 0);
-    EXPECT_EQ(pressure_bridge_chan->max_val, 1);
-    EXPECT_EQ(pressure_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.first_electrical_val, 0);
-    EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.second_electrical_val, 1);
-    EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.first_physical_val, 0);
-    EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    pressure_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIPressureBridgeTwoPointLinChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAIRTDChan) {
@@ -380,7 +365,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
         {"type", "ai_rtd"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -393,22 +378,23 @@ TEST(ChannelsTest, ParseAIRTDChan) {
         {"units", "DegC"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto rtd_chan = dynamic_cast<channel::AIRTD *>(chan.get());
-    ASSERT_NE(rtd_chan, nullptr);
-    EXPECT_EQ(rtd_chan->resistance_config, DAQmx_Val_2Wire);
-    EXPECT_EQ(rtd_chan->min_val, 0);
-    EXPECT_EQ(rtd_chan->max_val, 1);
-    EXPECT_EQ(rtd_chan->rtd_type, DAQmx_Val_Pt3750);
-    EXPECT_EQ(rtd_chan->r0, 0);
-    EXPECT_EQ(rtd_chan->excitation_config.source, DAQmx_Val_Internal);
-    EXPECT_EQ(rtd_chan->excitation_config.val, 0);
-    rtd_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(rtd_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIRTDChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["resistanceConfig"], DAQmx_Val_2Wire);
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
+    EXPECT_EQ(call["args"]["rtdType"], DAQmx_Val_Pt3750);
+    EXPECT_EQ(call["args"]["r0"], 0);
 }
 
 TEST(ChannelsTest, ParseAIStrainGaugeChan) {
@@ -416,7 +402,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
         {"type", "ai_strain_gauge"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -433,25 +419,25 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
         {"lead_wire_resistance", 0},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto strain_chan = dynamic_cast<channel::AIStrainGauge *>(chan.get());
-    ASSERT_NE(strain_chan, nullptr);
-    EXPECT_EQ(strain_chan->strain_config, DAQmx_Val_FullBridgeI);
-    EXPECT_EQ(strain_chan->min_val, 0);
-    EXPECT_EQ(strain_chan->max_val, 1);
-    EXPECT_EQ(strain_chan->gage_factor, 0);
-    EXPECT_EQ(strain_chan->initial_bridge_voltage, 0);
-    EXPECT_EQ(strain_chan->nominal_gage_resistance, 0);
-    EXPECT_EQ(strain_chan->poisson_ratio, 0);
-    EXPECT_EQ(strain_chan->lead_wire_resistance, 0);
-    EXPECT_EQ(strain_chan->excitation_config.source, DAQmx_Val_Internal);
-    EXPECT_EQ(strain_chan->excitation_config.val, 0);
-    strain_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(strain_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIStrainGageChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["strainConfig"], DAQmx_Val_FullBridgeI);
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
+    EXPECT_EQ(call["args"]["gageFactor"], 0);
+    EXPECT_EQ(call["args"]["nominalGageResistance"], 0);
+    EXPECT_EQ(call["args"]["poissonRatio"], 0);
+    EXPECT_EQ(call["args"]["leadWireResistance"], 0);
 }
 
 TEST(ChannelsTest, ParseAITempBuiltInChan) {
@@ -459,22 +445,25 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
         {"type", "ai_temp_builtin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"units", "DegC"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto temp_chan = dynamic_cast<channel::AITempBuiltIn *>(chan.get());
-    ASSERT_NE(temp_chan, nullptr);
-    EXPECT_EQ(temp_chan->units, DAQmx_Val_DegC);
-    temp_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(temp_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAITempBuiltInSensorChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/_boardTempSensor_vs_aignd");
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_DegC);
 }
 
 TEST(ChannelsTest, ParseAIThermoChan) {
@@ -483,34 +472,95 @@ TEST(ChannelsTest, ParseAIThermoChan) {
          {{"type", "ai_thermocouple"},
           {"key", "ks1VnWdrSVA"},
           {"port", 0},
-          {"enabled", true},
+          {"disabled", false},
           {"name", ""},
           {"channel", 0},
           {"min_val", 0},
           {"max_val", 1},
           {"units", "DegC"},
           {"thermocouple_type", "J"},
-          {"cjc_source", "Chan"},
-          {"cjc_val", 0},
-          {"cjc_port", 1},
+          {"cjc", {{"source", "chan"}, {"port", 1}}},
           {"device", "cdaq1Mod2"}}}
     };
-
     x::json::Parser p(j);
     auto child = p.child("channels.0");
-    const auto chan = channel::parse_input(child);
+    const auto chan = channel::parse_input(child, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto thermo_chan = dynamic_cast<channel::AIThermocouple *>(chan.get());
-    ASSERT_NE(thermo_chan, nullptr);
-    EXPECT_EQ(thermo_chan->thermocouple_type, DAQmx_Val_J_Type_TC);
-    EXPECT_EQ(thermo_chan->cjc_source, DAQmx_Val_Chan);
-    EXPECT_EQ(thermo_chan->cjc_val, 0);
-    EXPECT_EQ(thermo_chan->cjc_port, "channels_1");
-    EXPECT_EQ(thermo_chan->min_val, 0);
-    EXPECT_EQ(thermo_chan->max_val, 1);
-    thermo_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(thermo_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIThrmcplChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["thermocoupleType"], DAQmx_Val_J_Type_TC);
+    EXPECT_EQ(call["args"]["cjcSource"], DAQmx_Val_Chan);
+    EXPECT_EQ(call["args"]["cjcVal"], 0);
+}
+
+/// @brief a constant CJC source carries the reference temperature and no port.
+TEST(ChannelsTest, ParseAIThermocoupleConstCJC) {
+    x::json::json j = {
+        {"channels.0",
+         {{"type", "ai_thermocouple"},
+          {"key", "ks1VnWdrSVA"},
+          {"port", 0},
+          {"disabled", false},
+          {"name", ""},
+          {"channel", 0},
+          {"min_val", 0},
+          {"max_val", 1},
+          {"units", "DegC"},
+          {"thermocouple_type", "J"},
+          {"cjc", {{"source", "const_val"}, {"val", 25.5}}},
+          {"device", "cdaq1Mod2"}}}
+    };
+    x::json::Parser p(j);
+    auto child = p.child("channels.0");
+    const auto chan = channel::parse_input(child, "ni_analog_read");
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIThrmcplChan");
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_EQ(calls[0]["args"]["cjcSource"], DAQmx_Val_ConstVal);
+    EXPECT_EQ(calls[0]["args"]["cjcVal"], 25.5);
+}
+
+/// @brief a built-in CJC source carries neither the reference nor the port.
+TEST(ChannelsTest, ParseAIThermocoupleBuiltInCJC) {
+    x::json::json j = {
+        {"channels.0",
+         {{"type", "ai_thermocouple"},
+          {"key", "ks1VnWdrSVA"},
+          {"port", 0},
+          {"disabled", false},
+          {"name", ""},
+          {"channel", 0},
+          {"min_val", 0},
+          {"max_val", 1},
+          {"units", "DegC"},
+          {"thermocouple_type", "J"},
+          {"cjc", {{"source", "built_in"}}},
+          {"device", "cdaq1Mod2"}}}
+    };
+    x::json::Parser p(j);
+    auto child = p.child("channels.0");
+    const auto chan = channel::parse_input(child, "ni_analog_read");
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIThrmcplChan");
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_EQ(calls[0]["args"]["cjcSource"], DAQmx_Val_BuiltIn);
+    EXPECT_EQ(calls[0]["args"]["cjcVal"], 0);
 }
 
 TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
@@ -518,7 +568,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
         {"type", "ai_torque_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -535,26 +585,20 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
         {"units", "NewtonMeters"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto torque_bridge_chan = dynamic_cast<channel::AITorqueBridgeTable *>(
-        chan.get()
-    );
-    ASSERT_NE(torque_bridge_chan, nullptr);
-    EXPECT_EQ(torque_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
-    EXPECT_EQ(torque_bridge_chan->min_val, 0);
-    EXPECT_EQ(torque_bridge_chan->max_val, 1);
-    EXPECT_EQ(torque_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(
-        torque_bridge_chan->bridge_config.voltage_excit_source,
-        DAQmx_Val_Internal
-    );
-    EXPECT_EQ(torque_bridge_chan->bridge_config.voltage_excit_val, 0);
-    torque_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAITorqueBridgeTableChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
@@ -562,7 +606,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
         {"type", "ai_torque_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -581,25 +625,20 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
         {"units", "NewtonMeters"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto torque_bridge_chan = dynamic_cast<channel::AITorqueBridgeTwoPointLin *>(
-        chan.get()
-    );
-    ASSERT_NE(torque_bridge_chan, nullptr);
-    EXPECT_EQ(torque_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
-    EXPECT_EQ(torque_bridge_chan->min_val, 0);
-    EXPECT_EQ(torque_bridge_chan->max_val, 1);
-    EXPECT_EQ(torque_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(torque_bridge_chan->two_point_lin_config.first_electrical_val, 0);
-    EXPECT_EQ(torque_bridge_chan->two_point_lin_config.second_electrical_val, 1);
-    EXPECT_EQ(torque_bridge_chan->two_point_lin_config.first_physical_val, 0);
-    EXPECT_EQ(torque_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    torque_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAITorqueBridgeTwoPointLinChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
@@ -607,7 +646,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
         {"type", "ai_velocity_iepe"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
@@ -621,21 +660,22 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
         {"sensitivity_units", "MillivoltsPerMillimeterPerSecond"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto velocity_chan = dynamic_cast<channel::AIVelocityIEPE *>(chan.get());
-    ASSERT_NE(velocity_chan, nullptr);
-    EXPECT_EQ(velocity_chan->terminal_config, DAQmx_Val_Cfg_Default);
-    EXPECT_EQ(velocity_chan->min_val, 0);
-    EXPECT_EQ(velocity_chan->max_val, 1);
-    EXPECT_EQ(velocity_chan->sensitivity, 0);
-    EXPECT_EQ(velocity_chan->excitation_config.source, DAQmx_Val_Internal);
-    EXPECT_EQ(velocity_chan->excitation_config.val, 0);
-    velocity_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(velocity_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIVelocityIEPEChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["terminalConfig"], DAQmx_Val_Cfg_Default);
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
+    EXPECT_EQ(call["args"]["sensitivity"], 0);
 }
 
 TEST(ChannelsTest, ParseAIVoltageChan) {
@@ -643,7 +683,7 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
         {"type", "ai_voltage"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
@@ -653,18 +693,21 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
         {"units", "Volts"},
         {"device", "cdaq1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto voltage_chan = dynamic_cast<channel::AIVoltage *>(chan.get());
-    ASSERT_NE(voltage_chan, nullptr);
-    EXPECT_EQ(voltage_chan->terminal_config, DAQmx_Val_Cfg_Default);
-    EXPECT_EQ(voltage_chan->min_val, 0);
-    EXPECT_EQ(voltage_chan->max_val, 1);
-    voltage_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(voltage_chan->loc(), "cDAQ1Mod2/ai0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIVoltageChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
+    EXPECT_EQ(call["args"]["terminalConfig"], DAQmx_Val_Cfg_Default);
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAOVoltageChan) {
@@ -672,7 +715,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
         {"type", "ao_voltage"},
         {"key", "XBQejNmAyaO"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"channel", 0},
         {"cmd_channel", 0},
         {"state_channel", 0},
@@ -681,17 +724,20 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
         {"custom_scale", {{"type", "none"}}},
         {"units", "Volts"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_output(p);
+    const auto chan = channel::parse_output(p, "ni_analog_write");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto voltage_chan = dynamic_cast<channel::AOVoltage *>(chan.get());
-    ASSERT_NE(voltage_chan, nullptr);
-    EXPECT_EQ(voltage_chan->min_val, 0);
-    EXPECT_EQ(voltage_chan->max_val, 1);
-    voltage_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(voltage_chan->loc(), "cDAQ1Mod2/ao0");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAOVoltageChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ao0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1);
 }
 
 TEST(ChannelsTest, ParseAOFuncGenChan) {
@@ -699,7 +745,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
         {"type", "ao_func_gen"},
         {"key", "AepqBDjsgwx"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"cmd_channel", 0},
         {"state_channel", 0},
         {"wave_type", "Sine"},
@@ -707,68 +753,71 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
         {"amplitude", 0},
         {"offset", 0}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_output(p);
+    const auto chan = channel::parse_output(p, "ni_analog_write");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto func_gen_chan = dynamic_cast<channel::AOFunctionGenerator *>(chan.get());
-    ASSERT_NE(func_gen_chan, nullptr);
-    EXPECT_EQ(func_gen_chan->wave_type, DAQmx_Val_Sine);
-    EXPECT_EQ(func_gen_chan->frequency, 0);
-    EXPECT_EQ(func_gen_chan->amplitude, 0);
-    EXPECT_EQ(func_gen_chan->offset, 0);
-    func_gen_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(func_gen_chan->loc(), "cDAQ1Mod2/ao1");
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAOFuncGenChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ao1");
+    EXPECT_EQ(call["args"]["type"], DAQmx_Val_Sine);
+    EXPECT_EQ(call["args"]["freq"], 0);
+    EXPECT_EQ(call["args"]["amplitude"], 0);
+    EXPECT_EQ(call["args"]["offset"], 0);
 }
 
 TEST(ChannelsTest, ParseDIChan) {
     x::json::json j = {
-        {"type", "digital_input"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
         {"line", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"channel", 0},
         {"device", "cDAQ1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_digital_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto di_chan = dynamic_cast<channel::DI *>(chan.get());
-    ASSERT_NE(di_chan, nullptr);
-    EXPECT_EQ(di_chan->port, 0);
-    EXPECT_EQ(di_chan->line, 1);
-    EXPECT_EQ(di_chan->enabled, true);
-    di_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(di_chan->loc(), "cDAQ1Mod2/port0/line1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateDIChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["lines"], "cDAQ1Mod2/port0/line1");
 }
 
 TEST(ChannelsTest, ParseDOChan) {
     x::json::json j = {
-        {"type", "digital_output"},
         {"key", "XBQejNmAyaO"},
         {"port", 0},
         {"line", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"cmd_channel", 0},
         {"state_channel", 0},
         {"device", "cDAQ1Mod2"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_output(p);
+    const auto chan = channel::parse_output(p, "ni_digital_write");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto do_chan = dynamic_cast<channel::DO *>(chan.get());
-    ASSERT_NE(do_chan, nullptr);
-    EXPECT_EQ(do_chan->port, 0);
-    EXPECT_EQ(do_chan->line, 1);
-    EXPECT_EQ(do_chan->enabled, true);
-    do_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    EXPECT_EQ(do_chan->loc(), "cDAQ1Mod2/port0/line1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateDOChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["lines"], "cDAQ1Mod2/port0/line1");
 }
 
 TEST(ChannelsTest, ParseCIFrequencyChanHz) {
@@ -776,7 +825,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
         {"type", "ci_frequency"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 2},
@@ -790,25 +839,26 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_freq_chan = dynamic_cast<channel::CIFrequency *>(chan.get());
-    ASSERT_NE(ci_freq_chan, nullptr);
-    EXPECT_EQ(ci_freq_chan->enabled, true);
-    EXPECT_EQ(ci_freq_chan->port, 0);
-    EXPECT_EQ(ci_freq_chan->min_val, 2);
-    EXPECT_EQ(ci_freq_chan->max_val, 1000);
-    EXPECT_EQ(ci_freq_chan->units, DAQmx_Val_Hz);
-    EXPECT_EQ(ci_freq_chan->edge, DAQmx_Val_Rising);
-    EXPECT_EQ(ci_freq_chan->meas_method, DAQmx_Val_DynAvg);
-    EXPECT_DOUBLE_EQ(ci_freq_chan->meas_time, 0.001);
-    EXPECT_EQ(ci_freq_chan->divisor, 4);
-    EXPECT_EQ(ci_freq_chan->terminal, "");
-    ci_freq_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_freq_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIFreqChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["minVal"], 2);
+    EXPECT_EQ(call["args"]["maxVal"], 1000);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_Hz);
+    EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Rising);
+    EXPECT_EQ(call["args"]["measMethod"], DAQmx_Val_DynAvg);
+    EXPECT_EQ(call["args"]["measTime"], 0.001);
+    EXPECT_EQ(call["args"]["divisor"], 4);
 }
 
 TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
@@ -816,7 +866,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
         {"type", "ci_frequency"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 100},
@@ -830,25 +880,27 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_freq_chan = dynamic_cast<channel::CIFrequency *>(chan.get());
-    ASSERT_NE(ci_freq_chan, nullptr);
-    EXPECT_EQ(ci_freq_chan->enabled, true);
-    EXPECT_EQ(ci_freq_chan->port, 1);
-    EXPECT_EQ(ci_freq_chan->min_val, 100);
-    EXPECT_EQ(ci_freq_chan->max_val, 10000);
-    EXPECT_EQ(ci_freq_chan->units, DAQmx_Val_Ticks);
-    EXPECT_EQ(ci_freq_chan->edge, DAQmx_Val_Falling);
-    EXPECT_EQ(ci_freq_chan->meas_method, DAQmx_Val_LowFreq1Ctr);
-    EXPECT_DOUBLE_EQ(ci_freq_chan->meas_time, 0.01);
-    EXPECT_EQ(ci_freq_chan->divisor, 1);
-    EXPECT_EQ(ci_freq_chan->terminal, "PFI0");
-    ci_freq_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_freq_chan->loc(), "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIFreqChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(call["args"]["minVal"], 100);
+    EXPECT_EQ(call["args"]["maxVal"], 10000);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_Ticks);
+    EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
+    EXPECT_EQ(call["args"]["measMethod"], DAQmx_Val_LowFreq1Ctr);
+    EXPECT_EQ(call["args"]["measTime"], 0.01);
+    EXPECT_EQ(call["args"]["divisor"], 1);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
@@ -856,7 +908,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
         {"type", "ci_edge_count"},
         {"key", "ks1VnWdrSVC"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"active_edge", "Rising"},
@@ -865,21 +917,22 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
         {"terminal", ""},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_edge_count_chan = dynamic_cast<channel::CIEdgeCount *>(chan.get());
-    ASSERT_NE(ci_edge_count_chan, nullptr);
-    EXPECT_EQ(ci_edge_count_chan->enabled, true);
-    EXPECT_EQ(ci_edge_count_chan->port, 0);
-    EXPECT_EQ(ci_edge_count_chan->edge, DAQmx_Val_Rising);
-    EXPECT_EQ(ci_edge_count_chan->count_direction, DAQmx_Val_CountUp);
-    EXPECT_EQ(ci_edge_count_chan->initial_count, 0);
-    EXPECT_EQ(ci_edge_count_chan->terminal, "");
-    ci_edge_count_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCICountEdgesChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Rising);
+    EXPECT_EQ(call["args"]["countDirection"], DAQmx_Val_CountUp);
+    EXPECT_EQ(call["args"]["initialCount"], 0);
 }
 
 TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
@@ -887,7 +940,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
         {"type", "ci_edge_count"},
         {"key", "ks1VnWdrSVD"},
         {"port", 2},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"active_edge", "Falling"},
@@ -896,21 +949,23 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
         {"terminal", "PFI11"},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_edge_count_chan = dynamic_cast<channel::CIEdgeCount *>(chan.get());
-    ASSERT_NE(ci_edge_count_chan, nullptr);
-    EXPECT_EQ(ci_edge_count_chan->enabled, true);
-    EXPECT_EQ(ci_edge_count_chan->port, 2);
-    EXPECT_EQ(ci_edge_count_chan->edge, DAQmx_Val_Falling);
-    EXPECT_EQ(ci_edge_count_chan->count_direction, DAQmx_Val_CountDown);
-    EXPECT_EQ(ci_edge_count_chan->initial_count, 100);
-    EXPECT_EQ(ci_edge_count_chan->terminal, "PFI11");
-    ci_edge_count_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr2");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCICountEdgesChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr2");
+    EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
+    EXPECT_EQ(call["args"]["countDirection"], DAQmx_Val_CountDown);
+    EXPECT_EQ(call["args"]["initialCount"], 100);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
@@ -918,7 +973,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
         {"type", "ci_period"},
         {"key", "ks1VnWdrSVE"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0.000001},
@@ -932,20 +987,21 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_period_chan = dynamic_cast<channel::CIPeriod *>(chan.get());
-    ASSERT_NE(ci_period_chan, nullptr);
-    EXPECT_EQ(ci_period_chan->enabled, true);
-    EXPECT_EQ(ci_period_chan->port, 0);
-    EXPECT_EQ(ci_period_chan->edge, DAQmx_Val_Rising);
-    EXPECT_EQ(ci_period_chan->meas_method, DAQmx_Val_DynAvg);
-    EXPECT_EQ(ci_period_chan->terminal, "");
-    ci_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIPeriodChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Rising);
+    EXPECT_EQ(call["args"]["measMethod"], DAQmx_Val_DynAvg);
 }
 
 TEST(ChannelsTest, ParseCIPeriodChanTicks) {
@@ -953,7 +1009,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
         {"type", "ci_period"},
         {"key", "ks1VnWdrSVF"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0.000001},
@@ -967,20 +1023,22 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_period_chan = dynamic_cast<channel::CIPeriod *>(chan.get());
-    ASSERT_NE(ci_period_chan, nullptr);
-    EXPECT_EQ(ci_period_chan->enabled, true);
-    EXPECT_EQ(ci_period_chan->port, 1);
-    EXPECT_EQ(ci_period_chan->edge, DAQmx_Val_Falling);
-    EXPECT_EQ(ci_period_chan->meas_method, DAQmx_Val_LowFreq1Ctr);
-    EXPECT_EQ(ci_period_chan->terminal, "PFI5");
-    ci_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIPeriodChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
+    EXPECT_EQ(call["args"]["measMethod"], DAQmx_Val_LowFreq1Ctr);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
@@ -988,7 +1046,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
         {"type", "ci_pulse_width"},
         {"key", "ks1VnWdrSVG"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0.000001},
@@ -999,19 +1057,19 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_pulse_width_chan = dynamic_cast<channel::CIPulseWidth *>(chan.get());
-    ASSERT_NE(ci_pulse_width_chan, nullptr);
-    EXPECT_EQ(ci_pulse_width_chan->enabled, true);
-    EXPECT_EQ(ci_pulse_width_chan->port, 0);
-    EXPECT_EQ(ci_pulse_width_chan->edge, DAQmx_Val_Rising);
-    EXPECT_EQ(ci_pulse_width_chan->terminal, "");
-    ci_pulse_width_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIPulseWidthChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
@@ -1019,7 +1077,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
         {"type", "ci_pulse_width"},
         {"key", "ks1VnWdrSVH"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0.000001},
@@ -1030,19 +1088,20 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_pulse_width_chan = dynamic_cast<channel::CIPulseWidth *>(chan.get());
-    ASSERT_NE(ci_pulse_width_chan, nullptr);
-    EXPECT_EQ(ci_pulse_width_chan->enabled, true);
-    EXPECT_EQ(ci_pulse_width_chan->port, 1);
-    EXPECT_EQ(ci_pulse_width_chan->edge, DAQmx_Val_Falling);
-    EXPECT_EQ(ci_pulse_width_chan->terminal, "PFI9");
-    ci_pulse_width_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIPulseWidthChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
@@ -1050,7 +1109,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
         {"type", "ci_semi_period"},
         {"key", "ks1VnWdrSVI"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0.000001},
@@ -1059,17 +1118,19 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_semi_period_chan = dynamic_cast<channel::CISemiPeriod *>(chan.get());
-    ASSERT_NE(ci_semi_period_chan, nullptr);
-    EXPECT_EQ(ci_semi_period_chan->enabled, true);
-    EXPECT_EQ(ci_semi_period_chan->port, 0);
-    ci_semi_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCISemiPeriodChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
@@ -1077,7 +1138,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
         {"type", "ci_semi_period"},
         {"key", "ks1VnWdrSVJ"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0.000001},
@@ -1086,17 +1147,19 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_semi_period_chan = dynamic_cast<channel::CISemiPeriod *>(chan.get());
-    ASSERT_NE(ci_semi_period_chan, nullptr);
-    EXPECT_EQ(ci_semi_period_chan->enabled, true);
-    EXPECT_EQ(ci_semi_period_chan->port, 1);
-    ci_semi_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCISemiPeriodChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
 }
 
 TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
@@ -1104,7 +1167,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
         {"type", "ci_two_edge_sep"},
         {"key", "ks1VnWdrSVK"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0.000001},
@@ -1115,19 +1178,21 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_two_edge_sep_chan = dynamic_cast<channel::CITwoEdgeSep *>(chan.get());
-    ASSERT_NE(ci_two_edge_sep_chan, nullptr);
-    EXPECT_EQ(ci_two_edge_sep_chan->enabled, true);
-    EXPECT_EQ(ci_two_edge_sep_chan->port, 0);
-    EXPECT_EQ(ci_two_edge_sep_chan->first_edge, DAQmx_Val_Rising);
-    EXPECT_EQ(ci_two_edge_sep_chan->second_edge, DAQmx_Val_Falling);
-    ci_two_edge_sep_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCITwoEdgeSepChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["firstEdge"], DAQmx_Val_Rising);
+    EXPECT_EQ(call["args"]["secondEdge"], DAQmx_Val_Falling);
 }
 
 TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
@@ -1135,7 +1200,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
         {"type", "ci_two_edge_sep"},
         {"key", "ks1VnWdrSVL"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0.000001},
@@ -1146,19 +1211,21 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_two_edge_sep_chan = dynamic_cast<channel::CITwoEdgeSep *>(chan.get());
-    ASSERT_NE(ci_two_edge_sep_chan, nullptr);
-    EXPECT_EQ(ci_two_edge_sep_chan->enabled, true);
-    EXPECT_EQ(ci_two_edge_sep_chan->port, 1);
-    EXPECT_EQ(ci_two_edge_sep_chan->first_edge, DAQmx_Val_Falling);
-    EXPECT_EQ(ci_two_edge_sep_chan->second_edge, DAQmx_Val_Rising);
-    ci_two_edge_sep_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCITwoEdgeSepChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(call["args"]["firstEdge"], DAQmx_Val_Falling);
+    EXPECT_EQ(call["args"]["secondEdge"], DAQmx_Val_Rising);
 }
 
 TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
@@ -1166,7 +1233,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
         {"type", "ci_velocity_linear"},
         {"key", "ks1VnWdrSVW"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -1174,29 +1241,30 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
         {"units", "m/s"},
         {"decoding_type", "X4"},
         {"dist_per_pulse", 0.001},
-        {"terminalA", "PFI0"},
-        {"terminalB", "PFI1"},
+        {"terminal_a", "PFI0"},
+        {"terminal_b", "PFI1"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_lin_vel_chan = dynamic_cast<channel::CILinearVelocity *>(chan.get());
-    ASSERT_NE(ci_lin_vel_chan, nullptr);
-    EXPECT_EQ(ci_lin_vel_chan->enabled, true);
-    EXPECT_EQ(ci_lin_vel_chan->port, 0);
-    EXPECT_EQ(ci_lin_vel_chan->min_val, 0);
-    EXPECT_EQ(ci_lin_vel_chan->max_val, 10);
-    EXPECT_EQ(ci_lin_vel_chan->units, DAQmx_Val_MetersPerSecond);
-    EXPECT_EQ(ci_lin_vel_chan->decoding_type, DAQmx_Val_X4);
-    EXPECT_DOUBLE_EQ(ci_lin_vel_chan->dist_per_pulse, 0.001);
-    EXPECT_EQ(ci_lin_vel_chan->terminal_a, "PFI0");
-    EXPECT_EQ(ci_lin_vel_chan->terminal_b, "PFI1");
-    ci_lin_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_lin_vel_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCILinVelocityChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 10);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_MetersPerSecond);
+    EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X4);
+    EXPECT_EQ(call["args"]["distPerPulse"], 0.001);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
@@ -1204,7 +1272,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
         {"type", "ci_velocity_linear"},
         {"key", "ks1VnWdrSVX"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -1212,29 +1280,29 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
         {"units", "in/s"},
         {"decoding_type", "X2"},
         {"dist_per_pulse", 0.01},
-        {"terminalA", ""},
-        {"terminalB", ""},
+        {"terminal_a", ""},
+        {"terminal_b", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_lin_vel_chan = dynamic_cast<channel::CILinearVelocity *>(chan.get());
-    ASSERT_NE(ci_lin_vel_chan, nullptr);
-    EXPECT_EQ(ci_lin_vel_chan->enabled, true);
-    EXPECT_EQ(ci_lin_vel_chan->port, 1);
-    EXPECT_EQ(ci_lin_vel_chan->min_val, 0);
-    EXPECT_EQ(ci_lin_vel_chan->max_val, 100);
-    EXPECT_EQ(ci_lin_vel_chan->units, DAQmx_Val_InchesPerSecond);
-    EXPECT_EQ(ci_lin_vel_chan->decoding_type, DAQmx_Val_X2);
-    EXPECT_DOUBLE_EQ(ci_lin_vel_chan->dist_per_pulse, 0.01);
-    EXPECT_EQ(ci_lin_vel_chan->terminal_a, "");
-    EXPECT_EQ(ci_lin_vel_chan->terminal_b, "");
-    ci_lin_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_lin_vel_chan->loc(), "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCILinVelocityChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 100);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_InchesPerSecond);
+    EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X2);
+    EXPECT_EQ(call["args"]["distPerPulse"], 0.01);
 }
 
 TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
@@ -1242,7 +1310,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
         {"type", "ci_velocity_angular"},
         {"key", "ks1VnWdrSVY"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -1250,29 +1318,30 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
         {"units", "RPM"},
         {"decoding_type", "X4"},
         {"pulses_per_rev", 24},
-        {"terminalA", "PFI2"},
-        {"terminalB", "PFI3"},
+        {"terminal_a", "PFI2"},
+        {"terminal_b", "PFI3"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_ang_vel_chan = dynamic_cast<channel::CIAngularVelocity *>(chan.get());
-    ASSERT_NE(ci_ang_vel_chan, nullptr);
-    EXPECT_EQ(ci_ang_vel_chan->enabled, true);
-    EXPECT_EQ(ci_ang_vel_chan->port, 0);
-    EXPECT_EQ(ci_ang_vel_chan->min_val, 0);
-    EXPECT_EQ(ci_ang_vel_chan->max_val, 1000);
-    EXPECT_EQ(ci_ang_vel_chan->units, DAQmx_Val_RPM);
-    EXPECT_EQ(ci_ang_vel_chan->decoding_type, DAQmx_Val_X4);
-    EXPECT_EQ(ci_ang_vel_chan->pulses_per_rev, 24);
-    EXPECT_EQ(ci_ang_vel_chan->terminal_a, "PFI2");
-    EXPECT_EQ(ci_ang_vel_chan->terminal_b, "PFI3");
-    ci_ang_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIAngVelocityChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 1000);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_RPM);
+    EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X4);
+    EXPECT_EQ(call["args"]["pulsesPerRev"], 24);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
@@ -1280,7 +1349,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
         {"type", "ci_velocity_angular"},
         {"key", "ks1VnWdrSVZ"},
         {"port", 2},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 0},
@@ -1288,29 +1357,29 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
         {"units", "Radians/s"},
         {"decoding_type", "X1"},
         {"pulses_per_rev", 100},
-        {"terminalA", ""},
-        {"terminalB", ""},
+        {"terminal_a", ""},
+        {"terminal_b", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_ang_vel_chan = dynamic_cast<channel::CIAngularVelocity *>(chan.get());
-    ASSERT_NE(ci_ang_vel_chan, nullptr);
-    EXPECT_EQ(ci_ang_vel_chan->enabled, true);
-    EXPECT_EQ(ci_ang_vel_chan->port, 2);
-    EXPECT_EQ(ci_ang_vel_chan->min_val, 0);
-    EXPECT_EQ(ci_ang_vel_chan->max_val, 100);
-    EXPECT_EQ(ci_ang_vel_chan->units, DAQmx_Val_RadiansPerSecond);
-    EXPECT_EQ(ci_ang_vel_chan->decoding_type, DAQmx_Val_X1);
-    EXPECT_EQ(ci_ang_vel_chan->pulses_per_rev, 100);
-    EXPECT_EQ(ci_ang_vel_chan->terminal_a, "");
-    EXPECT_EQ(ci_ang_vel_chan->terminal_b, "");
-    ci_ang_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr2");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIAngVelocityChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr2");
+    EXPECT_EQ(call["args"]["minVal"], 0);
+    EXPECT_EQ(call["args"]["maxVal"], 100);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_RadiansPerSecond);
+    EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X1);
+    EXPECT_EQ(call["args"]["pulsesPerRev"], 100);
 }
 
 TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
@@ -1318,7 +1387,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
         {"type", "ci_position_linear"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", -10},
@@ -1330,35 +1399,33 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
         {"z_index_enable", true},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBHigh"},
-        {"terminalA", "PFI0"},
-        {"terminalB", "PFI1"},
-        {"terminalZ", "PFI2"},
+        {"terminal_a", "PFI0"},
+        {"terminal_b", "PFI1"},
+        {"terminal_z", "PFI2"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_lin_pos_chan = dynamic_cast<channel::CILinearPosition *>(chan.get());
-    ASSERT_NE(ci_lin_pos_chan, nullptr);
-    EXPECT_EQ(ci_lin_pos_chan->enabled, true);
-    EXPECT_EQ(ci_lin_pos_chan->port, 0);
-    EXPECT_EQ(ci_lin_pos_chan->min_val, -10);
-    EXPECT_EQ(ci_lin_pos_chan->max_val, 10);
-    EXPECT_EQ(ci_lin_pos_chan->units, DAQmx_Val_Meters);
-    EXPECT_EQ(ci_lin_pos_chan->decoding_type, DAQmx_Val_X4);
-    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->dist_per_pulse, 0.001);
-    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->initial_pos, 0.0);
-    EXPECT_EQ(ci_lin_pos_chan->z_index_enable, true);
-    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->z_index_val, 0.0);
-    EXPECT_EQ(ci_lin_pos_chan->z_index_phase, DAQmx_Val_AHighBHigh);
-    EXPECT_EQ(ci_lin_pos_chan->terminal_a, "PFI0");
-    EXPECT_EQ(ci_lin_pos_chan->terminal_b, "PFI1");
-    EXPECT_EQ(ci_lin_pos_chan->terminal_z, "PFI2");
-    ci_lin_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_lin_pos_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCILinEncoderChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_Meters);
+    EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X4);
+    EXPECT_EQ(call["args"]["distPerPulse"], 0.001);
+    EXPECT_EQ(call["args"]["initialPos"], 0.0);
+    EXPECT_EQ(call["args"]["zidxEnable"], 1);
+    EXPECT_EQ(call["args"]["zidxVal"], 0.0);
+    EXPECT_EQ(call["args"]["zidxPhase"], DAQmx_Val_AHighBHigh);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCILinearPositionChanInches) {
@@ -1366,7 +1433,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
         {"type", "ci_position_linear"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", -100},
@@ -1378,35 +1445,32 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
         {"z_index_enable", false},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBLow"},
-        {"terminalA", ""},
-        {"terminalB", ""},
-        {"terminalZ", ""},
+        {"terminal_a", ""},
+        {"terminal_b", ""},
+        {"terminal_z", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_lin_pos_chan = dynamic_cast<channel::CILinearPosition *>(chan.get());
-    ASSERT_NE(ci_lin_pos_chan, nullptr);
-    EXPECT_EQ(ci_lin_pos_chan->enabled, true);
-    EXPECT_EQ(ci_lin_pos_chan->port, 1);
-    EXPECT_EQ(ci_lin_pos_chan->min_val, -100);
-    EXPECT_EQ(ci_lin_pos_chan->max_val, 100);
-    EXPECT_EQ(ci_lin_pos_chan->units, DAQmx_Val_Inches);
-    EXPECT_EQ(ci_lin_pos_chan->decoding_type, DAQmx_Val_X2);
-    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->dist_per_pulse, 0.01);
-    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->initial_pos, 5.0);
-    EXPECT_EQ(ci_lin_pos_chan->z_index_enable, false);
-    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->z_index_val, 0.0);
-    EXPECT_EQ(ci_lin_pos_chan->z_index_phase, DAQmx_Val_AHighBLow);
-    EXPECT_EQ(ci_lin_pos_chan->terminal_a, "");
-    EXPECT_EQ(ci_lin_pos_chan->terminal_b, "");
-    EXPECT_EQ(ci_lin_pos_chan->terminal_z, "");
-    ci_lin_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_lin_pos_chan->loc(), "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCILinEncoderChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_Inches);
+    EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X2);
+    EXPECT_EQ(call["args"]["distPerPulse"], 0.01);
+    EXPECT_EQ(call["args"]["initialPos"], 5.0);
+    EXPECT_EQ(call["args"]["zidxEnable"], 0);
+    EXPECT_EQ(call["args"]["zidxVal"], 0.0);
+    EXPECT_EQ(call["args"]["zidxPhase"], DAQmx_Val_AHighBLow);
 }
 
 TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
@@ -1414,7 +1478,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
         {"type", "ci_position_angular"},
         {"key", "ks1VnWdrSVC"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", -180},
@@ -1426,35 +1490,33 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
         {"z_index_enable", true},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBHigh"},
-        {"terminalA", "PFI10"},
-        {"terminalB", "PFI12"},
-        {"terminalZ", "PFI11"},
+        {"terminal_a", "PFI10"},
+        {"terminal_b", "PFI12"},
+        {"terminal_z", "PFI11"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_ang_pos_chan = dynamic_cast<channel::CIAngularPosition *>(chan.get());
-    ASSERT_NE(ci_ang_pos_chan, nullptr);
-    EXPECT_EQ(ci_ang_pos_chan->enabled, true);
-    EXPECT_EQ(ci_ang_pos_chan->port, 0);
-    EXPECT_EQ(ci_ang_pos_chan->min_val, -180);
-    EXPECT_EQ(ci_ang_pos_chan->max_val, 180);
-    EXPECT_EQ(ci_ang_pos_chan->units, DAQmx_Val_Degrees);
-    EXPECT_EQ(ci_ang_pos_chan->decoding_type, DAQmx_Val_X4);
-    EXPECT_EQ(ci_ang_pos_chan->pulses_per_rev, 24);
-    EXPECT_DOUBLE_EQ(ci_ang_pos_chan->initial_angle, 0.0);
-    EXPECT_EQ(ci_ang_pos_chan->z_index_enable, true);
-    EXPECT_DOUBLE_EQ(ci_ang_pos_chan->z_index_val, 0.0);
-    EXPECT_EQ(ci_ang_pos_chan->z_index_phase, DAQmx_Val_AHighBHigh);
-    EXPECT_EQ(ci_ang_pos_chan->terminal_a, "PFI10");
-    EXPECT_EQ(ci_ang_pos_chan->terminal_b, "PFI12");
-    EXPECT_EQ(ci_ang_pos_chan->terminal_z, "PFI11");
-    ci_ang_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIAngEncoderChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_Degrees);
+    EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X4);
+    EXPECT_EQ(call["args"]["pulsesPerRev"], 24);
+    EXPECT_EQ(call["args"]["initialAngle"], 0.0);
+    EXPECT_EQ(call["args"]["zidxEnable"], 1);
+    EXPECT_EQ(call["args"]["zidxVal"], 0.0);
+    EXPECT_EQ(call["args"]["zidxPhase"], DAQmx_Val_AHighBHigh);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
@@ -1462,7 +1524,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
         {"type", "ci_position_angular"},
         {"key", "ks1VnWdrSVD"},
         {"port", 2},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", -3.14},
@@ -1474,35 +1536,32 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
         {"z_index_enable", false},
         {"z_index_val", 0.0},
         {"z_index_phase", "ALowBLow"},
-        {"terminalA", ""},
-        {"terminalB", ""},
-        {"terminalZ", ""},
+        {"terminal_a", ""},
+        {"terminal_b", ""},
+        {"terminal_z", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_ang_pos_chan = dynamic_cast<channel::CIAngularPosition *>(chan.get());
-    ASSERT_NE(ci_ang_pos_chan, nullptr);
-    EXPECT_EQ(ci_ang_pos_chan->enabled, true);
-    EXPECT_EQ(ci_ang_pos_chan->port, 2);
-    EXPECT_EQ(ci_ang_pos_chan->min_val, -3.14);
-    EXPECT_EQ(ci_ang_pos_chan->max_val, 3.14);
-    EXPECT_EQ(ci_ang_pos_chan->units, DAQmx_Val_Radians);
-    EXPECT_EQ(ci_ang_pos_chan->decoding_type, DAQmx_Val_X1);
-    EXPECT_EQ(ci_ang_pos_chan->pulses_per_rev, 100);
-    EXPECT_DOUBLE_EQ(ci_ang_pos_chan->initial_angle, 1.57);
-    EXPECT_EQ(ci_ang_pos_chan->z_index_enable, false);
-    EXPECT_DOUBLE_EQ(ci_ang_pos_chan->z_index_val, 0.0);
-    EXPECT_EQ(ci_ang_pos_chan->z_index_phase, DAQmx_Val_ALowBLow);
-    EXPECT_EQ(ci_ang_pos_chan->terminal_a, "");
-    EXPECT_EQ(ci_ang_pos_chan->terminal_b, "");
-    EXPECT_EQ(ci_ang_pos_chan->terminal_z, "");
-    ci_ang_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr2");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIAngEncoderChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr2");
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_Radians);
+    EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X1);
+    EXPECT_EQ(call["args"]["pulsesPerRev"], 100);
+    EXPECT_EQ(call["args"]["initialAngle"], 1.57);
+    EXPECT_EQ(call["args"]["zidxEnable"], 0);
+    EXPECT_EQ(call["args"]["zidxVal"], 0.0);
+    EXPECT_EQ(call["args"]["zidxPhase"], DAQmx_Val_ALowBLow);
 }
 
 TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
@@ -1510,31 +1569,31 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
         {"type", "ci_duty_cycle"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 2},
         {"max_val", 10000},
-        {"activeEdge", "Rising"},
+        {"active_edge", "Rising"},
         {"terminal", "PFI0"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_duty_cycle_chan = dynamic_cast<channel::CIDutyCycle *>(chan.get());
-    ASSERT_NE(ci_duty_cycle_chan, nullptr);
-    EXPECT_EQ(ci_duty_cycle_chan->enabled, true);
-    EXPECT_EQ(ci_duty_cycle_chan->port, 0);
-    EXPECT_EQ(ci_duty_cycle_chan->min_val, 2);
-    EXPECT_EQ(ci_duty_cycle_chan->max_val, 10000);
-    EXPECT_EQ(ci_duty_cycle_chan->edge, DAQmx_Val_Rising);
-    EXPECT_EQ(ci_duty_cycle_chan->terminal, "PFI0");
-    ci_duty_cycle_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIDutyCycleChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
+    EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Rising);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
@@ -1542,30 +1601,29 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
         {"type", "ci_duty_cycle"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
-        {"enabled", true},
+        {"disabled", false},
         {"name", ""},
         {"channel", 0},
         {"min_val", 10},
         {"max_val", 5000},
-        {"activeEdge", "Falling"},
+        {"active_edge", "Falling"},
         {"terminal", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
-
     x::json::Parser p(j);
-    const auto chan = channel::parse_input(p);
+    const auto chan = channel::parse_input(p, "ni_counter_read");
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto ci_duty_cycle_chan = dynamic_cast<channel::CIDutyCycle *>(chan.get());
-    ASSERT_NE(ci_duty_cycle_chan, nullptr);
-    EXPECT_EQ(ci_duty_cycle_chan->enabled, true);
-    EXPECT_EQ(ci_duty_cycle_chan->port, 1);
-    EXPECT_EQ(ci_duty_cycle_chan->min_val, 10);
-    EXPECT_EQ(ci_duty_cycle_chan->max_val, 5000);
-    EXPECT_EQ(ci_duty_cycle_chan->edge, DAQmx_Val_Falling);
-    EXPECT_EQ(ci_duty_cycle_chan->terminal, "");
-    ci_duty_cycle_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(chan->enabled, true);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateCIDutyCycleChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
+    EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
 }
 }

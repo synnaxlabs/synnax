@@ -67,7 +67,7 @@ class HTTPWriteControl(HTTPWriteTaskCase):
                     data_type="float64",
                 ),
                 fields=[
-                    http.StaticField(
+                    http.StaticWriteField(
                         pointer="/mode",
                         json_type="string",
                         value="AUTO",

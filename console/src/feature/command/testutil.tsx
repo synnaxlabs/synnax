@@ -12,7 +12,6 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { type ReactElement, useState } from "react";
 
 import { Command } from "@/feature/command";
-import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
 import {
   type ConsolePreloadedState,
@@ -27,8 +26,6 @@ export interface RenderPaletteParams {
   commands?: Command.Command[];
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
-  /** Registered file ingesters, for commands that import components. */
-  fileIngesters?: Import.FileIngesters;
 }
 
 export interface PaletteHandle {
@@ -67,20 +64,18 @@ const CommandPalette = ({ commands }: CommandPaletteProps): ReactElement => {
  * Renders a domain's COMMANDS through the real command list plus a live modal stack, so
  * a spec can drive them end to end: filter, select, and interact with any modal a
  * command opens. Only commands are wired here; resource search lives in a separate seam.
- * Specs must opt in to stubGeometry() for the virtualized list.
  */
 export const renderPalette = async ({
   commands = [],
   client = null,
   preloadedState,
-  fileIngesters = {},
 }: RenderPaletteParams = {}): Promise<PaletteHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
   render(
-    <Import.FileIngestersProvider fileIngesters={fileIngesters}>
+    <>
       <CommandPalette commands={commands} />
       <Modals.Stack />
-    </Import.FileIngestersProvider>,
+    </>,
     { wrapper },
   );
   const openCommandPalette = async (text = ""): Promise<void> => {

@@ -34,28 +34,22 @@ type TabVariant = v0.TabVariant
 type TabType = v0.TabType
 
 const (
-	// TabTypeResource is a tab displaying a backing core document.
-	TabTypeResource TabType = v0.TabTypeResource
-	// TabTypeView is a tab displaying an inline, self-describing view. Unlike a
+	// ResourceTabType is a tab displaying a backing core document.
+	ResourceTabType TabType = v0.ResourceTabType
+	// ViewTabType is a tab displaying an inline, self-describing view. Unlike a
 	// resource, a view has no backing core document: it carries its own type and opaque
 	// args. Used for app-views and tools (docs, explorers, task forms, and the selector
 	// pickers).
-	TabTypeView TabType = v0.TabTypeView
+	ViewTabType TabType = v0.ViewTabType
 )
 
-// TabResource is a tab displaying a backing core document.
-type TabResource = v0.TabResource
+// ResourceTab is a tab displaying a backing core document.
+type ResourceTab = v0.ResourceTab
 
-// TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
+// ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
 // view has no backing core document: it carries its own type and opaque args. Used for
 // app-views and tools (docs, explorers, task forms, and the selector pickers).
-type TabView = v0.TabView
-
-// Leaf is a leaf node in the panel tree displaying a tab strip.
-type Leaf = v0.Leaf
-
-// Split is an interior split node dividing its area between two children.
-type Split = v0.Split
+type ViewTab = v0.ViewTab
 
 // Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
@@ -65,17 +59,20 @@ type NodeVariant = v0.NodeVariant
 type NodeType = v0.NodeType
 
 const (
-	NodeTypeLeaf  NodeType = v0.NodeTypeLeaf
-	NodeTypeSplit NodeType = v0.NodeTypeSplit
+	// LeafNodeType is a leaf node in the panel tree displaying a tab strip.
+	LeafNodeType NodeType = v0.LeafNodeType
+	// SplitNodeType is an interior split node dividing its area between two children.
+	SplitNodeType NodeType = v0.SplitNodeType
 )
 
-type NodeLeaf = v0.NodeLeaf
-type NodeSplit = v0.NodeSplit
+// LeafNode is a leaf node in the panel tree displaying a tab strip.
+type LeafNode = v0.LeafNode
+
+// SplitNode is an interior split node dividing its area between two children.
+type SplitNode = v0.SplitNode
 
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = v0.Key
 
-// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
-// a project (project panel) or by a user (draft); renaming a draft promotes it to
-// project ownership.
+// Panel is a project-owned tab holding a tree of visualization tabs.
 type Panel = v0.Panel

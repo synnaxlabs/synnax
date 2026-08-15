@@ -74,7 +74,7 @@ const loadSVG = async (
 };
 
 const findNameInput = (): HTMLInputElement =>
-  screen.getByPlaceholderText<HTMLInputElement>("Symbol Name");
+  screen.getByPlaceholderText<HTMLInputElement>("Symbol name");
 
 describe("Schematic.Symbol.Edit.useModal", () => {
   describe("create mode", () => {
@@ -120,7 +120,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Colors"));
       expect(await screen.findByText("Region 1")).toBeDefined();
-      expect(screen.getByText("0 Elements")).toBeDefined();
+      expect(screen.getByText("0 elements")).toBeDefined();
     });
 
     it("adds a placeable handle at the symbol center", async () => {
@@ -230,11 +230,16 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, parent: group.ontologyID(grp.key) }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      const nameInput = await waitFor(() => {
-        const input = findNameInput();
-        expect(input.value).toBe(original);
-        return input;
-      });
+      // The modal suspends on the symbol retrieve, which can outlast the default
+      // waitFor timeout on a loaded CI machine.
+      const nameInput = await waitFor(
+        () => {
+          const input = findNameInput();
+          expect(input.value).toBe(original);
+          return input;
+        },
+        { timeout: 5000 },
+      );
       const renamed = uniqueName("renamed_symbol");
       fireEvent.change(nameInput, { target: { value: renamed } });
       fireEvent.click(findButton("Save"));

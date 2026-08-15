@@ -1,0 +1,30 @@
+{
+  "type": "ethercat_read",
+  "autoStart": true,
+  "dataSaving": false,
+  "sampleRate": 765.5,
+  "streamRate": 76.5,
+  "channels": [
+    {
+      "type": "automatic",
+      "device": "fixture-ecat-slave-1",
+      "name": "fixture_ecat_auto_in",
+      "enabled": true,
+      "key": "ch-ecat-auto-in",
+      "pdo": "Analog Input Ch1",
+      "channel": 9010
+    },
+    {
+      "type": "manual",
+      "device": "fixture-ecat-slave-2",
+      "name": "fixture_ecat_manual_in",
+      "enabled": false,
+      "key": "ch-ecat-manual-in",
+      "index": 24592,
+      "subindex": 3,
+      "bitLength": 32,
+      "dataType": "float32",
+      "channel": 9020
+    }
+  ]
+}

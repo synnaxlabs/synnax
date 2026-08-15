@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -17,9 +18,7 @@ import (
 
 var _ = Describe("Command", func() {
 	Describe("String", func() {
-		// key composes rack key 65538 (node 1, local 2) in the high 32 bits and local
-		// task key 7 in the low 32.
-		const key = task.Key(65538<<32 | 7)
+		key := task.Key(uuid.MustParse("0192a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"))
 
 		It("Should include the type, key, and target task", func() {
 			c := task.Command{Type: "start", Key: "cmd-1", Task: key}

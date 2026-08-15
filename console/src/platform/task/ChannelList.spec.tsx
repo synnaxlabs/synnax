@@ -56,8 +56,8 @@ const Harness = ({
 };
 Harness.displayName = "ChannelListHarness";
 
-const CHANNEL_A: Task.Channel = { key: "a", enabled: true };
-const CHANNEL_B: Task.Channel = { key: "b", enabled: false };
+const CHANNEL_A: Task.Channel = { key: "a", disabled: false };
+const CHANNEL_B: Task.Channel = { key: "b", disabled: true };
 
 const twoChannels = { config: { channels: [CHANNEL_A, CHANNEL_B] } };
 
@@ -80,7 +80,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByText("item-a"));
       fireEvent.click(await screen.findByText("Disable"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels.a.enabled").value).toBe(false),
+        expect(form.current?.get("config.channels.a.disabled").value).toBe(true),
       );
     });
 
@@ -89,7 +89,7 @@ describe("ChannelList", () => {
       fireEvent.contextMenu(await screen.findByText("item-b"));
       fireEvent.click(await screen.findByText("Enable"));
       await waitFor(() =>
-        expect(form.current?.get("config.channels.b.enabled").value).toBe(true),
+        expect(form.current?.get("config.channels.b.disabled").value).toBe(false),
       );
     });
 
@@ -144,7 +144,7 @@ describe("ChannelList", () => {
         { values: { ...twoChannels, snapshot: true } },
       );
       fireEvent.contextMenu(await screen.findByText("item-a"));
-      await waitFor(() => expect(screen.getByText("Reload console")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
       expect(screen.queryByText("Remove")).toBeNull();
       expect(screen.queryByText("Duplicate")).toBeNull();
       expect(screen.queryByText("Disable")).toBeNull();

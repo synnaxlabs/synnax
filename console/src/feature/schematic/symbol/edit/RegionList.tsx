@@ -63,8 +63,8 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
         </Form.Field>
       </Flex.Box>
       <Flex.Box x align="center" gap={1}>
-        <Text.Text level="small" color={7}>
-          {region?.selectors?.length || 0} Elements
+        <Text.Text level="small" color={9}>
+          {region?.selectors?.length || 0} elements
         </Text.Text>
         <Form.Field<color.Color> path={`${path}.strokeColor`} showLabel={false}>
           {({ onChange, value }) => (
@@ -80,7 +80,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
           onClick={() => remove(itemKey)}
           size="small"
           variant="text"
-          ghost
+          reveal
         >
           <Icon.Close />
         </Button.Button>
@@ -100,12 +100,12 @@ export const RegionList = ({
   );
   return (
     <Flex.Box y gap={1} className={CSS.B("schematic-region-list")}>
-      <Header.Header level="p" padded bordered={false}>
+      <Header.Header level="p" bordered={false}>
         <Header.Title level="p" weight={500}>
           Colors
         </Header.Title>
         <Header.Actions>
-          <Text.Text level="p" color={7} gap={3}>
+          <Text.Text level="p" color={9} gap={3}>
             <Tooltip.Dialog>
               <Text.Text level="small">Stroke Color</Text.Text>
               <Flex.Box>
@@ -119,7 +119,7 @@ export const RegionList = ({
               </Flex.Box>
             </Tooltip.Dialog>
           </Text.Text>
-          <Button.Button onClick={onAddRegion} size="small" variant="outlined">
+          <Button.Button onClick={onAddRegion} size="small" variant="filled">
             <Icon.Add />
           </Button.Button>
         </Header.Actions>

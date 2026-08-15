@@ -21,8 +21,7 @@ export interface SymbolProps extends types.SymbolProps<Config> {}
 
 export const Symbol = ({ config: { channel } }: SymbolProps) => {
   const name =
-    Channel.useRetrieve({ key: channel }, { addStatusOnFailure: false }).data?.name ??
-    "Channel";
+    Channel.useResultName(channel > 0 ? { key: channel } : null).data ?? "Channel";
 
   return (
     <Base

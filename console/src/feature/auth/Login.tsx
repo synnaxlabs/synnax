@@ -9,27 +9,29 @@
 
 import "@/feature/auth/Login.css";
 
-import { Logo } from "@synnaxlabs/media";
 import {
   Button,
   Flex,
   Form,
+  Icon,
   type Input,
   Status,
   Synnax,
-  Text,
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
-import { LoginNav } from "@/feature/auth/LoginNav";
+import { Shell } from "@/feature/shell";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
+import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
 const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
+
+type Step = "clusters" | "login";
 
 const credentialsZ = z.object({
   username: z.string().min(1, "Username is required"),
@@ -48,28 +50,23 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   size: "large",
 };
 
-export interface LoginProps {
-  /** Renders the window nav chrome above the surface. Off in child windows. */
-  nav?: boolean;
-}
-
 /**
- * Full-screen login surface: cluster selection plus credential entry. Serves
- * both initial login (no session selected) and credential re-entry when the
- * active cluster rejects auth, in which case the live connection status is
- * shown and submitting for the active cluster resumes its connection.
+ * Full-screen login surface. Serves both initial login and credential re-entry
+ * after the active cluster rejects auth, where submitting resumes its connection.
  */
-export const Login = ({ nav = true }: LoginProps): ReactElement => {
+export const Login = (): ReactElement => {
   const client = Synnax.use();
   const connStatus = Synnax.useConnectionStatus();
   const servingCluster = Cluster.detectConnection();
   const clusters = Session.Cluster.useSelectMany();
   const activeKey = Session.Cluster.useSelectSelectedKey();
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(
-    activeKey ?? clusters[0]?.key,
-  );
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(activeKey);
   const selectedCluster = Session.Cluster.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
+  const [step, setStep] = useState<Step>(() =>
+    servingCluster != null || activeKey != null ? "login" : "clusters",
+  );
+  const target = servingCluster ?? selectedCluster;
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
@@ -95,90 +92,78 @@ export const Login = ({ nav = true }: LoginProps): ReactElement => {
     (key?: string) => {
       if (key == null) return;
       const next = clusters.find((c) => c.key === key);
-      methods.reset({ username: next?.username ?? "", password: "" });
+      if (next == null) return;
+      methods.reset({ username: next.username ?? "", password: "" });
       setSelectedKey(key);
+      setStep("login");
     },
     [methods, clusters],
   );
 
   return (
-    <Flex.Box y empty className={CSS.B("login")}>
-      {nav && <LoginNav />}
-      <Flex.Box
-        y
-        align="center"
-        justify="center"
-        background={1}
-        gap="huge"
-        grow
-        data-tauri-drag-region
-        className={CSS.BE("login", "content")}
-      >
-        <Logo
-          variant="title"
-          className={CSS.BE("login", "logo")}
-          data-tauri-drag-region
+    <Shell.Frame
+      className={CSS(CSS.B("login"), CSS.M(`step-${step}`))}
+      connection={step === "login" ? target : undefined}
+    >
+      {step === "clusters" ? (
+        <Cluster.List
+          className={CSS.BE("shell", "list")}
+          value={undefined}
+          onChange={handleSelectedClusterChange}
         />
-        <Flex.Box
-          pack
-          x
-          className={CSS(
-            CSS.BE("login", "container"),
-            servingCluster != null && CSS.M("narrow"),
-          )}
-          grow={false}
-          rounded={1.5}
-          background={0}
-        >
+      ) : (
+        <Flex.Box y gap="huge" className={CSS.BE("login", "form")} grow>
           {servingCluster == null && (
-            <Cluster.List
-              className={CSS.BE("login", "list")}
-              value={selectedKey}
-              onChange={handleSelectedClusterChange}
-            />
+            <Button.Button
+              variant="text"
+              className={CSS.BE("login", "back")}
+              onClick={() => setStep("clusters")}
+            >
+              <Icon.Arrow.Left />
+            </Button.Button>
           )}
-          <Flex.Box
-            y
-            gap="huge"
-            className={CSS.BE("login", "form")}
-            bordered
-            grow
-            shrink={false}
-          >
-            <Form.Form<typeof credentialsZ> {...methods}>
-              <Flex.Box y align="center" grow gap="huge" shrink={false}>
-                <Text.Text level="h2" color={11} weight={450}>
-                  Log In
-                </Text.Text>
-                <Flex.Box y full="x" empty>
-                  <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
-                  <Form.TextField path="password" inputProps={PASSWORD_INPUT_PROPS} />
-                </Flex.Box>
-                <Flex.Box gap="small" align="center">
-                  {client != null && (
-                    <Flex.Box className={CSS.BE("login", "status")}>
-                      {connStatus.message !== "" && (
-                        <Status.Summary
-                          variant={connStatus.variant}
-                          message={connStatus.message}
-                        />
-                      )}
-                    </Flex.Box>
-                  )}
-                  <Button.Button
-                    onClick={handleSubmit}
-                    trigger={LOG_IN_TRIGGER}
-                    variant="filled"
-                    size="large"
-                  >
-                    Log In
-                  </Button.Button>
-                </Flex.Box>
+          <Form.Form<typeof credentialsZ> {...methods}>
+            <Flex.Box y align="center" justify="center" grow gap="huge" shrink={false}>
+              <PlatformShell.Mark />
+              <Flex.Box y full="x" empty>
+                <Form.TextField
+                  path="username"
+                  required={false}
+                  inputProps={USERNAME_INPUT_PROPS}
+                />
+                <Form.TextField
+                  path="password"
+                  required={false}
+                  inputProps={PASSWORD_INPUT_PROPS}
+                />
               </Flex.Box>
-            </Form.Form>
-          </Flex.Box>
+              <Flex.Box gap="small" align="center" full="x">
+                {client != null && (
+                  <Flex.Box className={CSS.BE("login", "status")}>
+                    {connStatus.message !== "" && (
+                      <Status.Summary
+                        variant={connStatus.variant}
+                        message={connStatus.message}
+                      />
+                    )}
+                  </Flex.Box>
+                )}
+                <Button.Button
+                  onClick={handleSubmit}
+                  trigger={LOG_IN_TRIGGER}
+                  variant="filled"
+                  size="large"
+                  full="x"
+                  justify="center"
+                >
+                  Log In
+                  <Icon.Arrow.Right />
+                </Button.Button>
+              </Flex.Box>
+            </Flex.Box>
+          </Form.Form>
         </Flex.Box>
-      </Flex.Box>
-    </Flex.Box>
+      )}
+    </Shell.Frame>
   );
 };

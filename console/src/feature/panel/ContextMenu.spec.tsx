@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, schematic } from "@synnaxlabs/client";
+import { panel, project, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon, Menu } from "@synnaxlabs/pluto";
@@ -17,6 +17,7 @@ import {
   fireEvent,
   render,
   renderHook,
+  type RenderResult,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -24,6 +25,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Panel as PanelFeature } from "@/feature/panel";
+import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import {
   createPanelWrapper,
@@ -31,7 +33,7 @@ import {
   primePanel,
 } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { awaitTextEditingElement } from "@/testutil";
+import { awaitTextEditingElement, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -90,7 +92,7 @@ describe("Panel.TabMenuItems", () => {
       const tab = viewTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, [tab.key]);
-      await waitFor(() => expect(screen.getByText("Reload console")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
       expect(screen.queryByText("Rename")).toBeNull();
     });
 
@@ -98,8 +100,8 @@ describe("Panel.TabMenuItems", () => {
       const tab = resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       const service: Panel.EditableTabNameService = {
-        useEnsureRetrieved: vi.fn(),
-        useSelectName: () => "Resolved Name",
+        useEnsure: vi.fn(),
+        useName: () => "Resolved Name",
         useRename: () => ({ update: vi.fn() }),
       };
       const Name = Panel.createEditableTabName(service, <Icon.Schematic />);
@@ -157,7 +159,7 @@ describe("Panel.TabMenuItems", () => {
       const tab = resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       renderMenu(wrapper, []);
-      await waitFor(() => expect(screen.getByText("Reload console")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
       expect(screen.queryByText("Rename")).toBeNull();
       expect(screen.queryByText("Focus")).toBeNull();
     });
@@ -207,6 +209,81 @@ describe("Panel.TabMenuItems", () => {
         expect(panel.findTab(src.root, moved.key)).toBeUndefined();
         expect(panel.findTab(src.root, stays.key)).toBeDefined();
         expect(panel.findTab(dst.root, moved.key)).toEqual(moved);
+      });
+    });
+  });
+
+  describe("move to panel", () => {
+    it("opens the picker on the tab the menu was opened on", async () => {
+      const projectKey = (
+        await client.projects.create({ name: uniqueName("project"), layout: {} })
+      ).key;
+      const parent = project.ontologyID(projectKey);
+      const [front, moved] = [resourceTab(), resourceTab()];
+      const source = await client.panels.create({
+        key: uuid.create(),
+        name: uniqueName("panel"),
+        parent,
+        // The menu opens on the second tab, so a picker fed the panel's front tab
+        // instead moves the wrong one.
+        root: { variant: "leaf", tabs: [front, moved] },
+      });
+      const destination = await client.panels.create({
+        key: uuid.create(),
+        name: uniqueName("panel"),
+        parent,
+        root: { variant: "leaf", tabs: [] },
+      });
+      const { wrapper } = await createPanelWrapper({
+        client,
+        project: projectKey,
+        panelKey: source.key,
+        tabKey: moved.key,
+      });
+
+      let rerender!: RenderResult["rerender"];
+      await act(async () => {
+        ({ rerender } = render(
+          <>
+            <Menu.Menu>
+              <PanelFeature.TabMenuItems
+                keys={[moved.key]}
+                visible
+                position={{ x: 0, y: 0 }}
+                cursor={{ x: 0, y: 0 }}
+              />
+            </Menu.Menu>
+            <Modals.Stack />
+          </>,
+          { wrapper },
+        ));
+      });
+      await screen.findByText("Move to panel");
+      await act(async () => {
+        fireEvent.click(screen.getByText("Move to panel"));
+      });
+
+      const row = await screen.findByText(destination.name);
+      // The production menu closes on click; the harness drops it so the menu's
+      // tab-scoped selectors don't re-evaluate against the moved tab. The empty slot
+      // holds the stack's position, which remounting would tear the open modal down.
+      rerender(
+        <>
+          {null}
+          <Modals.Stack />
+        </>,
+      );
+      await act(async () => {
+        fireEvent.click(row);
+      });
+      await waitFor(async () => {
+        const [src, dst] = await Promise.all([
+          client.panels.retrieve(source.key),
+          client.panels.retrieve(destination.key),
+        ]);
+        expect(panel.findTab(dst.root, moved.key)).toEqual(moved);
+        expect(panel.findTab(src.root, moved.key)).toBeUndefined();
+        expect(panel.findTab(src.root, front.key)).toBeDefined();
       });
     });
   });

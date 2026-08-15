@@ -13,13 +13,14 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -563,12 +564,34 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 			parentGoName+": "+b.formatComposite(parentGoType, parentFieldExprs),
 		)
 	}
-	childFieldExprs, err := b.buildFieldExprs(form.Fields)
+	childFieldExprs, err := b.buildFieldExprs(
+		declaredFields(form.Extends, form.Fields, b.table),
+	)
 	if err != nil {
 		return nil, err
 	}
 	exprs = append(exprs, childFieldExprs...)
 	return exprs, nil
+}
+
+// declaredFields drops fields that restate an inherited default without changing
+// the type. An embedded parent declares them, so the type has no own member.
+func declaredFields(
+	extends []resolution.TypeRef,
+	fields []resolution.Field,
+	table *resolution.Table,
+) []resolution.Field {
+	defaultOnly := resolver.DefaultOnlyOverrides(extends, fields, table)
+	if len(defaultOnly) == 0 {
+		return fields
+	}
+	own := make([]resolution.Field, 0, len(fields))
+	for _, f := range fields {
+		if !defaultOnly.Contains(f.Name) {
+			own = append(own, f)
+		}
+	}
+	return own
 }
 
 // isGoPointerField reports whether an optional field of the given type is
@@ -585,7 +608,7 @@ func (b *testValueBuilder) isGoPointerField(ref resolution.TypeRef) bool {
 	case resolution.BuiltinGenericForm:
 		return form.Name != "Array" && form.Name != "Map"
 	case resolution.PrimitiveForm:
-		return form.Name != "record" && form.Name != "any"
+		return form.Name != "record"
 	}
 	return true
 }
@@ -820,7 +843,11 @@ func (b *testValueBuilder) unionExpr(
 				),
 			)
 		}
-		fieldExprs, err := b.buildFieldExprs(pform.Fields)
+		fieldExprs, err := b.buildFieldExprs(declaredFields(
+			append(slices.Clone(form.Extends), pform.Extends...),
+			pform.Fields,
+			b.table,
+		))
 		if err != nil {
 			return "", err
 		}
@@ -902,7 +929,9 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		}
 		base = fmt.Sprintf(`%s.EncodedJSON{"key_%d": "value_%d"}`, qualifier, idx, idx)
 	case "any":
-		base = fmt.Sprintf(`map[string]interface{}{"key_%d": "value_%d"}`, idx, idx)
+		// Wrap in any(...) so an optional field pointerizes to *any instead of
+		// *map[string]any.
+		base = fmt.Sprintf(`any(map[string]any{"key_%d": "value_%d"})`, idx, idx)
 	default:
 		return "", errors.Newf("unsupported primitive for test value: %s", primName)
 	}

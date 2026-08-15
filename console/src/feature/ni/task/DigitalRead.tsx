@@ -15,30 +15,23 @@ import { type FC } from "react";
 import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
-import { createDIChannel } from "@/feature/ni/task/createChannel";
+import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
 import {
+  deployDigitalReadConfigZ,
   type DIChannel,
   DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
   digitalReadConfigZ,
   type DigitalReadSchemas,
-  ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const DigitalReadSelectable = Selector.createSelectable({
-  type: DIGITAL_READ_TYPE,
-  title: "NI Digital Read Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(DIGITAL_READ_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -65,10 +58,9 @@ const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<Task.FormProps<DigitalReadSchemas>> = (props) => (
+const Form: FC = () => (
   <DigitalChannelList<DIChannel>
-    {...props}
-    createChannel={createDIChannel}
+    createChannel={createNextDIChannel}
     name={name}
     contextMenuItems={Task.readChannelContextMenuItem}
   />
@@ -78,14 +70,9 @@ const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null
-      ? digitalReadConfigZ.parse(config)
-      : ZERO_DIGITAL_READ_PAYLOAD.config;
-  return {
-    ...ZERO_DIGITAL_READ_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = digitalReadConfigZ.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "NI Digital Read Task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
@@ -163,7 +150,19 @@ export const DigitalRead = Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_READ_SCHEMAS,
+  deployConfigZ: deployDigitalReadConfigZ,
   getInitialValues,
   onConfigure,
   type: "ni_digital_read",
+});
+
+export const useCreateDigitalRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const DigitalReadSelectable = Selector.createSelectable({
+  type: DIGITAL_READ_TYPE,
+  title: "NI Digital Read Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateDigitalRead,
 });

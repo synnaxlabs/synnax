@@ -7,172 +7,48 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
-import { DataType, id, record } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { modbus, type task } from "@synnaxlabs/client";
+import { record } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { Task } from "@/platform/task";
 
 export const PREFIX = "modbus";
 
-const baseInputZ = Task.readChannelZ.extend({ address: z.number() });
+export type ReadChannel = modbus.ReadChannel;
+export type ReadChannelType = modbus.ReadChannelType;
+export type TypedReadChannel =
+  modbus.HoldingRegisterReadChannel | modbus.InputRegisterReadChannel;
 
-const coilInputZ = baseInputZ.extend({ type: z.literal("coil_input") });
+export const READ_CHANNEL_SCHEMAS = modbus.READ_CHANNEL_SCHEMAS;
 
-const discreteInputZ = baseInputZ.extend({ type: z.literal("discrete_input") });
-
-const typedInputZ = baseInputZ.extend({ dataType: z.string() });
-
-export interface TypedInput extends z.infer<typeof typedInputZ> {}
-
-const holdingRegisterInputZ = typedInputZ.extend({
-  type: z.literal("holding_register_input"),
-});
-
-const registerInputZ = typedInputZ.extend({ type: z.literal("register_input") });
-
-const variableDensityInputChannelZ = z.union([holdingRegisterInputZ, registerInputZ]);
-
-type VariableDensityInputChannel = z.infer<typeof variableDensityInputChannelZ>;
-
-const fixedDensityInputChannelZ = z.union([coilInputZ, discreteInputZ]);
-
-const inputChannelZ = z.union([
-  fixedDensityInputChannelZ,
-  variableDensityInputChannelZ,
+const VARIABLE_DENSITY_READ_CHANNEL_TYPES = new Set<ReadChannelType>([
+  "holding_register",
+  "input_register",
 ]);
 
-export type InputChannel = z.infer<typeof inputChannelZ>;
+export const isVariableDensityReadChannel = (
+  channel: ReadChannel,
+): channel is TypedReadChannel => VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
 
-export type InputChannelType = InputChannel["type"];
+export type WriteChannel = modbus.WriteChannel;
+export type WriteChannelType = modbus.WriteChannelType;
 
-export const ZERO_INPUT_CHANNELS = {
-  coil_input: {
-    type: "coil_input",
-    address: 0,
-    channel: 0,
-    enabled: true,
-    key: id.create(),
-    name: "",
-  },
-  discrete_input: {
-    type: "discrete_input",
-    address: 0,
-    channel: 0,
-    enabled: true,
-    key: id.create(),
-    name: "",
-  },
-  holding_register_input: {
-    type: "holding_register_input",
-    address: 0,
-    channel: 0,
-    enabled: true,
-    key: id.create(),
-    dataType: DataType.UINT8.toString(),
-    name: "",
-  },
-  register_input: {
-    type: "register_input",
-    dataType: DataType.UINT8.toString(),
-    address: 0,
-    channel: 0,
-    enabled: true,
-    key: id.create(),
-    name: "",
-  },
-} as const satisfies Record<InputChannelType, InputChannel>;
-
-export const INPUT_CHANNEL_SCHEMAS: Record<
-  InputChannelType,
-  z.ZodType<InputChannel>
-> = {
-  coil_input: coilInputZ,
-  discrete_input: discreteInputZ,
-  holding_register_input: holdingRegisterInputZ,
-  register_input: registerInputZ,
-};
-
-const VARIABLE_DENSITY_INPUT_CHANNEL_TYPES = new Set([
-  "holding_register_input",
-  "register_input",
-]);
-
-const isVariableDensityInputChannelType = (
-  type: InputChannelType,
-): type is VariableDensityInputChannel["type"] =>
-  VARIABLE_DENSITY_INPUT_CHANNEL_TYPES.has(type);
-
-export const isVariableDensityInputChannel = (
-  channel: InputChannel,
-): channel is VariableDensityInputChannel =>
-  isVariableDensityInputChannelType(channel.type);
-
-const baseOutputZ = Task.channelZ.extend({
-  address: z.number(),
-  channel: z.number(),
-  name: Task.nameZ,
-});
-
-const coilOutputZ = baseOutputZ.extend({ type: z.literal("coil_output") });
-
-const holdingRegisterOutputZ = baseOutputZ.extend({
-  type: z.literal("holding_register_output"),
-  dataType: z.string(),
-});
-
-const outputChannelZ = z.union([coilOutputZ, holdingRegisterOutputZ]);
-
-export type OutputChannel = z.infer<typeof outputChannelZ>;
-
-export type OutputChannelType = OutputChannel["type"];
-
-export const ZERO_OUTPUT_CHANNELS = {
-  coil_output: {
-    type: "coil_output",
-    address: 0,
-    channel: 0,
-    enabled: true,
-    key: id.create(),
-    name: "",
-  },
-  holding_register_output: {
-    type: "holding_register_output",
-    address: 0,
-    channel: 0,
-    enabled: true,
-    key: id.create(),
-    dataType: DataType.UINT8.toString(),
-    name: "",
-  },
-} as const satisfies Record<OutputChannelType, OutputChannel>;
-
-export const OUTPUT_CHANNEL_SCHEMAS: Record<
-  OutputChannelType,
-  z.ZodType<OutputChannel>
-> = {
-  coil_output: coilOutputZ,
-  holding_register_output: holdingRegisterOutputZ,
-};
+export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const readConfigZ = Task.baseReadConfigZ
+export interface ReadConfig extends modbus.ReadConfig {}
+
+export const readConfigZ = modbus.readConfigZ;
+
+export const deployReadConfigZ = modbus.readConfigZ
   .extend({
-    channels: z.array(inputChannelZ),
+    device: Task.deviceKeyZ,
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
   .check(Task.validateStreamRate);
-
-interface ReadConfig extends z.infer<typeof readConfigZ> {}
-
-const ZERO_READ_CONFIG = {
-  ...Task.ZERO_BASE_READ_CONFIG,
-  channels: [],
-  sampleRate: 10,
-  streamRate: 5,
-} as const satisfies ReadConfig;
 
 const readStatusDataZ = z
   .object({
@@ -191,29 +67,15 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-interface ReadPayload extends task.Payload<ReadSchemas> {}
-
-export const ZERO_READ_PAYLOAD = {
-  key: "",
-  name: "Modbus Read Task",
-  config: ZERO_READ_CONFIG,
-  type: READ_TYPE,
-  internal: false,
-  snapshot: false,
-} as const satisfies ReadPayload;
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeConfigZ = Task.baseConfigZ.extend({
-  channels: z.array(outputChannelZ),
+export interface WriteConfig extends modbus.WriteConfig {}
+
+export const writeConfigZ = modbus.writeConfigZ;
+
+export const deployWriteConfigZ = modbus.writeConfigZ.extend({
+  device: Task.deviceKeyZ,
 });
-
-interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-const ZERO_WRITE_CONFIG = {
-  ...Task.ZERO_BASE_CONFIG,
-  channels: [],
-} as const satisfies WriteConfig;
 
 const writeStatusDataZ = z
   .object({
@@ -231,17 +93,6 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-interface WritePayload extends task.Payload<WriteSchemas> {}
-
-export const ZERO_WRITE_PAYLOAD = {
-  key: "",
-  name: "Modbus Write Task",
-  config: ZERO_WRITE_CONFIG,
-  type: WRITE_TYPE,
-  internal: false,
-  snapshot: false,
-} as const satisfies WritePayload;
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

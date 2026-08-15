@@ -9,48 +9,46 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import {
-  ANALOG_READ_TYPE,
-  ANALOG_WRITE_TYPE,
-  COUNTER_READ_TYPE,
-  DIGITAL_READ_TYPE,
-  DIGITAL_WRITE_TYPE,
-} from "@/feature/ni/task/types";
+import { useCreateAnalogRead } from "@/feature/ni/task/AnalogRead";
+import { useCreateAnalogWrite } from "@/feature/ni/task/AnalogWrite";
+import { useCreateCounterRead } from "@/feature/ni/task/CounterRead";
+import { useCreateDigitalRead } from "@/feature/ni/task/DigitalRead";
+import { useCreateDigitalWrite } from "@/feature/ni/task/DigitalWrite";
 import { Task } from "@/platform/task";
 
 const CreateAnalogReadCommand = Task.createCommand({
   key: "ni_create_analog_read_task",
   name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  type: ANALOG_READ_TYPE,
+  useOnSelect: useCreateAnalogRead,
 });
 
 const CreateAnalogWriteCommand = Task.createCommand({
   key: "ni_create_analog_write_task",
   name: "Create an NI Analog Write Task",
   icon: <Icon.Logo.NI />,
-  type: ANALOG_WRITE_TYPE,
+  useOnSelect: useCreateAnalogWrite,
 });
 
 const CreateCounterReadCommand = Task.createCommand({
   key: "ni_create_counter_read_task",
   name: "Create an NI Counter Read Task",
   icon: <Icon.Logo.NI />,
-  type: COUNTER_READ_TYPE,
+  useOnSelect: useCreateCounterRead,
 });
 
 const CreateDigitalWriteCommand = Task.createCommand({
   key: "ni_create_digital_write_task",
   name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  type: DIGITAL_WRITE_TYPE,
+  useOnSelect: useCreateDigitalWrite,
 });
 
 const CreateDigitalReadCommand = Task.createCommand({
   key: "ni_create_digital_read_task",
   name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  type: DIGITAL_READ_TYPE,
+  useOnSelect: useCreateDigitalRead,
 });
 
 export const COMMANDS = [

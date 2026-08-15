@@ -9,8 +9,8 @@
 
 import { Button, Status, Synnax } from "@synnaxlabs/pluto";
 
-import { Version } from "@/feature/version";
 import { type Notifications } from "@/platform/notifications";
+import { Version } from "@/platform/version";
 
 const isMismatch = (status: Notifications.NotificationProps["status"]): boolean => {
   const details = Synnax.statusDetailsSchema.safeParse(status.details);

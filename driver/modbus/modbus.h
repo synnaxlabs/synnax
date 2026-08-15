@@ -29,7 +29,8 @@ public:
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override;
 
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>

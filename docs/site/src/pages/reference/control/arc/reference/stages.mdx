@@ -30,14 +30,16 @@ while the stage is active.
 
 ### Stage Body Syntax
 
-```arc
+```arc channels="press_vlv_cmd, sensor, pressure, abort_btn", bodies="abort"
 stage pressurize {
-    // Continuous flows (run every cycle)
-    true -> press_vlv_cmd
-    sensor -> controller{}
     // Conditional transitions (propagate while truthy)
     pressure > 500 => next
     abort_btn => abort
+
+    // Continuous flows (run every cycle)
+    true -> press_vlv_cmd
+    sensor -> controller{}
+
 }
 ```
 
@@ -66,7 +68,7 @@ Aside from stateful variables (`$=`), a stage holds no state between entries.
 Stage entry semantics enable a common pattern: a controller that parks in a `yield`
 stage and waits for a fresh command to re-enter:
 
-```arc
+```arc channels="stop_cmd, valve_cmd, start_cmd", bodies="stop, yield, run, controller"
 sequence controller {
     stage run {
         // ... control logic ...
@@ -94,14 +96,18 @@ Because channel triggers only react to new writes after stage entry, a held-trut
 
 All flow statements in a stage run concurrently:
 
-```arc
+```arc channels="sensor, ox_pt_1, fuel_pt_1, abort_btn, pressure", bodies="abort"
 stage pressurize {
+
     // ALL of these run simultaneously
+
+    ox_pt_1 > 600 => abort   // monitor
+    fuel_pt_1 > 400 => abort // monitor
+    abort_btn => abort       // listen
+    pressure > 500 => next   // advance
+
     sensor -> controller{target=500} // control loop
-    ox_pt_1 > 600 => abort // monitoring
-    fuel_pt_1 > 400 => abort // monitoring
-    abort_btn => abort // listening
-    pressure > 500 => next // success check
+
 }
 ```
 
@@ -110,12 +116,14 @@ stage pressurize {
 When multiple conditional transitions (`=>`) are truthy in the same cycle, the first one
 listed wins:
 
-```arc
+```arc channels="ox_pt_1, fuel_pt_1, abort_btn, pressure", bodies="abort"
 stage pressurize {
+
     // Safety conditions first (higher priority)
-    ox_pt_1 > 600 => abort // 1st priority
+    ox_pt_1 > 600 => abort   // 1st priority
     fuel_pt_1 > 400 => abort // 2nd priority
-    abort_btn => abort // 3rd priority
+    abort_btn => abort       // 3rd priority
+
     // Success condition after safety
     pressure > 500 => next // only if no abort
 }
@@ -132,7 +140,7 @@ An anonymous `sequence { ... }` inside a stage runs its items in order while the
 parallel flows continue. The inline sequence restarts from its first item every time the
 parent stage is entered.
 
-```arc
+```arc channels="chamber_temp, igniter_cmd, ox_main_vlv_cmd", bodies="abort"
 stage fire {
     chamber_temp > 2000 => abort
     sequence {

@@ -356,6 +356,21 @@ describe("Aether Worker", () => {
         expect(c.deletef).toHaveBeenCalled();
       });
     });
+
+    describe("clearChildren", () => {
+      it("should delete every child and keep the composite itself alive", () => {
+        update(composite, ["test", "dog"], 2, () => createLeaf("dog"));
+        update(composite, ["test", "cat"], 3, () => createLeaf("cat"));
+        const [dog, cat] = composite.children;
+        composite.clearChildren();
+        expect(composite.children).toHaveLength(0);
+        expect(dog.deletef).toHaveBeenCalledTimes(1);
+        expect(cat.deletef).toHaveBeenCalledTimes(1);
+        expect(composite.deletef).not.toHaveBeenCalled();
+        update(composite, ["test", "bird"], 4, () => createLeaf("bird"));
+        expect(composite.children).toHaveLength(1);
+      });
+    });
   });
 
   describe("context propagation", () => {
@@ -738,8 +753,8 @@ describe("message", () => {
         state: { x: 1 },
       };
       const transfer: Transferable[] = [];
-      comms.send(msg, transfer);
-      expect(postMessage).toHaveBeenCalledWith(msg, transfer);
+      comms.send([msg], transfer);
+      expect(postMessage).toHaveBeenCalledWith([msg], transfer);
     });
 
     it("should default transfer to empty array when omitted", () => {
@@ -750,8 +765,8 @@ describe("message", () => {
         variant: "delete",
         path: ["a"],
       };
-      comms.send(msg);
-      expect(postMessage).toHaveBeenCalledWith(msg, []);
+      comms.send([msg]);
+      expect(postMessage).toHaveBeenCalledWith([msg], []);
     });
 
     it("should route worker.onmessage events to the registered handler", () => {
@@ -781,8 +796,8 @@ describe("message", () => {
           state: { x: 1 },
         };
         const transfer: Transferable[] = [];
-        comms.send(msg, transfer);
-        expect(postMessage).toHaveBeenCalledWith(msg, { transfer });
+        comms.send([msg], transfer);
+        expect(postMessage).toHaveBeenCalledWith([msg], { transfer });
       } finally {
         vi.unstubAllGlobals();
       }
@@ -800,8 +815,8 @@ describe("message", () => {
           type: "t",
           state: { x: 1 },
         };
-        (globalThis as any).onmessage({ data: msg });
-        expect(handler).toHaveBeenCalledWith(msg);
+        (globalThis as any).onmessage({ data: [msg] });
+        expect(handler).toHaveBeenCalledWith([msg]);
       } finally {
         vi.unstubAllGlobals();
       }
@@ -819,8 +834,8 @@ describe("message", () => {
         type: "t",
         state: { x: 1 },
       };
-      mainSide.send(msg);
-      expect(workerHandler).toHaveBeenCalledWith(msg);
+      mainSide.send([msg]);
+      expect(workerHandler).toHaveBeenCalledWith([msg]);
     });
 
     it("should deliver worker-side sends to the main-side handler", () => {
@@ -832,19 +847,21 @@ describe("message", () => {
         path: ["k"],
         state: { x: 1 },
       };
-      workerSide.send(msg);
-      expect(mainHandler).toHaveBeenCalledWith(msg);
+      workerSide.send([msg]);
+      expect(mainHandler).toHaveBeenCalledWith([msg]);
     });
 
     it("should drop sends made before a handler is registered", () => {
       const [workerSide, mainSide] = aether.createMockPair();
       expect(() =>
-        mainSide.send({
-          variant: "update",
-          path: ["a"],
-          type: "t",
-          state: { x: 1 },
-        }),
+        mainSide.send([
+          {
+            variant: "update",
+            path: ["a"],
+            type: "t",
+            state: { x: 1 },
+          },
+        ]),
       ).not.toThrow();
       const workerHandler = vi.fn();
       workerSide.handle(workerHandler);
@@ -857,12 +874,38 @@ describe("message", () => {
       const second = vi.fn();
       workerSide.handle(first);
       workerSide.handle(second);
-      mainSide.send({
-        variant: "delete",
-        path: ["a"],
-      });
+      mainSide.send([{ variant: "delete", path: ["a"] }]);
       expect(first).not.toHaveBeenCalled();
       expect(second).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("clear", () => {
+    it("should delete the whole tree with lifecycle and leave the root usable", () => {
+      const [workerSide, mainSide] = aether.createMockPair();
+      const root = aether.render({
+        worker: workerSide,
+        registry: { composite: ExampleComposite, leaf: ExampleLeaf },
+      });
+      mainSide.send([
+        { variant: "update", path: ["root", "a"], type: "composite", state: { x: 1 } },
+        {
+          variant: "update",
+          path: ["root", "a", "b"],
+          type: "leaf",
+          state: { x: 2 },
+        },
+      ]);
+      const comp = root.children[0] as ExampleComposite;
+      const leaf = comp.children[0] as ExampleLeaf;
+      mainSide.send([{ variant: "clear" }]);
+      expect(leaf.deletef).toHaveBeenCalledTimes(1);
+      expect(comp.deletef).toHaveBeenCalledTimes(1);
+      expect(root.children).toHaveLength(0);
+      mainSide.send([
+        { variant: "update", path: ["root", "c"], type: "leaf", state: { x: 3 } },
+      ]);
+      expect(root.children).toHaveLength(1);
     });
   });
 });

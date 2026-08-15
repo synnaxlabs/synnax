@@ -16,7 +16,7 @@ import {
   CI_CHANNEL_TYPE_NAMES,
   type CIChannel,
   type CIChannelType,
-  ZERO_CI_CHANNELS,
+  createCIChannel,
 } from "@/feature/ni/task/types";
 
 export interface Entry extends record.KeyedNamed<CIChannelType> {}
@@ -30,7 +30,7 @@ export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Ent
     onChange: (value, { get, set, path }) => {
       const prevType = get<CIChannelType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_CI_CHANNELS[value]);
+      const next = createCIChannel(value);
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<CIChannel>(parentPath).value;
       const schema = CI_CHANNEL_SCHEMAS[value];
@@ -51,7 +51,7 @@ export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Ent
       return {
         key: type,
         name: CI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon color={8} />,
+        icon: <Icon color={9} />,
       };
     }),
   },

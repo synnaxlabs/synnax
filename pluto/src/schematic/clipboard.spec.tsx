@@ -78,14 +78,14 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
 };
 
 // Populates the flux store with the schematic at `key`. Uses a single-hook
-// bootstrap component so the suspending `useEnsureRetrieved` is not followed by
+// bootstrap component so the suspending `useEnsure` is not followed by
 // additional hooks — that shape trips a React 19 concurrent-replay warning.
 const loadSchematic = async (
   Wrapper: FC<PropsWithChildren>,
   key: string,
 ): Promise<void> => {
   const Bootstrap = (): ReactElement => {
-    Schematic.useEnsureRetrieved({ key });
+    Schematic.useEnsure({ key });
     return <div data-testid="loaded" />;
   };
   let utils!: ReturnType<typeof render>;
@@ -171,8 +171,8 @@ describe("schematic clipboard", () => {
             selected: ["n1", "n2", "e1"],
             onPaste,
           }),
-          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
-          edges: Schematic.useSelectAllEdges({ key: schem.key }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
+          edges: Schematic.useAllEdges({ key: schem.key }),
         }),
         { wrapper: scoped(Wrapper, schem.key) },
       );
@@ -218,7 +218,7 @@ describe("schematic clipboard", () => {
       const { result } = renderHook(
         () => ({
           clipboard: Schematic.useClipboard({ selected: [] }),
-          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
         }),
         { wrapper: scoped(Wrapper, schem.key) },
       );
@@ -239,7 +239,7 @@ describe("schematic clipboard", () => {
       const { result } = renderHook(
         () => ({
           clipboard: Schematic.useClipboard({ selected: [] }),
-          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
         }),
         { wrapper: scoped(Wrapper, schem.key) },
       );

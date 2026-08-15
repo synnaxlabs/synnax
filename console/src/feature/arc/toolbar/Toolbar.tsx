@@ -20,6 +20,7 @@ import {
   Menu,
   Select,
   Status,
+  stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
@@ -52,7 +53,7 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
 
-  const { data, getItem, subscribe, retrieve } = Arc.useList({});
+  const { data, getItem, subscribe, retrieve, answered } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: handleRename } = PlatformArc.useRename(getItem);
@@ -72,36 +73,40 @@ const Content = () => {
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
-        <Toolbar.Header padded>
-          <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
+        <Toolbar.Header>
+          <Toolbar.Title>
+            <Icon.Arc />
+            Arcs
+          </Toolbar.Title>
           <Actions handleCreate={create} />
         </Toolbar.Header>
-        <Select.Frame
-          multiple
-          data={data}
-          getItem={getItem}
-          subscribe={subscribe}
-          value={selected}
-          onChange={setSelected}
-          onFetchMore={fetchMore}
-          replaceOnSingle
-        >
-          <List.Items<arc.Key, arc.Arc>
-            full="y"
-            emptyContent={<EmptyContent onCreate={create} />}
-            onContextMenu={menuProps.open}
+        <Toolbar.Body>
+          <Select.Frame
+            multiple
+            data={data}
+            getItem={getItem}
+            subscribe={subscribe}
+            value={selected}
+            onChange={setSelected}
+            onFetchMore={fetchMore}
+            replaceOnSingle
           >
-            {({ key, ...p }) => (
-              <ArcListItem
-                key={key}
-                {...p}
-                onRename={(name) => handleRename({ key, name })}
-                onEdit={() => handleEdit(key)}
-                onDoubleClick={() => handleEdit(key)}
-              />
-            )}
-          </List.Items>
-        </Select.Frame>
+            <List.Items<arc.Key, arc.Arc>
+              full="y"
+              emptyContent={answered && <EmptyContent onCreate={create} />}
+              onContextMenu={menuProps.open}
+            >
+              {({ key, ...p }) => (
+                <ArcListItem
+                  key={key}
+                  {...p}
+                  onRename={handleRename}
+                  onEdit={handleEdit}
+                />
+              )}
+            </List.Items>
+          </Select.Frame>
+        </Toolbar.Body>
       </Toolbar.Content>
     </Menu.ContextMenu>
   );
@@ -118,18 +123,14 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create Arc" onClick={handleCreate}>
-          <Icon.Add />
+      {hasRetrievePermission && (
+        <Toolbar.Action tooltip="Open Arc Explorer" onClick={openExplorer}>
+          <Icon.Explore />
         </Toolbar.Action>
       )}
-      {hasRetrievePermission && (
-        <Toolbar.Action
-          tooltip="Open Arc Explorer"
-          onClick={openExplorer}
-          variant="filled"
-        >
-          <Icon.Explore />
+      {hasCreatePermission && (
+        <Toolbar.Action tooltip="Create Arc" onClick={handleCreate} variant="filled">
+          <Icon.Add />
         </Toolbar.Action>
       )}
     </Toolbar.Actions>
@@ -148,24 +149,34 @@ export const TOOLBAR: Nav.Toolbar = {
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
-  onRename: (name: string) => void;
-  onEdit: () => void;
+  onRename: (params: { key: arc.Key; name: string }) => void;
+  onEdit: (key: arc.Key) => void;
 }
 
 const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const handleRename = useCallback(
+    (name: string) => onRename({ key: itemKey, name }),
+    [onRename, itemKey],
+  );
+  const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   const {
     running,
     onStartStop,
     taskStatus: status,
-  } = PlatformArc.useTask(itemKey, arcItem?.name ?? "");
+  } = Arc.useTaskControls(itemKey, arcItem?.name ?? "");
   let statusMessage = "Stopped";
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";
   return (
-    <Select.ListItem {...rest} justify="between" align="center">
+    <Select.ListItem
+      {...rest}
+      onDoubleClick={handleDoubleClick}
+      justify="between"
+      align="center"
+    >
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
         <Flex.Box x align="center" gap="small">
           <Status.Indicator
@@ -175,7 +186,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arcItem?.name ?? ""}
-            onChange={hasUpdatePermission ? onRename : undefined}
+            onChange={hasUpdatePermission ? handleRename : undefined}
             allowDoubleClick={false}
             overflow="ellipsis"
             weight={500}
@@ -189,6 +200,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
         <Button.Button
           variant="outlined"
           onClick={onStartStop}
+          onDoubleClick={stopPropagation}
           tooltip={`${running ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
         >
           {running ? <Icon.Pause /> : <Icon.Play />}

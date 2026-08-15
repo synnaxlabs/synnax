@@ -45,6 +45,31 @@ var _ = Describe("C++ JSON Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field names ending in a digit", func() {
+			It(
+				"Should keep the schema name as the JSON key",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+
+					RTD struct {
+						r0    float64 = 0
+						x1    float64 = 0
+						axis_1 float64 = 0
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`parser.field<double>("r0", 0)`,
+							`parser.field<double>("x1", 0)`,
+							`parser.field<double>("axis_1", 0)`,
+						).
+						ToNotContain(`"r_0"`, `"x_1"`)
+				},
+			)
+		})
+
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should generate correct parsing for array alias fields",
@@ -590,8 +615,72 @@ var _ = Describe("C++ JSON Plugin", func() {
 					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 					ExpectContent(resp, "out/json.gen.h").
 						ToContain(
-							`parser.field<::x::telem::Rate>("stream_rate", x::telem::Rate(5))`,
-							`parser.field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0))`,
+							`parser.field<::x::telem::Rate>("stream_rate", ::x::telem::Rate(5))`,
+							`parser.field<::x::telem::TimeSpan>("duration", ::x::telem::TimeSpan(0))`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap distinct string defaults in their constructors",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					DataType string {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						data_type telem.DataType = "float32"
+						label     string = "dflt"
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					ExpectContent(resp, "out/json.gen.h").
+						ToContain(
+							`parser.field<::x::telem::DataType>("data_type", ::x::telem::DataType("float32"))`,
+							`parser.field<std::string>("label", "dflt")`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap distinct numeric defaults in their constructors",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					Size int64 {
+						@cpp hand
+					}
+
+					Alignment uint64 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						threshold telem.Size = 1024
+						start     telem.Alignment = 0
+						count     int32 = 7
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					ExpectContent(resp, "out/json.gen.h").
+						ToContain(
+							`parser.field<::x::telem::Size>("threshold", ::x::telem::Size(1024))`,
+							`parser.field<::x::telem::Alignment>("start", ::x::telem::Alignment(0))`,
+							`parser.field<std::int32_t>("count", 7)`,
 						)
 				},
 			)
@@ -811,6 +900,34 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ToNotContain(`#include "client/cpp/node/json.gen.h"`)
 				},
 			)
+
+			It(
+				"Should include the header declared by @cpp include on a reference",
+				func(ctx SpecContext) {
+					loader.Add("schemas/node", `
+					@cpp output "client/cpp/node"
+
+					Key uint32 {
+						@cpp include "client/cpp/node/key.h"
+					}
+				`)
+
+					source := `
+					import "schemas/node"
+
+					@cpp output "client/cpp/channel"
+
+					Channel struct {
+						leaseholder node.Key
+					}
+				`
+					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+
+					ExpectContent(resp, "channel/json.gen.h").
+						ToContain(`#include "client/cpp/node/key.h"`).
+						ToNotContain(`#include "client/cpp/node/types.gen.h"`)
+				},
+			)
 		})
 
 		Context("cross-namespace union references", func() {
@@ -818,12 +935,12 @@ var _ = Describe("C++ JSON Plugin", func() {
 				loader.Add("schemas/scales", `
 					@cpp output "x/cpp/scales"
 
-					LinearScale struct { slope float64 }
-					NoneScale struct {}
+					LinearParams struct { slope float64 }
+					NoneParams struct {}
 
 					Scale union on type {
-						linear LinearScale
-						none NoneScale
+						linear LinearParams
+						none NoneParams
 					}
 				`)
 			})
@@ -883,8 +1000,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					@cpp output "client/cpp/task"
 
 					Config union on type {
-						linear scales.LinearScale
-						none scales.NoneScale
+						linear scales.LinearParams
+						none scales.NoneParams
 					}
 				`
 					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
@@ -958,8 +1075,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					loader.Add("schemas/scales", `
 					@cpp output "x/cpp/scales"
 
-					LinearScale struct { slope float64 }
-					NoneScale struct {}
+					LinearParams struct { slope float64 }
+					NoneParams struct {}
 				`)
 					req := MustGenerateRequest(ctx, `
 					import "schemas/scales"
@@ -967,8 +1084,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					@cpp output "../escape"
 
 					Scale union on type {
-						linear scales.LinearScale
-						none scales.NoneScale
+						linear scales.LinearParams
+						none scales.NoneParams
 					}
 				`, "types", loader)
 					Expect(jsonPlugin.Generate(req)).Error().
@@ -1060,12 +1177,12 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
@@ -1073,13 +1190,37 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				ToContain(
 					`inline Scale parse_scale(x::json::Parser parser) {`,
 					`const auto discriminator = parser.field<std::string>("type");`,
-					`if (discriminator == "linear") return ScaleLinear::parse(parser);`,
-					`if (discriminator == "none") return ScaleNone::parse(parser);`,
+					`if (discriminator == "linear") return LinearScale::parse(parser);`,
+					`if (discriminator == "none") return NoneScale::parse(parser);`,
 					`parser.field_err("type", "unknown Scale type: " + discriminator);`,
 					`return {};`,
 					`inline x::json::json to_json(const Scale& value) {`,
 					`return std::visit([](const auto& v) { return v.to_json(); }, value);`,
 				)
+		},
+	)
+
+	It(
+		"Should fall back to the defaulted variant when the field is absent",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			LinearParams struct { slope float64 = 1 }
+			NoneParams struct {}
+
+			Scale union on type {
+				linear LinearParams
+				none NoneParams
+			}
+
+			Item struct { scale Scale = none }
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			ExpectContent(resp, "json.gen.h").ToContain(
+				`parser.has("scale") ? parse_scale(parser.child("scale")) ` +
+					`: Scale{NoneScale{}}`,
+			)
 		},
 	)
 
@@ -1101,10 +1242,10 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			resp := MustGenerate(ctx, source, "panel", loader, jsonPlugin)
 			content := ExpectContent(resp, "json.gen.h")
 			content.ToContain(
-				`if (discriminator == "view") return TabView::parse(parser);`,
-				`if (discriminator == "empty") return TabEmpty::parse(parser);`,
+				`if (discriminator == "view") return ViewTab::parse(parser);`,
+				`if (discriminator == "empty") return EmptyTab::parse(parser);`,
 			)
-			content.ToNotContain("TabViewPayload")
+			content.ToNotContain("ViewTabPayload")
 		},
 	)
 
@@ -1112,23 +1253,23 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
-				`inline ScaleLinear ScaleLinear::parse(x::json::Parser parser) {`,
-				`static_cast<LinearScale&>(result) = LinearScale::parse(parser);`,
+				`inline LinearScale LinearScale::parse(x::json::Parser parser) {`,
+				`static_cast<LinearParams&>(result) = LinearParams::parse(parser);`,
 				`result.type = parser.field<std::string>("type");`,
 				// A field-less struct never reads the parser, so the parameter is
 				// left unnamed to avoid an unused-parameter warning.
-				`inline NoneScale NoneScale::parse(x::json::Parser) {`,
+				`inline NoneScale NoneScale::parse(x::json::Parser parser) {`,
 			)
 	})
 
@@ -1168,12 +1309,12 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -1195,12 +1336,12 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -1275,7 +1416,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
-				ToContain(`.device = parser.field<Key>("device", ""),`)
+				ToContain(`.device = parser.field<Key>("device", Key("")),`)
 		},
 	)
 
@@ -1300,7 +1441,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "out/json.gen.h").
-				ToContain(`.duration = parser.field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0)),`)
+				ToContain(`.duration = parser.field<::x::telem::TimeSpan>("duration", ::x::telem::TimeSpan(0)),`)
 		},
 	)
 
@@ -1320,6 +1461,25 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				`.name = parser.field<std::string>("name", ""),`,
 			)
 	})
+
+	It("Should mint a UUID for create-defaulted uuid fields", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Key = uuid
+
+			Record struct {
+				key    uuid = create
+				parent Key = create
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`.key = parser.field<x::uuid::UUID>("key", x::uuid::create()),`,
+				`.parent = parser.field<Key>("parent", x::uuid::create()),`,
+			)
+	})
 })
 
 var _ = Describe("C++ JSON Union Array Fields", func() {
@@ -1337,12 +1497,12 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 		source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {

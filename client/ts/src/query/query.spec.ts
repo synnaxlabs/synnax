@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeStamp } from "@synnaxlabs/x";
+import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { Deleted } from "@/query/deleted";
-import { type AnswersHooks, Queries } from "@/query/query";
+import { Space, type SpaceHooks } from "@/query/query";
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -41,9 +41,9 @@ const newTable = () => new query.Table<string, Rec>({ onError: () => {} });
 const singleSpace = (
   table: query.Table<string, Rec>,
   fetch: (query: Q) => Promise<string[]>,
-  hooks?: AnswersHooks,
+  hooks?: SpaceHooks,
 ) =>
-  new Queries<Q, number, string, Rec>(
+  new Space<Q, number, string, Rec>(
     {
       name: "thing",
       table,
@@ -94,6 +94,14 @@ describe("hash", () => {
     expect(query.hash(42n)).not.toEqual(query.hash(42));
     expect(query.hash({ k: 42n })).toEqual('{"k":42n}');
     expect(() => query.hash({ k: 9007199254740993n })).not.toThrow();
+  });
+
+  it("hashes a plain object once per identity", () => {
+    const inner = { hash: vi.fn(() => "inner") };
+    const q = { id: inner };
+    const first = query.hash(q);
+    expect(query.hash(q)).toEqual(first);
+    expect(inner.hash).toHaveBeenCalledTimes(1);
   });
 
   it("delegates to primitive.Hashable.hash() for class instances", () => {
@@ -213,13 +221,13 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
-    it("treats equivalent queries with key reorderings as the same entry", async () => {
+    it("treats equivalent queries with key reorderings as the same query", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
         table.set("a", rec("a", 7));
         return ["a"];
       });
-      const answers = new Queries<Record<string, number>, number, string, Rec>({
+      const answers = new Space<Record<string, number>, number, string, Rec>({
         name: "thing",
         table,
         fetch,
@@ -232,7 +240,7 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it("treats distinct Hashable instances of the same value as the same entry", async () => {
+    it("treats distinct Hashable instances of the same value as the same query", async () => {
       class Wrapper {
         constructor(private readonly v: number) {}
         hash(): string {
@@ -244,7 +252,7 @@ describe("Answers", () => {
         table.set("a", rec("a", 7));
         return ["a"];
       });
-      const answers = new Queries<{ k: Wrapper }, number, string, Rec>({
+      const answers = new Space<{ k: Wrapper }, number, string, Rec>({
         name: "thing",
         table,
         fetch,
@@ -257,7 +265,7 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it("isolates entries across separate instances", async () => {
+    it("isolates queries across separate instances", async () => {
       const tableA = newTable();
       const tableB = newTable();
       const a = singleSpace(tableA, async () => {
@@ -396,7 +404,49 @@ describe("Answers", () => {
       off();
     });
 
-    it("resolves an exact-key query straight from the table without an entry", () => {
+    it("interns a composed answer while subscribed even when compose allocates", async () => {
+      const table = newTable();
+      const answers = new Space<Q, number[], string, Rec>({
+        name: "things",
+        table,
+        fetch: async () => {
+          table.set("a", rec("a", 1));
+          return ["a"];
+        },
+        compose: (records) => records.map((r) => r.value),
+        matches: () => true,
+      });
+      const off = answers.onChange(qA, () => {});
+      await answers.retrieve(qA);
+      const first = answers.getCached(qA);
+      expect(answers.getCached(qA)).toBe(first);
+      table.set("a", rec("a", 2));
+      const second = answers.getCached(qA);
+      expect(second).not.toBe(first);
+      expect(second).toEqual([2]);
+      off();
+    });
+
+    it("recomposes on every read once unsubscribed", async () => {
+      const table = newTable();
+      const answers = new Space<Q, number[], string, Rec>({
+        name: "things",
+        table,
+        fetch: async () => {
+          table.set("a", rec("a", 1));
+          return ["a"];
+        },
+        compose: (records) => records.map((r) => r.value),
+        matches: () => true,
+      });
+      const off = answers.onChange(qA, () => {});
+      await answers.retrieve(qA);
+      off();
+      table.set("a", rec("a", 3));
+      expect(answers.getCached(qA)).toEqual([3]);
+    });
+
+    it("resolves an exact-key query straight from the table without a live query", () => {
       const table = newTable();
       table.set("a", rec("a", 9));
       const fetch = vi.fn(async () => ["a"]);
@@ -405,7 +455,7 @@ describe("Answers", () => {
       expect(fetch).not.toHaveBeenCalled();
     });
 
-    it("resolves an exact-key query to deleted from a tombstone without an entry", () => {
+    it("resolves an exact-key query to deleted from a tombstone without a live query", () => {
       const table = newTable();
       table.set("a", rec("a", 9));
       table.delete("a");
@@ -430,7 +480,7 @@ describe("Answers", () => {
   });
 
   describe("onChange", () => {
-    it("fires with the new answer when the tracked row changes", async () => {
+    it("fires with the new answer when the tracked entry changes", async () => {
       const table = newTable();
       const answers = singleSpace(table, async () => {
         table.set("a", rec("a", 1));
@@ -444,7 +494,7 @@ describe("Answers", () => {
       expect(answers.getCached(qA)).toEqual(2);
     });
 
-    it("composes setter updates against the previous row", async () => {
+    it("composes setter updates against the previous entry", async () => {
       const table = newTable();
       const answers = singleSpace(table, async () => {
         table.set("a", rec("a", 10));
@@ -506,7 +556,7 @@ describe("Answers", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
-    it("seeds an exact-key answer from a row already in the table", async () => {
+    it("seeds an exact-key answer from an entry already in the table", async () => {
       const table = newTable();
       table.set("a", rec("a", 4));
       const fetch = vi.fn(async () => ["a"]);
@@ -519,7 +569,7 @@ describe("Answers", () => {
       expect(fetch).not.toHaveBeenCalled();
     });
 
-    it("seeds an exact-key answer as deleted from a tombstoned row", () => {
+    it("seeds an exact-key answer as deleted from a tombstoned entry", () => {
       const table = newTable();
       table.set("a", rec("a", 4));
       table.delete("a");
@@ -530,7 +580,7 @@ describe("Answers", () => {
       expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(4);
     });
 
-    it("does not seed when the table has no row for the key", () => {
+    it("does not seed when the table has no entry for the key", () => {
       const table = newTable();
       const answers = singleSpace(table, async () => ["a"]);
       const handler = vi.fn();
@@ -547,7 +597,7 @@ describe("Answers", () => {
         table.set("a", rec("a", 1));
         return ["a"];
       });
-      const answers = singleSpace(table, fetch);
+      const answers = singleSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
       const offA = answers.onChange(qA, vi.fn());
       const offB = answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
@@ -575,6 +625,73 @@ describe("Answers", () => {
       await answers.retrieve(qA);
       table.set("a", rec("a", 2));
       expect(handler).toHaveBeenCalledWith(2);
+    });
+  });
+
+  describe("teardown grace", () => {
+    const GRACE = TimeSpan.milliseconds(40);
+    const graceSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: { min: number }) => Promise<string[]>,
+    ) =>
+      new Space<{ min: number }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        { teardownGrace: GRACE },
+      );
+
+    it("skips the reconfirm refetch for a remount within the grace window", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = graceSpace(table, fetch);
+      const off = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      off();
+      answers.onChange({ min: 3 }, vi.fn());
+      // Past the refetch debounce: a scheduled reconfirm would have landed.
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("patches membership from events that land during the grace window", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = graceSpace(table, fetch);
+      const off = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      off();
+      table.set("b", rec("b", 7));
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5), rec("b", 7)]);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("tears down after the grace window and reconfirms on the next remount", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = graceSpace(table, fetch);
+      const off = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      off();
+      // The sweep runs at half-grace cadence; well past the window by now.
+      await wait(120);
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
   });
 
@@ -639,7 +756,7 @@ describe("Answers", () => {
       table: query.Table<string, Rec>,
       fetch: (query: Q) => Promise<string[]>,
     ) =>
-      new Queries<Q, number, string, Rec>({
+      new Space<Q, number, string, Rec>({
         name: "thing",
         table,
         fetch,
@@ -658,7 +775,7 @@ describe("Answers", () => {
       const handler = vi.fn();
       answers.onChange(qA, handler);
       await answers.retrieve(qA);
-      // The row stops matching; single-space eviction with a live row
+      // The entry stops matching; single-space eviction with a live entry
       // invalidates instead of composing an empty answer.
       table.set("a", rec("a", 100));
       expect(handler).toHaveBeenLastCalledWith(undefined);
@@ -667,7 +784,7 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
-    it("flips to deleted when the last member's row is tombstoned", async () => {
+    it("flips to deleted when the last member's entry is tombstoned", async () => {
       const table = newTable();
       const answers = evictingSpace(table, async () => {
         table.set("a", rec("a", 6));
@@ -680,7 +797,7 @@ describe("Answers", () => {
       expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
     });
 
-    it("does not notify while the entry is unfetched", () => {
+    it("does not notify while the query is unfetched", () => {
       const table = newTable();
       const answers = evictingSpace(table, async () => []);
       const handler = vi.fn();
@@ -695,14 +812,18 @@ describe("Answers", () => {
     const listSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: ListQ) => Promise<string[]>,
+      hooks?: SpaceHooks,
     ) =>
-      new Queries<ListQ, Rec[], string, Rec>({
-        name: "things",
-        table,
-        fetch,
-        compose: (records) => records,
-        matches: (r, q) => r.value >= q.min,
-      });
+      new Space<ListQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        hooks,
+      );
 
     it("admits a record that starts matching the query", async () => {
       const table = newTable();
@@ -718,7 +839,7 @@ describe("Answers", () => {
     });
 
     // Regression: membership is patched from table events, and an unmaintained
-    // entry received none, so a member that appeared during the gap is missing
+    // query received none, so a member that appeared during the gap is missing
     // from the answer a remount is served.
     it("refetches an answer that settled before an unmaintained gap", async () => {
       const table = newTable();
@@ -727,7 +848,7 @@ describe("Answers", () => {
         table.set(members);
         return members.map(({ key }) => key);
       });
-      const answers = listSpace(table, fetch);
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
       const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
       expect(await answers.retrieve({ min: 3 })).toEqual([]);
       unsubscribe();
@@ -736,7 +857,7 @@ describe("Answers", () => {
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
 
-    // Regression: membership is patched only on a ready entry, so a record that
+    // Regression: membership is patched only on a ready query, so a record that
     // started matching while the first fetch was in flight was dropped, and the
     // settling fetch then wrote its own keys over the answer.
     it("admits a record that starts matching while the first fetch is in flight", async () => {
@@ -814,20 +935,289 @@ describe("Answers", () => {
     });
   });
 
+  describe("exact-keys read-through (keysOf)", () => {
+    type KeysQ = { keys: string[]; minSize?: number };
+    const keysSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: KeysQ) => Promise<string[]>,
+      hooks?: SpaceHooks,
+    ) =>
+      new Space<KeysQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          keysOf: (q) => (q.minSize == null ? q.keys : null),
+          matches: (r, q) =>
+            q.keys.includes(r.key) && (q.minSize == null || r.value >= q.minSize),
+        },
+        hooks,
+      );
+
+    it("composes getCached from cached entries in params order without a fetch", () => {
+      const table = newTable();
+      table.set([rec("b", 2), rec("a", 1)]);
+      const fetch = vi.fn(async () => ["a", "b"]);
+      const answers = keysSpace(table, fetch);
+      expect(answers.getCached({ keys: ["a", "b"] })).toEqual([
+        rec("a", 1),
+        rec("b", 2),
+      ]);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined when any key is unknown", () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const answers = keysSpace(table, async () => []);
+      expect(answers.getCached({ keys: ["a", "x"] })).toBeUndefined();
+    });
+
+    it("omits tombstoned members to match the fetch answer", () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2)]);
+      table.delete("b");
+      const answers = keysSpace(table, async () => []);
+      expect(answers.getCached({ keys: ["a", "b"] })).toEqual([rec("a", 1)]);
+      table.delete("a");
+      expect(answers.getCached({ keys: ["a", "b"] })).toEqual([]);
+    });
+
+    it("dedupes repeated keys", () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const answers = keysSpace(table, async () => []);
+      expect(answers.getCached({ keys: ["a", "a"] })).toEqual([rec("a", 1)]);
+    });
+
+    it("does not compose when the query carries a non-keys field", () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      const answers = keysSpace(table, async () => []);
+      expect(answers.getCached({ keys: ["a"], minSize: 1 })).toBeUndefined();
+    });
+
+    it("returns a referentially stable answer across reads", () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2)]);
+      const answers = keysSpace(table, async () => []);
+      const first = answers.getCached({ keys: ["a", "b"] });
+      expect(answers.getCached({ keys: ["a", "b"] })).toBe(first);
+    });
+
+    it("seeds a subscribed query from entries already in the table", async () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2)]);
+      const fetch = vi.fn(async () => ["a", "b"]);
+      const answers = keysSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ keys: ["a", "b"] }, handler);
+      expect(handler).toHaveBeenCalledWith([rec("a", 1), rec("b", 2)]);
+      expect(await answers.retrieve({ keys: ["a", "b"] })).toEqual([
+        rec("a", 1),
+        rec("b", 2),
+      ]);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("maintains a seeded answer through member changes", () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2)]);
+      const answers = keysSpace(table, async () => []);
+      const handler = vi.fn();
+      answers.onChange({ keys: ["a", "b"] }, handler);
+      table.set("a", rec("a", 9));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 9), rec("b", 2)]);
+      table.delete("b");
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 9)]);
+      table.set("b", rec("b", 3));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 9), rec("b", 3)]);
+    });
+
+    it("does not seed while any key is unknown", () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const answers = keysSpace(table, async () => []);
+      const handler = vi.fn();
+      answers.onChange({ keys: ["a", "x"] }, handler);
+      expect(handler).not.toHaveBeenCalled();
+      // The query stays unfetched, so member events do not notify.
+      table.set("a", rec("a", 2));
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it("reset flips a seeded answer to unfetched and notifies undefined", () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const answers = keysSpace(table, async () => []);
+      const handler = vi.fn();
+      answers.onChange({ keys: ["a"] }, handler);
+      expect(handler).toHaveBeenCalledWith([rec("a", 1)]);
+      answers.reset();
+      expect(handler).toHaveBeenLastCalledWith(undefined);
+    });
+
+    it("reconfirms a seeded answer after an unmaintained gap", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = keysSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const off = answers.onChange({ keys: ["a"] }, vi.fn());
+      off();
+      answers.onChange({ keys: ["a"] }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    });
+  });
+
+  describe("batched delivery", () => {
+    type ListQ = { min: number };
+    const countingSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: ListQ) => Promise<string[]>,
+    ) => {
+      const composes = vi.fn((records: Rec[]) => records);
+      const answers = new Space<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: composes,
+        matches: (r, q) => r.value >= q.min,
+      });
+      return { answers, composes };
+    };
+
+    it("notifies once for a multi-record set touching several members", async () => {
+      const table = newTable();
+      const { answers } = countingSpace(table, async () => {
+        table.set([rec("a", 5), rec("b", 6), rec("c", 7)]);
+        return ["a", "b", "c"];
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      await answers.retrieve({ min: 3 });
+      handler.mockClear();
+      table.set([rec("a", 8), rec("b", 9), rec("c", 10)]);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenLastCalledWith([
+        rec("a", 8),
+        rec("b", 9),
+        rec("c", 10),
+      ]);
+    });
+
+    it("composes the answer once per batch", async () => {
+      const table = newTable();
+      const { answers, composes } = countingSpace(table, async () => {
+        table.set([rec("a", 5), rec("b", 6)]);
+        return ["a", "b"];
+      });
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      composes.mockClear();
+      table.set([rec("a", 7), rec("b", 8)]);
+      expect(composes).toHaveBeenCalledTimes(1);
+    });
+
+    it("applies mixed admissions and evictions in one notification", async () => {
+      const table = newTable();
+      const { answers } = countingSpace(table, async () => {
+        table.set([rec("a", 5), rec("b", 4)]);
+        return ["a", "b"];
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      await answers.retrieve({ min: 3 });
+      handler.mockClear();
+      table.set([rec("a", 1), rec("c", 7)]);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenLastCalledWith([rec("b", 4), rec("c", 7)]);
+    });
+
+    it("coalesces a batch deferred behind an in-flight fetch", async () => {
+      const table = newTable();
+      let release!: (keys: string[]) => void;
+      const { answers } = countingSpace(
+        table,
+        async () => await new Promise<string[]>((resolve) => (release = resolve)),
+      );
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      const pending = answers.retrieve({ min: 3 });
+      table.set([rec("a", 5), rec("b", 6)]);
+      release([]);
+      await pending;
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5), rec("b", 6)]);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 6)]);
+    });
+  });
+
   describe("server-computed queries (rule 3)", () => {
     type SearchQ = { searchTerm?: string };
     const searchSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: SearchQ) => Promise<string[]>,
+      hooks?: SpaceHooks,
     ) =>
-      new Queries<SearchQ, Rec[], string, Rec>({
-        name: "things",
-        table,
-        fetch,
-        compose: (records) => records,
-        matches: () => true,
-        serverFields: ["searchTerm"],
+      new Space<SearchQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: () => true,
+          serverFields: ["searchTerm"],
+        },
+        hooks,
+      );
+
+    // Regression: an optimistic write to a member entry must render before the
+    // wholesale refetch lands, or the UI flashes the stale value.
+    it("notifies immediately when a member entry changes", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
       });
+      const answers = searchSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ searchTerm: "x" }, handler);
+      await answers.retrieve({ searchTerm: "x" });
+      handler.mockClear();
+      table.set("a", rec("a", 2));
+      expect(handler).toHaveBeenCalledWith([rec("a", 2)]);
+    });
+
+    it("notifies immediately when a member entry is deleted", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ searchTerm: "x" }, handler);
+      await answers.retrieve({ searchTerm: "x" });
+      handler.mockClear();
+      table.delete("a");
+      expect(handler).toHaveBeenCalledWith([]);
+    });
+
+    it("does not notify for a change to a non-member entry", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ searchTerm: "x" }, handler);
+      await answers.retrieve({ searchTerm: "x" });
+      handler.mockClear();
+      table.set("z", rec("z", 9));
+      expect(handler).not.toHaveBeenCalled();
+    });
 
     it("refetches wholesale after a debounced table change", async () => {
       const table = newTable();
@@ -854,7 +1244,7 @@ describe("Answers", () => {
         members.forEach((key) => table.set(key, rec(key, 1)));
         return [...members];
       });
-      const answers = searchSpace(table, fetch);
+      const answers = searchSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
       const unsubscribe = answers.onChange({ searchTerm: "x" }, vi.fn());
       expect(await answers.retrieve({ searchTerm: "x" })).toEqual([]);
       unsubscribe();
@@ -951,7 +1341,7 @@ describe("Answers", () => {
       });
       const foreign = new query.Table<string, Rel>({ onError: () => {} });
       foreign.set("a", { key: "a" });
-      const answers = new Queries<{ tag: string }, Rec[], string, Rec>({
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>({
         name: "things",
         table: primary,
         fetch: async () => {
@@ -988,7 +1378,7 @@ describe("Answers", () => {
         table.set("a", rec("a", 1));
         return ["a"];
       });
-      const answers = new Queries<Q, number, string, Rec>({
+      const answers = new Space<Q, number, string, Rec>({
         name: "thing",
         table,
         fetch,
@@ -1091,12 +1481,12 @@ describe("referential stability", () => {
   }
   const doc = (key: string, name: string): Doc => ({ key, name });
   const newDocTable = () => new query.Table<string, Doc>({ onError: () => {} });
-  /** Identity-compose single space: the answer is the table row itself. */
+  /** Identity-compose single space: the answer is the table entry itself. */
   const identitySpace = (
     table: query.Table<string, Doc>,
     fetch: (query: Q) => Promise<string[]>,
   ) =>
-    new Queries<Q, Doc, string, Doc>({
+    new Space<Q, Doc, string, Doc>({
       name: "doc",
       table,
       fetch,
@@ -1105,22 +1495,99 @@ describe("referential stability", () => {
       single: true,
     });
 
-  it("returns the table row itself for identity composes", () => {
+  /** Query-dependent compose: the answer is assembled per read, as the channel
+   *  alias, device status, and rack status composes are. */
+  const composingSpace = (
+    table: query.Table<string, Doc>,
+    suffix: () => string,
+    fetch: (query: Q) => Promise<string[]> = async () => ["a"],
+  ) =>
+    new Space<Q, Doc, string, Doc>({
+      name: "doc",
+      table,
+      fetch,
+      compose: (records) => ({ ...records[0], name: `${records[0].name}${suffix()}` }),
+      keyOf: (query) => query.k,
+      single: true,
+    });
+
+  it("returns the table entry itself for identity composes", () => {
     const table = newDocTable();
-    const row = doc("a", "one");
-    table.set("a", row);
+    const entry = doc("a", "one");
+    table.set("a", entry);
     const answers = identitySpace(table, async () => ["a"]);
-    expect(answers.getCached(qA)).toBe(row);
+    expect(answers.getCached(qA)).toBe(entry);
   });
 
-  it("returns the same reference across repeated entry-less reads", () => {
+  it("returns the same reference across query-less reads of an allocating compose", () => {
+    const table = newDocTable();
+    table.set("a", doc("a", "one"));
+    const answers = composingSpace(table, () => "");
+    expect(answers.getCached(qA)).toBe(answers.getCached(qA));
+  });
+
+  it("returns a new reference from an allocating compose only after the entry changes", () => {
+    const table = newDocTable();
+    table.set("a", doc("a", "one"));
+    const answers = composingSpace(table, () => "");
+    const first = answers.getCached(qA);
+    table.set("a", doc("a", "two"));
+    const second = answers.getCached(qA);
+    expect(second).not.toBe(first);
+    expect(query.isLive(second) ? second.name : null).toEqual("two");
+  });
+
+  it("holds a query-less answer when an input outside the table changes", () => {
+    const table = newDocTable();
+    table.set("a", doc("a", "one"));
+    let suffix = "";
+    const answers = composingSpace(table, () => suffix);
+    expect(query.isLive(answers.getCached(qA))).toBe(true);
+    suffix = "-aliased";
+    const next = answers.getCached(qA);
+    expect(query.isLive(next) ? next.name : null).toEqual("one");
+  });
+
+  it("recomposes a subscribed answer when a watched foreign table changes", async () => {
+    const table = newDocTable();
+    const foreign = new query.Table<string, Doc>({ onError: () => {} });
+    let suffix = "";
+    const answers = new Space<Q, Doc, string, Doc>({
+      name: "doc",
+      table,
+      fetch: async () => {
+        table.set("a", doc("a", "one"));
+        return ["a"];
+      },
+      compose: (records) => ({ ...records[0], name: `${records[0].name}${suffix}` }),
+      keyOf: (query) => query.k,
+      single: true,
+      watch: [query.watch(foreign, () => ["a"])],
+    });
+    const off = answers.onChange(qA, vi.fn());
+    try {
+      await answers.retrieve(qA);
+      suffix = "-aliased";
+      foreign.set("a", doc("a", "trigger"));
+      await expect
+        .poll(() => {
+          const cached = answers.getCached(qA);
+          return query.isLive(cached) ? cached.name : null;
+        })
+        .toEqual("one-aliased");
+    } finally {
+      off();
+    }
+  });
+
+  it("returns the same reference across repeated query-less reads", () => {
     const table = newDocTable();
     table.set("a", doc("a", "one"));
     const answers = identitySpace(table, async () => ["a"]);
     expect(answers.getCached(qA)).toBe(answers.getCached(qA));
   });
 
-  it("returns a new row reference only after the row changes", async () => {
+  it("returns a new entry reference only after the entry changes", async () => {
     const table = newDocTable();
     const first = doc("a", "one");
     const answers = identitySpace(table, async () => {
@@ -1137,13 +1604,13 @@ describe("referential stability", () => {
 
   it("returns the same Deleted instance across repeated reads", () => {
     const table = newDocTable();
-    const row = doc("a", "one");
-    table.set("a", row);
+    const entry = doc("a", "one");
+    table.set("a", entry);
     table.delete("a");
     const answers = identitySpace(table, async () => ["a"]);
     const first = expectDeleted(answers.getCached(qA));
     expect(answers.getCached(qA)).toBe(first);
-    expect(first.corpse).toBe(row);
+    expect(first.corpse).toBe(entry);
   });
 
   it("interns composed corpses so non-identity deleted answers are stable", () => {
@@ -1156,7 +1623,7 @@ describe("referential stability", () => {
     expect(first.corpse).toEqual(9);
   });
 
-  it("delivers bare rows and interned Deleted instances through onChange", async () => {
+  it("delivers bare entries and interned Deleted instances through onChange", async () => {
     const table = newDocTable();
     const answers = identitySpace(table, async () => {
       table.set("a", doc("a", "one"));
@@ -1175,8 +1642,8 @@ describe("referential stability", () => {
 
   it("brands deleted answers so matches rejects live data", () => {
     const table = newDocTable();
-    const row = doc("a", "one");
-    table.set("a", row);
+    const entry = doc("a", "one");
+    table.set("a", entry);
     const answers = identitySpace(table, async () => ["a"]);
     expect(Deleted.matches(answers.getCached(qA))).toBe(false);
     table.delete("a");

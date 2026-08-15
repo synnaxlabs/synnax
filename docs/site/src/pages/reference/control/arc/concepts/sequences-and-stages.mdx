@@ -36,7 +36,7 @@ procedures, and any workflow that progresses through distinct phases.
 
 Here's a basic pressurize, hold, and vent sequence:
 
-```arc
+```arc channels="start_btn, press_vlv_cmd, tank_pressure, vent_vlv_cmd", bodies="abort, main"
 start_btn => main
 
 sequence main {
@@ -80,14 +80,17 @@ the sequence starts.
   executes all flows in a stage concurrently.
 </Note.Note>
 
-```arc
+```arc channels="valve_cmd, tank_pressure, pressure_display, tank_temp, abort_btn", bodies="abort"
 stage pressurize {
+
     // ALL lines run at the same time:
+
+    abort_btn => abort                   // operator abort
+    tank_temp > 300 => abort             // temperature limit
+    tank_pressure > 600 => abort         // safety limit
+
     true -> valve_cmd                    // keep valve open
     tank_pressure -> pressure_display    // update display
-    tank_pressure > 600 => abort         // safety limit
-    tank_temp > 300 => abort             // temperature limit
-    abort_btn => abort                   // operator abort
     tank_pressure > 500 => next          // success condition
 }
 ```
@@ -108,7 +111,7 @@ conditions before success conditions.
 A **transition** is a flow statement whose target is a stage or sequence name. When the
 edge fires, the current stage or sequence deactivates and control jumps to the target.
 
-```arc
+```arc channels="stop_btn, emergency, pressure", bodies="idle,abort"
 stage running {
     stop_btn => idle         // jump to named sequence or stage
     emergency => abort       // jump to different sequence or stage

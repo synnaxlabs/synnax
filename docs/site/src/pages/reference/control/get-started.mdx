@@ -50,13 +50,13 @@ set of output channels.
 Arc uses a reactive model where you declare what should happen when data changes. When a
 channel updates, Arc automatically runs the relevant computations:
 
-```arc
+```arc channels="press_vlv_cmd, pt_471"
 // Open the valve when pressure is below threshold, close it otherwise
 func bang_bang{threshold f64} (pressure f64) bool {
     return pressure < threshold
 }
 
-pressure -> bang_bang{threshold=100.0} -> press_vlv_cmd
+pt_471 -> bang_bang{threshold=100.0} -> press_vlv_cmd
 ```
 
 There is no mention of hardware configuration in this sequence. Parameters like

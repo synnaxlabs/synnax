@@ -32,14 +32,14 @@ function bodies.
 
 Runs every execution cycle when the source produces data:
 
-```arc
+```arc channels="sensor, output"
 sensor -> filter{} -> output
 ```
 
 Continuous flows chain: each `->` connects the previous node's output to the next node's
 input. The chain executes whenever the leftmost source fires.
 
-```arc
+```arc channels="valve_cmd, sensor, output"
 stage active {
     true -> valve_cmd               // keeps valve open every cycle
     sensor -> filter{} -> output    // processes every sample
@@ -56,7 +56,7 @@ line order wins.
 Fires on ticks where the source expression is
 [truthy](/reference/control/arc/reference/operators#truthiness):
 
-```arc
+```arc channels="pressure, abort_btn" bodies="abort"
 pressure > 500 => next
 abort_btn => abort
 ```
@@ -101,7 +101,7 @@ sequence test {
 
 ### Named Stage Transitions
 
-```arc
+```arc channels="start_btn, pressure, abort_btn" bodies="pressurize, hold, idle, complete"
 sequence test {
     stage idle {
         start_btn => pressurize
@@ -121,7 +121,7 @@ sequence test {
 
 ### Cross-Sequence Transitions
 
-```arc
+```arc channels="emergency, all_valves_cmd" bodies="abort"
 sequence main {
     stage pressurize {
         emergency => abort // jumps to abort sequence
@@ -130,7 +130,7 @@ sequence main {
 
 sequence abort {
     stage safed {
-        0 -> all_valves_cmd
+        false -> all_valves_cmd
     }
 }
 ```
@@ -147,7 +147,7 @@ Cross-sequence transitions:
 
 Inline expressions act as implicit functions:
 
-```arc
+```arc channels="temperature, sensor_1, sensor_2, display, pressure, emergency"
 temperature > 100 -> alarm{}
 (sensor_1 + sensor_2) / 2.0 -> display
 pressure > 100 or emergency -> shutdown{}
@@ -165,7 +165,7 @@ It either gathers several sources into one function's inputs, or fans one functi
 outputs out to several destinations. Routing is how an Arc flow branches: a value is
 sent to one of several named destinations instead of running through an `if`/`else`.
 
-```arc
+```arc channels="sensor_1, sensor_2, sensor"
 // Input routing: many sources -> one function
 { sensor_1: a, sensor_2: b } -> average{}
 
@@ -178,7 +178,7 @@ sensor -> demux{} -> { high: alarm{}, low: logger{} }
 `select` is the built-in boolean router. It takes a `bool` input and exposes two
 outputs, `true` and `false`.
 
-```arc
+```arc channels="flag" bodies="open_valve, shut_valve"
 flag -> select{} -> {
     true: open_valve,
     false: shut_valve
@@ -198,7 +198,7 @@ activation, not the value.
 
 A routing table may bind only the branches it cares about. Omitting `false` is valid:
 
-```arc
+```arc channels="flag, alarm_cmd"
 flag -> select{} -> {
     true: true -> alarm_cmd
 }
@@ -210,7 +210,7 @@ flag -> select{} -> {
 outputs can drive a routing table: declare the branches your logic needs as outputs, set
 the matching one in the function body, and route each output by name.
 
-```arc
+```arc channels="tank_pressure, open_vent" bodies="pressurize, safe_state"
 func decide_stage{low f64, high f64} (value f64) (vent bool, press bool, abort bool) {
     if (value < low) {
         vent = true
@@ -222,9 +222,9 @@ func decide_stage{low f64, high f64} (value f64) (vent bool, press bool, abort b
 }
 
 tank_pressure -> decide_stage{low=10.0, high=80.0} -> {
-    vent:  open_vent,
-    press: pressurize,
-    abort: safe_state
+    vent:  open_vent,   // channel: receives the routed value
+    press: pressurize,  // activate sequence: `pressurize`
+    abort: safe_state   // activate sequence: `safe_state`
 }
 ```
 
@@ -241,9 +241,9 @@ channel. It accepts any of the following.
 
 A channel, stage, or sequence name:
 
-```arc
+```arc channels="flag, shut_cmd" bodies="open_valves"
 flag -> select{} -> {
-    true: open_valve,      // sequence name: activates the sequence
+    true: open_valves,     // sequence name: activates the sequence
     false: shut_cmd        // channel: receives the routed value
 }
 ```
@@ -253,7 +253,7 @@ flag -> select{} -> {
 A case body can be a chain of flow nodes joined with `->`, exactly like a top-level
 flow. The routed output feeds the first node, and types are threaded through the chain:
 
-```arc
+```arc channels="flag, log_str, sensor, log_num"
 flag -> select{} -> {
     true:  "on"  -> log_str,
     false: "off" -> log_str
@@ -270,7 +270,7 @@ sensor -> demux{} -> {
 An anonymous `stage { ... }` written directly as a case body. Its flows run in parallel
 while the branch is active:
 
-```arc
+```arc channels="flag, vent_cmd, log"
 flag -> select{} -> {
     true:  stage {
         "venting" -> log,
@@ -285,7 +285,7 @@ flag -> select{} -> {
 
 An anonymous `sequence { ... }` written directly as a case body. Its items run in order:
 
-```arc
+```arc channels="sensor, cooler_cmd"
 sensor -> decide_stage{low=30.0, high=80.0} -> {
     abort: sequence {
         true -> cooler_cmd
@@ -299,7 +299,7 @@ sensor -> decide_stage{low=30.0, high=80.0} -> {
 
 A single routing table may freely mix all of the above:
 
-```arc
+```arc channels="sensor, log, cooler_cmd, open_vent"
 sensor -> decide_stage{low=30.0, high=80.0} -> {
     vent:  open_vent,                            // single target
     press: "nominal" -> log,                     // chain
@@ -314,7 +314,7 @@ Items inside an inline body are separated by newlines or commas; both are accept
 An input routing table precedes a function invocation and maps each source to a named
 input parameter:
 
-```arc
+```arc channels="sensor_1, sensor_2, avg_out"
 func average(a f64, b f64) f64 {
     return (a + b) / 2.0
 }
@@ -339,7 +339,7 @@ is an error.
 An output routing table follows a function invocation and maps each named output to a
 destination:
 
-```arc
+```arc bodies="high_out, low_out"
 func demux{threshold f64} (value f64) (high f64, low f64) {
     if value > threshold {
         high = value
@@ -380,7 +380,7 @@ stage or sequence if a branch needs to advance the enclosing sequence.
 **Cross-stage navigation works.** An inline body can transition to a named stage, just
 like a normal transition:
 
-```arc
+```arc channels="flag" bodies="named_body"
 flag -> select{} -> {
     true: stage { time.wait{1s} => named_body }
 }

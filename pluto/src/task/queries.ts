@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, query, type rack, task } from "@synnaxlabs/client";
+import { type ontology, query, rack, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { type Form } from "@/form";
-import { useSyncedRef } from "@/hooks/ref";
 
 export const RESOURCE_NAME = "task";
 export const PLURAL_RESOURCE_NAME = "tasks";
@@ -28,67 +26,35 @@ const BASE_QUERY = { includeStatus: true };
 export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
   Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
     name: RESOURCE_NAME,
+    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
-      await client.tasks.retrieve({ ...BASE_QUERY, ...query, schemas }),
-    subscribe: ({ client, query }, handler) =>
+      await client.tasks.retrieve({ ...query, schemas }),
+    onChange: ({ client, query }, handler) =>
       client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>),
     getCached: ({ client, query }) =>
       client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined,
   });
 
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+export const { use, useEnsure, useResult, useTombstone, createSelector } =
   createRetrieve();
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: task.Key;
 }
 
-export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, string>(
-  {
-    subscribe: ({ client, args: { key } }, notify) =>
-      client == null ? () => {} : client.tasks.onChange(key, notify),
-    select: ({ client, args: { key } }) => {
-      const cached = client?.tasks.getCached(key);
-      if (!query.isLive(cached)) return "Task";
-      return cached.name;
-    },
-  },
-);
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, task.Task>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success" || result.data == null) return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
+export const useName = createSelector(({ name }) => name);
 
 export type ListQuery = task.RetrieveMultipleParams;
 
-const listRequest = (query: ListQuery): ListQuery => ({
-  ...BASE_QUERY,
-  internal: false,
-  ...query,
-});
-
 export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.tasks.retrieve(listRequest(query)),
+  normalizeQuery: (query) => ({ ...BASE_QUERY, internal: false, ...query }),
+  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.tasks.retrieve({ ...BASE_QUERY, key }),
-  subscribe: ({ client, query }, handler) =>
-    client.tasks.onChange(listRequest(query), handler),
-  subscribeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(listRequest(query)),
+  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
+  getCached: ({ client, query }) => client.tasks.getCached(query),
 });
 
 const createFormSchema = <S extends task.Schemas = task.Schemas>(
@@ -97,20 +63,22 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
   z.object({
     key: task.keyZ.optional(),
     name: z.string(),
-    rackKey: z.number(),
+    rack: rack.keyZ,
     type: schemas.type,
     snapshot: z.boolean(),
     config: schemas.config,
+    configHash: z.string(),
     status: task.statusZ(schemas.statusData).optional().nullable(),
   }) as unknown as FormSchema<S>;
 
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
   key?: task.Key;
   name: string;
-  rackKey: rack.Key;
+  rack: rack.Key;
   type: z.infer<S["type"]>;
   snapshot: boolean;
   config: z.infer<S["config"]>;
+  configHash: string;
   status?: task.Status<S["statusData"]>;
 }> {}
 
@@ -121,88 +89,85 @@ export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
 
 export interface InitialValues<
   S extends task.Schemas = task.Schemas,
-> extends optional.Optional<task.Payload<S>, "key" | "internal" | "snapshot"> {
-  key?: task.Key;
-  /** Rack to pre-select when creating a new task. Ignored when key is set, as the
-   * rack is already encoded in the task key. */
-  rackKey?: rack.Key;
-}
+> extends optional.Optional<
+  task.Payload<S>,
+  "key" | "rack" | "internal" | "snapshot" | "configHash"
+> {}
 
 export type FormQuery = {
-  key?: task.Key;
+  key: task.Key;
 };
 
-const taskToFormValues = <S extends task.Schemas = task.Schemas>(
+export const toFormValues = <S extends task.Schemas = task.Schemas>(
   t: InitialValues<S>,
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
-  rackKey: t.key == null ? (t.rackKey ?? 0) : task.rackKey(t.key),
+  rack: t.rack ?? 0,
   type: t.type,
   config: t.config,
+  configHash: t.configHash ?? "",
   status: t.status,
   snapshot: t.snapshot ?? false,
 });
 
 const RESET_OPTIONS: Form.SetOptions = { markTouched: false };
 
-const resetFormValues = <S extends task.Schemas = task.Schemas>(
-  set: Form.UseReturn<FormSchema<S>>["set"],
-  payload: task.Payload<S>,
-) => {
-  const values = taskToFormValues(payload);
-  set("key", values.key, RESET_OPTIONS);
-  set("name", values.name, RESET_OPTIONS);
-  set("type", values.type, RESET_OPTIONS);
-  set("rackKey", values.rackKey, RESET_OPTIONS);
-  set("config", values.config, RESET_OPTIONS);
-  set("snapshot", values.snapshot, RESET_OPTIONS);
-};
-
 export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
   initialValues,
 }: CreateFormParams<S>) => {
   const schema = createFormSchema(schemas);
-  const actualInitialValues = taskToFormValues(initialValues);
+  const actualInitialValues = toFormValues(initialValues);
   return Flux.createForm<FormQuery, FormSchema<S>>({
     name: RESOURCE_NAME,
     schema,
     initialValues: actualInitialValues,
-    retrieve: async ({ client, query: { key }, reset }): Promise<void> => {
-      if (key == null) return;
-      const tsk = await client.tasks.retrieve({ ...BASE_QUERY, key, schemas });
-      reset(taskToFormValues(tsk.payload));
+    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+    retrieve: async ({ client, query: q }) =>
+      toFormValues((await client.tasks.retrieve({ ...q, schemas })).payload),
+    getCached: ({ client, query: q }) => {
+      const cached = client.tasks.getCached(q);
+      if (!query.isLive(cached) || cached.status == null) return undefined;
+      return toFormValues(cached.payload as task.Payload<S>);
     },
     update: async ({ client, ...form }) => {
       const value = form.value();
-      const rack = await client.racks.retrieve(value.rackKey);
-      const task = await rack.createTask(
+      const created = await client.tasks.create(
         {
           key: value.key,
+          rack: value.rack,
           name: value.name,
           type: value.type,
           config: value.config,
-          status: value.status,
+          snapshot: value.snapshot,
+          status: value.status ?? undefined,
         },
         schemas,
       );
-      resetFormValues(form.set, task.payload);
+      // Only server-assigned fields are reset from the response: resetting an
+      // edited field would clobber edits typed while this save was in flight.
+      form.set("key", created.key, RESET_OPTIONS);
+      form.set("configHash", created.configHash, RESET_OPTIONS);
       form.setCurrentStateAsInitialValues();
     },
-    mountListeners: ({ client, query: { key }, set }) => {
-      if (key == null) return [];
-      return client.tasks.onChange(key, (result) => {
+    mountListeners: ({ client, query: { key }, set }) =>
+      client.tasks.onChange(key, (result) => {
         if (!query.isLive(result)) return;
-        resetFormValues(set, result.payload as task.Payload<S>);
+        // Metadata only: config changes come solely from this form's own
+        // saves, and resetting it would clobber in-flight autosave edits.
+        const payload = result.payload as task.Payload<S>;
+        set("name", payload.name, RESET_OPTIONS);
+        set("rack", payload.rack, RESET_OPTIONS);
+        set("snapshot", payload.snapshot, RESET_OPTIONS);
+        set("configHash", payload.configHash, RESET_OPTIONS);
         if (result.status != null)
           set(
             "status",
             task.statusZ(z.unknown().optional()).parse(result.status),
             RESET_OPTIONS,
           );
-      });
-    },
+      }),
   });
 };
 

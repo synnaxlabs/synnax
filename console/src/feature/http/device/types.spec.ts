@@ -485,43 +485,41 @@ describe("HTTP Device Properties", () => {
     });
   });
 
-  describe("headerEntryZ", () => {
+  describe("header entries", () => {
     it("should validate a valid header entry", () => {
-      const result = HTTP.Device.headerEntryZ.safeParse({
-        name: "Accept",
-        value: "text/html",
-      });
+      const result = HTTP.Device.headersZ.safeParse([
+        { name: "Accept", value: "text/html" },
+      ]);
       expect(result.success).toBe(true);
     });
 
-    it("should reject a header entry missing name", () => {
-      const result = HTTP.Device.headerEntryZ.safeParse({ value: "text/html" });
-      expect(result.success).toBe(false);
+    it("should default a missing header name to empty", () => {
+      const result = HTTP.Device.headersZ.parse([{ value: "text/html" }]);
+      expect(result).toEqual([{ name: "", value: "text/html" }]);
     });
 
-    it("should reject a header entry missing value", () => {
-      const result = HTTP.Device.headerEntryZ.safeParse({ name: "Accept" });
-      expect(result.success).toBe(false);
+    it("should default a missing header value to empty", () => {
+      const result = HTTP.Device.headersZ.parse([{ name: "Accept" }]);
+      expect(result).toEqual([{ name: "Accept", value: "" }]);
     });
   });
 
-  describe("queryParamEntryZ", () => {
+  describe("query param entries", () => {
     it("should validate a valid query param entry", () => {
-      const result = HTTP.Device.queryParamEntryZ.safeParse({
-        parameter: "limit",
-        value: "10",
-      });
+      const result = HTTP.Device.queryParamsZ.safeParse([
+        { parameter: "limit", value: "10" },
+      ]);
       expect(result.success).toBe(true);
     });
 
-    it("should reject an entry missing parameter", () => {
-      const result = HTTP.Device.queryParamEntryZ.safeParse({ value: "10" });
-      expect(result.success).toBe(false);
+    it("should default a missing parameter to empty", () => {
+      const result = HTTP.Device.queryParamsZ.parse([{ value: "10" }]);
+      expect(result).toEqual([{ parameter: "", value: "10" }]);
     });
 
-    it("should reject an entry missing value", () => {
-      const result = HTTP.Device.queryParamEntryZ.safeParse({ parameter: "limit" });
-      expect(result.success).toBe(false);
+    it("should default a missing value to empty", () => {
+      const result = HTTP.Device.queryParamsZ.parse([{ parameter: "limit" }]);
+      expect(result).toEqual([{ parameter: "limit", value: "" }]);
     });
   });
 
@@ -533,15 +531,13 @@ describe("HTTP Device Properties", () => {
       expect(result).toEqual([{ name: "Accept", value: "application/json" }]);
     });
 
-    it("should migrate a v0 header record to v1 array", () => {
-      const result = HTTP.Device.headersZ.parse({
+    it("should not migrate a v0 header record", () => {
+      // The Core migrates stored configs; the console only speaks list shapes.
+      const result = HTTP.Device.headersZ.safeParse({
         Accept: "application/json",
         "X-Key": "val",
       });
-      expect(result).toEqual([
-        { name: "Accept", value: "application/json" },
-        { name: "X-Key", value: "val" },
-      ]);
+      expect(result.success).toBe(false);
     });
 
     it("should reject duplicate header names", () => {
@@ -574,12 +570,9 @@ describe("HTTP Device Properties", () => {
       expect(result).toEqual([{ parameter: "limit", value: "10" }]);
     });
 
-    it("should migrate a v0 query param record to v1 array", () => {
-      const result = HTTP.Device.queryParamsZ.parse({ limit: "10", offset: "20" });
-      expect(result).toEqual([
-        { parameter: "limit", value: "10" },
-        { parameter: "offset", value: "20" },
-      ]);
+    it("should not migrate a v0 query param record", () => {
+      const result = HTTP.Device.queryParamsZ.safeParse({ limit: "10", offset: "20" });
+      expect(result.success).toBe(false);
     });
 
     it("should reject duplicate parameter names", () => {

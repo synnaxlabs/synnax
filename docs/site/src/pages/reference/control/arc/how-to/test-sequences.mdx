@@ -23,11 +23,12 @@ monitoring for abort conditions.
 
 A minimal sequence with idle, active, and complete states:
 
-```arc
+```arc channels="press_vlv_cmd, ox_pt_1, start_cmd, op_cmd", bodies="main"
 sequence main {
     stage idle {
         // Wait for operator to start
         false -> press_vlv_cmd
+        op_cmd => next
     }
 
     stage active {
@@ -59,7 +60,7 @@ virtual channel in Synnax, then wire it to a button in your Console schematic.
 
 Use `time.wait` to add delays between stages:
 
-```arc
+```arc channels="press_vlv_cmd, ox_pt_1, start_cmd", bodies="main"
 import time
 
 sequence main {
@@ -96,15 +97,16 @@ The sequence pressurizes to 500 psi, holds for 30 seconds, then depressurizes.
 Real test sequences need abort capability. List abort conditions first in each stage
 (line order determines priority):
 
-```arc
+```arc channels="ox_pt_1, abort_btn, press_vlv_cmd, fuel_vlv_cmd, igniter_cmd, start_cmd, emergency_stop", bodies="abort, main"
 import time
 
 sequence main {
     stage pressurize {
-        // ABORT CONDITIONS FIRST
+        // Abort checks first
         ox_pt_1 > 700 => abort // over-pressure
         abort_btn => abort // operator abort
-        // Normal operations
+
+        // Automation next
         true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
@@ -154,7 +156,7 @@ first one listed wins. Safety conditions should always have priority.
 
 Advance based on multiple conditions being satisfied:
 
-```arc
+```arc channels="ox_pt_1, fuel_pt_1, abort_btn, press_vlv_cmd",bodies="abort, timeout"
 import time
 
 sequence main {
@@ -194,7 +196,7 @@ When a test is mostly ordered writes and waits but has one step that needs to wa
 multiple conditions, an inline stage keeps the procedure readable without forcing every
 step into its own named stage:
 
-```arc
+```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure, abort_btn, start_btn, emergency_stop", bodies="abort,timeout,prime"
 import time
 
 sequence prime {
@@ -202,7 +204,8 @@ sequence prime {
     false -> vent_vlv_cmd
     true -> press_vlv_cmd
 
-    // Inline gate: success, over-pressure abort, and timeout all watched at once
+    // Inline gate:
+    // Group advacnement conditions
     stage {
         tank_pressure > 700 => abort
         abort_btn => abort
@@ -246,7 +249,7 @@ a multi-exit gate.
 
 Control the pressurization rate to avoid thermal shock or mechanical stress:
 
-```arc
+```arc channels="ox_pt_1, ox_rate_high, abort_btn", bodies="abort"
 import time
 
 func rate_monitor{dt_ms f64, max_rate f64} (value f64) bool {
@@ -291,7 +294,7 @@ The rate monitor triggers an abort if pressure rises faster than 100 psi/second.
 
 A realistic rocket engine test sequence with all the patterns combined:
 
-```arc
+```arc channels="ox_pt_1, fuel_pt_1, abort_btn, ox_rate, ox_press_vlv_cmd, fuel_press_vlv_cmd, igniter_cmd, chamber_tc_1, ox_main_vlv_cmd, fuel_main_vlv_cmd, ox_vent_vlv_cmd, fuel_vent_vlv_cmd, start_cmd, emergency_stop",bodies="abort, ignition_fail, main"
 import time
 
 // Rate monitoring

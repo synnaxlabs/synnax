@@ -64,7 +64,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
         {name({ ...channel, itemKey: rest.itemKey, path })}
-        <Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );

@@ -24,6 +24,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/status",
+        "//client/cpp/task/config",
         "//driver/bypass/pipeline",
         "//driver/errors",
         "//driver/pipeline",
@@ -31,6 +32,7 @@ cc_library(
         "//driver/transform",
         "//x/cpp/loop",
         "//x/cpp/thread",
+        "@abseil-cpp//absl/log",
     ],
 )
 
@@ -50,6 +52,7 @@ cc_test(
         "//driver/common",
         "//driver/pipeline/mock",
         "//x/cpp/test",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

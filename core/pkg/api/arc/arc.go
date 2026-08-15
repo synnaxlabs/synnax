@@ -25,7 +25,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -79,6 +81,9 @@ func (s *Service) Create(
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Arcs); err != nil {
 		return CreateResponse{}, err
 	}
+	for i := range req.Arcs {
+		req.Arcs[i].Text = req.Arcs[i].Text.Materialize()
+	}
 	return CreateResponse(req), nil
 }
 
@@ -109,7 +114,7 @@ type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
 
 // Dispatch relays the action sequence to the other clients editing the arc,
 // broadcasting it on the arc collaborative-edit signals channel. The caller must hold
-// update access to the arc. The server does not interpret or persist the actions.
+// update access to the arc.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -124,6 +129,50 @@ func (s *Service) Dispatch(
 	}
 	return types.Nil{}, s.internal.NewWriter(tx).
 		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+}
+
+type (
+	// SetRackRequest binds the arc to a rack. A zero Rack unbinds it.
+	SetRackRequest struct {
+		Key  arc.Key  `json:"key"  msgpack:"key"`
+		Rack rack.Key `json:"rack" msgpack:"rack"`
+	}
+	// SetRackResponse carries the arc's task, or a nil Task after an unbind.
+	SetRackResponse struct {
+		Task *task.Task `json:"task,omitempty" msgpack:"task,omitempty"`
+	}
+)
+
+// SetRack creates or moves the arc's task so it runs on the requested rack. A zero
+// rack unbinds the arc, deleting its task; unbinding a running arc is rejected.
+func (s *Service) SetRack(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetRackRequest,
+) (SetRackResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{arc.OntologyID(req.Key)},
+	}); err != nil {
+		return SetRackResponse{}, err
+	}
+	taskAction := access.ActionCreate
+	if req.Rack == 0 {
+		taskAction = access.ActionDelete
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  taskAction,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
+	}); err != nil {
+		return SetRackResponse{}, err
+	}
+	tsk, err := s.internal.NewWriter(tx).SetRack(ctx, req.Key, req.Rack)
+	if err != nil {
+		return SetRackResponse{}, err
+	}
+	return SetRackResponse{Task: tsk}, nil
 }
 
 type (

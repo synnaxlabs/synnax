@@ -21,11 +21,7 @@ import {
 } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import {
-  getCompositeIconButton,
-  getInputByNodePlaceholder,
-  uniqueName,
-} from "@/testutil";
+import { getCompositeIconButton, uniqueName } from "@/testutil";
 
 const renderSymbolsToolbar = async () =>
   await renderSchematic(Schematic.Toolbar, {
@@ -80,9 +76,9 @@ describe("Schematic toolbar Symbols", () => {
   });
 
   it("searches static symbols across groups", async () => {
-    const { result } = await renderSymbolsToolbar();
+    await renderSymbolsToolbar();
     await screen.findByText("Gauge");
-    const search = getInputByNodePlaceholder(result.container, "Search symbols");
+    const search = screen.getByPlaceholderText("Search symbols...");
     fireEvent.change(search, { target: { value: "tank" } });
     expect(await screen.findByText("Tank")).toBeDefined();
   });
@@ -126,16 +122,16 @@ describe("Schematic toolbar Symbols", () => {
     });
   });
 
-  it("renames a remote group through its context menu", async () => {
+  it("renames a remote group in place through its context menu", async () => {
     const { grp } = await createRemoteSymbolGroup([]);
     await renderSymbolsToolbar();
-    fireEvent.contextMenu(await screen.findByText(grp.name));
+    const name = await screen.findByText(grp.name);
+    fireEvent.contextMenu(name);
     fireEvent.click(await screen.findByText("Rename"));
-    await screen.findByText("Rename Group");
-    const input = screen.getByPlaceholderText<HTMLInputElement>("Group Name");
+    await waitFor(() => expect(name.getAttribute("contenteditable")).toBe("true"));
     const renamed = uniqueName("renamed_grp");
-    fireEvent.change(input, { target: { value: renamed } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    name.innerText = renamed;
+    fireEvent.keyDown(name, { key: "Enter" });
     await waitFor(async () => {
       const resource = await client.ontology.retrieve(group.ontologyID(grp.key));
       expect(resource.name).toBe(renamed);
@@ -157,8 +153,7 @@ describe("Schematic toolbar Symbols", () => {
       getCompositeIconButton(result.container, ["group", "add"]),
     );
     fireEvent.click(createGroup);
-    await screen.findByText("Create Group");
-    const input = screen.getByPlaceholderText<HTMLInputElement>("Group Name");
+    const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
     const name = uniqueName("new_grp");
     fireEvent.change(input, { target: { value: name } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

@@ -9,21 +9,22 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { READ_TYPE, WRITE_TYPE } from "@/feature/modbus/task/types";
+import { useCreateRead } from "@/feature/modbus/task/Read";
+import { useCreateWrite } from "@/feature/modbus/task/Write";
 import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "modbus_create_read_task",
   name: "Create a Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
-  type: READ_TYPE,
+  useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "modbus_create_write_task",
   name: "Create a Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
-  type: WRITE_TYPE,
+  useOnSelect: useCreateWrite,
 });
 
 export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

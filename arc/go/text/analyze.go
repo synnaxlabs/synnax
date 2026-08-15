@@ -68,6 +68,9 @@ type seqFrame struct {
 	activeIdx int
 	// transitions accumulates the scope's transitions in source order.
 	transitions []ir.Transition
+	// escalatesCompletion hands the sequence's completion to enclosing frames
+	// instead of exiting here; set when the sequence is a step of its parent.
+	escalatesCompletion bool
 }
 
 // nextMember returns the key of the member that follows the currently active
@@ -207,6 +210,23 @@ func (s *shellBuilder) addTransition(t ir.Transition) {
 // scheduler advances that frame's active step.
 func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
 	f.transitions = append(f.transitions, t)
+}
+
+// addCompletion wires a terminal step's completion: the nearest enclosing
+// frame with a next member advances past its current step; a frame that does
+// not escalate its completion takes the exit instead.
+func (s *shellBuilder) addCompletion(on ir.Handle) {
+	for i := len(s.stack) - 1; ; i-- {
+		f := s.stack[i]
+		if next := f.nextMember(); next != "" {
+			s.addTransitionTo(f, ir.Transition{On: on, TargetKey: new(next)})
+			return
+		}
+		if !f.escalatesCompletion || i == 0 {
+			s.addTransitionTo(f, ir.Transition{On: on})
+			return
+		}
+	}
 }
 
 // resolveTargetFrame walks the shell stack innermost-first and returns the
@@ -2196,8 +2216,8 @@ func addInlineMembers(scope *ir.Scope, members []ir.Member) {
 }
 
 // autoWireTransition appends an auto-wired transition for a flow-step in a
-// sequence: when the step's last node fires, advance to the next step or
-// exit the sequence if the step is terminal.
+// sequence: when the step's last node fires, advance to the next step, or
+// complete the enclosing sequence chain if the step is terminal.
 func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey string) {
 	if len(lastNode.Outputs) == 0 {
 		return
@@ -2206,13 +2226,29 @@ func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey str
 		Node:  lastNode.Key,
 		Param: firstOutputParam(lastNode.Outputs),
 	}
-	var targetKey *string
-	if nextMemberKey != "" {
-		targetKey = new(nextMemberKey)
+	if nextMemberKey == "" {
+		shell.addCompletion(on)
+		return
 	}
-	shell.addTransition(ir.Transition{On: on, TargetKey: targetKey})
+	shell.addTransition(ir.Transition{On: on, TargetKey: new(nextMemberKey)})
 }
 
+// declaredAsStep reports whether decl sits in a step position: its nearest
+// enclosing block is a sequence body rather than a stage body.
+func declaredAsStep(decl antlr.ParserRuleContext) bool {
+	for n := decl.GetParent(); n != nil; n = n.GetParent() {
+		switch n.(type) {
+		case parser.IStageBodyContext:
+			return false
+		case parser.ISequenceDeclarationContext:
+			return true
+		}
+	}
+	return false
+}
+
+// analyzeSequence lowers a sequence declaration to a sequential scope. A
+// sequence in a step position escalates its completion to enclosing frames.
 func analyzeSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
 	kg *keyGenerator,
@@ -2253,6 +2289,7 @@ func analyzeSequence(
 	}
 
 	frame := shell.pushSeq(seqName, memberKeys)
+	frame.escalatesCompletion = declaredAsStep(ctx.AST)
 	defer shell.popSeq()
 
 	var (

@@ -6307,11 +6307,14 @@ time.wait{duration=500ms} -> output`
 					)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-					// The transition must land on `inner` (innermost sibling
-					// that owns `target`), not on `outer`.
+					// The jump must land on `inner` (innermost sibling that
+					// owns `target`), not on `outer`. outer carries only the
+					// completion exit of its terminal `sequence target` step.
 					outer := findTopLevelScope(inter, "outer")
-					Expect(outer.Transitions).To(BeEmpty(),
-						"outer must not carry the transition — it is shadowed by inner's target")
+					Expect(outer.Transitions).To(HaveLen(1),
+						"outer must carry only its terminal step's completion exit")
+					Expect(outer.Transitions[0].TargetKey).To(BeNil(),
+						"outer's transition must be an exit, not the shadowed jump")
 
 					inner := findMember(outer, "inner").Scope
 					Expect(inner).ToNot(BeNil())
@@ -6417,6 +6420,238 @@ time.wait{duration=500ms} -> output`
 					Expect(other.Activation).ToNot(BeNil(),
 						"=> other from inside main must stamp an Activation handle on other")
 					Expect(other.Activation.Node).To(HavePrefix("on_trigger"))
+				},
+			)
+		})
+
+		Context("Nested sequence completion", func() {
+			It(
+				"Wires a completed mid-sequence nested step to the parent's next member",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "a",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   20101,
+						},
+					}
+					source := `
+				sequence main {
+				    sequence first {
+				        1 -> a
+				    }
+				    stage after {}
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1),
+						"the parent must own the nested step's completion transition")
+					t := main.Transitions[0]
+					Expect(t.TargetKey).ToNot(BeNil())
+					Expect(*t.TargetKey).To(Equal("after"))
+					Expect(t.On.Node).To(HavePrefix("write_a"))
+
+					first := findMember(main, "first").Scope
+					Expect(first).ToNot(BeNil())
+					Expect(first.Transitions).To(BeEmpty(),
+						"the nested step must not consume its own completion mark")
+				},
+			)
+
+			It(
+				"Exits the parent when its terminal nested step completes",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "a",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   20102,
+						},
+						{
+							Name: "b",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   20103,
+						},
+					}
+					source := `
+				sequence main {
+				    1 -> a
+				    sequence tail {
+				        1 -> b
+				    }
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(2))
+					Expect(main.Transitions[0].TargetKey).ToNot(BeNil())
+					Expect(*main.Transitions[0].TargetKey).To(Equal("tail"))
+					Expect(main.Transitions[1].TargetKey).To(BeNil(),
+						"the terminal nested step's completion must exit the parent")
+					Expect(main.Transitions[1].On.Node).To(HavePrefix("write_b"))
+
+					tail := findMember(main, "tail").Scope
+					Expect(tail).ToNot(BeNil())
+					Expect(tail.Transitions).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Escalates completion to the outermost frame with a next member",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "a",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   20104,
+						},
+					}
+					source := `
+				sequence main {
+				    sequence mid {
+				        sequence deep {
+				            1 -> a
+				        }
+				    }
+				    stage after {}
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1),
+						"only the outermost frame with a next member gets the transition")
+					t := main.Transitions[0]
+					Expect(t.TargetKey).ToNot(BeNil())
+					Expect(*t.TargetKey).To(Equal("after"))
+					Expect(t.On.Node).To(HavePrefix("write_a"))
+
+					mid := findMember(main, "mid").Scope
+					Expect(mid).ToNot(BeNil())
+					Expect(mid.Transitions).To(BeEmpty())
+					deep := findMember(*mid, "deep").Scope
+					Expect(deep).ToNot(BeNil())
+					Expect(deep.Transitions).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Keeps a stage-declared sequence's exit on its own frame",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "a",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   20105,
+						},
+					}
+					source := `
+				sequence main {
+				    stage holder {
+				        sequence sub {
+				            1 -> a
+				        }
+				    }
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(BeEmpty(),
+						"a sequence in a stage body must not escalate to the stage's parent")
+					holder := findMember(main, "holder").Scope
+					Expect(holder).ToNot(BeNil())
+					subMember := holder.Strata[0][0]
+					Expect(subMember.Scope).ToNot(BeNil())
+					Expect(subMember.Scope.Transitions).To(HaveLen(1))
+					Expect(subMember.Scope.Transitions[0].TargetKey).To(BeNil(),
+						"the in-stage sequence keeps its own exit")
+				},
+			)
+
+			It(
+				"Skips the completion wire when the nested terminal ends in an explicit =>",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "trigger",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   20106,
+						},
+						{
+							Name: "a",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   20107,
+						},
+						{
+							Name: "b",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   20108,
+						},
+					}
+					source := `
+				sequence main {
+				    sequence inner {
+				        1 -> a
+				        trigger => skip
+				    }
+				    stage skip {
+				        1 -> b
+				    }
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1),
+						"the explicit => must be main's only transition, no completion duplicate")
+					t := main.Transitions[0]
+					Expect(t.TargetKey).ToNot(BeNil())
+					Expect(*t.TargetKey).To(Equal("skip"))
+					Expect(t.On.Node).To(HavePrefix("on_trigger"))
+
+					inner := findMember(main, "inner").Scope
+					Expect(inner).ToNot(BeNil())
+					Expect(inner.Transitions).To(HaveLen(1),
+						"inner keeps only its internal step advance")
+					Expect(inner.Transitions[0].TargetKey).ToNot(BeNil())
+					Expect(*inner.Transitions[0].TargetKey).To(Equal("step_1"))
 				},
 			)
 		})

@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
 import { Session } from "@/session";
-import { renderHookWithConsole } from "@/testutil";
+import { createTestStore, renderHookWithConsole } from "@/testutil";
 
 describe("useOpenWindow", () => {
   it("should open a window seeded to show the given panel", async () => {
@@ -43,6 +43,24 @@ describe("useOpenWindow", () => {
       );
       expect(win).toBeDefined();
       expect(state.panels.windows[win!.key]).toBeUndefined();
+    });
+  });
+
+  it("should open a window from a window that is not the main one", async () => {
+    const panelKey = uuid.create();
+    const store = await createTestStore({ windowLabel: "secondary" });
+    const { result } = await renderHookWithConsole(() => Panel.useOpenWindow(), {
+      store,
+    });
+    act(() => result.current(panelKey));
+
+    await waitFor(() => {
+      const state = store.getState();
+      const win = Drift.selectWindows(state).find(
+        ({ key, reserved }) => key !== Drift.MAIN_WINDOW && reserved,
+      );
+      expect(win).toBeDefined();
+      expect(state.panels.windows[win!.key]?.selected).toEqual(panelKey);
     });
   });
 

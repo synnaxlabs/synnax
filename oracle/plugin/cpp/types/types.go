@@ -22,8 +22,10 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
+	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
@@ -346,21 +348,28 @@ func deriveNamespace(outputPath string) string {
 
 	// Determine the top-level namespace based on the path prefix
 	var topLevel string
+	rest := parts[len(parts)-1:]
 	switch {
 	case len(parts) >= 2 && parts[0] == "x" && parts[1] == "cpp":
 		topLevel = "x"
+		rest = parts[2:]
 	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
 		topLevel = "synnax"
+		rest = parts[2:]
 	case len(parts) >= 2 && parts[0] == "arc" && parts[1] == "cpp":
 		topLevel = "arc"
-	case len(parts) >= 1 && parts[0] == "driver":
+		rest = parts[2:]
+	case parts[0] == "driver":
 		topLevel = "driver"
+		rest = parts[1:]
 	default:
 		topLevel = "synnax"
 	}
 
-	subNs := parts[len(parts)-1]
-	return fmt.Sprintf("%s::%s", topLevel, subNs)
+	if len(rest) == 0 {
+		return topLevel
+	}
+	return topLevel + "::" + strings.Join(rest, "::")
 }
 
 // derivePBCppNamespace converts a pb output path to a fully qualified C++ namespace.
@@ -594,7 +603,10 @@ func (p *Plugin) aliasTargetToCpp(
 				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
 			}
 		} else {
-			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			includePath := cppInclude
+			if includePath == "" {
+				includePath = fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
@@ -670,8 +682,26 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 			qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
 			sd.ExtendsTypes = append(sd.ExtendsTypes, qualifiedName)
 		}
+		// A field that only restates an inherited default keeps the base's member.
+		// C++ cannot replace a base member's initializer, so the new default moves
+		// into a generated constructor; declaring the member again would hide the
+		// base's, which every reference through a base type would still see.
+		defaultOnly := resolver.DefaultOnlyOverrides(
+			form.Extends, form.Fields, data.table,
+		)
 		for _, field := range form.Fields {
-			sd.Fields = append(sd.Fields, p.processField(field, entry, data))
+			fd := p.processField(field, entry, data)
+			if !defaultOnly.Contains(field.Name) {
+				sd.Fields = append(sd.Fields, fd)
+				continue
+			}
+			if fd.DefaultValue == "" {
+				continue
+			}
+			sd.InheritedDefaults = append(
+				sd.InheritedDefaults,
+				inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
+			)
 		}
 	} else {
 		for _, field := range resolution.UnifiedFields(entry, data.table) {
@@ -806,18 +836,21 @@ func cppDefaultValue(cppType, underlyingPrimitive string) string {
 	return ""
 }
 
-// wrapCppTelemNumeric wraps a bare numeric default literal in its telem scalar
-// class constructor when cppType is one of those classes. They expose only
-// explicit numeric constructors, so a bare literal fails copy-initialization
-// both as a struct member initializer and as the fallback argument to
-// parser.field.
-func wrapCppTelemNumeric(cppType, literal string) string {
-	for _, t := range []string{"TimeStamp", "TimeSpan", "Rate", "Size", "Alignment"} {
-		if strings.Contains(cppType, "::telem::"+t) {
-			return fmt.Sprintf("x::telem::%s(%s)", t, literal)
-		}
+// wrapCppDistinct direct-initializes a scalar default literal with its C++ type
+// when the field's type resolves to a distinct type. Hand-written distinct types
+// such as x::telem::Rate and x::telem::DataType expose only explicit
+// constructors, so a bare literal fails copy-initialization both as a struct
+// member initializer and as the fallback argument to parser.field. Generated
+// distinct types are scalar typedefs, where the direct-init is a no-op cast.
+func (p *Plugin) wrapCppDistinct(
+	typeRef resolution.TypeRef,
+	literal string,
+	data *templateData,
+) string {
+	if !resolution.IsDistinct(typeRef, data.table) {
+		return literal
 	}
-	return literal
+	return fmt.Sprintf("%s(%s)", p.typeRefToCpp(typeRef, data), literal)
 }
 
 func getUnderlyingPrimitive(
@@ -892,15 +925,11 @@ func (p *Plugin) cppDefaultLiteral(
 ) string {
 	switch val.Kind {
 	case resolution.ValueKindString:
-		return fmt.Sprintf("%q", val.StringValue)
+		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%q", val.StringValue), data)
 	case resolution.ValueKindInt:
-		return wrapCppTelemNumeric(
-			p.typeRefToCpp(typeRef, data), fmt.Sprintf("%d", val.IntValue),
-		)
+		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%d", val.IntValue), data)
 	case resolution.ValueKindFloat:
-		return wrapCppTelemNumeric(
-			p.typeRefToCpp(typeRef, data), fmt.Sprintf("%f", val.FloatValue),
-		)
+		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%f", val.FloatValue), data)
 	case resolution.ValueKindBool:
 		return fmt.Sprintf("%t", val.BoolValue)
 	case resolution.ValueKindIdent:
@@ -917,6 +946,18 @@ func (p *Plugin) cppDefaultLiteral(
 		if val.IdentValue == "now" &&
 			strings.Contains(p.typeRefToCpp(typeRef, data), "::telem::TimeStamp") {
 			return "x::telem::TimeStamp::now()"
+		}
+		if uv, ok := validation.ResolveUnionVariant(
+			val.IdentValue,
+			typeRef,
+			data.table,
+		); ok {
+			// std::variant default-constructs its first alternative, so a default
+			// naming any other variant must be written out explicitly.
+			return cppnaming.QualifiedVariantTypeName(
+				p.typeRefToCpp(typeRef, data),
+				uv.Variant.Name,
+			) + "{}"
 		}
 		// Unresolvable idents (magic defaults like create) have no C++
 		// rendering; the caller falls back to the type's zero value.
@@ -1174,6 +1215,21 @@ func (p *Plugin) resolveEnumType(
 	return name
 }
 
+// explicitInclude returns the header declared via `@cpp include` on the type,
+// letting a type override the default <output>/types.gen.h include (e.g. to break
+// a header cycle with a small hand-written header).
+func explicitInclude(resolved resolution.Type) string {
+	cppDomain, ok := resolved.Domains["cpp"]
+	if !ok {
+		return ""
+	}
+	expr, found := cppDomain.Expressions.Find("include")
+	if !found || len(expr.Values) == 0 {
+		return ""
+	}
+	return expr.Values[0].StringValue
+}
+
 func (p *Plugin) resolveDistinctType(
 	resolved resolution.Type,
 	data *templateData,
@@ -1183,7 +1239,10 @@ func (p *Plugin) resolveDistinctType(
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			includePath := explicitInclude(resolved)
+			if includePath == "" {
+				includePath = fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			}
 			data.includes.addInternal(includePath)
 		}
 		ns := deriveNamespace(targetOutputPath)
@@ -1201,7 +1260,10 @@ func (p *Plugin) resolveAliasType(
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			includePath := explicitInclude(resolved)
+			if includePath == "" {
+				includePath = fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
@@ -1265,9 +1327,10 @@ func (p *Plugin) buildGenericType(
 // template params. Optional params (without explicit defaults) DO become template
 // params with implicit std::monostate default.
 //
-// This function returns true when: - The type has at least one type param without
-// explicit default (making it a C++ template) - All such params are optional (giving
-// them implicit defaults)
+// This function returns true when:
+//   - The type has at least one type param without explicit default (making it a C++
+//     template)
+//   - All such params are optional (giving them implicit defaults)
 func isCppTemplateWithAllDefaults(t resolution.Type) bool {
 	form, ok := t.Form.(resolution.StructForm)
 	if !ok {
@@ -1297,8 +1360,11 @@ func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
 
+// toSnakeCase routes through casing.FieldSnake rather than lo.SnakeCase, which
+// splits a trailing digit off a single-letter word: "r0" becomes "r_0". The
+// header must agree with the name cpp/json emits for the same field.
 func toSnakeCase(s string) string {
-	return lo.SnakeCase(s)
+	return casing.FieldSnake(s)
 }
 
 type includeManager struct {
@@ -1401,10 +1467,19 @@ type structData struct {
 	ExtendsTypes   []string
 	TypeParams     []typeParamData
 	Fields         []fieldData
-	HasProto       bool
-	IsAlias        bool
-	IsGeneric      bool
-	HasExtends     bool
+	// InheritedDefaults are inherited members the struct redeclares to change only
+	// their default. A generated constructor assigns them.
+	InheritedDefaults []inheritedDefaultData
+	HasProto          bool
+	IsAlias           bool
+	IsGeneric         bool
+	HasExtends        bool
+}
+
+// inheritedDefaultData assigns a new default to a member declared by a base struct.
+type inheritedDefaultData struct {
+	Name  string
+	Value string
 }
 
 type typeParamData struct {
@@ -1722,6 +1797,14 @@ using {{$td.Name}} = {{$td.CppType}};
     {{formatDoc .Name .Doc | printf "%s"}}
 {{- end}}
     {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
+{{- end}}
+{{- if $s.InheritedDefaults}}
+
+    {{$s.Name}}() {
+{{- range $s.InheritedDefaults}}
+        this->{{.Name}} = {{.Value}};
+{{- end}}
+    }
 {{- end}}
 
     static {{$s.Name}} parse(x::json::Parser parser);

@@ -20,7 +20,6 @@ import {
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { stubGeometry } from "@/testutil";
 
 const client = createTestClient();
 
@@ -39,8 +38,6 @@ const clickCreate = async (): Promise<void> => {
     fireEvent.click(findButton("Create"));
   });
 };
-
-stubGeometry();
 
 describe("useCreateModal", () => {
   describe("index / virtual interaction", () => {

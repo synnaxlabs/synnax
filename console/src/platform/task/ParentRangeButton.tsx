@@ -10,23 +10,19 @@
 import "@/platform/task/ParentRangeButton.css";
 
 import { ranger, task } from "@synnaxlabs/client";
-import { Button, Flex, type Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
-import { useCallback, useState } from "react";
+import { Button, Flex, Icon, Ranger, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { useKey } from "@/platform/task/useKey";
 
-export const ParentRangeButton = () => {
-  const taskKey = useKey();
-  const [parent, setParent] = useState<ranger.Payload | null>(null);
-  Ranger.useRetrieveParentEffect({
-    query: taskKey != null ? { id: task.ontologyID(taskKey) } : undefined,
-    onChange: useCallback(
-      (p: Flux.Result<ranger.Range | null>) => setParent(p.data ?? null),
-      [],
-    ),
-  });
+interface InternalProps {
+  taskKey: task.Key;
+}
+
+const Internal = ({ taskKey }: InternalProps) => {
+  const parent = Ranger.useParent({ id: task.ontologyID(taskKey) });
   const openTab = Panel.useOpenTab();
   if (parent == null) return null;
   const { key, name } = parent;
@@ -40,11 +36,20 @@ export const ParentRangeButton = () => {
         onClick={handleClick}
         className={CSS.B("task-parent-range-button")}
         variant="text"
-        weight={400}
       >
         <Icon.Range />
         {name}
       </Button.Button>
     </Flex.Box>
+  );
+};
+
+export const ParentRangeButton = () => {
+  const taskKey = useKey();
+  if (taskKey == null) return null;
+  return (
+    <Errors.SuspenseBoundary loading={null}>
+      <Internal taskKey={taskKey} />
+    </Errors.SuspenseBoundary>
   );
 };

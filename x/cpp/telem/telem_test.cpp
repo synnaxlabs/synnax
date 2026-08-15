@@ -663,6 +663,15 @@ TEST(RateTests, testRateInErrorMessage) {
     EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
 }
 
+/// @brief it should serialize to a plain JSON number and round-trip back.
+TEST(RateTests, testJSON) {
+    const Rate r(50);
+    const x::json::json j = r;
+    EXPECT_TRUE(j.is_number());
+    EXPECT_EQ(j.get<double>(), 50.0);
+    EXPECT_EQ(j.get<Rate>(), r);
+}
+
 class DataTypeTests : public ::testing::Test {};
 
 struct TypeTestCase {

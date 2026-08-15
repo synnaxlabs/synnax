@@ -77,6 +77,8 @@ class Client extends query.Retriever<typeof paramsZ, string, Thing> {
         schema: paramsZ,
         fetch: async (req) => await fetchRequest(req),
         matches: (r, req) => {
+          const keys = "keys" in req ? req.keys : undefined;
+          if (keys != null && !keys.includes(r.key)) return false;
           const minSize = "minSize" in req ? req.minSize : undefined;
           return minSize == null || r.size >= minSize;
         },
@@ -105,7 +107,7 @@ describe("Retriever", () => {
       expect(fetchKeys).toHaveBeenCalledWith(["a"]);
     });
 
-    it("resolves a bare key as { key } shorthand through the same entry", async () => {
+    it("resolves a bare key as { key } shorthand through the same query", async () => {
       const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
       const client = new Client(newCache(), fetchKeys, async () => []);
       const result = await client.retrieve("a");
@@ -173,7 +175,7 @@ describe("Retriever", () => {
       await expect(client.retrieve(["a"])).rejects.toThrow(z.ZodError);
     });
 
-    it("serves a cached row without a network fetch", async () => {
+    it("serves a cached entry without a network fetch", async () => {
       const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
       const client = new Client(newCache(), fetchKeys, async () => []);
       client.store.set([thing("a")]);
@@ -260,6 +262,45 @@ describe("Retriever", () => {
       stop();
     });
 
+    it("answers a keys-only getCached from records cached by other queries", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const client = new Client(newCache(), fetchKeys, async () => []);
+      await client.retrieve("a");
+      await client.retrieve("b");
+      expect(client.getCached({ keys: ["a", "b"] })).toEqual([thing("a"), thing("b")]);
+      expect(fetchKeys).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not compose a getCached answer for keys plus another set field", async () => {
+      const fetchKeys = async (keys: string[]) => keys.map((k) => thing(k));
+      const client = new Client(newCache(), fetchKeys, async () => []);
+      await client.retrieve(["a"]);
+      expect(client.getCached({ keys: ["a"], minSize: 0 })).toBeUndefined();
+    });
+
+    it("does not compose a getCached answer for an empty key list", () => {
+      const client = new Client(
+        newCache(),
+        async () => [],
+        async () => [],
+      );
+      expect(client.getCached({ keys: [] })).toBeUndefined();
+    });
+
+    it("matches the fetch answer for duplicated and deleted keys", async () => {
+      const existing = new Set(["a", "b"]);
+      const fetchKeys = vi.fn(async (keys: string[]) =>
+        keys.filter((k) => existing.has(k)).map((k) => thing(k)),
+      );
+      const client = new Client(newCache(), fetchKeys, async () => []);
+      await client.retrieve(["a", "b"]);
+      existing.delete("b");
+      client.store.delete("b");
+      const cached = client.getCached({ keys: ["a", "a", "b"] });
+      expect(cached).toEqual([thing("a")]);
+      expect(await client.retrieve({ keys: ["a", "a", "b"] })).toEqual(cached);
+    });
+
     it("hashes equivalent requests identically after schema normalization", async () => {
       const fetchRequest = vi.fn(async () => [thing("a", 5)]);
       const cache = newCache();
@@ -271,6 +312,76 @@ describe("Retriever", () => {
       const stop = client.onChange({ minSize: 3 }, handler);
       await client.retrieve({ minSize: 3 });
       await client.retrieve({ minSize: 3, searchTerm: undefined });
+      expect(fetchRequest).toHaveBeenCalledTimes(1);
+      stop();
+    });
+  });
+
+  describe("normalization memoization", () => {
+    it("validates a request params object once across repeat reads", async () => {
+      const parse = vi.spyOn(paramsZ, "parse");
+      const client = new Client(
+        newCache(),
+        async () => [],
+        async () => [thing("a", 5)],
+      );
+      const params = { minSize: 3 };
+      await client.retrieve(params);
+      const stop = client.onChange(params, vi.fn());
+      expect(client.getCached(params)).toEqual([thing("a", 5)]);
+      client.getCached(params);
+      expect(parse).toHaveBeenCalledTimes(1);
+      stop();
+      parse.mockRestore();
+    });
+
+    it("validates a single params object once across repeat reads", async () => {
+      const singleZ = z.strictObject({ key: z.string() }).transform(({ key }) => key);
+      class SingleClient extends query.Retriever<
+        typeof requestZ,
+        string,
+        Thing,
+        Thing,
+        { key: string }
+      > {
+        constructor(cache: query.Cache) {
+          const store = cache.createTable<string, Thing>({
+            name: "things",
+            fetch: async (keys) => keys.map((k) => thing(k)),
+          });
+          const single = cache.queries<string, Thing, string, Thing>({
+            name: "thing",
+            table: store,
+            fetch: async (key) => (await store.retrieve([key])).map((r) => r.key),
+            compose: (records) => records[0],
+            single: true,
+          });
+          super(cache, {
+            name: "thing",
+            table: store,
+            request: { schema: requestZ, fetch: async () => [] },
+            single: { schema: singleZ, space: single },
+          });
+        }
+      }
+      const safeParse = vi.spyOn(singleZ, "safeParse");
+      const client = new SingleClient(newCache());
+      const params = { key: "a" };
+      await client.retrieve(params);
+      const stop = client.onChange(params, vi.fn());
+      expect(client.getCached(params)).toEqual(thing("a"));
+      client.getCached(params);
+      expect(safeParse).toHaveBeenCalledTimes(1);
+      stop();
+      safeParse.mockRestore();
+    });
+
+    it("routes structurally equal but distinct objects to one answer", async () => {
+      const fetchRequest = vi.fn(async () => [thing("a", 5)]);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      await client.retrieve({ minSize: 3 });
+      const stop = client.onChange({ minSize: 3 }, vi.fn());
+      expect(client.getCached({ minSize: 3 })).toEqual([thing("a", 5)]);
       expect(fetchRequest).toHaveBeenCalledTimes(1);
       stop();
     });

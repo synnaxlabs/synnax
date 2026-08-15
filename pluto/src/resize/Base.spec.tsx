@@ -48,4 +48,14 @@ describe("Resize.Base", () => {
     expect(paneOf(c).style.width).toEqual("50%");
     expect(paneOf(c).style.height).toEqual("");
   });
+
+  it("should draw the divider on the pane's handle edge", () => {
+    const c = render(<Resize.Base location="left" size={120} />);
+    expect(paneOf(c).classList).toContain("pluto--bordered-right");
+  });
+
+  it("should draw no divider on a pane without a handle", () => {
+    const c = render(<Resize.Base location="left" size={120} hideHandle />);
+    expect(paneOf(c).classList).not.toContain("pluto--bordered-right");
+  });
 });

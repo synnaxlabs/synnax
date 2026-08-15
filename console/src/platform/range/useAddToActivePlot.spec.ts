@@ -8,18 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, type ontology, type panel, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/platform/range";
 import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  renderHookSuspended,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -45,6 +50,7 @@ const createFocusedPanel = async (
       variant: "leaf",
       tabs: [{ variant: "resource", key: tabKey, resource }],
     },
+    parent: await createPanelParent(client),
   });
   store.dispatch(Session.Panel.select({ key: created.key, windowKey: MAIN_WINDOW }));
   store.dispatch(
@@ -61,14 +67,14 @@ const createFocusedPanel = async (
 // renderAddToActivePlot mounts the hook alongside a panel retrieve that primes the
 // flux cache with the focused panel's document.
 const renderAddToActivePlot = async (wrapper: FC<PropsWithChildren>, key: string) => {
-  const { result } = renderHook(
+  const { result } = await renderHookSuspended(
     () => ({
       add: Range.useAddToActivePlot(),
-      panel: PPanel.useRetrieve({ key }),
+      panel: PPanel.use({ key }),
     }),
     { wrapper },
   );
-  await waitFor(() => expect(result.current.panel.variant).toBe("success"));
+  await waitFor(() => expect(result.current.panel).not.toBeNull());
   return result;
 };
 

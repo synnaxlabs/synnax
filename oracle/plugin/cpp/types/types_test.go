@@ -466,6 +466,64 @@ var _ = Describe("C++ Types Plugin", func() {
 			},
 		)
 
+		It(
+			"Should keep inheriting when a field restates only a default",
+			func(ctx SpecContext) {
+				source := `
+				@cpp output "client/cpp/opc"
+
+				BaseRead struct {
+					sample_rate float64 = 10
+					stream_rate float64 = 5
+				}
+
+				ReadConfig struct extends BaseRead {
+					sample_rate = 50
+					stream_rate = 25
+					device      string = ""
+				}
+			`
+				resp := MustGenerate(ctx, source, "opc", loader, cppPlugin)
+				content := MustContentOf(resp, "types.gen.h")
+				Expect(content).To(ContainSubstring(
+					`struct ReadConfig : public BaseRead {`,
+				))
+				Expect(content).To(ContainSubstring(
+					"ReadConfig() {\n        this->sample_rate = 50;\n" +
+						"        this->stream_rate = 25;\n    }",
+				))
+				// The base already declares both rates; redeclaring them would hide
+				// its members from every reference held through a BaseRead.
+				Expect(content).NotTo(MatchRegexp(
+					`struct ReadConfig : public BaseRead \{[^}]*double sample_rate`,
+				))
+			},
+		)
+
+		It(
+			"Should flatten when a field restates an inherited type",
+			func(ctx SpecContext) {
+				source := `
+				@cpp output "client/cpp/opc"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Child struct extends Base {
+					port int32 = 4
+				}
+			`
+				resp := MustGenerate(ctx, source, "opc", loader, cppPlugin)
+				content := MustContentOf(resp, "types.gen.h")
+				// C++ cannot restate an inherited member's type, so Child flattens.
+				Expect(content).To(ContainSubstring("struct Child {"))
+				Expect(content).To(ContainSubstring(`std::int32_t port = 4;`))
+				Expect(content).To(ContainSubstring(`std::string name = "";`))
+			},
+		)
+
 		It("Should handle @cpp name override", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
@@ -1474,6 +1532,93 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 		})
 
+		Describe("Explicit @cpp include", func() {
+			It(
+				"Should include the declared header for a cross-namespace distinct type",
+				func(ctx SpecContext) {
+					loader.Add("schemas/rack", `
+					@cpp output "client/cpp/rack"
+
+					Key uint32 {
+						@cpp include "client/cpp/rack/key.h"
+					}
+				`)
+
+					source := `
+					import "schemas/rack"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						rack rack.Key
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/rack/key.h"`).
+						ToNotContain(`#include "client/cpp/rack/types.gen.h"`)
+				},
+			)
+
+			It(
+				"Should include the declared header for a cross-namespace alias",
+				func(ctx SpecContext) {
+					loader.Add("schemas/status", `
+					@cpp output "client/cpp/status"
+
+					Detail struct {
+						message string
+					}
+
+					Summary = Detail {
+						@cpp include "client/cpp/status/summary.h"
+					}
+				`)
+
+					source := `
+					import "schemas/status"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						summary status.Summary
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/status/summary.h"`).
+						ToNotContain(`#include "client/cpp/status/types.gen.h"`)
+				},
+			)
+
+			It(
+				"Should fall back to types.gen.h when no header is declared",
+				func(ctx SpecContext) {
+					loader.Add("schemas/rack", `
+					@cpp output "client/cpp/rack"
+
+					Key uint32
+				`)
+
+					source := `
+					import "schemas/rack"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						rack rack.Key
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/rack/types.gen.h"`)
+				},
+			)
+		})
+
 		Describe("Array Wrapper Generation", func() {
 			It(
 				"Should generate wrapper struct for array distinct types",
@@ -1742,10 +1887,72 @@ var _ = Describe("C++ Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
 					ExpectContent(resp, "out/types.gen.h").
 						ToContain(
-							`duration = x::telem::TimeSpan(0);`,
-							`start = x::telem::TimeStamp(5);`,
-							`sample_rate = x::telem::Rate(10);`,
-							`stream_rate = x::telem::Rate(2.500000);`,
+							`duration = ::x::telem::TimeSpan(0);`,
+							`start = ::x::telem::TimeStamp(5);`,
+							`sample_rate = ::x::telem::Rate(10);`,
+							`stream_rate = ::x::telem::Rate(2.500000);`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap string defaults in the distinct type's constructor",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					DataType string {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						data_type telem.DataType = "float32"
+						label     string = "dflt"
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(
+							`data_type = ::x::telem::DataType("float32");`,
+							`std::string label = "dflt";`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap numeric defaults on distinct types outside x::telem",
+				func(ctx SpecContext) {
+					loader.Add("schemas/units", `
+					@cpp output "x/cpp/units"
+
+					Voltage float64 {
+						@cpp hand
+					}
+
+					Count uint32 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/units"
+
+					@cpp output "out"
+
+					Config struct {
+						limit   units.Voltage = 5.5
+						retries units.Count = 3
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(
+							`limit = ::x::units::Voltage(5.500000);`,
+							`retries = ::x::units::Count(3);`,
 						)
 				},
 			)
@@ -1864,12 +2071,12 @@ var _ = Describe("C++ Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 
 				@doc value "determines how raw values are transformed."
 			}
@@ -1877,11 +2084,11 @@ var _ = Describe("C++ Union Generation", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
-					`struct ScaleLinear : public LinearScale {`,
+					`struct LinearScale : public LinearParams {`,
 					`std::string type = "linear";`,
-					`struct ScaleNone : public NoneScale {`,
+					`struct NoneScale : public NoneParams {`,
 					`std::string type = "none";`,
-					"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<ScaleLinear, ScaleNone>;",
+					"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<LinearScale, NoneScale>;",
 					`Scale parse_scale(x::json::Parser parser);`,
 					`[[nodiscard]] x::json::json to_json(const Scale& value);`,
 				)
@@ -1907,12 +2114,12 @@ var _ = Describe("C++ Union Generation", func() {
 			resp := MustGenerate(ctx, source, "panel", loader, cppPlugin)
 			content := ExpectContent(resp, "types.gen.h")
 			content.ToContain(
-				`struct TabView : public TabBase, public Labeled {`,
+				`struct ViewTab : public TabBase, public Labeled {`,
 				`std::string type;`,
-				`struct TabEmpty : public TabBase {`,
-				`using Tab = std::variant<TabView, TabEmpty>;`,
+				`struct EmptyTab : public TabBase {`,
+				`using Tab = std::variant<ViewTab, EmptyTab>;`,
 			)
-			content.ToNotContain("TabViewPayload")
+			content.ToNotContain("ViewTabPayload")
 		},
 	)
 
@@ -1932,8 +2139,8 @@ var _ = Describe("C++ Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			content := ExpectContent(resp, "types.gen.h")
-			content.ToContain(`struct DigitalInputChannel {`)
-			content.ToNotContain(`struct DigitalInputChannel : {`)
+			content.ToContain(`struct DigitalInputDIChannel {`)
+			content.ToNotContain(`struct DigitalInputDIChannel : {`)
 		},
 	)
 
@@ -1959,6 +2166,35 @@ var _ = Describe("C++ Union Generation", func() {
 					`double min_val = 0;`,
 					`using AIChannel = std::variant<AIVoltageChannel>;`,
 				)
+		},
+	)
+
+	It(
+		"Should move a variant's restated base default into a constructor",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			BaseInputChannel struct {
+				port string = ""
+			}
+
+			InputChannel union on type extends BaseInputChannel {
+				AI { port string = "AIN0" }
+				DI { port string = "DIO4" }
+			}
+		`
+			resp := MustGenerate(ctx, source, "labjack", loader, cppPlugin)
+			// A derived struct cannot restate a base member's initializer, and
+			// declaring the member again would hide the base's from every
+			// reference held through a base type.
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`struct AIInputChannel : public BaseInputChannel {`,
+					"AIInputChannel() {\n        this->port = \"AIN0\";\n    }",
+					"DIInputChannel() {\n        this->port = \"DIO4\";\n    }",
+				).
+				ToNotContain(`std::string port = "AIN0";`, `std::string port = "DIO4";`)
 		},
 	)
 
@@ -1998,12 +2234,12 @@ var _ = Describe("C++ Union Generation", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -2013,6 +2249,30 @@ var _ = Describe("C++ Union Generation", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(`Scale custom_scale;`)
+		},
+	)
+
+	It(
+		"Should initialize a union-typed field with its defaulted variant",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			LinearParams struct { slope float64 = 1 }
+			NoneParams struct {}
+
+			Scale union on type {
+				linear LinearParams
+				none NoneParams
+			}
+
+			Channel struct {
+				customScale Scale = none
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(`Scale custom_scale = NoneScale{};`)
 		},
 	)
 })
@@ -2034,12 +2294,12 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 			loader.Add("schemas/scale", `
 			@cpp output "client/cpp/scale"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none   NoneScale
+				linear LinearParams
+				none   NoneParams
 			}
 		`)
 			source := `
@@ -2066,19 +2326,19 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 			source := `
 			@cpp output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale {
+				linear LinearParams {
 					@doc value "a linear scale."
 				}
-				none NoneScale
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
-				ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear : public LinearScale {")
+				ToContain("/// @brief LinearScale a linear scale.", "struct LinearScale : public LinearParams {")
 		},
 	)
 
@@ -2097,10 +2357,13 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		`
 			resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
 			taskContent := ExpectContent(resp, "client/cpp/task/types.gen.h")
-			taskContent.ToContain("struct Task {")
+			taskContent.ToContain("namespace synnax::task {", "struct Task {")
 			taskContent.ToNotContain("struct BaseConfig {")
 			commonContent := ExpectContent(resp, "client/cpp/task/common/types.gen.h")
-			commonContent.ToContain("struct BaseConfig {")
+			commonContent.ToContain(
+				"namespace synnax::task::common {",
+				"struct BaseConfig {",
+			)
 			commonContent.ToNotContain("struct Task {")
 		},
 	)

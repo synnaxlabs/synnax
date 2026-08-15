@@ -16,9 +16,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -69,6 +71,29 @@ var _ = Describe("Service", func() {
 					}),
 				)
 				Expect(res.Arcs).To(BeEmpty())
+			},
+		)
+	})
+
+	Describe("Create", func() {
+		It(
+			"Should materialize the stored document, not echo a client-supplied Raw",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					access.ActionCreate,
+					ontology.ID{Type: ontology.ResourceTypeArc},
+				)
+				a := Arc{Name: "lying-raw", Mode: arc.ModeText}
+				a.Text.Doc = text.Create("a -> b")
+				a.Text.Raw = "a -> c"
+				res := MustSucceed(
+					apiSvc.Create(authedCtx(ctx, author), db, CreateRequest{
+						Arcs: []Arc{a},
+					}),
+				)
+				Expect(res.Arcs[0].Text.Raw).To(Equal("a -> b"))
 			},
 		)
 	})
@@ -209,6 +234,98 @@ var _ = Describe("Service", func() {
 					Expect(got.Actions).To(HaveLen(1))
 				},
 			)
+		})
+	})
+
+	Describe("SetRack", func() {
+		grantSetRack := func(ctx SpecContext, a arc.Arc) {
+			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+			grantOn(
+				ctx,
+				author.OntologyID(),
+				access.ActionCreate,
+				ontology.ID{Type: ontology.ResourceTypeTask},
+			)
+		}
+
+		It(
+			"Should reject the request when the subject has no policy",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "set-rack-no-policy")
+				Expect(apiSvc.SetRack(authedCtx(ctx, author), db, SetRackRequest{
+					Key:  a.Key,
+					Rack: testRack.Key,
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It(
+			"Should reject when the subject may update the arc but not create tasks",
+			func(ctx SpecContext) {
+				a := createArc(ctx, "set-rack-no-task-policy")
+				grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
+				Expect(apiSvc.SetRack(authedCtx(ctx, author), db, SetRackRequest{
+					Key:  a.Key,
+					Rack: testRack.Key,
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+
+		It("Should bind the rack and return the task", func(ctx SpecContext) {
+			a := createArc(ctx, "set-rack-ok")
+			grantSetRack(ctx, a)
+			res := MustSucceed(
+				apiSvc.SetRack(authedCtx(ctx, author), db, SetRackRequest{
+					Key:  a.Key,
+					Rack: testRack.Key,
+				}),
+			)
+			Expect(res.Task).ToNot(BeNil())
+			Expect(res.Task.Rack).To(Equal(testRack.Key))
+			Expect(res.Task.Config).To(HaveKeyWithValue("arc_key", a.Key.String()))
+			Expect(res.Task.Config).To(HaveKey("hash"))
+		})
+
+		It("Should clear the rack with task delete permission", func(ctx SpecContext) {
+			a := createArc(ctx, "clear-rack-ok")
+			grantSetRack(ctx, a)
+			grantOn(
+				ctx,
+				author.OntologyID(),
+				access.ActionDelete,
+				ontology.ID{Type: ontology.ResourceTypeTask},
+			)
+			deployed := MustSucceed(
+				apiSvc.SetRack(authedCtx(ctx, author), db, SetRackRequest{
+					Key:  a.Key,
+					Rack: testRack.Key,
+				}),
+			)
+			Expect(deployed.Task).ToNot(BeNil())
+			res := MustSucceed(
+				apiSvc.SetRack(authedCtx(ctx, author), db, SetRackRequest{
+					Key: a.Key,
+				}),
+			)
+			Expect(res.Task).To(BeNil())
+			Expect(arcSvc.NewRetrieve().
+				Where(arc.MatchKeys(a.Key)).
+				Exec(ctx, nil)).To(Succeed())
+		})
+
+		It("Should bubble up not found for a nonexistent arc", func(ctx SpecContext) {
+			missing := uuid.New()
+			grantUpdateOn(ctx, author.OntologyID(), arc.OntologyID(missing))
+			grantOn(
+				ctx,
+				author.OntologyID(),
+				access.ActionCreate,
+				ontology.ID{Type: ontology.ResourceTypeTask},
+			)
+			Expect(apiSvc.SetRack(authedCtx(ctx, author), db, SetRackRequest{
+				Key:  missing,
+				Rack: testRack.Key,
+			})).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 })

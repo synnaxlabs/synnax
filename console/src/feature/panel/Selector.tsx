@@ -7,39 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/panel/Selector.css";
+
 import { panel, query } from "@synnaxlabs/client";
 import {
   Access,
   Button,
-  Component,
+  type Component,
   CSS as PCSS,
   Errors,
   type Flux,
   Haul,
   Icon,
   Menu,
+  Mosaic,
   Panel,
   Synnax,
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { createPillHaulItem } from "@/feature/panel/haul";
+import {
+  createPillHaulItem,
+  isPillHaulItem,
+  PILL_HAUL_TYPE,
+} from "@/feature/panel/haul";
 import { useCreate } from "@/feature/panel/useCreate";
+import { type Dwell, useDwell } from "@/feature/panel/useDwell";
+import {
+  type TabOrigin,
+  useMoveTab,
+  useMoveTabToNewPanel,
+} from "@/feature/panel/useMoveTab";
 import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Tree } from "@/platform/tree";
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
+interface ContextMenuProps extends Menu.ContextMenuMenuProps {
+  /** The strip's panels in render order, so a delete can hand the selection on. */
+  order: panel.Key[];
+}
+
+const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => {
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const confirm = Tree.useConfirmDelete({ type: "Panel" });
+  const confirm = Modals.useConfirmDelete({ type: "Panel" });
   const dispatch = useDispatch();
   const client = Synnax.use();
   const openWindow = useOpenWindow();
@@ -48,63 +66,105 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
         const panelKeys = array.toArray(data);
         if (panelKeys.length === 0) return false;
-        // The confirmation names the panels, which the strip does not hold: a
-        // snapshot read is enough for a prompt fired from a menu click.
-        const cached = client?.panels.getCached(panelKeys);
-        if (!(await confirm(query.isLive(cached) ? cached : []))) return false;
-        dispatch(Session.Panel.remove(panelKeys));
+        const items = panelKeys.map((key) => {
+          const cached = client?.panels.getCached(key);
+          return { name: query.isLive(cached) ? cached.name : "this panel" };
+        });
+        if (!(await confirm(items))) return false;
+        dispatch(Session.Panel.remove({ keys: panelKeys, order }));
         return data;
       },
-      [client, confirm, dispatch],
+      [client, confirm, dispatch, order],
     ),
   });
   if (keys.length === 0) return null;
   const [key] = keys;
   return (
     <CMenu.Menu>
-      {keys.length === 1 && (
-        <>
-          <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
-            <Icon.OpenInNewWindow />
-            Open in new window
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
       {hasUpdatePermission && keys.length === 1 && (
-        <>
-          <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
-          <Menu.Divider />
-        </>
+        <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
       )}
-      {hasDeletePermission && (
-        <>
-          <CMenu.DeleteItem onClick={() => del(keys)} />
-          <Menu.Divider />
-        </>
+      <Menu.Divider />
+      {keys.length === 1 && (
+        <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
+          <Icon.OpenInNewWindow />
+          Open in new window
+        </Menu.Item>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <CMenu.DeleteItem onClick={() => del(keys)} />}
+      <Menu.Divider />
       <CMenu.ReloadConsoleItem />
     </CMenu.Menu>
   );
 };
 
+// Only a tab dragged out of a mosaic can be dropped onto the strip. A pill dragged
+// along the strip is a window gesture, resolved over the desktop.
+const canDropTab: Haul.CanDrop = ({ items }) =>
+  items.length === 1 && Mosaic.isTabDropHaulItem(items[0]);
+
+interface TabDropReturn extends Haul.UseDropReturn {
+  onDragLeave: () => void;
+  /** Class marking the target as the one a dragged tab would land on. */
+  className: string | false;
+}
+
+// The strip has no drop indicators of its own, so a target that accepts a tab has to
+// say so itself.
+const useTabDrop = (
+  key: panel.Key | undefined,
+  onDrop: (origin: TabOrigin) => void,
+  onEnter?: () => void,
+): TabDropReturn => {
+  const [over, setOver] = useState(false);
+  const handleDragOver = useCallback(() => {
+    setOver(true);
+    onEnter?.();
+  }, [onEnter]);
+  const handleDragLeave = useCallback(() => setOver(false), []);
+  const { onDragOver, onDrop: handleDrop } = Haul.useDrop({
+    type: "PanelSelector",
+    key,
+    canDrop: canDropTab,
+    onDragOver: handleDragOver,
+    onDrop: useCallback(
+      ({ items }: Haul.OnDropProps) => {
+        setOver(false);
+        const origin = Panel.parseTabDragPayload(items[0]?.data);
+        if (origin == null || origin.panel === key) return [];
+        onDrop(origin);
+        return items;
+      },
+      [key, onDrop],
+    ),
+  });
+  return {
+    onDragOver,
+    onDrop: handleDrop,
+    onDragLeave: handleDragLeave,
+    className: over && CSS.M("tab-target"),
+  };
+};
+
 interface TabProps {
   tabKey: panel.Key;
+  dwell: Dwell;
 }
 
 // A pill whose panel vanished between the list answer and the retrieve
 // renders nothing; the by-project subscription evicts the key right after.
 const TabFallback = (): null => null;
 
-const Tab = ({ tabKey }: TabProps): ReactElement => (
-  <Errors.SuspenseBoundary FallbackComponent={TabFallback}>
-    <TabContent tabKey={tabKey} />
+const Tab = ({ tabKey, dwell }: TabProps): ReactElement => (
+  <Errors.SuspenseBoundary loading={null} FallbackComponent={TabFallback}>
+    <TabContent tabKey={tabKey} dwell={dwell} />
   </Errors.SuspenseBoundary>
 );
 
-const TabContent = ({ tabKey }: TabProps): ReactElement => {
-  Panel.useEnsureRetrieved({ key: tabKey });
-  const name = Panel.useSelectName({ key: tabKey });
+const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
+  Panel.useEnsure({ key: tabKey });
+  const name = Panel.useName({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = useCallback(
     (name: string) => rename({ key: tabKey, name }),
@@ -115,13 +175,32 @@ const TabContent = ({ tabKey }: TabProps): ReactElement => {
     () => startDrag([createPillHaulItem(tabKey)]),
     [startDrag, tabKey],
   );
+  const moveTab = useMoveTab();
+  const handleMove = useCallback(
+    (origin: TabOrigin) => moveTab(origin, tabKey),
+    [moveTab, tabKey],
+  );
+  const handleDwell = useCallback(() => dwell.enter(tabKey), [dwell, tabKey]);
+  const { onDragLeave, className, ...dropProps } = useTabDrop(
+    tabKey,
+    handleMove,
+    handleDwell,
+  );
+  const handleDragLeave = useCallback(() => {
+    onDragLeave();
+    dwell.leave(tabKey);
+  }, [onDragLeave, dwell, tabKey]);
   return (
     <Tabs.Tab
       itemKey={tabKey}
+      className={CSS(className)}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
+      onDragLeave={handleDragLeave}
+      {...dropProps}
     >
+      <Icon.Panel />
       <Text.Editable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}
@@ -131,38 +210,77 @@ const TabContent = ({ tabKey }: TabProps): ReactElement => {
   );
 };
 
-const contextMenu = Component.renderProp(ContextMenu);
+// The create button doubles as a drop target: releasing a tab on it mints a panel to
+// hold the tab, the drag twin of the picker's "New panel" entry.
+const CreateButton = (): ReactElement => {
+  const selected = Session.Panel.useSelectSelected();
+  const handleCreate = useCreate();
+  const moveToNewPanel = useMoveTabToNewPanel();
+  const { className, ...dropProps } = useTabDrop(undefined, moveToNewPanel);
+  return (
+    <Button.Button
+      variant="text"
+      textColor={9}
+      className={CSS(className)}
+      onClick={handleCreate}
+      {...dropProps}
+    >
+      <Icon.Add />
+      {selected == null && "Create panel"}
+    </Button.Button>
+  );
+};
 
 const Internal = (): ReactElement => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
-  const projectKey = Session.Project.useSelectSelected();
-  const keys = Panel.useRetrieveKeysByProject({ project: projectKey });
+  const ordered = Session.Panel.useSelectOrderedKeys();
+  const dwell = useDwell();
 
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Panel.select({ key })),
     [dispatch],
   );
 
-  const handleCreate = useCreate();
+  const handleDrop = useCallback(
+    ({ items, index }: Tabs.SelectorOnDropParams): Haul.Item[] => {
+      const pills = items.filter(isPillHaulItem);
+      if (pills.length > 0)
+        dispatch(Session.Panel.reorder({ key: pills[0].key, index }));
+      return pills;
+    },
+    [dispatch],
+  );
+
   const menuProps = Menu.useContextMenu();
+  const contextMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
+    (props) => <ContextMenu {...props} order={ordered} />,
+    [ordered],
+  );
 
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Tabs.Frame value={selected ?? ""} onChange={handleSelect}>
+      <Tabs.Frame
+        className={CSS.B("panel-selector")}
+        value={selected ?? ""}
+        onChange={handleSelect}
+        x
+        align="center"
+        empty={false}
+        gap="small"
+      >
         <Tabs.Selector
-          className={CSS.B("panel-selector")}
           size="medium"
           variant="pill"
+          haulType={PILL_HAUL_TYPE}
+          onDrop={handleDrop}
           onContextMenu={menuProps.open}
         >
-          {keys.map((key) => (
-            <Tab key={key} tabKey={key} />
+          {ordered.map((key) => (
+            <Tab key={key} tabKey={key} dwell={dwell} />
           ))}
-          <Button.Button variant="text" sharp onClick={handleCreate}>
-            <Icon.Add />
-          </Button.Button>
         </Tabs.Selector>
+        <CreateButton />
       </Tabs.Frame>
     </Menu.ContextMenu>
   );

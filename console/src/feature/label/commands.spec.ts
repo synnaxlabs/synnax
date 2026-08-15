@@ -13,9 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Label } from "@/feature/label";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
 
 const client = createTestClient();
 
@@ -27,6 +24,6 @@ describe("Label Commands", () => {
     });
     await openCommandPalette();
     await selectCommand("Edit labels");
-    expect(await screen.findByText("Search labels")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("Search labels...")).toBeTruthy();
   });
 });

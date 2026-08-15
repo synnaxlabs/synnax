@@ -91,7 +91,10 @@ export const DateTime = ({
         step={0.00001}
         {...rest}
       >
-        <Button.Button onClick={() => setVisible(!visible)} variant={variant}>
+        <Button.Button
+          onClick={() => setVisible(!visible)}
+          variant={variant === "shadow" ? "outlined" : variant}
+        >
           <Icon.Calendar />
         </Button.Button>
       </InputText>
@@ -243,13 +246,13 @@ const AISelector = ({
           emptyContent={
             <Flex.Box empty grow align="center" justify="center">
               <Flex.Box y gap="tiny">
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "April 1 at 2PM"
                 </Text.Text>
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "Add 2 two hours"
                 </Text.Text>
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "Next Friday"
                 </Text.Text>
               </Flex.Box>
@@ -350,7 +353,8 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           {Array.from({ length: daysInMonth(month, year) }).map((_, i) => (
             <Button.Button
               key={i}
-              variant={i + 1 === day ? "outlined" : "text"}
+              variant="text"
+              className={CSS(CSS.selected(i + 1 === day))}
               onClick={() => handleDayChange(i + 1)}
               square
             >

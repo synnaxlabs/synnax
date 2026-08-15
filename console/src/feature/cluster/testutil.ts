@@ -12,10 +12,14 @@ import { fireEvent } from "@testing-library/react";
 import { getBySelector } from "@/testutil";
 
 /**
- * Hovers the rendered ConnectionBadge's tooltip trigger. The badge renders an
- * icon-only status indicator with no accessible handle, so the structural selector
- * lives here.
+ * Hovers the rendered ConnectionBadge's trigger to open its tooltip. The badge is
+ * icon-only with no accessible handle, so the structural selector lives here.
  */
 export const hoverConnectionBadge = (container: HTMLElement): void => {
-  fireEvent.mouseEnter(getBySelector(container, "p"));
+  fireEvent.pointerOver(getBySelector(container, "button"), { pointerType: "mouse" });
+};
+
+/** Clicks the rendered ConnectionBadge's trigger to open its dialog. */
+export const clickConnectionBadge = (container: HTMLElement): void => {
+  fireEvent.click(getBySelector(container, "button"));
 };

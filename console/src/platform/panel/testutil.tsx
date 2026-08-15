@@ -13,6 +13,7 @@ import {
   type project,
   type Synnax,
 } from "@synnaxlabs/client";
+import { createPanelParent } from "@synnaxlabs/client/testutil";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -24,14 +25,29 @@ import {
 } from "react";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  getBySelector,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
-/** Persists a panel with the given tree to the cluster. */
+/** The rendered mosaic leaf: the drop target for both tabs and OS files. */
+export const getMosaicLeaf = (): HTMLElement =>
+  getBySelector<HTMLElement>(document, ".pluto-mosaic__leaf");
+
+/** Persists a panel with the given tree to the cluster, parented to a throwaway
+ * project. */
 export const createServerPanel = async (
   client: Synnax,
   root: panel.New["root"],
 ): Promise<panel.Panel> =>
-  await client.panels.create({ key: uuid.create(), name: uniqueName("panel"), root });
+  await client.panels.create({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root,
+    parent: await createPanelParent(client),
+  });
 
 export interface ResourceTab {
   panelKey: panel.Key;
@@ -40,7 +56,7 @@ export interface ResourceTab {
 
 /**
  * Creates a single-leaf panel holding one resource tab for the given resource, so the
- * panel scope hooks a mounted tab content reads (useSelectTabResource) resolve to it.
+ * panel scope hooks a mounted tab content reads (useTabResource) resolve to it.
  */
 export const createResourceTab = async (
   client: Synnax,
@@ -50,6 +66,7 @@ export const createResourceTab = async (
   const { key: panelKey } = await client.panels.create({
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs: [{ variant: "resource", key: tabKey, resource }] },
+    parent: await createPanelParent(client),
   });
   return { panelKey, tabKey };
 };
@@ -113,12 +130,11 @@ export const primePanel = async (
   wrapper: FC<PropsWithChildren>,
   key: panel.Key,
 ): Promise<void> => {
-  const { result, unmount } = renderHook(() => PPanel.useRetrieve({ key }), {
+  const { result, unmount } = renderHook(() => PPanel.useResult({ key }).data, {
     wrapper,
   });
   await waitFor(() => {
-    if (result.current.variant !== "success")
-      throw new Error(`panel ${key} failed to load (${result.current.variant})`);
+    if (result.current == null) throw new Error(`panel ${key} failed to load`);
   });
   unmount();
 };

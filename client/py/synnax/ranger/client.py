@@ -510,7 +510,7 @@ class Range(Payload):
         res = self._ontology.retrieve_children(self.ontology_id)
         tasks = [t for t in res if t.type == "task"]
         return self._tasks.retrieve(
-            keys=[int(t.key) for t in tasks if t.key is not None]
+            keys=[UUID(t.key) for t in tasks if t.key is not None]
         )
 
 

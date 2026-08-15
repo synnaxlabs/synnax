@@ -153,7 +153,7 @@ task = ni.AnalogWriteTask(
     state_rate=sy.Rate.HZ * 20,
     data_saving=True,
     channels=[
-        ni.AOCurrentChan(
+        ni.AOCurrentChannel(
             cmd_channel=current_cmd.key,
             state_channel=current_state.key,
             port=0,

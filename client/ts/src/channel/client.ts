@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   control,
-  type CrudeDensity,
   type CrudeTimeRange,
   type CrudeTimeStamp,
   DataType,
@@ -38,6 +37,7 @@ import {
   type New,
   ontologyID,
   type Operation,
+  operationZ,
   type Payload,
   payloadZ,
   statusZ,
@@ -51,7 +51,7 @@ import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
 import { keyZ as rangerKeyZ } from "@/ranger/types.gen";
-import { status } from "@/status";
+import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_channel_set";
@@ -141,13 +141,7 @@ export class Channel {
     expression = "",
     operations = [],
     concurrency = control.Concurrency.exclusive,
-  }: New & {
-    internal?: boolean;
-    frameClient?: framer.Client;
-    density?: CrudeDensity;
-    status?: status.New;
-    operations?: Operation[];
-  }) {
+  }: New & { frameClient?: framer.Client }) {
     this.key = keyZ.parse(key);
     this.name = name;
     this.dataType = new DataType(dataType);
@@ -158,9 +152,9 @@ export class Channel {
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.operations = operations;
+    this.operations = operationZ.array().parse(operations);
     this.concurrency = concurrency;
-    if (argsStatus != null) this.status = status.create(argsStatus);
+    if (argsStatus != null) this.status = statusZ.parse(argsStatus);
     this.frameClient = frameClient ?? null;
   }
 
@@ -188,6 +182,7 @@ export class Channel {
       expression: this.expression,
       status: this.status,
       operations: this.operations,
+      concurrency: this.concurrency,
     });
   }
 
@@ -290,6 +285,22 @@ const isKeysOnly = (
   req.internal == null &&
   req.legacyCalculated == null;
 
+const isNamesOnly = (
+  req: NormalizedRequest,
+): req is NormalizedRequest & { names: string[] } =>
+  primitive.isNonZero(req.names) &&
+  req.keys == null &&
+  req.searchTerm == null &&
+  req.nodeKey == null &&
+  req.limit == null &&
+  req.offset == null &&
+  req.dataTypes == null &&
+  req.notDataTypes == null &&
+  req.virtual == null &&
+  req.isIndex == null &&
+  req.internal == null &&
+  req.legacyCalculated == null;
+
 const NAME_LITERAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 /**
@@ -379,7 +390,7 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
-  private readonly store: query.Table<Key, Channel>;
+  readonly store: query.Table<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, ranges, cache } = cfg;
@@ -615,36 +626,6 @@ export class Client extends query.Retriever<
     return isSingle ? res[0] : res;
   }
 
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached. Unfetched filter queries
-   * are approximated from the record store when possible.
-   */
-  getCached(params: Key | RetrieveSingleParams): query.Cached<Channel> | undefined;
-  getCached(params: RetrieveRequest): query.Cached<Channel[]> | undefined;
-  getCached(
-    params: Key | RetrieveSingleParams | RetrieveRequest,
-  ): query.Cached<Channel> | query.Cached<Channel[]> | undefined {
-    if (typeof params === "number" || "key" in params) return super.getCached(params);
-    return (
-      super.getCached(params) ?? this.approximateCached(retrieveRequestZ.parse(params))
-    );
-  }
-
-  /**
-   * Approximates an unfetched filter query's answer from the record store.
-   * Server-computed shapes (search, pagination) cannot be approximated.
-   */
-  private approximateCached(
-    req: NormalizedRequest,
-  ): query.Cached<Channel[]> | undefined {
-    if (req.searchTerm != null || req.limit != null || req.offset != null)
-      return undefined;
-    const matches = this.store.get(requestFilter(req));
-    if (matches.length === 0) return undefined;
-    return matches;
-  }
-
   /***
    * Deletes channels from the database using the given keys or names.
    * @param params - The keys or names of the channels to delete.
@@ -811,14 +792,38 @@ export class Client extends query.Retriever<
     return ch;
   }
 
+  /**
+   * Resolves literal names against the record store, fetching only the names it
+   * cannot resolve. A name matching two stored channels is ambiguous, which only
+   * a cluster running without name validation can produce, so the whole request
+   * falls through to the cluster. Returns null when the store cannot be trusted
+   * to answer any part of the request.
+   */
+  private async resolveNames(names: string[]): Promise<Channel[] | null> {
+    if (!names.every((name) => NAME_LITERAL_PATTERN.test(name))) return null;
+    const resolved: Channel[] = [];
+    const missing: string[] = [];
+    for (const name of new Set(names)) {
+      const matches = this.store.get((ch) => ch.name === name);
+      if (matches.length > 1) return null;
+      if (matches.length === 0) missing.push(name);
+      else resolved.push(matches[0]);
+    }
+    if (missing.length === 0) return resolved;
+    const fetched = (await this.execRetrieve({ names: missing })).map((p) =>
+      this.sugar(stripComposed(p)),
+    );
+    return [...resolved, ...fetched];
+  }
+
   private async fetchRequest(query: NormalizedRequest): Promise<Channel[]> {
     const { rangeKey } = query;
-    let channels: Channel[];
+    let channels: Channel[] | null = null;
     if (isKeysOnly(query)) channels = await this.store.retrieve(query.keys);
-    else
-      channels = (await this.execRetrieve(query)).map((p) =>
-        this.sugar(stripComposed(p)),
-      );
+    else if (isNamesOnly(query)) channels = await this.resolveNames(query.names);
+    channels ??= (await this.execRetrieve(query)).map((p) =>
+      this.sugar(stripComposed(p)),
+    );
     if (rangeKey != null)
       await this.ensureAliases(
         rangeKey,

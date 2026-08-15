@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Data Processing"
 description: "Common patterns for processing sensor data in Arc"
-prev: "Control Authority"
-prevURL: "/reference/control/arc/concepts/control-authority"
+prev: "Channels and Series"
+prevURL: "/reference/control/arc/concepts/channels-and-series"
 next: "Alarms"
 nextURL: "/reference/control/arc/how-to/alarms"
 ---
@@ -23,7 +23,7 @@ readings, detecting changes. This guide covers the patterns you'll use for these
 
 A flow connects a source to a destination through a function:
 
-```arc
+```arc channels="temperature, temperature_celsius"
 temperature -> to_celsius{} -> temperature_celsius
 ```
 
@@ -48,7 +48,7 @@ The input comes from the flow (the value of `temperature`), not from parentheses
 Input parameters make functions reusable. They're set when you instantiate the function,
 not when data flows through:
 
-```arc
+```arc channels="pressure, pressure_doubled, temperature, temperature_halved"
 func scale{factor f64} (value f64) f64 {
     return value * factor
 }
@@ -67,7 +67,7 @@ Use input parameters for:
 - Conversion factors
 - Anything that varies per sensor but stays constant during execution
 
-```arc
+```arc channels="pressure_raw, pressure_psi"
 func linear_scale{gain f64, offset f64} (raw f64) f64 {
     return raw * gain + offset
 }
@@ -82,7 +82,7 @@ pressure_raw -> linear_scale{gain=100.0, offset=5.0} -> pressure_psi
 Simple transformations don't need a separate function. Write the expression directly in
 the flow:
 
-```arc
+```arc channels="temperature, temperature_fahrenheit"
 temperature * 9.0 / 5.0 + 32.0 -> temperature_fahrenheit
 ```
 
@@ -90,7 +90,7 @@ This creates an implicit function that runs whenever `temperature` updates.
 
 Expressions can include comparisons:
 
-```arc
+```arc channels="pressure, pressure_high"
 pressure > 500 -> pressure_high
 ```
 
@@ -98,7 +98,7 @@ Now `pressure_high` outputs `true` when pressure exceeds 500, `false` otherwise.
 
 You can combine channels:
 
-```arc
+```arc channels="pressure_1, pressure_2, pressure_avg"
 (pressure_1 + pressure_2) / 2.0 -> pressure_avg
 ```
 
@@ -136,7 +136,7 @@ sequence monitor {
 
 <Fragment slot="function">
 
-```arc
+```arc channels="trigger, count_ch"
 func counter() i64 {
     count $= 0
     count = count + 1
@@ -150,8 +150,8 @@ trigger -> counter{} -> count_ch
 
 </Arc.Tabs>
 
-The [Stateful Variables](/reference/control/arc/concepts/stateful-variables) concept
-page explains persistence in more depth.
+The [Variables](/reference/control/arc/reference/variables#stateful) reference page
+explains persistence in more depth.
 
 <Divider.Divider x />
 
@@ -160,7 +160,7 @@ page explains persistence in more depth.
 A common pattern is comparing the current value to the previous one. Initialize the
 stateful variable to the input parameter:
 
-```arc
+```arc channels="pressure, pressure_change"
 func delta(value f64) f64 {
     prev $= value
     d := value - prev
@@ -183,7 +183,7 @@ that, `prev` retains whatever was assigned to it.
 
 Accumulators track totals or counts over time:
 
-```arc
+```arc channels="temperature, temperature_avg"
 func running_avg(value f64) f64 {
     total $= 0.0
     count $= 0
@@ -219,7 +219,7 @@ Initializing `max $= value` means the first reading becomes the initial maximum.
 An exponential moving average (EMA) smooths noisy data while responding to changes. It
 weights recent values more heavily:
 
-```arc
+```arc channels="pressure, pressure_smooth"
 func ema{alpha f64} (value f64) f64 {
     avg $= value
     avg = alpha * value + (1.0 - alpha) * avg
@@ -240,7 +240,7 @@ The `alpha` parameter controls responsiveness:
 
 When a function needs multiple sensor values, pass the channels as input parameters:
 
-```arc
+```arc channels="p1, p2"
 func pressure_diff{inlet chan f64, outlet chan f64} () f64 {
     p1 := inlet
     p2 := outlet
@@ -253,7 +253,7 @@ Inside the function, `inlet` and `outlet` read the latest value from those chann
 But what triggers this function? It has no trigger to receive flow data. Use
 `time.interval` to run it on a schedule:
 
-```arc
+```arc channels="inlet_pressure, outlet_pressure, delta_p"
 time.interval{period=50ms} -> pressure_diff{inlet=inlet_pressure, outlet=outlet_pressure} -> delta_p
 ```
 
@@ -268,7 +268,7 @@ Two ways to trigger execution:
 
 **Flow-driven**: The source channel triggers execution when it updates.
 
-```arc
+```arc channels="temperature, temperature_celsius"
 temperature -> to_celsius{} -> temperature_celsius
 ```
 
@@ -276,7 +276,7 @@ Good when you want to process every sample from a sensor.
 
 **Interval-driven**: A timer triggers execution at a fixed rate.
 
-```arc
+```arc channels="output"
 time.interval{period=100ms} -> read_sensors{} -> output
 ```
 
@@ -345,7 +345,7 @@ func categorize(value f64) i64 {
 When you have redundant sensors, use voting to reject outliers. A median of three
 readings ignores a single faulty sensor:
 
-```arc
+```arc channels="pressure_1, pressure_2, pressure_3, pressure_voted, va, vb, vc"
 func median3{a chan f64, b chan f64, c chan f64} () f64 {
     va := a
     vb := b
@@ -373,7 +373,7 @@ reading is ignored.
 Detecting how fast a value is changing requires tracking the previous value and dividing
 by time:
 
-```arc
+```arc channels="pressure, pressure_rate"
 func rate{dt_ms f64} (value f64) f64 {
     prev $= value
     d := value - prev
@@ -401,7 +401,7 @@ output is in units per second (e.g., psi/second if pressure is in psi).
 human-readable status messages from live channel values. Placeholders inside `{...}`
 accept any expression, and a `:spec` after the expression controls formatting:
 
-```arc
+```arc channels="pressure, pressure_status"
 func fmt_pressure(value f64) str {
     return f"Pressure: {value:.2f} psi"
 }
@@ -416,7 +416,7 @@ placeholder renders as `true` or `false`.
 
 Format strings are useful for writing diagnostic outputs:
 
-```arc
+```arc channels="pressure, log"
 func alert(value f64) str {
     if value > 800.0 {
         return f"HIGH PRESSURE: {value:.1f} psi"
@@ -434,7 +434,7 @@ pressure -> alert{} -> log
 Here's a complete pipeline that reads a pressure sensor, converts units, smooths the
 signal, computes rate of change, and outputs everything:
 
-```arc
+```arc channels="pressure_raw, pressure_psi, pressure_smooth, pressure_rate, pressure_high"
 // Unit conversion: voltage to psi
 func volts_to_psi{v_min f64, v_max f64, p_max f64} (v f64) f64 {
     ratio := (v - v_min) / (v_max - v_min)

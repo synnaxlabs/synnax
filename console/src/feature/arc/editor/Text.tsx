@@ -10,10 +10,16 @@
 import { Arc } from "@synnaxlabs/pluto";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
+import { Session } from "@/session";
 
-export const Text = () => (
-  <>
-    <Arc.Text.Editor />
-    <TaskControls />
-  </>
-);
+export const Text = () => {
+  // Background tabs stay mounted, so an ungated autofocus would let any of them pull
+  // the cursor out of the tab the user is actually looking at.
+  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
+  return (
+    <>
+      <Arc.Text.Editor autoFocus={getTabIsFocused()} />
+      <TaskControls />
+    </>
+  );
+};

@@ -20,26 +20,19 @@ import {
 } from "@/feature/ethercat/task/configure";
 import {
   channelMapKey,
-  createInputChannel,
+  createReadChannel,
+  deployReadConfigZ,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
-  type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
+  type ReadChannel,
   type ReadSchemas,
   resolvePDODataType,
-  ZERO_READ_PAYLOAD,
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "EtherCAT Read Task",
-  icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
 
 const Properties = () => (
   <Flex.Box x grow>
@@ -53,7 +46,7 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<InputChannel>(path);
+  const ch = PForm.useFieldValue<ReadChannel>(path);
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -72,20 +65,20 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<ReadSchemas>> = () => (
-  <Task.Views.ListAndDetails<InputChannel>
+const Form: FC = () => (
+  <Task.Views.ListAndDetails<ReadChannel>
     listItem={listItem}
     details={channelDetails}
-    createChannel={createInputChannel}
+    createChannel={createReadChannel}
     contextMenuItems={Task.readChannelContextMenuItem}
   />
 );
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => {
-  if (config != null)
-    return { ...ZERO_READ_PAYLOAD, config: READ_SCHEMAS.config.parse(config) };
-  return { ...ZERO_READ_PAYLOAD };
-};
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => ({
+  name: "EtherCAT Read Task",
+  type: READ_TYPE,
+  config: READ_SCHEMAS.config.parse(config ?? {}),
+});
 
 const READ_INDEX_OPTIONS = {
   indexProperty: "readIndex" as const,
@@ -95,7 +88,7 @@ const READ_INDEX_OPTIONS = {
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<InputChannel>(client, config.channels);
+    await retrieveAndValidateSlaves<ReadChannel>(client, config.channels);
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
@@ -144,7 +137,19 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "ethercat_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "EtherCAT Read Task",
+  icon: <Icon.Logo.EtherCAT />,
+  useOnSelect: useCreateRead,
 });

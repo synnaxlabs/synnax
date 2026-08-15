@@ -9,20 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
-import { id, TimeStamp } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
-  ReturnType<typeof task.statusDetailsZ<StatusData>>
-> => ({
-  key: id.create(),
-  name: "Task Status",
-  variant: "disabled",
-  message: "Task has not been configured",
-  description: "",
-  time: TimeStamp.now(),
-  details: { task: "", running: false, cmd: "", data: {} as any },
-});
-
 export const useStatus = <Schema extends z.ZodType>(ctx?: Form.ContextValue<Schema>) =>
-  Form.useFieldValue<task.Status>("status", { ctx, optional: true }) ?? defaultStatus();
+  Form.useFieldValue<task.Status>("status", { ctx });

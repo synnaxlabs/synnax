@@ -9,7 +9,7 @@
 
 import "@/app/window/Primary.css";
 
-import { Access, Flex } from "@synnaxlabs/pluto";
+import { Access, Flex, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Link } from "@/app/link";
@@ -21,6 +21,7 @@ import { Device } from "@/feature/device";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
+import { Session } from "@/session";
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
@@ -40,26 +41,35 @@ const ProjectSideEffect = (): null => {
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigable as possible.
  */
-export const Primary = (): ReactElement => (
-  <>
-    <SideEffect />
-    <Auth.Guard>
-      <Auth.ConnectionGuard>
-        <Project.Guard>
-          <ProjectSideEffect />
-          <Nav.Bar.Top />
-          <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
-            <Nav.Bar.Left />
-            <Flex.Box gap="tiny" grow className={CSS.BE("main", "column")}>
-              <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
-                <Nav.Drawer.Left />
-                <Mosaic.Mosaic />
+export const Primary = (): ReactElement => {
+  const os = OS.use();
+  const fullWidthTop = os === "macOS" && Session.Runtime.ENGINE === "tauri";
+  return (
+    <>
+      <SideEffect />
+      <Auth.Guard>
+        <Auth.ConnectionGuard>
+          <Project.Guard>
+            <ProjectSideEffect />
+            <div
+              className={CSS(
+                CSS.BE("main", "workspace"),
+                fullWidthTop && CSS.M("full-width-top"),
+              )}
+            >
+              <Nav.Bar.Top />
+              <Nav.Bar.Left />
+              <Flex.Box y gap="tiny" className={CSS.BE("main", "content")}>
+                <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
+                  <Nav.Drawer.Left />
+                  <Mosaic.Mosaic />
+                </Flex.Box>
+                <Nav.Drawer.Bottom />
               </Flex.Box>
-              <Nav.Drawer.Bottom />
-            </Flex.Box>
-          </Flex.Box>
-        </Project.Guard>
-      </Auth.ConnectionGuard>
-    </Auth.Guard>
-  </>
-);
+            </div>
+          </Project.Guard>
+        </Auth.ConnectionGuard>
+      </Auth.Guard>
+    </>
+  );
+};

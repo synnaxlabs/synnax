@@ -11,6 +11,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -27,20 +28,27 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
+	"github.com/synnaxlabs/synnax/pkg/service/modbus"
+	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
@@ -50,6 +58,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -171,6 +180,25 @@ type Layer struct {
 	Rack   *rack.Service
 	Task   *task.Service
 	Device *device.Service
+	// NI owns the stored configuration records of the NI task types.
+	NI *ni.Service
+	// OPCUA owns the stored configuration records of the OPC UA task types.
+	OPCUA *opcua.Service
+	// LabJack owns the stored configuration records of the LabJack task types.
+	LabJack *labjack.Service
+	// Modbus owns the stored configuration records of the Modbus task types.
+	Modbus *modbus.Service
+	// EtherCAT owns the stored configuration records of the EtherCAT task types.
+	EtherCAT *ethercat.Service
+	// HTTP owns the stored configuration records of the HTTP task types.
+	HTTP *http.Service
+	// ArcTask owns the stored configuration records of the arc task type.
+	ArcTask *arctask.Service
+	// RackTask owns the stored configuration records of the rack_status task type.
+	RackTask *racktask.Service
+	// PagerDuty owns the stored configuration records of the pagerduty_alert task
+	// type.
+	PagerDuty *pdruntime.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer *framer.Service
@@ -446,15 +474,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Log) {
 		return nil, err
 	}
-	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
-		Instrumentation: cfg.Child("panel"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-		Signals:         l.Signals,
-	}); !ok(err, l.Panel) {
-		return nil, err
-	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		Instrumentation: cfg.Child("table"),
 		DB:              cfg.Distribution.DB,
@@ -495,6 +514,69 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
+	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
+		Instrumentation: cfg.Child("ni"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.NI) {
+		return nil, err
+	}
+	if l.OPCUA, err = opcua.OpenService(ctx, opcua.ServiceConfig{
+		Instrumentation: cfg.Child("opcua"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.OPCUA) {
+		return nil, err
+	}
+	if l.LabJack, err = labjack.OpenService(ctx, labjack.ServiceConfig{
+		Instrumentation: cfg.Child("labjack"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.LabJack) {
+		return nil, err
+	}
+	if l.Modbus, err = modbus.OpenService(ctx, modbus.ServiceConfig{
+		Instrumentation: cfg.Child("modbus"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Modbus) {
+		return nil, err
+	}
+	if l.EtherCAT, err = ethercat.OpenService(ctx, ethercat.ServiceConfig{
+		Instrumentation: cfg.Child("ethercat"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.EtherCAT) {
+		return nil, err
+	}
+	if l.HTTP, err = http.OpenService(ctx, http.ServiceConfig{
+		Instrumentation: cfg.Child("http"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.HTTP) {
+		return nil, err
+	}
+	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
+		Instrumentation: cfg.Child("arc_task"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.ArcTask) {
+		return nil, err
+	}
+	if l.RackTask, err = racktask.OpenService(ctx, racktask.ServiceConfig{
+		Instrumentation: cfg.Child("rack_task"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.RackTask) {
+		return nil, err
+	}
+	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
+		Instrumentation: cfg.Child("pagerduty"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.PagerDuty) {
+		return nil, err
+	}
+	configStores := slices.Concat(
+		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
+		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
+		l.RackTask.Stores(), l.PagerDuty.Stores(),
+	)
+	taskConfigs, err := taskconfig.NewRegistry(configStores...)
+	if !ok(err, nil) {
+		return nil, err
+	}
 	if l.Task, err = task.OpenService(ctx, task.ServiceConfig{
 		Instrumentation: cfg.Child("task"),
 		DB:              cfg.Distribution.DB,
@@ -504,15 +586,22 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
+		Signals:         l.Signals,
 		ImEx:            l.ImEx,
+		Configs:         taskConfigs,
+		// An Arc task holds a key and hash pointing at an Arc document, so it has no
+		// file form of its own, and the Arc service owns the "arc" file type.
+		ImExExcluded: []string{arctask.Type},
 	}); !ok(err, l.Task) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
-		ctx,
-		l.Signals,
-		signals.GorpPublisherConfigPureNumeric(l.Task.Observe(), telem.Uint64T),
-	); !ok(err, closer) {
+	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
+		Instrumentation: cfg.Child("panel"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Signals:         l.Signals,
+	}); !ok(err, l.Panel) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(
@@ -524,6 +613,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Search:          l.Search,
 			Channel:         l.Channel,
 			Task:            l.Task,
+			Status:          l.Status,
 			Signals:         l.Signals,
 			ImEx:            l.ImEx,
 		},

@@ -28,14 +28,14 @@ export const useToggleScanner = (rackKey: rack.Key) => {
           schemas: SCAN_SCHEMAS,
         });
         const {
-          config: { enabled },
+          config: { disabled },
         } = await client.tasks.create(
-          { ...payload, config: { ...config, enabled: !config.enabled } },
+          { ...payload, config: { ...config, disabled: !config.disabled } },
           SCAN_SCHEMAS,
         );
         addStatus({
           variant: "success",
-          message: `NI device scanning ${enabled ? "enabled" : "disabled"}`,
+          message: `NI device scanning ${disabled ? "disabled" : "enabled"}`,
         });
       }, "Failed to toggle NI device scanner"),
     [client, addStatus, handleError, rackKey],

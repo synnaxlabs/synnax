@@ -36,15 +36,22 @@ export {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
+export { ethercat } from "@/ethercat";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { group } from "@/group";
+export { http } from "@/http";
 export { imex } from "@/imex";
 export { label } from "@/label";
+export { labjack } from "@/labjack";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
+export { modbus } from "@/modbus";
+export { ni } from "@/ni";
 export { node } from "@/node";
 export { ontology } from "@/ontology";
+export { opcua } from "@/opcua";
+export { pagerduty } from "@/pagerduty";
 export { panel } from "@/panel";
 export { project } from "@/project";
 export { query } from "@/query";

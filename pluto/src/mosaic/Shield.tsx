@@ -13,22 +13,26 @@ import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
+import { useContext } from "@/mosaic/Frame";
 import { filterTabCreateHaulItems, filterTabDropHaulItems } from "@/mosaic/haul";
 
 /**
- * Shield covers a leaf's content while a mosaic tab drag is in flight so drag events
- * reach the leaf instead of being swallowed by embedded content (canvases, iframes).
- * Render it inside the leaf's content region — a positioned container that does NOT
- * include the tab strip. Covering a dragged tab mid-dragstart cancels the native drag,
- * so the shield must never overlap the strip.
+ * Shield covers a leaf's content while a tab or OS file drag is in flight so drag
+ * events reach the leaf instead of being swallowed by embedded content (canvases,
+ * iframes). Render it inside the leaf's content region — a positioned container that
+ * does NOT include the tab strip. Covering a dragged tab mid-dragstart cancels the
+ * native drag, so the shield must never overlap the strip.
  */
 export const Shield = (): ReactElement | null => {
+  const { onFileDrop } = useContext("Mosaic.Shield");
   const items = Haul.useDraggingState().items;
+  const acceptsFiles = onFileDrop != null;
   const active = useMemo(
     () =>
       filterTabDropHaulItems(items).length > 0 ||
-      filterTabCreateHaulItems(items).length > 0,
-    [items],
+      filterTabCreateHaulItems(items).length > 0 ||
+      (acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0),
+    [items, acceptsFiles],
   );
   if (!active) return null;
   return <div className={CSS.BE("mosaic", "shield")} />;

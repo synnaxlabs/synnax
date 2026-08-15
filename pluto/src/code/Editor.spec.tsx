@@ -9,10 +9,13 @@
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Editor, type EditorHandle } from "@/code/Editor";
 import { BASE_THEMES, type EditorExtension, type Language } from "@/code/language";
+import { Triggers } from "@/triggers";
+
+const ESCAPE: Triggers.Trigger = ["Escape"];
 
 // Mock the Provider module — the real one pulls in the monaco-vscode-api runtime, whose
 // deep CSS imports cannot be evaluated under Node's ESM loader. We feed Editor a fake
@@ -93,6 +96,7 @@ const createFakeModel = (initial: string, language: string, uri?: unknown) => {
     uri,
     language,
     getValue: () => value,
+    getValueLength: () => value.length,
     getPositionAt: (offset: number) => offsetToPosition(value, offset),
     applyEdits: vi.fn((edits: Edit[]) => {
       for (const edit of edits) {
@@ -139,8 +143,14 @@ const createFakeEditor = (model: FakeModel) => {
   model._setNotify((changes) => content.emit({ changes }));
   let position = { lineNumber: 1, column: 1 };
   let selection: Range | null = null;
+  const decorationSets: unknown[][] = [];
   const editor = {
     getModel: () => model,
+    createDecorationsCollection: vi.fn(() => ({
+      set: (next: unknown[]) => decorationSets.push(next),
+      clear: vi.fn(),
+    })),
+    decorationSets,
     getValue: () => model.getValue(),
     getPosition: () => position,
     getSelection: () => selection,
@@ -176,10 +186,11 @@ type FakeEditor = ReturnType<typeof createFakeEditor>;
 const createFakeMonaco = () => {
   let lastEditor: FakeEditor | null = null;
   let lastCreatedModel: FakeModel | null = null;
+  let lastInputArea: HTMLTextAreaElement | null = null;
   const editor = {
     create: vi.fn(
       (
-        _container: HTMLElement,
+        container: HTMLElement,
         options: {
           value?: string;
           model?: FakeModel;
@@ -193,6 +204,9 @@ const createFakeMonaco = () => {
           options.model ?? createFakeModel(options.value ?? "", options.language ?? "");
         const ed = createFakeEditor(model);
         (ed as FakeEditor & { options: unknown }).options = options;
+        // Monaco holds keyboard focus in a hidden textarea inside the container.
+        lastInputArea = document.createElement("textarea");
+        container.appendChild(lastInputArea);
         lastEditor = ed;
         return ed;
       },
@@ -217,6 +231,10 @@ const createFakeMonaco = () => {
     get editorInstance(): FakeEditor {
       if (lastEditor == null) throw new Error("editor not created");
       return lastEditor;
+    },
+    get inputArea(): HTMLTextAreaElement {
+      if (lastInputArea == null) throw new Error("editor not created");
+      return lastInputArea;
     },
     get createdModel(): FakeModel | null {
       return lastCreatedModel;
@@ -577,6 +595,139 @@ describe("Editor", () => {
       unmount();
       act(() => editor.userType("after"));
       expect(onValueChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("placeholder", () => {
+    const PLACEHOLDER = "write something";
+
+    it("should inject the placeholder while the document is empty", () => {
+      renderEditor({ placeholder: PLACEHOLDER });
+      const [decorations] = monaco.editorInstance.decorationSets;
+      expect(decorations).toEqual([
+        {
+          range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 },
+          options: {
+            // Without showIfCollapsed monaco drops the decoration: its range is empty.
+            showIfCollapsed: true,
+            after: {
+              content: PLACEHOLDER,
+              inlineClassName: "pluto-editor__placeholder",
+            },
+          },
+        },
+      ]);
+    });
+
+    it("should not inject a placeholder when the document already has content", () => {
+      renderEditor({ placeholder: PLACEHOLDER, initialValue: "on x" });
+      expect(monaco.editorInstance.decorationSets).toHaveLength(0);
+    });
+
+    it("should drop the placeholder once, on the edit that fills the document", () => {
+      renderEditor({ placeholder: PLACEHOLDER });
+      const editor = monaco.editorInstance;
+      act(() => editor.userType("o"));
+      act(() => editor.userType("on"));
+      expect(editor.decorationSets).toHaveLength(2);
+      expect(editor.decorationSets[1]).toEqual([]);
+    });
+
+    it("should restore the placeholder when the document is emptied again", () => {
+      renderEditor({ placeholder: PLACEHOLDER });
+      const editor = monaco.editorInstance;
+      act(() => editor.userType("on"));
+      act(() => editor.userType(""));
+      expect(editor.decorationSets).toHaveLength(3);
+      expect(editor.decorationSets[2]).toHaveLength(1);
+    });
+
+    it("should leave decorations alone when no placeholder is given", () => {
+      renderEditor();
+      expect(monaco.editorInstance.decorationSets).toHaveLength(0);
+    });
+  });
+
+  describe("autoFocus", () => {
+    it("should focus the editor a frame after creation", () => {
+      const frames: FrameRequestCallback[] = [];
+      vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+        frames.push(cb);
+        return frames.length;
+      });
+      renderEditor({ autoFocus: true });
+      const editor = monaco.editorInstance;
+      // A frame late, so the teardown of whatever opened the editor cannot reclaim focus.
+      expect(editor.focus).not.toHaveBeenCalled();
+      act(() => frames.forEach((f) => f(0)));
+      expect(editor.focus).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not focus the editor when autoFocus is unset", () => {
+      renderEditor();
+      expect(monaco.editorInstance.focus).not.toHaveBeenCalled();
+    });
+
+    it("should cancel the pending frame when torn down before it runs", () => {
+      vi.spyOn(window, "requestAnimationFrame").mockReturnValue(7);
+      const cancel = vi
+        .spyOn(window, "cancelAnimationFrame")
+        .mockImplementation(vi.fn());
+      const { unmount } = renderEditor({ autoFocus: true });
+      unmount();
+      expect(cancel).toHaveBeenCalledWith(7);
+    });
+  });
+
+  describe("escape", () => {
+    const renderWithSubscriber = (callback: Mock) => {
+      const C = () => {
+        // double mirrors the app-level Escape handlers: a quick second press arrives as
+        // a double trigger, and they still need to see it.
+        Triggers.use({ triggers: ESCAPE, callback, double: true });
+        return <Editor language="arc" />;
+      };
+      return render(
+        <Triggers.Provider>
+          <C />
+        </Triggers.Provider>,
+      );
+    };
+
+    const pressEscape = (target: HTMLElement) => {
+      fireEvent.keyDown(target, { key: "Escape", code: "Escape" });
+      fireEvent.keyUp(target, { key: "Escape", code: "Escape" });
+    };
+
+    // Subscribers act on the press, not the release, so only the start stage counts.
+    const presses = (callback: Mock): number =>
+      callback.mock.calls.filter(([e]) => e.stage === "start").length;
+
+    it("should blur the editor without notifying other subscribers", () => {
+      const callback = vi.fn();
+      renderWithSubscriber(callback);
+      const { inputArea } = monaco;
+      inputArea.focus();
+      pressEscape(inputArea);
+      expect(document.activeElement).not.toBe(inputArea);
+      expect(presses(callback)).toBe(0);
+    });
+
+    it("should let a second press reach other subscribers", () => {
+      const callback = vi.fn();
+      renderWithSubscriber(callback);
+      const { inputArea } = monaco;
+      inputArea.focus();
+      pressEscape(inputArea);
+      pressEscape(document.body);
+      expect(presses(callback)).toBe(1);
+    });
+
+    it("should not claim a press made outside the editor", () => {
+      const callback = vi.fn();
+      renderWithSubscriber(callback);
+      pressEscape(document.body);
+      expect(presses(callback)).toBe(1);
     });
   });
 

@@ -8,25 +8,32 @@
 // included in the file licenses/APL.txt.
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
-import { panel, type Synnax } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, project, type Synnax } from "@synnaxlabs/client";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
+  Suspense,
 } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
+import { Project } from "@/session/project";
 import { Synchronizer } from "@/session/synchronizer";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
-import { assertDefined, createConsoleWrapper, type TestStore } from "@/testutil";
+import {
+  assertDefined,
+  createConsoleWrapper,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 const rootReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
@@ -48,7 +55,13 @@ const createState = (win?: Panel.WindowState): TestState => {
   if (win == null) return base;
   const windowKey = Drift.selectWindowKey(base);
   assertDefined(windowKey, "expected an active window key");
-  return { ...base, [Panel.SLICE_NAME]: { windows: { [windowKey]: win } } };
+  return {
+    ...base,
+    [Panel.SLICE_NAME]: {
+      ...base[Panel.SLICE_NAME],
+      windows: { [windowKey]: win },
+    },
+  };
 };
 
 const window = (overrides: Partial<Panel.WindowState>): Panel.WindowState => ({
@@ -628,13 +641,14 @@ describe("panel selectors", () => {
         store.dispatch(Panel.select({ key: PANEL }));
       });
       await act(async () => {
-        await client.panels.create(
-          panel.panelZ.parse({
+        await client.panels.create({
+          ...panel.panelZ.parse({
             key: PANEL,
             name: "panel",
             root: { variant: "leaf", tabs: [{ variant: "view", key: TAB, type: "t" }] },
           }),
-        );
+          parent: await createPanelParent(client),
+        });
       });
       expect(result.current).toBe(true);
     });
@@ -658,7 +672,7 @@ describe("panel selectors", () => {
           ],
         },
       });
-      await client.panels.create(doc);
+      await client.panels.create({ ...doc, parent: await createPanelParent(client) });
       await client.panels.retrieve(PANEL);
       const { result } = renderHook(() => Panel.useStartOverlaying(PANEL), {
         wrapper: Wrapper,
@@ -682,6 +696,94 @@ describe("panel selectors", () => {
         result.current(TAB);
       });
       expect(Panel.selectWindowState(store.getState()).isOverlaid).toBe(false);
+    });
+  });
+
+  describe("useSelectOrderedKeys", () => {
+    const createProjectPanel = async (
+      client: Synnax,
+      projectKey: project.Key,
+      key: panel.Key = uuid.create(),
+    ): Promise<panel.Key> => {
+      const { key: created } = await client.panels.create({
+        key,
+        name: uniqueName("panel"),
+        parent: project.ontologyID(projectKey),
+        root: { variant: "leaf", tabs: [] },
+      });
+      return created;
+    };
+
+    // The hook suspends on the project's panels, so the mount has to commit inside
+    // an awaited act for the answer to arrive.
+    const renderOrdered = async (
+      Console: FC<PropsWithChildren>,
+    ): Promise<{ current: panel.Key[] | null }> => {
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Console>
+          <Suspense fallback={null}>{children}</Suspense>
+        </Console>
+      );
+      Wrapper.displayName = "OrderedKeysWrapper";
+      let result!: { current: panel.Key[] | null };
+      await act(async () => {
+        ({ result } = renderHook(() => Panel.useSelectOrderedKeys(), {
+          wrapper: Wrapper,
+        }));
+      });
+      return result;
+    };
+
+    it("should return the project's panels in the strip's order", async () => {
+      const client = createTestClient();
+      const { key: projectKey } = await client.projects.create({
+        name: uniqueName("project"),
+        layout: {},
+      });
+      const alpha = await createProjectPanel(client, projectKey);
+      const bravo = await createProjectPanel(client, projectKey);
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      act(() => {
+        store.dispatch(Project.select(projectKey));
+        store.dispatch(
+          Panel.reconcileOrder({
+            panels: [
+              { key: alpha, name: "alpha" },
+              { key: bravo, name: "bravo" },
+            ],
+          }),
+        );
+      });
+      const result = await renderOrdered(wrapper);
+      await waitFor(() => expect(result.current).toEqual([alpha, bravo]));
+      act(() => {
+        store.dispatch(Panel.reorder({ key: bravo, index: 0 }));
+      });
+      expect(result.current).toEqual([bravo, alpha]);
+    });
+
+    // A panel the session has not reconciled yet must not displace the panels the
+    // user ordered, however early it lands in the membership answer.
+    it("should return a panel missing from the order last", async () => {
+      const client = createTestClient();
+      const { key: projectKey } = await client.projects.create({
+        name: uniqueName("project"),
+        layout: {},
+      });
+      // The membership answer arrives in key order, so the unreconciled panel takes
+      // the lower key: a correct sort cannot pass by luck.
+      const [lowKey, highKey] = [uuid.create(), uuid.create()].sort();
+      const pending = await createProjectPanel(client, projectKey, lowKey);
+      const known = await createProjectPanel(client, projectKey, highKey);
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      act(() => {
+        store.dispatch(Project.select(projectKey));
+        store.dispatch(
+          Panel.reconcileOrder({ panels: [{ key: known, name: "known" }] }),
+        );
+      });
+      const result = await renderOrdered(wrapper);
+      await waitFor(() => expect(result.current).toEqual([known, pending]));
     });
   });
 

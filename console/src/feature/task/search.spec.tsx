@@ -36,7 +36,7 @@ const createTask = async () => {
 };
 
 describe("task/search", () => {
-  it("opens the task's configuration tab when the search result is selected", async () => {
+  it("opens the task's resource tab when the search result is selected", async () => {
     const t = await createTask();
     const resource = createResource(t.ontologyID, t.name);
     const SearchListItem = Task.SEARCH_LIST_ITEMS.task;
@@ -60,7 +60,8 @@ describe("task/search", () => {
     render(<Harness />, { wrapper });
     fireEvent.click(await screen.findByText(t.name), { detail: 0 });
     const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "view") throw new Error("expected a tab");
-    expect(tab.type).toBe(NI.Task.ANALOG_READ_TYPE);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe("task");
+    expect(tab.resource.key).toBe(t.key);
   });
 });

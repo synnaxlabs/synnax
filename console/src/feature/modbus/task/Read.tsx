@@ -16,29 +16,21 @@ import { type FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
-import { SelectInputChannelTypeField } from "@/feature/modbus/task/SelectInputChannelTypeField";
+import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
 import {
-  INPUT_CHANNEL_SCHEMAS,
-  type InputChannel,
-  type InputChannelType,
-  isVariableDensityInputChannel,
+  deployReadConfigZ,
+  isVariableDensityReadChannel,
+  READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
+  type ReadChannel,
+  type ReadChannelType,
   type ReadSchemas,
-  type TypedInput,
-  ZERO_INPUT_CHANNELS,
-  ZERO_READ_PAYLOAD,
+  type TypedReadChannel,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "Modbus Read Task",
-  icon: <Icon.Logo.Modbus />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -55,7 +47,7 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const { type, channel } = PForm.useFieldValue<InputChannel>(path);
+  const { type, channel } = PForm.useFieldValue<ReadChannel>(path);
   return (
     <Select.ListItem
       {...props}
@@ -65,15 +57,15 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       x
     >
       <Flex.Box x pack className={CSS.B("channel-item")}>
-        <SelectInputChannelTypeField
+        <SelectReadChannelTypeField
           path={path}
           onChange={(value, { get, set, path }) => {
-            const prevType = get<InputChannelType>(path).value;
+            const prevType = get<ReadChannelType>(path).value;
             if (prevType === value) return;
-            const next = deep.copy(ZERO_INPUT_CHANNELS[value]);
+            const next = READ_CHANNEL_SCHEMAS[value].parse({ type: value });
             const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<InputChannel>(parentPath).value;
-            const schema = INPUT_CHANNEL_SCHEMAS[value];
+            const prevParent = get<ReadChannel>(parentPath).value;
+            const schema = READ_CHANNEL_SCHEMAS[value];
             set(parentPath, {
               ...deep.overrideValidItems(next, prevParent, schema),
               type: value,
@@ -87,7 +79,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           showHelpText={false}
           path={`${path}.address`}
         />
-        {(type === "register_input" || type === "holding_register_input") && (
+        {(type === "input_register" || type === "holding_register") && (
           <PForm.Field<string>
             path={`${path}.dataType`}
             showLabel={false}
@@ -104,7 +96,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -116,15 +108,11 @@ const renderTelemSelectDataType = Component.renderProp(
   ),
 );
 
-const getOpenChannel = (channels: InputChannel[]): InputChannel => {
+const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
   if (channels.length === 0)
     return {
-      type: "coil_input",
-      address: 0,
-      channel: 0,
+      ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
-      enabled: true,
-      name: "",
     };
   const channelToCopy = channels[channels.length - 1];
   return {
@@ -137,34 +125,41 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<ReadSchemas>> = () => (
-  <Task.Views.List<InputChannel>
+const Form: FC = () => (
+  <Task.Views.List<ReadChannel>
     createChannel={getOpenChannel}
     contextMenuItems={Task.readChannelContextMenuItem}
     listItem={listItem}
   />
 );
 
-const readMapKey = (channel: InputChannel) => {
-  let s = `${channel.type}-${channel.address.toString()}`;
-  if (isVariableDensityInputChannel(channel)) s += `-${channel.dataType}`;
+// Auto-generated channel names and device map keys keep the released type
+// spellings, so channels created before the labels were renamed keep matching.
+const NAME_TYPES: Record<ReadChannelType, string> = {
+  coil: "coil_input",
+  discrete_input: "discrete_input",
+  holding_register: "holding_register_input",
+  input_register: "register_input",
+};
+
+const readMapKey = (channel: ReadChannel) => {
+  let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
+  if (isVariableDensityReadChannel(channel)) s += `-${channel.dataType}`;
   return s.replaceAll("_", "-");
 };
 
-const channelName = (deviceName: string, channel: InputChannel) => {
-  let s = `${deviceName}_${channel.type}_${channel.address}`;
-  if (isVariableDensityInputChannel(channel))
+const channelName = (deviceName: string, channel: ReadChannel) => {
+  let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
+  if (isVariableDensityReadChannel(channel))
     s += `_${new DataType(channel.dataType).toString(true)}`;
   return s;
 };
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
+  const config = READ_SCHEMAS.config.parse({});
+  if (deviceKey != null) config.device = deviceKey;
+  return { name: "Modbus Read Task", type: READ_TYPE, config };
+};
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
@@ -193,7 +188,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       dev.properties.read.index = index.key;
     }
 
-    const toCreate: InputChannel[] = [];
+    const toCreate: ReadChannel[] = [];
     for (const c of config.channels) {
       const key = readMapKey(c);
       const existing = dev.properties.read.channels[key];
@@ -211,7 +206,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       const channels = await client.channels.create(
         toCreate.map((c) => ({
           name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
-          dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
+          dataType: (c as TypedReadChannel).dataType ?? DataType.UINT8.toString(),
           index: dev.properties.read.index,
         })),
       );
@@ -236,7 +231,19 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "modbus_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "Modbus Read Task",
+  icon: <Icon.Logo.Modbus />,
+  useOnSelect: useCreateRead,
 });

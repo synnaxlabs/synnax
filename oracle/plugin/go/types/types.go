@@ -21,6 +21,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
@@ -30,7 +31,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -763,13 +763,19 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
 	// Flatten (rather than embed the parent) when fields are omitted, parents
-	// conflict, or a field removes an inherited domain — none can be expressed
-	// through Go struct embedding.
+	// conflict, a field removes an inherited domain, or a field restates an
+	// inherited field's type — none can be expressed through Go struct embedding.
 	flatten := len(form.Extends) > 0 &&
 		(len(form.OmittedFields) > 0 ||
 			resolver.HasFieldConflicts(form.Extends, data.table) ||
-			resolver.HasDomainOmissions(form))
+			resolver.HasDomainOmissions(form) ||
+			resolver.HasStructuralOverride(form, data.table))
 	fields := resolution.UnifiedFields(entry, data.table)
+	// Fields the struct redeclares only to change an inherited default. The embedded
+	// parent already declares them, so they contribute a default fill and nothing
+	// else; declaring them again would shadow the parent's field with a duplicate
+	// JSON tag.
+	var defaultOnly set.Set[string]
 	var embeds []embeddedType
 	if len(form.Extends) > 0 && !flatten {
 		sd.HasExtends = true
@@ -785,6 +791,9 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			}
 		}
 		fields = form.Fields
+		defaultOnly = resolver.DefaultOnlyOverrides(
+			form.Extends, form.Fields, data.table,
+		)
 	}
 
 	genMethods := !sd.IsGeneric
@@ -797,7 +806,9 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...)
 	}
 	for _, field := range fields {
-		sd.Fields = append(sd.Fields, processField(field, data))
+		if !defaultOnly.Contains(field.Name) {
+			sd.Fields = append(sd.Fields, processField(field, data))
+		}
 		if !genMethods {
 			continue
 		}
@@ -1396,6 +1407,11 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
+{{- range $vt.DefaultFills}}
+	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
+		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
+	}
+{{- end}}
 {{- range $vt.DefaultRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
 	{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
@@ -1422,6 +1438,24 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 // schema constraints.
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
+{{- range $vt.EnumChecks}}
+	v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$vt.Receiver}}.{{.GoName}})
+{{- end}}
+{{- range $vt.ConstraintChecks}}
+{{- if eq .Kind "non_empty_string"}}
+	validate.NotEmptyString(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+{{- else if eq .Kind "non_zero"}}
+	validate.NonZero(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+{{- else if eq .Kind "min_len"}}
+	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+{{- else if eq .Kind "max_len"}}
+	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+{{- else if eq .Kind "ge"}}
+	validate.GreaterThanEq(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+{{- else if eq .Kind "le"}}
+	validate.LessThanEq(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+{{- end}}
+{{- end}}
 {{- range $vt.ValidateRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
 {{- if .JSONName}}

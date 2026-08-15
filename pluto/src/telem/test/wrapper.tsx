@@ -21,6 +21,8 @@ import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
+import { Staleness } from "@/vis/staleness";
+import { staleness } from "@/vis/staleness/aether";
 
 export interface CreateTestWrapperOptions {
   registry: aether.ComponentRegistry;
@@ -48,6 +50,7 @@ export const createTestWrapper = (
     ...synnax.REGISTRY,
     ...status.REGISTRY,
     ...alamos.REGISTRY,
+    ...staleness.REGISTRY,
   });
 
   const TestWrapper: FC<PropsWithChildren> = ({ children }) => (
@@ -55,7 +58,9 @@ export const createTestWrapper = (
       <Status.Aggregator>
         <Alamos.Provider>
           <Synnax.TestProvider client={client}>
-            <Telem.Provider>{children}</Telem.Provider>
+            <Telem.Provider>
+              <Staleness.Provider>{children}</Staleness.Provider>
+            </Telem.Provider>
           </Synnax.TestProvider>
         </Alamos.Provider>
       </Status.Aggregator>
@@ -64,5 +69,3 @@ export const createTestWrapper = (
 
   return TestWrapper;
 };
-
-// DONE: accepts custom telem factories via telemFactories option.

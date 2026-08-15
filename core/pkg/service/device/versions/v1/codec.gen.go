@@ -14,7 +14,7 @@ package v1
 import (
 	"encoding/json"
 
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -44,11 +44,11 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		d.Rack = rack.Key(v)
+		d.Rack = rack.Key(rawV)
 	}
 	if d.Location, err = r.String(); err != nil {
 		return err

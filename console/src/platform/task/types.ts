@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, device } from "@synnaxlabs/client";
+import { type channel, device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export type Command = "start" | "stop";
 
+// Deploy-time only: shape schemas keep device lax so drafts round-trip.
 export const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
 
-export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
-export interface Channel extends z.infer<typeof channelZ> {}
-export const ZERO_CHANNEL: Channel = { enabled: true, key: "" };
+// The channel shape every generated task config carries.
+export interface Channel {
+  disabled: boolean;
+  key: string;
+}
 
 export const validateChannels = ({
   value: channels,
   issues,
-}: z.core.ParsePayload<Channel[]>) => {
+}: z.core.ParsePayload<{ key: string }[]>) => {
   const keyToIndexMap = new Map<string, number>();
   channels.forEach(({ key }, i) => {
     if (!keyToIndexMap.has(key)) {
@@ -38,20 +41,33 @@ export const validateChannels = ({
 
 export const nameZ = z.string().default("");
 
-export const readChannelZ = channelZ.extend({ channel: channel.keyZ, name: nameZ });
-export interface ReadChannel extends z.infer<typeof readChannelZ> {}
+// Spread over a duplicated channel to reset its Synnax channel bindings.
+export const READ_CHANNEL_OVERRIDE = { channel: 0, name: "" } as const;
+export const WRITE_CHANNEL_OVERRIDE = {
+  cmdChannel: 0,
+  stateChannel: 0,
+  cmdChannelName: "",
+  stateChannelName: "",
+} as const;
 
-export const READ_CHANNEL_OVERRIDE = {
-  channel: 0,
-  name: "",
-} as const satisfies Partial<ReadChannel>;
-
-export const ZERO_READ_CHANNEL: ReadChannel = {
-  ...ZERO_CHANNEL,
-  ...READ_CHANNEL_OVERRIDE,
+export const validateChannelDevices = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<{ device: device.Key }[]>) => {
+  channels.forEach(({ device }, i) => {
+    if (device !== "") return;
+    issues.push({
+      code: "custom",
+      message: "Must specify a device",
+      path: [i, "device"],
+      input: channels,
+    });
+  });
 };
 
-export const validateReadChannels = (ctx: z.core.ParsePayload<ReadChannel[]>) => {
+export const validateReadChannels = (
+  ctx: z.core.ParsePayload<{ key: string; channel: channel.Key; name: string }[]>,
+) => {
   validateChannels(ctx);
   const { value: channels, issues } = ctx;
   const channelToIndexMap = new Map<channel.Key, number>();
@@ -81,24 +97,6 @@ export const validateReadChannels = (ctx: z.core.ParsePayload<ReadChannel[]>) =>
   });
 };
 
-export const writeChannelZ = channelZ.extend({
-  cmdChannel: channel.keyZ,
-  stateChannel: channel.keyZ,
-  cmdChannelName: nameZ,
-  stateChannelName: nameZ,
-});
-export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
-export const WRITE_CHANNEL_OVERRIDE = {
-  cmdChannel: 0,
-  stateChannel: 0,
-  cmdChannelName: "",
-  stateChannelName: "",
-} as const satisfies Partial<WriteChannel>;
-export const ZERO_WRITE_CHANNEL: WriteChannel = {
-  ...ZERO_CHANNEL,
-  ...WRITE_CHANNEL_OVERRIDE,
-};
-
 export type WriteChannelType = "cmd" | "state";
 
 interface IndexAndType {
@@ -106,7 +104,17 @@ interface IndexAndType {
   type: WriteChannelType;
 }
 
-export const validateWriteChannels = (ctx: z.core.ParsePayload<WriteChannel[]>) => {
+export const validateWriteChannels = (
+  ctx: z.core.ParsePayload<
+    {
+      key: string;
+      cmdChannel: channel.Key;
+      stateChannel: channel.Key;
+      cmdChannelName: string;
+      stateChannelName: string;
+    }[]
+  >,
+) => {
   validateChannels(ctx);
   const { value: channels, issues } = ctx;
   const channelsToIndexMap = new Map<channel.Key, IndexAndType>();
@@ -173,25 +181,6 @@ export const validateWriteChannels = (ctx: z.core.ParsePayload<WriteChannel[]>) 
       } else channelsToIndexMap.set(stateChannel, { index: i, type: "state" });
     },
   );
-};
-
-export const baseConfigZ = z.object({
-  autoStart: z.boolean().default(false),
-  device: deviceKeyZ,
-});
-export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
-export const ZERO_BASE_CONFIG: BaseConfig = {
-  autoStart: false,
-  device: "",
-};
-
-export const baseReadConfigZ = baseConfigZ.extend({
-  dataSaving: z.boolean().default(true),
-});
-export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
-export const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
-  ...ZERO_BASE_CONFIG,
-  dataSaving: true,
 };
 
 interface ConfigWithSampleRateAndStreamRate {

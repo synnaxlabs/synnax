@@ -7,19 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax as Client, task } from "@synnaxlabs/client";
-import {
-  Access,
-  Icon,
-  Menu,
-  Mosaic,
-  Status,
-  Synnax,
-  Task as Base,
-} from "@synnaxlabs/pluto";
+import { ontology, task } from "@synnaxlabs/client";
+import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { retrieveAndOpenTab } from "@/feature/task/tabs";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
@@ -31,28 +22,11 @@ import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-const openTask = (
-  client: Client,
-  key: string,
-  name: string,
-  openTab: Panel.OpenTab,
-  handleError: Status.ErrorHandler,
-): void =>
-  handleError(
-    async () => await retrieveAndOpenTab(client, key, openTab),
-    `Could not open ${name}`,
-  );
-
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.use();
   const openTab = Panel.useOpenTab();
-  const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
-      if (client == null) return;
-      openTask(client, resource.id.key, resource.name, openTab, handleError);
-    },
-    [client, openTab, handleError],
+    (resource) => openTab({ variant: "resource", resource: resource.id }),
+    [openTab],
   );
 };
 
@@ -71,9 +45,7 @@ export const useRename = Tree.createUseRename({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection,
-    client,
     openTab,
-    handleError,
     state: { getResource, shape },
   } = props;
   const { ids, rootID } = selection;
@@ -89,70 +61,55 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
-  const handleEdit = () => {
-    if (client == null) return;
-    openTask(client, resources[0].id.key, resources[0].name, openTab, handleError);
-  };
+  const handleEdit = () => openTab({ variant: "resource", resource: resources[0].id });
   const singleResource = ids.length === 1;
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <ContextMenu.Menu>
+      {singleResource && (
+        <Menu.Item itemKey="edit" onClick={handleEdit}>
+          <Icon.Edit />
+          {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
+        </Menu.Item>
+      )}
+      <Menu.Divider />
       {hasUpdatePermission && (
         <>
+          {singleResource && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
             shape={shape}
             rootID={rootID}
             onClick={() => group(props)}
           />
-          {singleResource && (
-            <>
-              <ContextMenu.RenameItem onClick={rename} />
-              <Menu.Divider />
-            </>
-          )}
         </>
       )}
+      <Menu.Divider />
       {hasCreatePermission && hasNoSnapshots && range?.persisted === true && (
-        <>
-          <Range.SnapshotMenuItem
-            key="snapshot"
-            range={range}
-            onClick={() =>
-              snap({
-                tasks: resources.map(({ id: { key }, name }) => ({ key, name })),
-              })
-            }
-          />
-          <Menu.Divider />
-        </>
+        <Range.SnapshotMenuItem
+          key="snapshot"
+          range={range}
+          onClick={() =>
+            snap({
+              tasks: resources.map(({ id: { key }, name }) => ({ key, name })),
+            })
+          }
+        />
       )}
+      <Menu.Divider />
       {singleResource && (
         <>
-          <Menu.Item itemKey="edit" onClick={handleEdit}>
-            <Icon.Edit />
-            {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
-      {singleResource && (
-        <>
+          <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
           <Link.CopyContextMenuItem
             onClick={() =>
               handleLink({ name: resources[0].name, ontologyID: resources[0].id })
             }
           />
-          <Export.ContextMenuItem onClick={() => handleExport(ids[0])} />
-          <Menu.Divider />
         </>
       )}
-      {hasDeletePermission && (
-        <>
-          <ContextMenu.DeleteItem onClick={handleDelete} />
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

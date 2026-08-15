@@ -11,20 +11,17 @@ import { task } from "@synnaxlabs/client";
 import { Access, type Icon } from "@synnaxlabs/pluto";
 
 import { Command } from "@/platform/command";
-import { createOpenTab } from "@/platform/task/useOpenTab";
+import { type UseCreate } from "@/platform/task/useCreate";
 
 export interface CreateCommandParams {
   key: string;
   name: string;
   icon: Icon.ReactElement;
-  type: string;
+  useOnSelect: UseCreate;
 }
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
-/** Creates a palette command that opens a blank task form of the given type. */
-export const createCommand = ({
-  type,
-  ...rest
-}: CreateCommandParams): Command.Command =>
-  Command.create({ ...rest, useOnSelect: createOpenTab(type), useVisible });
+/** Creates a palette command that creates a task of the given type and opens it. */
+export const createCommand = (params: CreateCommandParams): Command.Command =>
+  Command.create({ ...params, useVisible });
