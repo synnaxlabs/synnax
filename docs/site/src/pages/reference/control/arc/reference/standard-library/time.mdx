@@ -37,7 +37,7 @@ control loops, periodic sampling, and generating test data.
   output={{ type: "u8", description: "Emits `1` on each fire." }}
 />
 
-```arc
+```arc channels="tick"
 // `flow` only
 time.interval{period=1s} -> tick
 ```
@@ -58,7 +58,7 @@ function call, so it can be wired into a chain or called inside a `func`.
 
 <Fragment slot="flow">
 
-```arc
+```arc channels="trigger, current_time"
 stage stamp {
   trigger -> time.now{} -> current_time
 }
@@ -68,7 +68,7 @@ stage stamp {
 
 <Fragment slot="function">
 
-```arc
+```arc channels="current_time"
 func stamp() {
     current_time = time.now()
 }
@@ -98,7 +98,7 @@ Fires once after a fixed duration, then stops.
   output={{ type: "u8", description: "Emits `1` once the duration elapses." }}
 />
 
-```arc
+```arc channels="done"
 // `flow` only
 time.wait{duration=500ms} -> done
 ```

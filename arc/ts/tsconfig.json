@@ -5,8 +5,8 @@
     "resolveJsonModule": true,
     "noEmit": true,
     "types": [],
-    "paths": { "@/*": ["./src/*"], "syntaxes/*": ["./syntaxes/*"] }
+    "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src", "syntaxes/*.json"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

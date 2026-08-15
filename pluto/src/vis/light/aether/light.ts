@@ -13,8 +13,9 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
+import { staleness } from "@/vis/staleness/aether";
 
-export const stateZ = z.object({
+export const stateZ = staleness.stateZ.extend({
   enabled: z.boolean(),
   source: telem.booleanSourceSpecZ.default(telem.noopBooleanSourceSpec),
 });
@@ -23,6 +24,7 @@ export interface State extends z.input<typeof stateZ> {}
 interface InternalState {
   source: telem.BooleanSource;
   stopListening: destructor.Destructor;
+  staleness: staleness.Registration;
 }
 
 // Light is a component that listens to a telemetry source to update its state.
@@ -31,15 +33,20 @@ export class Light
   implements diagram.Element
 {
   static readonly TYPE = "Light";
+  static readonly z = stateZ;
 
-  schema = stateZ;
+  schema = Light.z;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, this.state.source, i.source);
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
     this.updateEnabledState();
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() => this.updateEnabledState());
+    i.stopListening = i.source.onChange(() => {
+      i.staleness.received();
+      this.updateEnabledState();
+    });
   }
 
   private updateEnabledState(): void {
@@ -50,6 +57,7 @@ export class Light
 
   afterDelete(): void {
     this.internal.stopListening?.();
+    this.internal.staleness?.cleanup();
     this.internal.source.cleanup?.();
   }
 }

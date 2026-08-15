@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 import { redlineZ } from "@/vis/value/redline";
 
 export const VARIANT = "value" as const;
@@ -29,8 +30,7 @@ export const configZ = Label.labeledConfigZ.extend({
   backgroundTelem: telem.colorSourceSpecZ.optional(),
   level: text.levelZ.optional(),
   precision: z.number().optional(),
-  stalenessTimeout: z.number().optional(),
-  stalenessColor: color.colorZ.optional(),
+  ...Staleness.configZ.shape,
   minWidth: z.number().optional(),
   notation: notation.notationZ.optional(),
   location: location.xy.optional(),

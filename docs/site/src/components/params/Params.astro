@@ -12,6 +12,7 @@ import { grammar as arcGrammar } from "@synnaxlabs/arc";
 
 import Inline from "@/components/code/Inline.astro";
 import { InlineCode } from "@/components/text/InlineCode";
+import { theme } from "@/util/shiki";
 
 interface Param {
     name: string;
@@ -43,7 +44,7 @@ if (output?.type != null) signature = `${signature} -> ${output.type}`;
 ---
 
 <div class="params">
-    <Inline code={signature} lang={arcGrammar} theme="css-variables" />
+    <Inline code={signature} lang={arcGrammar} theme={theme} />
     {
         params.length > 0 && (
             <>

@@ -14,9 +14,13 @@
 
     overflow: hidden;
     background: var(--pluto-gray-l2);
+}
 
-    /* Chrome controls recess toward the canvas instead of lightening; nested
-       panes reset to the standard ladder via their surface classes. */
+/* Outlined chips recess into the chrome rather than rise off it. Scoped to the
+   variant: a text button has no rest fill, so the same band would darken it on
+   hover and then drop it back onto the bar on press. */
+.console-nav__bar .pluto-btn--outlined,
+.console-shell__islands .pluto-btn--outlined {
     --pluto-fill-rest: var(--pluto-gray-l0);
     --pluto-fill-hover: var(--pluto-gray-l1);
     --pluto-fill-press: var(--pluto-gray-l2);
