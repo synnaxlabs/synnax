@@ -143,7 +143,12 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
         }
 
         .pluto-tabs__selector {
-            margin: 1.5rem 0;
+            margin: 1rem 1rem 1rem;
+        }
+
+        /* The code block's own padding carries the gap under the strip. */
+        .pluto-tabs__content .astro-code-wrapper:first-child {
+            margin-top: 0;
         }
 
         & video,

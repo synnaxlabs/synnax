@@ -589,18 +589,30 @@ describe("Tabs", () => {
   });
 
   describe("selected tab visibility", () => {
-    let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
+    let scrollLeft: MockInstance<(offset: number) => void>;
 
+    // jsdom lays nothing out and ignores scrollLeft writes, so every tab takes a 100px
+    // slot in a 100px port and the write is read back off the setter.
     beforeEach(() => {
-      scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(100);
+      vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(100);
+      vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (
+        this: HTMLElement,
+      ): number {
+        return Array.from(this.parentElement?.children ?? []).indexOf(this) * 100;
+      });
+      scrollLeft = vi.spyOn(Element.prototype, "scrollLeft", "set");
     });
 
     afterEach(() => {
-      scrollIntoView.mockRestore();
+      vi.restoreAllMocks();
     });
 
-    // The element each call scrolled, in order.
-    const scrolled = (): Element[] => scrollIntoView.mock.contexts as Element[];
+    // The strip each write scrolled, in order.
+    const scrolled = (): Element[] => scrollLeft.mock.contexts as Element[];
+
+    // The offsets written, in order.
+    const offsets = (): number[] => scrollLeft.mock.calls.map(([offset]) => offset);
 
     // Two strips sharing one selection, the shape Panel.Mosaic renders.
     const SplitTabs = ({ value }: { value: string }): ReactElement => (
@@ -620,21 +632,23 @@ describe("Tabs", () => {
 
     it("should scroll the selected tab into view when the selection changes", () => {
       const { rerender } = render(<BasicTabs value="a" onChange={vi.fn()} />);
-      scrollIntoView.mockClear();
+      scrollLeft.mockClear();
       rerender(<BasicTabs value="c" onChange={vi.fn()} />);
-      expect(scrolled()).toEqual([tab("Tab C")]);
+      expect(scrolled()).toEqual([screen.getByRole("tablist")]);
+      expect(offsets()).toEqual([200]);
     });
 
     it("should scroll the already selected tab into view on mount", () => {
       render(<BasicTabs initialValue="b" />);
-      expect(scrolled()).toEqual([tab("Tab B")]);
+      expect(scrolled()).toEqual([screen.getByRole("tablist")]);
+      expect(offsets()).toEqual([100]);
     });
 
     it("should not scroll when the selected tab belongs to another strip", () => {
       const { rerender } = render(<SplitTabs value="a" />);
-      scrollIntoView.mockClear();
+      scrollLeft.mockClear();
       rerender(<SplitTabs value="b" />);
-      expect(scrolled()).toEqual([tab("Tab B")]);
+      expect(scrolled()).toEqual([screen.getAllByRole("tablist")[1]]);
     });
 
     // Two strips each holding a selection, the shape a split Panel.Mosaic renders.
@@ -657,9 +671,10 @@ describe("Tabs", () => {
 
     it("should leave a strip alone when a sibling's selection changes", () => {
       const { rerender } = render(<SplitSelection value={["a1", "b1"]} />);
-      scrollIntoView.mockClear();
+      scrollLeft.mockClear();
       rerender(<SplitSelection value={["a2", "b1"]} />);
-      expect(scrolled()).toEqual([tab("Tab A2")]);
+      expect(scrolled()).toEqual([screen.getAllByRole("tablist")[0]]);
+      expect(offsets()).toEqual([100]);
     });
   });
 

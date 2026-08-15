@@ -51,7 +51,7 @@ shown as "In Progress". Outputs the new range key.
 
 <Fragment slot="flow">
 
-```arc
+```arc channels="range_key"
 sequence ranges_create {
   ranges.create{name="Terminal Count", color="#3bc454"} -> range_key
 }
@@ -95,7 +95,7 @@ range key.
 
 <Fragment slot="flow">
 
-```arc
+```arc channels="trigger, range_key"
 sequence ranges_end {
   trigger -> ranges.end{key=range_key}
 }
@@ -105,7 +105,7 @@ sequence ranges_end {
 
 <Fragment slot="function">
 
-```arc
+```arc channels="range_key"
 func ranges_end() {
     ranges.end(range_key)
 }

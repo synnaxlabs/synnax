@@ -2,10 +2,10 @@
 layout: "@/layouts/Reference.astro"
 title: "Control Authority"
 description: "How Arc resolves conflicts when multiple writers target the same channels"
-prev: "Stateful Variables"
-prevURL: "/reference/control/arc/concepts/stateful-variables"
-next: "Data Processing"
-nextURL: "/reference/control/arc/how-to/data-processing"
+prev: "Get Started"
+prevURL: "/reference/control/arc/get-started"
+next: "Reactive Execution"
+nextURL: "/reference/control/arc/concepts/reactive-execution"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -21,67 +21,31 @@ values take effect. Without it, writers would overwrite each other unpredictably
 
 ## Declaring Authority
 
-The `authority` keyword sets a program's authority level. Place it before any `func`,
-`sequence`, or flow declarations:
-
-```arc
-authority 200
-
-sequence main {
-    stage pressurize {
-        1 -> press_vlv_cmd
-        ox_pt_1 > 500 => next
-    }
-    stage complete {
-        0 -> press_vlv_cmd
-    }
-}
-
-start_cmd => main
-```
-
-Authority values range from 0 to 255. Higher values take precedence over lower ones.
-
-For different channels, use the grouped form:
-
-```arc
-authority (
-    200
-    press_vlv_cmd 100
-    vent_vlv_cmd 150
-)
-```
-
-This sets a default of 200, then overrides `press_vlv_cmd` to 100 and `vent_vlv_cmd`
-to 150.
-
-<Note.Note variant="info">
-  See the [syntax
-  reference](/reference/control/arc/reference/syntax#authority-declarations) for the
-  full authority declaration grammar.
-</Note.Note>
+The
+[`authority` declaration](/reference/control/arc/reference/standard-library/control#authority)
+sets the level a program writes at. The reference page lists every form it accepts.
 
 <Divider.Divider x />
 
 ## Default Authority
 
-When omitted, authority defaults to 255, the maximum. This means a program without an
-explicit declaration has the highest possible priority and cannot be overridden by any
-other writer.
+Default `authority` for a task when not declared is `255`
 
-Starting at 255 works for simple cases with a single writer, but prevents escalation and
-manual override in multi-writer setups. Choosing a lower value like 200 leaves room for
-emergency overrides and operator intervention.
+A task at `255` cannot be overridden, which suits a single writer but leaves no room to
+escalate or to hand control to an operator. Declare a lower value, such as `200`, to
+keep both options open.
 
 <Divider.Divider x />
 
 ## Changing Authority at Runtime
 
-Use
+Declare a top-level
+[`authority`](/reference/control/arc/reference/standard-library/control#authority) to
+set the task default. Use
 [`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
-inside stages to change authority during execution:
+inside stages to change it during execution:
 
-```arc
+```arc channels="sensor, output, press_vlv_cmd, start_cmd" bodies="main, monitor, escalate, done"
 import control
 import time
 
@@ -107,8 +71,8 @@ sequence main {
 start_cmd => main
 ```
 
-Authority changes are flushed before channel writes in the same execution cycle, so
-`control.set_authority` and channel writes can safely coexist in the same stage.
+Authority changes apply before channel writes in the same execution cycle of a stage, so
+`control.set_authority` and channel writes can safely coexist.
 
 <Divider.Divider x />
 
@@ -136,7 +100,7 @@ schematic controls all participate in the same authority system.
 A common pattern is starting at moderate authority and escalating when an emergency is
 detected:
 
-```arc
+```arc channels="sensor, output, emergency_condition, press_vlv_cmd, vent_vlv_cmd, start_cmd", bodies="emergency, main"
 import control
 
 authority 100
@@ -161,9 +125,6 @@ At authority 100, the program runs alongside other writers. When the emergency s
 activates, it jumps to 255 and overrides everything, including other Arc programs,
 Python scripts, and schematic controls.
 
-If you start at 255, you have no room to escalate. Starting lower preserves this
-capability.
-
 <Divider.Divider x />
 
 ## Releasing Control
@@ -171,7 +132,7 @@ capability.
 Setting authority to 0 gives a program the lowest possible priority. Any other writer
 takes precedence:
 
-```arc
+```arc channels="press_vlv_cmd, done_condition, start_cmd", bodies="main, yield"
 import control
 
 authority 200
@@ -196,8 +157,11 @@ program lowers its authority when it finishes, allowing a lower-priority program
 resume without restarting.
 
 <Note.Note variant="warning">
-  Setting authority to 0 does not disconnect the writer. The program still holds the
-  channel. It just has the lowest possible priority. Empty stages also do not lower
-  authority; the writer keeps its current authority as long as the program is running.
-  You must explicitly call `control.set_authority&#123;value=0&#125;` to yield.
+  Setting authority to 0 does not disconnect the writer. The program keeps the channel
+  at the lowest priority. An empty stage does not lower authority either. To yield, call:
+
+```arc
+control.set_authority{value=0}
+```
+
 </Note.Note>
