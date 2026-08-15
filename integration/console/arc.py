@@ -195,26 +195,30 @@ class ArcClient:
             rack_name: The name of the rack to select.
         """
         controls = self._get_controls()
-        rack_dropdown = controls.locator("button").first
-        rack_dropdown.wait_for(state="visible", timeout=5000)
+        rack_select = controls.locator(".console-rack-select")
+        rack_select.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
-        rack_dropdown.click()
+        rack_select.click()
         self.layout.select_from_dropdown(rack_name, placeholder="Search")
 
-    def configure(self) -> None:
-        """Click the Configure button in the Arc editor controls.
+    def deploy(self) -> None:
+        """Deploy the Arc from the editor controls.
 
-        Waits for either "Task configured successfully" or "Task started
-        successfully" to appear. The latter handles the race where the status
-        transitions past "configured" before Playwright can observe it.
-        Retries once on timeout to handle transient driver slowness.
+        Play deploys and starts a stopped task; a drifted deployment shows a
+        Redeploy button instead. Waits for either "Task configured
+        successfully" or "Task started successfully" and retries once on
+        timeout to handle transient driver slowness.
         """
         for attempt in range(2):
             controls = self._get_controls()
-            configure_btn = controls.locator("button:has-text('Configure')")
-            configure_btn.wait_for(state="visible", timeout=5000)
             self.notifications.close_all()
-            configure_btn.click()
+            redeploy_btn = controls.locator(".console-task-redeploy--visible button")
+            if redeploy_btn.count() > 0:
+                redeploy_btn.click()
+            else:
+                play_btn = controls.locator("button:has(.pluto-icon--play)")
+                play_btn.wait_for(state="visible", timeout=5000)
+                play_btn.click()
             configured = controls.locator("text=Task configured successfully")
             started = controls.locator("text=Task started successfully")
             try:
@@ -223,17 +227,6 @@ class ArcClient:
             except PlaywrightTimeoutError:
                 if attempt == 1:
                     raise
-
-    def configure_no_wait(self) -> None:
-        """Click the Configure button without waiting for a success message.
-
-        Waits only for the status bar to update (any message change).
-        """
-        controls = self._get_controls()
-        configure_btn = controls.locator("button:has-text('Configure')")
-        configure_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        configure_btn.click()
 
     def get_status(self) -> str:
         """Expand the diagnostics panel, click copy, and return clipboard text."""
@@ -267,47 +260,33 @@ class ArcClient:
         msg.wait_for(state="visible", timeout=30000)
         return msg.inner_text().strip()
 
-    def start(self) -> None:
-        """Click the Play button to start the Arc.
-
-        Waits for the "Task started successfully" message to appear.
-        """
-        controls = self._get_controls()
-        play_btn = controls.locator("button:has(.pluto-icon--play)")
-        play_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        play_btn.click()
-        controls.locator("text=Task started successfully").wait_for(
-            state="visible", timeout=30000
-        )
-
     def stop(self) -> None:
-        """Click the Pause button to stop the Arc.
+        """Click the Stop button to stop the Arc.
 
         Waits for the "Task stopped successfully" message to appear.
         """
         self._show_arc_panel()
         controls = self._get_controls()
-        pause_btn = controls.locator("button:has(.pluto-icon--pause)")
-        pause_btn.wait_for(state="visible", timeout=5000)
+        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        stop_btn.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
-        pause_btn.click()
+        stop_btn.click()
         controls.locator("text=Task stopped successfully").wait_for(
             state="visible", timeout=30000
         )
 
     def is_running(self) -> bool:
-        """Check if the Arc is currently running by looking for the pause button.
+        """Check if the Arc is currently running by looking for the stop button.
 
         Returns:
-            True if the Arc is running (pause button visible), False otherwise.
+            True if the Arc is running (stop button visible), False otherwise.
         """
         self._show_arc_panel()
         controls = self.layout.page.locator(self.CONTROLS_CLASS)
         if controls.count() == 0:
             return False
-        pause_btn = controls.locator("button:has(.pluto-icon--pause)")
-        return pause_btn.count() > 0 and pause_btn.is_visible()
+        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        return stop_btn.count() > 0 and stop_btn.is_visible()
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an Arc via context menu inline edit.
