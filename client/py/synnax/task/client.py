@@ -290,7 +290,8 @@ class StarterStopperMixin:
 
         :raises TimeoutError: If the timeout is reached before the Synnax cluster
             acknowledges the command.
-        :raises ConfigurationError: If the driver fails to stop the task.
+        :raises ConfigurationError: If the task ended in an error state. The task is
+            stopped either way; the error is whatever went wrong while it ran.
         """
         status = self._internal.execute_command_sync("stop", timeout=timeout)
         if status.variant == VARIANT_ERROR:
@@ -301,6 +302,9 @@ class StarterStopperMixin:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
+
+        :raises ConfigurationError: If the task failed to start, or ended in an error
+            state. A task that dies mid-block surfaces its cause on exit.
         """
         self.start(timeout)
         try:

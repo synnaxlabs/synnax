@@ -240,13 +240,19 @@ export class Task<S extends Schemas = Schemas> {
   /**
    * Stops the task and blocks until the driver acknowledges the command.
    * @param timeout - The maximum time to wait for the acknowledgement.
-   * @throws {ConfigurationError} if the driver fails to stop the task.
+   * @throws {ConfigurationError} if the task ended in an error state. The task is
+   * stopped either way; the error is whatever went wrong while it ran.
    */
   async stop(timeout?: CrudeTimeSpan): Promise<void> {
     const status = await this.executeCommandSync({ type: "stop", timeout });
     if (status.variant === "error") throw new ConfigurationError(status.message);
   }
 
+  /**
+   * Starts the task, runs fn, and stops the task.
+   * @throws {ConfigurationError} if the task failed to start, or ended in an error
+   * state. A task that dies while fn runs surfaces its cause on stop.
+   */
   async run<T>(fn: () => Promise<T>): Promise<T> {
     await this.start();
     try {
