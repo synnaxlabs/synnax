@@ -56,13 +56,12 @@ const ExportProjectCommand = Command.create({
   useOnSelect: () => {
     const handleExport = useExport();
     const key = Session.Project.useSelectOptionalSelected();
-    const { data } = PProject.useResult(key == null ? null : { key });
     return useCallback(() => {
       // Unreachable outside the deselection race: the command hides without a
       // selected project.
       if (key == null) return;
-      handleExport({ key, name: data?.name });
-    }, [handleExport, key, data?.name]);
+      handleExport(key);
+    }, [handleExport, key]);
   },
   useVisible: useExportVisible,
 });

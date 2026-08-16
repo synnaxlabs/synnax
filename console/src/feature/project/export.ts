@@ -13,36 +13,24 @@ import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
-export interface ExportParams {
-  key: project.Key;
-  /**
-   * The project's name; callers pass the name they already display. When absent, the
-   * name is retrieved before the download starts.
-   */
-  name?: string;
-}
-
 // The Core owns membership, document serialization, file naming, and the manifest, and
 // the bundle travels as an archive, so the Console streams the response straight to the
 // file the user picks without ever holding it in memory.
-export const useExport = (): ((params: ExportParams) => void) => {
+export const useExport = (): ((key: project.Key) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const download = Runtime.useDownload();
   return useCallback(
-    ({ key, name }: ExportParams) => {
-      handleError(
-        async () => {
-          if (client == null) throw new DisconnectedError();
-          const resolved = name ?? (await client.projects.retrieve(key)).name;
-          await download({
-            stream: await client.projects.export(key),
-            name: resolved,
-            extension: "zip",
-          });
-        },
-        `Failed to export ${name ?? "project"}`,
-      );
+    (key: project.Key) => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const { name } = await client.projects.retrieve(key);
+        await download({
+          stream: await client.projects.export(key),
+          name,
+          extension: "zip",
+        });
+      }, "Failed to export project");
     },
     [client, handleError, download],
   );
