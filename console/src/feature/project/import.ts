@@ -30,8 +30,11 @@ import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-// NOTE: all client/console side project import code is temporary. Server-side project
-// import replaces it before release.
+// TEMPORARY: this entire file is an interim, client-side stand-in for server-side
+// project import, which replaces it before release. None of it hardens: each ingest
+// path runs a sequence of client calls with no transaction, so a failure mid-import
+// leaves a partial project behind. That is accepted for the interim; the server-side
+// path imports atomically.
 
 /** The tiling file inside a legacy (layout-slice era) project export directory. */
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
@@ -175,7 +178,8 @@ const resolveNode = (
 };
 
 // TEMPORARY: client-side ingest of the Core-written bundle format, so an exported
-// project round-trips until server-side project import replaces this whole file.
+// project round-trips until server-side project import replaces this whole file. Not
+// atomic: a failure partway leaves the project and already-imported members behind.
 const ingestBundle = async (
   manifestData: unknown,
   directoryName: string,
