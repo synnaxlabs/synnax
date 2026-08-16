@@ -24,7 +24,6 @@ import (
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // decode unpacks a bundle file's bytes into the generic map assertions inspect.
@@ -222,16 +221,28 @@ var _ = Describe("Export", func() {
 		Expect(members).To(ContainElement(l.OntologyID()))
 	})
 
-	It("Should error when two members in one directory collide", func(
+	It("Should suffix the second of two members in one directory that collide", func(
 		ctx SpecContext,
 	) {
 		proj := createProject(ctx, "Colliding")
 		createLog(ctx, proj.Key, "Pressure")
 		createLog(ctx, proj.Key, "pressure")
-		Expect(svc.Export(ctx, proj.Key, xjson.Codec)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("both export to")),
-		))
+		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		Expect(files).To(HaveKey("Pressure.json"))
+		Expect(files).To(HaveKey("pressure (1).json"))
+	})
+
+	It("Should suffix the second of two colliding groups", func(ctx SpecContext) {
+		proj := createProject(ctx, "Twin Groups")
+		g1 := createGroup(ctx, "Valves", proj.OntologyID())
+		g2 := createGroup(ctx, "valves", proj.OntologyID())
+		l1 := createLog(ctx, proj.Key, "A")
+		l2 := createLog(ctx, proj.Key, "B")
+		moveToGroup(ctx, l1.OntologyID(), proj.OntologyID(), g1.OntologyID())
+		moveToGroup(ctx, l2.OntologyID(), proj.OntologyID(), g2.OntologyID())
+		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		Expect(files).To(HaveKey("Valves/A.json"))
+		Expect(files).To(HaveKey("valves (1)/B.json"))
 	})
 
 	It("Should allow equal names in different directories", func(ctx SpecContext) {
@@ -246,15 +257,14 @@ var _ = Describe("Export", func() {
 		Expect(outerLog.Key).ToNot(Equal(innerLog.Key))
 	})
 
-	It("Should error when a member claims a reserved file name", func(
+	It("Should suffix a member claiming a reserved file name", func(
 		ctx SpecContext,
 	) {
 		proj := createProject(ctx, "Reserved")
 		createLog(ctx, proj.Key, "manifest")
-		Expect(svc.Export(ctx, proj.Key, xjson.Codec)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("reserved file name")),
-		))
+		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		Expect(files).To(HaveKey("manifest.json"))
+		Expect(files).To(HaveKey("manifest (1).json"))
 	})
 
 	It("Should allow a reserved name inside a group directory", func(ctx SpecContext) {

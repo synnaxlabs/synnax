@@ -76,6 +76,15 @@ func Sanitize(name, extension string) (string, error) {
 	return name + extension, nil
 }
 
+// WithSuffix inserts suffix between name's base and extension, shortening the base
+// until the result fits the longest path element a filesystem takes. name must carry
+// extension, as Sanitize returns it; pass an empty extension for a name without one.
+func WithSuffix(name, suffix, extension string) string {
+	base := strings.TrimSuffix(name, extension)
+	base = fit(base, maxLength-len(suffix)-len(extension))
+	return base + suffix + extension
+}
+
 // fit shortens name to maxBytes bytes, cutting on a rune boundary, and drops the
 // trailing dots and spaces Windows drops. It trims after cutting because the cut can
 // expose a dot or a space the original name buried.

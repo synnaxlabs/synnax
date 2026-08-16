@@ -174,11 +174,13 @@ describe("Project", () => {
       expect(archive).toContain("Propulsion/Pressure.json");
     });
 
-    test("errors when two members take the same file name", async () => {
+    test("suffixes the second of two members taking one file name", async () => {
       const proj = await client.projects.create({ name: `export-${id.create()}` });
       await client.logs.create(proj.key, { name: "Pressure" });
       await client.logs.create(proj.key, { name: "pressure" });
-      await expect(download(proj.key)).rejects.toThrow("both export to");
+      const archive = await download(proj.key);
+      expect(archive).toContain("Pressure.json");
+      expect(archive).toContain("pressure (1).json");
     });
   });
 });

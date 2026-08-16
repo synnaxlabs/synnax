@@ -119,6 +119,22 @@ var _ = Describe("Sanitize", func() {
 	})
 })
 
+var _ = Describe("WithSuffix", func() {
+	It("Should insert the suffix before the extension", func() {
+		Expect(filename.WithSuffix("New panel.json", " (1)", ".json")).
+			To(Equal("New panel (1).json"))
+	})
+	It("Should append the suffix to a name without an extension", func() {
+		Expect(filename.WithSuffix("Valves", " (1)", "")).To(Equal("Valves (1)"))
+	})
+	It("Should shorten the base until the result fits a path element", func() {
+		name := MustSucceed(filename.Sanitize(strings.Repeat("a", 300), ".json"))
+		suffixed := filename.WithSuffix(name, " (1)", ".json")
+		Expect(suffixed).To(HaveLen(maxLength))
+		Expect(suffixed).To(HaveSuffix(" (1).json"))
+	})
+})
+
 var _ = Describe("Fold", func() {
 	It("Should fold names that differ only by case together", func() {
 		Expect(filename.Fold("Inlet.json")).To(Equal(filename.Fold("inlet.JSON")))

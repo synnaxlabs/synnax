@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Manifest", func() {
@@ -40,32 +39,41 @@ var _ = Describe("Manifest", func() {
 })
 
 var _ = Describe("Claims", func() {
-	It("Should claim distinct names", func() {
-		claims := imex.NewClaims("")
-		Expect(claims.Claim("Pressure", "Pressure.json")).To(Succeed())
-		Expect(claims.Claim("Thrust", "Thrust.json")).To(Succeed())
+	It("Should keep distinct names unchanged", func() {
+		claims := imex.NewClaims()
+		Expect(claims.Claim("Pressure.json", ".json")).To(Equal("Pressure.json"))
+		Expect(claims.Claim("Thrust.json", ".json")).To(Equal("Thrust.json"))
 	})
 
-	It("Should reject a reserved name in its display form", func() {
-		claims := imex.NewClaims("", "Manifest.json")
-		Expect(claims.Claim("manifest", "manifest.json")).
-			To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(
-					`"manifest" takes the reserved file name "Manifest.json"`,
-				)),
-			))
+	It("Should suffix a name already claimed", func() {
+		claims := imex.NewClaims()
+		Expect(claims.Claim("New panel.json", ".json")).To(Equal("New panel.json"))
+		Expect(claims.Claim("New panel.json", ".json")).To(Equal("New panel (1).json"))
+		Expect(claims.Claim("New panel.json", ".json")).To(Equal("New panel (2).json"))
 	})
 
-	It("Should reject names that fold together", func() {
-		claims := imex.NewClaims("g/")
-		Expect(claims.Claim("Pressure", "Pressure.json")).To(Succeed())
-		Expect(claims.Claim("pressure", "pressure.json")).
-			To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(
-					`"Pressure" and "pressure" both export to "g/pressure.json"`,
-				)),
-			))
+	It("Should suffix a reserved name", func() {
+		claims := imex.NewClaims("Manifest.json")
+		Expect(claims.Claim("manifest.json", ".json")).To(Equal("manifest (1).json"))
+	})
+
+	It("Should suffix names that fold together", func() {
+		claims := imex.NewClaims()
+		Expect(claims.Claim("Pressure.json", ".json")).To(Equal("Pressure.json"))
+		Expect(claims.Claim("pressure.json", ".json")).To(Equal("pressure (1).json"))
+	})
+
+	It("Should skip a suffix another member holds", func() {
+		claims := imex.NewClaims()
+		Expect(claims.Claim("New panel (1).json", ".json")).
+			To(Equal("New panel (1).json"))
+		Expect(claims.Claim("New panel.json", ".json")).To(Equal("New panel.json"))
+		Expect(claims.Claim("New panel.json", ".json")).To(Equal("New panel (2).json"))
+	})
+
+	It("Should suffix a directory name without an extension", func() {
+		claims := imex.NewClaims()
+		Expect(claims.Claim("Valves", "")).To(Equal("Valves"))
+		Expect(claims.Claim("Valves", "")).To(Equal("Valves (1)"))
 	})
 })

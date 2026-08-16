@@ -10,7 +10,9 @@
 package project
 
 import (
+	"cmp"
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -42,9 +44,10 @@ const (
 // along with every panel tab that references it. A panel's ontology children — the
 // tasks its tabs reference — export into the panel's directory. A member with multiple
 // parents in the project keeps its first placement and is skipped on later encounters,
-// and a group with no exported descendants is dropped. It returns query.ErrNotFound if
-// no project has key, and a validation error if two members in one directory resolve
-// to the same file name or a member claims a reserved root file name.
+// and a group with no exported descendants is dropped. Two members of one directory
+// that resolve to one file name, or a member claiming a reserved root file name, keep
+// distinct names through a numeric suffix. It returns query.ErrNotFound if no project
+// has key.
 func (s *Service) Export(
 	ctx context.Context,
 	key Key,
@@ -64,7 +67,7 @@ func (s *Service) Export(
 		refs:    map[ontology.ID]string{},
 	}
 	manifestFileName := imex.ManifestBaseName + w.ext
-	claims := imex.NewClaims("", manifestFileName, legacyLayoutFileName)
+	claims := imex.NewClaims(manifestFileName, legacyLayoutFileName)
 	if err := w.directory(ctx, OntologyID(key), "", claims); err != nil {
 		return nil, nil, err
 	}
@@ -147,6 +150,13 @@ func (w *bundleWalk) directory(
 		Exec(ctx, nil); err != nil {
 		return err
 	}
+	// A stable order keeps suffix assignment deterministic across exports.
+	slices.SortFunc(children, func(a, b ontology.Resource) int {
+		return cmp.Or(
+			cmp.Compare(a.Name, b.Name),
+			cmp.Compare(a.ID.String(), b.ID.String()),
+		)
+	})
 	for _, child := range children {
 		if w.visited.Contains(child.ID) {
 			continue
@@ -157,20 +167,17 @@ func (w *bundleWalk) directory(
 			if err != nil {
 				return err
 			}
+			dirName = claims.Claim(dirName, "")
 			w.visited.Add(child.ID)
 			before := len(w.refs) + len(w.panels)
-			err = w.directory(
-				ctx, child.ID, prefix+dirName+"/", imex.NewClaims(prefix+dirName+"/"),
-			)
+			err = w.directory(ctx, child.ID, prefix+dirName+"/", imex.NewClaims())
 			if err != nil {
 				return err
 			}
-			// An empty group is dropped: it claims no name and enforces no access.
+			// An empty group is dropped: it enforces no access, and the name it
+			// claimed only pushes a same-named sibling group to the next suffix.
 			if len(w.refs)+len(w.panels) == before {
 				continue
-			}
-			if err = claims.Claim(child.Name, dirName); err != nil {
-				return err
 			}
 			w.groups = append(w.groups, child.ID)
 		case child.ID.Type == ontology.ResourceTypePanel:
@@ -178,9 +185,7 @@ func (w *bundleWalk) directory(
 			if err != nil {
 				return err
 			}
-			if err = claims.Claim(child.Name, fileName); err != nil {
-				return err
-			}
+			fileName = claims.Claim(fileName, w.ext)
 			w.visited.Add(child.ID)
 			w.panels = append(w.panels, bundlePanel{
 				id:   child.ID,
@@ -196,9 +201,7 @@ func (w *bundleWalk) directory(
 			if err != nil {
 				return err
 			}
-			if err = claims.Claim(child.Name, fileName); err != nil {
-				return err
-			}
+			fileName = claims.Claim(fileName, w.ext)
 			w.visited.Add(child.ID)
 			w.refs[child.ID] = prefix + fileName
 		}

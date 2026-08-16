@@ -10,7 +10,9 @@
 package symbol
 
 import (
+	"cmp"
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -28,16 +30,14 @@ const (
 
 // ExportGroup serializes every symbol in the group identified by key into a flat file
 // namespace: one envelope named after each symbol, beside a manifest naming the group.
-// It also returns the ontology ID of every exported symbol, in the order the ontology
-// returned the group's children, so a caller can enforce access on them. The encoder
-// decides both the serialization and the extension every file takes. A name too long
-// for a file name is shortened, which can make two symbols collide.
+// It also returns the ontology ID of every exported symbol, sorted by name and then by
+// ID, so a caller can enforce access on them. The encoder decides both the
+// serialization and the extension every file takes. A symbol whose file name is too
+// long is shortened; one whose file name is taken or reserved gains a numeric suffix.
 //
 // Children that are not schematic symbols are skipped and logged as a warning.
 //
-// It returns query.ErrNotFound if no group has key. It returns a validation error if
-// two symbols resolve to the same file name, or if a symbol claims a reserved file
-// name.
+// It returns query.ErrNotFound if no group has key.
 func (s *Service) ExportGroup(
 	ctx context.Context,
 	key group.Key,
@@ -49,6 +49,13 @@ func (s *Service) ExportGroup(
 	}
 	symbols, skipped := partitionSymbols(children)
 	s.warnSkipped(root.Name, skipped)
+	// A stable order keeps suffix assignment deterministic across exports.
+	slices.SortFunc(symbols, func(a, b ontology.Resource) int {
+		return cmp.Or(
+			cmp.Compare(a.Name, b.Name),
+			cmp.Compare(a.ID.String(), b.ID.String()),
+		)
+	})
 	members := lo.Map(symbols, func(r ontology.Resource, _ int) ontology.ID {
 		return r.ID
 	})
@@ -56,16 +63,14 @@ func (s *Service) ExportGroup(
 	manifestFileName := imex.ManifestBaseName + ext
 	var (
 		files  = make(zip.Files, len(symbols)+1)
-		claims = imex.NewClaims("", manifestFileName)
+		claims = imex.NewClaims(manifestFileName)
 	)
 	for _, child := range symbols {
 		fileName, err := filename.Sanitize(child.Name, ext)
 		if err != nil {
 			return nil, nil, err
 		}
-		if err = claims.Claim(child.Name, fileName); err != nil {
-			return nil, nil, err
-		}
+		fileName = claims.Claim(fileName, ext)
 		env, err := s.Export(ctx, child.ID)
 		if err != nil {
 			return nil, nil, err

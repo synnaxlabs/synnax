@@ -282,20 +282,23 @@ streams the wire archive straight to disk (§6.15).
 ### 4.8 Name collisions
 
 A path is a reference (§4.0), so a collision makes a reference ambiguous, and the
-Console extracts the bundle onto case-insensitive filesystems. Both sides of the wire
-validate. Names are compared case-folded and Unicode-normalized within one directory;
-equal names in different directories are distinct paths and always fine.
+Console extracts the bundle onto case-insensitive filesystems. Export resolves
+collisions; import rejects them. Names are compared case-folded and Unicode-normalized
+within one directory; equal names in different directories are distinct paths and always
+fine.
 
-- **Export**: Two members of one directory whose sanitized names compare equal — files
-  and group directories share the namespace — are an export error that names the
-  colliding resources. A member claiming a reserved root name is the same error.
+- **Export**: Export never fails on a collision, because duplicate in-cluster names are
+  legal and export must not force a rename. Members claim names in a walk sorted by name
+  and then by ontology ID; a sanitized name that compares equal to a taken or reserved
+  name — files and group directories share the namespace — gains a numeric suffix before
+  the extension (`Name (1).json`) until it is free. Each document carries the resource's
+  true name, so import restores the in-cluster names exactly.
 - **Zip decode**: An entry name that is empty, holds a backslash, holds an empty, `.`,
   or `..` segment, or repeats an earlier entry name is a decode error. Segments are
   separated by `/`.
 - **Import validation**: Two member names in one directory that compare equal are a
   validation error. A reference naming a missing file, the root manifest, or a
-  non-member file is a validation error. A crafted archive cannot bypass the export
-  rules.
+  non-member file is a validation error. A crafted archive cannot bypass these rules.
 
 ## 5 Implementation phases
 
