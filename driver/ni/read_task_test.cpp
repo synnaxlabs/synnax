@@ -596,6 +596,49 @@ TEST_F(AnalogReadTest, testHardwareBuildFailureRetriesOnNextStart) {
     rt->stop("stop_cmd", true);
 }
 
+/// @brief a failed in-loop restart should claim fresh hardware on the next read
+/// attempt instead of dereferencing released hardware.
+TEST_F(AnalogReadTest, testFailedInLoopRestartReclaimsOnNextRead) {
+    parse_config();
+    mock_hw = std::make_shared<hardware::mock::Reader<double>>(
+        std::vector{x::errors::NIL},
+        std::vector{x::errors::NIL},
+        std::vector<hardware::mock::Reader<double>::ReadResponse>{
+            {.error = daqmx::RESOURCE_RESERVED},
+            {.data = {0.5}}
+        }
+    );
+    size_t calls = 0;
+    const auto rt = create_task(
+        [&](
+            const ni::ReadTaskConfig &
+        ) -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            if (++calls == 2) return {nullptr, daqmx::TEMPORARILY_UNREACHABLE};
+            return {
+                std::make_unique<hardware::mock::SharedReader<double>>(mock_hw),
+                x::errors::NIL
+            };
+        }
+    );
+
+    rt->start("start_cmd");
+    // Read 1 hits RESOURCE_RESERVED and triggers an in-loop restart whose build
+    // fails, releasing the hardware. The retried read claims build 3 and recovers.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        calls,
+        3,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        mock_factory->writes->size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    rt->stop("stop_cmd", true);
+}
+
 class DigitalReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
