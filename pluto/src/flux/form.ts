@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type query, type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, state, TimeSpan } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, type destructor, state, TimeSpan } from "@synnaxlabs/x";
 import {
   useCallback,
   useEffect,
@@ -129,6 +129,12 @@ export interface UseFormParams<
 > extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
+  /**
+   * How long to wait after a change before autosaving. Zero, the default, saves on
+   * every change. Set it only for a form with a continuous input, such as a drag
+   * handle or a color picker, where a single gesture emits a burst of changes.
+   */
+  autoSaveDebounce?: CrudeTimeSpan;
   /** The record to edit, or null for a form with nothing to read. */
   query: Query | null;
   beforeValidate?: (params: BeforeValidateParams<Query, Schema>) => boolean | void;
@@ -148,8 +154,6 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
   notifyOnChange: false,
 };
 
-const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(500);
-
 export const createForm = <
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
@@ -168,6 +172,7 @@ export const createForm = <
     query,
     initialValues,
     autoSave = false,
+    autoSaveDebounce = TimeSpan.ZERO,
     afterSave,
     beforeSave,
     beforeValidate,
@@ -283,7 +288,7 @@ export const createForm = <
     const saveRef = useSyncedRef(save);
     const debouncedSave = useDebouncedCallback(
       () => saveRef.current(),
-      AUTO_SAVE_DEBOUNCE,
+      autoSaveDebounce,
       [],
     );
     useEffect(() => () => debouncedSave.flush(), [debouncedSave]);

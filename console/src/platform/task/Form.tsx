@@ -25,7 +25,7 @@ import {
   Synnax as PSynnax,
   Task as PTask,
 } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
@@ -130,6 +130,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const { form, saveAsync } = useForm({
       query: { key: taskKey },
       autoSave: true,
+      // Numeric fields have drag handles that emit a change per pixel.
+      autoSaveDebounce: TimeSpan.milliseconds(500),
     });
 
     // Deploy pipeline: resolve channels and rack through onConfigure, persist

@@ -26,7 +26,7 @@ import {
   Text,
   useClickOutside,
 } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button as PlatformButton } from "@/platform/button";
@@ -48,9 +48,11 @@ const LabelListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, label.Label>(itemKey);
   const { form, save } = Label.useForm({
-    query: null,
+    query: isCreate ? null : { key: itemKey },
     initialValues,
     autoSave: !isCreate,
+    // The color picker emits a change per pixel of drag through the gradient.
+    autoSaveDebounce: TimeSpan.milliseconds(500),
     afterSave: useCallback(
       ({ reset }: Flux.AfterSaveParams<query.Params, typeof Label.formSchema>) => {
         onClose?.();
