@@ -48,6 +48,29 @@ describe("SelectDataType", () => {
     expect(c.queryByText("Unknown")).toBeNull();
   });
 
+  it("should display the boolean data type as Boolean", () => {
+    const c = render(<SelectWrapper />);
+    fireEvent.click(c.getByText("Select a data type"));
+    expect(c.getByText("Boolean")).toBeTruthy();
+    expect(c.queryByText("bool")).toBeNull();
+  });
+
+  it("should display numeric data types in the code font", () => {
+    const c = render(<SelectWrapper />);
+    fireEvent.click(c.getByText("Select a data type"));
+    expect(c.getByText("uint8").className).toContain("pluto-text--code");
+    expect(c.getByText("Boolean").className).not.toContain("pluto-text--code");
+  });
+
+  it("should display the trigger in the code font for numeric types", () => {
+    const c = render(<SelectWrapper />);
+    fireEvent.click(c.getByText("Select a data type"));
+    fireEvent.click(c.getByText("float32"));
+    expect(
+      c.container.querySelector(".pluto-select-data-type__trigger--code"),
+    ).toBeTruthy();
+  });
+
   it("should display UUID and JSON in all caps", () => {
     const c = render(<SelectWrapper />);
     fireEvent.click(c.getByText("Select a data type"));
