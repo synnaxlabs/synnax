@@ -609,8 +609,8 @@ class ProjectClient:
         ``directory_path`` (Playwright walks it and uploads each file with its
         webkitRelativePath set), then waits for the project selector to display the
         imported project's name. A bundle directory holds a ``manifest.json`` whose
-        ``name`` names the project; a legacy directory holds ``LAYOUT.json`` or
-        ``PANELS.json`` and names the project after its basename.
+        ``name`` names the project; a legacy directory holds ``LAYOUT.json`` and names
+        the project after its basename.
         """
         expected_name = os.path.basename(directory_path.rstrip(os.sep))
         manifest_path = os.path.join(directory_path, "manifest.json")

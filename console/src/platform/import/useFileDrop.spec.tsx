@@ -203,7 +203,7 @@ describe("Import.useFileDrop", () => {
         nodeKey: panel.ROOT_NODE_KEY,
         location: "center",
         event: fakeFileDropEvent([
-          fakeDirectoryEntry("my-project", [createJSONFile("panels.json", [])]),
+          fakeDirectoryEntry("my-project", [createJSONFile("manifest.json", [])]),
           fakeFileEntry(createJSONFile("Pinned.json", LEGACY_LOG_STATE), held),
         ]),
       }),

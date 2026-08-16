@@ -33,9 +33,6 @@ import { Session } from "@/session";
 // NOTE: all client/console side project import code is temporary. Server-side project
 // import replaces it before release.
 
-/** The panel documents file inside an interim (pre-manifest) project export. */
-export const PANELS_FILE_NAME = "PANELS.json";
-
 /** The tiling file inside a legacy (layout-slice era) project export directory. */
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
 
@@ -54,45 +51,7 @@ const legacySliceZ = z.object({
   layouts: z.record(z.string(), legacyLayoutZ),
 });
 
-// Rewrites every panel-tab reference to an imported component's original key with the
-// ontology ID of the resource actually created for it. Without it the imported panels'
-// tabs resolve to resources that only exist in the source cluster.
-const remapNode = (node: panel.Node, remap: Map<string, ontology.ID>): panel.Node => {
-  if (node.variant === "leaf")
-    return {
-      ...node,
-      tabs: node.tabs.map((tab) => {
-        if (tab.variant !== "resource") return tab;
-        const next = remap.get(tab.resource.key);
-        return next == null ? tab : { ...tab, resource: next };
-      }),
-    };
-  return {
-    ...node,
-    first: remapNode(node.first, remap),
-    last: remapNode(node.last, remap),
-  };
-};
-
 type ComponentContext = Omit<Import.FileIngesterContext, "fileName">;
-
-const ingestComponents = async (
-  files: Import.File[],
-  ctx: ComponentContext,
-): Promise<Map<string, ontology.ID>> => {
-  const remap = new Map<string, ontology.ID>();
-  for (const file of files) {
-    const { data } = file;
-    if (typeof data !== "object" || data == null || !("type" in data)) continue;
-    if (typeof data.type !== "string") continue;
-    // TEMPORARY: a type the Core cannot import fails the whole directory, where it was
-    // skipped before. Server-side project import replaces this loop before release.
-    const id = await Import.ingestServer(data, { ...ctx, fileName: file.name });
-    if (id != null && "key" in data && typeof data.key === "string")
-      remap.set(data.key, id);
-  }
-  return remap;
-};
 
 // Visualization layout types found in legacy (layout-slice era) project exports. Their
 // component files are typeless legacy Console states, importable only through the
@@ -307,31 +266,12 @@ export const ingest: Import.DirectoryIngester = async (
   const manifestFile = files.find((file) => pathOf(file) === MANIFEST_FILE_NAME);
   if (manifestFile != null)
     return await ingestBundle(manifestFile.data, name, files, { client, store });
-  const panelsFile = files.find((file) => file.name === PANELS_FILE_NAME);
   const legacyFile = files.find((file) => file.name === LAYOUT_FILE_NAME);
-  if (panelsFile == null && legacyFile == null)
-    throw new Error(`${PANELS_FILE_NAME} not found`);
+  if (legacyFile == null) throw new Error(`${MANIFEST_FILE_NAME} not found`);
   const projectKey = uuid.create();
-  // Create the project first so imported components can be parented to it; its
-  // panels are created below once the components' real keys are known.
+  // Create the project first so imported components can be parented to it.
   await client.projects.create({ key: projectKey, name, layout: {} });
-  const ctx: ComponentContext = { client, projectKey };
-  if (panelsFile != null) {
-    const panels = panel.panelZ.array().parse(panelsFile.data);
-    const remap = await ingestComponents(
-      files.filter((file) => file.name !== PANELS_FILE_NAME),
-      ctx,
-    );
-    if (panels.length > 0)
-      await client.panels.create(
-        panels.map((p) => ({
-          ...p,
-          key: uuid.create(),
-          root: remapNode(p.root, remap),
-          parent: project.ontologyID(projectKey),
-        })),
-      );
-  } else if (legacyFile != null) await ingestLegacy(legacyFile.data, files, ctx);
+  await ingestLegacy(legacyFile.data, files, { client, projectKey });
   store.dispatch(Session.Project.select(projectKey));
 };
 

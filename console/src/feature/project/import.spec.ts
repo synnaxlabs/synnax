@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ontology,
-  panel,
-  project,
-  schematic,
-  type Synnax,
-  table,
-} from "@synnaxlabs/client";
+import { type ontology, project, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
@@ -54,30 +47,7 @@ const TABLE_DATA = {
   cells: { c1: { key: "c1", variant: "text", props: { value: "hello" } } },
 };
 
-// An exported panel with a schematic and a table tab, each referencing the resource
-// key in the corresponding component file.
-const exportedPanels = (): panel.Panel[] => [
-  panel.panelZ.parse({
-    name: "Main",
-    root: {
-      variant: "leaf",
-      tabs: [
-        {
-          variant: "resource",
-          key: uuid.create(),
-          resource: schematic.ontologyID(OPERATOR_KEY),
-        },
-        {
-          variant: "resource",
-          key: uuid.create(),
-          resource: table.ontologyID(THERMO_KEY),
-        },
-      ],
-    },
-  }),
-];
-
-// A legacy (layout-slice era) export tiling file for the same two components.
+// A legacy (layout-slice era) export tiling file for the two component files.
 const legacyLayoutSlice = (): unknown => ({
   layouts: {
     [OPERATOR_KEY]: {
@@ -130,34 +100,6 @@ describe("project import", () => {
     { name: "Operator.json", data: SCHEMATIC_DATA },
     { name: "Thermocouples.json", data: TABLE_DATA },
   ];
-
-  const files = (): Import.File[] => [
-    { name: Project.PANELS_FILE_NAME, data: exportedPanels() },
-    ...componentFiles(),
-  ];
-
-  it("creates the project's panels with tabs pointing at the created resources", async () => {
-    const store = await runImport(files());
-    const projectKey = selectImportedProject(store);
-    const children = await retrieveProjectChildren(projectKey);
-    const panelKeys = children
-      .filter(({ id }) => id.type === "panel")
-      .map(({ id }) => id.key);
-    expect(panelKeys).toHaveLength(1);
-    const [imported] = await client.panels.retrieve({ keys: panelKeys });
-    expect(imported.name).toBe("Main");
-    assert(imported.root.variant === "leaf", "expected a leaf root");
-    const resources = imported.root.tabs.map((tab) => {
-      assert(tab.variant === "resource", "expected resource tabs");
-      return tab.resource;
-    });
-    expect(resources.map(({ type }) => type)).toEqual([SCHEMATIC_TYPE, TABLE_TYPE]);
-    const [schematicID, tableID] = resources;
-    const importedSchematic = await client.schematics.retrieve(schematicID.key);
-    expect(importedSchematic.name).toBe("Operator");
-    const importedTable = await client.tables.retrieve(tableID.key);
-    expect(importedTable.name).toBe("Thermocouples");
-  });
 
   describe("manifest bundles", () => {
     const bundleFiles = (name: string): Import.File[] => [
