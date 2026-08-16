@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
-import { task_config } from "@/task/config";
+import { taskConfig } from "@/task/config";
 
 /** BaseChannel carries the fields every OPC UA channel shares. */
 export const baseChannelZ = z.object({
@@ -33,7 +33,7 @@ export const baseChannelZ = z.object({
 });
 export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
 
-export const scanConfigZ = task_config.baseScanZ;
+export const scanConfigZ = taskConfig.baseScanZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 export const readChannelZ = baseChannelZ.extend({
@@ -47,7 +47,7 @@ export const writeChannelZ = baseChannelZ.extend({
 });
 export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
 
-export const readConfigZ = task_config.baseReadZ
+export const readConfigZ = taskConfig.baseReadZ
   .omit({ sampleRate: true, streamRate: true })
   .extend({
     sampleRate: telem.rateZ.default(new Rate(50)),
@@ -59,7 +59,7 @@ export const readConfigZ = task_config.baseReadZ
   });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = task_config.baseWriteZ.extend({
+export const writeConfigZ = taskConfig.baseWriteZ.extend({
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

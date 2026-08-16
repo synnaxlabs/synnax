@@ -2240,6 +2240,37 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("snake_case cross-namespace reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/task_config", `
+					@ts output "client/ts/src/task/config"
+
+					BaseStart struct {
+						auto_start bool = false
+					}
+				`)
+			})
+
+			It("Should camelize the namespace identifier", func(ctx SpecContext) {
+				source := `
+					import "schemas/task_config"
+
+					@ts output "client/ts/src/http"
+
+					ReadConfig struct extends task_config.BaseStart {
+						endpoint string = ""
+					}
+				`
+				resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`import { taskConfig } from`,
+						`taskConfig.baseStartZ`,
+					).
+					ToNotContain("task_config")
+			})
+		})
+
 		Context("cross-namespace enum reference", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/status", `

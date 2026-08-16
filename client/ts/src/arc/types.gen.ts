@@ -17,7 +17,7 @@ import { program } from "@/arc/program";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
-import { task_config } from "@/task/config";
+import { taskConfig } from "@/task/config";
 
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
@@ -47,7 +47,7 @@ export type Key = z.infer<typeof keyZ>;
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
-export const taskConfigZ = task_config.basePersistZ.extend({
+export const taskConfigZ = taskConfig.basePersistZ.extend({
   arcKey: keyZ,
   hash: z.string().default(""),
   executionMode: executionModeZ.default("AUTO"),

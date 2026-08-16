@@ -832,6 +832,7 @@ func (p *Plugin) processStruct(
 					if targetOutputPath == "" {
 						targetOutputPath = ns
 					}
+					ns = tsNamespaceIdent(ns)
 					data.AddImport(
 						paths.CalculateImport(data.OutputPath, targetOutputPath),
 						ns,
@@ -908,6 +909,7 @@ func (p *Plugin) processStruct(
 				if targetOutputPath == "" {
 					targetOutputPath = ns
 				}
+				ns = tsNamespaceIdent(ns)
 				data.AddImport(
 					paths.CalculateImport(data.OutputPath, targetOutputPath),
 					ns,
@@ -1281,6 +1283,10 @@ func computeCoalescedTypes(sd *structData) {
 // every "<name>Z" const, so const names stay consistent with their acronym-aware type
 // names. Wire field keys must NOT use this; they go through fieldCamel to match the
 // JSON codec's naive snake/camel conversion.
+// tsNamespaceIdent converts a schema namespace to the identifier its TS module
+// exports ("task_config" -> "taskConfig").
+func tsNamespaceIdent(ns string) string { return camelCase(ns) }
+
 func camelCase(s string) string { return casing.CamelAcronym(s) }
 
 // fieldCamel converts a field identifier to camelCase using the naive conversion the
@@ -1337,6 +1343,7 @@ func parentSchemaName(
 		if targetOutputPath == "" {
 			targetOutputPath = ns
 		}
+		ns = tsNamespaceIdent(ns)
 		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 		name = ns + "." + name
 	}
@@ -1406,6 +1413,7 @@ func (p *Plugin) createNewRefForField(
 		if targetOutputPath == "" {
 			targetOutputPath = ns
 		}
+		ns = tsNamespaceIdent(ns)
 		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 		newName = ns + ".New"
 	}
@@ -1438,6 +1446,7 @@ func (p *Plugin) detailsSchemaRef(
 		if targetOutputPath == "" {
 			targetOutputPath = ns
 		}
+		ns = tsNamespaceIdent(ns)
 		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 		prefix = ns + "."
 	}
@@ -2034,6 +2043,7 @@ func (p *Plugin) typeRefToZodInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
@@ -2047,6 +2057,7 @@ func (p *Plugin) typeRefToZodInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
@@ -2060,6 +2071,7 @@ func (p *Plugin) typeRefToZodInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
@@ -2074,6 +2086,7 @@ func (p *Plugin) typeRefToZodInternal(
 				if targetOutputPath == "" {
 					targetOutputPath = ns
 				}
+				ns = tsNamespaceIdent(ns)
 				data.AddImport(
 					paths.CalculateImport(data.OutputPath, targetOutputPath),
 					ns,
@@ -2102,6 +2115,7 @@ func (p *Plugin) typeRefToZodInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
@@ -2226,6 +2240,7 @@ func (p *Plugin) typeRefToTSInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, distinctName)
 		}

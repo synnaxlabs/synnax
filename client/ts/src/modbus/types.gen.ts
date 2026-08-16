@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
-import { task_config } from "@/task/config";
+import { taskConfig } from "@/task/config";
 
 /** RegisterValue interprets one or more 16-bit registers as a single typed value. */
 export const registerValueZ = z.object({
@@ -57,7 +57,7 @@ export const baseWriteChannelZ = z.object({
 });
 export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
-export const scanConfigZ = task_config.baseScanZ;
+export const scanConfigZ = taskConfig.baseScanZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 /** CoilReadChannel reads a single bit from a coil. */
@@ -173,13 +173,13 @@ export const WRITE_CHANNEL_SCHEMAS: {
   holding_register: holdingRegisterWriteChannelZ,
 };
 
-export const readConfigZ = task_config.baseReadZ.extend({
+export const readConfigZ = taskConfig.baseReadZ.extend({
   device: device.keyZ.default(""),
   channels: readChannelZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = task_config.baseWriteZ.extend({
+export const writeConfigZ = taskConfig.baseWriteZ.extend({
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
