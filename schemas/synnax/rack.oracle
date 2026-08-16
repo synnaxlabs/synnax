@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/status"
-import "schemas/synnax/task"
+import "schemas/synnax/task_config"
 
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
@@ -93,7 +93,7 @@ New struct extends Rack {
     @ts use_input
 }
 
-StatusTaskConfig struct extends task.KeyedConfig {
+StatusTaskConfig struct extends task_config.Keyed {
     @cpp omit
     @doc value  "configures the rack status reporting task, which carries no settings."
     @go marshal

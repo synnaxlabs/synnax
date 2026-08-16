@@ -12,31 +12,12 @@
 import { caseconv, type optional, record, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { device } from "@/device";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
-/** KeyedConfig is the base for every stored task configuration record. */
-export const keyedConfigZ = z.object({
-  /** key is the unique identifier for the stored configuration record. */
-  key: z.uuid().default(uuid.create),
-});
-export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
-
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
-
-export const baseStartConfigZ = keyedConfigZ.extend({
-  autoStart: z.boolean().default(false),
-});
-export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}
-
-export const baseScanConfigZ = keyedConfigZ.extend({
-  rate: z.number().default(0.2),
-  disabled: z.boolean().default(false),
-});
-export interface BaseScanConfig extends z.infer<typeof baseScanConfigZ> {}
 
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
@@ -90,27 +71,11 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const basePersistConfigZ = baseStartConfigZ.extend({
-  dataSavingDisabled: z.boolean().default(false),
-});
-export interface BasePersistConfig extends z.infer<typeof basePersistConfigZ> {}
-
 export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });
 export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof statusZ<Data>>
 >;
-
-export const baseReadConfigZ = basePersistConfigZ.extend({
-  sampleRate: z.number().default(10),
-  streamRate: z.number().default(5),
-});
-export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
-
-export const baseWriteConfigZ = basePersistConfigZ.extend({
-  device: device.keyZ.default(""),
-});
-export interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
 
 export interface PayloadSchemas<
   Type extends z.ZodType<string> = z.ZodType<string>,

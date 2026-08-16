@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import device as device_
-from synnax import task
+from synnax.task import config
 from x import telem
 
 TIME_FORMAT_ISO8601: Literal["iso8601"] = "iso8601"
@@ -125,7 +125,7 @@ class BaseWriteField(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(config.BaseScan):
     """Configures an HTTP scan task."""
 
     def __hash__(self) -> int:
@@ -265,7 +265,7 @@ class WriteEndpoint(BaseModel):
         return hash(self.key)
 
 
-class ReadConfig(task.BasePersistConfig):
+class ReadConfig(config.BasePersist):
     """Configures an HTTP read task, which polls one or more endpoints on an HTTP server
     device and writes extracted JSON values to Synnax channels.
 
@@ -283,7 +283,7 @@ class ReadConfig(task.BasePersistConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseStartConfig):
+class WriteConfig(config.BaseStart):
     """Configures an HTTP write task, which sends an HTTP request whenever a value is
     written to an endpoint's command channel.
 

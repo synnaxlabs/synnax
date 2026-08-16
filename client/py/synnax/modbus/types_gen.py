@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import device as device_
-from synnax import task
+from synnax.task import config
 from x import telem
 
 
@@ -77,7 +77,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(config.BaseScan):
     """Configures a Modbus scan task."""
 
     def __hash__(self) -> int:
@@ -143,7 +143,7 @@ WriteChannel = Annotated[
 ]
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(config.BaseRead):
     """Configures a Modbus read task.
 
     Attributes:
@@ -158,7 +158,7 @@ class ReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(config.BaseWrite):
     """Configures a Modbus write task.
 
     Attributes:

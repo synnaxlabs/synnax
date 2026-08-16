@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import device as device_
-from synnax import task
+from synnax.task import config
 from x import telem
 
 
@@ -42,7 +42,7 @@ class BaseChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(config.BaseScan):
     """Configures an OPC UA scan task."""
 
     def __hash__(self) -> int:
@@ -77,7 +77,7 @@ class WriteChannel(BaseChannel):
         return hash(self.key)
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(config.BaseRead):
     """Configures an OPC UA read task.
 
     Attributes:
@@ -100,7 +100,7 @@ class ReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(config.BaseWrite):
     """Configures an OPC UA write task.
 
     Attributes:

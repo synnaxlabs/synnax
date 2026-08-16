@@ -9,7 +9,7 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/task/v2"
+import "schemas/synnax/versions/task_config/v0"
 import "schemas/x/versions/telem/v0"
 
 Units enum {
@@ -1351,7 +1351,7 @@ DOChannel struct {
     @go marshal
 }
 
-AnalogReadConfig struct extends task.BaseReadConfig {
+AnalogReadConfig struct extends task_config.BaseRead {
     channels AIChannel[] {
         @doc value "are the analog input channels the task acquires."
     }
@@ -1363,7 +1363,7 @@ AnalogReadConfig struct extends task.BaseReadConfig {
     @go migrate
 }
 
-CounterReadConfig struct extends task.BaseReadConfig {
+CounterReadConfig struct extends task_config.BaseRead {
     channels CIChannel[] {
         @doc value "are the counter input channels the task acquires."
     }
@@ -1375,7 +1375,7 @@ CounterReadConfig struct extends task.BaseReadConfig {
     @go migrate
 }
 
-WriteConfig struct extends task.BaseWriteConfig {
+WriteConfig struct extends task_config.BaseWrite {
     state_rate telem.Rate = 10 {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
     }
@@ -1394,7 +1394,7 @@ AnalogWriteConfig struct extends WriteConfig {
     @go migrate
 }
 
-DigitalReadConfig struct extends task.BaseReadConfig {
+DigitalReadConfig struct extends task_config.BaseRead {
     device   device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
@@ -1417,7 +1417,7 @@ DigitalWriteConfig struct extends WriteConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task_config.BaseScan {
     ignored_models string[] = ["^cRIO.*", "^nown.*"] {
         @doc value "are regex patterns matching the device models the scan skips."
     }

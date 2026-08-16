@@ -12,7 +12,7 @@ import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
 import "schemas/synnax/status"
-import "schemas/synnax/task"
+import "schemas/synnax/task_config"
 import "schemas/x/crdt"
 import "schemas/x/spatial"
 
@@ -221,7 +221,7 @@ ExecutionMode enum {
     @pb omit
 }
 
-TaskConfig struct extends task.BasePersistConfig {
+TaskConfig struct extends task_config.BasePersist {
     arc_key        Key           {
         @doc value "is the key of the Arc module the task executes."
     }

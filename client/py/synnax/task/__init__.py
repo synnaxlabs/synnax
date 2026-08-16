@@ -15,15 +15,17 @@ from synnax.task.client import (
     Task,
     assign_keys,
 )
+from synnax.task.config import (
+    BasePersist as BasePersistConfig,
+    BaseRead as BaseReadConfig,
+    BaseScan as BaseScanConfig,
+    BaseStart as BaseStartConfig,
+    BaseWrite as BaseWriteConfig,
+    Keyed as KeyedConfig,
+)
 from synnax.task.types_gen import (
     ONTOLOGY_TYPE,
-    BasePersistConfig,
-    BaseReadConfig,
-    BaseScanConfig,
-    BaseStartConfig,
-    BaseWriteConfig,
     Key,
-    KeyedConfig,
     Payload,
     Status,
     StatusDetails,

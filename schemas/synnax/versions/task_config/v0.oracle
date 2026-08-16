@@ -1,0 +1,66 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/device/v1"
+import "schemas/x/versions/telem/v0"
+
+Keyed struct {
+    key uuid = create {
+        @doc value "is the unique identifier for the stored configuration record."
+        @key
+    }
+
+    @doc value "is the base for every stored task configuration record."
+}
+
+BaseStart struct extends Keyed {
+    auto_start bool = false {
+        @doc value "is true when the task should start as soon as it is configured."
+    }
+
+    @doc value "carries the configuration fields shared by every task."
+}
+
+BasePersist struct extends BaseStart {
+    data_saving_disabled bool = false {
+        @doc value "is true when task telemetry is not persisted to disk."
+    }
+
+    @doc value "carries the configuration fields shared by tasks that write telemetry."
+}
+
+BaseRead struct extends BasePersist {
+    sample_rate telem.Rate = 10 {
+        @doc value "is the per-channel hardware sample rate, in hertz."
+    }
+    stream_rate telem.Rate = 5 {
+        @doc value "is the rate at which samples are streamed to Synnax, in hertz."
+    }
+
+    @doc value "carries the configuration fields shared by hardware acquisition tasks."
+}
+
+BaseWrite struct extends BasePersist {
+    device device.Key = "" {
+        @doc value "is the key of the device the task writes to."
+    }
+
+    @doc value "carries the configuration fields shared by hardware control tasks."
+}
+
+BaseScan struct extends Keyed {
+    rate     telem.Rate = 0.2 {
+        @doc value "is the rate at which the scan runs, in hertz."
+    }
+    disabled bool = false {
+        @doc value "is true when scanning is paused."
+    }
+
+    @doc value "carries the fields shared by every scan task configuration."
+}

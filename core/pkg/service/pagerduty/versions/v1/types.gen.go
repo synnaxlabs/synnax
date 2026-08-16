@@ -11,7 +11,7 @@
 
 package v1
 
-import config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v2"
+import config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 
 // Alert maps a Synnax status to a PagerDuty event routing rule.
 type Alert struct {

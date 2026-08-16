@@ -13,7 +13,7 @@ package v3
 
 import (
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v2"
+	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 

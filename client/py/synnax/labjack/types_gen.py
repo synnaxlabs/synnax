@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import device as device_
-from synnax import task
+from synnax.task import config
 from x import telem
 
 TEMPERATURE_UNITS_CELSIUS: Literal["C"] = "C"
@@ -97,7 +97,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(config.BaseScan):
     """Configures a LabJack scan task.
 
     Attributes:
@@ -203,7 +203,7 @@ ReadChannel = Annotated[
 ]
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(config.BaseWrite):
     """Configures a LabJack write task.
 
     Attributes:
@@ -218,7 +218,7 @@ class WriteConfig(task.BaseWriteConfig):
         return hash(self.key)
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(config.BaseRead):
     """Configures a LabJack read task.
 
     Attributes:

@@ -9,7 +9,7 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/task/v2"
+import "schemas/synnax/versions/task_config/v0"
 import "schemas/x/versions/telem/v0"
 
 Method enum {
@@ -143,7 +143,7 @@ ReadEndpoint struct {
     @go marshal
 }
 
-ReadConfig struct extends task.BasePersistConfig {
+ReadConfig struct extends task_config.BasePersist {
     device    device.Key = "" {
         @doc value "is the key of the HTTP server device to poll."
     }
@@ -289,7 +289,7 @@ WriteEndpoint struct {
     @go marshal
 }
 
-WriteConfig struct extends task.BaseStartConfig {
+WriteConfig struct extends task_config.BaseStart {
     device    device.Key = "" {
         @doc value "is the key of the HTTP server device to write to."
     }
@@ -305,7 +305,7 @@ WriteConfig struct extends task.BaseStartConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task_config.BaseScan {
     @doc value  "configures an HTTP scan task."
     @go marshal
     @go migrate

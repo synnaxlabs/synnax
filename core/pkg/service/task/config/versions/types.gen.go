@@ -11,22 +11,22 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 
 // Keyed is the base for every stored task configuration record.
-type Keyed = v2.Keyed
+type Keyed = v0.Keyed
 
 // BaseStart carries the configuration fields shared by every task.
-type BaseStart = v2.BaseStart
+type BaseStart = v0.BaseStart
 
 // BasePersist carries the configuration fields shared by tasks that write telemetry.
-type BasePersist = v2.BasePersist
+type BasePersist = v0.BasePersist
 
 // BaseRead carries the configuration fields shared by hardware acquisition tasks.
-type BaseRead = v2.BaseRead
+type BaseRead = v0.BaseRead
 
 // BaseWrite carries the configuration fields shared by hardware control tasks.
-type BaseWrite = v2.BaseWrite
+type BaseWrite = v0.BaseWrite
 
 // BaseScan carries the fields shared by every scan task configuration.
-type BaseScan = v2.BaseScan
+type BaseScan = v0.BaseScan

@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v2"
+	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )

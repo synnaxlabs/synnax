@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import device as device_
-from synnax import task
+from synnax.task import config
 from x import telem
 
 
@@ -85,7 +85,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(config.BaseScan):
     """Configures an EtherCAT scan task."""
 
     def __hash__(self) -> int:
@@ -134,7 +134,7 @@ WriteChannel = Annotated[
 ]
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(config.BaseRead):
     """Configures an EtherCAT read task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
 
@@ -148,7 +148,7 @@ class ReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BasePersistConfig):
+class WriteConfig(config.BasePersist):
     """Configures an EtherCAT write task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
 

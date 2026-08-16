@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
-import { task } from "@/task";
+import { task_config } from "@/task/config";
 
 /** PDOAddress addresses a PDO entry explicitly in the CoE object dictionary. */
 export const pdoAddressZ = z.object({
@@ -65,7 +65,7 @@ export const baseWriteChannelZ = z.object({
 });
 export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
-export const scanConfigZ = task.baseScanConfigZ;
+export const scanConfigZ = task_config.baseScanZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 /** AutomaticReadChannel resolves its PDO address from the slave's discovered PDOs. */
@@ -138,12 +138,12 @@ export const WRITE_CHANNEL_SCHEMAS: {
   manual: manualWriteChannelZ,
 };
 
-export const readConfigZ = task.baseReadConfigZ.extend({
+export const readConfigZ = task_config.baseReadZ.extend({
   channels: readChannelZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = task.basePersistConfigZ.extend({
+export const writeConfigZ = task_config.basePersistZ.extend({
   stateRate: z.number().default(25),
   executionRate: z.number().default(1000),
   channels: writeChannelZ.array().default(() => []),
