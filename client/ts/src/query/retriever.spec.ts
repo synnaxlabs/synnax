@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { type record } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { type record, zod } from "@synnaxlabs/x";
+import { assert, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
@@ -172,7 +172,7 @@ describe("Retriever", () => {
         }
       }
       const client = new KeylessClient(newCache());
-      await expect(client.retrieve(["a"])).rejects.toThrow(z.ZodError);
+      await expect(client.retrieve(["a"])).rejects.toThrow(zod.ParseError);
     });
 
     it("serves a cached entry without a network fetch", async () => {
@@ -319,7 +319,7 @@ describe("Retriever", () => {
 
   describe("normalization memoization", () => {
     it("validates a request params object once across repeat reads", async () => {
-      const parse = vi.spyOn(paramsZ, "parse");
+      const safeParse = vi.spyOn(paramsZ, "safeParse");
       const client = new Client(
         newCache(),
         async () => [],
@@ -330,9 +330,9 @@ describe("Retriever", () => {
       const stop = client.onChange(params, vi.fn());
       expect(client.getCached(params)).toEqual([thing("a", 5)]);
       client.getCached(params);
-      expect(parse).toHaveBeenCalledTimes(1);
+      expect(safeParse).toHaveBeenCalledTimes(1);
       stop();
-      parse.mockRestore();
+      safeParse.mockRestore();
     });
 
     it("validates a single params object once across repeat reads", async () => {
@@ -519,9 +519,13 @@ describe("Retriever", () => {
           async (keys) => keys.map((k) => thing(k)),
           fetchRequest,
         );
-        await expect(
-          client.retrieve({ key: "a", detailsSchema: undefined } as never),
-        ).rejects.toThrow(ValidationError);
+        const err: unknown = await client
+          .retrieve({ key: "a", detailsSchema: undefined } as never)
+          .then(() => null)
+          .catch((exc: unknown) => exc);
+        assert(err instanceof ValidationError);
+        expect(err.message).toContain("Failed to parse");
+        expect(err.cause).toBeInstanceOf(zod.ParseError);
         expect(fetchRequest).not.toHaveBeenCalled();
       });
 

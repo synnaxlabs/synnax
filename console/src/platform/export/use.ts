@@ -13,6 +13,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
+import { zod } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -39,7 +40,10 @@ export const fetchFileData = async (
 ): Promise<FileData> => {
   const stream = await client.imex.export(id, { encoding: "JSON" });
   const data = await new Response(stream).text();
-  return { data, name: envelopeZ.parse(JSON.parse(data)).name };
+  return {
+    data,
+    name: zod.parse(envelopeZ, JSON.parse(data), { label: "export data" }).name,
+  };
 };
 
 /**
