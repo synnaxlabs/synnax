@@ -79,7 +79,9 @@ var _ = Describe("gRPC Control Translators", func() {
 			var transport api.Transport
 			bindable := New(&transport)
 			Expect(bindable).ToNot(BeNil())
-			Expect(transport.ControlRetrieve).To(BeIdenticalTo(bindable))
+			Expect(transport.ControlRetrieve).To(
+				BeIdenticalTo(bindable.(*retrieveServer)),
+			)
 		})
 	})
 })
