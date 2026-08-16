@@ -42,7 +42,7 @@ import {
   useMoveTab,
   useMoveTabToNewPanel,
 } from "@/feature/panel/useMoveTab";
-import { useOpenWindow } from "@/feature/panel/useOpenWindow";
+import { OPEN_WINDOW_TRIGGER, useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -61,6 +61,7 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
   const dispatch = useDispatch();
   const client = Synnax.use();
   const openWindow = useOpenWindow();
+  const selected = Session.Panel.useSelectSelected();
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
@@ -85,8 +86,12 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
         <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
       )}
       <Menu.Divider />
-      {keys.length === 1 && (
-        <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
+      {keys.length === 1 && Session.Runtime.ENGINE === "tauri" && (
+        <Menu.Item
+          itemKey="open-in-new-window"
+          onClick={() => openWindow(key)}
+          triggerIndicator={key === selected ? OPEN_WINDOW_TRIGGER : undefined}
+        >
           <Icon.OpenInNewWindow />
           Open in new window
         </Menu.Item>
