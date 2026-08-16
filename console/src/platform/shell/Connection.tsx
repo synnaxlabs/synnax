@@ -60,12 +60,7 @@ export const Connection = ({ cluster }: ConnectionProps): ReactElement | null =>
   const checked = Synnax.useCheckConnection(
     isActive || cluster == null
       ? null
-      : {
-          host: cluster.host,
-          port: cluster.port,
-          secure: cluster.secure,
-          retry: { maxRetries: 0 },
-        },
+      : { host: cluster.host, port: cluster.port, secure: cluster.secure },
   );
   if (cluster == null) return null;
   const variant = variantOf(isActive ? live : checked);
