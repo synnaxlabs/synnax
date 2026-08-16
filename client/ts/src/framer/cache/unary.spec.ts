@@ -106,4 +106,33 @@ describe("Unary", () => {
       expect(series.series[0].alignment).toEqual(LEADING_ALIGNMENT);
     });
   });
+
+  describe("flushDynamic", () => {
+    it("should move the leading buffer to static and expose the trailing gap", () => {
+      const u = newUnary();
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      u.flushDynamic();
+      expect(u.leadingBuffer).toBeNull();
+      const { series, gaps } = u.read(
+        TimeStamp.seconds(5).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(1);
+      expect(Array.from(series.series[0])).toEqual([1, 2, 3]);
+      expect(gaps).toHaveLength(2);
+      expect(gaps[0].equals(TimeStamp.seconds(5).range(TimeStamp.seconds(10)))).toBe(
+        true,
+      );
+      expect(gaps[1].equals(TimeStamp.seconds(13).range(TimeStamp.seconds(20)))).toBe(
+        true,
+      );
+    });
+
+    it("should be a no-op when there is no leading buffer", () => {
+      const u = newUnary();
+      u.flushDynamic();
+      expect(u.leadingBuffer).toBeNull();
+      const { gaps } = u.read(TimeStamp.seconds(5).range(TimeStamp.seconds(20)));
+      expect(gaps).toHaveLength(1);
+    });
+  });
 });
