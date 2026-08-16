@@ -38,12 +38,11 @@ const BottomToggleButton = (): ReactElement => {
   return (
     <Button.Button
       variant="outlined"
-      className={CSS.BE("mosaic", "controls-button")}
+      className={CSS.BE("nav", "controls-button")}
       onClick={handleClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       justify="center"
-      size="small"
       color={9}
       weight={450}
       triggerIndicator={Toolbars.BOTTOM.trigger}

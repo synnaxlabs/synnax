@@ -9,11 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { writeFieldStaticZ } from "@/http/types.gen";
+import { staticWriteFieldZ } from "@/http/types.gen";
 
 const FIELD = { key: "field-1", pointer: "/setpoint", type: "static" } as const;
 
-describe("writeFieldStaticZ", () => {
+describe("staticWriteFieldZ", () => {
   const CASES: [string, unknown][] = [
     ["string", "open"],
     ["number", 12.5],
@@ -22,14 +22,14 @@ describe("writeFieldStaticZ", () => {
     ["array", [1, 2, 3]],
   ];
   it.each(CASES)("should accept a %s value", (_, value) => {
-    expect(writeFieldStaticZ.parse({ ...FIELD, value }).value).toEqual(value);
+    expect(staticWriteFieldZ.parse({ ...FIELD, value }).value).toEqual(value);
   });
 
   it("should accept an explicit null value", () => {
-    expect(writeFieldStaticZ.parse({ ...FIELD, value: null }).value).toBeNull();
+    expect(staticWriteFieldZ.parse({ ...FIELD, value: null }).value).toBeNull();
   });
 
   it("should reject a field with no value", () => {
-    expect(() => writeFieldStaticZ.parse(FIELD)).toThrow();
+    expect(() => staticWriteFieldZ.parse(FIELD)).toThrow();
   });
 });

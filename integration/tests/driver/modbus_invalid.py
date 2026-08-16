@@ -63,7 +63,7 @@ class ModbusInvalidConfig(SimulatorCase):
             stream_rate=10 * sy.Rate.HZ,
             data_saving=True,
             channels=[
-                sy.modbus.InputRegisterChan(
+                sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_dev_ch",
@@ -88,7 +88,7 @@ class ModbusInvalidConfig(SimulatorCase):
             stream_rate=0,
             data_saving=True,
             channels=[
-                sy.modbus.InputRegisterChan(
+                sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_rate0_ch",
@@ -118,7 +118,7 @@ class ModbusInvalidConfig(SimulatorCase):
                 stream_rate=100 * sy.Rate.HZ,
                 data_saving=True,
                 channels=[
-                    sy.modbus.InputRegisterChan(
+                    sy.modbus.InputRegisterReadChannel(
                         channel=create_channel(
                             self.client,
                             name="modbus_inv_rate_ch",
@@ -148,7 +148,7 @@ class ModbusInvalidConfig(SimulatorCase):
             stream_rate=10 * sy.Rate.HZ,
             data_saving=True,
             channels=[
-                sy.modbus.InputRegisterChan(
+                sy.modbus.InputRegisterReadChannel(
                     channel=999999999,
                     address=0,
                     data_type="uint8",
@@ -168,7 +168,7 @@ class ModbusInvalidConfig(SimulatorCase):
             stream_rate=10 * sy.Rate.HZ,
             data_saving=True,
             channels=[
-                sy.modbus.InputRegisterChan(
+                sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_addr_ch",
@@ -201,7 +201,7 @@ class ModbusInvalidConfig(SimulatorCase):
                 stream_rate=10 * sy.Rate.HZ,
                 data_saving=True,
                 channels=[
-                    sy.modbus.InputRegisterChan(
+                    sy.modbus.InputRegisterReadChannel(
                         channel=shared_ch_key,
                         address=0,
                         data_type="uint8",

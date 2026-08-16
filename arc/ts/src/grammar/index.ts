@@ -78,4 +78,6 @@ export const grammarRaw: string = arcGrammarRaw;
  */
 export const languageConfigurationRaw: string = arcLanguageConfigurationRaw;
 
+export { type SemanticTokenType, type Token, tokens } from "@/grammar/tokens";
+
 export default grammar;

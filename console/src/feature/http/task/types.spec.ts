@@ -16,7 +16,7 @@ describe("HTTP Task Types", () => {
   const readField = {
     pointer: "/value",
     channel: 1,
-    enabled: true,
+    disabled: false,
     key: "f1",
     dataType: DataType.FLOAT64.toString(),
   };
@@ -31,7 +31,7 @@ describe("HTTP Task Types", () => {
     it("should validate a config with a GET endpoint", () => {
       const config = {
         device: "dev-001",
-        dataSaving: true,
+        dataSavingDisabled: false,
         autoStart: false,
         rate: 1,
         endpoints: [
@@ -64,6 +64,23 @@ describe("HTTP Task Types", () => {
       };
       const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].method).toBe("POST");
+    });
+
+    it("should default an endpoint without a body to an empty body", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api/data",
+            fields: [readField],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].body).toBe("");
     });
 
     it("should validate a config with endpoint headers and query params", () => {
@@ -137,7 +154,7 @@ describe("HTTP Task Types", () => {
               {
                 pointer: "/data/temperature",
                 channel: 1,
-                enabled: true,
+                disabled: false,
                 key: "f1",
                 dataType: DataType.FLOAT64.toString(),
               },
@@ -149,7 +166,7 @@ describe("HTTP Task Types", () => {
       expect(result.endpoints[0].fields[0].pointer).toBe("/data/temperature");
     });
 
-    it("should reject an invalid JSON pointer", () => {
+    it("should reject an invalid JSON pointer at deploy", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -162,14 +179,14 @@ describe("HTTP Task Types", () => {
               {
                 pointer: "no-leading-slash",
                 channel: 1,
-                enabled: true,
+                disabled: false,
                 key: "f1",
               },
             ],
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -209,7 +226,7 @@ describe("HTTP Task Types", () => {
               {
                 pointer: "/ts",
                 channel: 1,
-                enabled: true,
+                disabled: false,
                 key: "f1",
                 timestampFormat: "invalid_format",
               },
@@ -250,6 +267,23 @@ describe("HTTP Task Types", () => {
       ]);
     });
 
+    it("should default a field without enum values to an empty list", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [{ ...readField, pointer: "/status" }],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployReadConfigZ.parse(config);
+      expect(result.endpoints[0].fields[0].enumValues).toEqual([]);
+    });
+
     it("should reject duplicate enum labels", () => {
       const config = {
         device: "dev-001",
@@ -277,8 +311,9 @@ describe("HTTP Task Types", () => {
     });
   });
 
-  describe("read enum v0 migration", () => {
-    it("should migrate a v0 enum record to v1 array", () => {
+  describe("read enum v0 shapes", () => {
+    it("should not migrate a v0 enum record", () => {
+      // The Core migrates stored configs; the console only speaks generated shapes.
       const config = {
         device: "dev-001",
         rate: 1,
@@ -297,16 +332,13 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].enumValues).toEqual([
-        { label: "ON", value: 1 },
-        { label: "OFF", value: 0 },
-      ]);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
     });
   });
 
   describe("read endpoint", () => {
-    it("should default index to null", () => {
+    it("should leave index empty by default", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -320,10 +352,10 @@ describe("HTTP Task Types", () => {
         ],
       };
       const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].index).toBeNull();
+      expect(result.endpoints[0].index).toBe("");
     });
 
-    it("should reject duplicate header names on an endpoint", () => {
+    it("should reject duplicate header names on an endpoint at deploy", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -340,11 +372,11 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
-    it("should reject duplicate query parameter names on an endpoint", () => {
+    it("should reject duplicate query parameter names on an endpoint at deploy", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -361,11 +393,12 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
-    it("should migrate v0 header record on an endpoint", () => {
+    it("should not migrate a v0 header record on an endpoint", () => {
+      // The Core migrates stored configs; the console only speaks generated shapes.
       const config = {
         device: "dev-001",
         rate: 1,
@@ -379,13 +412,11 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].headers).toEqual([
-        { name: "Accept", value: "application/json" },
-      ]);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
     });
 
-    it("should migrate v0 query param record on an endpoint", () => {
+    it("should not migrate a v0 query param record on an endpoint", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -399,10 +430,8 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].queryParams).toEqual([
-        { parameter: "limit", value: "10" },
-      ]);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
     });
   });
 
@@ -451,7 +480,7 @@ describe("HTTP Task Types", () => {
       }
     });
 
-    it("should reject an invalid write method", () => {
+    it("should reject a read-only method at deploy", () => {
       const config = {
         device: "dev-001",
         endpoints: [
@@ -464,11 +493,11 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
-    it("should default enabled to true", () => {
+    it("should default disabled to false", () => {
       const config = {
         device: "dev-001",
         endpoints: [
@@ -482,7 +511,7 @@ describe("HTTP Task Types", () => {
         ],
       };
       const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].enabled).toBe(true);
+      expect(result.endpoints[0].disabled).toBe(false);
     });
 
     it("should validate endpoint with headers and query params", () => {
@@ -507,7 +536,7 @@ describe("HTTP Task Types", () => {
       ]);
     });
 
-    it("should reject duplicate header names on a write endpoint", () => {
+    it("should reject duplicate header names on a write endpoint at deploy", () => {
       const config = {
         device: "dev-001",
         endpoints: [
@@ -524,11 +553,11 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
-    it("should reject duplicate query parameter names on a write endpoint", () => {
+    it("should reject duplicate query parameters on a write endpoint at deploy", () => {
       const config = {
         device: "dev-001",
         endpoints: [
@@ -545,7 +574,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
@@ -610,6 +639,23 @@ describe("HTTP Task Types", () => {
       };
       const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].channel.enumValues).toHaveLength(2);
+    });
+
+    it("should default a channel field without enum values to an empty list", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/state", jsonType: "string", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.parse(config);
+      expect(result.endpoints[0].channel.enumValues).toEqual([]);
     });
 
     it("should reject duplicate write enum values", () => {
@@ -903,8 +949,9 @@ describe("HTTP Task Types", () => {
     });
   });
 
-  describe("write endpoint migrations", () => {
-    it("should migrate v0 header record on a write endpoint", () => {
+  describe("write endpoint v0 shapes", () => {
+    it("should not migrate a v0 header record on a write endpoint", () => {
+      // The Core migrates stored configs; the console only speaks generated shapes.
       const config = {
         device: "dev-001",
         endpoints: [
@@ -918,11 +965,11 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].headers).toEqual([{ name: "X-Custom", value: "val" }]);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
     });
 
-    it("should migrate v0 query param record on a write endpoint", () => {
+    it("should not migrate a v0 query param record on a write endpoint", () => {
       const config = {
         device: "dev-001",
         endpoints: [
@@ -936,10 +983,8 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].queryParams).toEqual([
-        { parameter: "key", value: "abc" },
-      ]);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
     });
   });
 });
@@ -965,17 +1010,13 @@ describe("HTTP Scan Task", () => {
 
 describe("draft configs", () => {
   // Drafts persist server-side before configuration, so the shape schema must
-  // accept every zero config; retrieve parses with it.
-  it("should accept the zero read config", () => {
-    expect(
-      HTTP.Task.READ_SCHEMAS.config.safeParse(HTTP.Task.ZERO_READ_PAYLOAD.config)
-        .success,
-    ).toBe(true);
+  // accept every default config; retrieve parses with it.
+  it("should accept the default read config", () => {
+    const config = HTTP.Task.READ_SCHEMAS.config.parse({});
+    expect(HTTP.Task.READ_SCHEMAS.config.safeParse(config).success).toBe(true);
   });
-  it("should accept the zero write config", () => {
-    expect(
-      HTTP.Task.WRITE_SCHEMAS.config.safeParse(HTTP.Task.ZERO_WRITE_PAYLOAD.config)
-        .success,
-    ).toBe(true);
+  it("should accept the default write config", () => {
+    const config = HTTP.Task.WRITE_SCHEMAS.config.parse({});
+    expect(HTTP.Task.WRITE_SCHEMAS.config.safeParse(config).success).toBe(true);
   });
 });

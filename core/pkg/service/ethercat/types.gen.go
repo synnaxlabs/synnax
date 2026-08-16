@@ -11,329 +11,64 @@
 
 package ethercat
 
-import (
-	"encoding/json"
-
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions"
 
 // PDOAddress addresses a PDO entry explicitly in the CoE object dictionary.
-type PDOAddress struct {
-	// Index is the CoE object dictionary index of the PDO entry.
-	Index uint16 `json:"index" msgpack:"index"`
-	// SubIndex is the CoE object dictionary sub-index of the PDO entry.
-	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
-	// BitLength is the size of the PDO entry, in bits.
-	BitLength uint8 `json:"bit_length" msgpack:"bit_length"`
-	// DataType is the data type of the PDO entry.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-}
+type PDOAddress = versions.PDOAddress
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PDOAddress) ApplyDefaults() {
-	if p.BitLength == 0 {
-		p.BitLength = 16
-	}
-	if p.DataType == "" {
-		p.DataType = "uint16"
-	}
-}
+// BaseReadChannel carries the fields every EtherCAT read channel shares.
+type BaseReadChannel = versions.BaseReadChannel
 
-// BaseInputChannel carries the fields every EtherCAT input channel shares.
-type BaseInputChannel struct {
-	// Key uniquely identifies the channel within the task.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the human-readable channel name.
-	Name string `json:"name" msgpack:"name"`
-	// Disabled is true when the channel is excluded from acquisition.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Channel is the Synnax channel that raw samples are written to.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Device is the key of the slave device the channel reads from.
-	Device device.Key `json:"device" msgpack:"device"`
-}
-
-type InputChannelType string
+// ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
+// field selects how the PDO entry is addressed.
+type ReadChannel = versions.ReadChannel
+type ReadChannelVariant = versions.ReadChannelVariant
+type ReadChannelType = versions.ReadChannelType
 
 const (
-	InputChannelTypeAutomatic InputChannelType = "automatic"
-	InputChannelTypeManual    InputChannelType = "manual"
+	// AutomaticReadChannelType resolves its PDO address from the slave's discovered
+	// PDOs.
+	AutomaticReadChannelType ReadChannelType = versions.AutomaticReadChannelType
+	// ManualReadChannelType specifies its PDO address inline.
+	ManualReadChannelType ReadChannelType = versions.ManualReadChannelType
 )
 
-type InputChannelVariant interface {
-	isInputChannelVariant()
-}
+// AutomaticReadChannel resolves its PDO address from the slave's discovered PDOs.
+type AutomaticReadChannel = versions.AutomaticReadChannel
 
-// InputChannelAutomatic resolves its PDO address from the slave's discovered PDOs.
-type InputChannelAutomatic struct {
-	BaseInputChannel
-	// Pdo is the name of the PDO entry to resolve on the slave.
-	Pdo string `json:"pdo" msgpack:"pdo"`
-}
+// ManualReadChannel specifies its PDO address inline.
+type ManualReadChannel = versions.ManualReadChannel
 
-func (InputChannelAutomatic) isInputChannelVariant() {}
+// BaseWriteChannel carries the fields every EtherCAT write channel shares.
+type BaseWriteChannel = versions.BaseWriteChannel
 
-// InputChannelManual specifies its PDO address inline.
-type InputChannelManual struct {
-	BaseInputChannel
-	PDOAddress
-}
-
-func (InputChannelManual) isInputChannelVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputChannelManual) ApplyDefaults() {
-	i.PDOAddress.ApplyDefaults()
-}
-
-// InputChannel is a single EtherCAT input channel (TxPDO, slave to master). The type
+// WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
 // field selects how the PDO entry is addressed.
-type InputChannel struct {
-	Variant InputChannelVariant
-}
-
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u InputChannel) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t InputChannelType
-	switch u.Variant.(type) {
-	case InputChannelAutomatic:
-		t = InputChannelTypeAutomatic
-	case InputChannelManual:
-		t = InputChannelTypeManual
-	default:
-		return nil, errors.Newf("InputChannel: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
-}
-
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *InputChannel) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type InputChannelType `json:"type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case InputChannelTypeAutomatic:
-		var v InputChannelAutomatic
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case InputChannelTypeManual:
-		var v InputChannelManual
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("InputChannel: unknown type %q", disc.Type)
-	}
-	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *InputChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case InputChannelManual:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// BaseOutputChannel carries the fields every EtherCAT output channel shares.
-type BaseOutputChannel struct {
-	// Key uniquely identifies the channel within the task.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the human-readable channel name.
-	Name string `json:"name" msgpack:"name"`
-	// Disabled is true when the channel is excluded from the task.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// CmdChannel is the Synnax channel commands are read from.
-	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
-	// StateChannel is the Synnax channel the output state is written to.
-	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
-	// CmdChannelName is the human-readable name of the command channel.
-	CmdChannelName string `json:"cmd_channel_name" msgpack:"cmd_channel_name"`
-	// StateChannelName is the human-readable name of the state channel.
-	StateChannelName string `json:"state_channel_name" msgpack:"state_channel_name"`
-	// Device is the key of the slave device the channel writes to.
-	Device device.Key `json:"device" msgpack:"device"`
-}
-
-type OutputChannelType string
+type WriteChannel = versions.WriteChannel
+type WriteChannelVariant = versions.WriteChannelVariant
+type WriteChannelType = versions.WriteChannelType
 
 const (
-	OutputChannelTypeAutomatic OutputChannelType = "automatic"
-	OutputChannelTypeManual    OutputChannelType = "manual"
+	// AutomaticWriteChannelType resolves its PDO address from the slave's discovered
+	// PDOs.
+	AutomaticWriteChannelType WriteChannelType = versions.AutomaticWriteChannelType
+	// ManualWriteChannelType specifies its PDO address inline.
+	ManualWriteChannelType WriteChannelType = versions.ManualWriteChannelType
 )
 
-type OutputChannelVariant interface {
-	isOutputChannelVariant()
-}
+// AutomaticWriteChannel resolves its PDO address from the slave's discovered PDOs.
+type AutomaticWriteChannel = versions.AutomaticWriteChannel
 
-// OutputChannelAutomatic resolves its PDO address from the slave's discovered PDOs.
-type OutputChannelAutomatic struct {
-	BaseOutputChannel
-	// Pdo is the name of the PDO entry to resolve on the slave.
-	Pdo string `json:"pdo" msgpack:"pdo"`
-}
-
-func (OutputChannelAutomatic) isOutputChannelVariant() {}
-
-// OutputChannelManual specifies its PDO address inline.
-type OutputChannelManual struct {
-	BaseOutputChannel
-	PDOAddress
-}
-
-func (OutputChannelManual) isOutputChannelVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (o *OutputChannelManual) ApplyDefaults() {
-	o.PDOAddress.ApplyDefaults()
-}
-
-// OutputChannel is a single EtherCAT output channel (RxPDO, master to slave). The type
-// field selects how the PDO entry is addressed.
-type OutputChannel struct {
-	Variant OutputChannelVariant
-}
-
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u OutputChannel) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t OutputChannelType
-	switch u.Variant.(type) {
-	case OutputChannelAutomatic:
-		t = OutputChannelTypeAutomatic
-	case OutputChannelManual:
-		t = OutputChannelTypeManual
-	default:
-		return nil, errors.Newf("OutputChannel: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
-}
-
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *OutputChannel) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type OutputChannelType `json:"type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case OutputChannelTypeAutomatic:
-		var v OutputChannelAutomatic
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case OutputChannelTypeManual:
-		var v OutputChannelManual
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("OutputChannel: unknown type %q", disc.Type)
-	}
-	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *OutputChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case OutputChannelManual:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
+// ManualWriteChannel specifies its PDO address inline.
+type ManualWriteChannel = versions.ManualWriteChannel
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
-type ReadConfig struct {
-	common.BaseReadConfig
-	// Channels are the input channels the task acquires.
-	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.BaseReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
+type ReadConfig = versions.ReadConfig
 
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
-type WriteConfig struct {
-	common.BasePersistConfig
-	// StateRate is the rate at which output state is reported to Synnax, in hertz.
-	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
-	// ExecutionRate is the rate at which commands are applied to the bus, in hertz.
-	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
-	// Channels are the output channels the task drives.
-	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
+type WriteConfig = versions.WriteConfig
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.StateRate == 0 {
-		w.StateRate = 25
-	}
-	if w.ExecutionRate == 0 {
-		w.ExecutionRate = 1000
-	}
-	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
-	}
-}
+// ScanConfig configures an EtherCAT scan task.
+type ScanConfig = versions.ScanConfig

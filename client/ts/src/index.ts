@@ -50,7 +50,7 @@ export { modbus } from "@/modbus";
 export { ni } from "@/ni";
 export { node } from "@/node";
 export { ontology } from "@/ontology";
-export { opc } from "@/opc";
+export { opcua } from "@/opcua";
 export { pagerduty } from "@/pagerduty";
 export { panel } from "@/panel";
 export { project } from "@/project";

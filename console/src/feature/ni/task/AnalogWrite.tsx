@@ -16,7 +16,7 @@ import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
-import { createAOChannel } from "@/feature/ni/task/createChannel";
+import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
 import {
   ANALOG_WRITE_SCHEMAS,
@@ -28,7 +28,6 @@ import {
   type AOChannel,
   type AOChannelType,
   deployAnalogWriteConfigZ,
-  ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -39,7 +38,7 @@ const Properties = () => (
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving polarity="disabled" />
+      <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>
@@ -63,7 +62,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       canTare={false}
       path={path}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
-      polarity="disabled"
     />
   );
 };
@@ -85,8 +83,7 @@ const Form: FC = () => (
   <Task.Views.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
-    createChannel={createAOChannel}
-    polarity="disabled"
+    createChannel={createNextAOChannel}
     contextMenuItems={Task.writeChannelContextMenuItems}
   />
 );
@@ -95,14 +92,9 @@ const getInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null
-      ? analogWriteConfigZ.parse(config)
-      : ZERO_ANALOG_WRITE_PAYLOAD.config;
-  return {
-    ...ZERO_ANALOG_WRITE_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = analogWriteConfigZ.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "NI Analog Write Task", type: ANALOG_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
@@ -225,10 +217,6 @@ export const AnalogWrite = Task.wrapForm({
 });
 
 export const useCreateAnalogWrite = Task.createUseCreate({
-  getInitialValues,
-});
-
-export const analogWriteIngester = Task.createIngester({
   getInitialValues,
 });
 

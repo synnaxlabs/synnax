@@ -119,7 +119,7 @@ export const useNodeVariant = Scope.bindHook(
 
 // useLeafNode selects the leaf node at the given path, including its tab keys.
 export const useLeafNode = Scope.bindHook(
-  createSelector<Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] }, NodeParams>(
+  createSelector<Omit<panel.LeafNode, "tabs"> & { tabs: panel.TabKey[] }, NodeParams>(
     ({ root }, { nodeKey }) => {
       const node = requireNode(root, nodeKey);
       if (node.variant !== "leaf") throw new UnexpectedError("node is not a leaf");
@@ -132,7 +132,7 @@ export const useLeafNode = Scope.bindHook(
 // useSplitNode selects the split node at the given path, including its direction
 // and size.
 export const useSplitNode = Scope.bindHook(
-  createSelector<panel.NodeSplit, NodeParams>(({ root }, { nodeKey }) => {
+  createSelector<panel.SplitNode, NodeParams>(({ root }, { nodeKey }) => {
     const node = requireNode(root, nodeKey);
     if (node.variant !== "split") throw new UnexpectedError("node is not a split");
     return node;
@@ -177,7 +177,7 @@ export const useTab = bindTabHook(
 // reference into the stored tree, so immer's structural sharing gives it stable
 // identity across dispatches that don't touch it.
 export const useTabLeaf = bindTabHook(
-  createSelector<panel.NodeLeaf, TabContentParams>(({ root }, { key, tabKey }) => {
+  createSelector<panel.LeafNode, TabContentParams>(({ root }, { key, tabKey }) => {
     const leaf = panel.findTabLeaf(root, tabKey);
     if (leaf == null)
       throw new NotFoundError(`Leaf holding tab ${tabKey} not found in panel ${key}`);
@@ -320,6 +320,52 @@ export const useCloseResourceTabs = (): ((
         if (actions.length > 0) dispatch({ key: p.key, actions });
       }),
     [client, dispatch],
+  );
+};
+
+export interface MoveTabToPanelParams extends Pick<
+  panel.InsertTabsPayload,
+  "targetLeaf" | "index" | "location"
+> {
+  /** Panel currently holding the tab. */
+  source: panel.Key;
+  /** Panel the tab moves into. Must differ from source. */
+  destination: panel.Key;
+  tab: panel.Tab;
+}
+
+// Inserting a resource tab whose resource already backs a tab in the destination is a
+// no-op, so the tab that landed can be the one that was already there.
+const landedTabKey = (root: panel.Node, tab: panel.Tab): panel.TabKey | undefined => {
+  if (panel.findTab(root, tab.key) != null) return tab.key;
+  if (tab.variant !== "resource") return undefined;
+  return panel.findTabByResource(root, tab.resource)?.key;
+};
+
+/**
+ * useMoveTabToPanel moves a tab between two panels. The panels are separate documents,
+ * so the move is two dispatches: the insert lands first and the source only gives the
+ * tab up once it has, leaving the tab where it was if the destination rejects it.
+ * @returns a callback resolving with the tab's key in the destination, or undefined
+ * when the tab is not there.
+ */
+export const useMoveTabToPanel = (): ((
+  params: MoveTabToPanelParams,
+) => Promise<panel.TabKey | undefined>) => {
+  const { dispatchAsync } = useDispatch();
+  const client = Synnax.use();
+  return useCallback(
+    async ({ source, destination, tab, targetLeaf, index, location }) => {
+      const inserted = await dispatchAsync({
+        key: destination,
+        actions: panel.insertTabs({ tabs: [tab], targetLeaf, index, location }),
+      });
+      if (!inserted) return undefined;
+      await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
+      const cached = client?.panels.getCached(destination);
+      return query.isLive(cached) ? landedTabKey(cached.root, tab) : undefined;
+    },
+    [dispatchAsync, client],
   );
 };
 

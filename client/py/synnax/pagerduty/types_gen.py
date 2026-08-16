@@ -55,3 +55,6 @@ class TaskConfig(task.BaseStartConfig):
 
     routing_key: str = ""
     alerts: list[Alert] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

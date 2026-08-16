@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
-import { OPC } from "@/feature/opc";
+import { OPCUA } from "@/feature/opcua";
 import { createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { Notifications } from "@/platform/notifications";
@@ -45,10 +45,10 @@ describe("device/notifications", () => {
     expect(Device.Notification.match(createNotification(dev))).toBe(false);
   });
 
-  it("renders the device message without a configure action for OPC", async () => {
+  it("renders the device message without a configure action for OPC UA", async () => {
     const dev = await createTestDevice(client, {
       configured: false,
-      make: OPC.Device.MAKE,
+      make: OPCUA.Device.MAKE,
     });
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Device.Notification status={createNotification(dev)} silence={silence} />, {

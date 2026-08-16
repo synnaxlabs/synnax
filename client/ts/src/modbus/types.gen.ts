@@ -27,8 +27,8 @@ export const registerValueZ = z.object({
 });
 export interface RegisterValue extends z.infer<typeof registerValueZ> {}
 
-/** BaseInputChannel carries the fields every Modbus input channel shares. */
-export const baseInputChannelZ = z.object({
+/** BaseReadChannel carries the fields every Modbus read channel shares. */
+export const baseReadChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(""),
   /** name is the human-readable channel name. */
@@ -40,10 +40,10 @@ export const baseInputChannelZ = z.object({
   /** address is the Modbus address the channel reads from. */
   address: zod.uint16.default(0),
 });
-export interface BaseInputChannel extends z.infer<typeof baseInputChannelZ> {}
+export interface BaseReadChannel extends z.infer<typeof baseReadChannelZ> {}
 
-/** BaseOutputChannel carries the fields every Modbus output channel shares. */
-export const baseOutputChannelZ = z.object({
+/** BaseWriteChannel carries the fields every Modbus write channel shares. */
+export const baseWriteChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(""),
   /** name is the human-readable channel name. */
@@ -55,133 +55,131 @@ export const baseOutputChannelZ = z.object({
   /** address is the Modbus address the channel writes to. */
   address: zod.uint16.default(0),
 });
-export interface BaseOutputChannel extends z.infer<typeof baseOutputChannelZ> {}
+export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
-/** InputChannelCoilInput reads a single bit from a coil. */
-export const inputChannelCoilInputZ = baseInputChannelZ.extend({
-  type: z.literal("coil_input"),
+export const scanConfigZ = task.baseScanConfigZ;
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
+
+/** CoilReadChannel reads a single bit from a coil. */
+export const coilReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("coil"),
 });
-export interface InputChannelCoilInput extends z.infer<typeof inputChannelCoilInputZ> {}
+export interface CoilReadChannel extends z.infer<typeof coilReadChannelZ> {}
 
-/** InputChannelDiscreteInput reads a single bit from a discrete input. */
-export const inputChannelDiscreteInputZ = baseInputChannelZ.extend({
+/** DiscreteInputReadChannel reads a single bit from a discrete input. */
+export const discreteInputReadChannelZ = baseReadChannelZ.extend({
   type: z.literal("discrete_input"),
 });
-export interface InputChannelDiscreteInput extends z.infer<
-  typeof inputChannelDiscreteInputZ
+export interface DiscreteInputReadChannel extends z.infer<
+  typeof discreteInputReadChannelZ
 > {}
 
 /**
- * InputChannelHoldingRegisterInput reads a typed value from one or more holding
- * registers.
+ * HoldingRegisterReadChannel reads a typed value from one or more holding registers.
  */
-export const inputChannelHoldingRegisterInputZ = baseInputChannelZ
+export const holdingRegisterReadChannelZ = baseReadChannelZ
   .extend(registerValueZ.shape)
   .extend({
-    type: z.literal("holding_register_input"),
+    type: z.literal("holding_register"),
     /** stringLength is the length, in characters, when data_type is a string. */
     stringLength: z.int32().default(0),
   });
-export interface InputChannelHoldingRegisterInput extends z.infer<
-  typeof inputChannelHoldingRegisterInputZ
+export interface HoldingRegisterReadChannel extends z.infer<
+  typeof holdingRegisterReadChannelZ
 > {}
 
-/** InputChannelRegisterInput reads a typed value from one or more input registers. */
-export const inputChannelRegisterInputZ = baseInputChannelZ
+/** InputRegisterReadChannel reads a typed value from one or more input registers. */
+export const inputRegisterReadChannelZ = baseReadChannelZ
   .extend(registerValueZ.shape)
   .extend({
-    type: z.literal("register_input"),
+    type: z.literal("input_register"),
     /** stringLength is the length, in characters, when data_type is a string. */
     stringLength: z.int32().default(0),
   });
-export interface InputChannelRegisterInput extends z.infer<
-  typeof inputChannelRegisterInputZ
+export interface InputRegisterReadChannel extends z.infer<
+  typeof inputRegisterReadChannelZ
 > {}
 
-export const INPUT_CHANNEL_TYPES = [
-  "coil_input",
+export const READ_CHANNEL_TYPES = [
+  "coil",
   "discrete_input",
-  "holding_register_input",
-  "register_input",
+  "holding_register",
+  "input_register",
 ] as const;
-export const inputChannelTypeZ = z.enum(INPUT_CHANNEL_TYPES);
-export type InputChannelType = z.infer<typeof inputChannelTypeZ>;
+export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
+export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
 
 /**
- * InputChannel is a single Modbus input channel. The type field selects the register
+ * ReadChannel is a single Modbus read channel. The type field selects the register
  * space the channel reads from and the fields that accompany it.
  */
-export const inputChannelZ = z.discriminatedUnion("type", [
-  inputChannelCoilInputZ,
-  inputChannelDiscreteInputZ,
-  inputChannelHoldingRegisterInputZ,
-  inputChannelRegisterInputZ,
+export const readChannelZ = z.discriminatedUnion("type", [
+  coilReadChannelZ,
+  discreteInputReadChannelZ,
+  holdingRegisterReadChannelZ,
+  inputRegisterReadChannelZ,
 ]);
-export type InputChannel =
-  | InputChannelCoilInput
-  | InputChannelDiscreteInput
-  | InputChannelHoldingRegisterInput
-  | InputChannelRegisterInput;
+export type ReadChannel =
+  | CoilReadChannel
+  | DiscreteInputReadChannel
+  | HoldingRegisterReadChannel
+  | InputRegisterReadChannel;
 
-export const INPUT_CHANNEL_SCHEMAS: {
-  [K in InputChannelType]: z.ZodType<Extract<InputChannel, { type: K }>>;
+export const READ_CHANNEL_SCHEMAS: {
+  [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
 } = {
-  coil_input: inputChannelCoilInputZ,
-  discrete_input: inputChannelDiscreteInputZ,
-  holding_register_input: inputChannelHoldingRegisterInputZ,
-  register_input: inputChannelRegisterInputZ,
+  coil: coilReadChannelZ,
+  discrete_input: discreteInputReadChannelZ,
+  holding_register: holdingRegisterReadChannelZ,
+  input_register: inputRegisterReadChannelZ,
 };
 
-/** OutputChannelCoilOutput writes a single bit to a coil. */
-export const outputChannelCoilOutputZ = baseOutputChannelZ.extend({
-  type: z.literal("coil_output"),
+/** CoilWriteChannel writes a single bit to a coil. */
+export const coilWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("coil"),
 });
-export interface OutputChannelCoilOutput extends z.infer<
-  typeof outputChannelCoilOutputZ
-> {}
+export interface CoilWriteChannel extends z.infer<typeof coilWriteChannelZ> {}
 
 /**
- * OutputChannelHoldingRegisterOutput writes a typed value to one or more holding
- * registers.
+ * HoldingRegisterWriteChannel writes a typed value to one or more holding registers.
  */
-export const outputChannelHoldingRegisterOutputZ = baseOutputChannelZ
+export const holdingRegisterWriteChannelZ = baseWriteChannelZ
   .extend(registerValueZ.shape)
   .extend({
-    type: z.literal("holding_register_output"),
+    type: z.literal("holding_register"),
   });
-export interface OutputChannelHoldingRegisterOutput extends z.infer<
-  typeof outputChannelHoldingRegisterOutputZ
+export interface HoldingRegisterWriteChannel extends z.infer<
+  typeof holdingRegisterWriteChannelZ
 > {}
 
-export const OUTPUT_CHANNEL_TYPES = ["coil_output", "holding_register_output"] as const;
-export const outputChannelTypeZ = z.enum(OUTPUT_CHANNEL_TYPES);
-export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
+export const WRITE_CHANNEL_TYPES = ["coil", "holding_register"] as const;
+export const writeChannelTypeZ = z.enum(WRITE_CHANNEL_TYPES);
+export type WriteChannelType = z.infer<typeof writeChannelTypeZ>;
 
 /**
- * OutputChannel is a single Modbus output channel. The type field selects the register
+ * WriteChannel is a single Modbus write channel. The type field selects the register
  * space the channel writes to and the fields that accompany it.
  */
-export const outputChannelZ = z.discriminatedUnion("type", [
-  outputChannelCoilOutputZ,
-  outputChannelHoldingRegisterOutputZ,
+export const writeChannelZ = z.discriminatedUnion("type", [
+  coilWriteChannelZ,
+  holdingRegisterWriteChannelZ,
 ]);
-export type OutputChannel =
-  OutputChannelCoilOutput | OutputChannelHoldingRegisterOutput;
+export type WriteChannel = CoilWriteChannel | HoldingRegisterWriteChannel;
 
-export const OUTPUT_CHANNEL_SCHEMAS: {
-  [K in OutputChannelType]: z.ZodType<Extract<OutputChannel, { type: K }>>;
+export const WRITE_CHANNEL_SCHEMAS: {
+  [K in WriteChannelType]: z.ZodType<Extract<WriteChannel, { type: K }>>;
 } = {
-  coil_output: outputChannelCoilOutputZ,
-  holding_register_output: outputChannelHoldingRegisterOutputZ,
+  coil: coilWriteChannelZ,
+  holding_register: holdingRegisterWriteChannelZ,
 };
 
 export const readConfigZ = task.baseReadConfigZ.extend({
   device: device.keyZ.default(""),
-  channels: inputChannelZ.array().default(() => []),
+  channels: readChannelZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 export const writeConfigZ = task.baseWriteConfigZ.extend({
-  channels: outputChannelZ.array().default(() => []),
+  channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

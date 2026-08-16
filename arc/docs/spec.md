@@ -435,10 +435,11 @@ Functions can also reference global channels directly by name.
 IfStatement ::= 'if' Expression Block ElseIfClause* ElseClause?
 ElseIfClause ::= 'else' 'if' Expression Block
 ElseClause ::= 'else' Block
+ForStatement ::= 'for' ForClause? Block
+ForClause ::= Identifier (',' Identifier)? ':=' Expression | Expression
 ```
 
-Only conditional statements supported. No loops (reactive model handles iteration via
-events + stateful variables).
+`for` iterates a series or `range()`, tests a condition, or is empty to loop forever.
 
 ```arc
 if pressure > 100 {
@@ -714,7 +715,6 @@ These simplify implementation while maintaining expressiveness:
    or channel IDs may be supplied in the `{}` block
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
-8. **No loops**: Use reactive patterns with stateful variables instead
 
 ## Error Handling
 

@@ -850,7 +850,7 @@ var _ = Describe("Python Types Plugin", func() {
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(content).To(ContainSubstring(`from synnax import common`))
 				Expect(content).To(ContainSubstring(
-					`default_factory=lambda: common.ScaleNone(type="none")`,
+					`default_factory=lambda: common.NoneScale(type="none")`,
 				))
 			},
 		)
@@ -1943,12 +1943,12 @@ var _ = Describe("Python Union Generation", func() {
 		source := `
 			@py output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
@@ -1956,12 +1956,12 @@ var _ = Describe("Python Union Generation", func() {
 			ToContain(
 				`from typing import Annotated, Union, Literal`,
 				`from pydantic import BaseModel, Field`,
-				`class ScaleLinear(LinearScale):`,
+				`class LinearScale(LinearParams):`,
 				`type: Literal["linear"]`,
-				`class ScaleNone(NoneScale):`,
+				`class NoneScale(NoneParams):`,
 				`type: Literal["none"]`,
 				`Scale = Annotated[`,
-				`Union[ScaleLinear, ScaleNone],`,
+				`Union[LinearScale, NoneScale],`,
 				`Field(discriminator="type"),`,
 			)
 	})
@@ -1985,10 +1985,10 @@ var _ = Describe("Python Union Generation", func() {
 			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
 			content := ExpectContent(resp, "types_gen.py")
 			content.ToContain(
-				`class TabView(TabBase, Labeled):`,
+				`class ViewTab(TabBase, Labeled):`,
 				`variant: Literal["view"]`,
 				`type: str`,
-				`class TabEmpty(TabBase):`,
+				`class EmptyTab(TabBase):`,
 				`variant: Literal["empty"]`,
 			)
 			content.ToNotContain("TabViewPayload")
@@ -2017,7 +2017,7 @@ var _ = Describe("Python Union Generation", func() {
 			// discriminator, so the shared fields are not duplicated into it.
 			Expect(
 				content,
-			).To(ContainSubstring("class AIVoltageChannel(BaseAIChan, VoltageFields):\n    type: Literal[\"ai_voltage\"]\n"))
+			).To(ContainSubstring("class AIVoltageChannel(BaseAIChan, VoltageFields):\n    type: Literal[\"ai_voltage\"] = \"ai_voltage\"\n"))
 			Expect(content).To(ContainSubstring(`enabled: bool`))
 			Expect(content).To(ContainSubstring(`minVal: float`))
 		},
@@ -2050,7 +2050,7 @@ var _ = Describe("Python Union Generation", func() {
 			Expect(content).To(ContainSubstring(`from synnax import common`))
 			Expect(content).To(ContainSubstring(
 				"class AIVoltageChannel(common.BaseAIChan, VoltageFields):" +
-					"\n    type: Literal[\"ai_voltage\"]\n",
+					"\n    type: Literal[\"ai_voltage\"] = \"ai_voltage\"\n",
 			))
 		},
 	)
@@ -2059,12 +2059,12 @@ var _ = Describe("Python Union Generation", func() {
 		source := `
 			@py output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -2080,17 +2080,17 @@ var _ = Describe("Python Union Generation", func() {
 		source := `
 			@py output "out"
 
-			NoneScale struct {}
-			LinearScale struct { slope float64 }
+			NoneParams struct {}
+			LinearParams struct { slope float64 }
 
 			Scale union on type {
-				none NoneScale
-				linear LinearScale
+				none NoneParams
+				linear LinearParams
 			}
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
-			ToContain("class NoneScale(BaseModel):", "    pass")
+			ToContain("class NoneParams(BaseModel):", "    pass")
 	})
 })
 
@@ -2108,18 +2108,18 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 	source := `
 		@py output "out"
 
-		LinearScale struct {
+		LinearParams struct {
 			slope float64 {
 				@doc value "the slope multiplier."
 			}
 		}
-		NoneScale struct {}
+		NoneParams struct {}
 
 		Scale union on type {
-			linear LinearScale {
+			linear LinearParams {
 				@doc value "a linear scale."
 			}
-			none NoneScale
+			none NoneParams
 
 			@doc value "determines how raw values are transformed."
 		}
@@ -2145,13 +2145,13 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
 			// Field docs live on the payload class (its Attributes), documented once.
-			Expect(content).To(ContainSubstring("class LinearScale(BaseModel):"))
+			Expect(content).To(ContainSubstring("class LinearParams(BaseModel):"))
 			Expect(content).To(ContainSubstring("slope: The slope multiplier."))
 			// The variant inherits the payload and carries only its own summary,
 			// so the field docs are not duplicated onto it.
 			Expect(
 				content,
-			).To(ContainSubstring("class ScaleLinear(LinearScale):\n    \"\"\"A linear scale.\n    \"\"\"\n    type: Literal[\"linear\"]\n"))
+			).To(ContainSubstring("class LinearScale(LinearParams):\n    \"\"\"A linear scale.\n    \"\"\"\n    type: Literal[\"linear\"] = \"linear\"\n"))
 		},
 	)
 
@@ -2174,7 +2174,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 		`
 			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				`default_factory=lambda: ScaleNone(type="none")`,
+				`default_factory=lambda: NoneScale(type="none")`,
 			)
 		},
 	)

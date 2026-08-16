@@ -49,6 +49,7 @@ export type Status = z.infer<typeof statusZ>;
 
 export const taskConfigZ = task.basePersistConfigZ.extend({
   arcKey: keyZ,
+  hash: z.string().default(""),
   executionMode: executionModeZ.default("AUTO"),
   rtPriority: z.int32().default(47),
   cpuAffinity: z.int32().default(-1),

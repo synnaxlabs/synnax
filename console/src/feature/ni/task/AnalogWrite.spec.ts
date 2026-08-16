@@ -28,15 +28,19 @@ const createChannel = (
   overrides: CreateChannelOverrides = {},
 ): NI.Task.AOChannel =>
   ({
-    ...NI.Task.ZERO_AO_CHANNELS[type],
+    ...NI.Task.createAOChannel(type),
     key: id.create(),
     port,
     cmdChannelName: `cmd_${type}_${port}`,
     ...overrides,
   }) as NI.Task.AOChannel;
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_ANALOG_WRITE_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<NI.Task.AnalogWriteSchemas> = {
+  name: "NI Analog Write Task",
+  type: NI.Task.ANALOG_WRITE_TYPE,
+  config: NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   config: task.Payload<NI.Task.AnalogWriteSchemas>["config"],
@@ -56,7 +60,7 @@ const renderAnalogWrite = async (
 const createConfig = (
   channels: NI.Task.AOChannel[],
   device = "placeholder_device",
-) => ({ ...NI.Task.ZERO_ANALOG_WRITE_PAYLOAD.config, device, channels });
+) => ({ ...NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({}), device, channels });
 
 describe("AnalogWrite", () => {
   it("should render the detail form for every channel type as it is selected", async () => {

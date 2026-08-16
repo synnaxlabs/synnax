@@ -50,8 +50,8 @@ export const tabBaseZ = z.object({
 });
 export interface TabBase extends z.infer<typeof tabBaseZ> {}
 
-/** TabResource is a tab displaying a backing core document. */
-export const tabResourceZ = tabBaseZ.extend({
+/** ResourceTab is a tab displaying a backing core document. */
+export const resourceTabZ = tabBaseZ.extend({
   variant: z.literal("resource"),
   /**
    * resource is the visualization resource displayed by this tab, set via
@@ -59,17 +59,17 @@ export const tabResourceZ = tabBaseZ.extend({
    */
   resource: ontology.idZ,
 });
-export interface TabResource extends z.infer<typeof tabResourceZ> {}
+export interface ResourceTab extends z.infer<typeof resourceTabZ> {}
 
 /**
- * TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
+ * ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
  * view has no backing core document: it carries its own type and opaque args. Used for
  * app-views and tools (docs, explorers, task forms, and the selector pickers).
  */
-export const tabViewZ = tabBaseZ.extend(viewZ.shape).extend({
+export const viewTabZ = tabBaseZ.extend(viewZ.shape).extend({
   variant: z.literal("view"),
 });
-export interface TabView extends z.infer<typeof tabViewZ> {}
+export interface ViewTab extends z.infer<typeof viewTabZ> {}
 
 export const TAB_TYPES = ["resource", "view"] as const;
 export const tabTypeZ = z.enum(TAB_TYPES);
@@ -83,26 +83,28 @@ export type TabType = z.infer<typeof tabTypeZ>;
  * (name, icon, closability) are resolved at render time from the content. A resource
  * may back at most one tab per panel; views may repeat.
  */
-export const tabZ = z.discriminatedUnion("variant", [tabResourceZ, tabViewZ]);
-export type Tab = TabResource | TabView;
+export const tabZ = z.discriminatedUnion("variant", [resourceTabZ, viewTabZ]);
+export type Tab = ResourceTab | ViewTab;
 
 export const TAB_SCHEMAS: {
   [K in TabType]: z.ZodType<Extract<Tab, { variant: K }>>;
 } = {
-  resource: tabResourceZ,
-  view: tabViewZ,
+  resource: resourceTabZ,
+  view: viewTabZ,
 };
+export type NewTab = z.input<typeof tabZ>;
 
-/** Leaf is a leaf node in the panel tree displaying a tab strip. */
-export const leafZ = z.object({
+/** LeafNode is a leaf node in the panel tree displaying a tab strip. */
+export const leafNodeZ = z.object({
+  variant: z.literal("leaf"),
   /** tabs is the ordered list of tabs in this leaf. */
   tabs: tabZ.array().default(() => []),
 });
-export interface Leaf extends z.infer<typeof leafZ> {}
-export type NewTab = z.input<typeof tabZ>;
+export interface LeafNode extends z.infer<typeof leafNodeZ> {}
 
-/** Split is an interior split node dividing its area between two children. */
-export const splitZ = z.object({
+/** SplitNode is an interior split node dividing its area between two children. */
+export const splitNodeZ = z.object({
+  variant: z.literal("split"),
   /** direction is the axis along which this node is split. */
   direction: spatial.directionZ,
   /**
@@ -119,42 +121,7 @@ export const splitZ = z.object({
     return nodeZ;
   },
 });
-export interface Split extends z.infer<typeof splitZ> {}
-
-/**
- * Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
- * a project (project panel) or by a user (draft); renaming a draft promotes it to
- * project ownership.
- */
-export const panelZ = z.object({
-  /** key is the unique identifier for this panel. */
-  key: keyZ.default(uuid.create),
-  /** name is a human-readable name for the panel. */
-  name: z.string().min(1, "name is required"),
-  /** root is the root of the panel tree. */
-  get root(): z.ZodPrefault<z.ZodType<Node>> {
-    return nodeZ.prefault({ variant: "leaf", tabs: [] });
-  },
-  /**
-   * parent is an optional parent resource for the panel in the ontology. When absent on
-   * create, the panel is parented to the creating user as a draft. Parenthood lives in
-   * the ontology graph, so the field is not persisted on the panel record and is absent
-   * on retrieve.
-   */
-  parent: ontology.idZ.optional(),
-});
-export interface Panel extends z.infer<typeof panelZ> {}
-export interface New extends z.input<typeof panelZ> {}
-
-export const nodeLeafZ = leafZ.extend({
-  variant: z.literal("leaf"),
-});
-export interface NodeLeaf extends z.infer<typeof nodeLeafZ> {}
-
-export const nodeSplitZ = splitZ.extend({
-  variant: z.literal("split"),
-});
-export interface NodeSplit extends z.infer<typeof nodeSplitZ> {}
+export interface SplitNode extends z.infer<typeof splitNodeZ> {}
 
 export const NODE_TYPES = ["leaf", "split"] as const;
 export const nodeTypeZ = z.enum(NODE_TYPES);
@@ -165,15 +132,33 @@ export type NodeType = z.infer<typeof nodeTypeZ>;
  * split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
  * 2k = first child, 2k+1 = last child).
  */
-export const nodeZ = z.discriminatedUnion("variant", [nodeLeafZ, nodeSplitZ]);
-export type Node = NodeLeaf | NodeSplit;
+export const nodeZ = z.discriminatedUnion("variant", [leafNodeZ, splitNodeZ]);
+export type Node = LeafNode | SplitNode;
 
 export const NODE_SCHEMAS: {
   [K in NodeType]: z.ZodType<Extract<Node, { variant: K }>>;
 } = {
-  leaf: nodeLeafZ,
-  split: nodeSplitZ,
+  leaf: leafNodeZ,
+  split: splitNodeZ,
 };
+
+/** Panel is a project-owned tab holding a tree of visualization tabs. */
+export const panelZ = z.object({
+  /** key is the unique identifier for this panel. */
+  key: keyZ.default(uuid.create),
+  /** name is a human-readable name for the panel. */
+  name: z.string().min(1, "name is required"),
+  /** root is the root of the panel tree. */
+  root: nodeZ.prefault({ variant: "leaf", tabs: [] }),
+  /**
+   * parent is the parent resource for the panel in the ontology, required on create.
+   * Parenthood lives in the ontology graph, so the field is not persisted on the panel
+   * record and is absent on retrieve.
+   */
+  parent: ontology.idZ.optional(),
+});
+export interface Panel extends z.infer<typeof panelZ> {}
+export interface New extends z.input<typeof panelZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("panel");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

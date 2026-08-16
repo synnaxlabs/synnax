@@ -11,10 +11,12 @@ package arc
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -246,12 +248,15 @@ func (w Writer) writeTask(
 	existing []task.Key,
 	hash string,
 ) (*task.Task, error) {
-	tsk := task.Task{
-		Rack:   rackKey,
-		Name:   a.Name,
-		Type:   TaskType,
-		Config: msgpack.EncodedJSON{"arc_key": a.Key.String(), "hash": hash},
+	b, err := json.Marshal(taskversions.Config{ArcKey: a.Key, Hash: hash})
+	if err != nil {
+		return nil, err
 	}
+	var cfg msgpack.EncodedJSON
+	if err = json.Unmarshal(b, &cfg); err != nil {
+		return nil, err
+	}
+	tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: cfg}
 	if len(existing) > 0 {
 		tsk.Key = existing[0]
 	}
@@ -286,8 +291,12 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	var cfg taskversions.Config
+	if err = tsk.Config.Unmarshal(&cfg); err != nil {
+		return err
+	}
 	hash, err := Hash(a)
-	if err != nil || tsk.Config["hash"] == hash {
+	if err != nil || cfg.Hash == hash {
 		return err
 	}
 	_, err = w.writeTask(ctx, a, tsk.Rack, existing, hash)

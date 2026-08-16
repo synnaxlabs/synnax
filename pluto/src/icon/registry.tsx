@@ -19,6 +19,7 @@ import {
   AiFillWarning,
   AiOutlineBorder,
   AiOutlineCheck,
+  AiOutlineClose,
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
@@ -245,6 +246,7 @@ import {
   TbVariable,
 } from "react-icons/tb";
 import {
+  VscChromeRestore,
   VscSplitHorizontal,
   VscSplitVertical,
   VscSymbolConstant,
@@ -258,7 +260,7 @@ import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
 import { NI } from "@/icon/NI";
-import { OPC } from "@/icon/OPC";
+import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
 import { Pump } from "@/icon/Pump";
 import { Valve } from "@/icon/Valve";
@@ -278,6 +280,7 @@ export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Undo = wrapSVGIcon(MdUndo, "undo");
 export const Redo = wrapSVGIcon(MdRedo, "redo");
 export const Close = wrapSVGIcon(FaXmark, "close");
+export const CloseThin = wrapSVGIcon(AiOutlineClose, "close-thin");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
@@ -347,6 +350,7 @@ export const Resources = wrapSVGIcon(AiFillFolder, "resources");
 export const Group = wrapSVGIcon(AiFillFolder, "group");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
+export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
 export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
@@ -364,7 +368,7 @@ export const Logo = {
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
   Modbus,
   NI,
-  OPC,
+  OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
@@ -581,6 +585,7 @@ const icons = {
   Undo,
   Redo,
   Close,
+  CloseThin,
   Info,
   Warning,
   Check,
@@ -615,6 +620,7 @@ const icons = {
   Group,
   Project,
   Box,
+  Boxes,
   Python,
   TypeScript,
   CPlusPlus,

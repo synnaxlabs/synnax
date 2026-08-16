@@ -166,7 +166,7 @@ public:
             cfg.state_indexes(),
             cfg.state_channels(),
             cfg.cmd_channels(),
-            !cfg.data_saving_disabled
+            cfg.data_saving_disabled
         ),
         cfg(std::move(cfg)),
         hw_writer(std::move(hw_writer)),

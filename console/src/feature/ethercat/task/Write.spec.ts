@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax } from "@synnaxlabs/client";
+import { type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -15,9 +15,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createAutoOutputChannel,
+  createAutoWriteChannel,
   createIdentifier,
-  createManualOutputChannel,
+  createManualWriteChannel,
   createPDOs,
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
@@ -36,8 +36,12 @@ beforeAll(async () => {
   testRack = await client.racks.create({ name: uniqueName("ecat_rack") });
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = EtherCAT.Task.ZERO_WRITE_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<EtherCAT.Task.WriteSchemas> = {
+  name: "EtherCAT Write Task",
+  type: EtherCAT.Task.WRITE_TYPE,
+  config: EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   client: Synnax,
@@ -78,10 +82,10 @@ describe("EtherCAT Write", () => {
       pdos: createPDOs(),
     });
     await renderWrite({
-      ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createAutoOutputChannel(slave.key, "Control"),
-        createManualOutputChannel(slave.key, 0x7000, 3),
+        createAutoWriteChannel(slave.key, "Control"),
+        createManualWriteChannel(slave.key, 0x7000, 3),
       ],
     });
     await waitFor(() =>
@@ -96,8 +100,8 @@ describe("EtherCAT Write", () => {
       network: "eth0",
     });
     await renderWrite({
-      ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
-      channels: [createManualOutputChannel(slave.key, 0x7000, 4)],
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createManualWriteChannel(slave.key, 0x7000, 4)],
     });
     fireEvent.click(await screen.findByText("0x7000:4"));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
@@ -114,8 +118,8 @@ describe("EtherCAT Write", () => {
         pdos: createPDOs(),
       });
       const { container, draft } = await renderWrite({
-        ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
-        channels: [createAutoOutputChannel(slave.key, "Control")],
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [createAutoWriteChannel(slave.key, "Control")],
       });
       const created = await deployAndAwaitTask(
         client,
@@ -165,9 +169,9 @@ describe("EtherCAT Write", () => {
       const cmdName = uniqueName("ecat_cmd");
       const stateName = uniqueName("ecat_state");
       const { container, draft } = await renderWrite({
-        ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
         channels: [
-          createAutoOutputChannel(slave.key, "Control", {
+          createAutoWriteChannel(slave.key, "Control", {
             cmdChannelName: cmdName,
             stateChannelName: stateName,
           }),
@@ -198,10 +202,10 @@ describe("EtherCAT Write", () => {
         pdos: createPDOs(),
       });
       const { container, statuses } = await renderWrite({
-        ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
         channels: [
-          createAutoOutputChannel(slaveA.key, "Control"),
-          createAutoOutputChannel(slaveB.key, "Control"),
+          createAutoWriteChannel(slaveA.key, "Control"),
+          createAutoWriteChannel(slaveB.key, "Control"),
         ],
       });
       await clickDeploy(container);
@@ -216,8 +220,8 @@ describe("EtherCAT Write", () => {
         pdos: createPDOs(),
       });
       const { container, statuses } = await renderWrite({
-        ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
-        channels: [createAutoOutputChannel(slave.key, "Control")],
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [createAutoWriteChannel(slave.key, "Control")],
       });
       await clickDeploy(container);
       await awaitStatus(statuses, /Failed to/);

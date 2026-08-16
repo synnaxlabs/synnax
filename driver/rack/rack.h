@@ -34,7 +34,7 @@
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
 #include "driver/ni/ni.h"
-#include "driver/opc/opc.h"
+#include "driver/opcua/opcua.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
@@ -64,7 +64,7 @@ struct RemoteInfo {
 
 inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
-        opc::INTEGRATION_NAME,
+        opcua::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,

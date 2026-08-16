@@ -14,6 +14,11 @@ export const CONCEPTS_NAV: PageNavNode = {
   name: "Concepts",
   children: [
     {
+      key: "/reference/control/arc/concepts/control-authority",
+      href: "/reference/control/arc/concepts/control-authority",
+      name: "Control Authority",
+    },
+    {
       key: "/reference/control/arc/concepts/reactive-execution",
       href: "/reference/control/arc/concepts/reactive-execution",
       name: "Reactive Execution",
@@ -27,16 +32,6 @@ export const CONCEPTS_NAV: PageNavNode = {
       key: "/reference/control/arc/concepts/channels-and-series",
       href: "/reference/control/arc/concepts/channels-and-series",
       name: "Channels and Series",
-    },
-    {
-      key: "/reference/control/arc/concepts/stateful-variables",
-      href: "/reference/control/arc/concepts/stateful-variables",
-      name: "Stateful Variables",
-    },
-    {
-      key: "/reference/control/arc/concepts/control-authority",
-      href: "/reference/control/arc/concepts/control-authority",
-      name: "Control Authority",
     },
   ],
 };

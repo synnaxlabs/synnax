@@ -20,7 +20,6 @@ export const VARIANT = "setpoint" as const;
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
   size: componentSize.optional(),
-  source: telem.numberSourceSpecZ.optional(),
   sink: telem.numberSinkSpecZ.optional(),
   dimensions: dimensions.dimensionsZ.optional(),
   color: color.crudeZ.optional(),

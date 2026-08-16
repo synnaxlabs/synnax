@@ -17,6 +17,7 @@ import {
   Errors,
   Flex,
   Flux,
+  Haul,
   Icon,
   Panel,
   Portal,
@@ -26,13 +27,20 @@ import {
   Triggers,
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { memo, type PropsWithChildren, type ReactElement, useCallback } from "react";
+import {
+  memo,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
 import { useCreate } from "@/feature/panel/useCreate";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
+import { type Import } from "@/platform/import";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
@@ -250,7 +258,7 @@ const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
   );
 };
 
-const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
+const Internal = ({ onCreateTab, onFileDrop }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelectedTabs();
   const handleSelect = Session.Panel.useSelectTab();
   const focusedTab = Session.Panel.useSelectFocusedTab();
@@ -268,6 +276,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
       overlaid={isOverlaid ? focusedTab : undefined}
       onStopOverlay={handleStopOverlay}
       onCreateTab={onCreateTab}
+      onFileDrop={onFileDrop}
       resolveDroppedTab={resolveDroppedTab}
       contextMenu={contextMenu}
       emptyContent={<EmptyTabContent onCreateTab={onCreateTab} />}
@@ -282,20 +291,57 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
   );
 };
 
+// The mosaic's own leaves handle file drops, but with no panel open there are no
+// leaves, so this state is the drop target itself. It reports a drop with no leaf,
+// and the tabs open in the panel useOpenTabs creates for them.
+const EMPTY_DROP_KEY = "empty-mosaic";
+
+interface EmptyContentProps extends Pick<MosaicProps, "onFileDrop"> {}
+
 // Mirrors the real mosaic's container chrome so the no-panel state keeps the
 // same framed L0 surface instead of collapsing to bare window background.
-const EmptyContent = (): ReactElement => {
+const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
   const createPanel = useCreate();
+  const [over, setOver] = useState(false);
+  const acceptsFiles = onFileDrop != null;
+  const canDrop: Haul.CanDrop = useCallback(
+    ({ items }) => acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0,
+    [acceptsFiles],
+  );
+  const handleDragOver = useCallback(() => setOver(true), []);
+  const handleDragLeave = useCallback(() => setOver(false), []);
+  const handleDrop = useCallback(
+    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+      setOver(false);
+      if (event == null) return [];
+      onFileDrop?.({ event });
+      return items;
+    },
+    [onFileDrop],
+  );
+  const haulProps = Haul.useDrop({
+    type: "Mosaic",
+    key: EMPTY_DROP_KEY,
+    canDrop,
+    onDragOver: handleDragOver,
+    onDrop: handleDrop,
+  });
   return (
     <Flex.Box
       grow
       align="center"
       justify="center"
-      className={CSS(CSS.B("mosaic"), CSS.BM("mosaic", "empty"))}
+      className={CSS(
+        CSS.B("mosaic"),
+        CSS.BM("mosaic", "empty"),
+        over && CSS.BM("mosaic", "drop-over"),
+      )}
       rounded="large"
       bordered
       borderColor={6}
       background={0}
+      onDragLeave={handleDragLeave}
+      {...haulProps}
     >
       <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
         <Logo className="synnax-logo-watermark" />
@@ -331,7 +377,9 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
       description="This window references a panel that no longer exists."
     >
       {panelKey != null && (
-        <Button.Button onClick={() => dispatch(Session.Panel.remove(panelKey))}>
+        <Button.Button
+          onClick={() => dispatch(Session.Panel.remove({ keys: panelKey }))}
+        >
           Close
         </Button.Button>
       )}
@@ -357,37 +405,34 @@ interface KeepAlivePanelProps extends MosaicProps {
 // A visited panel renders once into a keyed portal and stays mounted while other
 // panels are selected, so switching back reattaches its DOM instead of remounting.
 // The scope sits outside the boundary so PanelFallback resolves its own panel.
-const KeepAlivePanel = ({
-  panelKey,
-  onCreateTab,
-}: KeepAlivePanelProps): ReactElement => (
+const KeepAlivePanel = ({ panelKey, ...rest }: KeepAlivePanelProps): ReactElement => (
   <Portal.In itemKey={panelKey}>
     <Panel.Scope.Provider value={panelKey}>
       <Errors.SuspenseBoundary loading={loading} FallbackComponent={PanelFallback}>
         <Panel.Suspended panelKey={panelKey}>
-          <Internal onCreateTab={onCreateTab} />
+          <Internal {...rest} />
         </Panel.Suspended>
       </Errors.SuspenseBoundary>
     </Panel.Scope.Provider>
   </Portal.In>
 );
 
-const PortaledInPanels = memo(({ onCreateTab }: MosaicProps) => {
+const PortaledInPanels = memo((props: MosaicProps) => {
   const mounted = Session.Panel.useSelectMounted();
   return (
     <div>
       {mounted.map((key) => (
-        <KeepAlivePanel key={key} panelKey={key} onCreateTab={onCreateTab} />
+        <KeepAlivePanel key={key} panelKey={key} {...props} />
       ))}
     </div>
   );
 });
 PortaledInPanels.displayName = "PortaledInPanels";
 
-const PortaledOutPanel = memo(() => {
+const PortaledOutPanel = memo(({ onFileDrop }: EmptyContentProps) => {
   const selected = Session.Panel.useSelectSelected();
   return selected == null ? (
-    <EmptyContent />
+    <EmptyContent onFileDrop={onFileDrop} />
   ) : (
     <Portal.Out itemKey={selected} className={CSS.BE("panel", "host")} />
   );
@@ -396,11 +441,13 @@ PortaledOutPanel.displayName = "PortaledOutPanel";
 
 export interface MosaicProps {
   onCreateTab: () => panel.NewTab;
+  /** Handles an OS file drop. A drop with no leaf landed on the no-panel state. */
+  onFileDrop?: Import.FileDrop;
 }
 
-export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => (
+export const Mosaic = (props: MosaicProps): ReactElement => (
   <Portal.Context>
-    <PortaledInPanels onCreateTab={onCreateTab} />
-    <PortaledOutPanel />
+    <PortaledInPanels {...props} />
+    <PortaledOutPanel onFileDrop={props.onFileDrop} />
   </Portal.Context>
 );

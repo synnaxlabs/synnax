@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
-import { Task } from "@/platform/task";
 
 describe("readStatusDataZ", () => {
   it("should accept null", () => {
@@ -34,14 +33,13 @@ describe("readConfigZ", () => {
   const deployReadConfigZ = LabJack.Task.deployReadConfigZ;
   it("should validate a valid read configuration", () => {
     const validConfig = {
-      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
           key: "1",
           channel: 1,
-          enabled: true,
-          type: "AI",
+          disabled: false,
+          type: "analog",
           name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: "none" },
@@ -50,11 +48,10 @@ describe("readConfigZ", () => {
         {
           key: "2",
           channel: 2,
-          enabled: true,
-          type: "DI",
+          disabled: false,
+          type: "digital",
           name: "Test_DI_Channel",
           port: "DIO0",
-          scale: { type: "none" },
         },
       ],
       sampleRate: 1000,
@@ -63,18 +60,26 @@ describe("readConfigZ", () => {
 
     const result = readConfigZ.safeParse(validConfig);
     expect(result.success).toBe(true);
+    expect(result.data?.channels).toHaveLength(2);
+  });
+
+  it("should mint a UUID key when the configuration lacks one", () => {
+    const result = readConfigZ.safeParse({ device: "labjack" });
+    expect(result.success).toBe(true);
+    expect(result.data?.key).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
   });
 
   it("should reject a configuration with duplicate ports", () => {
     const configWithDuplicatePorts = {
-      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
           key: "1",
           channel: 1,
-          enabled: true,
-          type: "AI",
+          disabled: false,
+          type: "analog",
           name: "Test_AI_Channel_1",
           port: "AIN0",
           scale: { type: "none" },
@@ -83,8 +88,8 @@ describe("readConfigZ", () => {
         {
           key: "2",
           channel: 2,
-          enabled: true,
-          type: "AI",
+          disabled: false,
+          type: "analog",
           name: "Test_AI_Channel_2",
           port: "AIN0", // Duplicate port
           scale: { type: "none" },
@@ -105,14 +110,13 @@ describe("readConfigZ", () => {
 
   it("should reject a configuration with sampleRate exceeding the maximum", () => {
     const configWithInvalidSampleRate = {
-      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
           key: "1",
           channel: 1,
-          enabled: true,
-          type: "AI",
+          disabled: false,
+          type: "analog",
           name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: "none" },
@@ -133,14 +137,13 @@ describe("readConfigZ", () => {
 
   it("should reject a configuration with streamRate exceeding the maximum", () => {
     const configWithInvalidStreamRate = {
-      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
           key: "1",
           channel: 1,
-          enabled: true,
-          type: "AI",
+          disabled: false,
+          type: "analog",
           name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: "none" },
@@ -161,15 +164,13 @@ describe("readConfigZ", () => {
 
   it("should reject a configuration with invalid stream rate refinement", () => {
     const configWithInvalidStreamRateRefinement = {
-      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
-      dataSaving: true,
       channels: [
         {
           key: "1",
           channel: 1,
-          enabled: true,
-          type: "AI",
+          disabled: false,
+          type: "analog",
           name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: "none" },
@@ -186,14 +187,13 @@ describe("readConfigZ", () => {
 
   it("should validate a configuration with linear scale", () => {
     const configWithLinearScale = {
-      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
           key: "1",
           channel: 1,
-          enabled: true,
-          type: "AI",
+          disabled: false,
+          type: "analog",
           name: "ai_with_scale",
           port: "AIN0",
           scale: { type: "linear", slope: 2.5, offset: 0.5 },
@@ -202,10 +202,38 @@ describe("readConfigZ", () => {
       ],
       sampleRate: 1000,
       streamRate: 500,
-      dataSaving: true,
     };
 
     const result = readConfigZ.safeParse(configWithLinearScale);
+    expect(result.success).toBe(true);
+  });
+
+  it("should validate a configuration with map scale", () => {
+    const configWithMapScale = {
+      device: "labjack",
+      channels: [
+        {
+          key: "1",
+          channel: 1,
+          disabled: false,
+          type: "analog",
+          name: "ai_with_map_scale",
+          port: "AIN0",
+          scale: {
+            type: "map",
+            preScaledMin: 0,
+            preScaledMax: 10,
+            scaledMin: 0,
+            scaledMax: 100,
+          },
+          range: 10,
+        },
+      ],
+      sampleRate: 1000,
+      streamRate: 500,
+    };
+
+    const result = readConfigZ.safeParse(configWithMapScale);
     expect(result.success).toBe(true);
   });
 });
@@ -218,13 +246,12 @@ describe("writeConfigZ", () => {
     deployWriteConfigZ.safeParse(writeConfigZ.parse(config));
   it("should validate a valid write configuration", () => {
     const validConfig = {
-      ...LabJack.Task.ZERO_WRITE_PAYLOAD.config,
       device: "labjack",
       channels: [
         {
           key: "1",
-          enabled: true,
-          type: "AO",
+          disabled: false,
+          type: "analog",
           cmdChannelName: "Test_AO_Channel",
           stateChannelName: "",
           port: "DAC0",
@@ -233,8 +260,8 @@ describe("writeConfigZ", () => {
         },
         {
           key: "2",
-          enabled: true,
-          type: "DO",
+          disabled: false,
+          type: "digital",
           cmdChannelName: "Test_DO_Channel",
           stateChannelName: "",
           port: "DIO0",
@@ -251,28 +278,23 @@ describe("writeConfigZ", () => {
 
   it("should reject a configuration with duplicate ports", () => {
     const configWithDuplicatePorts = {
-      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
           key: "1",
-          enabled: true,
-          type: "AO",
-          name: "Test_AO_Channel_1",
+          disabled: false,
+          type: "analog",
           port: "DAC0",
-          cmdKey: 1,
-          stateKey: 2,
-          scale: { type: "none" },
+          cmdChannel: 1,
+          stateChannel: 2,
         },
         {
           key: "2",
-          enabled: true,
-          type: "AO",
-          name: "Test_AO_Channel_2",
+          disabled: false,
+          type: "analog",
           port: "DAC0", // Duplicate port
-          cmdKey: 3,
-          stateKey: 4,
-          scale: { type: "none" },
+          cmdChannel: 3,
+          stateChannel: 4,
         },
       ],
       stateRate: 1000,
@@ -286,38 +308,31 @@ describe("writeConfigZ", () => {
     }
   });
 
-  it("should reject a configuration with duplicate cmdKeys", () => {
-    const configWithDuplicateCmdKeys = {
-      ...Task.ZERO_BASE_CONFIG,
+  it("should reject a configuration with duplicate command channels", () => {
+    const configWithDuplicateCmdChannels = {
       device: "labjack",
       channels: [
         {
           key: "1",
-          enabled: true,
-          type: "AO",
-          cmdName: "Test_AO_Channel_1",
-          stateName: "",
+          disabled: false,
+          type: "analog",
           port: "DAC0",
-          cmdKey: 1,
-          stateKey: 2,
-          scale: { type: "none" },
+          cmdChannel: 1,
+          stateChannel: 2,
         },
         {
           key: "2",
-          enabled: true,
-          type: "DO",
-          cmdName: "Test_DO_Channel",
-          stateName: "",
+          disabled: false,
+          type: "digital",
           port: "DIO0",
-          cmdKey: 1, // Duplicate cmdKey
-          stateKey: 3,
-          scale: { type: "none" },
+          cmdChannel: 1, // Duplicate command channel
+          stateChannel: 3,
         },
       ],
       stateRate: 1000,
     };
 
-    const result = deployParse(configWithDuplicateCmdKeys);
+    const result = deployParse(configWithDuplicateCmdChannels);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -325,36 +340,31 @@ describe("writeConfigZ", () => {
     }
   });
 
-  it("should reject a configuration with duplicate stateKeys", () => {
-    const configWithDuplicateStateKeys = {
-      ...Task.ZERO_BASE_CONFIG,
+  it("should reject a configuration with duplicate state channels", () => {
+    const configWithDuplicateStateChannels = {
       device: "labjack",
       channels: [
         {
           key: "1",
-          enabled: true,
-          type: "AO",
-          name: "Test AO Channel",
+          disabled: false,
+          type: "analog",
           port: "DAC0",
-          cmdKey: 1,
-          stateKey: 2,
-          scale: { type: "none" },
+          cmdChannel: 1,
+          stateChannel: 2,
         },
         {
           key: "2",
-          enabled: true,
-          type: "DO",
-          name: "Test DO Channel",
+          disabled: false,
+          type: "digital",
           port: "DIO0",
-          cmdKey: 3,
-          stateKey: 2, // Duplicate stateKey
-          scale: { type: "none" },
+          cmdChannel: 3,
+          stateChannel: 2, // Duplicate state channel
         },
       ],
       stateRate: 1000,
     };
 
-    const result = deployParse(configWithDuplicateStateKeys);
+    const result = deployParse(configWithDuplicateStateChannels);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
@@ -364,18 +374,15 @@ describe("writeConfigZ", () => {
 
   it("should reject a configuration with stateRate exceeding the maximum", () => {
     const configWithInvalidStateRate = {
-      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
           key: "1",
-          enabled: true,
-          type: "AO",
-          name: "Test AO Channel",
+          disabled: false,
+          type: "analog",
           port: "DAC0",
-          cmdKey: 1,
-          stateKey: 2,
-          scale: { type: "none" },
+          cmdChannel: 1,
+          stateChannel: 2,
         },
       ],
       stateRate: 60000, // Exceeds the max of 50000
@@ -389,69 +396,32 @@ describe("writeConfigZ", () => {
     }
   });
 
-  it("should validate a configuration with linear scale", () => {
-    const configWithLinearScale = {
-      ...Task.ZERO_BASE_CONFIG,
+  it("should not migrate legacy v0 cmdKey shapes", () => {
+    // The Core migrates stored configs; the console only speaks generated shapes, so
+    // legacy cmdKey/stateKey fields are stripped rather than translated.
+    const v0Config = {
       device: "labjack",
+      stateRate: 1000,
       channels: [
         {
           key: "1",
           enabled: true,
-          type: "AO",
-          name: "Test AO Channel",
+          type: "analog",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
-          scale: { type: "linear", slope: 2.5, intercept: 0.5, unit: "V" },
         },
       ],
-      stateRate: 1000,
-    };
-
-    const result = writeConfigZ.safeParse(configWithLinearScale);
-    expect(result.success).toBe(true);
-  });
-
-  it("should move a v0 configuration to the new format", () => {
-    const inputChannels = [
-      {
-        key: "1",
-        enabled: true,
-        type: "AO",
-        port: "DAC0",
-        name: "dac0_no_scale",
-        cmdKey: 1,
-        stateKey: 2,
-        scale: { type: "NO_SCALE" },
-      },
-      {
-        key: "2",
-        enabled: true,
-        type: "DO",
-        port: "DIO0",
-        name: "dio0_noscale",
-        cmdKey: 3,
-        stateKey: 4,
-        scale: { type: "NO_SCALE" },
-      },
-    ];
-    const v0Config = {
-      ...Task.ZERO_BASE_CONFIG,
-      device: "labjack",
-      stateRate: 1000,
-      channels: inputChannels,
     };
 
     const result = writeConfigZ.safeParse(v0Config);
     expect(result.success).toBe(true);
-    expect(result.data?.channels.length).toBe(2);
-    const channels = result.data?.channels as LabJack.Task.OutputChannel[];
-    channels.forEach((ch, i) => {
-      expect(ch.cmdChannel).toBe(inputChannels[i].cmdKey);
-      expect(ch.stateChannel).toBe(inputChannels[i].stateKey);
-      expect(ch).not.toHaveProperty("cmdKey");
-      expect(ch).not.toHaveProperty("stateKey");
-    });
+    const [ch] = result.data?.channels as LabJack.Task.WriteChannel[];
+    expect(ch.cmdChannel).toBe(0);
+    expect(ch.stateChannel).toBe(0);
+    expect(ch).not.toHaveProperty("cmdKey");
+    expect(ch).not.toHaveProperty("stateKey");
+    expect(ch).not.toHaveProperty("enabled");
   });
 });
 
@@ -460,14 +430,15 @@ describe("draft configs", () => {
   // accept every zero config; retrieve parses with it.
   it("should accept the zero read config", () => {
     expect(
-      LabJack.Task.READ_SCHEMAS.config.safeParse(LabJack.Task.ZERO_READ_PAYLOAD.config)
-        .success,
+      LabJack.Task.READ_SCHEMAS.config.safeParse(
+        LabJack.Task.READ_SCHEMAS.config.parse({}),
+      ).success,
     ).toBe(true);
   });
   it("should accept the zero write config", () => {
     expect(
       LabJack.Task.WRITE_SCHEMAS.config.safeParse(
-        LabJack.Task.ZERO_WRITE_PAYLOAD.config,
+        LabJack.Task.WRITE_SCHEMAS.config.parse({}),
       ).success,
     ).toBe(true);
   });

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ni } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -25,7 +26,7 @@ const createNIRackWithScanner = async () => {
     {
       name: uniqueName("ni_scanner"),
       type: NI.Task.SCAN_TYPE,
-      config: { enabled: true },
+      config: ni.scanConfigZ.parse({}),
     },
     NI.Task.SCAN_SCHEMAS,
   );
@@ -33,7 +34,7 @@ const createNIRackWithScanner = async () => {
 };
 
 describe("useToggleScanner", () => {
-  it("should flip the enabled flag of the scanner task on the given rack", async () => {
+  it("should flip the disabled flag of the scanner task on the given rack", async () => {
     const { rack, scanTask } = await createNIRackWithScanner();
     const { wrapper } = await createConsoleWrapper({ client });
     const { result } = renderHook(() => NI.Task.useToggleScanner(rack.key), {
@@ -47,7 +48,7 @@ describe("useToggleScanner", () => {
         key: scanTask.key,
         schemas: NI.Task.SCAN_SCHEMAS,
       });
-      expect(after.config.enabled).toBe(!scanTask.config.enabled);
+      expect(after.config.disabled).toBe(!scanTask.config.disabled);
     });
   });
 
@@ -66,12 +67,12 @@ describe("useToggleScanner", () => {
         key: taskA.key,
         schemas: NI.Task.SCAN_SCHEMAS,
       });
-      expect(afterA.config.enabled).toBe(!taskA.config.enabled);
+      expect(afterA.config.disabled).toBe(!taskA.config.disabled);
     });
     const afterB = await client.tasks.retrieve({
       key: taskB.key,
       schemas: NI.Task.SCAN_SCHEMAS,
     });
-    expect(afterB.config.enabled).toBe(taskB.config.enabled);
+    expect(afterB.config.disabled).toBe(taskB.config.disabled);
   });
 });

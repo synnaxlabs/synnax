@@ -75,7 +75,7 @@
     color: var(--pluto-primary-z);
 }
 
-.pluto-icon--logo-opc {
+.pluto-icon--logo-opcua {
     transform: translateY(1px) scale(1.25);
 }
 
@@ -90,6 +90,18 @@
 
 .pluto-icon--fitting {
     --pluto-base-scale: 1.8;
+    transform: scale(var(--pluto-base-scale));
+}
+
+/* The chrome glyph covers 62% of its box, against the 78% Box draws. */
+.pluto-icon--boxes {
+    --pluto-base-scale: 1.25;
+    transform: scale(var(--pluto-base-scale));
+}
+
+/* Same reason as boxes: the mark covers 68% of its box. */
+.pluto-icon--close-thin {
+    --pluto-base-scale: 1.15;
     transform: scale(var(--pluto-base-scale));
 }
 

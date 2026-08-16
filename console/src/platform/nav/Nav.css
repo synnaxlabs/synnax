@@ -66,6 +66,9 @@
     &.pluto--location-top {
         > .pluto-navbar__content.pluto--start {
             min-width: 0;
+            /* A squeeze runs the strip right up to the badges, so the start keeps
+               this much clear of whatever follows it. */
+            margin-right: 5rem;
         }
         > .pluto-navbar__content.pluto--end {
             flex-shrink: 0;
@@ -79,6 +82,11 @@
 
 .console--os-macos .console-nav__bar.pluto--direction-x {
     padding-left: 2rem;
+}
+
+/* On macOS the button ends the top bar, so its corner follows the window's. */
+.console--os-macos .console-nav__controls-button {
+    border-top-right-radius: var(--pluto-border-radius-medium);
 }
 
 .console--os-windows .console-nav__bar.pluto--direction-x {

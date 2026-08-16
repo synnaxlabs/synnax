@@ -9,7 +9,12 @@
 
 import "@/feature/pagerduty/task/Alert.css";
 
-import { type rack, type status, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  pagerduty,
+  type rack,
+  type status,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -32,11 +37,8 @@ import {
   ALERT_SCHEMAS,
   ALERT_TYPE,
   type AlertConfig,
-  type AlertPayload,
   type AlertSchemas,
   deployAlertTaskConfigZ,
-  ZERO_ALERT_CONFIG,
-  ZERO_ALERT_PAYLOAD,
 } from "@/feature/pagerduty/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -149,7 +151,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
           {isNotDefined ? "New alert" : status.name}
         </Text.Text>
       </Flex.Box>
-      <Task.EnableDisableButton path={`config.alerts.${itemKey}.enabled`} />
+      <Task.EnableDisableButton path={`config.alerts.${itemKey}.disabled`} />
     </Select.ListItem>
   );
 };
@@ -166,8 +168,8 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   const alerts = PForm.useFieldValue<AlertConfig[]>("config.alerts").filter((a) =>
     keys.includes(a.key),
   );
-  const canDisable = alerts.some(({ enabled }) => enabled);
-  const canEnable = alerts.some(({ enabled }) => !enabled);
+  const canDisable = alerts.some(({ disabled }) => !disabled);
+  const canEnable = alerts.some(({ disabled }) => disabled);
   return (
     <ContextMenu.Menu>
       {canEnable && (
@@ -204,7 +206,7 @@ const Form: FC = () => {
   const menuProps = PMenu.useContextMenu();
 
   const handleAdd = useCallback(() => {
-    const alert: AlertConfig = { ...ZERO_ALERT_CONFIG, key: id.create() };
+    const alert: AlertConfig = { ...pagerduty.alertZ.parse({}), key: id.create() };
     push(alert);
     setSelected([alert.key]);
   }, [push]);
@@ -219,7 +221,7 @@ const Form: FC = () => {
 
   const handleSetEnabled = useCallback(
     (keys: string[], enabled: boolean) => {
-      for (const key of keys) set(`config.alerts.${key}.enabled`, enabled);
+      for (const key of keys) set(`config.alerts.${key}.disabled`, !enabled);
     },
     [set],
   );
@@ -290,12 +292,12 @@ const Form: FC = () => {
 };
 
 const getInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {
-  const pld: AlertPayload = { ...ZERO_ALERT_PAYLOAD };
-  if (config != null) {
-    const parsed = ALERT_SCHEMAS.config.safeParse(config);
-    if (parsed.success) pld.config = parsed.data;
-  }
-  return pld;
+  const parsed = ALERT_SCHEMAS.config.safeParse(config ?? {});
+  return {
+    name: "PagerDuty Alert Task",
+    type: ALERT_TYPE,
+    config: parsed.success ? parsed.data : ALERT_SCHEMAS.config.parse({}),
+  };
 };
 
 const onConfigure: Task.OnConfigure<AlertSchemas["config"]> = async (
@@ -314,10 +316,6 @@ export const Alert = Task.wrapForm({
 });
 
 export const useCreateAlert = Task.createUseCreate({
-  getInitialValues,
-});
-
-export const alertIngester = Task.createIngester({
   getInitialValues,
 });
 

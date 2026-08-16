@@ -18,15 +18,16 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/common/types.gen.h"
+#include "client/cpp/task/config/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
 namespace synnax::ethercat {
 
 struct PDOAddress;
-struct BaseInputChannel;
-struct BaseOutputChannel;
+struct BaseReadChannel;
+struct BaseWriteChannel;
+struct ScanConfig;
 struct ReadConfig;
 struct WriteConfig;
 
@@ -45,8 +46,8 @@ struct PDOAddress {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseInputChannel carries the fields every EtherCAT input channel shares.
-struct BaseInputChannel {
+/// @brief BaseReadChannel carries the fields every EtherCAT read channel shares.
+struct BaseReadChannel {
     /// @brief key uniquely identifies the channel within the task.
     std::string key = "";
     /// @brief name is the human-readable channel name.
@@ -58,12 +59,12 @@ struct BaseInputChannel {
     /// @brief device is the key of the slave device the channel reads from.
     ::synnax::device::Key device = "";
 
-    static BaseInputChannel parse(x::json::Parser parser);
+    static BaseReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseOutputChannel carries the fields every EtherCAT output channel shares.
-struct BaseOutputChannel {
+/// @brief BaseWriteChannel carries the fields every EtherCAT write channel shares.
+struct BaseWriteChannel {
     /// @brief key uniquely identifies the channel within the task.
     std::string key = "";
     /// @brief name is the human-readable channel name.
@@ -81,67 +82,74 @@ struct BaseOutputChannel {
     /// @brief device is the key of the slave device the channel writes to.
     ::synnax::device::Key device = "";
 
-    static BaseOutputChannel parse(x::json::Parser parser);
+    static BaseWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputChannelAutomatic resolves its PDO address from the slave's discovered
+/// @brief ScanConfig configures an EtherCAT scan task.
+struct ScanConfig : public ::synnax::task::config::BaseScan {
+
+    static ScanConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AutomaticReadChannel resolves its PDO address from the slave's discovered
 /// PDOs.
-struct InputChannelAutomatic : public BaseInputChannel {
+struct AutomaticReadChannel : public BaseReadChannel {
     std::string type = "automatic";
     /// @brief pdo is the name of the PDO entry to resolve on the slave.
     std::string pdo = "";
 
-    static InputChannelAutomatic parse(x::json::Parser parser);
+    static AutomaticReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputChannelManual specifies its PDO address inline.
-struct InputChannelManual : public BaseInputChannel, public PDOAddress {
+/// @brief ManualReadChannel specifies its PDO address inline.
+struct ManualReadChannel : public BaseReadChannel, public PDOAddress {
     std::string type = "manual";
 
-    static InputChannelManual parse(x::json::Parser parser);
+    static ManualReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputChannel is a single EtherCAT input channel (TxPDO, slave to master). The
+/// @brief ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The
 /// type field selects how the PDO entry is addressed.
-using InputChannel = std::variant<InputChannelAutomatic, InputChannelManual>;
+using ReadChannel = std::variant<AutomaticReadChannel, ManualReadChannel>;
 
-InputChannel parse_input_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const InputChannel &value);
+ReadChannel parse_read_channel(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ReadChannel &value);
 
-/// @brief OutputChannelAutomatic resolves its PDO address from the slave's discovered
+/// @brief AutomaticWriteChannel resolves its PDO address from the slave's discovered
 /// PDOs.
-struct OutputChannelAutomatic : public BaseOutputChannel {
+struct AutomaticWriteChannel : public BaseWriteChannel {
     std::string type = "automatic";
     /// @brief pdo is the name of the PDO entry to resolve on the slave.
     std::string pdo = "";
 
-    static OutputChannelAutomatic parse(x::json::Parser parser);
+    static AutomaticWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief OutputChannelManual specifies its PDO address inline.
-struct OutputChannelManual : public BaseOutputChannel, public PDOAddress {
+/// @brief ManualWriteChannel specifies its PDO address inline.
+struct ManualWriteChannel : public BaseWriteChannel, public PDOAddress {
     std::string type = "manual";
 
-    static OutputChannelManual parse(x::json::Parser parser);
+    static ManualWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief OutputChannel is a single EtherCAT output channel (RxPDO, master to slave).
-/// The type field selects how the PDO entry is addressed.
-using OutputChannel = std::variant<OutputChannelAutomatic, OutputChannelManual>;
+/// @brief WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The
+/// type field selects how the PDO entry is addressed.
+using WriteChannel = std::variant<AutomaticWriteChannel, ManualWriteChannel>;
 
-OutputChannel parse_output_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const OutputChannel &value);
+WriteChannel parse_write_channel(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteChannel &value);
 
 /// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
-struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
-    /// @brief channels are the input channels the task acquires.
-    std::vector<InputChannel> channels;
+struct ReadConfig : public ::synnax::task::config::BaseRead {
+    /// @brief channels are the channels the task acquires.
+    std::vector<ReadChannel> channels;
 
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -149,15 +157,15 @@ struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
 
 /// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
-struct WriteConfig : public ::synnax::task::common::BasePersistConfig {
+struct WriteConfig : public ::synnax::task::config::BasePersist {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(25);
     /// @brief execution_rate is the rate at which commands are applied to the bus, in
     /// hertz.
     ::x::telem::Rate execution_rate = ::x::telem::Rate(1000);
-    /// @brief channels are the output channels the task drives.
-    std::vector<OutputChannel> channels;
+    /// @brief channels are the channels the task drives.
+    std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

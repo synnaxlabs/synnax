@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
 import {
-  createAOChannel,
-  createDOChannel,
+  createAnalogWriteChannel,
+  createDigitalWriteChannel,
   createLabJackDevice,
 } from "@/feature/labjack/testutil";
 import {
@@ -33,15 +33,19 @@ const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
 
 const createConfig = (
   device: string,
-  channels: LabJack.Task.OutputChannel[],
+  channels: LabJack.Task.WriteChannel[],
 ): LabJack.Task.WritePayload["config"] => ({
-  ...LabJack.Task.ZERO_WRITE_PAYLOAD.config,
+  ...LabJack.Task.WRITE_SCHEMAS.config.parse({}),
   device,
   channels,
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = LabJack.Task.ZERO_WRITE_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<LabJack.Task.WriteSchemas> = {
+  name: "LabJack Write Task",
+  type: LabJack.Task.WRITE_TYPE,
+  config: LabJack.Task.WRITE_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   client: Synnax,
@@ -53,7 +57,10 @@ describe("LabJack Write", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createDOChannel("DIO4"), createAOChannel("DAC0")]),
+      createConfig(dev.key, [
+        createDigitalWriteChannel("DIO4"),
+        createAnalogWriteChannel("DAC0"),
+      ]),
     );
     await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
@@ -66,7 +73,7 @@ describe("LabJack Write", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createDOChannel("DIO4")]),
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
     );
     await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
@@ -88,7 +95,7 @@ describe("LabJack Write", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createDOChannel("DIO4")]),
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
     );
     const { container } = await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
@@ -100,7 +107,7 @@ describe("LabJack Write", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createDOChannel("DIO4")]),
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
     );
     await renderWrite({ client, taskKey: draft.key });
     fireEvent.click(await findDialogTriggerByText("FIO4"));
@@ -113,7 +120,10 @@ describe("LabJack Write", () => {
       const dev = await createLabJackDevice(client);
       const draft = await createDraft(
         client,
-        createConfig(dev.key, [createDOChannel("DIO4"), createAOChannel("DAC0")]),
+        createConfig(dev.key, [
+          createDigitalWriteChannel("DIO4"),
+          createAnalogWriteChannel("DAC0"),
+        ]),
       );
       const { container } = await renderWrite({ client, taskKey: draft.key });
       const created = await deployAndAwaitTask(
@@ -168,7 +178,7 @@ describe("LabJack Write", () => {
       const draft = await createDraft(
         client,
         createConfig(dev.key, [
-          createDOChannel("DIO4", {
+          createDigitalWriteChannel("DIO4", {
             cmdChannelName: cmdName,
             stateChannelName: stateName,
           }),
@@ -192,7 +202,7 @@ describe("LabJack Write", () => {
 
     it("should reuse existing command and state channels when redeployed", async () => {
       const dev = await createLabJackDevice(client);
-      const config = createConfig(dev.key, [createDOChannel("DIO4")]);
+      const config = createConfig(dev.key, [createDigitalWriteChannel("DIO4")]);
       const firstDraft = await createDraft(client, config);
       const first = await renderWrite({ client, taskKey: firstDraft.key });
       const firstTask = await deployAndAwaitTask(

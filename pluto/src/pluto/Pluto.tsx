@@ -24,6 +24,7 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
+import { Staleness } from "@/vis/staleness";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
@@ -40,6 +41,7 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   haul?: Haul.ProviderProps;
   telem?: CanDisabledProps<Telem.ProviderProps>;
   color?: Color.ProviderProps;
+  staleness?: Staleness.ProviderProps;
 }
 
 export const Provider = ({
@@ -54,6 +56,7 @@ export const Provider = ({
   haul,
   telem,
   color,
+  staleness,
 }: ProviderProps): ReactElement => (
   <Triggers.Provider {...triggers}>
     <Tooltip.Config {...tooltip}>
@@ -69,7 +72,9 @@ export const Provider = ({
                   <Theming.Provider {...theming}>
                     <Code.Provider languages={ARC_LANGUAGES}>
                       <CanDisableTelem {...telem}>
-                        <Control.Colors>{children}</Control.Colors>
+                        <Staleness.Provider {...staleness}>
+                          <Control.Colors>{children}</Control.Colors>
+                        </Staleness.Provider>
                       </CanDisableTelem>
                     </Code.Provider>
                   </Theming.Provider>

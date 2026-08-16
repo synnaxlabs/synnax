@@ -43,14 +43,14 @@ TEST_F(EtherCATScanTest, ScannerCreation) {
 }
 
 TEST_F(EtherCATScanTest, ScanConfigParsesCorrectly) {
-    x::json::json cfg_json = {{"scan_rate", 2.0}, {"enabled", true}};
+    x::json::json cfg_json = {{"rate", 2.0}, {"disabled", false}};
 
     x::json::Parser parser(cfg_json);
     ScanTaskConfig cfg(parser);
 
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(cfg.scan_rate.hz(), 2.0);
-    EXPECT_TRUE(cfg.enabled);
+    EXPECT_EQ(cfg.rate.hz(), 2.0);
+    EXPECT_FALSE(cfg.disabled);
 }
 
 TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
@@ -60,7 +60,7 @@ TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
     ScanTaskConfig cfg(parser);
 
     ASSERT_NIL(parser.error());
-    EXPECT_TRUE(cfg.enabled);
+    EXPECT_FALSE(cfg.disabled);
 }
 
 TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {

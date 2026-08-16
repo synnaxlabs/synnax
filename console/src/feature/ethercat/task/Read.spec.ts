@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax } from "@synnaxlabs/client";
+import { type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -15,9 +15,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createAutoInputChannel,
+  createAutoReadChannel,
   createIdentifier,
-  createManualInputChannel,
+  createManualReadChannel,
   createPDOs,
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
@@ -36,8 +36,12 @@ beforeAll(async () => {
   testRack = await client.racks.create({ name: uniqueName("ecat_rack") });
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = EtherCAT.Task.ZERO_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<EtherCAT.Task.ReadSchemas> = {
+  name: "EtherCAT Read Task",
+  type: EtherCAT.Task.READ_TYPE,
+  config: EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   client: Synnax,
@@ -78,10 +82,10 @@ describe("EtherCAT Read", () => {
       pdos: createPDOs(),
     });
     await renderRead({
-      ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
-        createAutoInputChannel(slave.key, "Status"),
-        createManualInputChannel(slave.key, 0x6000, 5),
+        createAutoReadChannel(slave.key, "Status"),
+        createManualReadChannel(slave.key, 0x6000, 5),
       ],
     });
     await waitFor(() =>
@@ -97,8 +101,8 @@ describe("EtherCAT Read", () => {
       pdos: createPDOs(),
     });
     await renderRead({
-      ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
-      channels: [createAutoInputChannel(slave.key, "Status")],
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel(slave.key, "Status")],
     });
     fireEvent.click((await screen.findAllByText("Status"))[0]);
     await waitFor(() => expect(screen.getByText("Slave Device")).toBeTruthy());
@@ -113,8 +117,8 @@ describe("EtherCAT Read", () => {
       network: "eth0",
     });
     await renderRead({
-      ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
-      channels: [createManualInputChannel(slave.key, 0x6000, 7)],
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createManualReadChannel(slave.key, 0x6000, 7)],
     });
     fireEvent.click(await screen.findByText("0x6000:7"));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
@@ -132,8 +136,8 @@ describe("EtherCAT Read", () => {
       pdos: createPDOs(),
     });
     await renderRead({
-      ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
-      channels: [createAutoInputChannel(slave.key, "Status")],
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel(slave.key, "Status")],
     });
     fireEvent.click((await screen.findAllByText("Status"))[0]);
     fireEvent.click(await screen.findByText("Automatic (PDO)"));
@@ -153,10 +157,10 @@ describe("EtherCAT Read", () => {
         pdos: createPDOs(),
       });
       const { container, draft } = await renderRead({
-        ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: [
-          createAutoInputChannel(slave.key, "Status"),
-          createManualInputChannel(slave.key, 0x6001, 2, { name: namedChannel }),
+          createAutoReadChannel(slave.key, "Status"),
+          createManualReadChannel(slave.key, 0x6001, 2, { name: namedChannel }),
         ],
       });
       const created = await deployAndAwaitTask(
@@ -198,8 +202,8 @@ describe("EtherCAT Read", () => {
         pdos: createPDOs(),
       });
       const config = {
-        ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
-        channels: [createAutoInputChannel(slave.key, "Status")],
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [createAutoReadChannel(slave.key, "Status")],
       };
       const first = await renderRead(config);
       const firstTask = await deployAndAwaitTask(
@@ -224,7 +228,7 @@ describe("EtherCAT Read", () => {
 
     it("should surface an error when the task has no channels", async () => {
       const { container, statuses } = await renderRead({
-        ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: [],
       });
       await clickDeploy(container);
@@ -240,8 +244,8 @@ describe("EtherCAT Read", () => {
         false,
       );
       const { container, statuses } = await renderRead({
-        ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
-        channels: [createAutoInputChannel(slave.key, "Status")],
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [createAutoReadChannel(slave.key, "Status")],
       });
       await clickDeploy(container);
       await awaitStatus(statuses, /Failed to/);

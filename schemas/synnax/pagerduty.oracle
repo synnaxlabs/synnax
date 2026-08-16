@@ -37,7 +37,8 @@ Alert struct {
         @doc value "is true when the alert is excluded from the task."
     }
 
-    @doc value "maps a Synnax status to a PagerDuty event routing rule."
+    @doc value  "maps a Synnax status to a PagerDuty event routing rule."
+    @go version 1
 }
 
 TaskConfig struct extends task.BaseStartConfig {
@@ -48,8 +49,11 @@ TaskConfig struct extends task.BaseStartConfig {
         @doc value "are the alerts the task evaluates."
     }
 
-    @doc value """
+    @doc value  """
         configures a PagerDuty alert task, which forwards Synnax status changes
         to PagerDuty as events.
     """
+    @go version 1
+    @go marshal
+    @go migrate
 }

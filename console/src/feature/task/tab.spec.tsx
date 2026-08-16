@@ -41,27 +41,30 @@ const TabName: FC<PTask.FormTabProps> = () => <Task.TAB.Name />;
 
 describe("task tab", () => {
   it("should render the form editor matching the task row's type", async () => {
-    const { key: _key, ...zero } = HTTP.Task.ZERO_READ_PAYLOAD;
-    const draft = await client.tasks.create({ ...zero, name: uniqueName("http") });
+    const draft = await client.tasks.create({
+      name: uniqueName("http"),
+      type: HTTP.Task.READ_TYPE,
+      config: HTTP.Task.READ_SCHEMAS.config.parse({}),
+    });
     await renderContent(draft.key);
     await screen.findByText("Add an endpoint");
   });
 
   it("should show an error for a task type with no registered editor", async () => {
     const created = await client.tasks.create({
-      name: uniqueName("mystery"),
-      type: "mystery_type",
+      name: uniqueName("rack_status"),
+      type: "rack_status",
       config: {},
     });
     await renderContent(created.key);
-    await screen.findByText("No editor for task type mystery_type");
+    await screen.findByText("No editor for task type rack_status");
   });
 
   it("should render the task's name in the tab", async () => {
     const name = uniqueName("named");
     const created = await client.tasks.create({
       name,
-      type: "mystery_type",
+      type: "rack_status",
       config: {},
     });
     await renderTaskFormTab(TabName, { client, taskKey: created.key });
@@ -72,7 +75,7 @@ describe("task tab", () => {
     const name = uniqueName("doomed");
     const created = await client.tasks.create({
       name,
-      type: "mystery_type",
+      type: "rack_status",
       config: {},
     });
     const DeletedProbe = ({ error }: Errors.FallbackProps) => (
@@ -80,7 +83,7 @@ describe("task tab", () => {
     );
     DeletedProbe.displayName = "DeletedProbe";
     await renderContent(created.key, DeletedProbe);
-    await screen.findByText("No editor for task type mystery_type");
+    await screen.findByText("No editor for task type rack_status");
     await act(async () => {
       await client.tasks.delete(created.key);
     });
@@ -93,7 +96,7 @@ describe("task tab", () => {
     const name = uniqueName("restorable");
     const created = await client.tasks.create({
       name,
-      type: "mystery_type",
+      type: "rack_status",
       config: {},
     });
     await client.tasks.create({

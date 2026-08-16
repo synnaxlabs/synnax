@@ -250,8 +250,8 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		svc = imex.NewService()
 		ts = DeferClose(openTestService(ctx, db))
-		svc.RegisterImportExporter(ts)
-		svc.RegisterImportExporter(errorService{})
+		Expect(svc.RegisterImportExporter(ts)).To(Succeed())
+		Expect(svc.RegisterImportExporter(errorService{})).To(Succeed())
 	})
 
 	Describe("ImporterType", func() {
@@ -291,12 +291,12 @@ var _ = Describe("Service", func() {
 			"Should resolve a typeless envelope through the claiming matcher",
 			func(ctx SpecContext) {
 				s := imex.NewService()
-				s.RegisterImporter("aaa", matchImporter{
+				Expect(s.RegisterImporter("aaa", matchImporter{
 					noopImporter{typ: ontology.ResourceTypeLog}, "channels",
-				})
-				s.RegisterImporter("bbb", matchImporter{
+				})).To(Succeed())
+				Expect(s.RegisterImporter("bbb", matchImporter{
 					noopImporter{typ: ontology.ResourceTypeSchematic}, "nodes",
-				})
+				})).To(Succeed())
 				Expect(s.ResolveType(
 					typelessEnvelope(`{"version":"1.0.0","nodes":[]}`),
 				)).To(Equal("bbb"))
@@ -307,12 +307,12 @@ var _ = Describe("Service", func() {
 			"Should offer the body to matchers in sorted type order",
 			func(ctx SpecContext) {
 				s := imex.NewService()
-				s.RegisterImporter("bbb", matchImporter{
+				Expect(s.RegisterImporter("bbb", matchImporter{
 					noopImporter{typ: ontology.ResourceTypeLog}, "marker",
-				})
-				s.RegisterImporter("aaa", matchImporter{
+				})).To(Succeed())
+				Expect(s.RegisterImporter("aaa", matchImporter{
 					noopImporter{typ: ontology.ResourceTypeLog}, "marker",
-				})
+				})).To(Succeed())
 				Expect(s.ResolveType(
 					typelessEnvelope(`{"marker":true}`),
 				)).To(Equal("aaa"))
@@ -337,9 +337,9 @@ var _ = Describe("Service", func() {
 			"Should route a typeless envelope through Import via its matcher",
 			func(ctx SpecContext) {
 				s := imex.NewService()
-				s.RegisterImporter("matched", matchImporter{
+				Expect(s.RegisterImporter("matched", matchImporter{
 					noopImporter{typ: ontology.ResourceTypeLog}, "channels",
-				})
+				})).To(Succeed())
 				id := MustSucceed(s.Import(
 					ctx, db, typelessEnvelope(`{"version":"1.0.0","channels":[]}`),
 					imex.ImportOptions{FileName: "Legacy.json", Parent: newParent(ctx)},
@@ -354,10 +354,10 @@ var _ = Describe("Service", func() {
 	Describe("RegisterImporter", func() {
 		It("Should register an importer under a narrow type string", func() {
 			s := imex.NewService()
-			s.RegisterImporter(
+			Expect(s.RegisterImporter(
 				"narrow",
 				noopImporter{typ: ontology.ResourceTypeChannel},
-			)
+			)).To(Succeed())
 			Expect(s.ImporterType("narrow")).To(Equal(ontology.ResourceTypeChannel))
 		})
 
@@ -365,14 +365,14 @@ var _ = Describe("Service", func() {
 			"Should map the narrow type to the importer's broader Type for access control",
 			func(ctx SpecContext) {
 				s := imex.NewService()
-				s.RegisterImporter(
+				Expect(s.RegisterImporter(
 					"http_read",
 					noopImporter{typ: ontology.ResourceTypeTask},
-				)
-				s.RegisterImporter(
+				)).To(Succeed())
+				Expect(s.RegisterImporter(
 					"opc_scan",
 					noopImporter{typ: ontology.ResourceTypeTask},
-				)
+				)).To(Succeed())
 				Expect(s.ImporterType("http_read")).To(Equal(ontology.ResourceTypeTask))
 				Expect(s.ImporterType("opc_scan")).To(Equal(ontology.ResourceTypeTask))
 				k1 := MustSucceed(s.Import(
@@ -398,7 +398,9 @@ var _ = Describe("Service", func() {
 	Describe("RegisterExporter", func() {
 		It("Should register an exporter under its own Type", func(ctx SpecContext) {
 			s := imex.NewService()
-			s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog})
+			Expect(
+				s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog}),
+			).To(Succeed())
 			env := MustSucceed(s.Export(ctx, ontology.ID{
 				Type: ontology.ResourceTypeLog,
 				Key:  "any",
@@ -406,6 +408,57 @@ var _ = Describe("Service", func() {
 			Expect(env.Type).To(Equal(string(ontology.ResourceTypeLog)))
 			Expect(env.Name).To(Equal("noop"))
 		})
+	})
+
+	Describe("Duplicate registration", func() {
+		It("Should reject a second importer for a type", func() {
+			s := imex.NewService()
+			first := noopImporter{typ: ontology.ResourceTypeChannel}
+			Expect(s.RegisterImporter("taken", first)).To(Succeed())
+			Expect(s.RegisterImporter(
+				"taken",
+				noopImporter{typ: ontology.ResourceTypeLog},
+			)).To(SatisfyAll(
+				MatchError(imex.ErrTypeTaken),
+				MatchError(ContainSubstring(`importer for type "taken"`)),
+			))
+			Expect(s.ImporterType("taken")).To(Equal(ontology.ResourceTypeChannel))
+		})
+
+		It("Should reject a second exporter for a type", func(ctx SpecContext) {
+			s := imex.NewService()
+			Expect(
+				s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog}),
+			).To(Succeed())
+			Expect(s.RegisterExporter(
+				noopExporter{typ: ontology.ResourceTypeLog},
+			)).To(SatisfyAll(
+				MatchError(imex.ErrTypeTaken),
+				MatchError(ContainSubstring(`exporter for type "log"`)),
+			))
+			env := MustSucceed(s.Export(ctx, ontology.ID{
+				Type: ontology.ResourceTypeLog,
+				Key:  "any",
+			}))
+			Expect(env.Name).To(Equal("noop"))
+		})
+
+		It(
+			"Should leave both halves untouched when an import/exporter collides",
+			func(ctx SpecContext) {
+				s := imex.NewService()
+				Expect(s.RegisterImporter(
+					string(ontology.ResourceTypeChannel),
+					noopImporter{typ: ontology.ResourceTypeChannel},
+				)).To(Succeed())
+				ts := DeferClose(openTestService(ctx, db))
+				Expect(s.RegisterImportExporter(ts)).To(MatchError(imex.ErrTypeTaken))
+				Expect(s.Export(ctx, ontology.ID{
+					Type: ontology.ResourceTypeChannel,
+					Key:  "any",
+				})).Error().To(MatchError(ContainSubstring("no exporter registered")))
+			},
+		)
 	})
 
 	Describe("Import", func() {
@@ -690,10 +743,10 @@ var _ = Describe("Service", func() {
 				for _, t := range types {
 					go func(t string) {
 						defer wg.Done()
-						s.RegisterImporter(
+						Expect(s.RegisterImporter(
 							t,
 							noopImporter{typ: ontology.ResourceTypeTask},
-						)
+						)).To(Succeed())
 					}(t)
 				}
 				wg.Wait()

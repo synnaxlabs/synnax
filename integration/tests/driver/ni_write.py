@@ -21,12 +21,12 @@ from tests.driver.task import (
 
 def _do_channels(
     client: sy.Synnax, devices: dict[str, sy.Device]
-) -> list[sy.ni.DOChan]:
+) -> list[sy.ni.DOChannel]:
     """Create two digital output channels on port 0, lines 0 and 1."""
     cmd_idx = create_index(client, "ni_do_cmd_time")
     state_idx = create_index(client, "ni_do_state_time")
     return [
-        sy.ni.DOChan(
+        sy.ni.DOChannel(
             cmd_channel=create_channel(
                 client,
                 name=f"ni_do_cmd_{i}",
@@ -56,7 +56,7 @@ class NIDigitalWrite(NIDigitalWriteTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.DOChan]:
+    ) -> list[sy.ni.DOChannel]:
         return _do_channels(client, devices)
 
 
@@ -123,7 +123,7 @@ class NIDigitalWriteInvalidData(NIDigitalWriteTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.DOChan]:
+    ) -> list[sy.ni.DOChannel]:
         return _do_channels(client, devices)
 
     def run(self) -> None:
@@ -142,12 +142,12 @@ class NIDigitalWriteInvalidData(NIDigitalWriteTaskCase):
 
 def _ao_voltage_channels(
     client: sy.Synnax, devices: dict[str, sy.Device]
-) -> list[sy.ni.AOVoltageChan]:
+) -> list[sy.ni.AOVoltageChannel]:
     """Create three voltage output channels on E102Mod4 (NI 9263).
 
     Port 0: MapScale (-10V..+10V → 0%..100%) — user writes percent
     Port 1: No scale — user writes volts (-10 to +10)
-    Port 2: LinScale (slope=5 %/V, intercept=50) — user writes percent
+    Port 2: LinearScale (slope=5 %/V, intercept=50) — user writes percent
     """
     cmd_idx = create_index(client, "ni_ao_volt_cmd_time")
     state_idx = create_index(client, "ni_ao_volt_state_time")
@@ -159,13 +159,13 @@ def _ao_voltage_channels(
         pre_scaled_units="Volts",
     )
     # slope=5: each volt = 5%, y_intercept=50: 0V = 50%
-    lin_scale = sy.ni.LinScale(
+    lin_scale = sy.ni.LinearScale(
         slope=5,
         y_intercept=50,
         pre_scaled_units="Volts",
         scaled_units="Volts",
     )
-    map_scaled = sy.ni.AOVoltageChan(
+    map_scaled = sy.ni.AOVoltageChannel(
         cmd_channel=create_channel(
             client,
             name="ni_ao_volt_cmd_0",
@@ -183,7 +183,7 @@ def _ao_voltage_channels(
         max_val=100,
         custom_scale=map_scale,
     )
-    nominal = sy.ni.AOVoltageChan(
+    nominal = sy.ni.AOVoltageChannel(
         cmd_channel=create_channel(
             client,
             name="ni_ao_volt_cmd_1",
@@ -200,7 +200,7 @@ def _ao_voltage_channels(
         min_val=-10,
         max_val=10,
     )
-    lin_scaled = sy.ni.AOVoltageChan(
+    lin_scaled = sy.ni.AOVoltageChannel(
         cmd_channel=create_channel(
             client,
             name="ni_ao_volt_cmd_2",
@@ -223,12 +223,12 @@ def _ao_voltage_channels(
 
 def _ao_current_channels(
     client: sy.Synnax, devices: dict[str, sy.Device]
-) -> list[sy.ni.AOCurrentChan]:
+) -> list[sy.ni.AOCurrentChannel]:
     """Create three current output channels on E102Mod5 (NI 9265).
 
     Port 0: MapScale (4mA..20mA → 0%..100%) — user writes percent
     Port 1: No scale — user writes amps (0.004 to 0.020)
-    Port 2: LinScale (slope=6250 %/A, intercept=-25) — user writes percent
+    Port 2: LinearScale (slope=6250 %/A, intercept=-25) — user writes percent
     """
     cmd_idx = create_index(client, "ni_ao_curr_cmd_time")
     state_idx = create_index(client, "ni_ao_curr_state_time")
@@ -240,13 +240,13 @@ def _ao_current_channels(
         pre_scaled_units="Amps",
     )
     # slope=6250: each amp = 6250%, y_intercept=-25: 0.004A = 0%
-    lin_scale = sy.ni.LinScale(
+    lin_scale = sy.ni.LinearScale(
         slope=6250,
         y_intercept=-25,
         pre_scaled_units="Amps",
         scaled_units="Amps",
     )
-    map_scaled = sy.ni.AOCurrentChan(
+    map_scaled = sy.ni.AOCurrentChannel(
         cmd_channel=create_channel(
             client,
             name="ni_ao_curr_cmd_0",
@@ -264,7 +264,7 @@ def _ao_current_channels(
         max_val=100,
         custom_scale=map_scale,
     )
-    nominal = sy.ni.AOCurrentChan(
+    nominal = sy.ni.AOCurrentChannel(
         cmd_channel=create_channel(
             client,
             name="ni_ao_curr_cmd_1",
@@ -281,7 +281,7 @@ def _ao_current_channels(
         min_val=0.004,
         max_val=0.020,
     )
-    lin_scaled = sy.ni.AOCurrentChan(
+    lin_scaled = sy.ni.AOCurrentChannel(
         cmd_channel=create_channel(
             client,
             name="ni_ao_curr_cmd_2",
@@ -310,7 +310,7 @@ class _NIAnalogWriteVoltageBase(NIAnalogWriteTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AOVoltageChan]:
+    ) -> list[sy.ni.AOVoltageChannel]:
         return _ao_voltage_channels(client, devices)
 
 
@@ -322,14 +322,14 @@ class _NIAnalogWriteCurrentBase(NIAnalogWriteTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AOCurrentChan]:
+    ) -> list[sy.ni.AOCurrentChannel]:
         return _ao_current_channels(client, devices)
 
 
 class NIAnalogWriteVoltage(_NIAnalogWriteVoltageBase):
     """Write voltage on NI 9263 (E102Mod4).
 
-    Port 0: MapScale (%) | Port 1: nominal (V) | Port 2: LinScale (%)
+    Port 0: MapScale (%) | Port 1: nominal (V) | Port 2: LinearScale (%)
     """
 
     task_name = "NI Analog Write Voltage"
@@ -340,7 +340,7 @@ class NIAnalogWriteVoltage(_NIAnalogWriteVoltageBase):
 class NIAnalogWriteCurrent(_NIAnalogWriteCurrentBase):
     """Write current on NI 9265 (E102Mod5).
 
-    Port 0: MapScale (%) | Port 1: nominal (A) | Port 2: LinScale (%)
+    Port 0: MapScale (%) | Port 1: nominal (A) | Port 2: LinearScale (%)
     """
 
     task_name = "NI Analog Write Current"

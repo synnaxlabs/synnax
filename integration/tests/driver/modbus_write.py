@@ -17,10 +17,10 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
     task_name = "Modbus Write Coil"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
         idx = create_index(client, "modbus_coil_cmd_time")
         return [
-            modbus.CoilOutputChan(
+            modbus.CoilWriteChannel(
                 channel=create_channel(
                     client,
                     name=f"modbus_coil_cmd_{i}",
@@ -37,10 +37,10 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
     task_name = "Modbus Write Holding Register"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
         idx = create_index(client, "modbus_hr_cmd_time")
         return [
-            modbus.HoldingRegisterOutputChan(
+            modbus.HoldingRegisterWriteChannel(
                 channel=create_channel(
                     client,
                     name=f"modbus_hr_cmd_{i}",
@@ -58,10 +58,10 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
     task_name = "Modbus Write Mixed"
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
         idx = create_index(client, "modbus_mixed_cmd_time")
         return [
-            modbus.CoilOutputChan(
+            modbus.CoilWriteChannel(
                 channel=create_channel(
                     client,
                     name=f"modbus_mixed_coil_cmd_{i}",
@@ -72,7 +72,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
             )
             for i in range(2)
         ] + [
-            modbus.HoldingRegisterOutputChan(
+            modbus.HoldingRegisterWriteChannel(
                 channel=create_channel(
                     client,
                     name=f"modbus_mixed_hr_cmd_{i}",

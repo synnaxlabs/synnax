@@ -20,53 +20,27 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (lv Leaf) EncodeOrc(w *orc.Writer) error {
-	w.Bool(lv.Tabs != nil)
-	if lv.Tabs != nil {
-		w.Uint32(uint32(len(lv.Tabs)))
-		for i := range lv.Tabs {
-			if err := lv.Tabs[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (lv *Leaf) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			lv.Tabs = make([]Tab, n)
-			for i := range lv.Tabs {
-				if err = lv.Tabs[i].DecodeOrc(r); err != nil {
+func (nv Node) EncodeOrc(w *orc.Writer) error {
+	switch v := nv.Variant.(type) {
+	case LeafNode:
+		w.String("leaf")
+		w.Bool(v.Tabs != nil)
+		if v.Tabs != nil {
+			w.Uint32(uint32(len(v.Tabs)))
+			for i := range v.Tabs {
+				if err := v.Tabs[i].EncodeOrc(w); err != nil {
 					return err
 				}
 			}
 		}
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (nv Node) EncodeOrc(w *orc.Writer) error {
-	switch v := nv.Variant.(type) {
-	case NodeLeaf:
-		w.String("leaf")
-		if err := v.Leaf.EncodeOrc(w); err != nil {
+	case SplitNode:
+		w.String("split")
+		w.String(string(v.Direction))
+		w.Float64(float64(v.Size))
+		if err := v.First.EncodeOrc(w); err != nil {
 			return err
 		}
-	case NodeSplit:
-		w.String("split")
-		if err := v.Split.EncodeOrc(w); err != nil {
+		if err := v.Last.EncodeOrc(w); err != nil {
 			return err
 		}
 	default:
@@ -87,14 +61,42 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	}
 	switch tag {
 	case "leaf":
-		var v NodeLeaf
-		if err := v.Leaf.DecodeOrc(r); err != nil {
-			return err
+		var v LeafNode
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Tabs = make([]Tab, n)
+				for i := range v.Tabs {
+					if err = v.Tabs[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		nv.Variant = v
 	case "split":
-		var v NodeSplit
-		if err := v.Split.DecodeOrc(r); err != nil {
+		var v SplitNode
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Direction = spatial.Direction(rawV)
+		}
+		if v.Size, err = r.Float64(); err != nil {
+			return err
+		}
+		if err = v.First.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.Last.DecodeOrc(r); err != nil {
 			return err
 		}
 		nv.Variant = v
@@ -130,48 +132,9 @@ func (p *Panel) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (s Split) EncodeOrc(w *orc.Writer) error {
-	w.String(string(s.Direction))
-	w.Float64(float64(s.Size))
-	if err := s.First.EncodeOrc(w); err != nil {
-		return err
-	}
-	if err := s.Last.EncodeOrc(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (s *Split) DecodeOrc(r *orc.Reader) error {
-	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
-		return err
-	}
-	defer r.PopDepth()
-	var err error
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.Direction = spatial.Direction(rawV)
-	}
-	if s.Size, err = r.Float64(); err != nil {
-		return err
-	}
-	if err = s.First.DecodeOrc(r); err != nil {
-		return err
-	}
-	if err = s.Last.DecodeOrc(r); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (t Tab) EncodeOrc(w *orc.Writer) error {
 	switch v := t.Variant.(type) {
-	case TabResource:
+	case ResourceTab:
 		w.String("resource")
 		if err := v.TabBase.EncodeOrc(w); err != nil {
 			return err
@@ -179,7 +142,7 @@ func (t Tab) EncodeOrc(w *orc.Writer) error {
 		if err := v.Resource.EncodeOrc(w); err != nil {
 			return err
 		}
-	case TabView:
+	case ViewTab:
 		w.String("view")
 		if err := v.TabBase.EncodeOrc(w); err != nil {
 			return err
@@ -201,7 +164,7 @@ func (t *Tab) DecodeOrc(r *orc.Reader) error {
 	}
 	switch tag {
 	case "resource":
-		var v TabResource
+		var v ResourceTab
 		if err := v.TabBase.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -210,7 +173,7 @@ func (t *Tab) DecodeOrc(r *orc.Reader) error {
 		}
 		t.Variant = v
 	case "view":
-		var v TabView
+		var v ViewTab
 		if err := v.TabBase.DecodeOrc(r); err != nil {
 			return err
 		}

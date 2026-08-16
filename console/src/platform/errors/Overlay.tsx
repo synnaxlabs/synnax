@@ -9,18 +9,16 @@
 
 import "@/platform/errors/Overlay.css";
 
-import { Logo } from "@synnaxlabs/media";
 import {
   Button,
   CSS as PCSS,
   Errors,
   Flex,
-  Nav,
   OS,
   Synnax,
   Theming,
 } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { type record, type runtime } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -32,6 +30,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
+import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
 
 export interface OverlayProps extends PropsWithChildren {}
@@ -100,6 +99,38 @@ const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactEleme
   );
 };
 
+// Tauri-direct rather than Window.Controls: the store-less overlay catches failures
+// from above the store, where that component's Drift selectors are unavailable.
+const windowAction = (action: "close" | "minimize" | "maximize") => (): void => {
+  if (Session.Runtime.ENGINE !== "tauri") return;
+  void getCurrentWindow()[action]();
+};
+
+const handleClose = windowAction("close");
+const handleMinimize = windowAction("minimize");
+const handleMaximize = windowAction("maximize");
+
+interface WindowControlsProps {
+  os: runtime.OS;
+}
+
+const WindowControls = ({ os }: WindowControlsProps): ReactElement | null => {
+  if (Session.Runtime.ENGINE !== "tauri") return null;
+  if (os !== "macOS" && os !== "Windows") return null;
+  return (
+    <Shell.Islands justify={os === "macOS" ? "start" : "end"}>
+      <Shell.Island>
+        <OS.Controls
+          forceOS={os}
+          onClose={handleClose}
+          onMinimize={handleMinimize}
+          onMaximize={handleMaximize}
+        />
+      </Shell.Island>
+    </Shell.Islands>
+  );
+};
+
 interface FallbackRenderContentProps<
   ExtraInfo extends record.Unknown = record.Unknown,
 > {
@@ -134,52 +165,15 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
   }, [onTryAgain]);
 
   return (
-    <Flex.Box y className={CSS.B("error-overlay")}>
-      <Nav.Bar
-        location="top"
-        size="7rem"
-        bordered
-        data-tauri-drag-region
-        background={2}
-      >
-        <Nav.Bar.Start>
-          <OS.Controls
-            visibleIfOS="macOS"
-            forceOS={os}
-            onClose={() => {
-              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().close();
-            }}
-            onMinimize={() => {
-              if (Session.Runtime.ENGINE === "tauri")
-                void getCurrentWindow().minimize();
-            }}
-            onMaximize={() => {
-              if (Session.Runtime.ENGINE === "tauri")
-                void getCurrentWindow().maximize();
-            }}
-          />
-          {os === "Windows" && (
-            <Logo className="console-main-nav-top__logo" variant="icon" />
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End justify="end">
-          <OS.Controls
-            visibleIfOS="Windows"
-            forceOS={os}
-            onClose={() => {
-              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().close();
-            }}
-            onMinimize={() => {
-              if (Session.Runtime.ENGINE === "tauri")
-                void getCurrentWindow().minimize();
-            }}
-            onMaximize={() => {
-              if (Session.Runtime.ENGINE === "tauri")
-                void getCurrentWindow().maximize();
-            }}
-          />
-        </Nav.Bar.End>
-      </Nav.Bar>
+    <Flex.Box
+      y
+      full
+      empty
+      background={1}
+      data-tauri-drag-region
+      className={CSS.B("error-overlay")}
+    >
+      <WindowControls os={os} />
       <Errors.Fallback
         error={error}
         resetErrorBoundary={resetErrorBoundary}

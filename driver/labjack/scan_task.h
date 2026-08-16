@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "client/cpp/labjack/json.gen.h"
 #include "client/cpp/synnax.h"
 
 #include "device/device.h"
@@ -26,13 +27,9 @@ const std::vector SCAN_SKIP_ERRORS = {
 };
 
 /// @brief configuration for the scan task
-struct ScanTaskConfig : common::ScanTaskConfig {
-    /// @brief how often to scan TCP devices relative to USB devices
-    const int tcp_scan_multiplier;
-
+struct ScanTaskConfig : ::synnax::labjack::ScanConfig {
     explicit ScanTaskConfig(x::json::Parser &cfg):
-        common::ScanTaskConfig(cfg),
-        tcp_scan_multiplier(cfg.field<int>("tcp_scan_multiplier", 10)) {}
+        ::synnax::labjack::ScanConfig(::synnax::labjack::ScanConfig::parse(cfg)) {}
 };
 
 class Scanner final : public common::Scanner {

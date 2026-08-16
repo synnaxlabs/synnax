@@ -18,23 +18,23 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/common/types.gen.h"
+#include "client/cpp/task/config/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
 namespace synnax::ni {
 
-struct NoneScale;
 struct MinMaxVal;
 struct Sensitivity;
 struct BaseAIChannel;
 struct BaseCIChannel;
 struct BaseAOChannel;
+struct DIChannel;
+struct DOChannel;
 struct WriteConfig;
-struct LinearScale;
-struct MapScale;
-struct TableScale;
-struct PolynomialScale;
+struct ScanConfig;
+struct DigitalReadConfig;
+struct DigitalWriteConfig;
 struct BridgePolynomial;
 struct Table;
 struct TwoPointLin;
@@ -44,12 +44,36 @@ struct Terminal;
 struct Bridge;
 struct Resistance;
 struct ZIndex;
-struct DigitalReadConfig;
-struct DigitalWriteConfig;
 struct CustomScale;
 struct AnalogReadConfig;
 struct CounterReadConfig;
 struct AnalogWriteConfig;
+
+constexpr const char *TERMINAL_CONFIG_CFG_DEFAULT = "Cfg_Default";
+constexpr const char *TERMINAL_CONFIG_RSE = "RSE";
+constexpr const char *TERMINAL_CONFIG_NRSE = "NRSE";
+constexpr const char *TERMINAL_CONFIG_DIFF = "Diff";
+constexpr const char *TERMINAL_CONFIG_PSEUDO_DIFF = "PseudoDiff";
+
+constexpr const char *EXCITATION_SOURCE_INTERNAL = "Internal";
+constexpr const char *EXCITATION_SOURCE_EXTERNAL = "External";
+constexpr const char *EXCITATION_SOURCE_NONE = "None";
+
+constexpr const char *BRIDGE_CONFIG_FULL_BRIDGE = "FullBridge";
+constexpr const char *BRIDGE_CONFIG_HALF_BRIDGE = "HalfBridge";
+constexpr const char *BRIDGE_CONFIG_QUARTER_BRIDGE = "QuarterBridge";
+
+constexpr const char *ELECTRICAL_UNITS_M_VOLTS_PER_VOLT = "mVoltsPerVolt";
+constexpr const char *ELECTRICAL_UNITS_VOLTS_PER_VOLT = "VoltsPerVolt";
+
+constexpr const char *RESISTANCE_CONFIG_WIRE_2 = "2Wire";
+constexpr const char *RESISTANCE_CONFIG_WIRE_3 = "3Wire";
+constexpr const char *RESISTANCE_CONFIG_WIRE_4 = "4Wire";
+
+constexpr const char *Z_INDEX_PHASE_A_HIGH_B_HIGH = "AHighBHigh";
+constexpr const char *Z_INDEX_PHASE_A_HIGH_B_LOW = "AHighBLow";
+constexpr const char *Z_INDEX_PHASE_A_LOW_B_HIGH = "ALowBHigh";
+constexpr const char *Z_INDEX_PHASE_A_LOW_B_LOW = "ALowBLow";
 
 constexpr const char *UNITS_VOLTS = "Volts";
 constexpr const char *UNITS_AMPS = "Amps";
@@ -79,32 +103,6 @@ constexpr const char *UNITS_NEWTON_METERS = "NewtonMeters";
 constexpr const char *UNITS_INCH_POUNDS = "InchPounds";
 constexpr const char *UNITS_INCH_OUNCES = "InchOunces";
 constexpr const char *UNITS_FOOT_POUNDS = "FootPounds";
-
-constexpr const char *TERMINAL_CONFIG_CFG_DEFAULT = "Cfg_Default";
-constexpr const char *TERMINAL_CONFIG_RSE = "RSE";
-constexpr const char *TERMINAL_CONFIG_NRSE = "NRSE";
-constexpr const char *TERMINAL_CONFIG_DIFF = "Diff";
-constexpr const char *TERMINAL_CONFIG_PSEUDO_DIFF = "PseudoDiff";
-
-constexpr const char *EXCITATION_SOURCE_INTERNAL = "Internal";
-constexpr const char *EXCITATION_SOURCE_EXTERNAL = "External";
-constexpr const char *EXCITATION_SOURCE_NONE = "None";
-
-constexpr const char *BRIDGE_CONFIG_FULL_BRIDGE = "FullBridge";
-constexpr const char *BRIDGE_CONFIG_HALF_BRIDGE = "HalfBridge";
-constexpr const char *BRIDGE_CONFIG_QUARTER_BRIDGE = "QuarterBridge";
-
-constexpr const char *ELECTRICAL_UNITS_M_VOLTS_PER_VOLT = "mVoltsPerVolt";
-constexpr const char *ELECTRICAL_UNITS_VOLTS_PER_VOLT = "VoltsPerVolt";
-
-constexpr const char *RESISTANCE_CONFIG_WIRE_2 = "2Wire";
-constexpr const char *RESISTANCE_CONFIG_WIRE_3 = "3Wire";
-constexpr const char *RESISTANCE_CONFIG_WIRE_4 = "4Wire";
-
-constexpr const char *Z_INDEX_PHASE_A_HIGH_B_HIGH = "AHighBHigh";
-constexpr const char *Z_INDEX_PHASE_A_HIGH_B_LOW = "AHighBLow";
-constexpr const char *Z_INDEX_PHASE_A_LOW_B_HIGH = "ALowBHigh";
-constexpr const char *Z_INDEX_PHASE_A_LOW_B_LOW = "ALowBLow";
 
 constexpr const char *ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G = "mVoltsPerG";
 constexpr const char *ACCEL_SENSITIVITY_UNITS_VOLTS_PER_G = "VoltsPerG";
@@ -182,6 +180,7 @@ constexpr const char *CI_MEAS_METHOD_LARGE_RNG_2_CTR = "LargeRng2Ctr";
 constexpr const char *CI_MEAS_METHOD_DYNAMIC_AVG = "DynamicAvg";
 
 constexpr const char *CI_FREQ_UNITS_HZ = "Hz";
+constexpr const char *CI_FREQ_UNITS_SECONDS = "Seconds";
 constexpr const char *CI_FREQ_UNITS_TICKS = "Ticks";
 
 constexpr const char *CI_TIME_UNITS_SECONDS = "Seconds";
@@ -215,13 +214,6 @@ constexpr const char *WAVE_TYPE_SINE = "Sine";
 constexpr const char *WAVE_TYPE_TRIANGLE = "Triangle";
 constexpr const char *WAVE_TYPE_SQUARE = "Square";
 constexpr const char *WAVE_TYPE_SAWTOOTH = "Sawtooth";
-
-/// @brief NoneScale applies no scaling; the raw value is used directly.
-struct NoneScale {
-
-    static NoneScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
 
 /// @brief MinMaxVal bounds the expected signal range in scaled units.
 struct MinMaxVal {
@@ -302,54 +294,8 @@ struct BaseAOChannel {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteConfig carries the configuration fields shared by NI write tasks.
-struct WriteConfig : public ::synnax::task::common::BaseWriteConfig {
-    /// @brief state_rate is the rate at which output state is reported to Synnax, in
-    /// hertz.
-    ::x::telem::Rate state_rate = ::x::telem::Rate(10);
-
-    static WriteConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief CJCBuiltIn reads the reference temperature from the device's own sensor.
-struct CJCBuiltIn {
-    std::string source = "built_in";
-
-    static CJCBuiltIn parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief CJCConstVal uses a fixed reference temperature.
-struct CJCConstVal {
-    std::string source = "const_val";
-    /// @brief val is the reference temperature, in the channel's units.
-    double val = 0;
-
-    static CJCConstVal parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief CJCChan reads the reference temperature from another channel.
-struct CJCChan {
-    std::string source = "chan";
-    /// @brief port is the port of the channel that measures the reference.
-    std::int32_t port = 0;
-
-    static CJCChan parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief CJC is the cold-junction compensation for a thermocouple. The source selects
-/// where the reference temperature comes from.
-using CJC = std::variant<CJCBuiltIn, CJCConstVal, CJCChan>;
-
-CJC parse_cjc(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const CJC &value);
-
-/// @brief DigitalInputChannel carries the fields of an NI digital input channel.
-struct DigitalInputChannel {
-    std::string type = "digital_input";
+/// @brief DIChannel is a digital input channel the task acquires from.
+struct DIChannel {
     /// @brief key uniquely identifies the channel within the task.
     std::string key = "";
     /// @brief name is the human-readable channel name.
@@ -363,19 +309,12 @@ struct DigitalInputChannel {
     /// @brief line is the digital line within the port the channel reads from.
     std::int32_t line = 0;
 
-    static DigitalInputChannel parse(x::json::Parser parser);
+    static DIChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief DIChannel is a digital input channel the task acquires from.
-using DIChannel = std::variant<DigitalInputChannel>;
-
-DIChannel parse_di_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const DIChannel &value);
-
-/// @brief DOChannelDigitalOutput carries the fields of an NI digital output channel.
-struct DOChannelDigitalOutput {
-    std::string type = "digital_output";
+/// @brief DOChannel is a digital output channel the task drives.
+struct DOChannel {
     /// @brief key uniquely identifies the channel within the task.
     std::string key = "";
     /// @brief disabled is true when the channel is excluded from the task.
@@ -393,18 +332,88 @@ struct DOChannelDigitalOutput {
     /// @brief line is the digital line within the port the channel writes to.
     std::int32_t line = 0;
 
-    static DOChannelDigitalOutput parse(x::json::Parser parser);
+    static DOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief DOChannel is a digital output channel the task drives.
-using DOChannel = std::variant<DOChannelDigitalOutput>;
+/// @brief WriteConfig carries the configuration fields shared by NI write tasks.
+struct WriteConfig : public ::synnax::task::config::BaseWrite {
+    /// @brief state_rate is the rate at which output state is reported to Synnax, in
+    /// hertz.
+    ::x::telem::Rate state_rate = ::x::telem::Rate(10);
 
-DOChannel parse_do_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const DOChannel &value);
+    static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfig configures the NI device scanner task.
+struct ScanConfig : public ::synnax::task::config::BaseScan {
+    /// @brief ignored_models are regex patterns matching the device models the scan
+    /// skips.
+    std::vector<std::string> ignored_models = {"^cRIO.*", "^nown.*"};
+
+    static ScanConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BuiltInCJC reads the reference temperature from the device's own sensor.
+struct BuiltInCJC {
+    std::string source = "built_in";
+
+    static BuiltInCJC parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConstValCJC uses a fixed reference temperature.
+struct ConstValCJC {
+    std::string source = "const_val";
+    /// @brief val is the reference temperature, in the channel's units.
+    double val = 0;
+
+    static ConstValCJC parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ChanCJC reads the reference temperature from another channel.
+struct ChanCJC {
+    std::string source = "chan";
+    /// @brief port is the port of the channel that measures the reference.
+    std::int32_t port = 0;
+
+    static ChanCJC parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CJC is the cold-junction compensation for a thermocouple. The source selects
+/// where the reference temperature comes from.
+using CJC = std::variant<BuiltInCJC, ConstValCJC, ChanCJC>;
+
+CJC parse_cjc(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const CJC &value);
+
+/// @brief DigitalReadConfig configures an NI digital read task.
+struct DigitalReadConfig : public ::synnax::task::config::BaseRead {
+    /// @brief device is the key of the device the task acquires from.
+    ::synnax::device::Key device = "";
+    /// @brief channels are the digital input channels the task acquires.
+    std::vector<DIChannel> channels;
+
+    static DigitalReadConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DigitalWriteConfig configures an NI digital write task.
+struct DigitalWriteConfig : public WriteConfig {
+    /// @brief channels are the digital output channels the task drives.
+    std::vector<DOChannel> channels;
+
+    static DigitalWriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief LinearScale maps raw values to engineering units with a slope and intercept.
 struct LinearScale {
+    std::string type = "linear";
     /// @brief slope is the multiplier applied to the raw value.
     double slope = 1;
     /// @brief y_intercept is the offset added after scaling.
@@ -420,6 +429,7 @@ struct LinearScale {
 
 /// @brief MapScale maps a raw range linearly onto a scaled range.
 struct MapScale {
+    std::string type = "map";
     /// @brief pre_scaled_min is the lower bound of the raw input range.
     double pre_scaled_min = 0;
     /// @brief pre_scaled_max is the upper bound of the raw input range.
@@ -439,6 +449,7 @@ struct MapScale {
 
 /// @brief TableScale maps raw values to engineering units via a lookup table.
 struct TableScale {
+    std::string type = "table";
     /// @brief pre_scaled_vals are the raw breakpoints, monotonically increasing.
     std::vector<double> pre_scaled_vals = {};
     /// @brief scaled_vals are the engineering-unit values at each breakpoint.
@@ -454,6 +465,7 @@ struct TableScale {
 
 /// @brief PolynomialScale maps raw values to engineering units with a polynomial.
 struct PolynomialScale {
+    std::string type = "polynomial";
     /// @brief forward_coeffs are the coefficients mapping pre-scaled to scaled values.
     std::vector<double> forward_coeffs = {};
     /// @brief reverse_coeffs are the coefficients mapping scaled to pre-scaled values.
@@ -466,6 +478,21 @@ struct PolynomialScale {
     static PolynomialScale parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief NoneScale applies no scaling; the raw value is used directly.
+struct NoneScale {
+    std::string type = "none";
+
+    static NoneScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Scale determines how raw sensor values are transformed to engineering units.
+using Scale = std::
+    variant<LinearScale, MapScale, TableScale, PolynomialScale, NoneScale>;
+
+Scale parse_scale(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Scale &value);
 
 /// @brief BridgePolynomial scales bridge electrical output to physical units with a
 /// polynomial.
@@ -584,72 +611,10 @@ struct ZIndex {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief DigitalReadConfig configures an NI digital read task.
-struct DigitalReadConfig : public ::synnax::task::common::BaseReadConfig {
-    /// @brief device is the key of the device the task acquires from.
-    ::synnax::device::Key device = "";
-    /// @brief channels are the digital input channels the task acquires.
-    std::vector<DIChannel> channels;
-
-    static DigitalReadConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief DigitalWriteConfig configures an NI digital write task.
-struct DigitalWriteConfig : public WriteConfig {
-    /// @brief channels are the digital output channels the task drives.
-    std::vector<DOChannel> channels;
-
-    static DigitalWriteConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct ScaleLinear : public LinearScale {
-    std::string type = "linear";
-
-    static ScaleLinear parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct ScaleMap : public MapScale {
-    std::string type = "map";
-
-    static ScaleMap parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct ScaleTable : public TableScale {
-    std::string type = "table";
-
-    static ScaleTable parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct ScalePolynomial : public PolynomialScale {
-    std::string type = "polynomial";
-
-    static ScalePolynomial parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct ScaleNone : public NoneScale {
-    std::string type = "none";
-
-    static ScaleNone parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Scale determines how raw sensor values are transformed to engineering units.
-using Scale = std::
-    variant<ScaleLinear, ScaleMap, ScaleTable, ScalePolynomial, ScaleNone>;
-
-Scale parse_scale(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Scale &value);
-
 /// @brief CustomScale applies a user-defined scale to the raw measurement.
 struct CustomScale {
     /// @brief custom_scale is the scale applied to the raw measurement.
-    Scale custom_scale = ScaleNone{};
+    Scale custom_scale = NoneScale{};
 
     static CustomScale parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -896,7 +861,7 @@ struct AIThermocoupleChannel : public BaseAIChannel, public MinMaxVal {
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_J;
     /// @brief cjc is the cold-junction compensation applied to the reading.
-    CJC cjc = CJCBuiltIn{};
+    CJC cjc = BuiltInCJC{};
 
     static AIThermocoupleChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1495,7 +1460,7 @@ AOChannel parse_ao_channel(x::json::Parser parser);
 
 /// @brief AnalogReadConfig configures an NI analog read task. Each channel carries its
 /// own device.
-struct AnalogReadConfig : public ::synnax::task::common::BaseReadConfig {
+struct AnalogReadConfig : public ::synnax::task::config::BaseRead {
     /// @brief channels are the analog input channels the task acquires.
     std::vector<AIChannel> channels;
 
@@ -1505,7 +1470,7 @@ struct AnalogReadConfig : public ::synnax::task::common::BaseReadConfig {
 
 /// @brief CounterReadConfig configures an NI counter read task. Each channel carries
 /// its own device.
-struct CounterReadConfig : public ::synnax::task::common::BaseReadConfig {
+struct CounterReadConfig : public ::synnax::task::config::BaseRead {
     /// @brief channels are the counter input channels the task acquires.
     std::vector<CIChannel> channels;
 

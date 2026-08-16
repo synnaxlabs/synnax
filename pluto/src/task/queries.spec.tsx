@@ -37,12 +37,12 @@ describe("queries", () => {
       });
       const task1 = await rack.createTask({
         name: "task1",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
       const task2 = await rack.createTask({
         name: "task2",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -66,7 +66,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "testTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -89,12 +89,12 @@ describe("queries", () => {
       });
       await rack.createTask({
         name: "ordinary",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
       await rack.createTask({
         name: "special",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -122,7 +122,7 @@ describe("queries", () => {
       for (let i = 0; i < 5; i++)
         await rack.createTask({
           name: `paginationTask${i}`,
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         });
 
@@ -152,7 +152,7 @@ describe("queries", () => {
 
       const newTask = await rack.createTask({
         name: "newTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -168,7 +168,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "original",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -197,7 +197,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "toDelete",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -223,7 +223,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "statusTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -266,7 +266,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "commandTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -308,8 +308,8 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "retrieve_test",
-        type: "testType",
-        config: { value: "test" },
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-test" },
       });
 
       const { result } = await renderHookSuspended(
@@ -321,8 +321,8 @@ describe("queries", () => {
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(testTask.key);
       expect(result.current?.name).toEqual("retrieve_test");
-      expect(result.current?.type).toEqual("testType");
-      expect(result.current?.config).toEqual({ value: "test" });
+      expect(result.current?.type).toEqual("pagerduty_alert");
+      expect(result.current?.config).toMatchObject({ routingKey: "rk-test" });
     });
 
     it("should retrieve task with status", async () => {
@@ -331,7 +331,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "status_task",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -370,7 +370,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "original_retrieve",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -402,7 +402,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "status_update_task",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -448,15 +448,15 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "schema_task",
-        type: "typedTask",
-        config: { port: 8080, host: "localhost" },
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-schema", autoStart: true },
       });
 
       const schemas = {
-        type: z.literal("typedTask"),
+        type: z.literal("pagerduty_alert"),
         config: z.object({
-          port: z.number(),
-          host: z.string(),
+          routingKey: z.string(),
+          autoStart: z.boolean(),
         }),
         statusData: z.any().optional(),
       };
@@ -467,9 +467,9 @@ describe("queries", () => {
         wrapper,
       });
       await waitFor(() => expect(result.current).not.toBeNull());
-      expect(result.current?.type).toEqual("typedTask");
-      expect(result.current?.config.port).toEqual(8080);
-      expect(result.current?.config.host).toEqual("localhost");
+      expect(result.current?.type).toEqual("pagerduty_alert");
+      expect(result.current?.config.routingKey).toEqual("rk-schema");
+      expect(result.current?.config.autoStart).toEqual(true);
     });
   });
 
@@ -481,8 +481,8 @@ describe("queries", () => {
       const originalName = id.create();
       const originalTask = await rack.createTask({
         name: originalName,
-        type: "testType",
-        config: { value: "original" },
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-original" },
       });
       const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
@@ -505,7 +505,7 @@ describe("queries", () => {
       });
       expect(snapshot.name).toEqual(`${originalName} (Snapshot)`);
       expect(snapshot.snapshot).toBe(true);
-      expect(snapshot.config).toEqual({ value: "original" });
+      expect(snapshot.config).toMatchObject({ routingKey: "rk-original" });
     });
 
     it("should create snapshots of multiple tasks", async () => {
@@ -516,13 +516,13 @@ describe("queries", () => {
       const originalName2 = id.create();
       const task1 = await rack.createTask({
         name: originalName1,
-        type: "testType",
-        config: { id: 1 },
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-1" },
       });
       const task2 = await rack.createTask({
         name: originalName2,
-        type: "testType",
-        config: { id: 2 },
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-2" },
       });
       const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
@@ -555,8 +555,8 @@ describe("queries", () => {
         expect(snapshot2).toBeDefined();
         expect(snapshot1?.snapshot).toBe(true);
         expect(snapshot2?.snapshot).toBe(true);
-        expect(snapshot1?.config).toEqual({ id: 1 });
-        expect(snapshot2?.config).toEqual({ id: 2 });
+        expect(snapshot1?.config).toMatchObject({ routingKey: "rk-1" });
+        expect(snapshot2?.config).toMatchObject({ routingKey: "rk-2" });
       });
     });
 
@@ -567,7 +567,7 @@ describe("queries", () => {
       const originalName = id.create();
       const originalTask = await rack.createTask({
         name: originalName,
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
       const parentGroup = await client.groups.create({
@@ -602,17 +602,14 @@ describe("queries", () => {
         name: "configRack",
       });
       const complexConfig = {
-        host: "localhost",
-        port: 8080,
-        settings: {
-          timeout: 5000,
-          retries: 3,
-        },
+        routingKey: "rk-preserved",
+        autoStart: true,
+        alerts: [{ key: "a1", status: "st1" }],
       };
       const originalName = id.create();
       const originalTask = await rack.createTask({
         name: originalName,
-        type: "complexType",
+        type: "pagerduty_alert",
         config: complexConfig,
       });
       const parentGroup = await client.groups.create({
@@ -635,8 +632,8 @@ describe("queries", () => {
         name: `${originalName} (Snapshot)`,
       });
       expect(snapshot).toBeDefined();
-      expect(snapshot.config).toEqual(complexConfig);
-      expect(snapshot.type).toEqual("complexType");
+      expect(snapshot.config).toMatchObject(complexConfig);
+      expect(snapshot.type).toEqual("pagerduty_alert");
     });
   });
 
@@ -647,7 +644,7 @@ describe("queries", () => {
       });
       const testTask = await rack.createTask({
         name: "delete_single",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -681,12 +678,12 @@ describe("queries", () => {
       });
       const task1 = await rack.createTask({
         name: "delete_multi_1",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
       const task2 = await rack.createTask({
         name: "delete_multi_2",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -720,14 +717,14 @@ describe("queries", () => {
     it("should initialize a form with default values", async () => {
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: "123",
           name: "testTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -739,7 +736,7 @@ describe("queries", () => {
       });
       expect(result.current.form.get("key").value).toEqual("123");
       expect(result.current.form.get("name").value).toEqual("testTask");
-      expect(result.current.form.get("type").value).toEqual("testType");
+      expect(result.current.form.get("type").value).toEqual("pagerduty_alert");
       expect(result.current.form.get("config").value).toEqual({});
       expect(result.current.form.get("rack").value).toEqual(0);
       expect(result.current.form.get("snapshot").value).toEqual(false);
@@ -748,13 +745,13 @@ describe("queries", () => {
     it("should honor an initial rack when creating a new task", async () => {
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           name: "testTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
           rack: testRack.key,
         },
@@ -771,18 +768,18 @@ describe("queries", () => {
     it("should populate rack from the retrieved task", async () => {
       const existing = await testRack.createTask({
         name: "rackDeriveTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           name: "rackDeriveTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -798,13 +795,13 @@ describe("queries", () => {
     it("should create a draft task when no rack is set", async () => {
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           name: "draftTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -828,20 +825,20 @@ describe("queries", () => {
     it("should retrieve and populate form with existing task", async () => {
       const testTask = await testRack.createTask({
         name: "existingTask",
-        type: "testType",
-        config: { setting: "value" },
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-populate" },
       });
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
-          config: z.object({ setting: z.string() }),
+          type: z.literal("pagerduty_alert"),
+          config: z.object({ routingKey: z.string() }),
           statusData: z.any().nullish(),
         },
         initialValues: {
           name: "",
-          type: "testType",
-          config: { setting: "" },
+          type: "pagerduty_alert",
+          config: { routingKey: "" },
         },
       });
 
@@ -853,27 +850,29 @@ describe("queries", () => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.form.get("key").value).toEqual(testTask.key);
         expect(result.current.form.get("name").value).toEqual("existingTask");
-        expect(result.current.form.get("config").value).toEqual({ setting: "value" });
+        expect(result.current.form.get("config").value).toMatchObject({
+          routingKey: "rk-populate",
+        });
       });
     });
 
     it("should save form changes when save is called", async () => {
       const testTask = await testRack.createTask({
         name: "taskToUpdate",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "taskToUpdate",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -904,7 +903,7 @@ describe("queries", () => {
     it("should validate form fields according to schema", async () => {
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({
             port: z.number().min(1).max(65535),
             host: z.string().min(1),
@@ -913,7 +912,7 @@ describe("queries", () => {
         },
         initialValues: {
           name: "test",
-          type: "testType",
+          type: "pagerduty_alert",
           config: { port: 0, host: "" },
         },
       });
@@ -950,7 +949,7 @@ describe("queries", () => {
     it("should handle beforeSave callback", async () => {
       const testTask = await testRack.createTask({
         name: "taskWithBeforeSave",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -958,14 +957,14 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "taskWithBeforeSave",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -1003,7 +1002,7 @@ describe("queries", () => {
     it("should handle afterSave callback", async () => {
       const testTask = await testRack.createTask({
         name: "taskWithAfterSave",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -1011,14 +1010,14 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "taskWithAfterSave",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -1057,7 +1056,7 @@ describe("queries", () => {
     it("should update form when task status changes", async () => {
       const testTask = await testRack.createTask({
         name: "statusTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -1065,14 +1064,14 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: statusData.nullish(),
         },
         initialValues: {
           key: testTask.key,
           name: "statusTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -1116,14 +1115,14 @@ describe("queries", () => {
     it("should handle field changes and mark form as touched", async () => {
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: "123",
           name: "originalName",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -1147,21 +1146,21 @@ describe("queries", () => {
     it("should not mark form as touched after saving", async () => {
       const testTask = await testRack.createTask({
         name: "touchedAfterSaveTask",
-        type: "testType",
-        config: { value: "initial" },
+        type: "pagerduty_alert",
+        config: { routingKey: "initial" },
       });
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
-          config: z.object({ value: z.string() }),
+          type: z.literal("pagerduty_alert"),
+          config: z.object({ routingKey: z.string() }),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "touchedAfterSaveTask",
-          type: "testType",
-          config: { value: "initial" },
+          type: "pagerduty_alert",
+          config: { routingKey: "initial" },
         },
       });
 
@@ -1174,11 +1173,11 @@ describe("queries", () => {
 
       act(() => {
         result.current.form.set("name", "updatedName");
-        result.current.form.set("config.value", "updated");
+        result.current.form.set("config.routingKey", "updated");
       });
 
       expect(result.current.form.get("name").touched).toBe(true);
-      expect(result.current.form.get("config.value").touched).toBe(true);
+      expect(result.current.form.get("config.routingKey").touched).toBe(true);
 
       await act(async () => {
         result.current.save();
@@ -1189,13 +1188,13 @@ describe("queries", () => {
         expect(result.current.form.get("name").value).toEqual("updatedName");
       });
       expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.value").touched).toBe(false);
+      expect(result.current.form.get("config.routingKey").touched).toBe(false);
     });
 
     it("should not mark form as touched when status updates from server", async () => {
       const testTask = await testRack.createTask({
         name: "statusTouchedTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
@@ -1203,14 +1202,14 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: statusData.nullish(),
         },
         initialValues: {
           key: testTask.key,
           name: "statusTouchedTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -1254,21 +1253,21 @@ describe("queries", () => {
     it("should not mark form as touched when task metadata updates from server listener", async () => {
       const testTask = await testRack.createTask({
         name: "serverUpdateTask",
-        type: "testType",
-        config: { setting: "original" },
+        type: "pagerduty_alert",
+        config: { routingKey: "original" },
       });
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
-          config: z.object({ setting: z.string() }),
+          type: z.literal("pagerduty_alert"),
+          config: z.object({ routingKey: z.string() }),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "serverUpdateTask",
-          type: "testType",
-          config: { setting: "original" },
+          type: "pagerduty_alert",
+          config: { routingKey: "original" },
         },
       });
 
@@ -1278,12 +1277,12 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.setting").touched).toBe(false);
+      expect(result.current.form.get("config.routingKey").touched).toBe(false);
       await act(async () => {
         await client.tasks.create({
           ...testTask.payload,
           name: "serverUpdatedName",
-          config: { setting: "serverUpdated" },
+          config: { routingKey: "serverUpdated" },
         });
       });
 
@@ -1291,27 +1290,27 @@ describe("queries", () => {
         expect(result.current.form.get("name").value).toEqual("serverUpdatedName");
       });
       expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.setting").touched).toBe(false);
+      expect(result.current.form.get("config.routingKey").touched).toBe(false);
     });
 
     it("should not clobber local config edits when metadata updates from server", async () => {
       const testTask = await testRack.createTask({
         name: "lwwTask",
-        type: "testType",
-        config: { setting: "original" },
+        type: "pagerduty_alert",
+        config: { routingKey: "original" },
       });
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
-          config: z.object({ setting: z.string() }),
+          type: z.literal("pagerduty_alert"),
+          config: z.object({ routingKey: z.string() }),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "lwwTask",
-          type: "testType",
-          config: { setting: "original" },
+          type: "pagerduty_alert",
+          config: { routingKey: "original" },
         },
       });
 
@@ -1322,7 +1321,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       act(() => {
-        result.current.form.set("config.setting", "localEdit");
+        result.current.form.set("config.routingKey", "localEdit");
       });
 
       await act(async () => {
@@ -1332,27 +1331,27 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.form.get("name").value).toEqual("lwwRenamed");
       });
-      expect(result.current.form.get("config.setting").value).toEqual("localEdit");
-      expect(result.current.form.get("config.setting").touched).toBe(true);
+      expect(result.current.form.get("config.routingKey").value).toEqual("localEdit");
+      expect(result.current.form.get("config.routingKey").touched).toBe(true);
     });
 
     it("should allow new changes after save to mark form as touched again", async () => {
       const testTask = await testRack.createTask({
         name: "reTouchedTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "reTouchedTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -1386,21 +1385,21 @@ describe("queries", () => {
     it("should reset form to initial values", async () => {
       const testTask = await testRack.createTask({
         name: "resetTask",
-        type: "testType",
-        config: { value: "initial" },
+        type: "pagerduty_alert",
+        config: { routingKey: "initial" },
       });
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
-          config: z.object({ value: z.string() }),
+          type: z.literal("pagerduty_alert"),
+          config: z.object({ routingKey: z.string() }),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "resetTask",
-          type: "testType",
-          config: { value: "initial" },
+          type: "pagerduty_alert",
+          config: { routingKey: "initial" },
         },
       });
 
@@ -1412,32 +1411,32 @@ describe("queries", () => {
 
       act(() => {
         result.current.form.set("name", "changedName");
-        result.current.form.set("config.value", "changed");
+        result.current.form.set("config.routingKey", "changed");
       });
 
       expect(result.current.form.get("name").value).toEqual("changedName");
-      expect(result.current.form.get("config.value").value).toEqual("changed");
+      expect(result.current.form.get("config.routingKey").value).toEqual("changed");
 
       act(() => {
         result.current.form.reset();
       });
 
       expect(result.current.form.get("name").value).toEqual("resetTask");
-      expect(result.current.form.get("config.value").value).toEqual("initial");
+      expect(result.current.form.get("config.routingKey").value).toEqual("initial");
     });
 
     it("should handle error states in form operations", async () => {
       const missingKey = uuid.create();
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: missingKey,
           name: "errorTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -1472,20 +1471,20 @@ describe("queries", () => {
     it("should handle autoSave functionality", async () => {
       const testTask = await testRack.createTask({
         name: "autoSaveTask",
-        type: "testType",
+        type: "pagerduty_alert",
         config: {},
       });
 
       const useForm = Task.createForm({
         schemas: {
-          type: z.literal("testType"),
+          type: z.literal("pagerduty_alert"),
           config: z.object({}),
           statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
           name: "autoSaveTask",
-          type: "testType",
+          type: "pagerduty_alert",
           config: {},
         },
       });
@@ -1516,34 +1515,22 @@ describe("queries", () => {
 
     it("should handle complex config schemas with nested objects", async () => {
       const complexConfig = {
-        connection: {
-          host: "localhost",
-          port: 8080,
-          secure: true,
-        },
-        settings: {
-          timeout: 5000,
-          retryCount: 3,
-        },
+        routingKey: "rk-complex",
+        autoStart: true,
+        alerts: [{ key: "a1", status: "st1" }],
       };
 
       const testTask = await testRack.createTask({
         name: "complexTask",
-        type: "complexType",
+        type: "pagerduty_alert",
         config: complexConfig,
       });
 
-      const type = z.literal("complexType");
+      const type = z.literal("pagerduty_alert");
       const config = z.object({
-        connection: z.object({
-          host: z.string(),
-          port: z.number(),
-          secure: z.boolean(),
-        }),
-        settings: z.object({
-          timeout: z.number(),
-          retryCount: z.number(),
-        }),
+        routingKey: z.string(),
+        autoStart: z.boolean(),
+        alerts: z.array(z.object({ key: z.string(), status: z.string() })),
       });
       const statusData = z.any().optional();
       const schemas = {
@@ -1557,7 +1544,7 @@ describe("queries", () => {
         initialValues: {
           key: testTask.key,
           name: "complexTask",
-          type: "complexType",
+          type: "pagerduty_alert",
           config: complexConfig,
         },
       });
@@ -1568,13 +1555,11 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      expect(result.current.form.get("config.connection.host").value).toEqual(
-        "localhost",
-      );
-      expect(result.current.form.get("config.settings.timeout").value).toEqual(5000);
+      expect(result.current.form.get("config.routingKey").value).toEqual("rk-complex");
+      expect(result.current.form.get("config.alerts.0.key").value).toEqual("a1");
 
       act(() => {
-        result.current.form.set("config.connection.port", 9090);
+        result.current.form.set("config.routingKey", "rk-9090");
       });
 
       act(() => {
@@ -1587,7 +1572,7 @@ describe("queries", () => {
             key: testTask.key,
             schemas,
           });
-          expect(updatedTask.config.connection.port).toEqual(9090);
+          expect(updatedTask.config.routingKey).toEqual("rk-9090");
         },
         { timeout: 3000 },
       );
@@ -1601,8 +1586,8 @@ describe("queries", () => {
       const testRack = await client.racks.create({ name: "test" });
       const t = await testRack.createTask({
         name: "test",
-        config: { a: "dog" },
-        type: "ni",
+        config: { routingKey: "rk" },
+        type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
 

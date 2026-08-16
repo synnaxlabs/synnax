@@ -16,7 +16,7 @@ import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
-import { OPC } from "@/feature/opc";
+import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
@@ -37,7 +37,7 @@ export const SELECTABLES: Base.Selectable[] = [
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
-  ...OPC.Task.SELECTABLES,
+  ...OPCUA.Task.SELECTABLES,
   ...PagerDuty.Task.SELECTABLES,
 ].map(withTaskVisibility);
 

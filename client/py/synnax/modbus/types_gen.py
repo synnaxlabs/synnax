@@ -35,8 +35,8 @@ class RegisterValue(BaseModel):
     swap_words: bool = False
 
 
-class BaseInputChannel(BaseModel):
-    """Carries the fields every Modbus input channel shares.
+class BaseReadChannel(BaseModel):
+    """Carries the fields every Modbus read channel shares.
 
     Attributes:
         key: Uniquely identifies the channel within the task.
@@ -56,8 +56,8 @@ class BaseInputChannel(BaseModel):
         return hash(self.key)
 
 
-class BaseOutputChannel(BaseModel):
-    """Carries the fields every Modbus output channel shares.
+class BaseWriteChannel(BaseModel):
+    """Carries the fields every Modbus write channel shares.
 
     Attributes:
         key: Uniquely identifies the channel within the task.
@@ -77,61 +77,68 @@ class BaseOutputChannel(BaseModel):
         return hash(self.key)
 
 
-class InputChannelCoilInput(BaseInputChannel):
+class ScanConfig(task.BaseScanConfig):
+    """Configures a Modbus scan task."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class CoilReadChannel(BaseReadChannel):
     """Reads a single bit from a coil."""
 
-    type: Literal["coil_input"]
+    type: Literal["coil"] = "coil"
 
 
-class InputChannelDiscreteInput(BaseInputChannel):
+class DiscreteInputReadChannel(BaseReadChannel):
     """Reads a single bit from a discrete input."""
 
-    type: Literal["discrete_input"]
+    type: Literal["discrete_input"] = "discrete_input"
 
 
-class InputChannelHoldingRegisterInput(BaseInputChannel, RegisterValue):
+class HoldingRegisterReadChannel(BaseReadChannel, RegisterValue):
     """Reads a typed value from one or more holding registers."""
 
-    type: Literal["holding_register_input"]
+    type: Literal["holding_register"] = "holding_register"
     string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
 
 
-class InputChannelRegisterInput(BaseInputChannel, RegisterValue):
+class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
     """Reads a typed value from one or more input registers."""
 
-    type: Literal["register_input"]
+    type: Literal["input_register"] = "input_register"
     string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
 
 
-# Is a single Modbus input channel. The type field selects the register
+# Is a single Modbus read channel. The type field selects the register
 # space the channel reads from and the fields that accompany it.
-InputChannel = Annotated[
+ReadChannel = Annotated[
     Union[
-        InputChannelCoilInput,
-        InputChannelDiscreteInput,
-        InputChannelHoldingRegisterInput,
-        InputChannelRegisterInput,
+        CoilReadChannel,
+        DiscreteInputReadChannel,
+        HoldingRegisterReadChannel,
+        InputRegisterReadChannel,
     ],
     Field(discriminator="type"),
 ]
 
 
-class OutputChannelCoilOutput(BaseOutputChannel):
+class CoilWriteChannel(BaseWriteChannel):
     """Writes a single bit to a coil."""
 
-    type: Literal["coil_output"]
+    type: Literal["coil"] = "coil"
 
 
-class OutputChannelHoldingRegisterOutput(BaseOutputChannel, RegisterValue):
+class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
     """Writes a typed value to one or more holding registers."""
 
-    type: Literal["holding_register_output"]
+    type: Literal["holding_register"] = "holding_register"
 
 
-# Is a single Modbus output channel. The type field selects the register
+# Is a single Modbus write channel. The type field selects the register
 # space the channel writes to and the fields that accompany it.
-OutputChannel = Annotated[
-    Union[OutputChannelCoilOutput, OutputChannelHoldingRegisterOutput],
+WriteChannel = Annotated[
+    Union[CoilWriteChannel, HoldingRegisterWriteChannel],
     Field(discriminator="type"),
 ]
 
@@ -141,18 +148,24 @@ class ReadConfig(task.BaseReadConfig):
 
     Attributes:
         device: Is the key of the device the task acquires from.
-        channels: Are the input channels the task acquires.
+        channels: Are the channels the task acquires.
     """
 
     device: device_.Key = ""
-    channels: list[InputChannel] = Field(default_factory=list)
+    channels: list[ReadChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class WriteConfig(task.BaseWriteConfig):
     """Configures a Modbus write task.
 
     Attributes:
-        channels: Are the output channels the task drives.
+        channels: Are the channels the task drives.
     """
 
-    channels: list[OutputChannel] = Field(default_factory=list)
+    channels: list[WriteChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

@@ -12,6 +12,7 @@ package task
 import (
 	"context"
 	"io"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -22,8 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
-	"github.com/synnaxlabs/x/config"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -75,15 +77,24 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
+	// Configs routes task types to the store that owns their configuration records.
+	//
+	// [REQUIRED]
+	Configs config.Registry
+	// ImExExcluded lists the task types with no file form. Export refuses them and no
+	// importer is registered for them.
+	//
+	// [OPTIONAL]
+	ImExExcluded []string
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 
-// Override implements config.Config.
+// Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
@@ -95,10 +106,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Configs = override.Zero(c.Configs, other.Configs)
+	c.ImExExcluded = override.Slice(c.ImExExcluded, other.ImExExcluded)
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements xconfig.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
 	validate.NotNil(v, "db", c.DB)
@@ -108,6 +121,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "search", c.Search)
 	validate.NotNil(v, "imex", c.ImEx)
+	v.Ternary("configs", c.Configs.IsZero(), "must be non-zero")
 	return v.Error()
 }
 
@@ -128,7 +142,7 @@ func OpenService(
 	ctx context.Context,
 	configs ...ServiceConfig,
 ) (s *Service, err error) {
-	cfg, err := config.New(ServiceConfig{}, configs...)
+	cfg, err := xconfig.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -137,9 +151,11 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB: cfg.DB,
-		Migrations: versions.NewMigrations(
-			versions.MigrationsConfig{Status: cfg.Status},
-		),
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Status:   cfg.Status,
+			Ontology: cfg.Ontology,
+			Configs:  cfg.Configs,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -156,8 +172,26 @@ func OpenService(
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	cfg.ImEx.RegisterExporter(s)
-	s.cleanupInternalOntologyResources(ctx)
+	if err = cfg.ImEx.RegisterExporter(s); !ok(err, nil) {
+		return nil, err
+	}
+	// Task files carry the fine-grained type ("opc_read") while export routes under
+	// the coarse "task" ontology type, so the importer registers per config type.
+	for _, t := range cfg.Configs.Types() {
+		if slices.Contains(cfg.ImExExcluded, t) {
+			continue
+		}
+		if err = cfg.ImEx.RegisterImporter(t, s); !ok(err, nil) {
+			return nil, err
+		}
+	}
+	// Retired types register too so an old export fails with a retirement message
+	// instead of "no importer registered".
+	for t := range retiredTypes {
+		if err = cfg.ImEx.RegisterImporter(t, s); !ok(err, nil) {
+			return nil, err
+		}
+	}
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
 			Name:     "sy_task_cmd",
@@ -194,25 +228,6 @@ func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
 }
 
-// cleanupInternalOntologyResources purges existing internal task resources from the
-// ontology. we want to hide internal tasks from the user.
-func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
-	var tasks []Task
-	if err := s.NewRetrieve().
-		Where(MatchInternal(true)).
-		Entries(&tasks).
-		Exec(ctx, nil); err != nil {
-		s.cfg.L.Warn("unable to retrieve internal tasks for cleanup", zap.Error(err))
-	}
-	ids := make([]ontology.ID, 0, len(tasks))
-	for _, t := range tasks {
-		ids = append(ids, t.OntologyID())
-	}
-	if err := s.cfg.Ontology.NewWriter(nil).DeleteResources(ctx, ids...); err != nil {
-		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
-	}
-}
-
 func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
@@ -224,14 +239,17 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		group:     s.group,
 		status:    status.NewWriter[StatusDetails](s.cfg.Status, tx),
 		table:     s.table,
+		configs:   s.cfg.Configs,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search: s.cfg.Search,
-		baseTX: s.cfg.DB,
-		gorp:   s.table.NewRetrieve(),
+		search:  s.cfg.Search,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		otg:     s.cfg.Ontology,
+		configs: s.cfg.Configs,
 	}
 }
 
