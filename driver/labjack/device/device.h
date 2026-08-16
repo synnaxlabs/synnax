@@ -275,9 +275,25 @@ public:
 /// @brief a Manager that opens devices through the LJM library, sharing one handle
 /// among concurrent holders of the same device.
 class LJMManager final : public Manager {
+    /// @brief guards the handle cache.
     std::mutex mu;
+    /// @brief serializes opens. LJM returns the same handle when an open device is
+    /// opened again, so two racing opens of one device would let the loser's close
+    /// kill the winner's connection.
+    std::mutex open_mu;
     std::map<std::string, std::weak_ptr<Device>> handles;
     std::shared_ptr<ljm::API> ljm;
+
+    /// @brief returns the cached device for the serial number, if a holder still
+    /// exists.
+    std::shared_ptr<Device> cached(const std::string &serial_number) {
+        std::lock_guard lock(this->mu);
+        const auto it = this->handles.find(serial_number);
+        if (it == this->handles.end()) return nullptr;
+        if (auto existing = it->second.lock()) return existing;
+        this->handles.erase(it);
+        return nullptr;
+    }
 
 public:
     explicit LJMManager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {}
@@ -291,7 +307,8 @@ public:
         int *serial_numbers,
         int *ip_addresses
     ) override {
-        std::lock_guard lock(this->mu);
+        // LJM is thread-safe and the handle cache is untouched here, so no lock:
+        // a slow open must not block scanning.
         return parse_error(
             ljm,
             ljm->list_all(
@@ -308,31 +325,21 @@ public:
 
     std::pair<std::shared_ptr<Device>, x::errors::Error>
     acquire(const std::string &serial_number) override {
-        {
-            std::lock_guard lock(mu);
-            const auto it = this->handles.find(serial_number);
-            if (it != handles.end()) {
-                const auto existing = it->second.lock();
-                if (existing != nullptr) return {existing, x::errors::NIL};
-                this->handles.erase(it);
-            }
-        }
-
-        // Opening can block for seconds on an unreachable device, so the lock is
-        // released to keep other callers (notably the scanner) unblocked.
+        if (auto existing = this->cached(serial_number))
+            return {existing, x::errors::NIL};
+        // Opening can block for seconds on an unreachable device; only other
+        // opens wait on it, never cache hits or the scanner.
+        std::lock_guard open_lock(this->open_mu);
+        // A racing caller may have opened the device while we waited.
+        if (auto existing = this->cached(serial_number))
+            return {existing, x::errors::NIL};
         int dev_handle;
         const int
             err = ljm->open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &dev_handle);
         if (err != 0) return {nullptr, parse_error(ljm, err)};
-
         auto dev = std::make_shared<LJMDevice>(ljm, dev_handle);
-        std::lock_guard lock(mu);
-        // Another caller may have opened the device while the lock was released;
-        // prefer the cached handle and let ours close.
-        if (const auto it = this->handles.find(serial_number); it != handles.end())
-            if (const auto existing = it->second.lock())
-                return {existing, x::errors::NIL};
-        this->handles[serial_number] = dev; // Stores weak_ptr automatically
+        std::lock_guard lock(this->mu);
+        this->handles[serial_number] = dev;
         return {dev, x::errors::NIL};
     }
 };
