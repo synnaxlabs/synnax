@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "driver/common/factory.h"
 #include "driver/labjack/labjack.h"
@@ -53,7 +53,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
-    auto [dev, d_err] = devs->acquire(cfg.device_key);
+    auto [dev, d_err] = devs->acquire(cfg.device);
     if (d_err) return {std::move(result), d_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
@@ -79,15 +79,16 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.scan_rate
+        cfg.rate
     );
-    result.auto_start = cfg.enabled;
+    result.auto_start = !cfg.disabled;
     return {std::move(result), x::errors::NIL};
 }
 
 bool Factory::check_health(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const std::string &cmd_key
 ) const {
     if (this->dev_manager != nullptr) return true;
     synnax::task::Status status{
@@ -95,7 +96,12 @@ bool Factory::check_health(
         .name = task.name,
         .variant = synnax::status::VARIANT_ERROR,
         .message = NO_LIBS_MSG,
-        .details = synnax::task::StatusDetails{.task = task.key}
+        .details = synnax::task::StatusDetails{
+            .task = task.key,
+            .running = false,
+            .cmd = cmd_key,
+            .config_hash = task.config_hash,
+        }
     };
     ctx->set_status(status);
     return false;
@@ -103,17 +109,18 @@ bool Factory::check_health(
 
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const std::string &cmd_key
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
-    if (!this->check_health(ctx, task)) return {nullptr, true};
+    if (!this->check_health(ctx, task, cmd_key)) return {nullptr, true};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE) res = configure_scan(this->dev_manager, ctx, task);
     if (task.type == READ_TASK_TYPE)
         res = configure_read(this->dev_manager, ctx, task, this->timing_cfg);
     if (task.type == WRITE_TASK_TYPE)
         res = configure_write(this->dev_manager, ctx, task);
-    return common::handle_config_err(ctx, task, std::move(res));
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 
 std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {

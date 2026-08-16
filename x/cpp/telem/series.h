@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -21,6 +23,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "x/go/telem/pb/frame.pb.h"
 #include "x/go/telem/pb/telem.pb.h"
@@ -963,6 +966,22 @@ public:
         return v;
     }
 
+    /// @brief returns the data as a vector of UUIDs. This method can only be used
+    /// if the data type is UUID.
+    [[nodiscard]] std::vector<x::uuid::UUID> uuids() const {
+        if (!this->data_type().matches({UUID_T}))
+            throw std::runtime_error("cannot convert a non-UUID series to UUIDs");
+        std::vector<x::uuid::UUID> v;
+        v.reserve(this->size());
+        const auto *ptr = this->data_.get();
+        for (size_t i = 0; i < this->size(); i++, ptr += x::uuid::UUID::size()) {
+            std::array<std::uint8_t, 16> bytes;
+            std::memcpy(bytes.data(), ptr, bytes.size());
+            v.emplace_back(bytes);
+        }
+        return v;
+    }
+
     /// @brief returns the data as a vector of numeric values. It is up to the
     /// caller to ensure that the numeric type is compatible with the series' data
     /// type.
@@ -1483,6 +1502,29 @@ public:
         }
         this->size_ = 0;
         this->cached_byte_size = 0;
+    }
+
+    /// @brief copies src into this series, reusing its buffer capacity to avoid
+    /// allocation. Holders on emit hot paths should prefer this over deep_copy()
+    /// (SY-4506). A buffer shared via shallow_copy() is replaced, not written in
+    /// place.
+    void copy_from(const Series &src) {
+        const auto bs = src.byte_size();
+        const auto bc = this->data_ == nullptr ? 0 : this->byte_cap();
+        if (this->data_ == nullptr || this->data_.use_count() > 1 || bc < bs) {
+            this->data_ = alloc(bs);
+            this->cached_byte_cap = bs;
+        } else
+            this->cached_byte_cap = bc;
+        if (bs > 0) memcpy(this->data_.get(), src.data_.get(), bs);
+        this->data_type_ = src.data_type_;
+        this->size_ = src.size_;
+        this->cached_byte_size = src.data_type().is_variable() ? bs : 0;
+        this->cap_ = this->data_type_.is_variable()
+                       ? src.size_
+                       : this->cached_byte_cap / this->data_type_.density();
+        this->time_range = src.time_range;
+        this->alignment = src.alignment;
     }
 
     void resize(size_t new_size) {

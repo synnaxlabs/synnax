@@ -427,3 +427,103 @@ var RangeRenameService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "core/pkg/transport/grpc/ranger/ranger.proto",
 }
+
+const (
+	RangeSetEndService_Exec_FullMethodName = "/grpc.ranger.RangeSetEndService/Exec"
+)
+
+// RangeSetEndServiceClient is the client API for RangeSetEndService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RangeSetEndServiceClient interface {
+	Exec(ctx context.Context, in *SetEndRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type rangeSetEndServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRangeSetEndServiceClient(cc grpc.ClientConnInterface) RangeSetEndServiceClient {
+	return &rangeSetEndServiceClient{cc}
+}
+
+func (c *rangeSetEndServiceClient) Exec(ctx context.Context, in *SetEndRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RangeSetEndService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RangeSetEndServiceServer is the server API for RangeSetEndService service.
+// All implementations should embed UnimplementedRangeSetEndServiceServer
+// for forward compatibility.
+type RangeSetEndServiceServer interface {
+	Exec(context.Context, *SetEndRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedRangeSetEndServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRangeSetEndServiceServer struct{}
+
+func (UnimplementedRangeSetEndServiceServer) Exec(context.Context, *SetEndRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedRangeSetEndServiceServer) testEmbeddedByValue() {}
+
+// UnsafeRangeSetEndServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RangeSetEndServiceServer will
+// result in compilation errors.
+type UnsafeRangeSetEndServiceServer interface {
+	mustEmbedUnimplementedRangeSetEndServiceServer()
+}
+
+func RegisterRangeSetEndServiceServer(s grpc.ServiceRegistrar, srv RangeSetEndServiceServer) {
+	// If the following call panics, it indicates UnimplementedRangeSetEndServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RangeSetEndService_ServiceDesc, srv)
+}
+
+func _RangeSetEndService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetEndRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RangeSetEndServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RangeSetEndService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RangeSetEndServiceServer).Exec(ctx, req.(*SetEndRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RangeSetEndService_ServiceDesc is the grpc.ServiceDesc for RangeSetEndService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RangeSetEndService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.ranger.RangeSetEndService",
+	HandlerType: (*RangeSetEndServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _RangeSetEndService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/ranger/ranger.proto",
+}

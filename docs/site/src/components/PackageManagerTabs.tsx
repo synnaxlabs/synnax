@@ -24,19 +24,22 @@ export interface PackageManagerTabsProps {
 }
 
 export const PackageManagerTabs = (props: PackageManagerTabsProps): ReactElement => {
-  const tabs = TABS.filter(({ tabKey }) => tabKey in props).map(
-    ({ tabKey, name, icon }) => ({
-      tabKey,
-      name,
-      icon,
-    }),
-  );
-  const tabsProps = Tabs.useStatic({ tabs });
+  const tabs = TABS.filter(({ tabKey }) => tabKey in props);
   return (
-    <Tabs.Tabs {...tabsProps} size="large">
-      {(tab) =>
-        props[tab.tabKey as keyof PackageManagerTabsProps] as unknown as ReactElement
-      }
-    </Tabs.Tabs>
+    <Tabs.Frame initialValue={tabs[0]?.tabKey}>
+      <Tabs.Selector size="large">
+        {tabs.map(({ tabKey, name, icon }) => (
+          <Tabs.Tab key={tabKey} itemKey={tabKey}>
+            {icon}
+            {name}
+          </Tabs.Tab>
+        ))}
+      </Tabs.Selector>
+      {tabs.map(({ tabKey }) => (
+        <Tabs.Content key={tabKey} itemKey={tabKey}>
+          {props[tabKey as keyof PackageManagerTabsProps] as unknown as ReactElement}
+        </Tabs.Content>
+      ))}
+    </Tabs.Frame>
   );
 };

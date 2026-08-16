@@ -1,0 +1,10 @@
+--- a/bazel/grpc_build_system.bzl
++++ b/bazel/grpc_build_system.bzl
+@@ -183,6 +183,7 @@ def grpc_cc_library(
+         hdrs = hdrs + public_hdrs,
+         deps = deps + _get_external_deps(external_deps),
+         copts = GRPC_DEFAULT_COPTS + copts,
++        features = ["-layering_check"],
+         visibility = visibility,
+         testonly = testonly,
+         linkopts = linkopts,

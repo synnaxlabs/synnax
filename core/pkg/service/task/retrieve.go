@@ -10,14 +10,236 @@
 package task
 
 import (
+	"context"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
-// MatchRacks returns a filter for tasks whose rack key matches any of the provided keys.
-func MatchRacks(keys ...rack.Key) Filter {
-	return Match(func(_ gorp.Context, _ Retrieve, t *Task) (bool, error) {
-		return lo.Contains(keys, t.Rack()), nil
+// Retrieve is used to retrieve Task records from the database using a
+// builder pattern for constructing queries.
+type Retrieve struct {
+	baseTX     gorp.Tx
+	gorp       gorp.Retrieve[Key, Task]
+	search     *search.Index
+	searchTerm string
+	otg        *ontology.Ontology
+	configs    config.Registry
+	entry      *Task
+	entries    *[]Task
+}
+
+// Filter is a per-service filter that is bound to the Retrieve when passed to Where.
+// Pure filters ignore the Retrieve argument; service-bound filters read from it (e.g.
+// r.otg, r.configs) to evaluate. Use Match to construct one from a closure.
+//
+// Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the composition
+// helpers (Match / And / Or / Not) can be one-line wrappers around their gorp.*Bound
+// counterparts instead of re-emitting closure plumbing per service.
+type Filter = gorp.BoundFilter[Retrieve, Key, Task]
+
+// Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
+// value is supplied by Retrieve.Where at evaluation time.
+func Match(f func(ctx gorp.Context, r Retrieve, e *Task) (bool, error)) Filter {
+	return gorp.MatchBound[Retrieve, Key, Task](f)
+}
+
+// And returns a filter that matches when all provided filters match.
+func And(fs ...Filter) Filter {
+	return gorp.AndBound[Retrieve, Key, Task](fs...)
+}
+
+// Or returns a filter that matches when any provided filter matches.
+func Or(fs ...Filter) Filter {
+	return gorp.OrBound[Retrieve, Key, Task](fs...)
+}
+
+// Not returns a filter that inverts the provided filter.
+func Not(f Filter) Filter {
+	return gorp.NotBound[Retrieve, Key, Task](f)
+}
+
+// Search sets a fuzzy search term that Retrieve will use to filter results.
+func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+
+// MatchKeys returns a filter that restricts results to tasks whose key matches any of
+// the provided values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
+func MatchKeys(keys ...Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Task] {
+		return gorp.MatchKeys[Key, Task](keys...)
+	}
+}
+
+// MatchRacks returns a filter for tasks whose Rack matches any of the provided values.
+func MatchRacks(vals ...rack.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
+			return lo.Contains(vals, e.Rack), nil
+		})
+	}
+}
+
+// MatchNames returns a filter for tasks whose Name matches any of the provided values.
+func MatchNames(vals ...string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
+			return lo.Contains(vals, e.Name), nil
+		})
+	}
+}
+
+// MatchTypes returns a filter for tasks whose Type matches any of the provided values.
+func MatchTypes(vals ...string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
+			return lo.Contains(vals, e.Type), nil
+		})
+	}
+}
+
+// MatchInternal returns a filter for tasks by their Internal field.
+func MatchInternal(v bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
+			return e.Internal == v, nil
+		})
+	}
+}
+
+// MatchSnapshot returns a filter for tasks by their Snapshot field.
+func MatchSnapshot(v bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
+			return e.Snapshot == v, nil
+		})
+	}
+}
+
+// Where applies the provided filter to the query, binding it to the Retrieve so
+// service-bound filters can read from r.otg, r.configs, etc. To compose multiple
+// filters, chain Where calls or pass a combined filter via And / Or.
+func (r Retrieve) Where(filter Filter) Retrieve {
+	r.gorp = r.gorp.Where(filter(r))
+	return r
+}
+
+// Entry binds the provided task as the result container for the query. If multiple
+// tasks match, the first one is used.
+func (r Retrieve) Entry(e *Task) Retrieve {
+	r.entry = e
+	r.gorp = r.gorp.Entry(e)
+	return r
+}
+
+// Entries binds the provided slice of tasks as the result container for the query.
+func (r Retrieve) Entries(es *[]Task) Retrieve {
+	r.entries = es
+	r.gorp = r.gorp.Entries(es)
+	return r
+}
+
+// Limit sets the maximum number of tasks to return.
+func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
+
+// Offset sets the starting index of the tasks to return.
+func (r Retrieve) Offset(offset int) Retrieve {
+	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
+	if r.searchTerm == "" {
+		return r, nil
+	}
+	ids, err := r.search.Search(ctx, search.Request{
+		Type: ontology.ResourceTypeTask,
+		Term: r.searchTerm,
 	})
+	if err != nil {
+		return Retrieve{}, err
+	}
+	keys, err := KeysFromOntologyIDs(ids)
+	if err != nil {
+		return Retrieve{}, err
+	}
+	return r.Where(MatchKeys(keys...)), nil
+}
+
+// results returns pointers to the tasks the executed query populated.
+func (r Retrieve) results() []*Task {
+	if r.entries != nil {
+		res := make([]*Task, len(*r.entries))
+		for i := range *r.entries {
+			res[i] = &(*r.entries)[i]
+		}
+		return res
+	}
+	if r.entry != nil {
+		return []*Task{r.entry}
+	}
+	return nil
+}
+
+// composeConfigs fills the Config of each retrieved task from the record stored
+// under the task's key in the task type's config store. Tasks whose type has no
+// registered store or no stored record keep a nil Config.
+func (r Retrieve) composeConfigs(
+	ctx context.Context,
+	tx gorp.Tx,
+	tasks []*Task,
+) error {
+	for _, t := range tasks {
+		store, ok := r.configs.Store(t.Type)
+		if !ok {
+			continue
+		}
+		data, err := store.Read(ctx, tx, t.Key)
+		if err != nil {
+			if errors.Is(err, query.ErrNotFound) {
+				continue
+			}
+			return err
+		}
+		t.Config = data
+	}
+	return nil
+}
+
+// Exec executes the query against the provided transaction.
+func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return err
+	}
+	tx = gorp.OverrideTx(r.baseTX, tx)
+	if err = r.gorp.Exec(ctx, tx); err != nil {
+		return err
+	}
+	return r.composeConfigs(ctx, tx, r.results())
+}
+
+// Count returns the number of tasks matching the query.
+func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return 0, err
+	}
+	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+}
+
+// Exists checks whether any tasks match the query.
+func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return false, err
+	}
+	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

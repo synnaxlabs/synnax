@@ -15,9 +15,9 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -78,8 +78,8 @@ func Not[D any](f Filter[D]) Filter[D] {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve[D]) Search(term string) Retrieve[D] { r.searchTerm = term; return r }
 
-// Entry binds the Status that Retrieve will fill results into. If multiple results match
-// the query, only the first result will be filled into the provided Status.
+// Entry binds the Status that Retrieve will fill results into. If multiple results
+// match the query, only the first result will be filled into the provided Status.
 func (r Retrieve[D]) Entry(s *Status[D]) Retrieve[D] {
 	r.gorp = r.gorp.Entry(s)
 	return r
@@ -119,7 +119,8 @@ func MatchKeys[D any](keys ...string) Filter[D] {
 	}
 }
 
-// MatchKeyPrefix returns a filter for statuses whose key starts with the provided prefix.
+// MatchKeyPrefix returns a filter for statuses whose key starts with the provided
+// prefix.
 func MatchKeyPrefix[D any](prefix string) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
 		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
@@ -128,7 +129,8 @@ func MatchKeyPrefix[D any](prefix string) Filter[D] {
 	}
 }
 
-// MatchNames returns a filter for statuses whose name matches any of the provided values.
+// MatchNames returns a filter for statuses whose name matches any of the provided
+// values.
 func MatchNames[D any](names ...string) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
 		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
@@ -149,11 +151,14 @@ func MatchVariants[D any](variants ...Variant) Filter[D] {
 // MatchLabels returns a filter for statuses that have any of the provided labels.
 func MatchLabels[D any](matchLabels ...label.Key) Filter[D] {
 	return Match(func(ctx gorp.Context, r Retrieve[D], s *Status[D]) (bool, error) {
-		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
+		labels, err := r.label.RetrieveFor(ctx, s.OntologyID(), ctx.Tx)
 		if err != nil {
 			return false, err
 		}
-		labelKeys := lo.Map(labels, func(l label.Label, _ int) label.Key { return l.Key })
+		labelKeys := lo.Map(
+			labels,
+			func(l label.Label, _ int) label.Key { return l.Key },
+		)
 		return lo.ContainsBy(labelKeys, func(l label.Key) bool {
 			return lo.Contains(matchLabels, l)
 		}), nil

@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/gorp/testutil"
 )
 
 // indexBenchEntry is a small entry with two indexable fields and one
@@ -66,7 +66,7 @@ var indexSizes = []int{100, 1_000, 10_000, 100_000}
 func BenchmarkLookupSetup(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := OpenGorpMsgpackDB()
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -77,10 +77,10 @@ func BenchmarkLookupSetup(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+				nameIdx := gorp.NewLookupIndex(
 					"name", func(e *indexBenchEntry) string { return e.Name },
 				)
-				table, err := gorp.OpenTable[int32, indexBenchEntry](
+				table, err := gorp.OpenTable(
 					ctx,
 					gorp.TableConfig[int32, indexBenchEntry]{
 						DB:      db,
@@ -102,7 +102,7 @@ func BenchmarkLookupSetup(b *testing.B) {
 func BenchmarkLookupQueryViaIndex(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := OpenGorpMsgpackDB()
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -110,10 +110,10 @@ func BenchmarkLookupQueryViaIndex(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+			nameIdx := gorp.NewLookupIndex(
 				"name", func(e *indexBenchEntry) string { return e.Name },
 			)
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{
 					DB:      db,
@@ -148,7 +148,7 @@ func BenchmarkLookupQueryViaIndex(b *testing.B) {
 func BenchmarkLookupQueryViaScan(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := OpenGorpMsgpackDB()
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -156,7 +156,7 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{DB: db},
 			)
@@ -191,7 +191,7 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 func BenchmarkLookupObserverUpdate(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := OpenGorpMsgpackDB()
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -199,10 +199,10 @@ func BenchmarkLookupObserverUpdate(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+			nameIdx := gorp.NewLookupIndex(
 				"name", func(e *indexBenchEntry) string { return e.Name },
 			)
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{
 					DB:      db,
@@ -238,7 +238,7 @@ func BenchmarkLookupObserverUpdate(b *testing.B) {
 func BenchmarkSortedSetup(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := OpenGorpMsgpackDB()
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -249,10 +249,10 @@ func BenchmarkSortedSetup(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				scoreIdx := gorp.NewSortedIndex[int32, indexBenchEntry, int64](
+				scoreIdx := gorp.NewSortedIndex(
 					"score", func(e *indexBenchEntry) int64 { return e.Score },
 				)
-				table, err := gorp.OpenTable[int32, indexBenchEntry](
+				table, err := gorp.OpenTable(
 					ctx,
 					gorp.TableConfig[int32, indexBenchEntry]{
 						DB:      db,
@@ -276,7 +276,7 @@ func BenchmarkSortedSetup(b *testing.B) {
 func BenchmarkSortedObserverUpdate(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := OpenGorpMsgpackDB()
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -284,10 +284,10 @@ func BenchmarkSortedObserverUpdate(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			scoreIdx := gorp.NewSortedIndex[int32, indexBenchEntry, int64](
+			scoreIdx := gorp.NewSortedIndex(
 				"score", func(e *indexBenchEntry) int64 { return e.Score },
 			)
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{
 					DB:      db,
@@ -328,20 +328,20 @@ func compositionFixture(b *testing.B, size int) (
 	*gorp.LookupIndex[int32, indexBenchEntry, string],
 ) {
 	b.Helper()
-	db := gorp.Wrap(memkv.New())
+	db := OpenGorpMsgpackDB()
 	ctx := context.Background()
 	entries := makeIndexBenchEntries(size)
 	if err := gorp.NewCreate[int32, indexBenchEntry]().
 		Entries(&entries).Exec(ctx, db); err != nil {
 		b.Fatal(err)
 	}
-	nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+	nameIdx := gorp.NewLookupIndex(
 		"name", func(e *indexBenchEntry) string { return e.Name },
 	)
-	categoryIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
+	categoryIdx := gorp.NewLookupIndex(
 		"category", func(e *indexBenchEntry) string { return e.Category },
 	)
-	table, err := gorp.OpenTable[int32, indexBenchEntry](
+	table, err := gorp.OpenTable(
 		ctx,
 		gorp.TableConfig[int32, indexBenchEntry]{
 			DB: db,
@@ -396,7 +396,7 @@ func BenchmarkComposeAndIndexed(b *testing.B) {
 func BenchmarkComposeAndScan(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := OpenGorpMsgpackDB()
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -404,7 +404,7 @@ func BenchmarkComposeAndScan(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			table, err := gorp.OpenTable[int32, indexBenchEntry](
+			table, err := gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[int32, indexBenchEntry]{DB: db},
 			)
@@ -420,12 +420,16 @@ func BenchmarkComposeAndScan(b *testing.B) {
 				var out []indexBenchEntry
 				if err := table.NewRetrieve().
 					Where(gorp.And(
-						gorp.Match(func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
-							return e.Name == targetName, nil
-						}),
-						gorp.Match(func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
-							return e.Category == targetCat, nil
-						}),
+						gorp.Match(
+							func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
+								return e.Name == targetName, nil
+							},
+						),
+						gorp.Match(
+							func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
+								return e.Category == targetCat, nil
+							},
+						),
 					)).
 					Entries(&out).Exec(ctx, db); err != nil {
 					b.Fatal(err)

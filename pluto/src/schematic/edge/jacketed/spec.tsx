@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/edge/jacketed/Jacketed.css";
+
 import { xy } from "@synnaxlabs/x";
 
+import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { NAME, VARIANT } from "@/schematic/edge/jacketed/config";
 
 const JACKET_OFFSET = 6;
-const JACKET_OPACITY = 0.7;
-const JACKET_STYLE = { opacity: JACKET_OPACITY };
+const JACKET_CLASS = CSS.B("schematic-edge-jacket");
 
 export const spec = Segmented.createSpec(
   VARIANT,
@@ -30,13 +32,13 @@ export const spec = Segmented.createSpec(
         <Base.Base
           path={Path.rounded(above, crossings)}
           color={color}
-          style={JACKET_STYLE}
+          className={JACKET_CLASS}
         />
         <Base.Base path={Path.rounded(points, crossings)} color={color} />
         <Base.Base
           path={Path.rounded(below, crossings)}
           color={color}
-          style={JACKET_STYLE}
+          className={JACKET_CLASS}
         />
       </>
     );

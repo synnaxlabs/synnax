@@ -15,13 +15,16 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Service is the API-layer panel service. It enforces access control and routes
@@ -45,34 +48,34 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		// Panels are the panels to create. Each panel carries its own optional
-		// Parent; when absent the panel is parented to the creating user instead
-		// — a draft, visible only to its creator.
+		// Panels are the panels to create. Each panel carries the Parent resource
+		// it attaches to in the ontology; a panel without a Parent is rejected.
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 	}
 	CreateResponse = CreateRequest
 )
 
-// Create persists the panels in req and returns them with their assigned keys.
-// Each panel is parented to its own Parent, or to the creating user as a draft
-// when Parent is absent.
+// Create persists the panels in req and returns them with their assigned keys,
+// parenting each to its Parent. It returns a validation error when any panel
+// has no Parent.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (res CreateResponse, err error) {
-	subject := auth.GetSubject(ctx)
 	objects := []ontology.ID{{Type: ontology.ResourceTypePanel}}
 	for i := range req.Panels {
-		// No parent -> draft, parented to the creating user.
 		if req.Panels[i].Parent == nil || req.Panels[i].Parent.IsZero() {
-			req.Panels[i].Parent = &subject
-		} else {
-			objects = append(objects, *req.Panels[i].Parent)
+			return res, errors.Wrapf(
+				validate.ErrValidation,
+				"panel %q has no parent",
+				req.Panels[i].Name,
+			)
 		}
+		objects = append(objects, *req.Panels[i].Parent)
 	}
 	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: subject,
+		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: objects,
 	}); err != nil {
@@ -87,13 +90,14 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm string      `json:"search_term" msgpack:"search_term"`
-		Keys       []panel.Key `json:"keys" msgpack:"keys"`
-		Limit      int         `json:"limit" msgpack:"limit"`
-		Offset     int         `json:"offset" msgpack:"offset"`
+		SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
+		Keys                []panel.Key `json:"keys"                   msgpack:"keys"`
+		Limit               int         `json:"limit"                  msgpack:"limit"`
+		Offset              int         `json:"offset"                 msgpack:"offset"`
+		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Panels []panel.Panel `json:"panels" msgpack:"panels"`
+		Panels []panel.Panel `json:"panels,omitzero" msgpack:"panels,omitzero"`
 	}
 )
 
@@ -112,6 +116,9 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	err = q.Entries(&res.Panels).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
 	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
@@ -143,7 +150,8 @@ func (s *Service) Dispatch(
 	}); err != nil {
 		return res, err
 	}
-	return res, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return res, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type DeleteRequest struct {

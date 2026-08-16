@@ -23,6 +23,12 @@
         position: absolute;
         inset: 0;
     }
+
+    & .pluto-table-surface__scroll {
+        position: absolute;
+        inset: 0;
+        overflow: auto;
+    }
 }
 
 .pluto-table-frame {
@@ -31,9 +37,17 @@
 
     display: grid;
     width: fit-content;
-    grid-template-rows: auto var(--pluto-table-add-control-size);
-    grid-template-columns: auto var(--pluto-table-add-control-size);
-    gap: 1.5rem;
+
+    /*
+     * The add-control tracks only exist in edit mode. An always-on explicit
+     * track reserves its space even when empty, overflowing the scroll
+     * container before the table reaches the edge.
+     */
+    &.pluto--editable {
+        grid-template-rows: auto var(--pluto-table-add-control-size);
+        grid-template-columns: auto var(--pluto-table-add-control-size);
+        gap: 1.5rem;
+    }
 
     &,
     & *:focus,
@@ -77,6 +91,30 @@
     flex-shrink: 1;
     min-width: 0;
 
+    .pluto-table__row:first-child > * {
+        border-top: var(--pluto-border-l6);
+    }
+
+    .pluto-table__row > *:first-child {
+        border-left: var(--pluto-border-l6);
+    }
+
+    .pluto-table__row:first-child > *:first-child {
+        border-top-left-radius: var(--pluto-border-radius-small);
+    }
+
+    .pluto-table__row:first-child > *:last-child {
+        border-top-right-radius: var(--pluto-border-radius-small);
+    }
+
+    .pluto-table__row:last-child > *:first-child {
+        border-bottom-left-radius: var(--pluto-border-radius-small);
+    }
+
+    .pluto-table__row:last-child > *:last-child {
+        border-bottom-right-radius: var(--pluto-border-radius-small);
+    }
+
     .pluto-table__row:not(.pluto-table__col-resizer) {
         &:has(.pluto--selected) {
             .pluto-table__resizer {
@@ -102,8 +140,8 @@
         }
 
         &.pluto--direction-y {
-            border-right: var(--pluto-border-l5);
-            border-bottom: var(--pluto-border-l5);
+            border-right: var(--pluto-border-l6);
+            border-bottom: var(--pluto-border-l6);
 
             & button {
                 bottom: 0;
@@ -125,8 +163,8 @@
 
         &.pluto--direction-x {
             height: var(--pluto-table-indicator-size);
-            border-bottom: var(--pluto-border-l5);
-            border-right: var(--pluto-border-l5);
+            border-bottom: var(--pluto-border-l6);
+            border-right: var(--pluto-border-l6);
 
             & button {
                 top: 0;
@@ -169,7 +207,6 @@
         border-top: none;
         border-left: none;
         padding: 0;
-        overflow: hidden;
 
         /*
          * Stored size goes on the <td> with box-sizing: border-box so the
@@ -180,6 +217,7 @@
          */
         & > .pluto-table__cell--content {
             overflow: hidden;
+            border-radius: inherit;
             width: 100%;
             height: 100%;
         }
@@ -192,11 +230,12 @@
             inset: -1px;
             border: var(--pluto-border);
             border-width: 2px;
-            border-radius: 1px;
+            border-radius: inherit;
             z-index: 7;
         }
         &.pluto--selected {
             border: none;
+            z-index: 8;
             &::after {
                 opacity: 1;
                 border-color: var(--pluto-primary-z);
@@ -211,8 +250,8 @@
             max-width: var(--pluto-table-indicator-size);
             min-width: var(--pluto-table-indicator-size);
             margin: 0;
-            border-right: var(--pluto-border-l5);
-            border-bottom: var(--pluto-border-l5);
+            border-right: var(--pluto-border-l6);
+            border-bottom: var(--pluto-border-l6);
             background: var(--pluto-gray-l2);
         }
         & > .pluto-table__select-all.pluto--selected {

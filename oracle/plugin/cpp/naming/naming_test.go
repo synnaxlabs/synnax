@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/naming"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestNaming(t *testing.T) {
@@ -23,13 +24,26 @@ func TestNaming(t *testing.T) {
 }
 
 var _ = Describe("VariantTypeName", func() {
-	DescribeTable("should derive the C++ variant struct name",
+	DescribeTable(
+		"should derive the C++ variant struct name",
 		func(union, variant, expected string) {
 			Expect(naming.VariantTypeName(union, variant)).To(Equal(expected))
 		},
-		Entry("plain union keeps the union prefix", "Scale", "linear", "ScaleLinear"),
-		Entry("acronym union factors the shared prefix", "AIChannel", "ai_voltage", "AIVoltageChannel"),
-		Entry("variant not repeating the acronym keeps the union prefix", "AIChannel", "voltage", "AIChannelVoltage"),
-		Entry("reserved-word variant value", "Scale", "map", "ScaleMap"),
+		Entry("plain union takes the variant first", "Scale", "linear", "LinearScale"),
+		Entry(
+			"acronym union factors the shared prefix",
+			"AIChannel",
+			"ai_voltage",
+			"AIVoltageChannel",
+		),
+		Entry(
+			"variant not repeating the acronym prefixes the whole union name",
+			"AIChannel",
+			"voltage",
+			"VoltageAIChannel",
+		),
+		Entry("reserved-word variant value", "Scale", "map", "MapScale"),
 	)
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

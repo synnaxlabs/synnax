@@ -12,7 +12,6 @@ import "@/schematic/edge/common/segmented/Segmented.css";
 import { box, direction, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
-  type DragEvent,
   type FC,
   Fragment,
   type ReactElement,
@@ -23,7 +22,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Cursor } from "@/cursor";
 import { type Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
 import {
@@ -32,12 +31,11 @@ import {
   createDefaultConfig,
 } from "@/schematic/edge/common/segmented/config";
 import {
-  createConnector,
+  build,
   dragSegment,
   extractMiddle,
   type Segment,
   segmentsToPoints,
-  stitchEdge,
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
@@ -67,32 +65,25 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
   }): ReactElement | null => {
     const flow = useReactFlow();
     const crossings = Jumps.useCrossings(edgeKey);
-    const visualSegments = useMemo(() => {
-      if (middleSegments.length === 0)
-        return createConnector({
-          sourcePos: source.position,
-          targetPos: target.position,
-          sourceOrientation: source.orientation,
-          targetOrientation: target.orientation,
+    const visualSegments = useMemo(
+      () =>
+        build({
+          source,
+          target,
           sourceBox: selectNodeBox(flow, sourceNode),
           targetBox: selectNodeBox(flow, targetNode),
-        });
-      return stitchEdge({
-        sourceOrientation: source.orientation,
-        targetOrientation: target.orientation,
-        sourcePos: source.position,
-        targetPos: target.position,
+          middleSegments,
+        }),
+      [
+        source.position.x,
+        source.position.y,
+        target.position.x,
+        target.position.y,
+        source.orientation,
+        target.orientation,
         middleSegments,
-      });
-    }, [
-      source.position.x,
-      source.position.y,
-      target.position.x,
-      target.position.y,
-      source.orientation,
-      target.orientation,
-      middleSegments,
-    ]);
+      ],
+    );
 
     const persistMiddle = useCallback(
       (segs: Segment[]) => {
@@ -104,42 +95,52 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
     );
 
     const [dragOverride, setDragOverride] = useState<Segment[] | null>(null);
-    const dragOverrideRef = useRef(dragOverride);
-    dragOverrideRef.current = dragOverride;
 
     const segments = dragOverride ?? visualSegments;
     const dragRef = useRef<CurrentlyDragging | null>(null);
 
-    const dragStart = useCursorDrag({
+    const computeDragged = useCallback((b: box.Box): Segment[] | null => {
+      const drag = dragRef.current;
+      if (drag == null) return null;
+      return dragSegment({
+        segments: drag.segments,
+        index: drag.index,
+        magnitude:
+          box.dim(b, direction.swap(drag.segments[drag.index].direction), true) /
+          flow.getZoom(),
+      });
+    }, []);
+
+    const dragStart = Cursor.useDrag({
       onStart: useCallback(
-        (_: xy.XY, __: Key, e: DragEvent) => {
+        (_: xy.XY, __: Key, el: HTMLElement) => {
           dragRef.current = {
-            index: Number(e.currentTarget.id.split("-")[1]),
+            index: Number(el.id.split("-")[1]),
             segments: [...segments],
           };
         },
         [segments],
       ),
-      onMove: useCallback((b: box.Box) => {
-        if (dragRef.current == null) return;
-        const next = dragSegment({
-          segments: dragRef.current.segments,
-          index: dragRef.current.index,
-          magnitude:
-            box.dim(
-              b,
-              direction.swap(dragRef.current.segments[dragRef.current.index].direction),
-              true,
-            ) / flow.getZoom(),
-        });
-        setDragOverride(next);
-      }, []),
-      onEnd: useCallback(() => {
-        if (dragOverrideRef.current != null) {
-          persistMiddle(dragOverrideRef.current);
+      onMove: useCallback(
+        (b: box.Box) => {
+          const next = computeDragged(b);
+          if (next != null) setDragOverride(next);
+        },
+        [computeDragged],
+      ),
+      // The final segments are computed from the release box rather than read
+      // back from state: the last move and the end run in one task, so state
+      // written by the move cannot re-render before the end handler reads it.
+      onEnd: useCallback(
+        (b: box.Box) => {
+          const final = computeDragged(b);
+          dragRef.current = null;
+          if (final == null) return;
+          persistMiddle(final);
           setDragOverride(null);
-        }
-      }, [persistMiddle]),
+        },
+        [computeDragged, persistMiddle],
+      ),
     });
 
     const points = segmentsToPoints(source.position, segments, flow.getZoom(), true);
@@ -178,9 +179,9 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
                     className={CSS(
                       CSS.BE("diagram-edge-handle", "dragger"),
                       CSS.dir(dir),
+                      Cursor.DRAG_CLASS,
                     )}
-                    draggable
-                    onDragStart={dragStart}
+                    onPointerDown={dragStart}
                   />
                 </foreignObject>
               </Fragment>

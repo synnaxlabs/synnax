@@ -1,0 +1,47 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { color } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
+
+import { Label } from "@/schematic/node/common/label";
+import { type Config, VARIANT } from "@/schematic/node/general/stringDisplay/config";
+import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
+import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
+import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
+import { type Spec } from "@/schematic/node/spec";
+import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
+
+export * from "@/schematic/node/general/stringDisplay/config";
+
+export const defaultConfig = (): Config => ({
+  variant: VARIANT,
+  orientation: "left",
+  color: color.ZERO,
+  level: "p",
+  inlineSize: 100,
+  label: Label.defaultConfig("String Display"),
+  ...Staleness.ZERO_CONFIG,
+  telem: telem.streamChannelStringValue({ channel: 0 }),
+});
+
+const Preview = ({ color, level }: Config): ReactElement => (
+  <StringDisplay color={color} level={level} value="Hello World!" />
+);
+
+export const spec: Spec<typeof VARIANT, Config> = {
+  key: VARIANT,
+  name: "String Display",
+  Form: StringDisplayForm,
+  Node: Symbol,
+  Preview,
+  defaultConfig,
+  zIndex: 4,
+};

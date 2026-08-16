@@ -10,16 +10,16 @@
 import "@/lineplot/rule/Rule.css";
 
 import { box, color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { useContext } from "@/lineplot/Frame";
 import { rule } from "@/lineplot/rule/aether";
 import { state } from "@/state";
@@ -57,7 +57,7 @@ export const Rule = ({
   const [internalLabel, setInternalLabel] = state.usePurePassthrough({
     value: label,
     onChange: onLabelChange,
-    initial: "",
+    initialValue: "",
   });
 
   const onPositionChangeRef = useSyncedRef(onPositionChange);
@@ -102,7 +102,7 @@ export const Rule = ({
     }));
   }, [propsPosition, colorVal, lineWidth, lineDash]);
 
-  const handleDragStart = useCursorDrag({
+  const handleDragStart = Cursor.useDrag({
     onStart: useCallback(() => {
       onSelect?.();
       setState((p) => ({ ...p, dragging: true }));
@@ -122,20 +122,32 @@ export const Rule = ({
 
   const ref = useRef<HTMLDivElement>(null);
 
+  const topStyle = useMemo(
+    () => ({ top: `calc(${pixelPosition}px - 0.5rem)` }),
+    [pixelPosition],
+  );
+
+  const colorStyles = useMemo(() => {
+    const borderColor = color.cssString(colorVal);
+    return {
+      tag: {
+        borderColor,
+        backgroundColor: color.hex(color.setAlpha(colorVal, 0.75)),
+        ...style,
+      },
+      divider: { borderColor },
+    };
+  }, [colorVal, style]);
+
   if (propsPosition == null || pixelPosition == null) return null;
 
   const textColor = color.pickByContrast(colorVal, color.BLACK, color.WHITE);
 
   const content = (
-    <div
-      ref={ref}
-      className={CSS.B("rule")}
-      style={{ top: `calc(${pixelPosition}px - 0.5rem)` }}
-    >
+    <div ref={ref} className={CSS.B("rule")} style={topStyle}>
       <div
-        className={CSS.BE("rule", "drag-handle")}
-        onDragStart={handleDragStart}
-        draggable
+        className={CSS(CSS.BE("rule", "drag-handle"), Cursor.DRAG_CLASS)}
+        onPointerDown={handleDragStart}
       />
       <Flex.Box
         x
@@ -145,11 +157,7 @@ export const Rule = ({
         onClick={onSelect}
         empty
         rounded
-        style={{
-          borderColor: color.cssString(colorVal),
-          backgroundColor: color.hex(color.setAlpha(colorVal, 0.7)),
-          ...style,
-        }}
+        style={colorStyles.tag}
         {...rest}
       >
         <Text.Editable
@@ -159,7 +167,7 @@ export const Rule = ({
           onChange={setInternalLabel}
           color={textColor}
         />
-        <Divider.Divider y style={{ borderColor: color.cssString(colorVal) }} />
+        <Divider.Divider y style={colorStyles.divider} />
         <Flex.Box x align="center" className={CSS.BE("rule", "value")}>
           <Text.Editable
             value={propsPosition.toFixed(2)}

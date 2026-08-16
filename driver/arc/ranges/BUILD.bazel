@@ -1,0 +1,45 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "ranges",
+    hdrs = ["ranges.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/stl",
+        "//arc/cpp/types",
+        "//client/cpp:synnax",
+        "//client/cpp/status",
+        "//driver/arc:reporter",
+        "//x/cpp/color",
+        "//x/cpp/errors",
+        "//x/cpp/mem",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
+    ],
+)
+
+cc_test(
+    name = "ranges_test",
+    srcs = ["ranges_test.cpp"],
+    deps = [
+        ":ranges",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl/testutil",
+        "//client/cpp/testutil",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

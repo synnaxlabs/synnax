@@ -114,9 +114,15 @@ int32_t synnax_writer_write(
         return CODE_INTERNAL;
     }
     try {
-        const x::telem::DataType dt{str_or(data_type, "")};
+        const std::string dt_name = str_or(data_type, "");
+        const x::telem::DataType dt{dt_name};
         if (dt.density() == 0) {
-            set_err(err, CODE_INTERNAL, "sy.validation", "unknown data type");
+            set_err(
+                err,
+                CODE_INTERNAL,
+                "sy.validation",
+                "unknown data type \"" + dt_name + "\""
+            );
             return CODE_INTERNAL;
         }
         if (data_size != channel_count * sample_count * dt.density()) {
@@ -124,7 +130,10 @@ int32_t synnax_writer_write(
                 err,
                 CODE_INTERNAL,
                 "sy.validation",
-                "data buffer size does not match channel_count * sample_count * density"
+                "data buffer size " + std::to_string(data_size) +
+                    " does not match expected " +
+                    std::to_string(channel_count * sample_count * dt.density()) +
+                    " (channel_count * sample_count * density)"
             );
             return CODE_INTERNAL;
         }

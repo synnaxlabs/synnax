@@ -19,7 +19,7 @@ const createChannelEntry = (
   log.channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
 
 const createEmpty = (overrides: Partial<log.Log> = {}): log.Log =>
-  log.newZ.parse({ name: "", ...overrides });
+  log.logZ.parse({ name: "Test Log", ...overrides });
 
 const apply = (state: log.Log, ...actions: log.Action[]): log.Log =>
   log.reduceAll(state, actions).next;
@@ -145,6 +145,87 @@ describe("log reducer", () => {
     });
   });
 
+  describe("per-field channel setters", () => {
+    const withEntries = (overrides: Partial<log.ChannelEntry> = {}): log.Log =>
+      createEmpty({
+        channels: [createChannelEntry(5, overrides), createChannelEntry(6)],
+      });
+
+    interface FieldCase {
+      name: string;
+      action: log.Action;
+      read: (entry: log.ChannelEntry) => unknown;
+      expected: unknown;
+    }
+
+    const red = color.colorZ.parse({ r: 255, g: 0, b: 0, a: 1 });
+    const cases: FieldCase[] = [
+      {
+        name: "setChannelColor",
+        action: log.setChannelColor({ channel: 5, color: red }),
+        read: (e) => e.color,
+        expected: red,
+      },
+      {
+        name: "setChannelNotation",
+        action: log.setChannelNotation({ channel: 5, notation: "scientific" }),
+        read: (e) => e.notation,
+        expected: "scientific",
+      },
+      {
+        name: "setChannelPrecision",
+        action: log.setChannelPrecision({ channel: 5, precision: 4 }),
+        read: (e) => e.precision,
+        expected: 4,
+      },
+      {
+        name: "setChannelAlias",
+        action: log.setChannelAlias({ channel: 5, alias: "volts" }),
+        read: (e) => e.alias,
+        expected: "volts",
+      },
+      {
+        name: "setChannelTimestampFormat",
+        action: log.setChannelTimestampFormat({ channel: 5, format: "time" }),
+        read: (e) => e.timestamp.format,
+        expected: "time",
+      },
+      {
+        name: "setChannelTimestampTz",
+        action: log.setChannelTimestampTz({ channel: 5, tz: "UTC" }),
+        read: (e) => e.timestamp.tz,
+        expected: "UTC",
+      },
+    ];
+
+    it.each(cases)(
+      "$name sets the field on the matching entry",
+      ({ action, read, expected }) => {
+        const out = apply(withEntries(), action);
+        expect(read(out.channels[0])).toEqual(expected);
+        expect(out.channels[1]).toEqual(createChannelEntry(6));
+      },
+    );
+
+    it.each(cases)(
+      "$name round-trips the old value through its inverse",
+      ({ action, read }) => {
+        const state = withEntries();
+        const before = read(state.channels[0]);
+        expect(read(roundTrip(state, action).channels[0])).toEqual(before);
+      },
+    );
+
+    it.each(cases)("$name targets the channel", ({ action }) => {
+      expect(log.reduceAll(withEntries(), [action]).targets).toEqual(["channel:5"]);
+    });
+
+    it.each(cases)("$name is a no-op when the channel is absent", ({ action }) => {
+      const state = createEmpty({ channels: [createChannelEntry(6)] });
+      expect(apply(state, action).channels).toEqual([createChannelEntry(6)]);
+    });
+  });
+
   describe("setChannels", () => {
     it("should replace the entire ordered list", () => {
       const state = createEmpty({ channels: [createChannelEntry(1)] });
@@ -224,30 +305,30 @@ describe("log reducer", () => {
     });
   });
 
-  describe("setShowChannelNames", () => {
+  describe("setHideChannelNames", () => {
     it("should set the flag and round-trip it", () => {
-      const state = createEmpty({ showChannelNames: true });
+      const state = createEmpty({ hideChannelNames: true });
       expect(
-        apply(state, log.setShowChannelNames({ showChannelNames: false }))
-          .showChannelNames,
+        apply(state, log.setHideChannelNames({ hideChannelNames: false }))
+          .hideChannelNames,
       ).toEqual(false);
       expect(
-        roundTrip(state, log.setShowChannelNames({ showChannelNames: false }))
-          .showChannelNames,
+        roundTrip(state, log.setHideChannelNames({ hideChannelNames: false }))
+          .hideChannelNames,
       ).toEqual(true);
     });
   });
 
-  describe("setShowReceiptTimestamp", () => {
+  describe("setHideReceiptTimestamp", () => {
     it("should set the flag and round-trip it", () => {
-      const state = createEmpty({ showReceiptTimestamp: true });
+      const state = createEmpty({ hideReceiptTimestamp: true });
       expect(
-        apply(state, log.setShowReceiptTimestamp({ showReceiptTimestamp: false }))
-          .showReceiptTimestamp,
+        apply(state, log.setHideReceiptTimestamp({ hideReceiptTimestamp: false }))
+          .hideReceiptTimestamp,
       ).toEqual(false);
       expect(
-        roundTrip(state, log.setShowReceiptTimestamp({ showReceiptTimestamp: false }))
-          .showReceiptTimestamp,
+        roundTrip(state, log.setHideReceiptTimestamp({ hideReceiptTimestamp: false }))
+          .hideReceiptTimestamp,
       ).toEqual(true);
     });
   });
@@ -278,7 +359,7 @@ describe("log reducer", () => {
           state,
           log.rename({ name: "next" }),
           log.addChannel({ channel: 1 }),
-          log.setShowChannelNames({ showChannelNames: false }),
+          log.setHideChannelNames({ hideChannelNames: false }),
         ),
       ).toEqual(state);
     });

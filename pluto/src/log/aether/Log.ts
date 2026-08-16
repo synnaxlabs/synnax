@@ -31,12 +31,12 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const logStateZ = log.newZ
+export const logStateZ = log.logZ
   .pick({
     channels: true,
     timestampPrecision: true,
-    showChannelNames: true,
-    showReceiptTimestamp: true,
+    hideChannelNames: true,
+    hideReceiptTimestamp: true,
   })
   .extend({
     region: box.box,
@@ -87,6 +87,9 @@ interface InternalState {
   namePadding: Record<string, string>;
   charWidth: number;
   lineHeight: number;
+  // Downward nudge aligning the selection band with glyph ink (see
+  // Draw2D.measureInkOffsetY).
+  selectionOffsetY: number;
   tsLen: number;
   selectionColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
@@ -148,6 +151,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
 
     i.lineHeight = i.theme.typography[this.state.font].size * i.theme.sizes.base;
     i.charWidth = i.draw2d.measureCharWidth(this.state.font);
+    i.selectionOffsetY = i.draw2d.measureInkOffsetY(this.state.font, i.lineHeight);
     i.tsLen =
       this.state.timestampPrecision === 0 ? 8 : 9 + this.state.timestampPrecision;
 
@@ -247,7 +251,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         this.clampSelection(evictedCount);
       }
       this.checkEmpty();
-      this.requestRender();
+      if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();
@@ -383,7 +387,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       region: box.construct(
         xy.translate(box.topLeft(reg), {
           x: 0,
-          y: highlightStart * lh + CONTENT_PADDING,
+          y: highlightStart * lh + CONTENT_PADDING + this.internal.selectionOffsetY,
         }),
         { width: box.width(reg), height: rowCount * lh },
       ),
@@ -393,7 +397,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
   }
 
-  // showChannelNames is read from state (O(1)) rather than derived by scanning all
+  // hideChannelNames is read from state (O(1)) rather than derived by scanning all
   // entries (O(n)). The render loop below is already O(n) over visible entries — adding
   // a second O(n) scan here just to answer a yes/no question would double the per-frame
   // work at up to 60fps.
@@ -403,11 +407,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { showChannelNames, showReceiptTimestamp, channelDataTypes } = this.state;
+    const { hideChannelNames, hideReceiptTimestamp, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
-    const ts = showReceiptTimestamp
+    const ts = !hideReceiptTimestamp
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
@@ -430,9 +434,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
-    if (showReceiptTimestamp && showChannelNames) prefix = `${ts} [${name}]${pad}  `;
-    else if (showReceiptTimestamp) prefix = `${ts}  `;
-    else if (showChannelNames) prefix = `[${name}]${pad}  `;
+    if (!hideReceiptTimestamp && !hideChannelNames) prefix = `${ts} [${name}]${pad}  `;
+    else if (!hideReceiptTimestamp) prefix = `${ts}  `;
+    else if (!hideChannelNames) prefix = `[${name}]${pad}  `;
     else prefix = "";
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
     if (entry.continuation) prefix = " ".repeat(prefix.length);

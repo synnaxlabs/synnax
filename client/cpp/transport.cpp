@@ -43,14 +43,16 @@ Transport::Transport(
     const std::string &ip,
     const std::string &ca_cert_file,
     const std::string &client_cert_file,
-    const std::string &client_key_file
+    const std::string &client_key_file,
+    const bool secure
 ) {
     auto base_target = x::url::URL(ip, port, "").to_string();
-    auto pool = std::make_shared<freighter::grpc::Pool>(
-        ca_cert_file,
-        client_cert_file,
-        client_key_file
-    );
+    auto pool = secure ? std::make_shared<freighter::grpc::Pool>(
+                             ca_cert_file,
+                             client_cert_file,
+                             client_key_file
+                         )
+                       : std::make_shared<freighter::grpc::Pool>();
     this->auth_login = std::make_unique<freighter::grpc::UnaryClient<
         grpc::auth::LoginRequest,
         grpc::auth::LoginResponse,
@@ -79,6 +81,10 @@ Transport::Transport(
         grpc::ranger::CreateRequest,
         grpc::ranger::CreateResponse,
         grpc::ranger::RangeCreateService>>(pool, base_target);
+    this->range_set_end = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ranger::SetEndRequest,
+        google::protobuf::Empty,
+        grpc::ranger::RangeSetEndService>>(pool, base_target);
     this->range_kv_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::kv::DeleteRequest,
         google::protobuf::Empty,
@@ -180,6 +186,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     chan_retrieve->use(mw);
     range_retrieve->use(mw);
     range_create->use(mw);
+    range_set_end->use(mw);
     range_kv_delete->use(mw);
     range_kv_get->use(mw);
     range_kv_set->use(mw);
@@ -202,6 +209,5 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     view_create->use(mw);
     view_retrieve->use(mw);
     view_delete->use(mw);
-    connectivity_check->use(mw);
 }
 }

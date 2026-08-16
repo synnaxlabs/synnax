@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -92,18 +92,19 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Keys          []ranger.Key    `json:"keys" msgpack:"keys"`
-		Names         []string        `json:"names" msgpack:"names"`
-		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
-		HasLabels     []label.Key     `json:"has_labels" msgpack:"has_labels"`
-		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
-		Limit         int             `json:"limit" msgpack:"limit"`
-		Offset        int             `json:"offset" msgpack:"offset"`
-		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
-		IncludeParent bool            `json:"include_parent" msgpack:"include_parent"`
+		Keys                []ranger.Key    `json:"keys"                   msgpack:"keys"`
+		Names               []string        `json:"names"                  msgpack:"names"`
+		SearchTerm          string          `json:"search_term"            msgpack:"search_term"`
+		HasLabels           []label.Key     `json:"has_labels"             msgpack:"has_labels"`
+		OverlapsWith        telem.TimeRange `json:"overlaps_with"          msgpack:"overlaps_with"`
+		Limit               int             `json:"limit"                  msgpack:"limit"`
+		Offset              int             `json:"offset"                 msgpack:"offset"`
+		IncludeLabels       bool            `json:"include_labels"         msgpack:"include_labels"`
+		IncludeParent       bool            `json:"include_parent"         msgpack:"include_parent"`
+		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
+		Ranges []Range `json:"ranges,omitzero" msgpack:"ranges,omitzero"`
 	}
 )
 
@@ -141,10 +142,13 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	err := q.Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	var err error
 	if req.IncludeLabels {
 		for i, r := range ranges {
 			if ranges[i].Labels, err = s.label.
@@ -185,7 +189,7 @@ func (s *Service) Retrieve(
 
 type RenameRequest struct {
 	Name string     `json:"name" msgpack:"name"`
-	Key  ranger.Key `json:"key" msgpack:"key"`
+	Key  ranger.Key `json:"key"  msgpack:"key"`
 }
 
 func (s *Service) Rename(
@@ -201,6 +205,26 @@ func (s *Service) Rename(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+}
+
+type SetEndRequest struct {
+	Key ranger.Key      `json:"key" msgpack:"key"`
+	End telem.TimeStamp `json:"end" msgpack:"end"`
+}
+
+func (s *Service) SetEnd(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetEndRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).SetEnd(ctx, req.Key, req.End)
 }
 
 type DeleteRequest struct {

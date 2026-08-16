@@ -12,7 +12,7 @@ package pb
 import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // FrameToPB converts telem.Frame to protobuf Frame using provided key converter.
@@ -24,7 +24,7 @@ func FrameToPB[Key types.SizedNumeric](
 		return nil, err
 	}
 	pb := &Frame{
-		Keys:   xunsafe.CastSlice[Key, uint32](r.KeysSlice()),
+		Keys:   unsafe.CastSlice[Key, uint32](r.KeysSlice()),
 		Series: seriesVal,
 	}
 	return pb, nil
@@ -41,7 +41,7 @@ func FrameFromPB[Key types.SizedNumeric](
 	if err != nil {
 		return telem.Frame[Key]{}, err
 	}
-	return telem.MultiFrame(xunsafe.CastSlice[uint32, Key](pb.Keys), series), nil
+	return telem.MultiFrame(unsafe.CastSlice[uint32, Key](pb.Keys), series), nil
 }
 
 // SeriesToPB converts Series to Series.

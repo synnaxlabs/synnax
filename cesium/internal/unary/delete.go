@@ -52,7 +52,9 @@ func (db *DB) resolveByteOffset(
 	domainStart telem.TimeStamp,
 	sampleOffset int64,
 ) (off telem.Size, err error) {
-	iter := db.domain.OpenIterator(domain.IterRange(domainStart.SpanRange(telem.TimeSpanMax)))
+	iter := db.domain.OpenIterator(
+		domain.IterRange(domainStart.SpanRange(telem.TimeSpanMax)),
+	)
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekGE(ctx, domainStart) {
 		return 0, errors.Newf("cannot find domain starting at %s", domainStart)
@@ -60,7 +62,10 @@ func (db *DB) resolveByteOffset(
 	return db.resolver.byteOffset(ctx, iter, sampleOffset)
 }
 
-func (db *DB) lockControllerForNonWriteOp(tr telem.TimeRange, opName string) (release func(), err error) {
+func (db *DB) lockControllerForNonWriteOp(
+	tr telem.TimeRange,
+	opName string,
+) (release func(), err error) {
 	g, _, err := db.controller.OpenGate(control.GateConfig[*controlledWriter]{
 		ErrIfControlled: new(true),
 		TimeRange:       tr,
@@ -75,14 +80,23 @@ func (db *DB) lockControllerForNonWriteOp(tr telem.TimeRange, opName string) (re
 
 func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	if !tr.Valid() {
-		return errors.Newf("delete start %d cannot be after delete end %d", tr.Start, tr.End)
+		return errors.Newf(
+			"delete start %d cannot be after delete end %d",
+			tr.Start,
+			tr.End,
+		)
 	}
 	release, err := db.lockControllerForNonWriteOp(tr, "delete")
 	if err != nil {
 		return err
 	}
 	defer release()
-	if err := db.domain.Delete(ctx, tr, db.calculateStartOffset, db.calculateEndOffset); err != nil {
+	if err := db.domain.Delete(
+		ctx,
+		tr,
+		db.calculateStartOffset,
+		db.calculateEndOffset,
+	); err != nil {
 		return err
 	}
 	db.resolver.invalidate()
@@ -238,11 +252,11 @@ func (db *DB) calculateEndOffset(
 	sampleOffset = approxDist.Upper
 	if !approxDist.Exact() {
 		if !approxDist.StartExact && !approxDist.EndExact {
-			// If both start and end are inexact, sampleOffset is in between the two. (Note
-			// that the start is only inexact because of domain cutoff).
+			// If both start and end are inexact, sampleOffset is in between the two.
+			// (Note that the start is only inexact because of domain cutoff).
 			sampleOffset = (approxDist.Lower + approxDist.Upper) / 2
-			// We stamp to sampleOffset - 1 here since if we are approximating the start sampleOffset,
-			// we want to stamp the last written sample.
+			// We stamp to sampleOffset - 1 here since if we are approximating the start
+			// sampleOffset, we want to stamp the last written sample.
 			if approxStamp, err = db.index().Stamp(
 				ctx,
 				domainStart,

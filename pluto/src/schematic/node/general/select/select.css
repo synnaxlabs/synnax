@@ -10,7 +10,7 @@
  */
 
 .pluto-select-symbol {
-    --pluto-border-color: var(--pluto-gray-l7-40);
+    --pluto-border-color: var(--pluto-symbol-display);
 
     display: flex;
     align-items: center;
@@ -25,7 +25,9 @@
         border-bottom-right-radius: 0;
     }
 
-    .pluto-dialog__trigger {
+    .pluto-btn.pluto-dialog__trigger {
+        --pluto-border-color: var(--pluto-symbol-display);
+
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
         border-width: 1px;
@@ -34,5 +36,9 @@
     svg.pluto-caret-animated {
         color: var(--pluto-gray-l9);
         fill: currentcolor;
+    }
+
+    .pluto-handle__2 {
+        z-index: 5;
     }
 }

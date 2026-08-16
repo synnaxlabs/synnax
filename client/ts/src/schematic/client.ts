@@ -7,28 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
+import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
+import { type group } from "@/group";
+import { type ontology } from "@/ontology";
 import { project } from "@/project";
+import { query } from "@/query";
+import { createOf, kindOf, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   dispatchReqZ,
   rename as renameAction,
+  scopedActionZ,
 } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
   type New,
-  newZ,
+  ontologyID,
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
+export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -38,59 +44,209 @@ const copyReqZ = z.object({
   snapshot: z.boolean(),
 });
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
-const singleRetrieveArgsZ = z
+const retrieveReqZ = z.object({
+  keys: keyZ.array(),
+  ignoreNotFoundError: z.boolean().optional(),
+});
+const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
-export type CopyArgs = z.input<typeof copyReqZ>;
+export type CopyParams = z.input<typeof copyReqZ>;
+
+interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
   project: project.keyZ,
-  schematics: newZ.array(),
+  schematics: schematicZ.array(),
 });
 const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
 
-export class Client {
-  readonly symbols: symbol.Client;
-  private readonly client: UnaryClient;
+/**
+ * Client-side matching for a request: exact for key sets, the only shape a
+ * schematic request carries.
+ */
+const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
+  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  return (s) => keySet == null || keySet.has(s.key);
+};
 
-  constructor(client: UnaryClient) {
-    this.client = client;
-    this.symbols = new symbol.Client(client);
+export interface ClientConfig {
+  unary: UnaryClient;
+  file: FileTransport;
+  ontology: ontology.Client;
+  cache: query.Cache;
+  groupStore: query.Table<group.Key, group.Group>;
+}
+
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  Schematic
+> {
+  readonly symbols: symbol.Client;
+  private readonly cfg: ClientConfig;
+  private readonly store: query.Table<Key, Schematic>;
+  private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
+
+  constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
+    // Dispatch mutates documents server-side, so fetched copies never clobber
+    // a doc holding locally replayed edits: the table hydrates if-absent.
+    const store = cache.createTable<Key, Schematic>({
+      name: "schematics",
+      hydrate: "if-absent",
+      fetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
+    });
+    const dispatcher = new actions.Controller<Key, Schematic, Action>({
+      store,
+      onError: cache.onError,
+      reduce: reduceAll,
+      kindOf,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
+    super(cache, {
+      name: "schematic",
+      table: store,
+      request: {
+        schema: retrieveMultiParamsZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (schematic, req) => requestFilter(req)(schematic),
+      },
+    });
+    this.cfg = cfg;
+    this.symbols = new symbol.Client(cfg);
+    this.store = store;
+    this.dispatcher = dispatcher;
   }
 
-  async create(project: project.Key, schematic: New): Promise<Schematic>;
-  async create(project: project.Key, schematics: New[]): Promise<Schematic[]>;
+  async create(
+    project: project.Key,
+    schematic: New,
+    opts?: query.WriteOptions<Schematic[]>,
+  ): Promise<Schematic>;
+  async create(
+    project: project.Key,
+    schematics: New[],
+    opts?: query.WriteOptions<Schematic[]>,
+  ): Promise<Schematic[]>;
   async create(
     project: project.Key,
     schematics: New | New[],
+    opts: query.WriteOptions<Schematic[]> = {},
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
-    const res = await this.client.send(
-      "/schematic/create",
-      { project, schematics: array.toArray(schematics) },
-      createReqZ,
-      createResZ,
-    );
+    const optimistic = array.toArray(schematics).map((s) => schematicZ.parse(s));
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/schematic/create",
+          { project, schematics: optimistic },
+          createReqZ,
+          createResZ,
+        ),
+    });
+    this.store.set(res.schematics);
     return isMany ? res.schematics : res.schematics[0];
   }
 
-  async rename(key: Key, name: string): Promise<void> {
-    await this.dispatch(key, "", [renameAction({ name })]);
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+    ];
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
+    });
+    rename();
   }
 
-  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
-    await this.client.send(
+  /**
+   * Applies actions to the cached document and sends them to the server,
+   * recording an undoable entry. Returns false without side effects when the
+   * document isn't cached. Rolls back the local apply and rethrows on send
+   * failure.
+   */
+  async dispatch(
+    key: Key,
+    actions: Action | Action[],
+    opts: actions.Options<Schematic, Action> = {},
+  ): Promise<boolean> {
+    return await this.dispatcher.dispatch(
+      key,
+      array.toArray(actions),
+      this.dispatchSender(key),
+      opts,
+    );
+  }
+
+  /**
+   * Reverts the document's most recent undoable entry. Returns false when
+   * nothing is undoable.
+   */
+  async undo(key: Key): Promise<boolean> {
+    return await this.dispatcher.undo(key, this.dispatchSender(key));
+  }
+
+  /**
+   * Re-applies the document's most recently undone entry. Returns false when
+   * nothing is redoable.
+   */
+  async redo(key: Key): Promise<boolean> {
+    return await this.dispatcher.redo(key, this.dispatchSender(key));
+  }
+
+  /** Whether the document has a live undo entry. */
+  hasUndo(key: Key): boolean {
+    return this.dispatcher.hasUndo(key);
+  }
+
+  /** Whether the document has a live redo entry. */
+  hasRedo(key: Key): boolean {
+    return this.dispatcher.hasRedo(key);
+  }
+
+  /**
+   * Subscribes to changes in the document's undo/redo stacks. Returns a
+   * destructor that unsubscribes.
+   */
+  onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
+    return this.dispatcher.onUndoStateChange(callback, key);
+  }
+
+  /** Stages actions committed atomically as one undoable entry. */
+  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
+  }
+
+  private dispatchSender(key: Key): actions.SendDispatch<Action> {
+    return async (actions, dispatchKey) =>
+      await this.sendDispatch(key, dispatchKey, actions);
+  }
+
+  private async sendDispatch(
+    key: Key,
+    dispatchKey: string,
+    actions: Action[],
+  ): Promise<void> {
+    await this.cfg.unary.send(
       "/schematic/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
@@ -98,33 +254,51 @@ export class Client {
     );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Schematic>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Schematic[]>;
-  async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<Schematic | Schematic[]> {
-    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await this.client.send(
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const drop = () => [
+      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
+      this.store.delete(keysArr),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/schematic/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
+  }
+
+  /** Subscribes to every schematic delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
+  }
+
+  async copy(params: CopyParams): Promise<Schematic> {
+    const res = await this.cfg.unary.send(
+      "/schematic/copy",
+      params,
+      copyReqZ,
+      copyResZ,
+    );
+    this.store.set(res.schematic);
+    return res.schematic;
+  }
+
+  private async execRetrieve(params: RetrieveMultipleParams): Promise<Schematic[]> {
+    const res = await this.cfg.unary.send(
       "/schematic/retrieve",
-      args,
-      retrieveArgsZ,
+      params,
+      retrieveReqZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Schematic", args, res.schematics, isSingle);
-    return isSingle ? res.schematics[0] : res.schematics;
-  }
-
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/schematic/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      emptyResZ,
-    );
-  }
-
-  async copy(args: CopyArgs): Promise<Schematic> {
-    const res = await this.client.send("/schematic/copy", args, copyReqZ, copyResZ);
-    return res.schematic;
+    return res.schematics;
   }
 }

@@ -1,0 +1,56 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-modal.console-label__edit {
+    height: 80rem;
+    max-height: 80vh;
+}
+
+.console-label__edit {
+    overflow: hidden;
+}
+
+/* Chromeless search line: the modal frames it, so the input sheds its own box.
+   Padding lands the search icon on the list rows' 4rem gutter. */
+.pluto-input.console-label__search {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0 2.5rem;
+    flex-shrink: 0;
+}
+
+.console-label__items-container {
+    height: 100%;
+    overflow: hidden;
+}
+
+.console-label__list-item {
+    height: 7.5rem;
+    max-height: 7.5rem;
+    min-height: 7.5rem;
+    padding: 0rem 4rem;
+
+    &.console--create {
+        background: var(--pluto-gray-l3);
+        transition:
+            height 0.2s ease,
+            min-height 0.2s ease;
+        &.pluto--hidden {
+            height: 0;
+            min-height: 0;
+            flex-grow: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: none;
+        }
+    }
+}

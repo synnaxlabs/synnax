@@ -10,7 +10,7 @@
 import "@/button/Button.css";
 
 import { color, record, text, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
@@ -23,14 +23,8 @@ import { Triggers } from "@/triggers";
 
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
-/** The variant of button */
-export type Variant =
-  | "filled"
-  | "outlined"
-  | "text"
-  | "suggestion"
-  | "preview"
-  | "shadow";
+/** The rest-state emphasis of the button chassis. */
+export type Variant = "filled" | "outlined" | "text";
 
 export interface ExtensionProps
   extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
@@ -39,12 +33,14 @@ export interface ExtensionProps
   triggerIndicator?: boolean | Triggers.Trigger;
   textColor?: Text.TextProps["color"];
   textVariant?: Text.Variant;
-  contrast?: Theming.Shade | false;
   disabled?: boolean;
+  /** Renders a non-interactive, chrome-less display of the button. */
+  preview?: boolean;
   preventClick?: boolean;
   propagateClick?: boolean;
   onClickDelay?: number | TimeSpan;
-  ghost?: boolean;
+  /** Marks the button as a hidden action its pluto--reveals container shows. */
+  reveal?: boolean;
 }
 
 /** The props for the {@link Button} component. */
@@ -71,8 +67,8 @@ const resolveTriggerIndicator = (
  * @param props - Props for the component, which are passed down to the underlying button
  * element.
  * @param props.size - The size of button render.
- * @param props.variant - The variant to render for the button. Options are "filled"
- * (default), "outlined", and "text".
+ * @param props.variant - The variant to render for the button. Options are "filled",
+ * "outlined" (default), and "text".
  * @param props.startIcon - An optional icon to render before the start of the button
  * text. This can be a single icon or an array of icons. The icons will be formatted
  * to match the color and size of the button.
@@ -90,12 +86,14 @@ const Base = <E extends ElementType = "button">({
   variant = "outlined",
   className,
   disabled,
+  preview,
   preventClick,
   level,
   trigger,
   triggerIndicator,
   onClickDelay = 0,
   onClick,
+  onKeyDown,
   color: colorVal,
   status,
   style,
@@ -103,36 +101,52 @@ const Base = <E extends ElementType = "button">({
   textColor,
   textVariant,
   tabIndex,
-  contrast,
   children,
   defaultEl = "button",
   el,
-  ghost,
+  reveal,
   propagateClick = false,
+  draggable,
   href,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
-  // The shadow variant appears as text but shows outline on hover.
-  // We don't convert it here, let CSS handle the behavior.
-  if (variant === "preview") preventClick = true;
+  if (preview) preventClick = true;
 
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!propagateClick) e.stopPropagation();
-    if (isDisabled || variant === "preview" || preventClick === true) return;
+    if (isDisabled || preview === true || preventClick === true) return;
     // @ts-expect-error - TODO: fix this
     if (parsedDelay.isZero) return onClick?.(e);
+  };
+
+  // A non-button chassis has no native Enter/Space activation, so a focusable one
+  // gets it from the component. tabIndex -1 still counts: roving-tabindex tabs hold
+  // focus programmatically. The target guard keeps keystrokes on nested interactives
+  // (inputs, editables) from activating the chassis.
+  const resolvedEl = Text.parseElement(level, el, defaultEl, textVariant, href);
+  const ownsActivation =
+    (resolvedEl === "div" || resolvedEl === "label") && tabIndex != null;
+  const handleKeyDown = (e: any) => {
+    onKeyDown?.(e);
+    if (!ownsActivation || e.defaultPrevented) return;
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    handleClick(e);
   };
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseDown = (e: any) => {
-    if (tabIndex == -1) e.preventDefault();
+    // Preventing default on mousedown cancels a native dragstart, so skip it for
+    // draggable buttons (e.g. roving-tabindex tabs that are also drag sources).
+    if (tabIndex == -1 && draggable !== true) e.preventDefault();
     onMouseDown?.(e);
-    if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
+    if (isDisabled || preview === true || parsedDelay.isZero) return;
     document.addEventListener(
       "mouseup",
       () => timeoutRef.current != null && clearTimeout(timeoutRef.current),
@@ -147,7 +161,7 @@ const Base = <E extends ElementType = "button">({
     triggers: trigger,
     callback: useCallback<(e: Triggers.UseEvent) => void>(
       ({ stage }) => {
-        if (stage !== "end" || isDisabled || variant === "preview") return;
+        if (stage !== "end" || isDisabled || preview === true) return;
         handleClick(
           new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
         );
@@ -156,26 +170,28 @@ const Base = <E extends ElementType = "button">({
     ),
   });
 
-  let pStyle = style;
   const res = color.colorZ.safeParse(colorVal);
   const hasCustomColor =
     res.success && (variant === "filled" || variant === "outlined");
-  if (hasCustomColor) {
-    const theme = Theming.use();
-    pStyle = {
-      ...pStyle,
-      [CSS.var("btn-color")]: color.rgbString(res.data),
-      [CSS.var("btn-text-color")]: color.rgbCSS(
-        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
-      ),
-    };
-  }
+  const theme = Theming.use();
 
-  if (!parsedDelay.isZero)
-    pStyle = {
-      ...pStyle,
-      [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
-    };
+  const pStyle = useMemo(() => {
+    let s = style;
+    if (hasCustomColor)
+      s = {
+        ...s,
+        [CSS.var("btn-color")]: color.rgbString(res.data),
+        [CSS.var("btn-text-color")]: color.rgbCSS(
+          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+        ),
+      };
+    if (!parsedDelay.isZero)
+      s = {
+        ...s,
+        [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+      };
+    return s;
+  }, [style, hasCustomColor, colorVal, theme, parsedDelay]);
 
   if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
   else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];
@@ -194,17 +210,19 @@ const Base = <E extends ElementType = "button">({
       direction="x"
       className={CSS(
         CSS.B(MODULE_CLASS),
-        contrast != null && CSS.BM(MODULE_CLASS, `contrast-${contrast}`),
         preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
-        variant !== "preview" && CSS.disabled(isDisabled),
+        !preview && CSS.disabled(isDisabled),
         CSS.BM(MODULE_CLASS, variant),
+        preview === true && CSS.BM(MODULE_CLASS, "preview"),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
-        ghost && CSS.BM(MODULE_CLASS, "ghost"),
+        reveal === true && CSS.M("reveal"),
         className,
       )}
       size={size}
       tabIndex={tabIndex}
+      aria-disabled={isDisabled || undefined}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       onMouseDown={handleMouseDown}
       style={pStyle}
       color={textColor}
@@ -216,6 +234,7 @@ const Base = <E extends ElementType = "button">({
       overflow="nowrap"
       status={status}
       href={href}
+      draggable={draggable}
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {(!isLoading || !square) && children}

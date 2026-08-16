@@ -17,19 +17,48 @@ import (
 )
 
 type (
-	Frame            = frame.Frame
-	Iterator         = iterator.Iterator
-	IteratorRequest  = iterator.Request
-	IteratorResponse = iterator.Response
-	StreamIterator   = iterator.StreamIterator
-	Writer           = writer.Writer
-	WriterRequest    = writer.Request
-	WriterResponse   = writer.Response
-	StreamWriter     = writer.StreamWriter
-	WriterConfig     = writer.Config
-	IteratorConfig   = iterator.Config
-	StreamerResponse = relay.Response
-	StreamerRequest  = relay.Request
-	StreamerConfig   = relay.StreamerConfig
+	Frame = frame.Frame
+
+	Iterator                = iterator.Iterator
+	StreamIterator          = iterator.StreamIterator
+	IteratorConfig          = iterator.Config
+	IteratorRequest         = iterator.Request
+	IteratorResponse        = iterator.Response
+	IteratorCommand         = iterator.Command
+	IteratorResponseVariant = iterator.ResponseVariant
+
 	Streamer         = relay.Streamer
+	StreamerConfig   = relay.StreamerConfig
+	StreamerRequest  = relay.Request
+	StreamerResponse = relay.Response
+
+	Writer         = writer.Writer
+	StreamWriter   = writer.StreamWriter
+	WriterConfig   = writer.Config
+	WriterRequest  = writer.Request
+	WriterResponse = writer.Response
+	WriterCommand  = writer.Command
+	WriterMode     = writer.Mode
+)
+
+const (
+	IteratorAutoSpan = iterator.AutoSpan
+
+	IteratorCommandNext      = iterator.CommandNext
+	IteratorCommandPrev      = iterator.CommandPrev
+	IteratorCommandSeekFirst = iterator.CommandSeekFirst
+	IteratorCommandSeekLast  = iterator.CommandSeekLast
+	IteratorCommandSeekLE    = iterator.CommandSeekLE
+	IteratorCommandSeekGE    = iterator.CommandSeekGE
+	IteratorCommandValid     = iterator.CommandValid
+	IteratorCommandError     = iterator.CommandError
+	IteratorCommandSetBounds = iterator.CommandSetBounds
+
+	IteratorResponseVariantAck  = iterator.ResponseVariantAck
+	IteratorResponseVariantData = iterator.ResponseVariantData
+
+	WriterCommandOpen         = writer.CommandOpen
+	WriterCommandWrite        = writer.CommandWrite
+	WriterCommandCommit       = writer.CommandCommit
+	WriterCommandSetAuthority = writer.CommandSetAuthority
 )

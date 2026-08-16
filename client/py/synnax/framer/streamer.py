@@ -17,7 +17,7 @@ import synnax.channel.payload as channel
 from freighter import (
     EOF,
     AsyncStream,
-    AsyncStreamClient,
+    AsyncWebsocketClient,
     Stream,
     WebsocketClient,
 )
@@ -211,12 +211,12 @@ class AsyncStreamer:
     """
 
     _stream: AsyncStream[_Request, _Response]
-    _client: AsyncStreamClient
+    _client: AsyncWebsocketClient
     _adapter: ReadFrameAdapter
 
     def __init__(
         self,
-        client: AsyncStreamClient,
+        client: AsyncWebsocketClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int,
         throttle_rate: float = 0,
@@ -229,7 +229,8 @@ class AsyncStreamer:
         self._exclude_groups = exclude_groups or []
 
     async def _open(self) -> None:
-        self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
+        client = self._client.with_codec(WSStreamerCodec(self._adapter.codec))
+        self._stream = await client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
             _Request(
                 keys=self._adapter.keys,
@@ -249,7 +250,7 @@ class AsyncStreamer:
 
     async def close_loop(self) -> None:
         """Closes the sending end of the streamer, requiring the caller to process all
-        remaining frames and close acknowledgements by calling read. This method is
+        remaining frames and close acknowledgments by calling read. This method is
         useful for managing the lifecycle of a streamer within a separate event loop or
         thread.
         """
@@ -265,7 +266,7 @@ class AsyncStreamer:
         except EOF:
             return
         raise UnexpectedError(
-            "Unexpected missing close acknowledgement from server. "
+            "Unexpected missing close acknowledgment from server. "
             "Please report this issue to the Synnax team."
         )
 

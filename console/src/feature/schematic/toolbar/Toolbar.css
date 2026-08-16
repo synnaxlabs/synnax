@@ -1,0 +1,119 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-schematic__toolbar-actions {
+    height: 100%;
+    width: 66px;
+}
+
+.console-schematic__control {
+    padding: 1.5rem 2rem;
+}
+
+.console-schematic__properties {
+    height: 100%;
+    /* Insets the node form's tab strip off the pane edge. */
+    padding: 1rem 0.75rem;
+}
+
+.console-schematic__properties-multi {
+    padding: 2rem;
+}
+
+.console-schematic__properties-edit {
+    margin-right: 1rem;
+}
+
+.console-schematic__symbols {
+    height: 100%;
+
+    /* Chromeless search input matching the project splash search: the group row
+       frames it, so the input sheds its own box. The min-height override undoes
+       the flush floor so the row keeps its small-control height. Negative margins
+       stretch it through the row's padding so the divider before the group chips
+       spans the row's full height. */
+    .pluto-input.console-schematic__symbols-search {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        min-height: var(--pluto-height-small);
+        height: auto;
+        max-height: none;
+        align-self: stretch;
+        margin: -1rem 0;
+        border-right: var(--pluto-border);
+        width: 30rem;
+        flex-grow: 0;
+        flex-shrink: 0;
+    }
+
+    .console-schematic__symbols-group-list {
+        padding: 1rem 1rem 1rem 0;
+        border-bottom: var(--pluto-border);
+
+        /* A group tab is inset like the chip it replaced, tighter than the strip's
+           document-tab padding. The label sheds the document-tab text margins,
+           whose trailing half would pack the icon and label off center. */
+        .pluto-tabs__selector .pluto-tabs__tab {
+            padding: 0 1.5rem;
+
+            & > .pluto-icon {
+                margin-left: 0;
+                margin-right: 1rem;
+            }
+
+            .pluto-text {
+                margin: 0;
+            }
+        }
+    }
+
+    .console-schematic__symbols-group {
+        overflow: auto;
+        height: 100%;
+        --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
+
+        & > .pluto-list__virtualizer {
+            height: fit-content;
+        }
+    }
+
+    .console-schematic-symbols__button {
+        padding: 2rem 1rem;
+        align-items: stretch;
+
+        & > small {
+            height: calc(var(--pluto-small-line-height) * 2);
+            display: block;
+            color: var(--pluto-gray-l9) !important;
+            font-weight: 450;
+            text-align: center;
+            white-space: wrap;
+        }
+
+        &.pluto-list__item {
+            width: 90px;
+            min-height: 100px;
+            max-height: 100px;
+            min-width: 110px;
+            max-width: 110px;
+        }
+
+        .pluto-symbol-primitive {
+            transform: scale(0.75);
+
+            & svg {
+                max-height: 80px !important;
+                max-width: 90px !important;
+            }
+        }
+    }
+}

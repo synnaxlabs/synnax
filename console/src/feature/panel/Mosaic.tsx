@@ -1,0 +1,453 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/feature/panel/Mosaic.css";
+
+import { NotFoundError, ontology, type panel } from "@synnaxlabs/client";
+import { Logo } from "@synnaxlabs/media";
+import {
+  Button,
+  Component,
+  Errors,
+  Flex,
+  Flux,
+  Haul,
+  Icon,
+  Panel,
+  Portal,
+  Status,
+  Synnax,
+  Text,
+  Triggers,
+} from "@synnaxlabs/pluto";
+import { caseconv } from "@synnaxlabs/x";
+import {
+  memo,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useState,
+} from "react";
+import { useDispatch } from "react-redux";
+
+import { TabMenuItems } from "@/feature/panel/ContextMenu";
+import { useCreate } from "@/feature/panel/useCreate";
+import { Empty } from "@/platform";
+import { CSS } from "@/platform/css";
+import { type Import } from "@/platform/import";
+import { Panel as PlatformPanel } from "@/platform/panel";
+import { ResourceGuard, useTab } from "@/platform/panel/tab";
+import { Session } from "@/session";
+
+const corpseName = (error: Error): string | undefined =>
+  Flux.DeletedError.matches(error) ? error.corpseName : undefined;
+
+const TabNameContent = ({ name }: Flux.Tombstone): ReactElement => (
+  <>
+    <Icon.Warning />
+    <Text.Text status="warning">{name ?? "Not found"}</Text.Text>
+  </>
+);
+
+const TabNameFallback = ({ error }: Errors.FallbackProps): ReactElement => (
+  <TabNameContent name={corpseName(error)} />
+);
+
+interface TombstoneProps extends PropsWithChildren {
+  icon: ReactElement;
+  message: string;
+  description: string;
+}
+
+// Shared shell for terminal tab states (deleted, not found): a dimmed glyph,
+// a short heading, one muted line, and an actions row, optically centered in
+// the tab the way the mosaic empty state is.
+const Tombstone = ({
+  icon,
+  message,
+  description,
+  children,
+}: TombstoneProps): ReactElement => (
+  <Flex.Box
+    center
+    role="group"
+    aria-label={message}
+    className={CSS.BE("panel", "tombstone")}
+  >
+    {/* The centering box fills the tab; this column shrink-wraps so the icon,
+     * copy, and actions stay a tight stack instead of spreading across it. */}
+    <Flex.Box y align="center" gap={3}>
+      <Flex.Box className={CSS.BE("panel", "tombstone-icon")}>{icon}</Flex.Box>
+      <Flex.Box y align="center" gap="small">
+        <Text.Text level="h5">{message}</Text.Text>
+        <Text.Text
+          status="disabled"
+          className={CSS.BE("panel", "tombstone-description")}
+        >
+          {description}
+        </Text.Text>
+      </Flex.Box>
+      <Flex.Box x gap="small">
+        {children}
+      </Flex.Box>
+    </Flex.Box>
+  </Flex.Box>
+);
+
+// Renders the deleted state of a resource tab: the corpse's name plus Close and,
+// for restorable document types, Restore. Every delete lands here, local or
+// remote; the tab is never closed out from under the user.
+const DeletedContent = ({ name: corpse }: Flux.Tombstone): ReactElement => {
+  const resource = Panel.useTabResource({});
+  const closeTabs = Panel.useCloseResourceTabs();
+  const { restore, Icon: TabIcon } = useTab();
+  const client = Synnax.use();
+  const project = Session.Project.useSelectSelected();
+  const handleError = Status.useErrorHandler();
+  const name = corpse ?? "This resource";
+  const handleRestore = (): void => {
+    handleError(async () => {
+      if (client == null || restore == null) return;
+      await restore({ client, project, resource });
+    }, `Failed to restore ${name}`);
+  };
+  const restorable = client != null && restore != null;
+  return (
+    <Tombstone
+      icon={<TabIcon />}
+      message={`${name} was deleted`}
+      description={
+        restorable
+          ? "Restoring brings it back for everyone."
+          : "Close the component to remove it from this panel."
+      }
+    >
+      <Button.Button
+        variant="filled"
+        status="warning"
+        onClick={() => closeTabs(resource)}
+      >
+        Close
+      </Button.Button>
+      {restorable && (
+        <Button.Button variant="filled" onClick={handleRestore}>
+          Restore
+        </Button.Button>
+      )}
+    </Tombstone>
+  );
+};
+
+// A reference can permanently outrun its document: the retrieve's not-found
+// wait expired without a create broadcast. Offer to close the tab.
+const NotFoundContent = (): ReactElement => {
+  const resource = Panel.useTabResource({});
+  const closeTabs = Panel.useCloseResourceTabs();
+  const { Icon: TabIcon } = useTab();
+  return (
+    <Tombstone
+      icon={<TabIcon />}
+      message="Resource not found"
+      description="This component references a document that no longer exists."
+    >
+      <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
+    </Tombstone>
+  );
+};
+
+// The not-found wait rejects with a wrapper whose cause carries the typed
+// error, so the cause is matched alongside the error itself.
+export const isNotFound = (error: Error): boolean =>
+  NotFoundError.matches(error) || NotFoundError.matches(error.cause);
+
+// Deletion is handled by the ResourceGuard, so only the not-found race lands here.
+const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
+  if (!isNotFound(props.error)) return <Errors.Fallback {...props} />;
+  return <NotFoundContent />;
+};
+
+const TabName = (): ReactElement => {
+  const { Name } = useTab();
+  return (
+    <ResourceGuard FallbackComponent={TabNameContent}>
+      <Errors.SuspenseBoundary
+        loading={<Icon.Loading />}
+        FallbackComponent={TabNameFallback}
+      >
+        <Name />
+      </Errors.SuspenseBoundary>
+    </ResourceGuard>
+  );
+};
+
+// Both the panel and its tabs are full regions with room for the orbital; the
+// tab strip and toolbar keep the inline glyph.
+const loading = (
+  <Status.Loading>
+    <Status.Orbital />
+  </Status.Loading>
+);
+
+const LiveContent = (): ReactElement => {
+  const tabType = Panel.useTabType({});
+  const { Content } = useTab();
+  // Background tabs stay mounted, so every tab answers a keystroke unless the ones the
+  // user is not working in are switched off here.
+  const triggersActive = Session.Panel.useGetTabTriggersActive();
+  return (
+    // The box wraps the boundary rather than sitting inside it: the tab's size
+    // belongs to the tab, not to whichever of content, loader, or tombstone is
+    // currently filling it.
+    <Flex.Box
+      y
+      full
+      empty
+      className={CSS(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
+    >
+      <Triggers.Scope active={triggersActive}>
+        <Errors.SuspenseBoundary loading={loading} FallbackComponent={ContentFallback}>
+          <Content />
+        </Errors.SuspenseBoundary>
+      </Triggers.Scope>
+    </Flex.Box>
+  );
+};
+
+const Content = (): ReactElement => (
+  <ResourceGuard FallbackComponent={DeletedContent}>
+    <LiveContent />
+  </ResourceGuard>
+);
+
+const content = Component.renderProp(Content);
+const tabName = Component.renderProp(TabName);
+const contextMenu = Component.renderProp(TabMenuItems);
+
+const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
+  const parsed = ontology.idZ.safeParse(raw);
+  if (!parsed.success) return undefined;
+  return { variant: "resource", resource: parsed.data };
+};
+
+// Same principle as the no-panel state: the watermark plus a link that opens a
+// tab in the scoped panel through the mosaic's regular create flow.
+const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
+  const openTab = PlatformPanel.useOpenTab();
+  const handleCreate = useCallback(
+    () => openTab(onCreateTab()),
+    [onCreateTab, openTab],
+  );
+  return (
+    <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
+      <Logo className="synnax-logo-watermark" />
+      <Empty.Action
+        x
+        className={CSS.BE("mosaic", "empty-action")}
+        level="h5"
+        message="No components open."
+        action="Create a new component"
+        onClick={handleCreate}
+      />
+    </Flex.Box>
+  );
+};
+
+const Internal = ({ onCreateTab, onFileDrop }: MosaicProps): ReactElement => {
+  const selected = Session.Panel.useSelectSelectedTabs();
+  const handleSelect = Session.Panel.useSelectTab();
+  const focusedTab = Session.Panel.useSelectFocusedTab();
+  const isOverlaid = Session.Panel.useSelectIsTabOverlaid(undefined, focusedTab);
+  const dispatch = useDispatch();
+  const handleStopOverlay = useCallback(
+    () => dispatch(Session.Panel.stopOverlaying({})),
+    [dispatch],
+  );
+  return (
+    <Panel.Mosaic
+      className={CSS.B("mosaic")}
+      selected={selected}
+      onSelect={handleSelect}
+      overlaid={isOverlaid ? focusedTab : undefined}
+      onStopOverlay={handleStopOverlay}
+      onCreateTab={onCreateTab}
+      onFileDrop={onFileDrop}
+      resolveDroppedTab={resolveDroppedTab}
+      contextMenu={contextMenu}
+      emptyContent={<EmptyTabContent onCreateTab={onCreateTab} />}
+      rounded="large"
+      bordered
+      borderColor={6}
+      background={0}
+      tabName={tabName}
+    >
+      {content}
+    </Panel.Mosaic>
+  );
+};
+
+// The mosaic's own leaves handle file drops, but with no panel open there are no
+// leaves, so this state is the drop target itself. It reports a drop with no leaf,
+// and the tabs open in the panel useOpenTabs creates for them.
+const EMPTY_DROP_KEY = "empty-mosaic";
+
+interface EmptyContentProps extends Pick<MosaicProps, "onFileDrop"> {}
+
+// Mirrors the real mosaic's container chrome so the no-panel state keeps the
+// same framed L0 surface instead of collapsing to bare window background.
+const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
+  const createPanel = useCreate();
+  const [over, setOver] = useState(false);
+  const acceptsFiles = onFileDrop != null;
+  const canDrop: Haul.CanDrop = useCallback(
+    ({ items }) => acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0,
+    [acceptsFiles],
+  );
+  const handleDragOver = useCallback(() => setOver(true), []);
+  const handleDragLeave = useCallback(() => setOver(false), []);
+  const handleDrop = useCallback(
+    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+      setOver(false);
+      if (event == null) return [];
+      onFileDrop?.({ event });
+      return items;
+    },
+    [onFileDrop],
+  );
+  const haulProps = Haul.useDrop({
+    type: "Mosaic",
+    key: EMPTY_DROP_KEY,
+    canDrop,
+    onDragOver: handleDragOver,
+    onDrop: handleDrop,
+  });
+  return (
+    <Flex.Box
+      grow
+      align="center"
+      justify="center"
+      className={CSS(
+        CSS.B("mosaic"),
+        CSS.BM("mosaic", "empty"),
+        over && CSS.BM("mosaic", "drop-over"),
+      )}
+      rounded="large"
+      bordered
+      borderColor={6}
+      background={0}
+      onDragLeave={handleDragLeave}
+      {...haulProps}
+    >
+      <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
+        <Logo className="synnax-logo-watermark" />
+        <Empty.Action
+          x
+          className={CSS.BE("mosaic", "empty-action")}
+          level="h5"
+          message="No panels open."
+          action="Create a new panel"
+          onClick={createPanel}
+        />
+      </Flex.Box>
+    </Flex.Box>
+  );
+};
+
+// Last resort for a panel document that failed to load: the reconcile pass
+// should have pruned dead references before the mosaic rendered. Close
+// removes the reference the way the prune would have. The panel resolves from
+// the surrounding scope: a kept-alive fallback may belong to an unselected panel.
+const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
+  const { error, resetErrorBoundary } = props;
+  const panelKey = Panel.useOptionalKey();
+  const invalidate = Panel.useInvalidate();
+  const dispatch = useDispatch();
+  if (!Flux.DeletedError.matches(error) && !isNotFound(error))
+    return <Errors.Fallback {...props} />;
+  const name = corpseName(error);
+  return (
+    <Tombstone
+      icon={<Icon.Warning />}
+      message={`${name ?? "This panel"} could not be found`}
+      description="This window references a panel that no longer exists."
+    >
+      {panelKey != null && (
+        <Button.Button
+          onClick={() => dispatch(Session.Panel.remove({ keys: panelKey }))}
+        >
+          Close
+        </Button.Button>
+      )}
+      {panelKey != null && isNotFound(error) && (
+        <Button.Button
+          variant="filled"
+          onClick={() => {
+            invalidate({ key: panelKey });
+            resetErrorBoundary();
+          }}
+        >
+          Retry
+        </Button.Button>
+      )}
+    </Tombstone>
+  );
+};
+
+interface KeepAlivePanelProps extends MosaicProps {
+  panelKey: panel.Key;
+}
+
+// A visited panel renders once into a keyed portal and stays mounted while other
+// panels are selected, so switching back reattaches its DOM instead of remounting.
+// The scope sits outside the boundary so PanelFallback resolves its own panel.
+const KeepAlivePanel = ({ panelKey, ...rest }: KeepAlivePanelProps): ReactElement => (
+  <Portal.In itemKey={panelKey}>
+    <Panel.Scope.Provider value={panelKey}>
+      <Errors.SuspenseBoundary loading={loading} FallbackComponent={PanelFallback}>
+        <Panel.Suspended panelKey={panelKey}>
+          <Internal {...rest} />
+        </Panel.Suspended>
+      </Errors.SuspenseBoundary>
+    </Panel.Scope.Provider>
+  </Portal.In>
+);
+
+const PortaledInPanels = memo((props: MosaicProps) => {
+  const mounted = Session.Panel.useSelectMounted();
+  return (
+    <div>
+      {mounted.map((key) => (
+        <KeepAlivePanel key={key} panelKey={key} {...props} />
+      ))}
+    </div>
+  );
+});
+PortaledInPanels.displayName = "PortaledInPanels";
+
+const PortaledOutPanel = memo(({ onFileDrop }: EmptyContentProps) => {
+  const selected = Session.Panel.useSelectSelected();
+  return selected == null ? (
+    <EmptyContent onFileDrop={onFileDrop} />
+  ) : (
+    <Portal.Out itemKey={selected} className={CSS.BE("panel", "host")} />
+  );
+});
+PortaledOutPanel.displayName = "PortaledOutPanel";
+
+export interface MosaicProps {
+  onCreateTab: () => panel.NewTab;
+  /** Handles an OS file drop. A drop with no leaf landed on the no-panel state. */
+  onFileDrop?: Import.FileDrop;
+}
+
+export const Mosaic = (props: MosaicProps): ReactElement => (
+  <Portal.Context>
+    <PortaledInPanels {...props} />
+    <PortaledOutPanel onFileDrop={props.onFileDrop} />
+  </Portal.Context>
+);

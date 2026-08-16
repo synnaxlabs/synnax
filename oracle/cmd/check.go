@@ -100,8 +100,12 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 	warningsAsErrors, _ := cmd.Flags().GetBool(checkWarningsAsErrorsFlag)
 	verbose := viper.GetBool(verboseFlag)
 
-	if outputFormat != string(check.FormatText) && outputFormat != string(check.FormatJSON) {
-		return errors.Newf("invalid --format %q: must be 'text' or 'json'", outputFormat)
+	if outputFormat != string(check.FormatText) &&
+		outputFormat != string(check.FormatJSON) {
+		return errors.Newf(
+			"invalid --format %q: must be 'text' or 'json'",
+			outputFormat,
+		)
 	}
 
 	repoRoot, err := paths.RepoRoot()
@@ -125,7 +129,10 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		printSchemaCount(len(schemas))
 	}
 
-	registry := buildPluginRegistry()
+	registry, err := buildPluginRegistry()
+	if err != nil {
+		return err
+	}
 	result, err := pipeline.Run(ctx, pipeline.Options{
 		RepoRoot: repoRoot,
 		Schemas:  schemas,
@@ -159,12 +166,20 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		IncludeDiffs: includeDiffs,
 	}, checkers, gates)
 
-	if err := check.Render(os.Stdout, report, check.Format(outputFormat), verbose); err != nil {
+	if err := check.Render(
+		os.Stdout,
+		report,
+		check.Format(outputFormat),
+		verbose,
+	); err != nil {
 		return errors.Wrap(err, "render report")
 	}
 
 	if code := report.FirstExitCode(); code != 0 {
-		return &exitCodeError{code: code, msg: fmt.Sprintf("%d gate(s) failed", report.TotalFailed)}
+		return &exitCodeError{
+			code: code,
+			msg:  fmt.Sprintf("%d gate(s) failed", report.TotalFailed),
+		}
 	}
 	return nil
 }
@@ -182,6 +197,7 @@ func buildCheckers(
 		check.NewAnalyzeGate(warningsAsErrors),
 		check.NewGeneratedGate(formatters, runtime.GOMAXPROCS(0)),
 		check.NewCacheGate(cache),
+		check.NewPersistenceGate(warningsAsErrors),
 	}
 }
 

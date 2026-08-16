@@ -22,12 +22,14 @@ import (
 
 // cppIRHeaderPath is the C++ runtime's IR header, relative to this package
 // directory. It holds param-name constants that must mirror the Go ones in
-// edge.go. The two are hand-maintained in separate languages; commit d7a8a9b666
+// ir.go. The two are hand-maintained in separate languages; commit d7a8a9b666
 // fixed a regression where they drifted ("lhs_input" vs "a") and binary math ops
 // failed to load on the driver's C++ runtime.
 const cppIRHeaderPath = "../../cpp/ir/ir.h"
 
-var cppStringConstRe = regexp.MustCompile(`inline const std::string (\w+)\s*=\s*"([^"]*)";`)
+var cppStringConstRe = regexp.MustCompile(
+	`inline const std::string (\w+)\s*=\s*"([^"]*)";`,
+)
 
 // parseCppStringConstants maps each `inline const std::string NAME = "VALUE";`
 // declaration in src to NAME->VALUE.
@@ -42,8 +44,13 @@ func parseCppStringConstants(src []byte) map[string]string {
 var _ = Describe("Cross-runtime IR contract", Ordered, func() {
 	var cppConstants map[string]string
 	BeforeAll(func() {
-		cppConstants = parseCppStringConstants(MustSucceed(os.ReadFile(cppIRHeaderPath)))
-		Expect(cppConstants).ToNot(BeEmpty(), "no string constants parsed from %s", cppIRHeaderPath)
+		ShouldNotLeakGoroutines()
+		cppConstants = parseCppStringConstants(
+			MustSucceed(os.ReadFile(cppIRHeaderPath)),
+		)
+		Expect(
+			cppConstants,
+		).ToNot(BeEmpty(), "no string constants parsed from %s", cppIRHeaderPath)
 	})
 
 	// When adding a shared IR param-name constant, define it on both sides and

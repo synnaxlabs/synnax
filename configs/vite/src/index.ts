@@ -32,12 +32,9 @@ export const lib = ({ name }: Options): Plugin[] => {
             minify: prod,
             lib: {
               name,
-              formats: ["es", "cjs"],
-              fileName: (format, entryName) => {
-                const baseName = entryName === "index" ? name : entryName;
-                if (format === "es") return `${baseName}.js`;
-                return `${baseName}.${format}`;
-              },
+              formats: ["es"],
+              fileName: (_, entryName) =>
+                `${entryName === "index" ? name : entryName}.js`,
               entry: path.resolve(config.root ?? ".", "src/index.ts"),
               ...config.build?.lib,
             },

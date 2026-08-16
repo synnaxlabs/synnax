@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { Flex } from "@/flex";
@@ -56,15 +56,13 @@ const SideSelect = Component.renderProp(
   ),
 );
 
-export const ScaleForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    if (tabKey === "telemetry")
-      return (
-        <Form.Wrapper y empty>
-          <Value.TelemForm path="" />
-        </Form.Wrapper>
-      );
-    return (
+export const ScaleForm = (): ReactElement => (
+  <Tabs.Frame initialValue="properties">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
+      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="properties">
       <Form.Wrapper x>
         <Flex.Box y grow>
           <Label.Form path="label" />
@@ -99,12 +97,11 @@ export const ScaleForm = (): ReactElement => {
           </Flex.Box>
         </Flex.Box>
       </Form.Wrapper>
-    );
-  }, []);
-  const tabs: Tabs.Spec[] = [
-    { tabKey: "properties", name: "Properties" },
-    { tabKey: "telemetry", name: "Telemetry" },
-  ];
-  const props = Tabs.useStatic({ tabs, content });
-  return <Tabs.Tabs {...props} />;
-};
+    </Tabs.Content>
+    <Tabs.Content itemKey="telemetry">
+      <Form.Wrapper y empty>
+        <Value.TelemForm path="" />
+      </Form.Wrapper>
+    </Tabs.Content>
+  </Tabs.Frame>
+);

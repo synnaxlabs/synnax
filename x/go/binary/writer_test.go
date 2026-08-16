@@ -74,5 +74,4 @@ var _ = Describe("Writer", func() {
 			Expect(b.Bytes()).To(Equal([]byte{1, 2}))
 		})
 	})
-
 })

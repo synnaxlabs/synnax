@@ -71,7 +71,7 @@ export interface SeriesDigest {
   capacity: number;
 }
 
-interface BaseSeriesArgs {
+interface BaseSeriesParams {
   dataType?: CrudeDataType;
   timeRange?: TimeRange;
   sampleOffset?: math.Numeric;
@@ -95,12 +95,12 @@ export type CrudeSeries =
   | TelemValue;
 
 /** Arguments for constructing a {@link Series}. */
-export interface SeriesArgs extends BaseSeriesArgs {
+export interface SeriesParams extends BaseSeriesParams {
   data?: CrudeSeries | null;
 }
 
 /** Arguments for allocating a {@link Series} with a given capacity and data type. */
-export interface SeriesAllocArgs extends BaseSeriesArgs {
+export interface SeriesAllocParams extends BaseSeriesParams {
   capacity: number;
   dataType: CrudeDataType;
 }
@@ -127,13 +127,15 @@ const nullArrayZ = z
 
 const UINT32_SIZE = 4;
 
-type JSType = "string" | "number" | "bigint";
+type JSType = "string" | "number" | "bigint" | "boolean";
 
 const checkAsType = (jsType: JSType, dataType: DataType) => {
   if (jsType === "number" && !dataType.isNumeric)
     throw new Error(`cannot convert series of type ${dataType.toString()} to number`);
   if (jsType === "bigint" && !dataType.usesBigInt)
     throw new Error(`cannot convert series of type ${dataType.toString()} to bigint`);
+  if (jsType === "boolean" && !dataType.equals(DataType.BOOLEAN))
+    throw new Error(`cannot convert series of type ${dataType.toString()} to boolean`);
 };
 
 const SERIES_DISCRIMINATOR = "sy_x_telem_series";
@@ -195,6 +197,12 @@ export class Series<T extends TelemValue = TelemValue>
   private cachedLength?: number;
   /** Caches the indexes of the array for variable length data types. */
   private _cachedIndexes?: number[];
+  /** Caches the full typed-array view for ArrayBuffer-backed series. */
+  private cachedUnderlyingView?: TypedArray;
+  /** Caches the partial view returned by data while the series is filling. */
+  private cachedDataView?: TypedArray;
+  /** The write position cachedDataView was built at. */
+  private cachedDataViewWritePos: number = FULL_BUFFER;
 
   /**
    * A zod schema that can be used to validate that a particular value
@@ -221,9 +229,9 @@ export class Series<T extends TelemValue = TelemValue>
    */
   static readonly z = Series.crudeZ.transform((props) => new Series(props));
   /**
-   * The Series constructor accepts either a SeriesArgs object or a CrudeSeries value.
+   * The Series constructor accepts either a SeriesParams object or a CrudeSeries value.
    *
-   * SeriesArgs interface properties:
+   * SeriesParams interface properties:
    * @property {CrudeSeries | null} [data] - The data to construct the series from. Can be:
    *   - A typed array (e.g. Float32Array, Int32Array)
    *   - A JS array of numbers, strings, or objects
@@ -293,7 +301,7 @@ export class Series<T extends TelemValue = TelemValue>
    * @throws Error if constructing from an ArrayBuffer without specifying data type
    * @throws Error if data type cannot be inferred from input
    */
-  constructor(props: SeriesArgs | CrudeSeries) {
+  constructor(props: SeriesParams | CrudeSeries) {
     if (isCrudeSeries(props)) props = { data: props };
     props.data ??= [];
     const {
@@ -343,7 +351,7 @@ export class Series<T extends TelemValue = TelemValue>
       if (typeof first === "string") this.dataType = DataType.STRING;
       else if (typeof first === "number") this.dataType = DataType.FLOAT64;
       else if (typeof first === "bigint") this.dataType = DataType.INT64;
-      else if (typeof first === "boolean") this.dataType = DataType.UINT8;
+      else if (typeof first === "boolean") this.dataType = DataType.BOOLEAN;
       else if (
         first instanceof TimeStamp ||
         first instanceof Date ||
@@ -407,6 +415,10 @@ export class Series<T extends TelemValue = TelemValue>
           offset += e.byteLength;
         }
         this._data = buf;
+      } else if (this.dataType.equals(DataType.BOOLEAN)) {
+        const bytes = new Uint8Array(data_.length);
+        for (let i = 0; i < data_.length; i++) bytes[i] = data_[i] ? 1 : 0;
+        this._data = bytes.buffer;
       } else if (this.dataType.usesBigInt && typeof first === "number")
         this._data = new this.dataType.Array(
           data_.map((v) => BigInt(Math.round(v as number))),
@@ -438,7 +450,7 @@ export class Series<T extends TelemValue = TelemValue>
    * @param args.dataType the data type of the series.
    * @param args.rest the rest of the arguments to pass to the series constructor.
    */
-  static alloc({ capacity, dataType, ...rest }: SeriesAllocArgs): Series {
+  static alloc({ capacity, dataType, ...rest }: SeriesAllocParams): Series {
     if (capacity === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(capacity);
@@ -545,8 +557,12 @@ export class Series<T extends TelemValue = TelemValue>
     return this._data;
   }
 
+  // Views are cached only for ArrayBuffer backing: the buffer and data type never
+  // change after construction, so a cached view stays a live window over the data.
   private get underlyingData(): TypedArray {
-    return new this.dataType.Array(this._data);
+    const data = this._data as ArrayBuffer | TypedArray;
+    if (!(data instanceof ArrayBuffer)) return new this.dataType.Array(this._data);
+    return (this.cachedUnderlyingView ??= new this.dataType.Array(data));
   }
 
   /**
@@ -556,7 +572,14 @@ export class Series<T extends TelemValue = TelemValue>
    */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    return new this.dataType.Array(this._data, 0, this.writePos);
+    // Partially written series are always alloc()'d, so the backing is an ArrayBuffer.
+    let view = this.cachedDataView;
+    if (view == null || this.cachedDataViewWritePos !== this.writePos) {
+      view = new this.dataType.Array(this._data, 0, this.writePos);
+      this.cachedDataView = view;
+      this.cachedDataViewWritePos = this.writePos;
+    }
+    return view;
   }
 
   /**
@@ -797,6 +820,8 @@ export class Series<T extends TelemValue = TelemValue>
       return caseconv.snakeToCamel(JSON.parse(str)) as T;
     }
     if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required) as T;
+    if (this.dataType.equals(DataType.BOOLEAN))
+      return this.atBoolean(index, required) as T;
     if (index < 0) index = this.length + index;
     const v = this.data[index];
     if (v == null) {
@@ -813,6 +838,16 @@ export class Series<T extends TelemValue = TelemValue>
     if (typeof this.sampleOffset === "bigint" && typeof v === "number")
       return BigInt(Math.round(v)) + this.sampleOffset;
     return math.add(v, this.sampleOffset);
+  }
+
+  private atBoolean(index: number, required: boolean): boolean | undefined {
+    if (index < 0) index = this.length + index;
+    const v = this.data[index];
+    if (v == null) {
+      if (required) throw new Error(`[series] - no value at index ${index}`);
+      return undefined;
+    }
+    return v !== 0;
   }
 
   private atUUID(index: number, required: boolean): string | undefined {
@@ -965,7 +1000,13 @@ export class Series<T extends TelemValue = TelemValue>
    */
   as(jsType: "bigint"): Series<bigint>;
 
-  as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): Series<T> {
+  /**
+   * Reinterprets the series as containing booleans as its JS primitive type.
+   * @throws if the series does not have a data type of BOOLEAN.
+   */
+  as(jsType: "boolean"): Series<boolean>;
+
+  as<T extends TelemValue>(jsType: JSType): Series<T> {
     checkAsType(jsType, this.dataType);
     return this as unknown as Series<T>;
   }
@@ -1047,7 +1088,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Returns a subarray view of the series from start to end.
+   * Returns a subarray view of the series from start to end. Variable-density
+   * series copy instead of viewing.
    * @param start The start index (inclusive).
    * @param end The end index (exclusive).
    * @returns A new series containing the subarray data.
@@ -1083,8 +1125,12 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   private subBytes(start: number, end?: number): Series {
-    if (start >= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
-    const data = this.data.subarray(start, end);
+    if (start <= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
+    return this.derive(this.data.subarray(start, end), start);
+  }
+
+  // Builds the series produced by a slice, offsetting the alignment by start.
+  private derive(data: TypedArray, start: number): Series {
     return new Series({
       data,
       dataType: this.dataType,
@@ -1097,17 +1143,22 @@ export class Series<T extends TelemValue = TelemValue>
 
   private sliceSub(sub: boolean, start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
-    let data: TypedArray;
-    if (sub) data = this.data.subarray(start, end);
-    else data = this.data.slice(start, end);
-    return new Series({
-      data,
-      dataType: this.dataType,
-      timeRange: this.timeRange,
-      sampleOffset: this.sampleOffset,
-      glBufferUsage: this.gl.bufferUsage,
-      alignment: this.alignment + BigInt(start),
-    });
+    if (this.dataType.isVariable) return this.sliceVariable(start, end ?? this.length);
+    const data = sub ? this.data.subarray(start, end) : this.data.slice(start, end);
+    return this.derive(data, start);
+  }
+
+  // The result always copies: variable-length readers scan their buffer from offset
+  // zero, so a view over a shared buffer would decode the wrong samples.
+  private sliceVariable(start: number, end: number): Series {
+    const len = this.length;
+    if (start < 0) start = 0;
+    if (this._cachedIndexes == null) this.calculateCachedLength();
+    const indexes = this._cachedIndexes as number[];
+    const byteLen = this.byteLength.valueOf();
+    const byteStart = start >= len ? byteLen : indexes[start] - UINT32_SIZE;
+    const byteEnd = end >= len ? byteLen : indexes[end] - UINT32_SIZE;
+    return this.derive(this.data.slice(byteStart, byteEnd), start);
   }
 
   /**
@@ -1170,9 +1221,9 @@ class SubIterator<T> implements Iterator<T> {
 
   constructor(series: Series, start: number, end: number) {
     this.series = series;
-    const b = bounds.construct(0, series.length + 1);
-    this.end = bounds.clamp(b, end);
-    this.index = bounds.clamp(b, start);
+    const bound = bounds.construct(0, series.length);
+    this.end = bounds.clamp(bound, end);
+    this.index = bounds.clamp(bound, start);
   }
 
   next(): IteratorResult<T> {
@@ -1350,7 +1401,13 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    */
   as(jsType: "bigint"): MultiSeries<bigint>;
 
-  as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): MultiSeries<T> {
+  /**
+   * Reinterprets the series as containing booleans as its JS primitive type.
+   * @throws if the series does not have a data type of BOOLEAN.
+   */
+  as(jsType: "boolean"): MultiSeries<boolean>;
+
+  as<T extends TelemValue>(jsType: JSType): MultiSeries<T> {
     checkAsType(jsType, this.dataType);
     return this as unknown as MultiSeries<T>;
   }

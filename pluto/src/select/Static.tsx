@@ -28,7 +28,7 @@ export interface StaticProps<
       Omit<SingleProps<K, E>, "data" | "getItem" | "subscribe">,
       "children"
     >,
-    List.UseStaticDataArgs<K, E> {}
+    List.UseStaticDataParams<K, E> {}
 
 const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;

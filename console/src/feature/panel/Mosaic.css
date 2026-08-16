@@ -1,0 +1,95 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-mosaic--empty {
+    overflow: hidden;
+    box-shadow: var(--pluto-shadow-lift);
+}
+
+/* Matches the mask a leaf draws for a file drop, so the no-panel state reads as the
+   same target. */
+.console-mosaic--drop-over {
+    background: var(--pluto-gray-l7-30) !important;
+}
+
+.console-mosaic__empty-content {
+    transform: translateY(-4%);
+
+    /* Matches 12.5% at a typical window height, shrinking at half the rate below it. */
+    .synnax-logo-watermark {
+        height: calc(12rem + 6.5%);
+        opacity: 0.4;
+    }
+
+    /* Collapses Empty.Action's 100% x 100% growing box to a single row under the
+       watermark. The .pluto--center repeat outweighs the rule it overrides. */
+    .console-mosaic__empty-action.pluto--center {
+        width: auto;
+        height: auto;
+        flex-grow: 0;
+    }
+}
+
+.console-panel__tombstone {
+    transform: translateY(-3%);
+    container-type: size;
+    overflow: hidden;
+
+    .console-panel__tombstone-icon {
+        font-size: 9rem;
+        color: var(--pluto-gray-l6);
+    }
+}
+
+/* A short tab sheds by priority. The heading and actions always survive. */
+@container (max-height: 44rem) {
+    .console-panel__tombstone-icon {
+        display: none;
+    }
+}
+
+@container (max-height: 28rem) {
+    .console-panel__tombstone-description {
+        display: none;
+    }
+}
+
+.console-panel__tab {
+    animation: none !important;
+    position: relative;
+}
+
+/* One stretched cell spares WebKit a level of per-frame flex re-measurement while a
+   pane resizes. Scoped under .console-mosaic to outrank .pluto-flex. */
+.console-mosaic .console-panel__tab {
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+
+/* Focus mode reads as a lamp over the pane, matching the exit chip. */
+.console-mosaic.pluto-panel-mosaic--overlaid {
+    border-color: var(--pluto-gray-l11-35);
+    --edge: inset 0 0 0 var(--pluto-border-width) var(--pluto-gray-l11-20);
+    --glow: inset 0 0 18px var(--pluto-gray-l11-15);
+    box-shadow: var(--edge), var(--glow);
+    transition:
+        border-color 0.15s ease-in-out,
+        box-shadow 0.15s ease-in-out;
+}
+
+/* Must stay unpositioned: a positioned ancestor lifts the panel above the fixed
+   canvases, hiding every plot's pixels. */
+.console-panel__host {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+}

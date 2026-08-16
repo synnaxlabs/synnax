@@ -54,13 +54,10 @@ tsk = sy.ni.DigitalReadTask(
     # The rate at which data will be streamed from the device into Synnax. Since we're
     # sampling at 50 hz and streaming at 25Hz, we'll get 2 samples at a time.
     stream_rate=sy.Rate.HZ * 25,
-    # Whether to save data acquired by the task to disk. If set to True, the data will
-    # be streamed into Synnax for real-time consumption but not saved to disk.
-    data_saving=True,
     # The list of physical channels we'd like to acquire data from.
     channels=[
-        sy.ni.DIChan(channel=di_0.key, port=0, line=0),
-        sy.ni.DIChan(channel=di_1.key, port=0, line=1),
+        sy.ni.DIChannel(channel=di_0.key, port=0, line=0),
+        sy.ni.DIChannel(channel=di_1.key, port=0, line=1),
     ],
 )
 

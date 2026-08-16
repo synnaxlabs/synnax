@@ -10,12 +10,12 @@
 from typing import Any, overload
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax.ontology import ID
 from synnax.status.types_gen import Status, Variant
-from x.normalize import normalize
+from x.lists import normalize
 from x.params import require_named_params
 
 
@@ -39,7 +39,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    statuses: list[Status[Any]] | None = None
+    statuses: list[Status[Any]] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -225,11 +225,6 @@ class Client:
             ),
             _RetrieveResponse,
         ).statuses
-
-        if res is None:
-            if single:
-                raise ValueError(f"Status with key '{key}' not found")
-            return []
 
         if single:
             if len(res) == 0:

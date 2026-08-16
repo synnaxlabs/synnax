@@ -12,94 +12,114 @@ package pb
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-)
-
-type (
-	CreateMessageTranslator struct{}
-	DeleteRequestTranslator struct{}
-	RenameMessageTranslator struct{}
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	control "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 var (
-	_ grpc.Translator[channel.CreateMessage, *CreateMessage] = (*CreateMessageTranslator)(nil)
-	_ grpc.Translator[channel.DeleteRequest, *DeleteRequest] = (*DeleteRequestTranslator)(nil)
-	_ grpc.Translator[channel.RenameRequest, *RenameRequest] = (*RenameMessageTranslator)(nil)
+	CreateMessageTranslator grpc.Translator[channel.CreateMessage, *CreateMessage] = createMessageTranslator{}
+	DeleteRequestTranslator grpc.Translator[channel.DeleteRequest, *DeleteRequest] = deleteRequestTranslator{}
+	RenameMessageTranslator grpc.Translator[channel.RenameRequest, *RenameRequest] = renameMessageTranslator{}
 )
 
-func translateOptionsForward(opts channel.CreateOptions) *CreateOptions {
-	return &CreateOptions{
-		RetrieveIfNameExists:  opts.RetrieveIfNameExists,
-		OverwriteIfNameExists: opts.OverwriteIfNameExistsAndDifferentProperties,
-	}
-}
+type createMessageTranslator struct{}
 
-func translateOptionsBackward(opts *CreateOptions) channel.CreateOptions {
-	return channel.CreateOptions{
-		RetrieveIfNameExists:                        opts.RetrieveIfNameExists,
-		OverwriteIfNameExistsAndDifferentProperties: opts.OverwriteIfNameExists,
-	}
-}
-
-func (c CreateMessageTranslator) Forward(
+func (createMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
 ) (*CreateMessage, error) {
-	channels, err := ChannelsToPB(msg.Channels)
+	channels, err := lo.MapErr(
+		msg.Channels,
+		func(c channel.Channel, _ int) (*Channel, error) {
+			concurrency, err := control.ConcurrencyToPB(c.Concurrency)
+			if err != nil {
+				return nil, err
+			}
+			return &Channel{
+				Name:        string(c.Name),
+				Leaseholder: uint32(c.Leaseholder),
+				DataType:    string(c.DataType),
+				IsIndex:     c.IsIndex,
+				LocalKey:    uint32(c.LocalKey),
+				LocalIndex:  uint32(c.LocalIndex),
+				Virtual:     c.Virtual,
+				Concurrency: concurrency,
+			}, nil
+		})
 	if err != nil {
 		return nil, err
 	}
-	return &CreateMessage{
-		Channels: channels,
-		Opts:     translateOptionsForward(msg.Opts),
-	}, nil
+	return &CreateMessage{Channels: channels}, nil
 }
 
-func (c CreateMessageTranslator) Backward(
+func (createMessageTranslator) Backward(
 	_ context.Context,
 	msg *CreateMessage,
 ) (channel.CreateMessage, error) {
-	channels, err := ChannelsFromPB(msg.Channels)
+	channels, err := lo.MapErr(
+		msg.Channels,
+		func(c *Channel, _ int) (channel.Channel, error) {
+			if c == nil {
+				return channel.Channel{}, nil
+			}
+			concurrency, err := control.ConcurrencyFromPB(c.Concurrency)
+			if err != nil {
+				return channel.Channel{}, err
+			}
+			return channel.Channel{
+				Name:        c.Name,
+				Leaseholder: node.Key(c.Leaseholder),
+				DataType:    telem.DataType(c.DataType),
+				IsIndex:     c.IsIndex,
+				LocalKey:    channel.LocalKey(c.LocalKey),
+				LocalIndex:  channel.LocalKey(c.LocalIndex),
+				Virtual:     c.Virtual,
+				Concurrency: concurrency,
+			}, nil
+		})
 	if err != nil {
 		return channel.CreateMessage{}, err
 	}
-	return channel.CreateMessage{
-		Channels: channels,
-		Opts:     translateOptionsBackward(msg.Opts),
-	}, nil
+	return channel.CreateMessage{Channels: channels}, nil
 }
 
-func (d DeleteRequestTranslator) Forward(
+func (deleteRequestTranslator) Forward(
 	_ context.Context,
-	msg channel.DeleteRequest,
+	req channel.DeleteRequest,
 ) (*DeleteRequest, error) {
-	return &DeleteRequest{Keys: msg.Keys.Uint32()}, nil
+	return &DeleteRequest{Keys: req.Keys.Uint32()}, nil
 }
 
-func (d DeleteRequestTranslator) Backward(
+type deleteRequestTranslator struct{}
+
+func (deleteRequestTranslator) Backward(
 	_ context.Context,
-	msg *DeleteRequest,
+	req *DeleteRequest,
 ) (channel.DeleteRequest, error) {
-	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys)}, nil
+	return channel.DeleteRequest{Keys: channel.KeysFromUint32(req.Keys)}, nil
 }
 
-func (r RenameMessageTranslator) Forward(
+type renameMessageTranslator struct{}
+
+func (renameMessageTranslator) Forward(
 	_ context.Context,
-	msg channel.RenameRequest,
+	req channel.RenameRequest,
 ) (*RenameRequest, error) {
 	return &RenameRequest{
-		Names: msg.Names,
-		Keys:  msg.Keys.Uint32(),
+		Renames: unsafe.ReinterpretMapKeys[channel.Key, uint32](req.Renames),
 	}, nil
 }
 
-func (r RenameMessageTranslator) Backward(
+func (renameMessageTranslator) Backward(
 	_ context.Context,
-	msg *RenameRequest,
+	req *RenameRequest,
 ) (channel.RenameRequest, error) {
 	return channel.RenameRequest{
-		Names: msg.Names,
-		Keys:  channel.KeysFromUint32(msg.Keys),
+		Renames: unsafe.ReinterpretMapKeys[uint32, channel.Key](req.Renames),
 	}, nil
 }

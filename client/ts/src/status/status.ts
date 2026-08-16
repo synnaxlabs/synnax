@@ -80,15 +80,31 @@ export const exceptionDetailsSchema = z
   })
   .and(record.unknownZ());
 
+/** Flattens an error's cause chain into one readable line. */
+const causeChain = (err: Error): string | undefined => {
+  const parts: string[] = [];
+  let cause: unknown = err.cause;
+  for (let i = 0; i < 8 && cause instanceof Error; i++) {
+    if (cause.message.length > 0) parts.push(cause.message);
+    cause = cause.cause;
+  }
+  if (parts.length === 0) return undefined;
+  return parts.join(": ");
+};
+
 export const fromException = (
   exc: unknown,
   message?: string,
 ): Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">> => {
   const err = errors.fromUnknown(exc);
+  const detail = causeChain(err);
   const crude: Crude<typeof exceptionDetailsSchema, "error"> = {
     variant: "error",
     message: message ?? err.message,
-    description: message != null ? err.message : undefined,
+    description:
+      message != null
+        ? [err.message, detail].filter((part) => part != null).join(": ")
+        : detail,
     details: { stack: err.stack ?? "", error: err },
   };
   // Probe the original (pre-coercion) value so a non-Error throwable with a custom
@@ -136,7 +152,16 @@ export const create = <
     time: TimeStamp.now(),
     name: "",
     ...spec,
+    description: spec.description ?? "",
   }) as Status<DetailsSchema, z.ZodType<V>>;
+
+/**
+ * Reads the details of a status whose schema is not statically known, as when
+ * scanning the generically-typed status table for rows belonging to a domain.
+ * @returns The details, or undefined when the status carries none.
+ */
+export const detailsOf = (status: Status): record.Unknown | undefined =>
+  (status as { details?: record.Unknown }).details;
 
 export const keepVariants = (
   variant?: Variant,
@@ -193,7 +218,8 @@ export const toString = <Details extends z.ZodType = z.ZodNever>(
   header += `: ${stat.message}`;
   if (opts.includeTimestamp) header += ` (${stat.time.toString("dateTime", "local")})`;
   parts.push(header);
-  if (stat.description != null) parts.push(renderDescription(stat.description));
+  if (primitive.isNonZero(stat.description))
+    parts.push(renderDescription(stat.description));
   if ("details" in stat && narrow.isObject(stat.details)) {
     const details = stat.details as Record<string, unknown>;
     if ("stack" in details && typeof details.stack === "string" && details.stack !== "")

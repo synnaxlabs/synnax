@@ -3,10 +3,10 @@ layout: "@/layouts/Reference.astro"
 title: "Reactive Execution"
 description:
   "How Arc executes programs using reactive dataflow and stratified scheduling"
-prev: "Sequences and Stages"
-prevURL: "/reference/control/arc/concepts/sequences-and-stages"
-next: "Channels and Series"
-nextURL: "/reference/control/arc/concepts/channels-and-series"
+prev: "Control Authority"
+prevURL: "/reference/control/arc/concepts/control-authority"
+next: "Sequences and Stages"
+nextURL: "/reference/control/arc/concepts/sequences-and-stages"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -18,7 +18,7 @@ export const components = mdxOverrides;
 
 Consider two functions reading the same pressure sensor:
 
-```arc
+```arc channels="tank_pressure"
 tank_pressure -> safety_check{}
 tank_pressure -> controller{}
 ```
@@ -43,7 +43,7 @@ arriving on channels.
 
 You declare how data flows through your system, and Arc handles the scheduling:
 
-```arc
+```arc channels="tank_pressure, pressure_display"
 // When tank_pressure updates, scale it and write to display
 tank_pressure -> scale{factor=2.0} -> pressure_display
 ```
@@ -61,11 +61,13 @@ Flow statements connect channels and functions using **edges**. There are two ty
 
 Run every time data arrives:
 
-```arc
+```arc channels="tank_pressure, pressure_scaled, sensor_1, sensor_2, average_display"
 // Scale sensor readings continuously
 tank_pressure -> scale{factor=2.0} -> pressure_scaled
+
 // Run a control loop every 50ms
 time.interval{period=50ms} -> controller{}
+
 // Average two sensors
  (sensor_1 + sensor_2) / 2.0 -> average_display
 ```
@@ -76,11 +78,13 @@ Every time the source produces data, the entire pipeline executes.
 
 Fire while the source expression is truthy:
 
-```arc
+```arc channels="tank_pressure"
 // Advance to the next stage while pressure is above target
 tank_pressure > 500 => next
+
 // Jump to abort while pressure exceeds the limit
 tank_pressure > 600 => abort
+
 // Call a function while pressure stays low
 tank_pressure < 20 => log_message{}
 ```
@@ -130,7 +134,7 @@ functions, and under what conditions the program should transition between stage
 is the reactive part of Arc. You don't write loops or conditionals here. You describe
 data flow:
 
-```arc
+```arc channels="valve_cmd, tank_pressure, throttle"
 stage pressurize {
     1 -> valve_cmd
     tank_pressure -> controller{} -> throttle
@@ -164,11 +168,13 @@ keeps Arc programs predictable.
 
 Inline expressions work as implicit functions:
 
-```arc
+```arc channels="temperature, sensor_1, sensor_2, display, pressure, emergency"
 // Comparison
 temperature > 100 -> alarm{}
+
 // Arithmetic
- (sensor_1 + sensor_2) / 2.0 -> display
+(sensor_1 + sensor_2) / 2.0 -> display
+
 // Logical combination
 pressure > 100 or emergency -> shutdown{}
 ```
@@ -186,7 +192,7 @@ which depends on node A. The compiler will reject this with an error.
 The exception is **stage transitions** using `=>`. These can form cycles because they
 represent valid state machine behavior:
 
-```arc
+```arc channels="start_btn, stop_btn", bodies="idle"
 sequence main {
     stage idle {
         start_btn => next

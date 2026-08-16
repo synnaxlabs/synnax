@@ -1,0 +1,101 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-task-configure {
+    height: 100%;
+    align-items: center;
+    container-type: size;
+    contain: layout size style;
+    background: var(--pluto-gray-l0);
+
+    .console-rack-name {
+        max-width: 200px;
+    }
+
+    > div {
+        padding: 5rem;
+        max-width: 1000px;
+        overflow-y: auto;
+        width: 100%;
+
+        .console-task-channel-form-container {
+            border-radius: var(--pluto-border-radius-large);
+            overflow: hidden;
+            background: var(--pluto-gray-l1);
+            border-color: var(--pluto-gray-l6);
+
+            .pluto-header {
+                background: var(--pluto-gray-l2);
+            }
+        }
+
+        .console-channel-list {
+            overflow: hidden;
+
+            & .pluto-list__items {
+                overflow-x: hidden;
+            }
+        }
+
+        .console-channel-list:not(:only-child) {
+            max-width: 300px;
+            flex-basis: 225px;
+        }
+
+        .console-channel-list:only-child {
+            flex-grow: 1;
+        }
+
+        .console-details {
+            flex-basis: 70%;
+        }
+
+        .console-details__form {
+            padding: 3rem;
+            overflow: auto;
+            height: 100%;
+        }
+    }
+
+    .console-task__channel-name {
+        max-width: 100%;
+    }
+}
+
+@container (max-width: 600px) {
+    .console-task-configure {
+        > div {
+            padding: 3rem 2rem;
+
+            .console-details__form {
+                padding: 1rem 2rem;
+            }
+        }
+
+        .console-rack-name {
+            max-width: 120px;
+        }
+
+        .console-state-channel {
+            display: none;
+        }
+    }
+
+    .console-task-controls {
+        flex-direction: column !important;
+
+        .console-task-status {
+            min-height: 10rem;
+            border-right: none !important;
+            border-bottom: var(--pluto-border);
+        }
+    }
+}

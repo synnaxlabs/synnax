@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Form as Base } from "@/form";
@@ -16,6 +16,7 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 import { type Toggle } from "@/vis/toggle";
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
@@ -56,7 +57,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Form.Wrapper x align="stretch">
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
       <Input.Item label="Lower threshold">
@@ -71,24 +72,22 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
           onChange={(v) => handleThresholdChange({ ...threshold.trueBound, upper: v })}
         />
       </Input.Item>
+      <Staleness.Fields />
     </Form.Wrapper>
   );
 };
 
-const LIGHT_FORM_TABS: Tabs.Tab[] = [
-  { tabKey: "style", name: "Style" },
-  { tabKey: "telemetry", name: "Telemetry" },
-];
-
-export const LightForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telemetry":
-        return <LightTelemForm path="" />;
-      default:
-        return <Form.StyleForm />;
-    }
-  }, []);
-  const props = Tabs.useStatic({ tabs: LIGHT_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
-};
+export const LightForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <Form.StyleForm />
+    </Tabs.Content>
+    <Tabs.Content itemKey="telemetry">
+      <LightTelemForm path="" />
+    </Tabs.Content>
+  </Tabs.Frame>
+);

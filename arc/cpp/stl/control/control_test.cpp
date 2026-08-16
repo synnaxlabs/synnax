@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/ir/ir.h"
@@ -16,6 +17,7 @@
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/control/control.h"
+#include "arc/cpp/stl/testutil/testutil.h"
 
 namespace arc::stl::control {
 struct TestSetup {
@@ -71,6 +73,38 @@ runtime::node::Context make_context() {
     };
 }
 
+/// @brief declares the native's input shape for building test configs.
+stl::testutil::NodeSpec set_authority() {
+    types::Param value;
+    value.name = "value";
+    value.type = types::Type{.kind = types::Kind::U8};
+    types::Param channel;
+    channel.name = "channel";
+    channel.type = types::Type{
+        .kind = types::Kind::Chan,
+        .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::U8}),
+        .chan_direction = types::ChanDirection::Write
+    };
+    stl::testutil::NodeSpec spec;
+    spec.type = "set_authority";
+    spec.inputs.push_back(std::move(value));
+    spec.inputs.push_back(std::move(channel));
+    return spec;
+}
+
+/// @brief builds a set_authority config whose inputs are all consts.
+stl::testutil::Fixture const_config(const uint8_t value, const uint32_t channel) {
+    return set_authority().config({x::json::json(value), x::json::json(channel)});
+}
+
+/// @brief returns a state used only to buffer authority changes.
+std::shared_ptr<runtime::state::State> auth_state() {
+    return std::make_shared<runtime::state::State>(
+        runtime::state::Config{.ir = ir::IR{}, .channels = {}},
+        runtime::errors::noop_handler
+    );
+}
+
 TEST(SetAuthorityModuleTest, ReturnsErrorForNullAuthorityValue) {
     TestSetup setup(100, 42);
     auto ir_node = setup.ir.nodes[0];
@@ -84,15 +118,27 @@ TEST(SetAuthorityModuleTest, ReturnsErrorForNullAuthorityValue) {
     );
 }
 
+TEST(SetAuthorityModuleTest, CreatesNode) {
+    control::Module module(auth_state());
+    auto const_cfg = const_config(200, 42);
+    ASSERT_NE(ASSERT_NIL_P(module.create(const_cfg.make_config())), nullptr);
+    const std::shared_ptr<stl::testutil::VarBinding>
+        v = std::make_shared<stl::testutil::VarInput<uint8_t>>(200);
+    auto var_cfg = set_authority().config(
+        {v, x::json::json(static_cast<uint32_t>(42))}
+    );
+    ASSERT_NE(ASSERT_NIL_P(module.create(var_cfg.make_config())), nullptr);
+}
+
 TEST(SetAuthorityModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
-    TestSetup setup(100, 42);
-    auto ir_node = setup.ir.nodes[0];
+    auto f = const_config(200, 42);
+    auto ir_node = f.ir_node();
     ir_node.type = "control.set_authority";
 
-    auto module = std::make_shared<control::Module>(setup.state);
+    auto module = std::make_shared<control::Module>(auth_state());
     runtime::node::MultiFactory multi({module});
     auto node = ASSERT_NIL_P(
-        multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
+        multi.create(runtime::node::Config(f.program(), ir_node, f.make_node()))
     );
     ASSERT_NE(node, nullptr);
 }
@@ -109,80 +155,161 @@ TEST(SetAuthorityModuleTest, ReturnsNotFoundForWrongType) {
     );
 }
 
-TEST(SetAuthorityModuleTest, CreatesNode) {
-    TestSetup setup(100, 42);
-    control::Module module(setup.state);
-    auto node = ASSERT_NIL_P(module.create(
-        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-    ));
-    ASSERT_NE(node, nullptr);
-}
+/// @brief runs each spec twice: once with every input a const, once with the value
+/// input read live from a variable.
+class SetAuthorityInputsTest : public testing::TestWithParam<bool> {
+protected:
+    std::shared_ptr<runtime::state::State> auth = auth_state();
 
-TEST(SetAuthorityTest, NextBuffersChannelAuthorityChange) {
-    TestSetup setup(200, 42);
-    control::Module module(setup.state);
-    auto node = ASSERT_NIL_P(module.create(
-        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-    ));
+    stl::testutil::Fixture config(const uint8_t value, const uint32_t channel) const {
+        stl::testutil::InputValue v = x::json::json(value);
+        if (GetParam())
+            v = std::shared_ptr<stl::testutil::VarBinding>(
+                stl::testutil::var_of<uint8_t>(value)
+            );
+        return set_authority().config({v, x::json::json(channel)});
+    }
+};
 
+INSTANTIATE_TEST_SUITE_P(
+    Inputs,
+    SetAuthorityInputsTest,
+    testing::Values(false, true),
+    [](const testing::TestParamInfo<bool> &info) {
+        return info.param ? "var_value" : "const_inputs";
+    }
+);
+
+TEST_P(SetAuthorityInputsTest, BuffersAPerChannelAuthorityChange) {
+    auto f = this->config(200, 42);
+    control::Module module(this->auth);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
-    ASSERT_NIL(node->next(ctx));
-
-    auto changes = setup.state->flush_authority_changes();
+    ASSERT_NIL(n->next(ctx));
+    const auto changes = this->auth->flush_authority_changes();
     ASSERT_EQ(changes.size(), 1);
+    EXPECT_EQ(changes[0].authority, 200);
     ASSERT_TRUE(changes[0].channel_key.has_value());
     EXPECT_EQ(*changes[0].channel_key, 42);
-    EXPECT_EQ(changes[0].authority, 200);
 }
 
-TEST(SetAuthorityTest, NextBuffersGlobalAuthorityChange) {
-    TestSetup setup(150, 0);
-    control::Module module(setup.state);
-    auto node = ASSERT_NIL_P(module.create(
-        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-    ));
-
+TEST_P(SetAuthorityInputsTest, BuffersAGlobalAuthorityChange) {
+    auto f = this->config(150, 0);
+    control::Module module(this->auth);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
-    ASSERT_NIL(node->next(ctx));
-
-    auto changes = setup.state->flush_authority_changes();
+    ASSERT_NIL(n->next(ctx));
+    const auto changes = this->auth->flush_authority_changes();
     ASSERT_EQ(changes.size(), 1);
-    ASSERT_FALSE(changes[0].channel_key.has_value());
     EXPECT_EQ(changes[0].authority, 150);
+    EXPECT_FALSE(changes[0].channel_key.has_value());
 }
 
-TEST(SetAuthorityTest, NextFiresOnceBeforeReset) {
-    TestSetup setup(200, 42);
-    control::Module module(setup.state);
-    auto node = ASSERT_NIL_P(module.create(
-        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-    ));
-
+TEST_P(SetAuthorityInputsTest, FiresOnlyOnceBeforeReset) {
+    auto f = this->config(200, 42);
+    control::Module module(this->auth);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
-    ASSERT_NIL(node->next(ctx));
-    ASSERT_NIL(node->next(ctx));
-    ASSERT_NIL(node->next(ctx));
-
-    auto changes = setup.state->flush_authority_changes();
-    ASSERT_EQ(changes.size(), 1);
-}
-
-TEST(SetAuthorityTest, ResetAllowsRefire) {
-    TestSetup setup(200, 42);
-    control::Module module(setup.state);
-    auto node = ASSERT_NIL_P(module.create(
-        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-    ));
-
-    auto ctx = make_context();
-    ASSERT_NIL(node->next(ctx));
-    setup.state->flush_authority_changes();
-
-    node->reset();
-    ASSERT_NIL(node->next(ctx));
-
-    auto changes = setup.state->flush_authority_changes();
+    ASSERT_NIL(n->next(ctx));
+    ASSERT_NIL(n->next(ctx));
+    ASSERT_NIL(n->next(ctx));
+    const auto changes = this->auth->flush_authority_changes();
     ASSERT_EQ(changes.size(), 1);
     EXPECT_EQ(changes[0].authority, 200);
+}
+
+TEST_P(SetAuthorityInputsTest, DoesNotCallMarkChanged) {
+    auto f = this->config(200, 42);
+    control::Module module(this->auth);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
+    std::vector<std::string> outputs;
+    auto ctx = make_context();
+    // set_authority declares no outputs; mark_changed should never fire.
+    ctx.mark_changed = [&outputs](size_t) { outputs.emplace_back("called"); };
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_TRUE(outputs.empty());
+}
+
+TEST_P(SetAuthorityInputsTest, AllowsReFireAfterReset) {
+    auto f = this->config(200, 42);
+    control::Module module(this->auth);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(this->auth->flush_authority_changes().size(), 1);
+    n->reset();
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(this->auth->flush_authority_changes().size(), 1);
+}
+
+TEST_P(SetAuthorityInputsTest, ProducesSameAuthorityOnReFire) {
+    auto f = this->config(200, 42);
+    control::Module module(this->auth);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(n->next(ctx));
+    const auto first = this->auth->flush_authority_changes();
+    ASSERT_EQ(first.size(), 1);
+    EXPECT_EQ(first[0].authority, 200);
+    n->reset();
+    ASSERT_NIL(n->next(ctx));
+    const auto second = this->auth->flush_authority_changes();
+    ASSERT_EQ(second.size(), 1);
+    EXPECT_EQ(second[0].authority, first[0].authority);
+    EXPECT_EQ(*second[0].channel_key, *first[0].channel_key);
+}
+
+TEST(SetAuthorityVarTest, UsesTheVarsDeclaredInitialBeforeAnyWrite) {
+    const auto auth = auth_state();
+    control::Module module(auth);
+    const std::shared_ptr<stl::testutil::VarBinding>
+        v = std::make_shared<stl::testutil::VarInput<uint8_t>>(5);
+    auto f = set_authority().config({v, x::json::json(static_cast<uint32_t>(42))});
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(n->next(ctx));
+    const auto changes = auth->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    EXPECT_EQ(changes[0].authority, 5);
+}
+
+TEST(SetAuthorityVarTest, DoesNotReFireWhenTheVarChangesWithoutAReset) {
+    const auto auth = auth_state();
+    control::Module module(auth);
+    const auto v = std::make_shared<stl::testutil::VarInput<uint8_t>>(1);
+    auto f = set_authority().config(
+        {std::shared_ptr<stl::testutil::VarBinding>(v),
+         x::json::json(static_cast<uint32_t>(42))}
+    );
+    v->set(77);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(n->next(ctx));
+    v->set(33);
+    ASSERT_NIL(n->next(ctx));
+    const auto changes = auth->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    EXPECT_EQ(changes[0].authority, 77);
+}
+
+TEST(SetAuthorityVarTest, ReadsTheLatestVarValueOnReFireAfterReset) {
+    const auto auth = auth_state();
+    control::Module module(auth);
+    const auto v = std::make_shared<stl::testutil::VarInput<uint8_t>>(1);
+    auto f = set_authority().config(
+        {std::shared_ptr<stl::testutil::VarBinding>(v),
+         x::json::json(static_cast<uint32_t>(42))}
+    );
+    v->set(77);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(auth->flush_authority_changes()[0].authority, 77);
+    n->reset();
+    v->set(33);
+    ASSERT_NIL(n->next(ctx));
+    const auto changes = auth->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    EXPECT_EQ(changes[0].authority, 33);
 }
 }

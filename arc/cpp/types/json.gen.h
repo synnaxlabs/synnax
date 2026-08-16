@@ -64,7 +64,7 @@ inline Param Param::parse(x::json::Parser parser) {
     return Param{
         .name = parser.field<std::string>("name"),
         .type = parser.field<Type>("type"),
-        .value = parser.field<x::json::json>("value", {}),
+        .value = parser.field<x::json::json>("value"),
     };
 }
 

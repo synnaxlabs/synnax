@@ -13,12 +13,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -104,36 +108,76 @@ var _ = Describe("ServiceConfig", func() {
 })
 
 var _ = Describe("OpenService", func() {
-	It("Should fail when ServiceConfig is missing required fields", func(ctx SpecContext) {
-		Expect(log.OpenService(ctx, log.ServiceConfig{DB: db})).Error().To(
-			MatchError(ContainSubstring("ontology")),
-		)
-	})
+	It(
+		"Should fail when ServiceConfig is missing required fields",
+		func(ctx SpecContext) {
+			Expect(log.OpenService(ctx, log.ServiceConfig{DB: db})).Error().To(
+				MatchError(ContainSubstring("ontology")),
+			)
+		},
+	)
 
-	It("Should register itself with the configured ImEx registry on open", func(ctx SpecContext) {
-		l := log.Log{Name: "auto-registered"}
-		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-		env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(l.Key)))
-		Expect(env.Type).To(Equal("log"))
-	})
+	It(
+		"Should register itself with the configured ImEx registry on open",
+		func(ctx SpecContext) {
+			l := log.Log{Name: "auto-registered"}
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+			env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
+			Expect(env.Type).To(Equal("log"))
+		},
+	)
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
-		builder := DeferClose(mock.NewCluster())
-		dist := DeferClose(builder.Provision(ctx))
+		node := mock.NewNode(ctx)
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+		searchIdx := MustOpen(search.OpenIndex())
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       node.DB,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       node.DB,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: otg,
+			Group:    groupSvc,
+			Label:    labelSvc,
+			Search:   searchIdx,
+		}))
+		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Search:       searchIdx,
+			Status:       statusSvc,
+		}))
+		framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			Status:       statusSvc,
+			HostProvider: node.Cluster,
+		}))
 		sigs := MustSucceed(signals.New(signals.Config{
-			Channel: channel.Wrap(dist.Channel),
-			Framer:  framer.Wrap(dist.Framer),
+			Channel: channelSvc,
+			Framer:  framerSvc,
 		}))
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Search:   dist.Search,
+			DB:       node.DB,
+			Ontology: otg,
+			Search:   searchIdx,
 			ImEx:     imex.NewService(),
 			Signals:  sigs,
 		}))
 		for _, name := range []string{"sy_log_set", "sy_log_delete"} {
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames(name)).
+			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
 				Entry(&ch).Exec(ctx, nil)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())

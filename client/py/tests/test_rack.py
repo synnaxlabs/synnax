@@ -66,6 +66,8 @@ class TestRackClient:
         client.devices.create(
             key=str(uuid4()),
             name="test",
+            make="ni",
+            model="pxi",
             rack=rack.key,
             location="dev1",
             properties={"foo": "bar"},
@@ -79,7 +81,12 @@ class TestRackClient:
     def test_delete_task_attached(self, client: sy.Synnax):
         """Should raise a validation error if tasks are attached to the rack"""
         rack = client.racks.create(name="test")
-        client.tasks.create(name="test", rack=rack.key, config={"foo": "bar"})
+        client.tasks.create(
+            name="test",
+            rack=rack.key,
+            type="pagerduty_alert",
+            config={"routing_key": "rk"},
+        )
         with pytest.raises(sy.ValidationError, match="tasks are still attached"):
             client.racks.delete([rack.key])
 

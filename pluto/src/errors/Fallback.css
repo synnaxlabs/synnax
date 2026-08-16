@@ -23,7 +23,6 @@
         width: 100%;
         overflow: hidden;
         border-color: var(--pluto-error-z-40);
-        border-width: 1px;
 
         .pluto-error-fallback__body {
             padding: 2rem 3rem;
@@ -43,6 +42,10 @@
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
+        }
+
+        .pluto-error-fallback__message {
+            white-space: pre-line;
         }
 
         .pluto-error-fallback__stack-container {

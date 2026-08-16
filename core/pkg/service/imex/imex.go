@@ -7,18 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package imex provides the core import/export types and interfaces for the Synnax
-// Core. It defines the Envelope type, which is the portable format for a single
-// importable/exportable resource. The wire shape is flat at the top level:
+// Package imex defines the Envelope, the portable format for one importable or
+// exportable resource. The wire shape is flat at the top level:
 //
 //	{"version":1,"type":"log","name":"...","channels":[...]}
 //
 // Version, Type, and Name are promoted to typed fields for routing, access control, and
-// file naming. The rest of the body is opaque to the envelope: on import it is retained
-// as raw bytes and decoded straight into a typed payload via Decode[T]; on export it is
-// built by Encode[T], which reduces a typed value to a codec-independent map and merges
-// the headers in. Individual services register themselves as Importers and Exporters
-// with the Service registry and are routed by Type.
+// file naming; the rest of the body is opaque, decoded by Decode and built by Encode.
+// Services register with the Service registry and are routed by Type.
 package imex
 
 import (
@@ -29,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -37,17 +33,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Version is the per-schema integer version stamped on every envelope. On the wire it
-// is the canonical numeric form, but it also decodes from the legacy "N.0.0" semver
-// strings older Console exports wrote — see UnmarshalJSON. This holds both for the
-// envelope header and for a standalone Version decoded out of a versioned payload.
+// Version is the per-schema integer version stamped on every envelope. It decodes from
+// the canonical numeric form and from the legacy "N.0.0" semver strings older Console
+// exports wrote.
 type Version uint64
 
-// UnmarshalJSON decodes a Version from either the canonical numeric JSON form or a
-// legacy "N.0.0" semver string written by older Console exports. Decoding the version
-// directly into a Version field — rather than a string that a caller must then parse —
-// is why the legacy migration packages can peek the stamped version straight into a
-// Version.
+// UnmarshalJSON decodes a Version from the numeric JSON form or a legacy "N.0.0" semver
+// string.
 func (v *Version) UnmarshalJSON(b []byte) error {
 	var n uint64
 	if err := json.Unmarshal(b, &n); err == nil {
@@ -66,10 +58,8 @@ func (v *Version) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// NewErrUnsupportedVersion constructs a validation error for the named resource type,
-// indicating that the given version exceeds the highest version this Core supports. The
-// returned error is path-scoped to the "version" field so API responses can present it
-// as a structured field error.
+// NewErrUnsupportedVersion reports that given exceeds the highest version this Core
+// supports for typ. The error is path-scoped to the "version" field.
 func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 	return validate.PathedError(
 		errors.Wrapf(
@@ -91,23 +81,18 @@ func newFieldError(field, format string, args ...any) error {
 	)
 }
 
-// Envelope is the portable format for a single importable/exportable resource. The
-// public fields hold the wire headers; the body is private — raw bytes plus a bound
-// codec on the import path, a codec-independent map on the export path. Services never
-// touch the body directly: import handlers call Decode[T] to materialize the payload
-// (using the codec the matching UnmarshalX method bound on the way in), and export
-// handlers call Encode[T] to construct an envelope from a typed value.
+// Envelope is the portable format for one importable or exportable resource. The public
+// fields hold the wire headers; the body is private. Import handlers discriminate on
+// Version, then call Decode once; exporters call Encode.
 type Envelope struct {
 	// Version is the per-schema integer version stamped on every envelope.
 	Version Version
-	// Type is the routing key used to look up the registered Importer / Exporter. For
-	// services with asymmetric registration (a single task service registering under
-	// fine-grained type strings like "http_read" or "opc_scan"), Type is the
-	// fine-grained string; the broader ontology resource type is recovered through the
-	// Importer's Type() method.
+	// Type is the routing key for the registered Importer or Exporter, sometimes finer
+	// than Importer.Type ("http_read" vs "task"). Empty on legacy Console states, which
+	// Service.Import routes through Match.
 	Type string
-	// Name is the human-readable name of the resource. Required on export — Encode
-	// enforces that the input value carries a top-level string `name` field.
+	// Name is the resource's human-readable name. Encode requires it on export. On
+	// import it may be empty until Service.Import applies the opts.FileName fallback.
 	Name string
 
 	codec encoding.Codec
@@ -115,11 +100,9 @@ type Envelope struct {
 	body  map[string]any
 }
 
-// MarshalJSON emits the body built by Encode. Hand-constructed envelopes (no Encode
-// call, no wire round-trip) have a nil body and would otherwise marshal as JSON null,
-// which is rarely what the caller intended; MarshalJSON instead returns an error so a
-// service that accidentally returns an empty Envelope from Export surfaces the bug
-// loudly rather than silently sending null over the wire.
+// MarshalJSON emits the body built by Encode. It returns an error when the envelope has
+// no body, so a service that returns an empty Envelope from Export fails loudly instead
+// of sending null.
 func (e Envelope) MarshalJSON() ([]byte, error) {
 	if e.body == nil {
 		return nil, errors.New(
@@ -129,12 +112,9 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.body)
 }
 
-// UnmarshalJSON reads a flat JSON object, extracts the promoted headers, retains the
-// original bytes for a later typed decode through Decode[T], and binds xjson.Codec on
-// the receiver as the codec Decode[T] should use. The peek runs in UseNumber mode so
-// JSON numbers come through as json.Number, preserving full int64 precision for the
-// Version header. The rest of the body is left untouched until Decode[T] is called, at
-// which point the bound codec parses it directly into the target type.
+// UnmarshalJSON reads a flat JSON object, promoting the headers and retaining the bytes
+// for a later Decode. Numbers decode in UseNumber mode so the Version keeps full int64
+// precision.
 func (e *Envelope) UnmarshalJSON(b []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.UseNumber()
@@ -142,16 +122,16 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 	if err := dec.Decode(&m); err != nil {
 		return err
 	}
+	// A JSON null decodes to a nil map rather than an error.
+	if m == nil {
+		return errors.Wrap(validate.ErrValidation, "envelope must be a JSON object")
+	}
 	return e.unmarshal(m, b, xjson.Codec)
 }
 
-// unmarshal is the codec-agnostic tail shared by every UnmarshalX method on Envelope.
-// Given the body already decoded as a flat map, the original wire bytes, and the codec
-// that produced them, it promotes the {version, type, name} headers onto the receiver
-// and stashes raw + codec for the later typed decode via Decode[T]. Both `type` and
-// `name` are required headers — an envelope that omits either, or that carries an empty
-// string for either, is rejected so the failure surfaces at the transport boundary
-// instead of routing to a no-op handler.
+// unmarshal promotes the {version, type, name} headers onto the receiver and stashes
+// raw and codec for a later Decode. Both `type` and `name` are optional: legacy Console
+// state files carry neither.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
@@ -167,9 +147,6 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 		}
 		e.Type = s
 	}
-	if e.Type == "" {
-		return newFieldError("type", "type must be a non-empty string")
-	}
 	if v, ok := m["name"]; ok {
 		s, ok := v.(string)
 		if !ok {
@@ -177,26 +154,17 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 		}
 		e.Name = s
 	}
-	if e.Name == "" {
-		return newFieldError("name", "name must be a non-empty string")
-	}
 	e.codec = codec
 	e.raw = raw
+	e.body = m
 	return nil
 }
 
-// Decode materializes the envelope body as T using the encoding.Codec bound by the
-// UnmarshalX method that produced this envelope. The flat wire shape means T may simply
-// name the fields it cares about — unknown headers (version, type, name) are ignored by
-// the bound codec. Envelopes built by Encode without a wire round-trip have no codec
-// bound; callers that need to decode an Encode-side envelope must Marshal it and
-// unmarshal back through one of the UnmarshalX methods first.
+// Decode materializes the envelope body as T using the codec bound when the envelope
+// was unmarshaled. T may name only the fields it needs. Envelopes built by Encode have
+// no codec bound and must be marshaled and unmarshaled before Decode.
 //
-// ctx is forwarded to the codec; xjson.Codec ignores it, but other in-tree codecs
-// (msgpack, future YAML/TOML) may use it for tracing or cancellation.
-//
-// Decode is a free function because Go does not support generic methods; it becomes (e
-// Envelope) Decode[T](ctx) when the language does.
+// Decode is a free function because Go has no generic methods.
 func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 	var t T
 	if e.codec == nil {
@@ -213,30 +181,25 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 	return t, nil
 }
 
-// Encode is the symmetric inverse of Decode. The caller supplies an envelope carrying
-// the desired Version, Type, and (optionally) Name headers; Encode reduces the typed
-// value to a codec-independent map[string]any via structToMap and stamps the merged
-// body onto the envelope. For both Type and Name, Encode treats data as the source of
-// truth: if the body map carries a `type` (or `name`) entry, it must be a string and it
-// overwrites the corresponding header on the envelope; otherwise the envelope's
-// existing value is kept. At the end, Type and Name must both be non-empty. On any
-// error the envelope is left untouched.
+// Encode reduces data to a flat map and stamps it onto env as the body, merging in the
+// Version, Type, and Name headers. data wins for `type` and `name`; both must end up
+// non-empty. A top-level `key` is always dropped — importers mint a fresh one. On any
+// error env is left untouched.
 //
-// Invariant: every imex-registered resource carries a non-empty top-level string `name`
-// field on the wire. Encode enforces this so that a resource without a name surfaces as
-// a programmer bug at exporter-test time rather than at runtime.
-//
-// A top-level `key` field is always dropped from the body: envelopes do not carry
-// resource-local identity today, and importers mint a fresh key on the way in.
+// data may be a map[string]any, which is merged flat; any other value must be a struct.
 func Encode[T any](env *Envelope, data T) error {
-	body, err := structToMap(data)
-	if err != nil {
-		return errors.Wrap(err, "encode envelope")
+	// The map branch exists only for the task exporter, whose config is an opaque
+	// object it merges flat rather than a Go struct. Once task configs are strongly
+	// typed, this assertion (and its test) can go: every caller passes a struct.
+	body, ok := any(data).(map[string]any)
+	if !ok {
+		var err error
+		if body, err = structToMap(data); err != nil {
+			return errors.Wrap(err, "encode envelope")
+		}
 	}
-	// Keys are resource-local identity, not part of the portable envelope: an imported
-	// resource is minted a fresh key on the way in, so a stale key on the wire is at
-	// best noise and at worst a collision hazard. Strip it here. This may change if
-	// envelopes ever need to carry stable identity across clusters.
+	// Importers mint a fresh key, so a key on the wire is noise at best and a collision
+	// hazard at worst.
 	delete(body, "key")
 	typ := env.Type
 	if v, ok := body["type"]; ok {
@@ -291,10 +254,9 @@ func versionFromAny(v any) (Version, error) {
 	}
 }
 
-// legacyToNumeric converts a legacy semver string of the form "N.0.0" into the integer
-// schema version N. The minor and patch components must both be zero — older Console
-// exports only ever stamped the major component, so any non-zero minor/patch indicates
-// either a malformed payload or a wire format we don't recognize.
+// legacyToNumeric converts a legacy "N.0.0" semver string to the integer version N.
+// Minor and patch must both be zero — older Console exports only ever stamped the
+// major.
 func legacyToNumeric(s string) (Version, error) {
 	parts := strings.Split(s, ".")
 	if len(parts) != 3 {
@@ -310,17 +272,10 @@ func legacyToNumeric(s string) (Version, error) {
 	return Version(major), nil
 }
 
-// structToMap reduces a struct value to a flat map[string]any keyed by the name in each
-// field's `json:"..."` struct tag. A field is emitted iff it carries a json tag whose
-// name component is non-empty and not "-". Fields without a tag, with `json:"-"`, or
-// with an empty tag name (e.g. `json:",omitempty"`) are skipped. Tag options after the
-// name are ignored. Embedded (anonymous, untagged) struct fields are promoted: their
-// fields are flattened into the top-level map.
-//
-// Promotion follows encoding/json's depth rule — a shallower field overrides a
-// same-named field promoted from a deeper embedded struct — but does not reproduce its
-// full conflict resolution: two fields with the same json name promoted from the same
-// depth are resolved last-wins here, whereas encoding/json drops both.
+// structToMap reduces a struct to a flat map keyed by each field's json tag name.
+// Untagged fields and `json:"-"` are skipped; embedded untagged structs are flattened,
+// shallower fields winning, with same-depth collisions resolved last-wins rather than
+// dropped as encoding/json would.
 func structToMap(v any) (map[string]any, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Struct {
@@ -369,12 +324,40 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 	}
 }
 
+// ImportOptions carries the per-request settings for an import that arrive out-of-band
+// from the envelope body — transport metadata like the source file's name and the
+// desired parent resource.
+type ImportOptions struct {
+	// FileName is the name of the file the envelope was read from, possibly carrying
+	// directory segments. When the envelope body has no `name` field, the file's base
+	// name — with any trailing extension stripped — becomes the envelope's name. A
+	// `name` in the body always wins. The registry applies the fallback before the
+	// envelope reaches an Importer.
+	FileName string
+	// Parent is the ontology resource to create the imported resource under — a project
+	// for workspace items, a group for symbols. Required: Service.Import rejects a zero
+	// Parent. The registry passes it through untouched; each Importer decides how the
+	// parent applies to its resource type.
+	Parent ontology.ID
+}
+
 // Importer materializes a resource from an Envelope and persists it. The envelope's
 // Type is informational only, since the registry has already routed to this handler.
 type Importer interface {
 	// Import validates and persists the given envelope on tx, returning the ontology.ID
-	// of the newly-created resource.
-	Import(context.Context, gorp.Tx, Envelope) (ontology.ID, error)
+	// of the newly-created resource. The envelope's Name is fully resolved (non-empty)
+	// by the time Import is called — the registry has already applied the file-name
+	// fallback — so importers should treat it as the resource's name rather than
+	// re-deriving one from the body. The importer owns all ontology writes for the
+	// resource, including attaching it under opts.Parent when one is given.
+	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (ontology.ID, error)
+	// Match reports whether the envelope body, decoded as a flat map, is this
+	// importer's resource. It routes envelopes carrying no `type` header: some legacy
+	// Console state files never carried one, so Service.ResolveType offers the body to
+	// every registered importer's Match in sorted type order, first claim winning. The
+	// markers Match tests are frozen — they describe historical file shapes. Importers
+	// with no typeless legacy formats return false.
+	Match(map[string]any) bool
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under
 	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the
@@ -385,10 +368,8 @@ type Importer interface {
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema
 // version on the returned value.
 type Exporter interface {
-	// Export retrieves the resource identified by id and serializes it as an envelope,
-	// stamping the exporter's per-schema Version on the result. Exporters read directly
-	// from their own storage handle; the transactional Export path will return in a
-	// follow-up change once the API surface is settled.
+	// Export retrieves the resource identified by id and serializes it, stamping the
+	// exporter's per-schema Version.
 	Export(context.Context, ontology.ID) (Envelope, error)
 	// Type returns the ontology resource type this exporter handles.
 	Type() ontology.ResourceType

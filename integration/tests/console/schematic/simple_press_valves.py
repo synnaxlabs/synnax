@@ -36,7 +36,6 @@ class SimplePressValves(SimDaqCase, ConsoleCase):
         super().setup()
 
     def run(self) -> None:
-
         # Define the control channel names
         END_CMD = "end_test_cmd"
         PRESSURE = "press_pt"

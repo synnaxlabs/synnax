@@ -7,20 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.arc import compiler, graph, ir, program, text, types
 from synnax.arc.client import Arc, Client
-from synnax.arc.payload import (
-    Edge,
-    Graph,
-    GraphNode,
-    Handle,
+from synnax.arc.graph import Edge as GraphEdge
+from synnax.arc.graph import Graph
+from synnax.arc.graph import Node as GraphNode
+from synnax.arc.ir import Edge, Handle
+from synnax.arc.task import Task, TaskConfig
+from synnax.arc.text import Text
+from synnax.arc.types_gen import (
+    ONTOLOGY_TYPE,
     Key,
     Mode,
     Payload,
-    Position,
-    Text,
+    Status,
+    StatusDetails,
+    ontology_id,
 )
-from synnax.arc.types import Task, TaskConfig
 from x.deprecation import deprecated_getattr
+from x.spatial import XY as Position
 
 _DEPRECATED = {
     "ArcTask": "Task",
@@ -34,17 +39,28 @@ _DEPRECATED = {
 __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
+    "ONTOLOGY_TYPE",
     "Arc",
     "Client",
+    "Edge",
+    "Graph",
+    "GraphEdge",
+    "GraphNode",
+    "Handle",
     "Key",
     "Mode",
     "Payload",
+    "Position",
+    "Status",
+    "StatusDetails",
     "Task",
     "TaskConfig",
-    "Edge",
-    "Graph",
-    "GraphNode",
-    "Handle",
-    "Position",
     "Text",
+    "compiler",
+    "graph",
+    "ir",
+    "ontology_id",
+    "program",
+    "text",
+    "types",
 ]

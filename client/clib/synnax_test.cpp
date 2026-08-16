@@ -7,14 +7,51 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstddef>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
+#include "client/clib/internal.h"
 #include "client/clib/synnax.h"
 
 namespace synnax::clib {
 constexpr int32_t OK = 0;
+
+/// @brief it should keep the SynnaxError byte layout the LabVIEW Array Data Pointer
+/// parse depends on: 644 bytes, code at 0, type at 4, message at 132.
+TEST(ClibError, testSynnaxErrorLayoutMatchesLabVIEWContract) {
+    EXPECT_EQ(sizeof(SynnaxError), 644u);
+    EXPECT_EQ(offsetof(SynnaxError, code), 0u);
+    EXPECT_EQ(offsetof(SynnaxError, type), 4u);
+    EXPECT_EQ(offsetof(SynnaxError, message), 132u);
+}
+
+/// @brief it should split a '\n'-delimited string into its tokens.
+TEST(ClibInternal, testSplitNewlinesSplitsTokens) {
+    const std::vector<std::string> expected = {"a", "b", "c"};
+    EXPECT_EQ(split_newlines("a\nb\nc"), expected);
+}
+
+/// @brief it should return a single token when there is no delimiter.
+TEST(ClibInternal, testSplitNewlinesSingleToken) {
+    const std::vector<std::string> expected = {"abc"};
+    EXPECT_EQ(split_newlines("abc"), expected);
+}
+
+/// @brief it should return an empty vector for an empty or null string.
+TEST(ClibInternal, testSplitNewlinesEmptyAndNull) {
+    EXPECT_TRUE(split_newlines("").empty());
+    EXPECT_TRUE(split_newlines(nullptr).empty());
+}
+
+/// @brief it should preserve empty tokens between consecutive delimiters.
+TEST(ClibInternal, testSplitNewlinesPreservesEmptyTokens) {
+    const std::vector<std::string> expected = {"a", "", "b"};
+    EXPECT_EQ(split_newlines("a\n\nb"), expected);
+}
 
 /// @brief it should return a non-empty version string.
 TEST(ClibClient, testReturnsNonEmptyVersion) {

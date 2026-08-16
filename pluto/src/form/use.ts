@@ -23,7 +23,7 @@ import { type FieldState, type GetOptions, State } from "@/form/state";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { Status } from "@/status/base";
 
-export interface OnChangeArgs<Z extends z.ZodType> {
+export interface OnChangeParams<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */
   values: z.infer<Z>;
   /** The path that was changed. */
@@ -34,11 +34,11 @@ export interface OnChangeArgs<Z extends z.ZodType> {
   valid: boolean;
 }
 
-export interface UseArgs<Z extends z.ZodType> {
+export interface UseParams<Z extends z.ZodType> {
   values: z.infer<Z>;
   mode?: Mode;
   sync?: boolean;
-  onChange?: (props: OnChangeArgs<Z>) => void;
+  onChange?: (props: OnChangeParams<Z>) => void;
   onHasTouched?: (value: boolean) => void;
   schema?: Z;
   scope?: string;
@@ -53,7 +53,7 @@ export const use = <Z extends z.ZodType>({
   mode = "normal",
   onChange,
   onHasTouched,
-}: UseArgs<Z>): UseReturn<Z> => {
+}: UseParams<Z>): UseReturn<Z> => {
   const ref = useInitializerRef<State<Z>>(() => new State<Z>(initialValues, schema));
   const onChangeRef = useSyncedRef(onChange);
   const handleError = Status.useErrorHandler();

@@ -179,7 +179,7 @@ describe("Input.DateTime", () => {
         .getAllByRole("button")
         .find((b) => b.textContent?.trim() === "16");
       expect(day16).toBeTruthy();
-      expect(day16?.className).toContain("outlined");
+      expect(day16?.className).toContain("pluto--selected");
     });
 
     it("should select the correct local hour in the time selector", () => {

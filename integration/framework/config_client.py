@@ -129,7 +129,7 @@ class ConfigClient:
                 file_path = Path("tests") / test_file
 
             try:
-                with open(file_path) as f:
+                with open(file_path, encoding="utf-8") as f:
                     file_data = json.load(f)
                 if "sequences" in file_data:
                     all_sequences.extend(file_data["sequences"])

@@ -20,8 +20,7 @@ export type Key = z.infer<typeof keyZ>;
 
 /**
  * Payload is a user-defined region of time in the Synnax cluster. Ranges act as a
- * method for labeling and categorizing telemetry data within specific time
- * periods.
+ * method for labeling and categorizing telemetry data within specific time periods.
  */
 export const payloadZ = z.object({
   /** key is the unique identifier for this range. */
@@ -34,18 +33,18 @@ export const payloadZ = z.object({
    */
   timeRange: telem.timeRangeBoundedZ,
   /**
-   * color is an optional display color for visual identification of the range
-   * in user interfaces.
+   * color is an optional display color for visual identification of the range in user
+   * interfaces.
    */
   color: color.colorZ.optional(),
   /**
-   * labels contains optional labels attached to this range for categorization
-   * and filtering.
+   * labels contains optional labels attached to this range for categorization and
+   * filtering.
    */
   labels: zod.nullToUndefined(label.labelZ.array()),
   /**
-   * parent is an optional parent range for hierarchical organization. Ranges
-   * can be nested within other ranges.
+   * parent is an optional parent range for hierarchical organization. Ranges can be
+   * nested within other ranges.
    */
   get parent(): z.ZodOptional<typeof payloadZ> {
     return payloadZ.optional();

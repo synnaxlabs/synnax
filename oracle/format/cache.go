@@ -157,14 +157,14 @@ func (c *Cache) PruneTo(keep set.Set[string]) {
 func (c *Cache) Save() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := os.MkdirAll(filepath.Dir(c.path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(c.path), 0o755); err != nil {
 		return errors.Wrap(err, "create cache dir")
 	}
 	raw, err := json.MarshalIndent(c.data, "", "  ")
 	if err != nil {
 		return errors.Wrap(err, "marshal cache")
 	}
-	if err := os.WriteFile(c.path, raw, 0644); err != nil {
+	if err := os.WriteFile(c.path, raw, 0o644); err != nil {
 		return errors.Wrap(err, "write cache")
 	}
 	return nil

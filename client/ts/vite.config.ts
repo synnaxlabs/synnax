@@ -10,16 +10,27 @@
 /// <reference types="vitest/config" />
 
 import { lib } from "@synnaxlabs/vite-plugin";
+import path from "path";
 import { defineConfig } from "vite";
 
-import packageJSON from "./package.json";
+import packageJSON from "./package.json" with { type: "json" };
 
 export default defineConfig({
   define: { __VERSION__: JSON.stringify(packageJSON.version) },
   plugins: [lib({ name: "client" })],
-  build: { rolldownOptions: { external: ["zod"] } },
+  build: {
+    lib: {
+      entry: {
+        index: path.resolve(".", "src/index.ts"),
+        testutil: path.resolve(".", "src/testutil/index.ts"),
+      },
+    },
+    rolldownOptions: { external: ["zod", "vitest", /^@vitest\//, /^node:/] },
+  },
   test: {
     globals: true,
+    testTimeout: 15_000,
+    expect: { poll: { timeout: 5000 } },
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

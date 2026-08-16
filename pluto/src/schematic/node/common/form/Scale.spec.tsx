@@ -119,9 +119,8 @@ describe("Form.ScaleField", () => {
       const input = findInput(container);
       fireEvent.change(input, { target: { value: "5000" } });
       fireEvent.blur(input);
-      // bounds.clamp is exclusive on the upper side: it returns upper - 1.
-      // So 5000 clamps to 999 percent -> 9.99 decimal.
-      expect(ref.current?.get()).toBe(9.99);
+      // 5000 clamps to the 1000 percent maximum -> 10 decimal.
+      expect(ref.current?.get()).toBe(10);
     });
 
     it("should clamp values below the lower bound (5) before writing", () => {

@@ -11,7 +11,6 @@ from synnax.project.client import Client
 from synnax.project.types_gen import (
     ONTOLOGY_TYPE,
     Key,
-    New,
     Project,
     ontology_id,
 )
@@ -19,7 +18,6 @@ from synnax.project.types_gen import (
 __all__ = [
     "Client",
     "Key",
-    "New",
     "ONTOLOGY_TYPE",
     "Project",
     "ontology_id",

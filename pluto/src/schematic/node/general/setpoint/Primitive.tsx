@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/setpoint/setpoint.css";
 
-import { type CSSProperties, type ReactElement, useState } from "react";
+import { type CSSProperties, type ReactElement, useMemo, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -17,31 +18,40 @@ import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number> {
+interface RenderProps
+  extends Omit<Config, "variant">, Omit<BaseInput.Control<number>, "value"> {
   className?: string;
   style?: CSSProperties;
 }
-
-const SETPOINT_STYLE: CSSProperties = { zIndex: 5 };
 
 export const Setpoint = ({
   orientation = "left",
   className,
   style,
-  value,
   units,
   color,
   onChange,
   size = "small",
   disabled,
 }: RenderProps): ReactElement => {
-  const [currValue, setCurrValue] = useState(value);
+  const [currValue, setCurrValue] = useState(0);
+  const symbolColor = symbolColorVar(color);
+  const mergedStyle = useMemo(
+    () => ({ ...style, [CSS.var("symbol-color")]: symbolColor }),
+    [style, symbolColor],
+  );
   return (
     <Primitive.Div
-      className={CSS(CSS.B("setpoint"), className)}
+      className={CSS(
+        CSS.B("setpoint"),
+        CSS.B("symbol-colored"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       orientation={orientation}
-      style={style}
+      style={mergedStyle}
     >
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -57,7 +67,6 @@ export const Setpoint = ({
           left={100}
           top={50}
           id="2"
-          style={SETPOINT_STYLE}
         />
         <Handle.Handle
           location="top"
@@ -81,15 +90,14 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
         endContent={units}
-        color={color}
         borderWidth={1}
         disabled={disabled}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
+          className={CSS.B("symbol-button")}
           onClick={() => onChange(currValue)}
-          color={color}
         >
           Set
         </BaseButton.Button>

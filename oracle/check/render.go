@@ -113,24 +113,42 @@ func renderFinding(w io.Writer, f Finding) error {
 	case SeverityError:
 		severity = checkFail.Render(severity)
 	case SeverityWarning:
-		severity = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFE66D")).Render(severity)
+		severity = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFE66D")).
+			Render(severity)
 	default:
 		severity = checkDim.Render(severity)
 	}
 	if loc != "" {
 		loc = checkPath.Render(loc) + " "
 	}
-	if _, err := fmt.Fprintf(w, "  %s %s%s: %s\n", prefix, loc, severity, f.Message); err != nil {
+	if _, err := fmt.Fprintf(
+		w,
+		"  %s %s%s: %s\n",
+		prefix,
+		loc,
+		severity,
+		f.Message,
+	); err != nil {
 		return err
 	}
 	if f.FixHint != "" {
-		if _, err := fmt.Fprintf(w, "      %s %s\n", checkDim.Render("fix:"), checkHint.Render(f.FixHint)); err != nil {
+		if _, err := fmt.Fprintf(
+			w,
+			"      %s %s\n",
+			checkDim.Render("fix:"),
+			checkHint.Render(f.FixHint),
+		); err != nil {
 			return err
 		}
 	}
 	if f.Diff != "" {
 		for line := range strings.SplitSeq(strings.TrimRight(f.Diff, "\n"), "\n") {
-			if _, err := fmt.Fprintf(w, "      %s\n", checkDim.Render(line)); err != nil {
+			if _, err := fmt.Fprintf(
+				w,
+				"      %s\n",
+				checkDim.Render(line),
+			); err != nil {
 				return err
 			}
 		}

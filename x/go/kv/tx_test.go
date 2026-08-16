@@ -21,27 +21,35 @@ import (
 
 var _ = Describe("Tx", Ordered, func() {
 	var db kv.DB
-	BeforeAll(func() { db = memkv.New() })
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
+		db = DeferClose(memkv.New())
+	})
 	Describe("WithTx", func() {
-		It("Should commit the transaction if the returned error is nil", func(ctx SpecContext) {
-			k := []byte("test-1")
-			v := []byte("value")
-			Expect(kv.WithTx(ctx, db, func(tx kv.Tx) error {
-				return tx.Set(ctx, k, v)
-			})).To(Succeed())
-			ov, closer := MustSucceed2(db.Get(ctx, k))
-			Expect(ov).To(Equal([]byte("value")))
-			Expect(closer.Close()).To(Succeed())
-		})
-		It("Should rollback the transaction if the returned error is not nil", func(ctx SpecContext) {
-			k := []byte("test-2")
-			err := errors.New("test error")
-			Expect(kv.WithTx(ctx, db, func(tx kv.Tx) error {
-				Expect(tx.Set(ctx, k, []byte("value"))).To(Succeed())
-				return err
-			})).To(MatchError(err))
-			Expect(db.Get(ctx, k)).Error().To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should commit the transaction if the returned error is nil",
+			func(ctx SpecContext) {
+				k := []byte("test-1")
+				v := []byte("value")
+				Expect(kv.WithTx(ctx, db, func(tx kv.Tx) error {
+					return tx.Set(ctx, k, v)
+				})).To(Succeed())
+				ov, closer := MustSucceed2(db.Get(ctx, k))
+				Expect(ov).To(Equal([]byte("value")))
+				Expect(closer.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should rollback the transaction if the returned error is not nil",
+			func(ctx SpecContext) {
+				k := []byte("test-2")
+				err := errors.New("test error")
+				Expect(kv.WithTx(ctx, db, func(tx kv.Tx) error {
+					Expect(tx.Set(ctx, k, []byte("value"))).To(Succeed())
+					return err
+				})).To(MatchError(err))
+				Expect(db.Get(ctx, k)).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 })

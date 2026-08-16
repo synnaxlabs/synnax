@@ -87,9 +87,12 @@ inline Scope Scope::parse(x::json::Parser parser) {
         .mode = parser.field<ScopeMode>("mode"),
         .liveness = parser.field<Liveness>("liveness"),
         .activation = parser.field<std::optional<Handle>>("activation"),
-        .strata = parser.field<std::vector<Members>>("strata"),
-        .steps = parser.field<std::vector<Member>>("steps"),
-        .transitions = parser.field<std::vector<Transition>>("transitions"),
+        .strata = parser.field<std::vector<Members>>("strata", std::vector<Members>{}),
+        .steps = parser.field<std::vector<Member>>("steps", std::vector<Member>{}),
+        .transitions = parser.field<std::vector<Transition>>(
+            "transitions",
+            std::vector<Transition>{}
+        ),
     };
 }
 

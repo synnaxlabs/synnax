@@ -12,7 +12,6 @@ package frame_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -22,31 +21,40 @@ import (
 
 var _ = Describe("Frame", func() {
 	Describe("SplitByLeaseholder", func() {
-		It("Should split the frame into separate frames by the channels leaseholder", func() {
-			node1ch1 := channel.NewKey(1, 1)
-			node1ch2 := channel.NewKey(1, 1)
-			node2ch1 := channel.NewKey(2, 1)
-			node2ch2 := channel.NewKey(2, 1)
-			f := frame.NewMulti(
-				[]channel.Key{node1ch1, node1ch2, node2ch1, node2ch2},
-				[]telem.Series{
-					telem.NewSeriesV[int64](1, 2, 3),
-					telem.NewSeriesV[int64](4, 5, 6),
-					telem.NewSeriesV[int64](7, 8, 9),
-					telem.NewSeriesV[int64](10, 11, 12),
-				},
-			)
-			frames := f.SplitByLeaseholder()
-			Expect(frames).To(HaveLen(2))
-			Expect(frames[1]).To(Equal(frame.NewMulti(
-				[]channel.Key{node1ch1, node1ch2},
-				[]telem.Series{telem.NewSeriesV[int64](1, 2, 3), telem.NewSeriesV[int64](4, 5, 6)},
-			)))
-			Expect(frames[2]).To(Equal(frame.NewMulti(
-				[]channel.Key{node2ch1, node2ch2},
-				[]telem.Series{telem.NewSeriesV[int64](7, 8, 9), telem.NewSeriesV[int64](10, 11, 12)},
-			)))
-		})
+		It(
+			"Should split the frame into separate frames by the channels leaseholder",
+			func() {
+				node1ch1 := channel.NewKey(1, 1)
+				node1ch2 := channel.NewKey(1, 1)
+				node2ch1 := channel.NewKey(2, 1)
+				node2ch2 := channel.NewKey(2, 1)
+				f := frame.NewMulti(
+					[]channel.Key{node1ch1, node1ch2, node2ch1, node2ch2},
+					[]telem.Series{
+						telem.NewSeriesV[int64](1, 2, 3),
+						telem.NewSeriesV[int64](4, 5, 6),
+						telem.NewSeriesV[int64](7, 8, 9),
+						telem.NewSeriesV[int64](10, 11, 12),
+					},
+				)
+				frames := f.SplitByLeaseholder()
+				Expect(frames).To(HaveLen(2))
+				Expect(frames[1]).To(Equal(frame.NewMulti(
+					[]channel.Key{node1ch1, node1ch2},
+					[]telem.Series{
+						telem.NewSeriesV[int64](1, 2, 3),
+						telem.NewSeriesV[int64](4, 5, 6),
+					},
+				)))
+				Expect(frames[2]).To(Equal(frame.NewMulti(
+					[]channel.Key{node2ch1, node2ch2},
+					[]telem.Series{
+						telem.NewSeriesV[int64](7, 8, 9),
+						telem.NewSeriesV[int64](10, 11, 12),
+					},
+				)))
+			},
+		)
 	})
 
 	Describe("SplitByHost", func() {
@@ -80,7 +88,13 @@ var _ = Describe("Frame", func() {
 
 	Describe("ToStorage", func() {
 		It("Should convert to storage frame", func() {
-			f := frame.NewMulti([]channel.Key{1, 2}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3), telem.NewSeriesV[int64](4, 5, 6)})
+			f := frame.NewMulti(
+				[]channel.Key{1, 2},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](4, 5, 6),
+				},
+			)
 			sf := f.ToStorage()
 			Expect(sf.KeysSlice()).To(Equal([]ts.ChannelKey{1, 2}))
 			Expect(sf.SeriesSlice()).To(Equal(f.SeriesSlice()))
@@ -106,11 +120,17 @@ var _ = Describe("Frame", func() {
 		It("Should extend a frame with another frame", func() {
 			f1 := frame.NewMulti(
 				[]channel.Key{1, 2},
-				[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3, 4),
+				},
 			)
 			f2 := frame.NewMulti(
 				[]channel.Key{3, 4},
-				[]telem.Series{telem.NewSeriesV[int64](5, 6), telem.NewSeriesV[int64](7, 8)},
+				[]telem.Series{
+					telem.NewSeriesV[int64](5, 6),
+					telem.NewSeriesV[int64](7, 8),
+				},
 			)
 			extended := f1.Extend(f2)
 			Expect(extended.Count()).To(Equal(4))
@@ -120,7 +140,10 @@ var _ = Describe("Frame", func() {
 			empty := frame.Frame{}
 			f := frame.NewMulti(
 				[]channel.Key{1, 2},
-				[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3, 4),
+				},
 			)
 			extended := empty.Extend(f)
 			Expect(extended.Count()).To(Equal(2))
@@ -129,7 +152,10 @@ var _ = Describe("Frame", func() {
 		It("Should extend with an empty frame", func() {
 			f := frame.NewMulti(
 				[]channel.Key{1, 2},
-				[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3, 4),
+				},
 			)
 			extended := f.Extend(frame.Frame{})
 			Expect(extended.Count()).To(Equal(2))
@@ -157,11 +183,17 @@ var _ = Describe("Frame", func() {
 		It("Should merge multiple frames into one", func() {
 			f1 := frame.NewMulti(
 				[]channel.Key{1, 2},
-				[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3, 4),
+				},
 			)
 			f2 := frame.NewMulti(
 				[]channel.Key{3, 4},
-				[]telem.Series{telem.NewSeriesV[int64](5, 6), telem.NewSeriesV[int64](7, 8)},
+				[]telem.Series{
+					telem.NewSeriesV[int64](5, 6),
+					telem.NewSeriesV[int64](7, 8),
+				},
 			)
 			merged := frame.Merge([]frame.Frame{f1, f2})
 			Expect(merged.Count()).To(Equal(4))
@@ -175,7 +207,10 @@ var _ = Describe("Frame", func() {
 		It("Should return same frame for single input", func() {
 			f := frame.NewMulti(
 				[]channel.Key{1, 2},
-				[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3, 4),
+				},
 			)
 			merged := frame.Merge([]frame.Frame{f})
 			Expect(merged).To(Equal(f))
@@ -183,7 +218,10 @@ var _ = Describe("Frame", func() {
 		It("Should merge many frames", func() {
 			frames := make([]frame.Frame, 5)
 			for i := range frames {
-				frames[i] = frame.NewUnary(channel.Key(i+1), telem.NewSeriesV[int64](int64(i+1)))
+				frames[i] = frame.NewUnary(
+					channel.Key(i+1),
+					telem.NewSeriesV[int64](int64(i+1)),
+				)
 			}
 			merged := frame.Merge(frames)
 			Expect(merged.Count()).To(Equal(5))
@@ -220,12 +258,17 @@ var _ = Describe("Frame", func() {
 
 	Describe("NewFromStorage", func() {
 		It("Should create a new frame from its storage later representation", func() {
-			storageFrame := telem.UnaryFrame[cesium.ChannelKey](1, telem.NewSeriesV[float32](1, 2, 3, 4))
+			storageFrame := telem.UnaryFrame[ts.ChannelKey](
+				1,
+				telem.NewSeriesV[float32](1, 2, 3, 4),
+			)
 			distFrame := frame.NewFromStorage(storageFrame)
 			Expect(distFrame.SeriesSlice()).To(HaveLen(1))
 			Expect(distFrame.KeysSlice()).To(HaveLen(1))
 			Expect(distFrame.KeysSlice()[0]).To(Equal(channel.Key(1)))
-			Expect(distFrame.SeriesAt(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3, 4)))
+			Expect(
+				distFrame.SeriesAt(0),
+			).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3, 4)))
 		})
 	})
 

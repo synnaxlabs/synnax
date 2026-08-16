@@ -15,6 +15,7 @@ import { schematic } from "@/schematic";
 const node = (key: string, x: number, y: number): schematic.Node => ({
   key,
   position: { x, y },
+  zIndex: 0,
 });
 
 const edge = (
@@ -30,7 +31,7 @@ const edge = (
 });
 
 const empty = (overrides: Partial<schematic.Schematic> = {}): schematic.Schematic =>
-  schematic.newZ.parse({ name: "", ...overrides });
+  schematic.schematicZ.parse({ name: "Test Schematic", ...overrides });
 
 const apply = (
   state: schematic.Schematic,
@@ -623,30 +624,6 @@ describe("schematic reducer inverses", () => {
     });
   });
 
-  describe("setNodeMeasured", () => {
-    it("should be reported as not undoable", () => {
-      expect(
-        schematic.isUndoable(
-          schematic.setNodeMeasured({ key: "n1", measured: { width: 10, height: 20 } }),
-        ),
-      ).toBe(false);
-    });
-    it("should produce an empty inverse", () => {
-      const state = empty({ nodes: [node("n1", 0, 0)] });
-      const { inverse } = schematic.reduceAll(state, [
-        schematic.setNodeMeasured({ key: "n1", measured: { width: 10, height: 20 } }),
-      ]);
-      expect(inverse).toEqual([]);
-    });
-    it("should report no targets so it does not invalidate concurrent undoables", () => {
-      const state = empty({ nodes: [node("n1", 0, 0)] });
-      const { targets } = schematic.reduceAll(state, [
-        schematic.setNodeMeasured({ key: "n1", measured: { width: 10, height: 20 } }),
-      ]);
-      expect(targets).toEqual([]);
-    });
-  });
-
   describe("multi-action transactions", () => {
     it("should invert a build sequence (nodes and edges restored; phantom edge config persists)", () => {
       // Inverse cannot strip the e1 config that setConfig added — see
@@ -674,30 +651,6 @@ describe("schematic reducer inverses", () => {
         schematic.removeNode({ key: "n1" }),
         schematic.setNode({ node: node("n1", 50, 50), config: { label: "Pump" } }),
       ]);
-    });
-  });
-
-  describe("isUndoable", () => {
-    it("should return true for every action other than setNodeMeasured", () => {
-      expect(schematic.isUndoable(schematic.rename({ name: "x" }))).toBe(true);
-      expect(
-        schematic.isUndoable(
-          schematic.setNodePosition({ key: "n1", position: { x: 0, y: 0 } }),
-        ),
-      ).toBe(true);
-      expect(schematic.isUndoable(schematic.setNode({ node: node("n1", 0, 0) }))).toBe(
-        true,
-      );
-      expect(schematic.isUndoable(schematic.removeNode({ key: "n1" }))).toBe(true);
-      expect(
-        schematic.isUndoable(
-          schematic.addEdge({ edge: edge("e1", "a", "o", "b", "i") }),
-        ),
-      ).toBe(true);
-      expect(schematic.isUndoable(schematic.removeEdge({ key: "e1" }))).toBe(true);
-      expect(schematic.isUndoable(schematic.setConfig({ key: "n1", config: {} }))).toBe(
-        true,
-      );
     });
   });
 

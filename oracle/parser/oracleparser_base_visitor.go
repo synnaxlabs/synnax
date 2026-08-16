@@ -68,7 +68,39 @@ func (v *BaseOracleParserVisitor) VisitFieldOmit(ctx *FieldOmitContext) interfac
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseOracleParserVisitor) VisitDomainOmit(ctx *DomainOmitContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitActionDef(ctx *ActionDefContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitActionBody(ctx *ActionBodyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseOracleParserVisitor) VisitFieldDef(ctx *FieldDefContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitFieldDefault(ctx *FieldDefaultContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitDefaultValue(ctx *DefaultValueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitArrayDefault(ctx *ArrayDefaultContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitStructDefault(ctx *StructDefaultContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitStructFieldDefault(ctx *StructFieldDefaultContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -140,10 +172,38 @@ func (v *BaseOracleParserVisitor) VisitEnumValue(ctx *EnumValueContext) interfac
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseOracleParserVisitor) VisitEnumValueBody(ctx *EnumValueBodyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseOracleParserVisitor) VisitTypeDefDef(ctx *TypeDefDefContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
 func (v *BaseOracleParserVisitor) VisitTypeDefBody(ctx *TypeDefBodyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitUnionDef(ctx *UnionDefContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitUnionBody(ctx *UnionBodyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitNamedVariant(ctx *NamedVariantContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitInlineVariant(ctx *InlineVariantContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitVariantName(ctx *VariantNameContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitUnionVariantBody(ctx *UnionVariantBodyContext) interface{} {
 	return v.VisitChildren(ctx)
 }

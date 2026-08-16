@@ -13,7 +13,7 @@ import {
   control,
   DisconnectedError,
   type framer,
-  type status as cstatus,
+  status as cstatus,
   type Synnax,
   TimeStamp,
   ValidationError,
@@ -31,9 +31,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { channel as aetherChannel } from "@/channel/aether";
 import { type theming } from "@/ether";
-import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -57,7 +55,6 @@ export const controllerMethodsZ = {
 
 interface InternalState {
   client: Synnax | null;
-  store: aetherChannel.FluxSubStore;
   instrumentation: Instrumentation;
   stateProv: StateProvider;
   addStatus: status.Adder;
@@ -104,7 +101,6 @@ export class Controller
     i.stateProv = nextStateProv;
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
     i.client = nextClient;
-    i.store = flux.useStore<aetherChannel.FluxSubStore>(ctx, this.key);
   }
 
   afterDelete(): void {
@@ -313,8 +309,7 @@ export class SetChannelValue
 
   async needsControlOf(client: Synnax): Promise<channel.Key[]> {
     if (this.props.channel === 0) return [];
-    const { store } = this.controller.internal;
-    const chan = await aetherChannel.retrieveCached(client, store, this.props.channel);
+    const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
     if (chan.index !== 0) keys.push(chan.index);
     return keys;
@@ -365,8 +360,7 @@ export class AcquireChannelControl
   }
 
   async needsControlOf(client: Synnax): Promise<channel.Key[]> {
-    const { store } = this.controller.internal;
-    const chan = await aetherChannel.retrieveCached(client, store, this.props.channel);
+    const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
     if (chan.index !== 0) keys.push(chan.index);
     return keys;
@@ -375,9 +369,9 @@ export class AcquireChannelControl
   set(acquire: boolean): void {
     this.runAsync(async () => {
       const { controller } = this;
-      const { client, store } = controller.internal;
+      const { client } = controller.internal;
       if (client == null) return;
-      const ch = await aetherChannel.retrieveCached(client, store, this.props.channel);
+      const ch = await client.channels.retrieve(this.props.channel);
       const keys = [ch.key];
       if (ch.index !== 0) keys.push(ch.index);
       if (!acquire) await this.controller.releaseAuthority(keys);
@@ -447,35 +441,35 @@ export class AuthoritySource
 
     const time = TimeStamp.now();
     if (this.props.channel === 0)
-      return {
+      return cstatus.create<typeof authoritySourceDetailsZ>({
         name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
         message: "No Channel",
         time,
         details: { valid: false, authority: 0 },
-      };
+      });
 
     const state = this.prov.get(this.props.channel);
 
     if (state == null)
-      return {
+      return cstatus.create<typeof authoritySourceDetailsZ>({
         name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
         message: "Uncontrolled",
         time,
         details: { valid: true, color: undefined, authority: 0 },
-      };
+      });
 
-    return {
+    return cstatus.create<typeof authoritySourceDetailsZ>({
       name: this.controller.key,
       key: state.subject.key,
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
       details: { valid: true, color: state.subjectColor, authority: state.authority },
-    };
+    });
   }
 
   cleanup(): void {

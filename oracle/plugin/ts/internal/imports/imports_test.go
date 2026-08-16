@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestImports(t *testing.T) {
@@ -86,3 +87,5 @@ var _ = Describe("Manager", func() {
 		Expect(m.InternalNamedImports()).To(BeNil())
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -43,8 +43,7 @@ export interface UseSingleRequiredProps<K extends record.Key> {
 }
 
 type UseSingleInternalProps<K extends record.Key> =
-  | UseSingleAllowNoneProps<K>
-  | UseSingleRequiredProps<K>;
+  UseSingleAllowNoneProps<K> | UseSingleRequiredProps<K>;
 
 export type UseSingleProps<K extends record.Key> = optional.Optional<
   UseSingleInternalProps<K>,
@@ -63,6 +62,18 @@ export interface UseMultipleProps<K extends record.Key> extends Pick<
   closeDialogOnSelect?: boolean;
   autoSelectOnNone?: boolean;
 }
+
+/**
+ * hasModifier reports whether a pointer event carries a selection modifier, meaning
+ * the gesture is aimed at the selection rather than at the item: shift extends a
+ * range from the anchor, control (or command) toggles a single key. A row that
+ * activates on click routes to the enclosing selection instead when this is true.
+ */
+export const hasModifier = (e: {
+  shiftKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}): boolean => e.shiftKey || e.ctrlKey || e.metaKey;
 
 /** Return value for the {@link useMultiple} hook. */
 export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {

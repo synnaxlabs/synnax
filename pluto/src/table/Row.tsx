@@ -12,15 +12,18 @@ import { box, dimensions, type record, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { Select } from "@/select";
 import { Cell } from "@/table/cells";
 import { Indicator } from "@/table/Indicator";
-import { useDispatch, useSelectCell } from "@/table/queries";
+import { useCell, useDispatch } from "@/table/queries";
+import { Selection } from "@/table/selection";
 
 export interface RowProps {
   index: number;
   size: number;
-  position: number;
+  /** Canvas x coordinate of the row's first cell. */
+  x: number;
+  /** Canvas y coordinate of the row. */
+  y: number;
   resourceKey: table.Key;
   cells: string[];
   columns: number[];
@@ -35,7 +38,8 @@ export const Row = memo(
   ({
     index,
     size,
-    position,
+    x,
+    y,
     resourceKey,
     cells,
     columns,
@@ -45,7 +49,7 @@ export const Row = memo(
     onSelect,
     onCellSelect,
   }: RowProps): ReactElement => {
-    let xCursor = showIndicator ? 4.5 * 6 : 0;
+    let xCursor = x;
     return (
       <tr className={CSS(CSS.BE("table", "row"))}>
         {showIndicator && (
@@ -67,7 +71,7 @@ export const Row = memo(
               resourceKey={resourceKey}
               cellKey={cellKey}
               x={xPos}
-              y={position}
+              y={y}
               width={columns[i]}
               height={size}
               editable={editable}
@@ -98,7 +102,7 @@ interface VariantCellProps {
 // dispatch-backed onChange handler. It takes x/y/width/height as primitives
 // (not a Box) so the memo barrier compares stable scalars; the Box is
 // constructed once per geometry change inside. Selection is read via
-// Select.useItemState so a cell re-renders only when its own selection flips,
+// Selection.useIsMember so a cell re-renders only when its own selection flips,
 // not on every selection event elsewhere in the table.
 const VariantCell = memo(
   ({
@@ -111,8 +115,8 @@ const VariantCell = memo(
     editable,
     onSelect,
   }: VariantCellProps): ReactElement | null => {
-    const cell = useSelectCell({ key: resourceKey, cellKey });
-    const { selected } = Select.useItemState(cellKey);
+    const cell = useCell({ key: resourceKey, cellKey });
+    const selected = Selection.useIsMember(cellKey);
     const { dispatch } = useDispatch();
     const b = useMemo(
       () => box.construct(xy.construct({ x, y }), dimensions.construct(width, height)),

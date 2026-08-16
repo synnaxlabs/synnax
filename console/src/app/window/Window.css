@@ -1,0 +1,27 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-main {
+    --console-top-bar-size: 7rem;
+
+    overflow: hidden;
+    background: var(--pluto-gray-l2);
+}
+
+/* Outlined chips recess into the chrome rather than rise off it. Scoped to the
+   variant: a text button has no rest fill, so the same band would darken it on
+   hover and then drop it back onto the bar on press. */
+.console-nav__bar .pluto-btn--outlined,
+.console-shell__islands .pluto-btn--outlined {
+    --pluto-fill-rest: var(--pluto-gray-l0);
+    --pluto-fill-hover: var(--pluto-gray-l1);
+    --pluto-fill-press: var(--pluto-gray-l2);
+}

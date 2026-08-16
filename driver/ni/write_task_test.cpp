@@ -82,13 +82,13 @@ protected:
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "my_task",
             .type = "ni_analog_write",
         };
 
         const x::json::json j{
-            {"data_saving", false},
+            {"data_saving_disabled", true},
             {"state_rate", 25},
             {"device", dev.key},
             {"channels",
@@ -96,7 +96,7 @@ protected:
                  {{"type", "ao_voltage"},
                   {"key", "hCzuNC9glqc"},
                   {"port", 0},
-                  {"enabled", true},
+                  {"disabled", false},
                   {"min_val", 0},
                   {"max_val", 1},
                   {"state_channel", state_ch_1.key},
@@ -108,7 +108,7 @@ protected:
                      {"type", "ao_voltage"},
                      {"key", "hCzuNC9glqc"},
                      {"port", 1},
-                     {"enabled", true},
+                     {"disabled", false},
                      {"min_val", 0},
                      {"max_val", 1},
                      {"state_channel", state_ch_2.key},
@@ -120,7 +120,7 @@ protected:
         };
 
         auto p = x::json::Parser(j);
-        cfg = std::make_unique<WriteTaskConfig>(client, p);
+        cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<driver::task::MockContext>(client);
@@ -271,7 +271,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
 
     // Create a configuration with an invalid channel type
     x::json::json j{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"state_rate", 25},
         {"device", dev.key},
         {"channels",
@@ -279,7 +279,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
              {{{"type", "INVALID_CHANNEL_TYPE"}, // Invalid channel type
                {"key", "hCzuNC9glqc"},
                {"port", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"min_val", 0},
                {"max_val", 1},
                {"state_channel", state_ch.key},
@@ -290,7 +290,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     };
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<WriteTaskConfig>(client, p);
+    auto cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
 
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }

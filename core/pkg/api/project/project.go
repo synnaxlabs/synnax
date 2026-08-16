@@ -13,16 +13,16 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -53,19 +53,12 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	userKey, err := user.KeyFromOntologyID(auth.GetSubject(ctx))
-	if err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeProject}},
 	}); err != nil {
 		return CreateResponse{}, err
-	}
-	for i := range req.Projects {
-		req.Projects[i].Author = userKey
 	}
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Projects); err != nil {
 		return CreateResponse{}, err
@@ -75,7 +68,7 @@ func (s *Service) Create(
 
 type RenameRequest struct {
 	Name string      `json:"name" msgpack:"name"`
-	Key  project.Key `json:"key" msgpack:"key"`
+	Key  project.Key `json:"key"  msgpack:"key"`
 }
 
 func (s *Service) Rename(
@@ -95,7 +88,7 @@ func (s *Service) Rename(
 
 type SetLayoutRequest struct {
 	Layout map[string]any `json:"layout" msgpack:"layout"`
-	Key    project.Key    `json:"key" msgpack:"key"`
+	Key    project.Key    `json:"key"    msgpack:"key"`
 }
 
 func (s *Service) SetLayout(
@@ -115,27 +108,24 @@ func (s *Service) SetLayout(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm string        `json:"search_term" msgpack:"search_term"`
-		Keys       []project.Key `json:"keys" msgpack:"keys"`
-		Limit      int           `json:"limit" msgpack:"limit"`
-		Offset     int           `json:"offset" msgpack:"offset"`
-		Author     user.Key      `json:"author" msgpack:"author"`
+		SearchTerm          string        `json:"search_term"            msgpack:"search_term"`
+		Keys                []project.Key `json:"keys"                   msgpack:"keys"`
+		Limit               int           `json:"limit"                  msgpack:"limit"`
+		Offset              int           `json:"offset"                 msgpack:"offset"`
+		IgnoreNotFoundError bool          `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Projects []project.Project `json:"projects" msgpack:"projects"`
+		Projects []project.Project `json:"projects,omitzero" msgpack:"projects,omitzero"`
 	}
 )
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (RetrieveResponse, error) {
+) (res RetrieveResponse, err error) {
 	q := s.internal.NewRetrieve().Search(req.SearchTerm)
 	if len(req.Keys) > 0 {
 		q = q.Where(project.MatchKeys(req.Keys...))
-	}
-	if req.Author != uuid.Nil {
-		q = q.Where(project.MatchAuthor(req.Author))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -143,18 +133,18 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	var res RetrieveResponse
-	if err := q.Entries(&res.Projects).Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
+	err = q.Entries(&res.Projects).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
 	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: project.OntologyIDsFromProjects(res.Projects),
-	}); err != nil {
-		return RetrieveResponse{}, err
+	}); eErr != nil {
+		return RetrieveResponse{}, eErr
 	}
-	return res, nil
+	return res, err
 }
 
 type DeleteRequest struct {

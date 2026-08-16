@@ -7,14 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { Channel } from "@/channel/client";
 import { NotFoundError } from "@/errors";
-import { createTestClient } from "@/testutil/client";
+import { query } from "@/query";
+import {
+  createSeverableProxy,
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  TEST_CLIENT_PARAMS,
+} from "@/testutil";
 
 const client = createTestClient();
+const remote = createTestClient();
 
 describe("Channel", () => {
   describe("create", () => {
@@ -29,7 +37,7 @@ describe("Channel", () => {
       expect(channel.leaseholder).toEqual(1);
       expect(channel.virtual).toBe(true);
       expect(channel.dataType).toEqual(DataType.FLOAT32);
-    }, 80000);
+    });
 
     test("create calculated", async () => {
       const chOneName = id.create();
@@ -77,6 +85,22 @@ describe("Channel", () => {
         dataType: DataType.FLOAT32,
       });
       expect(two.key).not.toEqual(0);
+    });
+
+    test("create bool channel", async () => {
+      const idx = await client.channels.create({
+        name: id.create(),
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+      });
+      const ch = await client.channels.create({
+        name: id.create(),
+        index: idx.key,
+        dataType: DataType.BOOLEAN,
+      });
+      expect(ch.dataType.equals(DataType.BOOLEAN)).toBe(true);
+      const retrieved = await client.channels.retrieve(ch.key);
+      expect(retrieved.dataType.equals(DataType.BOOLEAN)).toBe(true);
     });
 
     test("create many", async () => {
@@ -347,6 +371,314 @@ describe("Channel", () => {
 
       const retrieved = await client.channels.retrieve(channel.key);
       expect(retrieved.name).toEqual(updated.name);
+    });
+  });
+
+  describe("payload", () => {
+    it("keeps shared concurrency through a round trip", () => {
+      const ch = new Channel({
+        name: "shared",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        concurrency: control.Concurrency.shared,
+      });
+      expect(ch.payload.concurrency).toEqual(control.Concurrency.shared);
+      expect(new Channel(ch.payload).concurrency).toEqual(control.Concurrency.shared);
+    });
+  });
+
+  describe("constructor normalization", () => {
+    it("fills the defaults omitted from a crude operation", () => {
+      const [op] = new Channel({
+        name: "op",
+        dataType: DataType.FLOAT32,
+        operations: [{ type: "avg" }],
+      }).operations;
+      expect(op.resetChannel).toEqual(0);
+      expect(op.duration).toEqual(TimeSpan.ZERO);
+    });
+
+    it("parses a crude status time into a TimeStamp", () => {
+      const date = new Date("2026-08-10T00:00:00.000Z");
+      const ch = new Channel({
+        name: "stat",
+        dataType: DataType.FLOAT32,
+        status: { variant: "error", message: "boom", time: date },
+      });
+      expect(ch.status?.time).toBeInstanceOf(TimeStamp);
+      expect(ch.status?.time).toEqual(new TimeStamp(date));
+    });
+
+    it("throws when the status is malformed", () => {
+      expect(
+        () =>
+          new Channel({
+            name: "bad",
+            dataType: DataType.FLOAT32,
+            status: { variant: "not_a_variant" } as never,
+          }),
+      ).toThrow();
+    });
+  });
+});
+
+const createVirtual = async (c = client) =>
+  await c.channels.create({
+    name: `qry_${id.create()}`,
+    dataType: DataType.FLOAT32,
+    virtual: true,
+  });
+
+const createRange = async (c = client) => {
+  const start = TimeStamp.now();
+  return await c.ranges.create({
+    name: `qry-${id.create()}`,
+    timeRange: new TimeRange(start, start.add(TimeStamp.seconds(1))),
+  });
+};
+
+describe("cached reads", () => {
+  // Changes made while the stream is still opening are lost (epoch
+  // reconciliation repairs them in production); open it up front so remote
+  // writes in these specs are always observed.
+  beforeAll(async () => await client.connect());
+
+  describe("retrieve", () => {
+    it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
+      const ch = await createVirtual();
+      const first = await client.channels.retrieve(ch.key);
+      expect(first.name).toEqual(ch.name);
+      const renamed = `qry_renamed_${id.create()}`;
+      await remote.channels.rename(ch.key, renamed);
+      // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
+      // and converge on the remote change once it streams in.
+      await expect
+        .poll(async () => (await client.channels.retrieve(ch.key)).name)
+        .toBe(renamed);
+    });
+
+    it("preserves key order across cached and fetched entries", async () => {
+      const a = await createVirtual();
+      const b = await createVirtual();
+      await client.channels.retrieve(b.key);
+      const res = await client.channels.retrieve([a.key, b.key]);
+      expect(res.map((c) => c.key)).toEqual([a.key, b.key]);
+    });
+  });
+
+  describe("getCached", () => {
+    it("serves a key query straight from the record written by create", async () => {
+      const ch = await createVirtual();
+      const cached = expectLive(client.channels.getCached(ch.key));
+      expect(cached.name).toEqual(ch.name);
+    });
+
+    it("composes a keys query from records written by create", async () => {
+      const ch = await createVirtual();
+      const cached = expectLive(client.channels.getCached({ keys: [ch.key] }));
+      expect(cached.map(({ key }) => key)).toEqual([ch.key]);
+    });
+
+    it("returns undefined for a keys query with an uncached key", async () => {
+      const ch = await createVirtual();
+      expect(client.channels.getCached({ keys: [ch.key, 999999999] })).toBeUndefined();
+    });
+  });
+
+  describe("name resolution", () => {
+    it("serves literal names from the record store without reaching the cluster", async () => {
+      const proxy = await createSeverableProxy();
+      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      try {
+        const ch = await createVirtual(local);
+        await proxy.sever();
+        const res = await local.channels.retrieve([ch.name]);
+        expect(res.map((c) => c.key)).toEqual([ch.key]);
+      } finally {
+        await proxy.close();
+      }
+    }, 30000);
+
+    it("fetches only the names the store cannot resolve", async () => {
+      const proxy = await createSeverableProxy();
+      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      try {
+        const known = await createVirtual(local);
+        // Created by another client, so `local` has never seen it. Severing
+        // proves the fetch went out for this name and not for the known one.
+        const unknown = await createVirtual(remote);
+        await proxy.sever();
+        await expect(
+          local.channels.retrieve([known.name, unknown.name]),
+        ).rejects.toThrow();
+        await proxy.restore();
+        await expect
+          .poll(async () =>
+            (await local.channels.retrieve([known.name, unknown.name]))
+              .map((c) => c.key)
+              .sort(),
+          )
+          .toEqual([known.key, unknown.key].sort());
+      } finally {
+        await proxy.close();
+      }
+    }, 30000);
+
+    it("goes to the cluster for a name holding regex characters", async () => {
+      const proxy = await createSeverableProxy();
+      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      try {
+        const ch = await createVirtual(local);
+        await proxy.sever();
+        // The stored channel matches the pattern, but a pattern can match
+        // records the store has never seen, so it cannot be served locally.
+        await expect(local.channels.retrieve([`${ch.name}.*`])).rejects.toThrow();
+      } finally {
+        await proxy.close();
+      }
+    }, 30000);
+
+    it("goes to the cluster when a name matches two stored channels", async () => {
+      const proxy = await createSeverableProxy();
+      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      try {
+        const ch = await createVirtual(local);
+        const other = await createVirtual(local);
+        // A cluster running without name validation can hold duplicates. Forge
+        // the collision: an ambiguous name must never resolve from the store.
+        local.channels.store.set([new Channel({ ...other.payload, name: ch.name })]);
+        await proxy.sever();
+        await expect(local.channels.retrieve([ch.name])).rejects.toThrow();
+        // The guard falls through to the cluster rather than failing outright,
+        // so the same request answers once the link returns.
+        await proxy.restore();
+        await expect
+          .poll(async () =>
+            (await local.channels.retrieve([ch.name])).map((c) => c.key),
+          )
+          .toEqual([ch.key]);
+      } finally {
+        await proxy.close();
+      }
+    }, 30000);
+
+    it("goes to the cluster for a request narrowed beyond names", async () => {
+      const proxy = await createSeverableProxy();
+      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      try {
+        const ch = await createVirtual(local);
+        await proxy.sever();
+        // The store cannot prove it holds every virtual channel named this, so
+        // any field narrowing the request beyond names disqualifies it.
+        await expect(
+          local.channels.retrieve({ names: [ch.name], virtual: true }),
+        ).rejects.toThrow();
+      } finally {
+        await proxy.close();
+      }
+    }, 30000);
+  });
+
+  describe("onChange", () => {
+    it("delivers a remote rename to a subscribed single query", async () => {
+      const ch = await createVirtual();
+      const handler = vi.fn();
+      const off = client.channels.onChange(ch.key, handler);
+      try {
+        await client.channels.retrieve(ch.key);
+        const renamed = `qry_renamed_${id.create()}`;
+        await remote.channels.rename(ch.key, renamed);
+        await expect
+          .poll(() => {
+            const cached = client.channels.getCached(ch.key);
+            return query.isLive(cached) && cached.name === renamed;
+          })
+          .toBe(true);
+        expect(handler).toHaveBeenCalled();
+      } finally {
+        off();
+      }
+    });
+
+    it("delivers a remote delete as a deleted result carrying the corpse", async () => {
+      const ch = await createVirtual();
+      const results: Array<query.Cached<Channel> | undefined> = [];
+      const off = client.channels.onChange(ch.key, (c) => results.push(c));
+      try {
+        await client.channels.retrieve(ch.key);
+        await remote.channels.delete(ch.key);
+        await expect
+          .poll(() => query.Deleted.matches(client.channels.getCached(ch.key)))
+          .toBe(true);
+        const last = expectDeleted(results.at(-1));
+        expect(last.corpse.name).toEqual(ch.name);
+        await expect(client.channels.retrieve(ch.key)).rejects.toThrow("deleted");
+      } finally {
+        off();
+      }
+    });
+  });
+
+  describe("aliases", () => {
+    it("composes the alias for a single query under a range", async () => {
+      const ch = await createVirtual();
+      const rng = await createRange();
+      const alias = `qry_alias_${id.create()}`;
+      await client.ranges.setAlias(rng.key, ch.key, alias);
+      const res = await client.channels.retrieve(ch.key, { rangeKey: rng.key });
+      expect(res.alias).toEqual(alias);
+      const bare = await client.channels.retrieve(ch.key);
+      expect(bare.alias).toBeUndefined();
+    });
+
+    it("delivers remote alias changes to a subscribed single query", async () => {
+      const ch = await createVirtual();
+      const rng = await createRange();
+      const params = { key: ch.key, rangeKey: rng.key };
+      const off = client.channels.onChange(params, () => {});
+      try {
+        await client.channels.retrieve(ch.key, { rangeKey: rng.key });
+        const alias = `qry_alias_${id.create()}`;
+        await remote.ranges.setAlias(rng.key, ch.key, alias);
+        await expect
+          .poll(() => {
+            const cached = client.channels.getCached(params);
+            return query.isLive(cached) ? cached.alias : undefined;
+          })
+          .toBe(alias);
+        await remote.ranges.deleteAlias(rng.key, ch.key);
+        await expect
+          .poll(() => {
+            const cached = client.channels.getCached(params);
+            return query.isLive(cached) ? cached.alias : undefined;
+          })
+          .toBeUndefined();
+      } finally {
+        off();
+      }
+    });
+
+    it("composes aliases for a keys request under a range", async () => {
+      const a = await createVirtual();
+      const b = await createVirtual();
+      const rng = await createRange();
+      const alias = `qry_alias_${id.create()}`;
+      await client.ranges.setAlias(rng.key, a.key, alias);
+      const res = await client.channels.retrieve({
+        keys: [a.key, b.key],
+        rangeKey: rng.key,
+      });
+      expect(res.find((c) => c.key === a.key)?.alias).toEqual(alias);
+      expect(res.find((c) => c.key === b.key)?.alias).toBeUndefined();
+    });
+
+    it("does not serve an unfetched keys request under a range", async () => {
+      const ch = await createVirtual();
+      const rng = await createRange();
+      await client.channels.retrieve(ch.key);
+      expect(
+        client.channels.getCached({ keys: [ch.key], rangeKey: rng.key }),
+      ).toBeUndefined();
     });
   });
 });

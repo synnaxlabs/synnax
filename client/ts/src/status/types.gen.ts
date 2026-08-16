@@ -47,7 +47,7 @@ export type StatusZodObject<
   name: z.ZodDefault<z.ZodString>;
   variant: V;
   message: z.ZodString;
-  description: z.ZodOptional<z.ZodString>;
+  description: z.ZodDefault<z.ZodString>;
   time: z.ZodDefault<typeof telem.timeStampZ>;
   labels: ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof label.labelZ>>>;
   details: [Details] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Details;
@@ -74,11 +74,11 @@ export const statusZ: StatusZFunction = <
   V extends z.ZodType<Variant>,
 >({ details, v }: Partial<StatusSchemas<Details, V>> = {}) =>
   z.object({
-    key: z.string().default(() => id.create()),
+    key: z.string().default(id.create),
     name: z.string().default(""),
     variant: v ?? variantZ,
     message: z.string(),
-    description: z.string().optional(),
+    description: z.string().default(""),
     time: telem.timeStampZ.default(() => TimeStamp.now()),
     details: details ?? z.unknown().optional(),
     labels: zod.nullToUndefined(label.labelZ.array()),
@@ -91,25 +91,15 @@ export type Status<
   name: string;
   variant: z.infer<V>;
   message: string;
-  description?: string;
+  description: string;
   time: telem.TimeStamp;
   labels?: label.Label[];
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
-
-export interface NewSchemas<
-  Details extends z.ZodType = z.ZodType,
-  V extends z.ZodType<Variant> = z.ZodType<Variant>,
-> {
-  details: Details;
-  v: V;
-}
-
-export const newZ = <
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
->({ details, v }: Partial<NewSchemas<Details, V>> = {}) =>
-  statusZ({ details, v }).partial({ key: true, name: true, time: true });
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
-> = optional.Optional<Status<Details, V>, "key" | "name" | "time">;
+> = Omit<
+  optional.Optional<Status<Details, V>, "key" | "name" | "description" | "time">,
+  "details"
+> &
+  ([Details] extends [z.ZodNever] ? {} : { details: z.input<Details> });

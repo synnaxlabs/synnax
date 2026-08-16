@@ -13,6 +13,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/pipeline/mock/pipeline.h"
@@ -260,7 +261,7 @@ TEST(TestScanTask, testSingleScan) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -314,7 +315,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -381,7 +382,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -449,7 +450,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -511,7 +512,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -562,7 +563,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -615,7 +616,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -678,7 +679,7 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -744,7 +745,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -814,7 +815,7 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -842,6 +843,201 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     ASSERT_EQ(scanner_ptr->exec_commands.size(), 1);
     EXPECT_EQ(scanner_ptr->exec_commands[0].type, "custom_command");
     EXPECT_EQ(scanner_ptr->exec_commands[0].key, "test_cmd");
+}
+
+/// @brief builds a scan task over a mock scanner that fails each scan in scan_errors
+/// and each start in start_errors.
+inline std::unique_ptr<ScanTask> new_test_task(
+    const std::shared_ptr<task::MockContext> &ctx,
+    const synnax::task::Task &task,
+    const std::vector<x::errors::Error> &scan_errors = {},
+    const std::vector<x::errors::Error> &start_errors = {}
+) {
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        std::make_shared<std::vector<synnax::device::Device>>(),
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    // The signal thread dereferences the streamer, and the mock hands back a null
+    // one unless it has a factory.
+    cluster_api->streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
+            std::vector{pipeline::mock::StreamerConfig{
+                std::make_shared<std::vector<x::telem::Frame>>(),
+                nullptr,
+                x::errors::NIL
+            }}
+        )
+    );
+    return std::make_unique<ScanTask>(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{},
+            scan_errors,
+            start_errors,
+            std::vector<x::errors::Error>{}
+        ),
+        ctx,
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::move(cluster_api)
+    );
+}
+
+/// @brief builds the task record the command tests run against.
+inline synnax::task::Task new_test_task_record() {
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.name = "Test Scan Task";
+    task.config_hash = "hash-1";
+    return task;
+}
+
+/// @brief it should report itself as running while the scan loop is live, and as not
+/// running once it stops.
+TEST(TestScanTask, testRunningTransitions) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto scan_task = new_test_task(ctx, task);
+
+    scan_task->start();
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    EXPECT_TRUE(ctx->statuses[0].details.running);
+    EXPECT_EQ(ctx->statuses[0].message, "Scan task started");
+
+    scan_task->stop(false);
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    EXPECT_FALSE(ctx->statuses[1].details.running);
+    EXPECT_EQ(ctx->statuses[1].message, "scan task stopped");
+}
+
+/// @brief it should come up on a second start after the first one failed. run() exits
+/// early on a scanner start failure, and the pipeline it leaves behind must not block
+/// the retry.
+TEST(TestScanTask, testStartRecoversAfterFailedStart) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto start_err = x::errors::Error("scanner unavailable");
+    const auto scan_task = new_test_task(ctx, task, {}, {start_err});
+
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start_1",
+    };
+    scan_task->exec(cmd);
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[0].message, start_err.message());
+    EXPECT_FALSE(ctx->statuses[0].details.running);
+    // The thread is over once run() returns, so the pipeline must report stopped.
+    ASSERT_EVENTUALLY_FALSE(scan_task->running());
+
+    synnax::task::Command retry{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start_2",
+    };
+    scan_task->exec(retry);
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].message, "Scan task started");
+    EXPECT_TRUE(ctx->statuses[1].details.running);
+    EXPECT_EQ(ctx->statuses[1].details.cmd, "start_2");
+    scan_task->stop(false);
+}
+
+/// @brief it should answer a start on an already-running task with its current
+/// status, since nothing else writes one.
+TEST(TestScanTask, testStartOnRunningTaskAcknowledges) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto scan_task = new_test_task(ctx, task);
+    scan_task->start();
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start_again",
+    };
+    const auto before = x::telem::TimeStamp::now();
+    scan_task->exec(cmd);
+
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto ack = ctx->statuses[1];
+    EXPECT_EQ(ack.details.cmd, "start_again");
+    EXPECT_TRUE(ack.details.running);
+    EXPECT_EQ(ack.details.config_hash, "hash-1");
+    // The status object outlives every write, so its timestamp has to be refreshed
+    // rather than kept from construction.
+    EXPECT_GE(ack.time, before);
+    scan_task->stop(false);
+}
+
+/// @brief it should answer a stop on a task that never started, using the variant
+/// seeded at construction.
+TEST(TestScanTask, testStopOnStoppedTaskAcknowledges) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto scan_task = new_test_task(ctx, task);
+
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = STOP_CMD_TYPE,
+        .key = "stop_1",
+    };
+    scan_task->exec(cmd);
+
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto ack = ctx->statuses[0];
+    EXPECT_EQ(ack.details.cmd, "stop_1");
+    EXPECT_FALSE(ack.details.running);
+    EXPECT_EQ(ack.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ack.details.config_hash, "hash-1");
+}
+
+/// @brief it should answer a command type nothing handles with an error.
+TEST(TestScanTask, testUnknownCommandAnswersWithError) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto scan_task = new_test_task(ctx, task);
+
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = "not_a_command",
+        .key = "unknown_1",
+    };
+    scan_task->exec(cmd);
+
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto ack = ctx->statuses[0];
+    EXPECT_EQ(ack.details.cmd, "unknown_1");
+    EXPECT_EQ(ack.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ack.message, "Unknown command type 'not_a_command'");
+}
+
+/// @brief it should not let a scan warning claim the key of the start that
+/// preceded it.
+TEST(TestScanTask, testScanWarningDoesNotClaimCommand) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto scan_task = new_test_task(ctx, task, {x::errors::Error("scan failed")});
+
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start_cmd",
+    };
+    scan_task->exec(cmd);
+
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
+    const auto warning = ctx->statuses[1];
+    EXPECT_EQ(warning.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(warning.details.cmd, driver::task::NO_COMMAND);
+    EXPECT_TRUE(warning.details.running);
+    scan_task->stop(false);
 }
 
 /// @brief it should update when parent changes.
@@ -877,7 +1073,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -944,7 +1140,7 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -1008,7 +1204,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -1134,7 +1330,8 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 12345);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "Test Scan Task";
 
     ScanTask scan_task(
@@ -1206,7 +1403,8 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 12345);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "Test Scan Task";
 
     ScanTask scan_task(
@@ -1275,7 +1473,8 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 12345);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "Test Scan Task";
 
     ScanTask scan_task(

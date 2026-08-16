@@ -3,15 +3,15 @@ layout: "@/layouts/Reference.astro"
 title: "`math`"
 description:
   "Arc standard library reference for the math module: avg, derivative, max, and min"
-prev: "control"
+prev: "`control`"
 prevURL: "/reference/control/arc/reference/standard-library/control"
-next: "status"
-nextURL: "/reference/control/arc/reference/standard-library/status"
+next: "`ranges`"
+nextURL: "/reference/control/arc/reference/standard-library/ranges"
 ---
 
-import { Divider, Icon, Text } from "@synnaxlabs/pluto";
-import Details from "@/components/details/Details.astro";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Params from "@/components/params/Params.astro";
 
 export const components = mdxOverrides;
 
@@ -24,19 +24,28 @@ Computes a running average of input values, emitting the updated average on each
 By default the average accumulates over every sample; set `duration` or `count` to reset
 the window periodically.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+<Params
+  fn="math.avg"
+  input="numeric"
+  params={[
+    {
+      name: "duration",
+      type: "i64 ns",
+      description: "Reset the average after this much time elapses (such as `5s`).",
+    },
+    {
+      name: "count",
+      type: "i64",
+      description: "Reset the average after this many samples.",
+    },
+  ]}
+  output={{
+    type: "numeric",
+    description: "The running average, matching the input type.",
+  }}
+/>
 
-| Parameter  | Type     | Required | Description                                                    |
-| ---------- | -------- | -------- | -------------------------------------------------------------- |
-| `duration` | `i64 ns` | No       | Reset the average after this much time elapses (such as `5s`). |
-| `count`    | `i64`    | No       | Reset the average after this many samples.                     |
-
-**Output** `numeric`: the running average, matching the input type.
-
-</Details>
-
-```arc
+```arc channels="sensor, output"
 // `flow` only
 sensor -> math.avg{} -> output
 
@@ -52,14 +61,16 @@ sensor -> math.avg{duration=5s} -> output
 Computes the rate of change of input values with respect to time. The output is always
 `f64`, regardless of the input type.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+<Params
+  fn="math.derivative"
+  input="numeric"
+  output={{
+    type: "f64",
+    description: "The rate of change between consecutive samples.",
+  }}
+/>
 
-**Output** `f64`: the rate of change between consecutive samples.
-
-</Details>
-
-```arc
+```arc channels="sensor, rate_output"
 // `flow` only
 sensor -> math.derivative{} -> rate_output
 ```
@@ -72,19 +83,28 @@ Tracks the running maximum of input values, emitting the updated maximum on each
 By default the maximum accumulates over every sample; set `duration` or `count` to reset
 the window periodically.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+<Params
+  fn="math.max"
+  input="numeric"
+  params={[
+    {
+      name: "duration",
+      type: "i64 ns",
+      description: "Reset the maximum after this much time elapses (such as `5s`).",
+    },
+    {
+      name: "count",
+      type: "i64",
+      description: "Reset the maximum after this many samples.",
+    },
+  ]}
+  output={{
+    type: "numeric",
+    description: "The running maximum, matching the input type.",
+  }}
+/>
 
-| Parameter  | Type     | Required | Description                                                    |
-| ---------- | -------- | -------- | -------------------------------------------------------------- |
-| `duration` | `i64 ns` | No       | Reset the maximum after this much time elapses (such as `5s`). |
-| `count`    | `i64`    | No       | Reset the maximum after this many samples.                     |
-
-**Output** `numeric`: the running maximum, matching the input type.
-
-</Details>
-
-```arc
+```arc channels="sensor, output"
 // `flow` only
 sensor -> math.max{} -> output
 
@@ -101,19 +121,28 @@ Tracks the running minimum of input values, emitting the updated minimum on each
 By default the minimum accumulates over every sample; set `duration` or `count` to reset
 the window periodically.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+<Params
+  fn="math.min"
+  input="numeric"
+  params={[
+    {
+      name: "duration",
+      type: "i64 ns",
+      description: "Reset the minimum after this much time elapses (such as `5s`).",
+    },
+    {
+      name: "count",
+      type: "i64",
+      description: "Reset the minimum after this many samples.",
+    },
+  ]}
+  output={{
+    type: "numeric",
+    description: "The running minimum, matching the input type.",
+  }}
+/>
 
-| Parameter  | Type     | Required | Description                                                    |
-| ---------- | -------- | -------- | -------------------------------------------------------------- |
-| `duration` | `i64 ns` | No       | Reset the minimum after this much time elapses (such as `5s`). |
-| `count`    | `i64`    | No       | Reset the minimum after this many samples.                     |
-
-**Output** `numeric`: the running minimum, matching the input type.
-
-</Details>
-
-```arc
+```arc channels="sensor, output"
 // `flow` only
 sensor -> math.min{} -> output
 

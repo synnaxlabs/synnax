@@ -21,7 +21,9 @@ var _ = Describe("TriggerBinding", func() {
 	})
 
 	It("Should bind Target to the named param for TriggerInput", func() {
-		Expect(symbol.TriggerInput("value")).To(Equal(symbol.TriggerBinding{Target: "value"}))
+		Expect(
+			symbol.TriggerInput("value"),
+		).To(Equal(symbol.TriggerBinding{Target: "value"}))
 		Expect(symbol.TriggerInput("value").Target).To(Equal("value"))
 	})
 

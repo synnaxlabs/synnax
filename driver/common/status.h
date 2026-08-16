@@ -12,15 +12,13 @@
 #include <deque>
 #include <unordered_map>
 
+#include "absl/log/log.h"
+
 #include "driver/common/common.h"
 #include "driver/task/task.h"
 
-/// modules
-#include "client/cpp/status/status.h"
-
 namespace driver::common {
 const std::string STOP_CMD_TYPE = "stop";
-const std::string START_CMD_TYPE = "start";
 const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of tasks.
 struct StatusHandler {
@@ -41,7 +39,11 @@ struct StatusHandler {
         ctx(ctx), task(task), rate_limit(rate_limit) {
         this->status.name = task.name;
         this->status.details.task = task.key;
+        // The revision this instance was built from. A difference against the stored
+        // hash is what the Console renders as drift.
+        this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
+        this->status.message = "Task configured";
     }
 
     /// @brief resets the state handler to its initial state.
@@ -133,6 +135,16 @@ struct StatusHandler {
         this->set_status();
     }
 
+    /// @brief answers cmd_key by re-sending the current status unchanged, for a
+    /// command that needs no work. Bypasses the rate limiter because the Console
+    /// waits for command acknowledgments keyed by cmd.
+    void ack(const std::string &cmd_key, const bool running) {
+        this->status.key = synnax::task::status_key(this->task);
+        this->status.details.running = running;
+        this->status.details.cmd = cmd_key;
+        this->set_status();
+    }
+
     /// @brief max entries in the dedup map to bound memory usage.
     static constexpr size_t MAX_RECENT_STATUSES = 50;
 
@@ -152,6 +164,9 @@ private:
     void set_status() {
         this->status.time = x::telem::TimeStamp::now();
         this->ctx->set_status(this->status);
+        // The key answers one command. Later unsolicited updates reuse this status
+        // object and must not claim it.
+        this->status.details.cmd = driver::task::NO_COMMAND;
     }
 
     /// @brief sends the current status to the server, suppressing identical
@@ -193,32 +208,42 @@ private:
 };
 
 /// @brief a utility function that appropriately handles configuration errors and
-/// communicates them back to Synnax in the standard format.
+/// communicates them back to Synnax in the standard format. cmd_key is the start
+/// command driving the deploy, empty at boot. A boot configure that does not
+/// auto-start logs its failures instead of reporting them. A successful configure
+/// writes no status: the start that follows it answers the command.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    std::pair<common::ConfigureResult, x::errors::Error> res
+    std::pair<common::ConfigureResult, x::errors::Error> res,
+    const std::string &cmd_key
 ) {
-    synnax::task::Status status;
-    status.key = synnax::task::status_key(task);
-    status.name = task.name;
-    status.details.task = task.key;
-    status.details.running = false;
+    const bool boot = cmd_key == driver::task::NO_COMMAND;
     if (res.second) {
+        synnax::task::Status status;
+        status.key = synnax::task::status_key(task);
+        status.name = task.name;
+        status.details.task = task.key;
+        status.details.config_hash = task.config_hash;
+        status.details.running = false;
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = res.second.message();
-    } else {
-        status.variant = synnax::status::VARIANT_SUCCESS;
-        if (!res.first.auto_start) { status.message = "Task configured successfully"; }
+        // Ack the start so a waiting caller resolves with the failure, not a timeout.
+        status.details.cmd = cmd_key;
+        if (boot && !res.first.auto_start)
+            LOG(WARNING) << "[driver] failed to configure task " << task.name << ": "
+                         << res.second;
+        else
+            ctx->set_status(status);
+        return {std::move(res.first.task), true};
     }
     if (res.first.auto_start) {
         synnax::task::Command start_cmd{
             .task = task.key,
-            .type = START_CMD_TYPE,
+            .type = synnax::task::START_CMD_TYPE,
         };
         res.first.task->exec(start_cmd);
-    } else
-        ctx->set_status(status);
+    }
     return {std::move(res.first.task), true};
 }
 }

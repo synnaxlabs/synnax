@@ -27,11 +27,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// tx is an aspen-managed key-value transaction. It's important to note that aspen
-// does not support atomicity on transactions with lease cardinality greater than
-// one i.e., if a transaction contains operations with different leaseholders, then
-// the transaction is not guaranteed to be atomic. See https://github.com/synnaxlabs/synnax/issues/102
-// for more details.
+// tx is an aspen-managed key-value transaction. It's important to note that aspen does
+// not support atomicity on transactions with lease cardinality greater than one i.e.,
+// if a transaction contains operations with different leaseholders, then the
+// transaction is not guaranteed to be atomic. See
+// https://github.com/synnaxlabs/synnax/issues/102 for more details.
 type tx struct {
 	// Tx is the underlying key-value transaction. This transaction is not actually
 	// applied, and simply serves as a cache for the operations that are applied.
@@ -109,7 +109,8 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		if op.Variant == change.VariantSet {
 			v, closer, err := b.Get(ctx, dig.Key)
 			if errors.Is(err, query.ErrNotFound) {
-				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
+				zap.S().
+					Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
 			}
 			if err != nil {
@@ -206,7 +207,9 @@ func validateLeaseOption(maybeLease []any) (node.Key, error) {
 	if len(maybeLease) == 1 {
 		l, ok := maybeLease[0].(node.Key)
 		if !ok {
-			return 0, errors.New("[aspen] - Leaseholder option must be of type node.Name")
+			return 0, errors.New(
+				"[aspen] - Leaseholder option must be of type node.Name",
+			)
 		}
 		lease = l
 	}

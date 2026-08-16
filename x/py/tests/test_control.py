@@ -46,7 +46,7 @@ class TestSubject:
         s = Subject(key="test-key", name="Test")
         assert s.key == "test-key"
         assert s.name == "Test"
-        assert s.group is None
+        assert s.group == 0
 
     def test_with_group(self) -> None:
         s = Subject(key="k", name="n", group=42)
@@ -55,7 +55,7 @@ class TestSubject:
 
 class TestState:
     def test_create(self) -> None:
-        s = State(
+        s = State[str](
             subject=Subject(key="k", name="n"),
             resource="res-1",
             authority=100,
@@ -71,7 +71,7 @@ class TestTransfer:
         assert t.to is None
 
     def test_acquire_transfer(self) -> None:
-        state = State(
+        state = State[str](
             subject=Subject(key="k", name="n"),
             resource="ch-1",
             authority=255,
@@ -88,7 +88,7 @@ class TestUpdate:
         assert len(u.transfers) == 0
 
     def test_with_transfers(self) -> None:
-        state = State(
+        state = State[str](
             subject=Subject(key="k", name="n"),
             resource="ch-1",
             authority=1,

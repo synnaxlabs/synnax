@@ -105,11 +105,9 @@ class KeyboardShortcuts(ConsoleCase):
         self.log("test_new_tab_with_cmd_t: Creating a new tab with Cmd+T")
         # Press Cmd+T to create new tab
         self.page.keyboard.press("ControlOrMeta+t")
-        self.page.wait_for_timeout(500)
 
-        # Should see "New Component" or similar empty pane indicator
-        new_component = self.page.get_by_text("New Component")
-        assert new_component.count() > 0, "Cmd+T should create a 'New Component' pane"
+        selector_tab = self.console.layout.get_tab("Create tab")
+        selector_tab.wait_for(state="visible", timeout=5000)
 
         # Close the new tab to clean up
         self.page.keyboard.press("ControlOrMeta+w")

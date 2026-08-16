@@ -7,21 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package task implements the driver task and factory infrastructure for
-// executing compiled Arc programs. It is split out from arc/runtime so that
-// arc/runtime (the core the calculation compiler depends on) does not import
-// the arc service package, which would otherwise form an import cycle once the
-// arc service depends on the action-dispatch stack.
+// Package task implements the driver task and factory infrastructure for executing
+// compiled Arc programs. It is split out from arc/runtime so that arc/runtime (the core
+// the calculation compiler depends on) does not import the Arc service package, which
+// would otherwise form an import cycle once the Arc service depends on the
+// action-dispatch stack.
 package task
 
 import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -33,15 +34,6 @@ import (
 
 // Type is the type identifier for Arc tasks.
 const Type = "arc"
-
-// Config is the configuration for an Arc task.
-type Config struct {
-	alamos.Instrumentation
-	// ArcKey is the UUID of the Arc program to execute.
-	ArcKey arc.Key `json:"arc_key"`
-	// AutoStart sets whether the task should start automatically when configured.
-	AutoStart bool `json:"auto_start"`
-}
 
 // GetProgramFunc retrieves an Arc with its compiled Program by key.
 type GetProgramFunc func(context.Context, arc.Key) (arc.Arc, error)
@@ -64,6 +56,10 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc
+	// Ranger is used by the Arc ranges module to create and update ranges.
+	//
+	// [REQUIRED]
+	Ranger *ranger.Service
 	alamos.Instrumentation
 }
 
@@ -78,6 +74,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	return c
 }
 
@@ -87,6 +84,7 @@ func (c FactoryConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "get_program", c.GetProgram)
+	validate.NotNil(v, "ranger", c.Ranger)
 	return v.Error()
 }
 
@@ -106,18 +104,33 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 func (f *factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
+	cmdKey string,
 ) (driver.Task, error) {
 	if t.Type != Type {
 		return nil, driver.ErrTaskNotHandled
 	}
 	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
+		if cmdKey == driver.NoCommand {
+			f.cfg.L.Warn("failed to configure task",
+				zap.Stringer("task", t),
+				zap.Error(err),
+			)
+		} else {
+			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
+		}
 		return nil, err
 	}
 	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
 	if err != nil {
-		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
+		if cmdKey == driver.NoCommand && !cfg.AutoStart {
+			f.cfg.L.Warn("failed to configure task",
+				zap.Stringer("task", t),
+				zap.Error(err),
+			)
+		} else {
+			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
+		}
 		return nil, err
 	}
 	arcTask := &impl{
@@ -125,15 +138,14 @@ func (f *factory) ConfigureTask(
 		task:       t,
 		cfg:        cfg,
 		prog:       prog,
+		status:     driver.NewStatusHandler(f.cfg.Status, t),
 	}
+	// A successful configure writes no status: the start that follows it answers the
+	// command, and a "configured" status would answer it first with running false.
 	if cfg.AutoStart {
 		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
 			return nil, err
 		}
-	} else {
-		f.setConfigStatus(
-			ctx, t, status.VariantSuccess, "Task configured successfully",
-		)
 	}
 	return arcTask, nil
 }
@@ -141,26 +153,26 @@ func (f *factory) ConfigureTask(
 func (f *factory) setConfigStatus(
 	ctx context.Context,
 	t task.Task,
+	cmdKey string,
 	variant status.Variant,
 	message string,
 ) {
+	details := task.NewStatusDetails(t, false)
+	details.Cmd = cmdKey
 	stat := task.Status{
-		Key:     task.OntologyID(t.Key).String(),
+		Key:     t.OntologyID().String(),
 		Name:    t.Name,
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{
-			Task:    t.Key,
-			Running: false,
-		},
+		Details: details,
 	}
 	if err := status.
 		NewWriter[task.StatusDetails](f.cfg.Status, nil).
 		Set(ctx, &stat); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status for task",
-			zap.Uint64("key", uint64(t.Key)),
+			zap.Stringer("key", t.Key),
 			zap.String("name", t.Name),
 			zap.Error(err),
 		)

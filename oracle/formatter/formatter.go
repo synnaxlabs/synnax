@@ -12,6 +12,7 @@
 package formatter
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -153,9 +154,24 @@ func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
 		f.newline()
 	}
 
-	// Format imports
-	for _, imp := range ctx.AllImportStmt() {
-		f.formatImport(imp)
+	// Format imports in alphabetical order. Comments in the import region are
+	// emitted up front so reordering cannot drop or duplicate them.
+	imports := ctx.AllImportStmt()
+	if len(imports) > 0 {
+		f.emitCommentsBefore(imports[len(imports)-1].GetStart().GetTokenIndex())
+		sorted := make([]parser.IImportStmtContext, len(imports))
+		copy(sorted, imports)
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].STRING_LIT().GetText() < sorted[j].STRING_LIT().GetText()
+		})
+		maxStop := f.lastTokenIdx
+		for _, imp := range sorted {
+			f.formatImport(imp)
+			if stop := imp.GetStop().GetTokenIndex(); stop > maxStop {
+				maxStop = stop
+			}
+		}
+		f.lastTokenIdx = maxStop
 	}
 
 	// Blank line after imports
@@ -219,7 +235,12 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 		f.write(dom.IDENT().GetText())
 		if dom.DomainContent() != nil {
 			f.write(" ")
-			f.formatDomainContentAligned(dom.DomainContent(), false, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			f.formatDomainContentAligned(
+				dom.DomainContent(),
+				false,
+				maxPrefixLen,
+				1+len(dom.IDENT().GetText()),
+			)
 		}
 		f.newline()
 		f.lastTokenIdx = dom.GetStop().GetTokenIndex()
@@ -228,7 +249,11 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 
 // formatDomainContentAligned formats domain content with alignment padding.
 // currentPrefixLen is the length of "@domain" so far, maxPrefixLen is the target.
-func (f *formatter) formatDomainContentAligned(ctx parser.IDomainContentContext, allowBlock bool, maxPrefixLen, currentPrefixLen int) {
+func (f *formatter) formatDomainContentAligned(
+	ctx parser.IDomainContentContext,
+	allowBlock bool,
+	maxPrefixLen, currentPrefixLen int,
+) {
 	if ctx.Expression() != nil {
 		f.formatExpressionAligned(ctx.Expression(), maxPrefixLen, currentPrefixLen)
 	} else if ctx.DomainBlock() != nil {
@@ -236,14 +261,19 @@ func (f *formatter) formatDomainContentAligned(ctx parser.IDomainContentContext,
 	}
 }
 
-func (f *formatter) formatExpressionAligned(ctx parser.IExpressionContext, maxPrefixLen, currentPrefixLen int) {
+func (f *formatter) formatExpressionAligned(
+	ctx parser.IExpressionContext,
+	maxPrefixLen, currentPrefixLen int,
+) {
 	command := ctx.IDENT().GetText()
 	f.write(command)
 
 	values := ctx.AllExpressionValue()
 	if len(values) > 0 {
 		// Calculate padding needed to align values
-		fullPrefixLen := currentPrefixLen + 1 + len(command) // +1 for space after @domain
+		fullPrefixLen := currentPrefixLen + 1 + len(
+			command,
+		) // +1 for space after @domain
 		padding := max(maxPrefixLen-fullPrefixLen, 0)
 		f.writePadding(padding)
 		f.write(" ")
@@ -488,7 +518,8 @@ func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
 	}
 
 	// Blank line before struct-level domains if there are fields, omissions, or actions
-	if (len(fields) > 0 || len(fieldOmits) > 0 || len(actions) > 0) && len(domains) > 0 {
+	if (len(fields) > 0 || len(fieldOmits) > 0 || len(actions) > 0) &&
+		len(domains) > 0 {
 		f.newline()
 	}
 
@@ -500,6 +531,17 @@ func (f *formatter) formatActionDef(ctx parser.IActionDefContext) {
 	f.writeIndent()
 	f.write("action ")
 	f.write(ctx.IDENT().GetText())
+
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
+		f.write(" extends ")
+		typeRefs := ctx.TypeRefList().AllTypeRef()
+		for i, tr := range typeRefs {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.formatTypeRef(tr)
+		}
+	}
 
 	body := ctx.ActionBody()
 	if body == nil || isEmptyActionBody(body) {
@@ -558,17 +600,21 @@ func (f *formatter) formatFieldOmit(ctx parser.IFieldOmitContext) {
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
-func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth, typeWidth int) {
+func (f *formatter) formatFieldDefAligned(
+	ctx parser.IFieldDefContext,
+	nameWidth, typeWidth int,
+) {
 	f.writeIndent()
 
-	// The name column carries a standalone optionality marker (key? / key??) when
+	// The name column carries a standalone optionality marker (key?) when
 	// the field omits its type to inherit it from the parent.
 	nameCol := fieldNameColumn(ctx)
 	typeStr := f.formatTypeRefToString(ctx.TypeRef())
 	hasDefault := ctx.EQUALS() != nil && ctx.FieldDefault() != nil
 	inlineDomains := ctx.AllInlineDomain()
 	domainOmits := ctx.AllDomainOmit()
-	hasDomains := len(inlineDomains) > 0 || len(domainOmits) > 0 || ctx.FieldBody() != nil
+	hasDomains := len(inlineDomains) > 0 || len(domainOmits) > 0 ||
+		ctx.FieldBody() != nil
 
 	f.write(nameCol)
 
@@ -586,7 +632,13 @@ func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth
 	// overflow the line are broken across multiple lines.
 	if hasDefault {
 		f.write(" = ")
-		f.write(f.formatFieldDefaultPretty(ctx.FieldDefault(), f.currentLineLen(), f.currentIndent))
+		f.write(
+			f.formatFieldDefaultPretty(
+				ctx.FieldDefault(),
+				f.currentLineLen(),
+				f.currentIndent,
+			),
+		)
 	}
 
 	if hasDomains {
@@ -630,9 +682,7 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 		sb.WriteString(f.formatTypeRefToString(typeRefs[1]))
 		sb.WriteString(">")
 		if v.TypeModifiers() != nil {
-			for range v.TypeModifiers().AllQUESTION() {
-				sb.WriteString("?")
-			}
+			sb.WriteString("?")
 		}
 	case *parser.TypeRefNormalContext:
 		sb.WriteString(f.formatQualifiedIdentToString(v.QualifiedIdent()))
@@ -655,21 +705,19 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 			sb.WriteString("]")
 		}
 		if v.TypeModifiers() != nil {
-			for range v.TypeModifiers().AllQUESTION() {
-				sb.WriteString("?")
-			}
+			sb.WriteString("?")
 		}
 	}
 	return sb.String()
 }
 
 // standaloneFieldModifier returns the optionality marker of a typeless override
-// (key? / key??), or "" when the field declares a type or no marker.
+// (key?), or "" when the field declares a type or no marker.
 func standaloneFieldModifier(ctx parser.IFieldDefContext) string {
 	if ctx.TypeRef() != nil || ctx.TypeModifiers() == nil {
 		return ""
 	}
-	return strings.Repeat("?", len(ctx.TypeModifiers().AllQUESTION()))
+	return "?"
 }
 
 // fieldNameColumn is the text occupying a field's name column: its name plus any
@@ -678,7 +726,9 @@ func fieldNameColumn(ctx parser.IFieldDefContext) string {
 	return ctx.IDENT().GetText() + standaloneFieldModifier(ctx)
 }
 
-func (f *formatter) formatDomainOmitsToString(omits []parser.IDomainOmitContext) string {
+func (f *formatter) formatDomainOmitsToString(
+	omits []parser.IDomainOmitContext,
+) string {
 	var sb strings.Builder
 	for _, om := range omits {
 		sb.WriteString(" -@")
@@ -696,7 +746,9 @@ func (f *formatter) currentLineLen() int {
 	return len(s) - lastNewline - 1
 }
 
-func (f *formatter) formatInlineDomainsToString(domains []parser.IInlineDomainContext) string {
+func (f *formatter) formatInlineDomainsToString(
+	domains []parser.IInlineDomainContext,
+) string {
 	var sb strings.Builder
 	for _, dom := range domains {
 		sb.WriteString(" @")
@@ -712,7 +764,9 @@ func (f *formatter) formatInlineDomainsToString(domains []parser.IInlineDomainCo
 	return sb.String()
 }
 
-func (f *formatter) formatDomainContentToString(ctx parser.IDomainContentContext) string {
+func (f *formatter) formatDomainContentToString(
+	ctx parser.IDomainContentContext,
+) string {
 	if ctx.Expression() != nil {
 		return f.formatExpressionToString(ctx.Expression())
 	}
@@ -751,14 +805,19 @@ func (f *formatter) formatArrayDefaultToString(arr parser.IArrayDefaultContext) 
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
-func (f *formatter) formatStructDefaultToString(st parser.IStructDefaultContext) string {
+func (f *formatter) formatStructDefaultToString(
+	st parser.IStructDefaultContext,
+) string {
 	fields := st.AllStructFieldDefault()
 	if len(fields) == 0 {
 		return "{}"
 	}
 	parts := make([]string, 0, len(fields))
 	for _, sf := range fields {
-		parts = append(parts, sf.IDENT().GetText()+" = "+f.formatDefaultValueToString(sf.DefaultValue()))
+		parts = append(
+			parts,
+			sf.IDENT().GetText()+" = "+f.formatDefaultValueToString(sf.DefaultValue()),
+		)
 	}
 	return "{ " + strings.Join(parts, ", ") + " }"
 }
@@ -768,7 +827,10 @@ func (f *formatter) formatStructDefaultToString(st parser.IStructDefaultContext)
 // whose single-line form would overflow maxLineLen are broken across lines, with
 // contents indented one level deeper and the closing bracket aligned to
 // indentLevel. Scalars and literals that fit stay on one line.
-func (f *formatter) formatFieldDefaultPretty(ctx parser.IFieldDefaultContext, col, indentLevel int) string {
+func (f *formatter) formatFieldDefaultPretty(
+	ctx parser.IFieldDefaultContext,
+	col, indentLevel int,
+) string {
 	if ev := ctx.ExpressionValue(); ev != nil {
 		return f.formatExpressionValueToString(ev)
 	}
@@ -781,7 +843,10 @@ func (f *formatter) formatFieldDefaultPretty(ctx parser.IFieldDefaultContext, co
 	return ""
 }
 
-func (f *formatter) formatDefaultValuePretty(ctx parser.IDefaultValueContext, col, indentLevel int) string {
+func (f *formatter) formatDefaultValuePretty(
+	ctx parser.IDefaultValueContext,
+	col, indentLevel int,
+) string {
 	if ev := ctx.ExpressionValue(); ev != nil {
 		return f.formatExpressionValueToString(ev)
 	}
@@ -794,7 +859,10 @@ func (f *formatter) formatDefaultValuePretty(ctx parser.IDefaultValueContext, co
 	return ""
 }
 
-func (f *formatter) formatStructDefaultPretty(st parser.IStructDefaultContext, col, indentLevel int) string {
+func (f *formatter) formatStructDefaultPretty(
+	st parser.IStructDefaultContext,
+	col, indentLevel int,
+) string {
 	single := f.formatStructDefaultToString(st)
 	if col+len(single) <= maxLineLen {
 		return single
@@ -805,7 +873,11 @@ func (f *formatter) formatStructDefaultPretty(st parser.IStructDefaultContext, c
 	b.WriteString("{\n")
 	for i, sf := range fields {
 		prefix := sf.IDENT().GetText() + " = "
-		val := f.formatDefaultValuePretty(sf.DefaultValue(), len(inner)+len(prefix), indentLevel+1)
+		val := f.formatDefaultValuePretty(
+			sf.DefaultValue(),
+			len(inner)+len(prefix),
+			indentLevel+1,
+		)
 		b.WriteString(inner)
 		b.WriteString(prefix)
 		b.WriteString(val)
@@ -819,7 +891,10 @@ func (f *formatter) formatStructDefaultPretty(st parser.IStructDefaultContext, c
 	return b.String()
 }
 
-func (f *formatter) formatArrayDefaultPretty(arr parser.IArrayDefaultContext, col, indentLevel int) string {
+func (f *formatter) formatArrayDefaultPretty(
+	arr parser.IArrayDefaultContext,
+	col, indentLevel int,
+) string {
 	single := f.formatArrayDefaultToString(arr)
 	if col+len(single) <= maxLineLen {
 		return single
@@ -841,7 +916,9 @@ func (f *formatter) formatArrayDefaultPretty(arr parser.IArrayDefaultContext, co
 	return b.String()
 }
 
-func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueContext) string {
+func (f *formatter) formatExpressionValueToString(
+	ctx parser.IExpressionValueContext,
+) string {
 	if ctx.TRIPLE_STRING_LIT() != nil {
 		return ctx.TRIPLE_STRING_LIT().GetText()
 	}
@@ -863,7 +940,9 @@ func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueCon
 	return ""
 }
 
-func (f *formatter) formatQualifiedIdentToString(ctx parser.IQualifiedIdentContext) string {
+func (f *formatter) formatQualifiedIdentToString(
+	ctx parser.IQualifiedIdentContext,
+) string {
 	idents := ctx.AllIDENT()
 	if len(idents) == 1 {
 		return idents[0].GetText()
@@ -879,7 +958,8 @@ func (f *formatter) formatFieldWithBraces(
 	f.writeLine(" {")
 	f.currentIndent++
 
-	// Calculate alignment: max length of "@domain command" across both inline and body domains
+	// Calculate alignment: max length of "@domain command" across both inline and body
+	// domains
 	maxPrefixLen := 0
 	for _, dom := range inlineDomains {
 		prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
@@ -911,7 +991,12 @@ func (f *formatter) formatFieldWithBraces(
 		f.write(dom.IDENT().GetText())
 		if dom.DomainContent() != nil {
 			f.write(" ")
-			f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			f.formatDomainContentAligned(
+				dom.DomainContent(),
+				true,
+				maxPrefixLen,
+				1+len(dom.IDENT().GetText()),
+			)
 		}
 		f.newline()
 	}
@@ -925,7 +1010,12 @@ func (f *formatter) formatFieldWithBraces(
 			f.write(dom.IDENT().GetText())
 			if dom.DomainContent() != nil {
 				f.write(" ")
-				f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+				f.formatDomainContentAligned(
+					dom.DomainContent(),
+					true,
+					maxPrefixLen,
+					1+len(dom.IDENT().GetText()),
+				)
 			}
 			f.newline()
 			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
@@ -980,7 +1070,12 @@ func (f *formatter) formatDomains(domains []parser.IDomainContext) {
 		f.write(dom.IDENT().GetText())
 		if dom.DomainContent() != nil {
 			f.write(" ")
-			f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			f.formatDomainContentAligned(
+				dom.DomainContent(),
+				true,
+				maxPrefixLen,
+				1+len(dom.IDENT().GetText()),
+			)
 		}
 		f.newline()
 		f.lastTokenIdx = dom.GetStop().GetTokenIndex()
@@ -1089,10 +1184,7 @@ func (f *formatter) formatTypeArgs(ctx parser.ITypeArgsContext) {
 }
 
 func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
-	questions := ctx.AllQUESTION()
-	for range questions {
-		f.write("?")
-	}
+	f.write("?")
 }
 
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
@@ -1166,6 +1258,41 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 		f.write(ctx.INT_LIT().GetText())
 	} else if ctx.STRING_LIT() != nil {
 		f.write(ctx.STRING_LIT().GetText())
+	}
+	if body := ctx.EnumValueBody(); body != nil {
+		f.writeLine(" {")
+		f.currentIndent++
+		maxPrefixLen := 0
+		for _, dom := range body.AllDomain() {
+			prefixLen := 1 + len(dom.IDENT().GetText())
+			if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
+				expr := dom.DomainContent().Expression()
+				prefixLen += 1 + len(expr.IDENT().GetText())
+			}
+			if prefixLen > maxPrefixLen {
+				maxPrefixLen = prefixLen
+			}
+		}
+		for _, dom := range body.AllDomain() {
+			f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
+			f.writeIndent()
+			f.write("@")
+			f.write(dom.IDENT().GetText())
+			if dom.DomainContent() != nil {
+				f.write(" ")
+				f.formatDomainContentAligned(
+					dom.DomainContent(),
+					true,
+					maxPrefixLen,
+					1+len(dom.IDENT().GetText()),
+				)
+			}
+			f.newline()
+			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
+		}
+		f.currentIndent--
+		f.writeIndent()
+		f.write("}")
 	}
 	f.newline()
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()

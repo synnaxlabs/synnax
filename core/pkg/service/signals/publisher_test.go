@@ -16,8 +16,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
@@ -43,24 +43,34 @@ var _ = Describe("Publisher", Serial, func() {
 		closeStreamer io.Closer
 	)
 	BeforeEach(func(ctx SpecContext) {
+		sigs := MustSucceed(signals.New(signals.Config{
+			Channel: channelSvc,
+			Framer:  framerSvc,
+		}))
 		obs = observe.New[[]change.Change[[]byte, struct{}]]()
 		cfg = signals.ObservablePublisherConfig{
-			SetChannel:    channel.Channel{Name: publisherSetChannelName, DataType: telem.UUIDT},
-			DeleteChannel: channel.Channel{Name: publisherDeleteChannelName, DataType: telem.UUIDT},
-			Observable:    obs,
+			SetChannel: channel.Channel{
+				Name:     publisherSetChannelName,
+				DataType: telem.UUIDT,
+			},
+			DeleteChannel: channel.Channel{
+				Name:     publisherDeleteChannelName,
+				DataType: telem.UUIDT,
+			},
+			Observable: obs,
 		}
 		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
-		Expect(dist.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		Expect(dist.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherDeleteChannelName)).
 			Entry(&cfg.DeleteChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		streamer = MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer = MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
 		}))
 		requests, responses = confluence.Attach(streamer, 2)
@@ -89,8 +99,11 @@ var _ = Describe("Publisher", Serial, func() {
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(HaveLen(int(telem.Bit128)))
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
 	})
-	It("Should not send an empty frame if an empty list of changes is provided", func(ctx SpecContext) {
-		obs.Notify(ctx, []change.Change[[]byte, struct{}]{})
-		Expect(responses.Outlet()).ToNot(Receive())
-	})
+	It(
+		"Should not send an empty frame if an empty list of changes is provided",
+		func(ctx SpecContext) {
+			obs.Notify(ctx, []change.Change[[]byte, struct{}]{})
+			Expect(responses.Outlet()).ToNot(Receive())
+		},
+	)
 })

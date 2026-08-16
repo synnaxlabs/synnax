@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -16,6 +14,7 @@ import pytest
 import synnax as sy
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.frame import FramePayload
+from x.strings import random_name
 
 
 @pytest.mark.framer
@@ -77,7 +76,7 @@ class TestWriteFrameAdapter:
     @pytest.fixture(scope="class")
     def adapter(self, client: sy.Synnax) -> tuple[WriteFrameAdapter, sy.Channel]:
         ch = client.channels.create(
-            name=f"test_{random.randint(0, 100000)}",
+            name=f"test_{random_name()}",
             leaseholder=1,
             virtual=True,
             data_type=sy.DataType.FLOAT64,
@@ -191,7 +190,7 @@ class TestWriteFrameAdapter:
         """It should correctly adapt a dict of channel names to timestamps."""
         ch = client.channels.create(
             sy.Channel(
-                name=f"test_{random.randint(0, 100000)}",
+                name=f"test_{random_name()}",
                 virtual=True,
                 data_type=sy.DataType.TIMESTAMP,
             )
@@ -303,7 +302,7 @@ class TestWriteFrameAdapter:
     def test_adapt_single_string(self, client):
         """Should correctly adapt a single string into a string based series"""
         ch = client.channels.create(
-            name=f"test_{random.randint(0, 100000)}",
+            name=f"test_{random_name()}",
             virtual=True,
             data_type=sy.DataType.STRING,
         )
@@ -314,7 +313,7 @@ class TestWriteFrameAdapter:
 
     def test_adapt_single_string_name_value_pair(self, client):
         ch = client.channels.create(
-            name=f"test_{random.randint(0, 100000)}",
+            name=f"test_{random_name()}",
             virtual=True,
             data_type=sy.DataType.STRING,
         )
@@ -332,17 +331,17 @@ class TestReadFrameAdapter:
     def channels(self, client: sy.Synnax) -> tuple[sy.Channel, sy.Channel, sy.Channel]:
         """Create three test channels for adapter testing."""
         ch1 = client.channels.create(
-            name=f"test_read_adapter_ch1_{random.randint(0, 100000)}",
+            name=f"test_read_adapter_ch1_{random_name()}",
             virtual=True,
             data_type=sy.DataType.FLOAT64,
         )
         ch2 = client.channels.create(
-            name=f"test_read_adapter_ch2_{random.randint(0, 100000)}",
+            name=f"test_read_adapter_ch2_{random_name()}",
             virtual=True,
             data_type=sy.DataType.INT64,
         )
         ch3 = client.channels.create(
-            name=f"test_read_adapter_ch3_{random.randint(0, 100000)}",
+            name=f"test_read_adapter_ch3_{random_name()}",
             virtual=True,
             data_type=sy.DataType.FLOAT32,
         )

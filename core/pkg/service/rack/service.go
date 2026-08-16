@@ -12,22 +12,19 @@ package rack
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
-	v54 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v54"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -41,7 +38,7 @@ type ServiceConfig struct {
 	// HostProvider is used to assign keys to racks.
 	//
 	// [REQUIRED]
-	HostProvider node.HostProvider
+	HostProvider cluster.HostProvider
 	// DB is the gorp database that racks will be stored in.
 	//
 	// [REQUIRED]
@@ -103,7 +100,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
+	c.HealthCheckInterval = override.Numeric(
+		c.HealthCheckInterval,
+		other.HealthCheckInterval,
+	)
 	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
 	c.Now = override.Nil(c.Now, other.Now)
 	return c
@@ -111,7 +111,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("hardware.rack")
+	v := validate.New("rack")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
@@ -124,7 +124,6 @@ func (c ServiceConfig) Validate() error {
 
 type Service struct {
 	closer          xio.MultiCloser
-	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
 	group           group.Group
 	monitor         *monitor
@@ -133,37 +132,39 @@ type Service struct {
 	EmbeddedKey Key
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, keyMu: &sync.Mutex{}}
+	s = &Service{ServiceConfig: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{
-		HostProvider: cfg.HostProvider,
-		Status:       cfg.Status,
-	})
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[v54.Key, v54.Rack]("msgpack_to_orc", v0Mig.Key()),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_status", MigrateRack),
-				"msgpack_to_orc",
-			),
-		},
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			HostProvider: cfg.HostProvider,
+			Status:       cfg.Status,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID); !ok(err, nil) {
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Devices",
+		ontology.RootID,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
-	if s.localKeyCounter, err = kv.OpenCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
+	if s.localKeyCounter, err = kv.NewCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
 		return nil, err
 	}
 	if err = s.loadEmbeddedRack(ctx); !ok(err, nil) {
@@ -182,7 +183,9 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
 	return s.table.Observe()
 }
 
-func (s *Service) OnSuspect(handler func(ctx context.Context, status Status)) observe.Disconnect {
+func (s *Service) OnSuspect(
+	handler func(ctx context.Context, status Status),
+) observe.Disconnect {
 	return s.monitor.OnChange(handler)
 }
 
@@ -208,13 +211,13 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
-	var stat status.Status[StatusDetails]
+func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {
+	var stat Status
 	if err := status.NewRetrieve[StatusDetails](s.Status).
-		Where(status.MatchKeys[StatusDetails](OntologyID(key).String())).
+		Where(status.MatchKeys[StatusDetails](key.OntologyID().String())).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
-		return status.Status[StatusDetails]{}, err
+		return Status{}, err
 	}
 	return stat, nil
 }
@@ -222,29 +225,18 @@ func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[St
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:         tx,
-		otg:        s.Ontology.NewWriter(tx),
-		newKey:     s.newKey,
-		newTaskKey: s.newTaskKey,
-		group:      s.group,
-		status:     status.NewWriter[StatusDetails](s.Status, tx),
-		table:      s.table,
+		tx:     tx,
+		otg:    s.Ontology.NewWriter(tx),
+		newKey: s.newKey,
+		group:  s.group,
+		status: status.NewWriter[StatusDetails](s.Status, tx),
+		table:  s.table,
 	}
 }
 
 func (s *Service) newKey(ctx context.Context) (Key, error) {
 	n, err := s.localKeyCounter.Add(ctx, 1)
 	return NewKey(s.HostProvider.HostKey(), uint16(n)), err
-}
-
-func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err error) {
-	s.keyMu.Lock()
-	defer s.keyMu.Unlock()
-	return next, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Rack](rackKey)).Change(func(_ gorp.Context, r Rack) Rack {
-		r.TaskCounter += 1
-		next = r.TaskCounter
-		return r
-	}).Exec(ctx, s.DB)
 }
 
 func (s *Service) NewRetrieve() Retrieve {

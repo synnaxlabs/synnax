@@ -14,13 +14,19 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { ontology } from "@/ontology";
-import { keyZ, type Panel, tabZ, viewZ } from "@/panel/types.gen";
+import { keyZ, type Panel, panelZ, tabKeyZ, tabZ, viewZ } from "@/panel/types.gen";
 
 /**
- * Rename renames the panel. When the panel is owned by a user (draft),
- * the writer promotes it to project ownership in the same
- * transaction.
+ * Create replaces the document with the given created state. Emitted by the Core on
+ * create so remote caches ingest new documents; clients never dispatch it.
  */
+export const createPayloadZ = z.object({
+  panel: panelZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
+
+/** Rename renames the panel. */
 export const renamePayloadZ = z.object({
   name: z.string(),
 });
@@ -28,25 +34,38 @@ export const renamePayloadZ = z.object({
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
 /**
- * InsertTab inserts a tab into the leaf with the given path-derived key at
- * the given index. Appends when index is absent. When location is
- * an edge, the target leaf is first split at that location and the
- * tab is inserted into the new empty leaf; a center location places
- * the tab directly in the target leaf, equivalent to absent.
+ * InsertTabs inserts tabs into a leaf in order, starting at the given index and
+ * appending when index is absent or past the leaf's end. The destination leaf is
+ * resolved from target_tab (the leaf holding that tab) when set, otherwise from the
+ * target_leaf path-derived key, otherwise the first leaf in traversal order. Both are
+ * hints: a target that no longer resolves to a leaf falls back to the first leaf
+ * instead of failing, so a placement invalidated between the gesture and the dispatch
+ * still opens the tabs. The fallback drops location too, leaving a leaf the caller
+ * never pointed at unsplit. When location is an edge, the resolved leaf is split once
+ * at that location and every tab is inserted into the new empty leaf; a center location
+ * places the tabs directly in the resolved leaf, equivalent to absent. The split is
+ * deferred to the first tab that lands, so a batch whose every tab is skipped leaves no
+ * empty pane behind. A tab whose key is already in the tree has its content refreshed
+ * and keeps its position unless the payload carries an explicit placement, in which
+ * case it is relocated with the rest. Inserting a resource tab whose resource already
+ * backs a different tab is skipped, as is a view tab of a type already backing a tab
+ * when singleton is set: each may back at most one tab per panel, and callers select
+ * the existing tab instead. Skipping one tab does not stop the others.
  */
-export const insertTabPayloadZ = z.object({
-  tab: tabZ,
-  targetLeaf: z.int32(),
+export const insertTabsPayloadZ = z.object({
+  tabs: tabZ.array().default(() => []),
+  targetLeaf: z.int32().optional(),
+  targetTab: tabKeyZ.optional(),
   index: z.int32().optional(),
   location: spatial.locationZ.optional(),
+  singleton: z.boolean().optional(),
 });
 
-export type InsertTabPayload = z.infer<typeof insertTabPayloadZ>;
+export type InsertTabsPayload = z.infer<typeof insertTabsPayloadZ>;
 
 /**
- * RemoveTab removes the tab with the given key. If the containing leaf
- * becomes empty and has a sibling, the reducer collapses the
- * parent split.
+ * RemoveTab removes the tab with the given key. If the containing leaf becomes empty
+ * and has a sibling, the reducer collapses the parent split.
  */
 export const removeTabPayloadZ = z.object({
   key: z.uuid(),
@@ -55,13 +74,12 @@ export const removeTabPayloadZ = z.object({
 export type RemoveTabPayload = z.infer<typeof removeTabPayloadZ>;
 
 /**
- * MoveTab moves a tab to a position within the panel. When location is an
- * edge, the target leaf is first split at that location and the
- * tab moves into the new empty leaf; moving a leaf's only tab to
- * an edge of its own leaf is a no-op. A center location places the
- * tab directly in the target leaf, equivalent to absent.
- * Cross-panel moves are RemoveTab on the source plus InsertTab on
- * the destination (two dispatches; not atomic).
+ * MoveTab moves a tab to a position within the panel. When location is an edge, the
+ * target leaf is first split at that location and the tab moves into the new empty
+ * leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. A center
+ * location places the tab directly in the target leaf, equivalent to absent.
+ * Cross-panel moves are RemoveTab on the source plus InsertTabs on the destination (two
+ * dispatches; not atomic).
  */
 export const moveTabPayloadZ = z.object({
   key: z.uuid(),
@@ -73,19 +91,17 @@ export const moveTabPayloadZ = z.object({
 export type MoveTabPayload = z.infer<typeof moveTabPayloadZ>;
 
 /**
- * SplitLeaf splits the given leaf into a parent split with two children:
- * the original leaf and a new empty leaf. location determines on
- * which side ("left", "right", "top", "bottom") the new empty leaf
- * sits. size is the initial ratio in [0, 1] for the original leaf;
- * defaults to 0.5 when absent.
+ * SplitTab splits the tab with the given key off its leaf into a new sibling pane,
+ * moving the tab into it. direction x places the new pane to the right, y to the
+ * bottom. The tab must share its leaf with at least one other tab; splitting the only
+ * tab in a leaf is a no-op.
  */
-export const splitLeafPayloadZ = z.object({
-  leaf: z.int32(),
-  location: spatial.locationZ,
-  size: spatial.decimalZ.optional(),
+export const splitTabPayloadZ = z.object({
+  key: z.uuid(),
+  direction: spatial.directionZ,
 });
 
-export type SplitLeafPayload = z.infer<typeof splitLeafPayloadZ>;
+export type SplitTabPayload = z.infer<typeof splitTabPayloadZ>;
 
 /** ResizeSplit adjusts the size ratio of a split node. size in [0, 1]. */
 export const resizeSplitPayloadZ = z.object({
@@ -96,10 +112,10 @@ export const resizeSplitPayloadZ = z.object({
 export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;
 
 /**
- * SetTabResource sets the visualization resource displayed by the tab with the
- * given key, swapping it in place without changing the tab's
- * identity or position. Clears any view set on the tab. Used to
- * fill a freshly inserted empty tab once the user picks a
+ * SetTabResource sets the visualization resource displayed by the tab with the given
+ * key, swapping it in place without changing the tab's identity or position. Clears any
+ * view set on the tab. A no-op when the resource already backs another tab in the
+ * panel. Used to fill a freshly inserted selector tab once the user picks a
  * visualization.
  */
 export const setTabResourcePayloadZ = z.object({
@@ -110,9 +126,9 @@ export const setTabResourcePayloadZ = z.object({
 export type SetTabResourcePayload = z.infer<typeof setTabResourcePayloadZ>;
 
 /**
- * SetTabView sets the inline view displayed by the tab with the given key,
- * swapping it in place without changing the tab's identity or
- * position. Clears any resource set on the tab.
+ * SetTabView sets the inline view displayed by the tab with the given key, swapping it
+ * in place without changing the tab's identity or position. Clears any resource set on
+ * the tab.
  */
 export const setTabViewPayloadZ = z.object({
   key: z.uuid(),
@@ -122,11 +138,12 @@ export const setTabViewPayloadZ = z.object({
 export type SetTabViewPayload = z.infer<typeof setTabViewPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
-  z.object({ type: z.literal("insert_tab"), insertTab: insertTabPayloadZ }),
+  z.object({ type: z.literal("insert_tabs"), insertTabs: insertTabsPayloadZ }),
   z.object({ type: z.literal("remove_tab"), removeTab: removeTabPayloadZ }),
   z.object({ type: z.literal("move_tab"), moveTab: moveTabPayloadZ }),
-  z.object({ type: z.literal("split_leaf"), splitLeaf: splitLeafPayloadZ }),
+  z.object({ type: z.literal("split_tab"), splitTab: splitTabPayloadZ }),
   z.object({ type: z.literal("resize_split"), resizeSplit: resizeSplitPayloadZ }),
   z.object({
     type: z.literal("set_tab_resource"),
@@ -137,44 +154,51 @@ export const actionZ = z.discriminatedUnion("type", [
 
 export type Action = z.infer<typeof actionZ>;
 
-export const rename = (payload: RenamePayload): Action => ({
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: createPayloadZ.parse(payload),
+});
+
+export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
-  rename: payload,
+  rename: renamePayloadZ.parse(payload),
 });
 
-export const insertTab = (payload: InsertTabPayload): Action => ({
-  type: "insert_tab",
-  insertTab: payload,
+export const insertTabs = (payload: z.input<typeof insertTabsPayloadZ>): Action => ({
+  type: "insert_tabs",
+  insertTabs: insertTabsPayloadZ.parse(payload),
 });
 
-export const removeTab = (payload: RemoveTabPayload): Action => ({
+export const removeTab = (payload: z.input<typeof removeTabPayloadZ>): Action => ({
   type: "remove_tab",
-  removeTab: payload,
+  removeTab: removeTabPayloadZ.parse(payload),
 });
 
-export const moveTab = (payload: MoveTabPayload): Action => ({
+export const moveTab = (payload: z.input<typeof moveTabPayloadZ>): Action => ({
   type: "move_tab",
-  moveTab: payload,
+  moveTab: moveTabPayloadZ.parse(payload),
 });
 
-export const splitLeaf = (payload: SplitLeafPayload): Action => ({
-  type: "split_leaf",
-  splitLeaf: payload,
+export const splitTab = (payload: z.input<typeof splitTabPayloadZ>): Action => ({
+  type: "split_tab",
+  splitTab: splitTabPayloadZ.parse(payload),
 });
 
-export const resizeSplit = (payload: ResizeSplitPayload): Action => ({
+export const resizeSplit = (payload: z.input<typeof resizeSplitPayloadZ>): Action => ({
   type: "resize_split",
-  resizeSplit: payload,
+  resizeSplit: resizeSplitPayloadZ.parse(payload),
 });
 
-export const setTabResource = (payload: SetTabResourcePayload): Action => ({
+export const setTabResource = (
+  payload: z.input<typeof setTabResourcePayloadZ>,
+): Action => ({
   type: "set_tab_resource",
-  setTabResource: payload,
+  setTabResource: setTabResourcePayloadZ.parse(payload),
 });
 
-export const setTabView = (payload: SetTabViewPayload): Action => ({
+export const setTabView = (payload: z.input<typeof setTabViewPayloadZ>): Action => ({
   type: "set_tab_view",
-  setTabView: payload,
+  setTabView: setTabViewPayloadZ.parse(payload),
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;
@@ -182,11 +206,12 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<Panel, Action>;
 
 export interface Handlers {
+  create: (state: Draft<Panel>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Panel>, payload: RenamePayload) => HandlerResult;
-  insertTab: (state: Draft<Panel>, payload: InsertTabPayload) => HandlerResult;
+  insertTabs: (state: Draft<Panel>, payload: InsertTabsPayload) => HandlerResult;
   removeTab: (state: Draft<Panel>, payload: RemoveTabPayload) => HandlerResult;
   moveTab: (state: Draft<Panel>, payload: MoveTabPayload) => HandlerResult;
-  splitLeaf: (state: Draft<Panel>, payload: SplitLeafPayload) => HandlerResult;
+  splitTab: (state: Draft<Panel>, payload: SplitTabPayload) => HandlerResult;
   resizeSplit: (state: Draft<Panel>, payload: ResizeSplitPayload) => HandlerResult;
   setTabResource: (
     state: Draft<Panel>,
@@ -198,16 +223,18 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Panel, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
-      case "insert_tab":
-        return handlers.insertTab(state, action.insertTab);
+      case "insert_tabs":
+        return handlers.insertTabs(state, action.insertTabs);
       case "remove_tab":
         return handlers.removeTab(state, action.removeTab);
       case "move_tab":
         return handlers.moveTab(state, action.moveTab);
-      case "split_leaf":
-        return handlers.splitLeaf(state, action.splitLeaf);
+      case "split_tab":
+        return handlers.splitTab(state, action.splitTab);
       case "resize_split":
         return handlers.resizeSplit(state, action.resizeSplit);
       case "set_tab_resource":

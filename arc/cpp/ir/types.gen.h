@@ -180,12 +180,16 @@ struct Function {
     friend std::ostream &operator<<(std::ostream &os, const Function &f);
 };
 
+/// @brief Nodes is a collection of node instantiations in an Arc module.
 struct Nodes : private std::vector<Node> {
     using Base = std::vector<Node>;
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Nodes() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Nodes();
 
     // Container interface
     using Base::begin;
@@ -250,12 +254,16 @@ struct Edge {
     friend std::ostream &operator<<(std::ostream &os, const Edge &e);
 };
 
+/// @brief Functions is a collection of function definitions in an Arc module.
 struct Functions : private std::vector<Function> {
     using Base = std::vector<Function>;
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Functions() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Functions();
 
     // Container interface
     using Base::begin;
@@ -301,12 +309,16 @@ struct Functions : private std::vector<Function> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Edges is a collection of dataflow edges in an Arc graph.
 struct Edges : private std::vector<Edge> {
     using Base = std::vector<Edge>;
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Edges() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Edges();
 
     // Container interface
     using Base::begin;
@@ -394,9 +406,9 @@ struct Scope {
     /// Unset
     /// for always-live scopes.
     std::optional<Handle> activation;
-    /// @brief strata contains stratified execution layers for parallel scopes. Empty
-    /// for
-    /// sequential scopes. Stratum N depends only on strata 0 to N-1.
+    /// @brief strata contains stratified execution layers for parallel scopes. On
+    /// sequential scopes, strata hold variable nodes that run every pass alongside the
+    /// active step. Stratum N depends only on strata 0 to N-1.
     std::vector<Members> strata;
     /// @brief steps contains ordered steps for sequential scopes. Empty for parallel
     /// scopes.
@@ -450,4 +462,10 @@ struct IR {
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
     friend std::ostream &operator<<(std::ostream &os, const IR &ir);
 };
+
+inline Nodes::Nodes() = default;
+
+inline Functions::Functions() = default;
+
+inline Edges::Edges() = default;
 }

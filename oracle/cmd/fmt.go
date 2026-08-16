@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -54,14 +55,21 @@ func runFmt(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	patterns := args
-	if len(patterns) == 0 {
-		patterns = []string{"schemas/*.oracle"}
-	}
-
-	files, err := expandGlobs(patterns, repoRoot)
-	if err != nil {
-		return err
+	var files []string
+	if len(args) == 0 {
+		rel, err := pipeline.DiscoverSchemas(repoRoot)
+		if err != nil {
+			return err
+		}
+		files = make([]string, len(rel))
+		for i, r := range rel {
+			files[i] = paths.Resolve(r, repoRoot)
+		}
+	} else {
+		files, err = expandGlobs(args, repoRoot)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(files) == 0 {
@@ -139,7 +147,7 @@ func formatFile(path string) (formatResult, error) {
 		return formatResultChanged, nil
 	}
 
-	if err := os.WriteFile(path, []byte(formatted), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(formatted), 0o644); err != nil {
 		return formatResultUnchanged, err
 	}
 
@@ -149,12 +157,21 @@ func formatFile(path string) (formatResult, error) {
 
 func printFileFormatted(path string) {
 	f := fileStyle.Render(path)
-	fmt.Printf("  %s %s %s\n", dimStyle.Render(symbolFile), successStyle.Render("formatted"), f)
+	fmt.Printf(
+		"  %s %s %s\n",
+		dimStyle.Render(symbolFile),
+		successStyle.Render("formatted"),
+		f,
+	)
 }
 
 func printFormatResult(formatted, unchanged int) {
 	if formatted == 0 {
-		fmt.Printf("%s %s\n", dimStyle.Render(symbolDot), dimStyle.Render("all files already formatted"))
+		fmt.Printf(
+			"%s %s\n",
+			dimStyle.Render(symbolDot),
+			dimStyle.Render("all files already formatted"),
+		)
 		return
 	}
 	f := countStyle.Render(fmt.Sprintf("%d", formatted))

@@ -24,24 +24,36 @@ var _ = Describe("GetPath", func() {
 		},
 		Entry("go domain with output", "go",
 			map[string]resolution.Domain{
-				"go": {Expressions: []resolution.Expression{{
-					Name:   "output",
-					Values: []resolution.ExpressionValue{{StringValue: "core/pkg/user"}},
-				}}},
+				"go": {Expressions: []resolution.Expression{
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "core/pkg/user"},
+						},
+					},
+				}},
 			}, "core/pkg/user"),
 		Entry("ts domain with output", "ts",
 			map[string]resolution.Domain{
-				"ts": {Expressions: []resolution.Expression{{
-					Name:   "output",
-					Values: []resolution.ExpressionValue{{StringValue: "client/ts/user"}},
-				}}},
+				"ts": {Expressions: []resolution.Expression{
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "client/ts/user"},
+						},
+					},
+				}},
 			}, "client/ts/user"),
 		Entry("py domain with output", "py",
 			map[string]resolution.Domain{
-				"py": {Expressions: []resolution.Expression{{
-					Name:   "output",
-					Values: []resolution.ExpressionValue{{StringValue: "client/py/user"}},
-				}}},
+				"py": {Expressions: []resolution.Expression{
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "client/py/user"},
+						},
+					},
+				}},
 			}, "client/py/user"),
 		Entry("missing domain", "go", map[string]resolution.Domain{}, ""),
 		Entry("domain without output expression", "go",
@@ -55,9 +67,18 @@ var _ = Describe("GetPath", func() {
 		Entry("multiple expressions takes first output", "go",
 			map[string]resolution.Domain{
 				"go": {Expressions: []resolution.Expression{
-					{Name: "package", Values: []resolution.ExpressionValue{{StringValue: "pkg"}}},
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "first"}}},
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "second"}}},
+					{
+						Name:   "package",
+						Values: []resolution.ExpressionValue{{StringValue: "pkg"}},
+					},
+					{
+						Name:   "output",
+						Values: []resolution.ExpressionValue{{StringValue: "first"}},
+					},
+					{
+						Name:   "output",
+						Values: []resolution.ExpressionValue{{StringValue: "second"}},
+					},
 				}},
 			}, "first"),
 		Entry("nil domains map", "go", nil, ""),
@@ -77,7 +98,10 @@ var _ = Describe("IsOmitted", func() {
 		Entry("omit with values", "go",
 			map[string]resolution.Domain{
 				"go": {Expressions: []resolution.Expression{
-					{Name: "omit", Values: []resolution.ExpressionValue{{BoolValue: true}}},
+					{
+						Name:   "omit",
+						Values: []resolution.ExpressionValue{{BoolValue: true}},
+					},
 				}},
 			}, true),
 		Entry("no omit expression", "go",
@@ -138,7 +162,12 @@ var _ = Describe("GetPBPath", func() {
 			Domains: map[string]resolution.Domain{
 				"pb": {},
 				"go": {Expressions: []resolution.Expression{
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/user"}}},
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "core/user"},
+						},
+					},
 				}},
 			},
 		}
@@ -149,7 +178,12 @@ var _ = Describe("GetPBPath", func() {
 		typ := resolution.Type{
 			Domains: map[string]resolution.Domain{
 				"go": {Expressions: []resolution.Expression{
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/user"}}},
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "core/user"},
+						},
+					},
 				}},
 			},
 		}

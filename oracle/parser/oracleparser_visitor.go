@@ -55,8 +55,32 @@ type OracleParserVisitor interface {
 	// Visit a parse tree produced by OracleParser#fieldOmit.
 	VisitFieldOmit(ctx *FieldOmitContext) interface{}
 
+	// Visit a parse tree produced by OracleParser#domainOmit.
+	VisitDomainOmit(ctx *DomainOmitContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#actionDef.
+	VisitActionDef(ctx *ActionDefContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#actionBody.
+	VisitActionBody(ctx *ActionBodyContext) interface{}
+
 	// Visit a parse tree produced by OracleParser#fieldDef.
 	VisitFieldDef(ctx *FieldDefContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#fieldDefault.
+	VisitFieldDefault(ctx *FieldDefaultContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#defaultValue.
+	VisitDefaultValue(ctx *DefaultValueContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#arrayDefault.
+	VisitArrayDefault(ctx *ArrayDefaultContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#structDefault.
+	VisitStructDefault(ctx *StructDefaultContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#structFieldDefault.
+	VisitStructFieldDefault(ctx *StructFieldDefaultContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#inlineDomain.
 	VisitInlineDomain(ctx *InlineDomainContext) interface{}
@@ -109,9 +133,30 @@ type OracleParserVisitor interface {
 	// Visit a parse tree produced by OracleParser#enumValue.
 	VisitEnumValue(ctx *EnumValueContext) interface{}
 
+	// Visit a parse tree produced by OracleParser#enumValueBody.
+	VisitEnumValueBody(ctx *EnumValueBodyContext) interface{}
+
 	// Visit a parse tree produced by OracleParser#typeDefDef.
 	VisitTypeDefDef(ctx *TypeDefDefContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#typeDefBody.
 	VisitTypeDefBody(ctx *TypeDefBodyContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#unionDef.
+	VisitUnionDef(ctx *UnionDefContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#unionBody.
+	VisitUnionBody(ctx *UnionBodyContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#NamedVariant.
+	VisitNamedVariant(ctx *NamedVariantContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#InlineVariant.
+	VisitInlineVariant(ctx *InlineVariantContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#variantName.
+	VisitVariantName(ctx *VariantNameContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#unionVariantBody.
+	VisitUnionVariantBody(ctx *UnionVariantBodyContext) interface{}
 }

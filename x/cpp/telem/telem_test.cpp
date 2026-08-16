@@ -663,6 +663,15 @@ TEST(RateTests, testRateInErrorMessage) {
     EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
 }
 
+/// @brief it should serialize to a plain JSON number and round-trip back.
+TEST(RateTests, testJSON) {
+    const Rate r(50);
+    const x::json::json j = r;
+    EXPECT_TRUE(j.is_number());
+    EXPECT_EQ(j.get<double>(), 50.0);
+    EXPECT_EQ(j.get<Rate>(), r);
+}
+
 class DataTypeTests : public ::testing::Test {};
 
 struct TypeTestCase {
@@ -726,6 +735,7 @@ TEST(DataTypeTests, testDensity) {
     ASSERT_EQ(UUID_T.density(), 16);
     ASSERT_EQ(STRING_T.density(), 0);
     ASSERT_EQ(JSON_T.density(), 0);
+    ASSERT_EQ(BOOL_T.density(), 1);
 }
 
 /// @brief it should identify variable-length data types.
@@ -734,6 +744,7 @@ TEST(DataTypeTests, testIsVariable) {
     ASSERT_TRUE(JSON_T.is_variable());
     ASSERT_FALSE(FLOAT32_T.is_variable());
     ASSERT_FALSE(INT64_T.is_variable());
+    ASSERT_FALSE(BOOL_T.is_variable());
 }
 
 /// @brief it should check if a data type matches a set of types.

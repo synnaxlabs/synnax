@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, errors, URL } from "@synnaxlabs/x";
+import { binary, errors, url } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -15,14 +15,14 @@ import { EOF } from "@/errors";
 import { type Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";
 
-const url = new URL({ host: "127.0.0.1", port: 8080 });
+const endpoint = new url.URL({ host: "127.0.0.1", port: 8080 });
 
 const messageSchema = z.object({
   id: z.number().optional(),
   message: z.string().optional(),
 });
 
-const client = new WebSocketClient(url, new binary.JSONCodec());
+const client = new WebSocketClient(endpoint, new binary.JSONCodec());
 
 class MyCustomError extends errors.createTyped("integration.error") {
   code: number;
@@ -84,7 +84,7 @@ describe("websocket", () => {
 
   describe("middleware", () => {
     test("receive middleware", async () => {
-      const myClient = new WebSocketClient(url, new binary.JSONCodec());
+      const myClient = new WebSocketClient(endpoint, new binary.JSONCodec());
       let c = 0;
       myClient.use(async (md, next): Promise<Context> => {
         if (md.params !== undefined) {
@@ -98,7 +98,7 @@ describe("websocket", () => {
     });
 
     test("middleware error on server", async () => {
-      const myClient = new WebSocketClient(url, new binary.JSONCodec());
+      const myClient = new WebSocketClient(endpoint, new binary.JSONCodec());
       await expect(
         myClient.stream("stream/middlewareCheck", messageSchema, messageSchema),
       ).rejects.toThrow("test param not found");

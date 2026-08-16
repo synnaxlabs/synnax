@@ -19,13 +19,13 @@
 
 namespace driver::labjack {
 /// @brief it should parse analog input channel configuration.
-TEST(TestInputChannelParse, testAIChan) {
+TEST(TestReadChannelParse, testAIChan) {
     const x::json::json cfg{
         {"port", "AIN0"},
-        {"enabled", true},
+        {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 1},
-        {"type", "AI"},
+        {"type", "analog"},
         {"range", 5},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}}
     };
@@ -41,13 +41,13 @@ TEST(TestInputChannelParse, testAIChan) {
 }
 
 /// @brief it should parse digital input channel configuration.
-TEST(TestInputChannelParse, testDIChan) {
+TEST(TestReadChannelParse, testDIChan) {
     const x::json::json cfg{
         {"port", "DIO0"},
-        {"enabled", true},
+        {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 1},
-        {"type", "DI"}
+        {"type", "digital"}
     };
     auto p = x::json::Parser(cfg);
     const auto chan = parse_input_chan(p);
@@ -60,13 +60,13 @@ TEST(TestInputChannelParse, testDIChan) {
 }
 
 /// @brief it should parse thermocouple channel configuration.
-TEST(TestInputChannelParse, testTCChan) {
+TEST(TestReadChannelParse, testTCChan) {
     const x::json::json cfg{
         {"port", "AIN0"},
-        {"enabled", true},
+        {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 0},
-        {"type", "TC"},
+        {"type", "thermocouple"},
         {"range", 0},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
         {"thermocouple_type", "K"},
@@ -95,10 +95,10 @@ TEST(TestInputChannelParse, testTCChan) {
 }
 
 /// @brief it should reject invalid channel type in configuration.
-TEST(TestInputChannelParse, testInvalidChannelType) {
+TEST(TestReadChannelParse, testInvalidChannelType) {
     const x::json::json cfg{
         {"port", "AIN0"},
-        {"enabled", true},
+        {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 1},
         {"type", "INVALID_TYPE"}, // Invalid channel type
@@ -110,19 +110,62 @@ TEST(TestInputChannelParse, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should derive the backlog threshold from the sample rate when the
+/// count is zero.
+TEST(TestBacklogWarnOnCount, testZeroDerivesFromSampleRate) {
+    const x::json::json cfg{{"device_scan_backlog_warn_on_count", 0}};
+    auto p = x::json::Parser(cfg);
+    const auto count = parse_backlog_warn_on_count(
+        p,
+        "device_scan_backlog_warn_on_count",
+        x::telem::HERTZ * 50,
+        2
+    );
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(count, 100);
+}
+
+/// @brief it should derive the backlog threshold when the count is absent.
+TEST(TestBacklogWarnOnCount, testAbsentDerivesFromSampleRate) {
+    const auto cfg = x::json::json::object();
+    auto p = x::json::Parser(cfg);
+    const auto count = parse_backlog_warn_on_count(
+        p,
+        "ljm_scan_backlog_warn_on_count",
+        x::telem::HERTZ * 50,
+        1
+    );
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(count, 50);
+}
+
+/// @brief it should keep an explicitly configured backlog threshold.
+TEST(TestBacklogWarnOnCount, testExplicitCountKept) {
+    const x::json::json cfg{{"device_scan_backlog_warn_on_count", 7}};
+    auto p = x::json::Parser(cfg);
+    const auto count = parse_backlog_warn_on_count(
+        p,
+        "device_scan_backlog_warn_on_count",
+        x::telem::HERTZ * 50,
+        2
+    );
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(count, 7);
+}
+
 x::json::json basic_read_task_config() {
     return {
         {"device", "230227d9-02aa-47e4-b370-0d590add1bc1"},
         {"sample_rate", 10},
         {"stream_rate", 5},
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"channels",
          x::json::json::array(
              {{{"port", "AIN0"},
-               {"enabled", true},
+               {"disabled", false},
                {"key", "8hYJO9zt6eS"},
                {"channel", 0},
-               {"type", "TC"},
+               {"type", "thermocouple"},
                {"range", 0},
                {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
                {"thermocouple_type", "K"},
@@ -133,15 +176,15 @@ x::json::json basic_read_task_config() {
                {"cjc_slope", 1},
                {"cjc_offset", 0}},
               {{"port", "DIO4"},
-               {"enabled", true},
+               {"disabled", false},
                {"key", "DYFpBBDlpRt"},
                {"channel", 0},
-               {"type", "DI"}},
+               {"type", "digital"}},
               {{"port", "AIN6"},
-               {"enabled", true},
+               {"disabled", false},
                {"key", "rHb0YjmhUq3"},
                {"channel", 0},
-               {"type", "AI"},
+               {"type", "analog"},
                {"range", 0},
                {"scale", {{"type", "none"}}}}}
          )}
@@ -190,7 +233,9 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 
     ASSERT_EQ(cfg->sample_rate, x::telem::HERTZ * 10);
     ASSERT_EQ(cfg->stream_rate, x::telem::HERTZ * 5);
-    ASSERT_EQ(cfg->data_saving, true);
+    ASSERT_EQ(cfg->data_saving_disabled, false);
+    ASSERT_EQ(cfg->device_scan_backlog_warn_on_count, 20);
+    ASSERT_EQ(cfg->ljm_scan_backlog_warn_on_count, 10);
     ASSERT_EQ(cfg->channels.size(), 3);
 
     const auto tc_chan = dynamic_cast<ThermocoupleChan *>(cfg->channels[0].get());
@@ -245,7 +290,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto j = basic_read_task_config();
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
-          {"enabled", true},
+          {"disabled", false},
           {"key", "8hYJO9zt6eS"},
           {"channel", ch.key},
           {"type", "UNKNOWN_CHANNEL_TYPE"}, // Invalid channel type
@@ -278,13 +323,13 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     ));
 
     auto j = basic_read_task_config();
-    j["data_saving"] = true;
+    j["data_saving_disabled"] = false;
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
-          {"enabled", true},
+          {"disabled", false},
           {"key", "8hYJO9zt6eS"},
           {"channel", ch.key},
-          {"type", "AI"},
+          {"type", "analog"},
           {"range", 5},
           {"scale", {{"type", "none"}}}}}
     );

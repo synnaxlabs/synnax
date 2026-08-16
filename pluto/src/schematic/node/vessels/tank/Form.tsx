@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Component } from "@/component";
@@ -179,17 +179,17 @@ export const TankForm = ({
       <Orientation.Field path="" hideInner showOuterCenter label="Label location" />
     </Form.Wrapper>
   );
-  const content: Tabs.RenderProp = useCallback(
-    ({ tabKey }) => (tabKey === "fill" ? <FillForm /> : properties),
-    [properties],
-  );
-  const tabsProps = Tabs.useStatic({
-    tabs: [
-      { tabKey: "properties", name: "Properties" },
-      { tabKey: "fill", name: "Fill" },
-    ],
-    content,
-  });
   if (!showFill) return properties;
-  return <Tabs.Tabs {...tabsProps} />;
+  return (
+    <Tabs.Frame initialValue="properties">
+      <Tabs.Selector>
+        <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
+        <Tabs.Tab itemKey="fill">Fill</Tabs.Tab>
+      </Tabs.Selector>
+      <Tabs.Content itemKey="properties">{properties}</Tabs.Content>
+      <Tabs.Content itemKey="fill">
+        <FillForm />
+      </Tabs.Content>
+    </Tabs.Frame>
+  );
 };

@@ -12,6 +12,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 
@@ -27,6 +28,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// Listener is a single address the Server binds to. Every Listener serves the full set
+// of Branches; each may present its own TLS certificate.
+type Listener struct {
+	// Address is the address the Listener binds to.
+	Address address.Address
+	// TLS is the TLS configuration served on this Listener. It is nil in insecure mode.
+	TLS *tls.Config
+}
+
 // Config is the configuration for a Server.
 type Config struct {
 	alamos.Instrumentation
@@ -34,9 +44,9 @@ type Config struct {
 	Security SecurityConfig
 	// Debug is a flag to enable debugging endpoints and utilities.
 	Debug *bool
-	// ListenAddress is the address the server will listen on. The server's name will be
-	// set to the host portion of the address.
-	ListenAddress address.Address
+	// Listeners is the set of addresses the server binds to. Every Listener serves the
+	// full set of Branches.
+	Listeners []Listener
 	// Branches is a list of branches to serve.
 	Branches []Branch
 }
@@ -44,7 +54,11 @@ type Config struct {
 // Report implements the alamos.ReportProvider interface.
 func (c Config) Report() alamos.Report {
 	base := c.Security.Report()
-	base["listen_address"] = c.ListenAddress
+	addrs := make([]address.Address, len(c.Listeners))
+	for i, l := range c.Listeners {
+		addrs[i] = l.Address
+	}
+	base["listen_addresses"] = addrs
 	base["branches"] = branchKeys(c.Branches)
 	base["debug"] = *c.Debug
 	return base
@@ -58,8 +72,6 @@ type SecurityConfig struct {
 	// If false,  the server will use TLS and will verify client certificates.
 	// All secure Branches with Routing.ServeIfSecure set to true will be served.
 	Insecure *bool
-	// TLS is the TLS configuration for the server.
-	TLS *tls.Config
 }
 
 // Report implements the alamos.ReportProvider interface.
@@ -82,9 +94,8 @@ var (
 
 // Override implements the config.Properties interface.
 func (c Config) Override(other Config) Config {
-	c.ListenAddress = override.String(c.ListenAddress, other.ListenAddress)
+	c.Listeners = override.Slice(c.Listeners, other.Listeners)
 	c.Security.Insecure = override.Nil(c.Security.Insecure, other.Security.Insecure)
-	c.Security.TLS = override.Nil(c.Security.TLS, other.Security.TLS)
 	c.Branches = override.Slice(c.Branches, other.Branches)
 	c.Debug = override.Nil(c.Debug, other.Debug)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -94,7 +105,10 @@ func (c Config) Override(other Config) Config {
 // Validate implements the config.Properties interface.
 func (c Config) Validate() error {
 	v := validate.New("server")
-	validate.NotEmptyString(v, "listen_address", c.ListenAddress)
+	validate.NotEmptySlice(v, "listeners", c.Listeners)
+	for i, l := range c.Listeners {
+		validate.NotEmptyString(v, fmt.Sprintf("listeners[%d].address", i), l.Address)
+	}
 	return v.Error()
 }
 
@@ -114,26 +128,39 @@ func Serve(cfgs ...Config) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{Config: cfg}
-	return s, s.start()
+	if err := s.start(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *Server) start() (err error) {
-	s.L.Info("starting server", zap.Int("port", s.ListenAddress.Port()))
+	s.L.Info("starting server", zap.Int("listeners", len(s.Listeners)))
 	s.L.Debug("config", s.Report().ZapFields()...)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
-	lis, err := net.Listen("tcp", s.ListenAddress.PortString())
-	if err != nil {
-		return err
-	}
 	s.initBranches()
-	sCtx.Go(func(ctx context.Context) error {
-		mux := cmux.New(lis)
-		if *s.Security.Insecure {
-			return s.serveInsecure(sCtx, mux)
+	opened := make([]net.Listener, 0, len(s.Listeners))
+	for _, l := range s.Listeners {
+		lis, err := net.Listen("tcp", l.Address.PortString())
+		if err != nil {
+			// Closing the opened listeners unblocks their serve goroutines; cancel then
+			// tears down the signal context so a partial bind leaves nothing running.
+			for _, o := range opened {
+				err = errors.Combine(err, o.Close())
+			}
+			cancel()
+			return err
 		}
-		return s.serveSecure(sCtx, mux)
-	}, signal.WithKey("server"), signal.RecoverWithErrOnPanic())
+		opened = append(opened, lis)
+		sCtx.Go(func(ctx context.Context) error {
+			mux := cmux.New(lis)
+			if *s.Security.Insecure {
+				return s.serveInsecure(sCtx, l, mux)
+			}
+			return s.serveSecure(sCtx, l, mux)
+		}, signal.WithKey("server_"+l.Address.String()), signal.RecoverWithErrOnPanic())
+	}
 	return nil
 }
 
@@ -147,33 +174,33 @@ func (s *Server) Close() error {
 	return s.shutdown.Close()
 }
 
-func (s *Server) serveSecure(sCtx signal.Context, root cmux.CMux) error {
+func (s *Server) serveSecure(sCtx signal.Context, l Listener, root cmux.CMux) error {
 	var (
 		insecure = cmux.New(root.Match(cmux.HTTP1Fast()))
-		secure   = cmux.New(tls.NewListener(root.Match(cmux.Any()), s.Security.TLS))
+		secure   = cmux.New(tls.NewListener(root.Match(cmux.Any()), l.TLS))
 	)
 
-	s.startBranches(sCtx, secure /*insecureMux*/, false)
-	s.startBranches(sCtx, insecure /*insecureMux*/, true)
+	s.startBranches(sCtx, l, secure /*insecureMux*/, false)
+	s.startBranches(sCtx, l, insecure /*insecureMux*/, true)
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(secure.Serve())
-	}, signal.WithKey("secure_mux"), signal.RecoverWithErrOnPanic())
+	}, signal.WithKey("secure_mux_"+l.Address.String()), signal.RecoverWithErrOnPanic())
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(insecure.Serve())
-	}, signal.WithKey("insecure_mux"), signal.RecoverWithErrOnPanic())
+	}, signal.WithKey("insecure_mux_"+l.Address.String()), signal.RecoverWithErrOnPanic())
 
 	return filterCloserError(root.Serve())
 }
 
-func (s *Server) serveInsecure(sCtx signal.Context, root cmux.CMux) error {
-	s.startBranches(sCtx, root /*insecureMux*/, true)
+func (s *Server) serveInsecure(sCtx signal.Context, l Listener, root cmux.CMux) error {
+	s.startBranches(sCtx, l, root /*insecureMux*/, true)
 	return filterCloserError(root.Serve())
 }
 
 func (s *Server) initBranches() {
-	bc := s.baseBranchContext()
+	bc := s.baseBranchContext(s.Listeners[0])
 	for _, b := range s.Branches {
 		b.Init(bc)
 	}
@@ -181,6 +208,7 @@ func (s *Server) initBranches() {
 
 func (s *Server) startBranches(
 	sCtx signal.Context,
+	l Listener,
 	mux cmux.CMux,
 	insecureMux bool,
 ) {
@@ -193,6 +221,7 @@ func (s *Server) startBranches(
 
 	s.L.Debug(
 		"starting branches",
+		zap.String("listener", l.Address.String()),
 		zap.Strings("branches", branchKeys(branches)),
 		zap.Bool("insecure_mux", insecureMux),
 	)
@@ -201,22 +230,22 @@ func (s *Server) startBranches(
 	for i, b := range branches {
 		listeners[i] = mux.Match(b.Routing().Matchers...)
 	}
-	bc := s.baseBranchContext()
+	bc := s.baseBranchContext(l)
 	for i, b := range branches {
 		bc := bc
 		bc.Lis = listeners[i]
 		sCtx.Go(func(context.Context) error {
 			return filterCloserError(b.Serve(bc))
-		}, signal.WithKey(b.Key()))
+		}, signal.WithKey(b.Key()+"_"+l.Address.String()))
 	}
 }
 
-func (s *Server) baseBranchContext() BranchContext {
+func (s *Server) baseBranchContext(l Listener) BranchContext {
 	return BranchContext{
 		Instrumentation: s.Instrumentation,
 		Debug:           *s.Debug,
 		Security:        s.Security,
-		ServerName:      s.ListenAddress.Host(),
+		ServerName:      l.Address.Host(),
 	}
 }
 

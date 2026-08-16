@@ -13,13 +13,14 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
+import { staleness } from "@/vis/staleness/aether";
 
 const stateMappingZ = z.object({
   key: z.string(),
   value: z.number(),
 });
 
-export const stateZ = z.object({
+export const stateZ = staleness.stateZ.extend({
   key: z.string().nullable().default(null),
   options: z.array(stateMappingZ).default([]),
   source: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
@@ -30,6 +31,7 @@ export interface State extends z.input<typeof stateZ> {}
 interface InternalState {
   source: telem.NumberSource;
   stopListening: destructor.Destructor;
+  staleness: staleness.Registration;
 }
 
 export class StateIndicator
@@ -37,15 +39,20 @@ export class StateIndicator
   implements diagram.Element
 {
   static readonly TYPE = "StateIndicator";
+  static readonly z = stateZ;
 
-  schema = stateZ;
+  schema = StateIndicator.z;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, this.state.source, i.source);
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
     this.updateMatchedOption();
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() => this.updateMatchedOption());
+    i.stopListening = i.source.onChange(() => {
+      i.staleness.received();
+      this.updateMatchedOption();
+    });
   }
 
   private updateMatchedOption(): void {
@@ -59,6 +66,7 @@ export class StateIndicator
 
   afterDelete(): void {
     this.internal.stopListening?.();
+    this.internal.staleness?.cleanup();
     this.internal.source.cleanup?.();
   }
 }

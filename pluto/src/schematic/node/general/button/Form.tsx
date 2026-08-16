@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
@@ -64,7 +64,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   return (
     <Form.Wrapper y empty>
       <Flex.Box x>
-        <Input.Item label="Output channel" grow padHelpText={false}>
+        <Input.Item label="Channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
         <Form.ActivationDelayField />
@@ -79,23 +79,21 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const ButtonForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "control":
-        return <ButtonTelemForm path="" />;
-      default:
-        return (
-          <Form.StyleForm
-            omit={["align", "maxInlineSize"]}
-            hideInnerOrientation
-            hideOuterOrientation
-          />
-        );
-    }
-  }, []);
-
-  const props = Tabs.useStatic({ tabs: Form.COMMON_TOGGLE_FORM_TABS, content });
-
-  return <Tabs.Tabs {...props} />;
-};
+export const ButtonForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <Form.StyleForm
+        omit={["align", "maxInlineSize"]}
+        hideInnerOrientation
+        hideOuterOrientation
+      />
+    </Tabs.Content>
+    <Tabs.Content itemKey="control">
+      <ButtonTelemForm path="" />
+    </Tabs.Content>
+  </Tabs.Frame>
+);

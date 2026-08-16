@@ -31,7 +31,11 @@ func NewRuff() *Ruff {
 }
 
 // Format runs `ruff format` then `ruff check --fix` with content on stdin.
-func (r *Ruff) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
+func (r *Ruff) Format(
+	ctx context.Context,
+	content []byte,
+	absPath string,
+) ([]byte, error) {
 	dir := findProjectDir(absPath, "pyproject.toml")
 	if dir == "" {
 		dir = filepath.Dir(absPath)
@@ -48,7 +52,15 @@ func (r *Ruff) Format(ctx context.Context, content []byte, absPath string) ([]by
 		return nil, err
 	}
 	checkArgs := append([]string{}, r.Args...)
-	checkArgs = append(checkArgs, "check", "--fix", "--exit-zero", "--stdin-filename", absPath, "-")
+	checkArgs = append(
+		checkArgs,
+		"check",
+		"--fix",
+		"--exit-zero",
+		"--stdin-filename",
+		absPath,
+		"-",
+	)
 	return stdinRun{
 		Name:  r.Bin,
 		Args:  checkArgs,

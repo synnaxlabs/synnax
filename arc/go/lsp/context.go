@@ -14,7 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 type CompletionContext int
@@ -25,8 +25,8 @@ const (
 	ContextTypeAnnotation
 	ContextExpression
 	ContextStatementStart
-	ContextConfigParamName
-	ContextConfigParamValue
+	ContextInputParamName
+	ContextInputParamValue
 	ContextAuthorityEntry
 	// ContextImportPath marks positions where the cursor sits in the
 	// module-name slot of an `import` statement. Only module names should
@@ -40,23 +40,23 @@ const (
 	ContextNone
 )
 
-type configContextInfo struct {
+type inputContextInfo struct {
 	functionName     string
 	existingParams   []string
 	currentParamName string
 }
 
-type configBraceResult struct {
-	configBraceIndex int
-	functionName     string
+type inputBraceResult struct {
+	inputBraceIndex int
+	functionName    string
 }
 
-func findConfigBrace(tokens []antlr.Token) *configBraceResult {
+func findInputBrace(tokens []antlr.Token) *inputBraceResult {
 	if len(tokens) == 0 {
 		return nil
 	}
 	braceDepth := 0
-	configBraceIndex := -1
+	inputBraceIndex := -1
 	for i, token := range slices.Backward(tokens) {
 		tokenType := token.GetTokenType()
 		switch tokenType {
@@ -66,22 +66,22 @@ func findConfigBrace(tokens []antlr.Token) *configBraceResult {
 			if braceDepth > 0 {
 				braceDepth--
 			} else {
-				configBraceIndex = i
+				inputBraceIndex = i
 			}
 		}
-		if configBraceIndex >= 0 {
+		if inputBraceIndex >= 0 {
 			break
 		}
 	}
-	if configBraceIndex < 1 {
+	if inputBraceIndex < 1 {
 		return nil
 	}
-	prevToken := tokens[configBraceIndex-1]
+	prevToken := tokens[inputBraceIndex-1]
 	if prevToken.GetTokenType() != parser.ArcLexerIDENTIFIER {
 		return nil
 	}
-	if configBraceIndex >= 2 {
-		prevPrevToken := tokens[configBraceIndex-2]
+	if inputBraceIndex >= 2 {
+		prevPrevToken := tokens[inputBraceIndex-2]
 		prevPrevType := prevPrevToken.GetTokenType()
 		if prevPrevType == parser.ArcLexerRPAREN ||
 			prevPrevType == parser.ArcLexerSTAGE ||
@@ -89,9 +89,9 @@ func findConfigBrace(tokens []antlr.Token) *configBraceResult {
 			return nil
 		}
 	}
-	return &configBraceResult{
-		configBraceIndex: configBraceIndex,
-		functionName:     prevToken.GetText(),
+	return &inputBraceResult{
+		inputBraceIndex: inputBraceIndex,
+		functionName:    prevToken.GetText(),
 	}
 }
 
@@ -108,8 +108,8 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	if isAuthorityEntryContext(tokensBeforeCursor) {
 		return ContextAuthorityEntry
 	}
-	if configCtx := detectConfigContext(tokensBeforeCursor); configCtx != ContextUnknown {
-		return configCtx
+	if inputCtx := detectInputContext(tokensBeforeCursor); inputCtx != ContextUnknown {
+		return inputCtx
 	}
 	if isSameLineAfterOpenBrace(lastToken, pos) {
 		return ContextNone
@@ -129,7 +129,8 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	// When the last token is a partial identifier the user is typing, strip it
 	// and re-evaluate context against the preceding token. This lets all
 	// existing context rules apply correctly to the real syntactic position.
-	if lastToken.GetTokenType() == parser.ArcLexerIDENTIFIER && len(tokensBeforeCursor) >= 2 {
+	if lastToken.GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		len(tokensBeforeCursor) >= 2 {
 		stripped := tokensBeforeCursor[:len(tokensBeforeCursor)-1]
 		strippedLast := stripped[len(stripped)-1]
 		if isExpressionContext(stripped, strippedLast) {
@@ -151,7 +152,8 @@ func isPositionInComment(content string, pos protocol.Position) bool {
 	col := int(pos.Character)
 	for _, t := range allTokens {
 		tokenType := t.GetTokenType()
-		if tokenType != parser.ArcLexerSINGLE_LINE_COMMENT && tokenType != parser.ArcLexerMULTI_LINE_COMMENT {
+		if tokenType != parser.ArcLexerSINGLE_LINE_COMMENT &&
+			tokenType != parser.ArcLexerMULTI_LINE_COMMENT {
 			continue
 		}
 		startLine := t.GetLine()
@@ -344,7 +346,8 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	if prevType == parser.ArcLexerIDENTIFIER && len(tokens) >= 3 {
 		prevPrevToken := tokens[len(tokens)-3]
 		prevPrevType := prevPrevToken.GetTokenType()
-		if prevPrevType == parser.ArcLexerLPAREN || prevPrevType == parser.ArcLexerCOMMA {
+		if prevPrevType == parser.ArcLexerLPAREN ||
+			prevPrevType == parser.ArcLexerCOMMA {
 			return true
 		}
 	}
@@ -353,7 +356,7 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 
 // isFuncParamParentheses checks whether the innermost unmatched LPAREN is part
 // of a function declaration parameter list. This handles both simple declarations
-// (FUNC IDENTIFIER LPAREN) and declarations with config blocks
+// (FUNC IDENTIFIER LPAREN) and declarations with input blocks
 // (FUNC IDENTIFIER LBRACE ... RBRACE LPAREN).
 func isFuncParamParentheses(tokens []antlr.Token) bool {
 	depth := 0
@@ -469,7 +472,7 @@ func isExpressionLevelComma(tokens []antlr.Token) bool {
 // the most recent token, when that token is an opening brace. The check is used
 // to suppress completions immediately after typing the `{` of a func, sequence,
 // or stage body so suggestions only appear once the cursor moves to the next
-// line. Config braces (e.g. `myFunc{`) are filtered out earlier in
+// line. Input braces (e.g. `myFunc{`) are filtered out earlier in
 // DetectCompletionContext, so they keep their existing parameter completions.
 func isSameLineAfterOpenBrace(lastToken antlr.Token, pos protocol.Position) bool {
 	if lastToken.GetTokenType() != parser.ArcLexerLBRACE {
@@ -479,7 +482,11 @@ func isSameLineAfterOpenBrace(lastToken antlr.Token, pos protocol.Position) bool
 	return cursorLine == lastToken.GetLine()
 }
 
-func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos protocol.Position) bool {
+func isStatementStartContext(
+	tokens []antlr.Token,
+	lastToken antlr.Token,
+	pos protocol.Position,
+) bool {
 	tokenType := lastToken.GetTokenType()
 	lastLine := lastToken.GetLine()
 	cursorLine := int(pos.Line) + 1
@@ -570,20 +577,20 @@ func extractAuthorityExistingChannels(content string, pos protocol.Position) []s
 	return existing
 }
 
-func detectConfigContext(tokens []antlr.Token) CompletionContext {
-	result := findConfigBrace(tokens)
+func detectInputContext(tokens []antlr.Token) CompletionContext {
+	result := findInputBrace(tokens)
 	if result == nil {
 		return ContextUnknown
 	}
 	lastToken := tokens[len(tokens)-1]
 	lastTokenType := lastToken.GetTokenType()
 	if lastTokenType == parser.ArcLexerASSIGN {
-		return ContextConfigParamValue
+		return ContextInputParamValue
 	}
 	if lastTokenType == parser.ArcLexerLBRACE ||
 		lastTokenType == parser.ArcLexerCOMMA ||
 		lastTokenType == parser.ArcLexerIDENTIFIER {
-		return ContextConfigParamName
+		return ContextInputParamName
 	}
 	return ContextUnknown
 }
@@ -637,27 +644,29 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 	return stack[len(stack)-1].kind
 }
 
-func extractConfigContext(content string, pos protocol.Position) *configContextInfo {
+func extractInputContext(content string, pos protocol.Position) *inputContextInfo {
 	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
-	result := findConfigBrace(tokensBeforeCursor)
+	result := findInputBrace(tokensBeforeCursor)
 	if result == nil {
 		return nil
 	}
-	info := &configContextInfo{
+	info := &inputContextInfo{
 		functionName:   result.functionName,
 		existingParams: []string{},
 	}
-	for i := result.configBraceIndex + 1; i < len(tokensBeforeCursor); i++ {
+	for i := result.inputBraceIndex + 1; i < len(tokensBeforeCursor); i++ {
 		t := tokensBeforeCursor[i]
 		if t.GetTokenType() == parser.ArcLexerIDENTIFIER {
-			if i+1 < len(tokensBeforeCursor) && tokensBeforeCursor[i+1].GetTokenType() == parser.ArcLexerASSIGN {
+			if i+1 < len(tokensBeforeCursor) &&
+				tokensBeforeCursor[i+1].GetTokenType() == parser.ArcLexerASSIGN {
 				info.existingParams = append(info.existingParams, t.GetText())
 			}
 		}
 	}
 	lastToken := tokensBeforeCursor[len(tokensBeforeCursor)-1]
-	if lastToken.GetTokenType() == parser.ArcLexerASSIGN && len(tokensBeforeCursor) >= 2 {
+	if lastToken.GetTokenType() == parser.ArcLexerASSIGN &&
+		len(tokensBeforeCursor) >= 2 {
 		prevToken := tokensBeforeCursor[len(tokensBeforeCursor)-2]
 		if prevToken.GetTokenType() == parser.ArcLexerIDENTIFIER {
 			info.currentParamName = prevToken.GetText()

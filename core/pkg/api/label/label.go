@@ -15,12 +15,14 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -73,17 +75,18 @@ func (s *Service) Create(
 }
 
 type RetrieveRequest struct {
-	For        ontology.ID `json:"for" msgpack:"for"`
-	SearchTerm string      `json:"search_term" msgpack:"search_term"`
-	Keys       []label.Key `json:"keys" msgpack:"keys"`
-	Names      []string    `json:"names" msgpack:"names"`
-	Limit      int         `json:"limit" msgpack:"limit"`
-	Offset     int         `json:"offset" msgpack:"offset"`
+	For                 ontology.ID `json:"for"                    msgpack:"for"`
+	SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
+	Keys                []label.Key `json:"keys"                   msgpack:"keys"`
+	Names               []string    `json:"names"                  msgpack:"names"`
+	Limit               int         `json:"limit"                  msgpack:"limit"`
+	Offset              int         `json:"offset"                 msgpack:"offset"`
+	IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 }
 
 type RetrieveResponse struct {
 	// Labels are the labels that were retrieved.
-	Labels []Label `json:"labels" msgpack:"labels"`
+	Labels []Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
 }
 
 func (s *Service) Retrieve(
@@ -114,7 +117,11 @@ func (s *Service) Retrieve(
 		if len(req.Names) != 0 {
 			q = q.Where(label.MatchNames(req.Names...))
 		}
-		if err := q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
+		err := q.Entries(&res.Labels).Exec(ctx, nil)
+		if req.IgnoreNotFoundError && err != nil {
+			err = errors.Skip(err, query.ErrNotFound)
+		}
+		if err != nil {
 			return RetrieveResponse{}, err
 		}
 	}
@@ -152,8 +159,8 @@ func (s *Service) Delete(
 }
 
 type AddRequest struct {
-	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
-	Labels  []label.Key `json:"labels" msgpack:"labels" validate:"required"`
+	ID      ontology.ID `json:"id"      msgpack:"id"      validate:"required"`
+	Labels  []label.Key `json:"labels"  msgpack:"labels"  validate:"required"`
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
 
@@ -179,7 +186,7 @@ func (s *Service) Add(
 }
 
 type RemoveRequest struct {
-	ID     ontology.ID `json:"id" msgpack:"id" validate:"required"`
+	ID     ontology.ID `json:"id"     msgpack:"id"     validate:"required"`
 	Labels []label.Key `json:"labels" msgpack:"labels" validate:"required"`
 }
 

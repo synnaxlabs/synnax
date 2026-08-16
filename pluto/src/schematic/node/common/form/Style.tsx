@@ -9,6 +9,7 @@
 
 import { type ReactElement } from "react";
 
+import { Errors } from "@/errors";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Custom } from "@/schematic/node/common/custom";
@@ -49,7 +50,11 @@ export const StyleForm = ({
           <ScaleField path="scale" />
         </Flex.Box>
       </Flex.Box>
-      {hasStateOverrides && <Custom.StateOverrideForm />}
+      {hasStateOverrides && (
+        <Errors.SuspenseBoundary>
+          <Custom.StateOverrideForm />
+        </Errors.SuspenseBoundary>
+      )}
       <Orientation.Field
         path=""
         hideInner={hideInnerOrientation}

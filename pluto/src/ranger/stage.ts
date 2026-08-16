@@ -45,7 +45,7 @@ export const STAGE_NAMES: Record<Stage, string> = {
   completed: "Completed",
 };
 
-interface WrapNumericTimeRangeToStageArgs {
+interface WrapNumericTimeRangeToStageParams {
   value: NumericTimeRange;
   onChange: (value: NumericTimeRange) => void;
 }
@@ -58,7 +58,7 @@ interface WrapNumericTimeRangeToStageReturn {
 export const wrapNumericTimeRangeToStage = ({
   value,
   onChange,
-}: WrapNumericTimeRangeToStageArgs): WrapNumericTimeRangeToStageReturn => ({
+}: WrapNumericTimeRangeToStageParams): WrapNumericTimeRangeToStageReturn => ({
   value: getStage(value),
   onChange: (v: Stage) => {
     // We subtract a millisecond here to avoid weird issues where you select "completed"

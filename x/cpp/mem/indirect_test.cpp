@@ -203,4 +203,4 @@ TEST(IndirectTest, StringType) {
     EXPECT_EQ(*copy, "hello");
 }
 
-} // namespace
+}

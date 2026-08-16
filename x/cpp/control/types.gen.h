@@ -32,6 +32,9 @@ enum class Concurrency : std::uint8_t {
     Shared = 1,
 };
 
+/// @brief Authority is a numeric value (0-255) representing the level of control
+/// authority a subject has over a resource. Higher values indicate greater authority.
+/// The maximum value of 255 represents absolute authority.
 using Authority = std::uint8_t;
 
 /// @brief Subject is an entity that can hold control authority over a resource.
@@ -69,11 +72,6 @@ struct State {
 
     static State parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::control::pb::State;
-    [[nodiscard]] std::pair<::x::control::pb::State, x::errors::Error> to_proto() const;
-    static std::pair<State, x::errors::Error>
-    from_proto(const ::x::control::pb::State &pb);
 };
 
 /// @brief Transfer represents a transfer of control over a resource. It is represented
@@ -95,12 +93,6 @@ struct Transfer {
 
     static Transfer parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::control::pb::Transfer;
-    [[nodiscard]] std::pair<::x::control::pb::Transfer, x::errors::Error>
-    to_proto() const;
-    static std::pair<Transfer, x::errors::Error>
-    from_proto(const ::x::control::pb::Transfer &pb);
 };
 
 /// @brief Update represents a batch of control transfers that occurred atomically.
@@ -111,11 +103,5 @@ struct Update {
 
     static Update parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::control::pb::Update;
-    [[nodiscard]] std::pair<::x::control::pb::Update, x::errors::Error>
-    to_proto() const;
-    static std::pair<Update, x::errors::Error>
-    from_proto(const ::x::control::pb::Update &pb);
 };
 }

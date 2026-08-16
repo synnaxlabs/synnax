@@ -127,7 +127,9 @@ var _ = Describe("Array", func() {
 		})
 		Specify("element validation error includes index", func() {
 			var dest []uint32
-			Expect(zyn.Array(zyn.Uint32().Coerce()).Parse([]any{1.0, "bad", 3.0}, &dest)).
+			Expect(
+				zyn.Array(zyn.Uint32().Coerce()).Parse([]any{1.0, "bad", 3.0}, &dest),
+			).
 				To(MatchError(ContainSubstring("1")))
 		})
 	})
@@ -156,7 +158,9 @@ var _ = Describe("Array", func() {
 		})
 		Specify("within constraints", func() {
 			var dest []string
-			Expect(zyn.Array(zyn.String()).Min(1).Max(3).Parse([]any{"a", "b"}, &dest)).To(Succeed())
+			Expect(
+				zyn.Array(zyn.String()).Min(1).Max(3).Parse([]any{"a", "b"}, &dest),
+			).To(Succeed())
 			Expect(dest).To(Equal([]string{"a", "b"}))
 		})
 	})
@@ -180,7 +184,9 @@ var _ = Describe("Array", func() {
 			schema := zyn.Array(zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
 			}))
-			result := MustSucceed(schema.Dump([]Item{{Name: "first"}, {Name: "second"}}))
+			result := MustSucceed(
+				schema.Dump([]Item{{Name: "first"}, {Name: "second"}}),
+			)
 			Expect(result).To(Equal([]any{
 				map[string]any{"name": "first"},
 				map[string]any{"name": "second"},

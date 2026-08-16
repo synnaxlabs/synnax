@@ -11,11 +11,36 @@
 
 #include <string>
 
-#include "glog/logging.h"
+#include "absl/log/log_entry.h"
+#include "absl/log/log_sink.h"
 
 namespace x::log {
+/// @brief absl::LogSink writing log lines to stderr. When constructed with color
+/// enabled, the whole line is colored by severity: WARNING yellow, ERROR and FATAL red.
+class StderrSink final : public absl::LogSink {
+public:
+    explicit StderrSink(bool enable_color);
+    void Send(const absl::LogEntry &entry) override;
+    void Flush() override;
+
+private:
+    /// @brief whether lines are wrapped in ANSI severity colors.
+    bool color;
+};
+
+/// @brief initializes absl logging and installs a StderrSink in place of the default
+/// stderr output. Call at process start, before other threads log. Calls after the
+/// first are no-ops.
+void init(bool enable_color);
+
+/// @brief returns whether ANSI color output is enabled.
+bool color_enabled();
+
+/// @brief returns whether stderr is attached to a terminal.
+bool stderr_is_terminal();
+
 inline std::string get_color(const std::string &color) {
-    return FLAGS_colorlogtostderr ? color : "";
+    return color_enabled() ? color : "";
 }
 
 inline std::string RED() {

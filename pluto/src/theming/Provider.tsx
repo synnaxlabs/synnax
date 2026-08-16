@@ -105,11 +105,15 @@ export const useProvider = ({
 
   const parsedTheme = useMemo(() => parsedThemes[selected], [parsedThemes, selected]);
 
+  // When a caller supplies theme, they own OS-sync (or the decision to opt out of
+  // it) themselves; listening here too would flip selected out from under a
+  // caller that has deliberately pinned the theme.
   useEffect(() => {
+    if (theme != null) return;
     const listener = (): void => setSelected(isDarkMode() ? darkTheme : lightTheme);
     prefersDark()?.addEventListener("change", listener);
     return () => prefersDark()?.removeEventListener("change", listener);
-  }, []);
+  }, [theme]);
 
   return {
     theme: parsedTheme,

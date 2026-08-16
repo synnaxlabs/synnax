@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createTestClient,
-  NotFoundError,
-  type project,
-  schematic,
-} from "@synnaxlabs/client";
+import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
@@ -42,15 +38,15 @@ const createTestSchematic = async (projectKey: string): Promise<schematic.Schema
     configs: { n1: { variant: "tank" }, n2: { variant: "tank" } },
   });
 
-// Populates the flux store with the schematic at `key`. Uses a single-hook
-// bootstrap component so the suspending `useEnsureRetrieved` is not followed by
-// additional hooks — that shape trips a React 19 concurrent-replay warning.
+// Loads the schematic at `key` into the cache. Uses a single-hook bootstrap
+// component so the suspending `useEnsure` is not followed by
+// additional hooks; that shape trips a React 19 concurrent-replay warning.
 const loadSchematic = async (
   Wrapper: FC<PropsWithChildren>,
   key: string,
 ): Promise<ReturnType<typeof render>> => {
   const Bootstrap = (): ReactElement => {
-    Schematic.useEnsureRetrieved({ key });
+    Schematic.useEnsure({ key });
     return <div data-testid="loaded" />;
   };
   let utils!: ReturnType<typeof render>;
@@ -77,12 +73,12 @@ describe("schematic queries", () => {
     ]);
   });
 
-  describe("useRetrieveSuspended", () => {
+  describe("use", () => {
     it("suspends until the schematic loads, then returns it", async () => {
       const schem = await createTestSchematic(proj.key);
 
       const Display = (): ReactElement => {
-        const s = Schematic.useRetrieveSuspended({ key: schem.key });
+        const s = Schematic.use({ key: schem.key });
         return <div data-testid="name">{s.name}</div>;
       };
 
@@ -101,18 +97,62 @@ describe("schematic queries", () => {
         expect(utils.queryByTestId("name")?.textContent).toBe("test_schematic"),
       );
     });
+
+    it("resolves synchronously without suspending when already in the store", async () => {
+      const schem = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, schem.key);
+
+      const Display = (): ReactElement => {
+        const s = Schematic.use({ key: schem.key });
+        return <div data-testid="name">{s.name}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={<div data-testid="fallback" />}>
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("name")?.textContent).toBe("test_schematic");
+    });
   });
 
-  describe("useEnsureRetrieved", () => {
+  describe("useEnsure", () => {
     it("populates the store so downstream selectors resolve", async () => {
       const schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
 
-      const { result } = renderHook(
-        () => Schematic.useSelectAllNodes({ key: schem.key }),
-        { wrapper: Wrapper },
-      );
+      const { result } = renderHook(() => Schematic.useAllNodes({ key: schem.key }), {
+        wrapper: Wrapper,
+      });
       expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
+    });
+  });
+
+  describe("useTombstone", () => {
+    it("reports the corpse on delete and clears it when the schematic is restored", async () => {
+      const doomed = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, doomed.key);
+
+      const { result } = renderHook(() => Schematic.useTombstone({ key: doomed.key }), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBeNull();
+
+      await client.schematics.delete(doomed.key);
+      await waitFor(() => expect(result.current?.name).toBe("test_schematic"));
+
+      // Restoring re-creates from the corpse, which keeps the original key.
+      // The read heals off the cache alone: no boundary reset, no refetch.
+      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      await client.schematics.create(proj.key, corpse);
+      await waitFor(() => expect(result.current).toBeNull());
     });
   });
 
@@ -123,26 +163,59 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, schem.key);
     });
 
-    it("useSelectAllEdges returns the schematic's edges", () => {
-      const { result } = renderHook(
-        () => Schematic.useSelectAllEdges({ key: schem.key }),
-        { wrapper: Wrapper },
+    it("throws a DeletedError naming the corpse once the schematic is deleted", async () => {
+      const doomed = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, doomed.key);
+      await client.schematics.delete(doomed.key);
+      await waitFor(() =>
+        expect(query.Deleted.matches(client.schematics.getCached(doomed.key))).toBe(
+          true,
+        ),
       );
+
+      const caught: Error[] = [];
+      const Fallback = ({ error }: Errors.FallbackProps): null => {
+        caught.push(error);
+        return null;
+      };
+      const BoundaryWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={null} FallbackComponent={Fallback}>
+            {children}
+          </Errors.SuspenseBoundary>
+        </Wrapper>
+      );
+      BoundaryWrapper.displayName = "BoundaryWrapper";
+
+      renderHook(() => Schematic.useName({ key: doomed.key }), {
+        wrapper: BoundaryWrapper,
+      });
+      await waitFor(() => expect(caught.length).toBeGreaterThan(0));
+      const error = caught[0];
+      assert(Flux.DeletedError.matches(error));
+      expect(error.corpseName).toBe("test_schematic");
+      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      expect(corpse.key).toBe(doomed.key);
+    });
+
+    it("useAllEdges returns the schematic's edges", () => {
+      const { result } = renderHook(() => Schematic.useAllEdges({ key: schem.key }), {
+        wrapper: Wrapper,
+      });
       expect(result.current.map((e) => e.key)).toEqual(["e1"]);
     });
 
-    it("useSelectSnapshot returns the snapshot flag", () => {
-      const { result } = renderHook(
-        () => Schematic.useSelectSnapshot({ key: schem.key }),
-        { wrapper: Wrapper },
-      );
+    it("useIsSnapshot returns the snapshot flag", () => {
+      const { result } = renderHook(() => Schematic.useIsSnapshot({ key: schem.key }), {
+        wrapper: Wrapper,
+      });
       expect(result.current).toBe(false);
     });
 
-    it("useSelectElementConfig returns a config by element key", () => {
+    it("useElementConfig returns a config by element key", () => {
       const { result } = renderHook(
         () =>
-          Schematic.useSelectElementConfig({
+          Schematic.useElementConfig({
             key: schem.key,
             elKey: "n1",
           }),
@@ -151,34 +224,18 @@ describe("schematic queries", () => {
       expect((result.current as { variant: string }).variant).toBe("tank");
     });
 
-    it("useSelectEdge returns the edge for a known key", () => {
+    it("useNodes returns nodes for the requested keys", () => {
       const { result } = renderHook(
-        () => Schematic.useSelectEdge({ key: schem.key, edgeKey: "e1" }),
-        { wrapper: Wrapper },
-      );
-      expect(result.current?.key).toBe("e1");
-    });
-
-    it("useSelectEdge returns undefined for an unknown edge key", () => {
-      const { result } = renderHook(
-        () => Schematic.useSelectEdge({ key: schem.key, edgeKey: "missing" }),
-        { wrapper: Wrapper },
-      );
-      expect(result.current).toBeUndefined();
-    });
-
-    it("useSelectNodes returns nodes for the requested keys", () => {
-      const { result } = renderHook(
-        () => Schematic.useSelectNodes({ key: schem.key, keys: ["n1", "n2"] }),
+        () => Schematic.useNodes({ key: schem.key, keys: ["n1", "n2"] }),
         { wrapper: Wrapper },
       );
       expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
     });
 
-    it("useSelectNodes omits missing keys without throwing", () => {
+    it("useNodes omits missing keys without throwing", () => {
       const { result } = renderHook(
         () =>
-          Schematic.useSelectNodes({
+          Schematic.useNodes({
             key: schem.key,
             keys: ["n1", "missing", "n2"],
           }),
@@ -187,17 +244,17 @@ describe("schematic queries", () => {
       expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
     });
 
-    it("useSelectNodes returns an empty array when keys is empty", () => {
+    it("useNodes returns an empty array when keys is empty", () => {
       const { result } = renderHook(
-        () => Schematic.useSelectNodes({ key: schem.key, keys: [] }),
+        () => Schematic.useNodes({ key: schem.key, keys: [] }),
         { wrapper: Wrapper },
       );
       expect(result.current).toEqual([]);
     });
 
-    it("useSelectConfigs returns a map keyed by element key", () => {
+    it("useConfigs returns a map keyed by element key", () => {
       const { result } = renderHook(
-        () => Schematic.useSelectConfigs({ key: schem.key, keys: ["n1", "n2"] }),
+        () => Schematic.useConfigs({ key: schem.key, keys: ["n1", "n2"] }),
         { wrapper: Wrapper },
       );
       expect(Array.from(result.current.keys())).toEqual(["n1", "n2"]);
@@ -205,10 +262,10 @@ describe("schematic queries", () => {
       expect((result.current.get("n2") as { variant: string }).variant).toBe("tank");
     });
 
-    it("useSelectConfigs omits missing keys instead of shifting positions", () => {
+    it("useConfigs omits missing keys instead of shifting positions", () => {
       const { result } = renderHook(
         () =>
-          Schematic.useSelectConfigs({
+          Schematic.useConfigs({
             key: schem.key,
             keys: ["n1", "missing", "n2"],
           }),
@@ -219,20 +276,20 @@ describe("schematic queries", () => {
       expect((result.current.get("n2") as { variant: string }).variant).toBe("tank");
     });
 
-    it("useSelectConfigs returns an empty map when keys is empty", () => {
+    it("useConfigs returns an empty map when keys is empty", () => {
       const { result } = renderHook(
-        () => Schematic.useSelectConfigs({ key: schem.key, keys: [] }),
+        () => Schematic.useConfigs({ key: schem.key, keys: [] }),
         { wrapper: Wrapper },
       );
       expect(result.current.size).toBe(0);
     });
 
-    it("useSelectNodes keeps its reference when an unrelated node changes", async () => {
+    it("useNodes keeps its reference when an unrelated node changes", async () => {
       const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
       const { result } = renderHook(
         () => ({
-          nodes: Schematic.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          nodes: Schematic.useNodes({ key: isolated.key, keys: ["n1"] }),
           dispatch: Schematic.useDispatch(),
         }),
         { wrapper: Wrapper },
@@ -250,12 +307,12 @@ describe("schematic queries", () => {
       expect(result.current.nodes).toBe(initial);
     });
 
-    it("useSelectNodes returns a new array when a requested node changes", async () => {
+    it("useNodes returns a new array when a requested node changes", async () => {
       const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
       const { result } = renderHook(
         () => ({
-          nodes: Schematic.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          nodes: Schematic.useNodes({ key: isolated.key, keys: ["n1"] }),
           dispatch: Schematic.useDispatch(),
         }),
         { wrapper: Wrapper },
@@ -275,12 +332,12 @@ describe("schematic queries", () => {
       });
     });
 
-    it("useSelectConfigs keeps its reference when an unrelated change occurs", async () => {
+    it("useConfigs keeps its reference when an unrelated change occurs", async () => {
       const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
       const { result } = renderHook(
         () => ({
-          configs: Schematic.useSelectConfigs({
+          configs: Schematic.useConfigs({
             key: isolated.key,
             keys: ["n1", "n2"],
           }),
@@ -301,19 +358,14 @@ describe("schematic queries", () => {
   });
 
   describe("useCreate", () => {
-    it("creates a schematic and stores it in the flux store", async () => {
-      const { result } = renderHook(
-        () => {
-          const create = Schematic.useCreate();
-          const store = Flux.useStore<Schematic.FluxSubStore>();
-          return { create, store };
-        },
-        { wrapper: Wrapper },
-      );
+    it("creates a schematic and caches it", async () => {
+      const { result } = renderHook(() => Schematic.useCreate(), {
+        wrapper: Wrapper,
+      });
 
       const key = uuid.create();
       await act(async () => {
-        await result.current.create.updateAsync({
+        await result.current.updateAsync({
           key,
           name: "created_schematic",
           project: proj.key,
@@ -321,16 +373,23 @@ describe("schematic queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.create.variant).toBe("success");
+        expect(result.current.variant).toBe("success");
       });
-      expect(result.current.create.data?.name).toBe("created_schematic");
-      expect(result.current.create.data?.project).toBe(proj.key);
+      expect(result.current.data?.name).toBe("created_schematic");
+      expect(result.current.data?.project).toBe(proj.key);
 
-      const stored = result.current.store.schematics.get(key);
-      expect(stored).toBeDefined();
-      expect(stored?.snapshot).toBe(false);
+      await loadSchematic(Wrapper, key);
+      const { result: selected } = renderHook(
+        () => ({
+          name: Schematic.useName({ key }),
+          snapshot: Schematic.useIsSnapshot({ key }),
+        }),
+        { wrapper: Wrapper },
+      );
+      expect(selected.current.name).toBe("created_schematic");
+      expect(selected.current.snapshot).toBe(false);
 
-      const retrieved = await client.schematics.retrieve({ key });
+      const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.name).toBe("created_schematic");
     });
   });
@@ -354,7 +413,7 @@ describe("schematic queries", () => {
         expect(result.current.variant).toBe("success");
       });
 
-      const retrieved = await client.schematics.retrieve({ key: schem.key });
+      const retrieved = await client.schematics.retrieve(schem.key);
       expect(retrieved.name).toBe("renamed_schematic");
     });
   });
@@ -372,7 +431,7 @@ describe("schematic queries", () => {
       });
 
       expect(result.current.variant).toBe("success");
-      await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve(schem.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -384,7 +443,7 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, schem.key);
 
       const { result: nodes } = renderHook(
-        () => Schematic.useSelectAllNodes({ key: schem.key }),
+        () => Schematic.useAllNodes({ key: schem.key }),
         { wrapper: Wrapper },
       );
       expect(nodes.current.find((n) => n.key === "n1")?.position).toEqual({
@@ -443,10 +502,10 @@ describe("schematic queries", () => {
       const loadUtils = await loadSchematic(Wrapper, schem.key);
 
       const edge = renderHook(
-        () => Schematic.useSelectElementConfig({ key: schem.key, elKey: "e1" }),
+        () => Schematic.useElementConfig({ key: schem.key, elKey: "e1" }),
         { wrapper: Wrapper },
       );
-      const all = renderHook(() => Schematic.useSelectAllNodes({ key: schem.key }), {
+      const all = renderHook(() => Schematic.useAllNodes({ key: schem.key }), {
         wrapper: Wrapper,
       });
       const disp = renderHook(() => Schematic.useDispatch(), {
@@ -549,12 +608,13 @@ describe("schematic queries", () => {
       });
     });
 
-    it("propagates dispatched actions to a second Flux store via sy_schematic_set", async () => {
-      const WrapperB = await createAsyncSynnaxWrapper({ client });
+    it("propagates dispatched actions to a second client via sy_schematic_set", async () => {
+      const clientB = createTestClient();
+      const WrapperB = await createAsyncSynnaxWrapper({ client: clientB });
       await loadSchematic(WrapperB, schem.key);
 
       const { result: nodesB } = renderHook(
-        () => Schematic.useSelectAllNodes({ key: schem.key }),
+        () => Schematic.useAllNodes({ key: schem.key }),
         { wrapper: WrapperB },
       );
 
@@ -572,11 +632,12 @@ describe("schematic queries", () => {
     });
 
     it("dedups its own echo so undo fully reverts a dispatched action", async () => {
-      const WrapperB = await createAsyncSynnaxWrapper({ client });
+      const clientB = createTestClient();
+      const WrapperB = await createAsyncSynnaxWrapper({ client: clientB });
       await loadSchematic(WrapperB, schem.key);
 
       const { result: nodesB } = renderHook(
-        () => Schematic.useSelectAllNodes({ key: schem.key }),
+        () => Schematic.useAllNodes({ key: schem.key }),
         { wrapper: WrapperB },
       );
 

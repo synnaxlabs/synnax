@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -28,10 +28,9 @@ type Writer struct {
 // Create creates a new panel. If the panel's key is uuid.Nil, a new key is generated.
 // The panel is registered with the ontology.
 //
-// Project-vs-draft ownership is enforced by the caller: set p.Parent to attach the
-// panel to a project (project panel) or to a user (draft). When Parent is nil or
-// zero, the panel has no parent in the ontology. Parent is not persisted on the
-// record; parenthood lives in the ontology graph.
+// Set p.Parent to attach the panel to a parent resource in the ontology; when nil or
+// zero, the panel has no parent. Parent is not persisted on the record; parenthood
+// lives in the ontology graph.
 func (w Writer) Create(
 	ctx context.Context,
 	p *Panel,
@@ -42,20 +41,23 @@ func (w Writer) Create(
 	// Default a freshly-created panel to a single empty leaf so action dispatchers
 	// always operate against a well-formed tree.
 	if p.Root.Variant == nil {
-		p.Root = Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
+		p.Root = Node{Variant: LeafNode{Tabs: []Tab{}}}
 	}
 	if err := validateTree(p.Root); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return
+	if err := p.Validate(); err != nil {
+		return err
 	}
-	otgID := OntologyID(p.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	otgID := p.OntologyID()
+	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if p.Parent != nil && !p.Parent.IsZero() {
-		if err := w.otg.DefineRelationship(
+		if err := w.otg.DefineRelationships(
 			ctx,
 			*p.Parent,
 			ontology.RelationshipTypeParentOf,
@@ -64,6 +66,10 @@ func (w Writer) Create(
 			return err
 		}
 	}
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, p.Key, "", []Action{NewCreateAction(CreatePayload{Panel: *p})},
+	)
 	return nil
 }
 
@@ -107,13 +113,10 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Panel](keys...)).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Panel](keys...)).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
 }

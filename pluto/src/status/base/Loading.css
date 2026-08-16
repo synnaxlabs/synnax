@@ -1,0 +1,29 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+@keyframes pluto-status-loading-in {
+    to {
+        opacity: 1;
+    }
+}
+
+/*
+ * A suspense fallback mounts the instant its child suspends, so delaying the
+ * fade-in debounces the indicator without a timer: a read that settles inside
+ * the delay unmounts the element before it was ever visible. Set
+ * --pluto-loading-delay on any ancestor to tune it.
+ */
+.pluto-status__loading {
+    overflow: hidden;
+    opacity: 0;
+    animation: pluto-status-loading-in var(--pluto-loading-fade, 150ms) ease-out
+        var(--pluto-loading-delay, 300ms) forwards;
+}

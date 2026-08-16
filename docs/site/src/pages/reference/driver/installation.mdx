@@ -10,7 +10,7 @@ next: "Timing"
 ---
 
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Table, Driver } from "@/components";
 import Step from "@/components/text/Step.astro";
 import DriverDownloadURL from "@/components/driver/DownloadURL.astro";
@@ -75,6 +75,11 @@ need to configure it to connect to your Core.
 
 </Fragment>
 <Fragment slot="Linux">
+
+<Note.Note variant="info">
+  The Driver requires Ubuntu 24.04 LTS or later (glibc 2.39+). Ubuntu 22.04 reaches end
+  of standard support in April 2027.
+</Note.Note>
 
 ### Install and Run the Driver
 

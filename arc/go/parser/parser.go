@@ -10,8 +10,8 @@
 //go:generate antlr4 -Dlanguage=Go -visitor -o . -package parser ArcLexer.g4 ArcParser.g4
 //go:generate go run gen_token_literals.go
 
-// Package parser provides parsing functionality for the Arc programming language.
-// It uses ANTLR4-generated parsers to convert Arc source code into abstract syntax trees.
+// Package parser provides parsing functionality for the Arc programming language. It
+// uses ANTLR4-generated parsers to convert Arc source code into abstract syntax trees.
 //
 // The parser supports parsing complete programs as well as individual expressions,
 // statements, and blocks for interactive use cases like REPLs or inline evaluation.
@@ -37,7 +37,53 @@ package parser
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
+
+// Config carries per-parse language settings. Adding a field threads a new setting
+// through every parse and analysis path without changing call signatures.
+type Config struct {
+	// AllowDashedNames permits '-' inside identifiers so "sensor-1" lexes as one token.
+	// Off by default; enable only when Core runs with channel-name validation disabled.
+	AllowDashedNames bool
+}
+
+// ConfigOf returns the effective config from a variadic list: the last entry, or the
+// zero Config when none is given. The zero Config means validation-on (dashed names
+// off), so omitting it preserves the default behavior.
+func ConfigOf(cfgs ...Config) Config {
+	if len(cfgs) == 0 {
+		return Config{}
+	}
+	return cfgs[len(cfgs)-1]
+}
+
+// dashAwareStream carries per-parse dashed-name configuration to the lexer predicate
+// without a package-level global.
+type dashAwareStream struct {
+	antlr.CharStream
+	allowDashedNames bool
+}
+
+// dashJoinsIdentifier reports whether the lexer should absorb the upcoming '-' into the
+// current IDENTIFIER token. Invoked from the generated IDENTIFIER predicate.
+func (l *ArcLexer) dashJoinsIdentifier() bool {
+	in := l.GetInputStream()
+	s, ok := in.(*dashAwareStream)
+	if !ok || !s.allowDashedNames {
+		return false
+	}
+	return in.LA(2) != '>' && in.LA(2) != '='
+}
+
+// NewLexer constructs an ArcLexer over source configured with cfg.
+func NewLexer(source string, cfg Config) *ArcLexer {
+	var input antlr.CharStream = antlr.NewInputStream(source)
+	if cfg.AllowDashedNames {
+		input = &dashAwareStream{CharStream: input, allowDashedNames: true}
+	}
+	return NewArcLexer(input)
+}
 
 // Parse parses a complete Arc program from source code.
 //
@@ -52,8 +98,8 @@ import (
 //	        return x * 2
 //	    }
 //	`)
-func Parse(source string) (IProgramContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, (*ArcParser).Program)
+func Parse(source string, cfgs ...Config) (IProgramContext, *diagnostics.Diagnostics) {
+	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Program)
 }
 
 // ParseExpression parses a single Arc expression.
@@ -65,8 +111,11 @@ func Parse(source string) (IProgramContext, *diagnostics.Diagnostics) {
 // Example:
 //
 //	expr, err := parser.ParseExpression("(2 + 3) * 4")
-func ParseExpression(source string) (IExpressionContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, (*ArcParser).Expression)
+func ParseExpression(
+	source string,
+	cfgs ...Config,
+) (IExpressionContext, *diagnostics.Diagnostics) {
+	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Expression)
 }
 
 // ParseStatement parses a single Arc statement.
@@ -78,8 +127,11 @@ func ParseExpression(source string) (IExpressionContext, *diagnostics.Diagnostic
 // Example:
 //
 //	stmt, err := parser.ParseStatement("total := total + 1")
-func ParseStatement(source string) (IStatementContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, (*ArcParser).Statement)
+func ParseStatement(
+	source string,
+	cfgs ...Config,
+) (IStatementContext, *diagnostics.Diagnostics) {
+	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Statement)
 }
 
 // ParseBlock parses an Arc block (sequence of statements enclosed in braces).
@@ -90,17 +142,23 @@ func ParseStatement(source string) (IStatementContext, *diagnostics.Diagnostics)
 //	    x := 10
 //	    y := x * 2
 //	}`)
-func ParseBlock(source string) (IBlockContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, (*ArcParser).Block)
+func ParseBlock(
+	source string,
+	cfgs ...Config,
+) (IBlockContext, *diagnostics.Diagnostics) {
+	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Block)
 }
 
 // parseWithContext executes the parsing with proper error handling.
 // It sets up the lexer, parser, and error listener, then invokes the provided
 // parse function to generate the appropriate parse tree node.
-func parseWithContext[T any](source string, parseFn func(*ArcParser) T) (T, *diagnostics.Diagnostics) {
+func parseWithContext[T any](
+	source string,
+	cfg Config,
+	parseFn func(*ArcParser) T,
+) (T, *diagnostics.Diagnostics) {
 	var (
-		input  = antlr.NewInputStream(source)
-		lexer  = NewArcLexer(input)
+		lexer  = NewLexer(source, cfg)
 		stream = antlr.NewCommonTokenStream(lexer, 0)
 		parser = NewArcParser(stream)
 		diag   = &diagnostics.Diagnostics{}
@@ -137,19 +195,25 @@ func (e *errorListener) SyntaxError(
 	_ antlr.RecognitionException,
 ) {
 	e.Add(diagnostics.Diagnostic{
-		Severity: diagnostics.SeverityError,
-		Start:    diagnostics.Position{Line: line, Col: column},
-		Message:  msg,
+		Severity: protocol.DiagnosticSeverityError,
+		Range: protocol.Range{
+			Start: protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
+			End: protocol.Position{
+				Line:      uint32(line - 1),
+				Character: uint32(column + 1),
+			},
+		},
+		Message: msg,
 	})
 }
 
-// TokensAdjacent returns true if two tokens are adjacent with no whitespace between them.
-// This is used by the numericLiteral grammar rule to determine if an IDENTIFIER
-// immediately follows a numeric literal (making it a unit suffix like "300ms")
-// versus being separated by whitespace (making them separate tokens).
+// TokensAdjacent returns true if two tokens are adjacent with no whitespace between
+// them. This is used by the numericLiteral grammar rule to determine if an IDENTIFIER
+// immediately follows a numeric literal (making it a unit suffix like "300ms") versus
+// being separated by whitespace (making them separate tokens).
 //
-// The check uses character positions: if prev token ends at position X,
-// and next token starts at position X+1, they are adjacent.
+// The check uses character positions: if prev token ends at position X, and next token
+// starts at position X+1, they are adjacent.
 func (p *ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
 	if prev == nil || next == nil {
 		return false

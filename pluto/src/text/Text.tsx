@@ -16,6 +16,7 @@ import {
   type ComponentPropsWithoutRef,
   type ReactElement,
   type ReactNode,
+  useMemo,
 } from "react";
 
 import { CSS } from "@/css";
@@ -26,7 +27,7 @@ import { isValidElement } from "@/util/children";
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
 export type Variant = "prose" | "code" | "keyboard" | "link";
-export type Overflow = "ellipsis" | "clip" | "nowrap" | "wrap";
+export type Overflow = "ellipsis" | "fade" | "clip" | "nowrap" | "wrap";
 
 export interface ExtensionProps
   extends Flex.BoxExtensionProps, Pick<AnchorProps, "href" | "target" | "rel"> {
@@ -34,7 +35,6 @@ export interface ExtensionProps
   level?: text.Level;
   /* The text to display */
   children?: ReactNode;
-  /* Shade sets the shade of the text */
   /* Weight sets the weight of the text */
   weight?: text.Weight;
   /* Variant sets the variant of the text */
@@ -91,8 +91,9 @@ export const isSquare = (children: ReactNode): boolean => {
   return false;
 };
 
-const parseElement = <E extends Generic.ElementType = "p">(
-  level: text.Level,
+/** Resolves which element a text-based component renders as. */
+export const parseElement = <E extends Generic.ElementType = "p">(
+  level?: text.Level,
   el?: E,
   defaultEl?: Generic.ElementType,
   variant?: Variant,
@@ -132,23 +133,29 @@ export const Text = <E extends Generic.ElementType = "p">({
   status,
   lineClamp,
   ...rest
-}: TextProps<E>): ReactElement => (
-  <Flex.Box<E>
-    direction="x"
-    el={parseElement<E>(level, el, defaultEl, variant, href)}
-    style={formatStyle(style, weight, lineClamp)}
-    className={CSS(
-      CSS.B("text"),
-      variant != null && CSS.BM("text", variant),
-      CSS.BM("text", level),
-      overflow != null && CSS.BM("text", "overflow", overflow),
-      lineClamp != null && CSS.BM("text", "line-clamp"),
-      status != null && CSS.M("status", status),
-      className,
-    )}
-    square={isSquare(rest.children)}
-    gap="small"
-    href={formatHref(href, autoFormatHref)}
-    {...(rest as Flex.BoxProps<E>)}
-  />
-);
+}: TextProps<E>): ReactElement => {
+  const formattedStyle = useMemo(
+    () => formatStyle(style, weight, lineClamp),
+    [style, weight, lineClamp],
+  );
+  return (
+    <Flex.Box<E>
+      direction="x"
+      el={parseElement<E>(level, el, defaultEl, variant, href)}
+      style={formattedStyle}
+      className={CSS(
+        CSS.B("text"),
+        variant != null && CSS.BM("text", variant),
+        CSS.BM("text", level),
+        overflow != null && CSS.BM("text", "overflow", overflow),
+        lineClamp != null && CSS.BM("text", "line-clamp"),
+        status != null && CSS.M("status", status),
+        className,
+      )}
+      square={isSquare(rest.children)}
+      gap="small"
+      href={formatHref(href, autoFormatHref)}
+      {...(rest as Flex.BoxProps<E>)}
+    />
+  );
+};

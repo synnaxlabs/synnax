@@ -83,7 +83,10 @@ const (
 func Defer(f func(), opts ...RoutineOption) RoutineOption {
 	o := newRoutineOptions(opts)
 	return func(r *routineOptions) {
-		r.deferrals = append(r.deferrals, deferral{key: o.key, f: func() error { f(); return nil }})
+		r.deferrals = append(
+			r.deferrals,
+			deferral{key: o.key, f: func() error { f(); return nil }},
+		)
 	}
 }
 
@@ -98,7 +101,11 @@ func DeferErr(f func() error, opts ...RoutineOption) RoutineOption {
 }
 
 // WithKey attaches a key to identify the routine.
-func WithKey(key string) RoutineOption { return func(r *routineOptions) { r.key = key } }
+func WithKey(
+	key string,
+) RoutineOption {
+	return func(r *routineOptions) { r.key = key }
+}
 
 // WithKeyf attaches a formatted string to identify the routine.
 func WithKeyf(format string, args ...any) RoutineOption {
@@ -290,7 +297,12 @@ func (r *routine) runPostlude(err error) error {
 			r.state.state = RoutineStateFailed
 			r.state.err = err
 			r.ctx.L.Error("routine failed", r.zapFields()...)
-			r.ctx.L.Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
+			r.ctx.L.Debugf(
+				routineFailedFormat,
+				r.key,
+				r.state.err,
+				r.ctx.routineDiagnostics(),
+			)
 		}
 		if r.contextPolicy == cancelOnFail {
 			r.ctx.cancel()
@@ -408,7 +420,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 					err = r.ctx.Err()
 				}
 				err = r.runPostlude(err)
-				return
+				return err
 			})
 		})
 	}

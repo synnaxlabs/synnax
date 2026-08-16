@@ -27,7 +27,8 @@ struct Transport {
         const std::string &ip,
         const std::string &ca_cert_file,
         const std::string &client_cert_file,
-        const std::string &client_key_file
+        const std::string &client_key_file,
+        bool secure
     );
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;
@@ -39,6 +40,7 @@ struct Transport {
     std::shared_ptr<channel::RetrieveClient> chan_retrieve;
     std::unique_ptr<ranger::RetrieveClient> range_retrieve;
     std::unique_ptr<ranger::CreateClient> range_create;
+    std::unique_ptr<ranger::SetEndClient> range_set_end;
     std::shared_ptr<ranger::kv::DeleteClient> range_kv_delete;
     std::shared_ptr<ranger::kv::GetClient> range_kv_get;
     std::shared_ptr<ranger::kv::SetClient> range_kv_set;

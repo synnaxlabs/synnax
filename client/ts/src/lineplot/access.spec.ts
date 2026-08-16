@@ -9,10 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { lineplot } from "@/lineplot";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -26,9 +25,9 @@ describe("lineplot", () => {
       });
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLinePlot = await client.lineplots.create(proj.key, { name: "test" });
-      await expect(
-        userClient.lineplots.retrieve({ key: randomLinePlot.key }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.lineplots.retrieve(randomLinePlot.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
 
     it("should allow the caller to retrieve lineplots with the correct policy", async () => {
@@ -39,9 +38,7 @@ describe("lineplot", () => {
       });
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLinePlot = await client.lineplots.create(proj.key, { name: "test" });
-      const retrieved = await userClient.lineplots.retrieve({
-        key: randomLinePlot.key,
-      });
+      const retrieved = await userClient.lineplots.retrieve(randomLinePlot.key);
       expect(retrieved.key).toBe(randomLinePlot.key);
       expect(retrieved.name).toBe(randomLinePlot.name);
     });
@@ -65,7 +62,7 @@ describe("lineplot", () => {
       const proj = await client.projects.create({ name: "test", layout: {} });
       await expect(
         userClient.lineplots.create(proj.key, { name: "test" }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete lineplots with the correct policy", async () => {
@@ -77,9 +74,9 @@ describe("lineplot", () => {
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLinePlot = await client.lineplots.create(proj.key, { name: "test" });
       await userClient.lineplots.delete(randomLinePlot.key);
-      await expect(
-        userClient.lineplots.retrieve({ key: randomLinePlot.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(userClient.lineplots.retrieve(randomLinePlot.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should deny access when no delete policy exists", async () => {
@@ -90,8 +87,8 @@ describe("lineplot", () => {
       });
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLinePlot = await client.lineplots.create(proj.key, { name: "test" });
-      await expect(userClient.lineplots.delete(randomLinePlot.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.lineplots.delete(randomLinePlot.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

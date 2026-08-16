@@ -181,6 +181,9 @@ std::string Type::to_string() const {
         case Kind::Series:
             if (elem.has_value()) return "series " + elem->to_string();
             return "series <invalid>";
+        case Kind::VarRef:
+            if (elem.has_value()) return "var " + elem->to_string();
+            return "var <invalid>";
         default:
             return "invalid";
     }
@@ -276,6 +279,9 @@ to_sample_value(const x::json::json &value, const Type &type) {
         case Kind::Chan:
             return value.is_number() ? std::optional(value.get<int32_t>())
                                      : std::nullopt;
+        case Kind::VarRef:
+            if (type.elem.has_value()) return to_sample_value(value, *type.elem);
+            return std::nullopt;
         default:
             return std::nullopt;
     }

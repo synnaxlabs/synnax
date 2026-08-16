@@ -14,12 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,18 +33,20 @@ func TestTable(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db   *gorp.DB
-	proj project.Project
-	svc  *table.Service
-	tx   gorp.Tx
+	db      *gorp.DB
+	proj    project.Project
+	svc     *table.Service
+	imexSvc *imex.Service
+	tx      gorp.Tx
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		var (
 			otg       = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx = MustOpen(search.Open())
+			searchIdx = MustOpen(search.OpenIndex())
 			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -56,22 +58,15 @@ var (
 				Group:    g,
 				Search:   searchIdx,
 			}))
-			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Search:   searchIdx,
-			}))
 		)
+		imexSvc = imex.NewService()
 		svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
+			ImEx:     imexSvc,
 		}))
-		author := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "test",
-		}))
-		proj.Author = author.Key
+		proj.Name = "test-project"
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

@@ -14,12 +14,12 @@ import (
 
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
 	"go.uber.org/zap"
 )
 
-func getDigestFromKV(ctx context.Context, r xkv.Reader, key []byte) (Digest, error) {
+func getDigestFromKV(ctx context.Context, r kv.Reader, key []byte) (Digest, error) {
 	dig := Digest{}
 	key, err := digestKey(key)
 	if err != nil {
@@ -38,18 +38,21 @@ const versionCounterKey = "ver"
 
 type versionAssigner struct {
 	confluence.LinearTransform[TxRequest, TxRequest]
-	counter *xkv.AtomicInt64Counter
+	counter *kv.AtomicInt64Counter
 	Config
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
-	c, err := xkv.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
+	c, err := kv.NewCounter(ctx, cfg.Engine, []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.Transform = v.assign
 	return v, err
 }
 
-func (va *versionAssigner) assign(ctx context.Context, br TxRequest) (TxRequest, bool, error) {
+func (va *versionAssigner) assign(
+	ctx context.Context,
+	br TxRequest,
+) (TxRequest, bool, error) {
 	latestVer := va.counter.Value()
 	if _, err := va.counter.Add(ctx, int64(br.size())); err != nil {
 		va.L.Error("failed to assign version", zap.Error(err))

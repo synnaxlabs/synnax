@@ -12,15 +12,16 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_set>
 #include <variant>
 #include <vector>
 
-#include "glog/logging.h"
-
-#include "client/cpp/synnax.h"
+#include "client/cpp/channel/channel.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 namespace driver::transform {
@@ -118,10 +119,8 @@ class UnaryLinearScale {
     x::telem::DataType dt;
 
 public:
-    explicit UnaryLinearScale(x::json::Parser &parser, const x::telem::DataType &dt):
-        slope(parser.field<double>("slope")),
-        offset(parser.field<double>("offset")),
-        dt(dt) {}
+    UnaryLinearScale(const double slope, const double offset, x::telem::DataType dt):
+        slope(slope), offset(offset), dt(std::move(dt)) {}
 
     x::errors::Error transform_inplace(const x::telem::Series &series) const {
         if (this->dt != series.data_type())
@@ -147,12 +146,18 @@ class UnaryMapScale {
     x::telem::DataType dt;
 
 public:
-    explicit UnaryMapScale(x::json::Parser &parser, const x::telem::DataType &dt):
-        prescaled_min(parser.field<double>("pre_scaled_min")),
-        prescaled_max(parser.field<double>("pre_scaled_max")),
-        scaled_min(parser.field<double>("scaled_min")),
-        scaled_max(parser.field<double>("scaled_max")),
-        dt(dt) {}
+    UnaryMapScale(
+        const double pre_scaled_min,
+        const double pre_scaled_max,
+        const double scaled_min,
+        const double scaled_max,
+        x::telem::DataType dt
+    ):
+        prescaled_min(pre_scaled_min),
+        prescaled_max(pre_scaled_max),
+        scaled_min(scaled_min),
+        scaled_max(scaled_max),
+        dt(std::move(dt)) {}
 
     x::errors::Error transform_inplace(const x::telem::Series &series) const {
         if (this->dt != series.data_type())
@@ -174,38 +179,13 @@ public:
 };
 
 class Scale final : public Transform {
-    std::map<synnax::channel::Key, std::variant<UnaryLinearScale, UnaryMapScale>>
-        scales;
-
 public:
-    explicit Scale(
-        const x::json::Parser &parser,
-        const std::unordered_map<synnax::channel::Key, synnax::channel::Channel>
-            &channels
-    ) {
-        parser.iter("channels", [this, &channels](x::json::Parser &channel_parser) {
-            const auto key = channel_parser.field<synnax::channel::Key>("channel");
-            const auto enabled = channel_parser.field<bool>("enabled", true);
-            auto scale_parser = channel_parser.optional_child("scale");
-            if (!channel_parser.ok() || !enabled) return;
-            const auto ch_t = channels.find(key);
-            if (ch_t == channels.end()) {
-                channel_parser.field_err(
-                    "channel",
-                    "Channel " + std::to_string(key) + " is not a configured channel."
-                );
-                return;
-            }
-            const auto type = scale_parser.field<std::string>("type");
-            const auto dt = ch_t->second.data_type;
-            if (type == "linear") {
-                UnaryLinearScale linear_scale(scale_parser, dt);
-                scales.emplace(key, std::move(linear_scale));
-            } else if (type == "map") {
-                UnaryMapScale map_scale(scale_parser, dt);
-                scales.emplace(key, std::move(map_scale));
-            }
-        });
+    /// @brief a single-channel scale operation.
+    using Unary = std::variant<UnaryLinearScale, UnaryMapScale>;
+
+    /// @brief registers the scale to apply to the given channel's series.
+    void add(const synnax::channel::Key key, Unary scale) {
+        this->scales.emplace(key, std::move(scale));
     }
 
     x::errors::Error transform(x::telem::Frame &frame) override {
@@ -223,5 +203,8 @@ public:
         }
         return x::errors::NIL;
     }
+
+private:
+    std::map<synnax::channel::Key, Unary> scales;
 };
 }

@@ -14,24 +14,15 @@
         width: 100%;
     }
 
-    &.pluto--selected {
-        background: var(--pluto-primary-z-40);
-    }
-
-    &:has(.pluto-menu-item__trigger) {
-        padding-right: 0.5rem;
-    }
-
-    & .pluto-menu-item__trigger {
-        margin-left: auto;
-        opacity: 0.75;
-        transform: scale(0.9);
-        transition: opacity 0.15s;
-    }
-
-    &:hover {
-        & .pluto-menu-item__trigger {
-            opacity: 1;
-        }
+    /* Menu items are rows: they speak the list selection tier, not the
+       control-tier default. */
+    &.pluto-btn.pluto--selected {
+        --pluto-bg: var(--pluto-selected-list-bg);
+        --pluto-hover-bg: var(--pluto-selected-list-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-list-active-bg);
+        --pluto-border-color: var(--pluto-selected-list-border-color);
+        --pluto-hover-border-color: var(--pluto-selected-list-border-color);
+        --pluto-active-border-color: var(--pluto-selected-list-border-color);
+        color: unset;
     }
 }

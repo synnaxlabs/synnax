@@ -59,7 +59,9 @@ func (b *IRBuilder) Edge(srcNode, srcParam, tgtNode, tgtParam string) *IRBuilder
 
 // Conditional adds a conditional edge: source.param => target.param.
 // Conditional edges only propagate when the source output is truthy.
-func (b *IRBuilder) Conditional(srcNode, srcParam, tgtNode, tgtParam string) *IRBuilder {
+func (b *IRBuilder) Conditional(
+	srcNode, srcParam, tgtNode, tgtParam string,
+) *IRBuilder {
 	b.prog.Edges = append(b.prog.Edges, ir.Edge{
 		Source: ir.Handle{Node: srcNode, Param: srcParam},
 		Target: ir.Handle{Node: tgtNode, Param: tgtParam},
@@ -118,7 +120,10 @@ func (b *IRBuilder) Sequence(key string, specs []ScopeSpec) *IRBuilder {
 			for _, stratum := range spec.Strata {
 				stratumMembers := make(ir.Members, 0, len(stratum))
 				for _, key := range stratum {
-					stratumMembers = append(stratumMembers, ir.Member{NodeKey: new(key)})
+					stratumMembers = append(
+						stratumMembers,
+						ir.Member{NodeKey: new(key)},
+					)
 				}
 				nested.Strata = append(nested.Strata, stratumMembers)
 			}

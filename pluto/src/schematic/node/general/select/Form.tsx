@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
@@ -71,42 +71,36 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-const SELECT_FORM_TABS: Tabs.Tab[] = [
-  { tabKey: "style", name: "Style" },
-  { tabKey: "options", name: "Options" },
-  { tabKey: "control", name: "Control" },
-];
-
-export const SelectForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "control":
-        return <SelectTelemForm path="" />;
-      case "options":
-        return (
-          <Form.Wrapper y align="stretch">
-            <Form.StateMappingForm path="options" />
-          </Form.Wrapper>
-        );
-      default:
-        return (
-          <Form.Wrapper y align="stretch">
-            <Flex.Box y align="stretch" grow gap="small">
-              <Label.Form path="label" />
-              <Flex.Box x>
-                <Form.SizeField />
-                <Form.ColorField path="color" />
-                <Base.NumericField
-                  path="inlineSize"
-                  label="Width"
-                  inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-                />
-              </Flex.Box>
-            </Flex.Box>
-          </Form.Wrapper>
-        );
-    }
-  }, []);
-  const props = Tabs.useStatic({ tabs: SELECT_FORM_TABS, content });
-  return <Tabs.Tabs {...props} grow />;
-};
+export const SelectForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style" grow>
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="options">Options</Tabs.Tab>
+      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <Form.Wrapper y align="stretch">
+        <Flex.Box y align="stretch" grow gap="small">
+          <Label.Form path="label" />
+          <Flex.Box x>
+            <Form.SizeField />
+            <Form.ColorField path="color" />
+            <Base.NumericField
+              path="inlineSize"
+              label="Width"
+              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+            />
+          </Flex.Box>
+        </Flex.Box>
+      </Form.Wrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="options">
+      <Form.Wrapper y align="stretch">
+        <Form.StateMappingForm path="options" />
+      </Form.Wrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="control">
+      <SelectTelemForm path="" />
+    </Tabs.Content>
+  </Tabs.Frame>
+);

@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 )
@@ -55,7 +56,13 @@ func ResolveNodeTypes(
 		if !ok {
 			continue
 		}
-		if err := atypes.Check(cs, sourceParam.Type, targetParam.Type, nil, ""); err != nil {
+		if err := atypes.Check(
+			cs,
+			sourceParam.Type,
+			targetParam.Type,
+			nil,
+			"",
+		); err != nil {
 			diag.Add(diagnostics.Error(err, nil))
 			return false
 		}
@@ -84,6 +91,10 @@ func ResolveNodeTypes(
 				// An edge supplies this input's value, so drop any default; a nil
 				// Value then marks the input as edge-fed.
 				nodes[ni].Inputs[pi].Value = nil
+				continue
+			}
+			// A var ref input is bound to its variable's node at runtime.
+			if p.Type.Kind == types.KindVarRef {
 				continue
 			}
 			if p.Value != nil {

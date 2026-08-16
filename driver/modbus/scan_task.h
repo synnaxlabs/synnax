@@ -14,8 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "glog/logging.h"
-
 #include "x/cpp/json/json.h"
 
 #include "driver/common/scan_task.h"

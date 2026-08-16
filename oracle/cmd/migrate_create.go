@@ -28,7 +28,7 @@ func newMigrateCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <name>",
 		Short: "Scaffold a hand-written migration",
-		Long:  "Creates a migration file with boilerplate, pre-wired dependency on the latest schema migration.",
+		Long:  "Creates a migration file with boilerplate in the latest migration version directory.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := runMigrateCreate(args[0]); err != nil {
@@ -38,7 +38,8 @@ func newMigrateCreateCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&migrateCreateService, "service", "", "Service output path (e.g. core/pkg/service/ranger)")
+	cmd.Flags().
+		StringVar(&migrateCreateService, "service", "", "Service output path (e.g. core/pkg/service/ranger)")
 	return cmd
 }
 
@@ -56,13 +57,10 @@ import (
 // New{{.PascalName}}Migration creates a hand-written migration.
 // TODO: implement migration logic.
 func New{{.PascalName}}Migration() migrate.Migration {
-	return migrate.WithAddedDeps(
-		gorp.NewMigration("{{.Name}}", func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			// TODO: implement
-			return nil
-		}),
-		"{{.DependsOn}}",
-	)
+	return gorp.NewMigration("{{.Name}}", func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		// TODO: implement
+		return nil
+	})
 }
 `))
 
@@ -112,22 +110,25 @@ func runMigrateCreate(name string) (err error) {
 		return errors.Wrap(err, "failed to read core version")
 	}
 
-	existingVersions, err := findMigrationVersions(filepath.Join(repoRoot, servicePath, "migrations"))
+	existingVersions, err := findMigrationVersions(
+		filepath.Join(repoRoot, servicePath, "migrations"),
+	)
 	if err != nil {
-		return errors.Wrapf(err, "failed to discover existing migrations for %s", servicePath)
+		return errors.Wrapf(
+			err,
+			"failed to discover existing migrations for %s",
+			servicePath,
+		)
 	}
 
-	dependsOn := "msgpack_to_orc"
 	effectiveVersion := version
 	if len(existingVersions) > 0 {
-		latest := existingVersions[len(existingVersions)-1]
-		dependsOn = fmt.Sprintf("v%d_schema_migration", latest)
-		effectiveVersion = latest
+		effectiveVersion = existingVersions[len(existingVersions)-1]
 	}
 
 	vDir := fmt.Sprintf("v%d", effectiveVersion)
 	migrationDir := filepath.Join(repoRoot, servicePath, "migrations", vDir)
-	if err := os.MkdirAll(migrationDir, 0755); err != nil {
+	if err := os.MkdirAll(migrationDir, 0o755); err != nil {
 		return errors.Wrapf(err, "failed to create migration directory")
 	}
 
@@ -147,12 +148,10 @@ func runMigrateCreate(name string) (err error) {
 		Version    int
 		Name       string
 		PascalName string
-		DependsOn  string
 	}{
 		Version:    effectiveVersion,
 		Name:       name,
 		PascalName: pascalName,
-		DependsOn:  dependsOn,
 	}); err != nil {
 		return errors.Wrapf(err, "failed to write scaffold")
 	}
@@ -161,8 +160,13 @@ func runMigrateCreate(name string) (err error) {
 	printDim(fmt.Sprintf("  ✏️  %s ← implement migration logic", relPath))
 
 	pkg := filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(relPath))))
-	printDim(fmt.Sprintf("  🔌 Wire New%sMigration() into your gorp.OpenTable call in %s/service.go",
-		pascalName, strings.TrimPrefix(servicePath, "core/pkg/service/")))
+	printDim(
+		fmt.Sprintf(
+			"  🔌 Wire New%sMigration() into your gorp.OpenTable call in %s/service.go",
+			pascalName,
+			strings.TrimPrefix(servicePath, "core/pkg/service/"),
+		),
+	)
 	_ = pkg
 
 	return nil

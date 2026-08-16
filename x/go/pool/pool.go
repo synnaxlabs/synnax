@@ -10,83 +10,93 @@
 package pool
 
 import (
+	"io"
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
 )
 
 // ErrClosed is returned by Acquire after Close has been called.
 //
-// Acquiring from a closed pool is a programming error: the contract is that
-// the caller stops using the pool before calling Close. ErrClosed exists to
-// surface that bug deterministically rather than silently allocate an
-// untracked adapter.
+// Acquiring from a closed pool is a programming error: the contract is that the caller
+// stops using the pool before calling Close. ErrClosed exists to surface that bug
+// deterministically rather than silently allocate an untracked adapter.
 var ErrClosed = errors.New("pool: closed")
 
+// Adapter is a poolable resource (such as a network connection) that a Pool caches and
+// hands out to callers. An Adapter tracks how many callers currently hold it so it is
+// only torn down once nothing is using it.
 type Adapter interface {
+	// Closer releases the underlying resource. It is called by Pool.Close.
+	io.Closer
+	// Healthy reports whether the adapter is still usable. The Pool discards adapters
+	// that report false instead of handing them out.
 	Healthy() bool
-	Close() error
+	// Acquire records that an additional caller now holds the adapter.
 	Acquire() error
+	// Release records that one caller is done with the adapter.
 	Release()
 }
 
+// Factory opens new Adapters on demand. A Pool calls Open when it has no healthy cached
+// adapter for a requested key.
 type Factory[K comparable, A Adapter] interface {
-	New(K) (A, error)
+	// Open opens a new adapter for the given key.
+	Open(K) (A, error)
 }
 
-type Pool[K comparable, A Adapter] interface {
-	// Acquire returns an adapter for the given key, creating one via the
-	// Factory if no healthy adapter is already cached.
-	//
-	// Calling Acquire after Close is a programming error: the contract is
-	// that the caller stops using the pool before Close runs. As a safety
-	// net for buggy callers, Acquire returns ErrClosed instead of silently
-	// allocating an adapter that nothing will ever close.
-	Acquire(key K) (A, error)
-	// Close closes every adapter currently held by the pool.
-	//
-	// The caller is responsible for ensuring no goroutine is using the pool
-	// concurrently with or after Close. Close is idempotent — second and
-	// subsequent calls are no-ops. After Close, Acquire returns ErrClosed.
-	Close() error
-}
-
-func New[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
-	return &core[K, A]{pool: make(map[K][]A), factory: factory}
-}
-
-type core[K comparable, A Adapter] struct {
+// Pool caches and reuses Adapters keyed by K, opening new ones via a Factory only when
+// no healthy adapter is already cached for a key. Pool is safe for concurrent use.
+type Pool[K comparable, A Adapter] struct {
 	factory Factory[K, A]
 	pool    map[K][]A
 	mu      sync.Mutex
 }
 
-func (p *core[K, A]) Acquire(key K) (a A, err error) {
+// Open returns a Pool that opens adapters on demand via factory.
+func Open[K comparable, A Adapter](factory Factory[K, A]) *Pool[K, A] {
+	return &Pool[K, A]{pool: make(map[K][]A), factory: factory}
+}
+
+// Acquire returns an adapter for the given key, creating one via the Factory if no
+// healthy adapter is already cached.
+//
+// Calling Acquire after Close is a programming error: the contract is that the caller
+// stops using the pool before Close runs. As a safety net for buggy callers, Acquire
+// returns ErrClosed instead of silently allocating an adapter that nothing will ever
+// close.
+func (p *Pool[K, A]) Acquire(key K) (A, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.pool == nil {
-		return a, ErrClosed
+		return types.Zero[A](), ErrClosed
 	}
 	if adapters, ok := p.pool[key]; ok {
 		for _, adapter := range adapters {
 			if adapter.Healthy() {
-				return adapter, adapter.Acquire()
+				if err := adapter.Acquire(); err != nil {
+					return types.Zero[A](), err
+				}
+				return adapter, nil
 			}
 		}
 	}
-	return p.new(key)
+	return p.open(key)
 }
 
-func (p *core[K, A]) Close() error {
+// Close closes every adapter the pool has opened. The pool must not be used after Close
+// returns.
+func (p *Pool[K, A]) Close() error {
 	p.mu.Lock()
 	adapters := p.pool
 	p.pool = nil
 	p.mu.Unlock()
 
-	// Adapter teardowns happen outside the lock so a slow Close (e.g. grpc
-	// client connection shutdown waiting on its internal WaitGroup) does not
-	// block concurrent callers and cannot deadlock if an adapter's Close
-	// path ever calls back into the pool.
+	// Adapter teardowns happen outside the lock so a slow Close (e.g. gRPC client
+	// connection shutdown waiting on its internal WaitGroup) does not block concurrent
+	// callers and cannot deadlock if an adapter's Close path ever calls back into the
+	// pool.
 	var err error
 	for _, group := range adapters {
 		for _, adapter := range group {
@@ -96,10 +106,10 @@ func (p *core[K, A]) Close() error {
 	return err
 }
 
-func (p *core[K, A]) new(key K) (a A, err error) {
-	a, err = p.factory.New(key)
+func (p *Pool[K, A]) open(key K) (A, error) {
+	a, err := p.factory.Open(key)
 	if err != nil {
-		return a, err
+		return types.Zero[A](), err
 	}
 	p.pool[key] = append(p.pool[key], a)
 	return a, nil

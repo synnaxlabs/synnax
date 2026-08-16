@@ -12,14 +12,32 @@ package omit
 
 import "github.com/synnaxlabs/oracle/resolution"
 
-// IsType returns true if the type has an "omit" expression in the domain.
+// IsType returns true if the type has an "omit" expression in the domain: the
+// type does not exist in the domain's language at all.
 func IsType(typ resolution.Type, domainName string) bool {
+	return hasExpr(typ, domainName, "omit")
+}
+
+// IsHand returns true if the type has a "hand" expression in the domain: the
+// type exists in the language, hand-written at its declared output path.
+// References to it resolve normally; only its declaration is not generated.
+func IsHand(typ resolution.Type, domainName string) bool {
+	return hasExpr(typ, domainName, "hand")
+}
+
+// IsSkipped returns true when no declaration is generated for the type in the
+// domain: the type is either omitted or hand-written.
+func IsSkipped(typ resolution.Type, domainName string) bool {
+	return IsType(typ, domainName) || IsHand(typ, domainName)
+}
+
+func hasExpr(typ resolution.Type, domainName, name string) bool {
 	domain, ok := typ.Domains[domainName]
 	if !ok {
 		return false
 	}
 	for _, expr := range domain.Expressions {
-		if expr.Name == "omit" {
+		if expr.Name == name {
 			return true
 		}
 	}

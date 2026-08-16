@@ -14,7 +14,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import synnax as sy
 from console.case import ConsoleCase
 from console.log import Log
-from framework.utils import assert_link_format
+from framework.utils import assert_envelope, assert_link_format
 from x import random_name
 
 
@@ -312,8 +312,9 @@ class LogLifecycle(ConsoleCase):
 
         self.log("Testing export log via context menu")
         exported = self.console.project.export_page(self.ctx_log_name)
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Log key should be a UUID"
+        assert_envelope(
+            exported, envelope_type="log", min_version=2, name=self.ctx_log_name
+        )
 
         self.log("Testing rename log via context menu")
         new_name = f"Renamed Log {self.suffix}"

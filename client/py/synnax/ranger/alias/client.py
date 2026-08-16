@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 import synnax.channel.payload as channel
 from freighter import UnaryClient
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _ResolveRequest(BaseModel):

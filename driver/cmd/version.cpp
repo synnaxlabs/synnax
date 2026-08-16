@@ -7,19 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/cmd/cmd.h"
+#include "absl/log/log.h"
 
-namespace driver::cmd {
+#include "x/cpp/args/args.h"
+#include "x/cpp/log/log.h"
+
+#include "core/pkg/version/version.h"
+
+namespace driver::cmd::sub {
 std::string version() {
     return "v" + std::string(SYNNAX_DRIVER_VERSION) + " (" +
            std::string(SYNNAX_BUILD_TIMESTAMP) + ")";
 }
 
-namespace sub {
 int version(x::args::Parser &args) {
-    LOG(INFO) << x::log::BLUE() << "Synnax Driver " << cmd::version()
-              << x::log::RESET();
+    LOG(INFO) << x::log::BLUE() << "Synnax Driver " << version() << x::log::RESET();
     return 0;
-}
 }
 }

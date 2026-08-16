@@ -53,6 +53,24 @@ type Host struct {
 // entering a node.
 func (h *Host) SetNodeKey(key string) { h.currentNodeKey = key }
 
+// ClearNode discards all stateful variable slots held for the node with the
+// given key, so its variables re-initialize on the next load. Called by the
+// runtime when the stage containing the node is activated.
+func (h *Host) ClearNode(key string) {
+	delete(h.stateU8, key)
+	delete(h.stateU16, key)
+	delete(h.stateU32, key)
+	delete(h.stateU64, key)
+	delete(h.stateI8, key)
+	delete(h.stateI16, key)
+	delete(h.stateI32, key)
+	delete(h.stateI64, key)
+	delete(h.stateF32, key)
+	delete(h.stateF64, key)
+	delete(h.stateString, key)
+	delete(h.stateSeries, key)
+}
+
 // NewHost registers the state module's WASM host bindings with rt. The
 // stateful module's host functions allocate values through the series and
 // strings ProgramStates, so both must be supplied.
@@ -121,22 +139,34 @@ func NewSymbols() []*symbol.Symbol {
 	mod.AddChild(
 		symbol.InternalHostFunc(
 			"load",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "init", Type: types.Variable("T", &numConstraint)},
+			},
 			types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
 		),
 		symbol.InternalHostFunc(
 			"store",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "value", Type: types.Variable("T", &numConstraint)},
+			},
 			nil,
 		),
 		symbol.InternalHostFunc(
 			"load_series",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "init", Type: types.I32()},
+			},
 			types.Params{{Name: "handle", Type: types.I32()}},
 		),
 		symbol.InternalHostFunc(
 			"store_series",
-			types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
+			types.Params{
+				{Name: "id", Type: types.I32()},
+				{Name: "handle", Type: types.I32()},
+			},
 			nil,
 		),
 	)
@@ -158,7 +188,7 @@ func bindScalarI32[T i32Compatible](
 	suffix string,
 ) {
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, initValue uint32) uint32 {
+		WithFunc(func(_ context.Context, varID, initValue uint32) uint32 {
 			key := h.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
@@ -172,7 +202,7 @@ func bindScalarI32[T i32Compatible](
 			return initValue
 		}).Export("load_" + suffix)
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, value uint32) {
+		WithFunc(func(_ context.Context, varID, value uint32) {
 			key := h.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
@@ -275,7 +305,7 @@ func bindScalarF64(builder wazero.HostModuleBuilder, h *Host) {
 
 func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, initHandle uint32) uint32 {
+		WithFunc(func(_ context.Context, varID, initHandle uint32) uint32 {
 			key := h.currentNodeKey
 			inner, ok := h.stateString[key]
 			if !ok {
@@ -291,7 +321,7 @@ func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 			return initHandle
 		}).Export("load_str")
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, handle uint32) {
+		WithFunc(func(_ context.Context, varID, handle uint32) {
 			str, ok := h.strings.Get(handle)
 			if !ok {
 				return
@@ -308,7 +338,7 @@ func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 
 func bindSeries(builder wazero.HostModuleBuilder, h *Host, suffix string) {
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, initHandle uint32) uint32 {
+		WithFunc(func(_ context.Context, varID, initHandle uint32) uint32 {
 			key := h.currentNodeKey
 			inner, ok := h.stateSeries[key]
 			if !ok {
@@ -324,7 +354,7 @@ func bindSeries(builder wazero.HostModuleBuilder, h *Host, suffix string) {
 			return initHandle
 		}).Export("load_series_" + suffix)
 	builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, varID uint32, handle uint32) {
+		WithFunc(func(_ context.Context, varID, handle uint32) {
 			key := h.currentNodeKey
 			inner, ok := h.stateSeries[key]
 			if !ok {

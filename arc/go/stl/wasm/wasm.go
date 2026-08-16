@@ -44,7 +44,12 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
 	// per sample in Next; literal inputs get their constant value set once here.
 	params := make([]uint64, len(irFn.Inputs))
+	varInputs := make([]bool, len(cfg.Node.Inputs))
 	for i, param := range cfg.Node.Inputs {
+		if param.Type.Kind == types.KindVarRef {
+			varInputs[i] = true
+			continue
+		}
 		if param.Value == nil {
 			continue
 		}
@@ -79,8 +84,10 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 
 	stringInputs := make([]bool, len(irFn.Inputs))
+	chanInputs := make([]bool, len(irFn.Inputs))
 	for i, inp := range irFn.Inputs {
 		stringInputs[i] = inp.Type.Kind == types.KindString
+		chanInputs[i] = inp.Type.Kind == types.KindChan
 	}
 
 	stringOutputs := make([]bool, len(irFn.Outputs))
@@ -88,6 +95,10 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		stringOutputs[i] = out.Type.Kind == types.KindString
 	}
 
+	selIdx := -1
+	if idx, err := cfg.State.ResolveInput("$sel"); err == nil {
+		selIdx = idx
+	}
 	n := &nodeImpl{
 		State:         cfg.State,
 		ir:            cfg.Node,
@@ -100,8 +111,11 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		params:        params,
 		offsets:       make([]int, len(irFn.Outputs)),
 		isEntryNode:   isEntryNode,
+		selIdx:        selIdx,
 		nodeKeySetter: w.NodeKeySetter,
 		stringInputs:  stringInputs,
+		chanInputs:    chanInputs,
+		varInputs:     varInputs,
 		stringOutputs: stringOutputs,
 		strings:       w.Strings,
 	}

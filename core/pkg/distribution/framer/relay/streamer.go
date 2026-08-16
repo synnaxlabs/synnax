@@ -36,20 +36,20 @@ type streamer struct {
 
 // StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
-	// SendOpenAck sets whether to send an acknowledgement when the streamer has
+	// SendOpenAck sets whether to send an acknowledgment when the streamer has
 	// successfully connected to the relay and is ready to start streaming data.
 	// [OPTIONAL] - defaults to false
-	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
+	SendOpenAck *bool
 	// Keys are the list of channels to read from. This slice may be empty, in
 	// which case no data will be streamed until a new configuration is provided
 	// as a request to the streamer.
 	// [OPTIONAL]
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys
 	// ExcludeGroups is a list of writer group IDs whose frames should be filtered
 	// out before delivery. This is used by the telemetry bypass to prevent
 	// duplicate delivery of frames that were already routed via the local bus.
 	// [OPTIONAL]
-	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
+	ExcludeGroups []uint32
 }
 
 var (
@@ -78,12 +78,9 @@ func (c StreamerConfig) Validate() error {
 // NewStreamer opens a new Streamer for consuming real-time telemetry frames from the
 // relay. Each subsequent StreamerConfig overrides the parameters specified in the
 // previous config. See the StreamerConfig struct for information on required fields.
-func (r *Relay) NewStreamer(ctx context.Context, cfgs ...StreamerConfig) (Streamer, error) {
+func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
 	cfg, err := config.New(DefaultStreamerConfig, cfgs...)
 	if err != nil {
-		return nil, err
-	}
-	if err = r.cfg.Channel.NewRetrieve().Where(channel.MatchKeys(cfg.Keys...)).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	return &streamer{
@@ -130,24 +127,30 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				Variant: change.VariantDelete,
 				Key:     s.addr,
 			}}
-			// If we add this in AttachClosables, it may not be closed at the end of
-			// if the caller does not use the confluence.CloseOutputInletsOnExit option, so
+			// If we add this in AttachClosables, it may not be closed at the end of if
+			// the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
 			s.demands.Close()
 		}()
 		if *s.cfg.SendOpenAck {
 			// Wait for the relay to confirm our demand has been applied before
-			// signaling readiness. For free/virtual channels this is a true
-			// happens-before barrier: updateTaps installs the keys synchronously, so
-			// a write to a free channel issued after the open ack is guaranteed to be
-			// delivered. Gateway and peer taps receive key updates asynchronously and
-			// are not covered by this barrier.
+			// signaling readiness. For channels served from local storage (host-leased
+			// and free channels alike) this is a true happens-before barrier:
+			// updateTaps opens the gateway tap with the demanded keys or sends the
+			// updated key set before the ack fires, and the cesium streamer applies
+			// pending key updates to every frame written afterward, so a write issued
+			// after the open ack is guaranteed to be delivered. Peer taps receive key
+			// updates asynchronously and are not covered by this barrier.
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-ack:
 			}
-			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), Response{}); err != nil {
+			if err := signal.SendUnderContext(
+				ctx,
+				s.Out.Inlet(),
+				Response{},
+			); err != nil {
 				return err
 			}
 		}
@@ -166,7 +169,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					Key:     s.addr,
 					Value:   req,
 				}}
-				if err := signal.SendUnderContext(ctx, s.demands.Inlet(), d); err != nil {
+				if err := signal.SendUnderContext(
+					ctx,
+					s.demands.Inlet(),
+					d,
+				); err != nil {
 					return err
 				}
 			case r := <-responses.Outlet():
@@ -175,7 +182,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				if filtered := r.Frame.KeepKeys(s.cfg.Keys); !filtered.Empty() {
 					res := Response{Frame: filtered, Group: r.Group}
-					if err := signal.SendUnderContext(ctx, s.Out.Inlet(), res); err != nil {
+					if err := signal.SendUnderContext(
+						ctx,
+						s.Out.Inlet(),
+						res,
+					); err != nil {
 						return err
 					}
 				}

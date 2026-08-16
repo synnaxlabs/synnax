@@ -11,11 +11,13 @@ package types
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -49,7 +51,10 @@ type unionVariantData struct {
 // discriminator as a defaulted std::string field followed by the flattened
 // base and variant fields, so the existing struct template and JSON codec
 // handle it like any other struct.
-func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]structData, unionData) {
+func (p *Plugin) processUnion(
+	entry resolution.Type,
+	data *templateData,
+) ([]structData, unionData) {
 	form := entry.Form.(resolution.UnionForm)
 	name := domain.GetName(entry, "cpp")
 	data.includes.addSystem("variant")
@@ -77,7 +82,10 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]stru
 		}
 		for _, ext := range form.Extends {
 			if parent, ok := ext.Resolve(data.table); ok {
-				sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(ext, parent, data))
+				sd.ExtendsTypes = append(
+					sd.ExtendsTypes,
+					p.resolveExtendsType(ext, parent, data),
+				)
 			}
 		}
 		if payload, ok := v.Type.Resolve(data.table); ok {
@@ -89,11 +97,33 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]stru
 							p.resolveExtendsType(ext, parent, data))
 					}
 				}
+				// A field that only restates an inherited default keeps the base's
+				// member; the new default moves into a generated constructor.
+				inherited := append(
+					slices.Clone(form.Extends), pform.Extends...,
+				)
+				defaultOnly := resolver.DefaultOnlyOverrides(
+					inherited, pform.Fields, data.table,
+				)
 				for _, f := range pform.Fields {
-					sd.Fields = append(sd.Fields, p.processField(f, payload, data))
+					fd := p.processField(f, payload, data)
+					if !defaultOnly.Contains(f.Name) {
+						sd.Fields = append(sd.Fields, fd)
+						continue
+					}
+					if fd.DefaultValue == "" {
+						continue
+					}
+					sd.InheritedDefaults = append(
+						sd.InheritedDefaults,
+						inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
+					)
 				}
 			} else {
-				sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(v.Type, payload, data))
+				sd.ExtendsTypes = append(
+					sd.ExtendsTypes,
+					p.resolveExtendsType(v.Type, payload, data),
+				)
 			}
 		}
 		sd.HasExtends = len(sd.ExtendsTypes) > 0

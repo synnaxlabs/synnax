@@ -29,7 +29,7 @@ export const ToggleItem = (props: ToggleItemProps): ReactElement | null => {
       {...props}
     >
       <Icon.Control />
-      {acquired ? "Release Control" : "Take Control"}
+      {acquired ? "Release control" : "Take control"}
     </Item>
   );
 };

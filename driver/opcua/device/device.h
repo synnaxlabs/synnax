@@ -1,0 +1,47 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#pragma once
+
+#include <string>
+
+#include "open62541/client.h"
+
+#include "driver/opcua/connection/connection.h"
+#include "driver/opcua/types/types.h"
+
+namespace driver::opcua::device {
+struct Properties {
+    connection::Config connection;
+    std::vector<types::Node> channels;
+
+    Properties(
+        const connection::Config &connection,
+        const std::vector<types::Node> &channels
+    ):
+        connection(connection), channels(channels) {}
+
+    explicit Properties(const x::json::Parser &parser):
+        connection(parser.child("connection")) {
+        if (!parser.has("channels")) return;
+        parser.iter("channels", [&](x::json::Parser &cb) {
+            channels.emplace_back(cb);
+        });
+    }
+
+    x::json::json to_json() const {
+        x::json::json j;
+        j["connection"] = connection.to_json();
+        j["channels"] = x::json::json::array();
+        for (const auto &ch: channels)
+            j["channels"].push_back(ch.to_json());
+        return j;
+    }
+};
+}

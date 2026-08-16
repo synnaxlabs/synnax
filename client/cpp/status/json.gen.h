@@ -18,7 +18,7 @@
 #include "client/cpp/label/json.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/json.gen.h"
+#include "x/cpp/telem/types.gen.h"
 
 namespace synnax::status {
 
@@ -32,7 +32,9 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
         .description = parser.field<std::string>("description", ""),
         .time = parser.field<::x::telem::TimeStamp>("time"),
         .details = parser.field<Details>("details"),
-        .labels = parser.field<std::vector<::synnax::label::Label>>("labels"),
+        .labels = parser.field<std::optional<std::vector<::synnax::label::Label>>>(
+            "labels"
+        ),
     };
 }
 
@@ -51,7 +53,7 @@ x::json::json Status<Details>::to_json() const {
         j["details"] = nullptr;
     else
         j["details"] = this->details.to_json();
-    j["labels"] = x::json::to_array(this->labels);
+    if (this->labels.has_value()) j["labels"] = x::json::to_array(*this->labels);
     return j;
 }
 

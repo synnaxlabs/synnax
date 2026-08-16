@@ -13,11 +13,11 @@ import (
 	"context"
 	"io"
 	"iter"
-	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -25,39 +25,38 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTask, Key: k.String()}
+// OntologyID returns a unique ID for the task with the given key within the Synnax
+// ontology.
+func OntologyID(key Key) ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeTask, Key: key.String()}
 }
 
+// OntologyIDs returns the ontology IDs for the given keys.
 func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
 
 func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
 	return lo.Map(tasks, func(task Task, _ int) ontology.ID {
-		return OntologyID(task.Key)
+		return task.OntologyID()
 	})
 }
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		k, err := strconv.ParseUint(id.Key, 10, 64)
-		if err != nil {
-			return 0, err
-		}
-		return Key(k), nil
+		return uuid.Parse(id.Key)
 	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.Uint64().Coerce(),
+	"key":      zyn.UUID(),
 	"name":     zyn.String(),
 	"type":     zyn.String(),
 	"snapshot": zyn.Bool(),
 })
 
 func newResource(t Task) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(t.Key), t.Name, t)
+	return ontology.NewResource(schema, t.OntologyID(), t.Name, t)
 }
 
 type change = xchange.Change[Key, Task]
@@ -70,20 +69,21 @@ var (
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeTask }
 
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // SearchableFields implements ontology.SearchableFieldsProvider.
 func (s *Service) SearchableFields() []string { return []string{"type"} }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	k, err := strconv.Atoi(key)
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
+	k, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
 	var t Task
-	if err = s.NewRetrieve().Where(MatchKeys(Key(k))).Entry(&t).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&t).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(t), nil
@@ -98,7 +98,9 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Task]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -106,7 +108,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

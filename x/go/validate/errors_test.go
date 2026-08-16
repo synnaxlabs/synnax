@@ -29,6 +29,18 @@ var _ = Describe("Errors", func() {
 			parent := validate.PathedError(first, "parent")
 			Expect(parent).To(MatchError(ContainSubstring("parent.first: cat")))
 		})
+		It("Should prefix every member of a joined error independently", func() {
+			joined := errors.Join(
+				validate.PathedError(errors.New("cat"), "level"),
+				validate.PathedError(errors.New("dog"), "notation"),
+			)
+			parent := validate.PathedError(joined, "title")
+			Expect(parent).To(MatchError(ContainSubstring("title.level: cat")))
+			Expect(parent).To(MatchError(ContainSubstring("title.notation: dog")))
+		})
+		It("Should return nil when the error is nil", func() {
+			Expect(validate.PathedError(nil, "field")).To(Succeed())
+		})
 
 		Describe("Encoding + Decoding", func() {
 			It("Should correctly encode and decode", func(ctx SpecContext) {
@@ -44,17 +56,24 @@ var _ = Describe("Errors", func() {
 				pathed := validate.PathedError(base, "field")
 				encoded := errors.Encode(ctx, pathed, false)
 				Expect(encoded.Type).To(Equal("sy.validation.path"))
-				Expect(encoded.Data).To(Equal("{\"error\":{\"type\":\"unknown\",\"data\":\"cat\"},\"path\":[\"field\"]}"))
+				Expect(
+					encoded.Data,
+				).To(Equal("{\"error\":{\"type\":\"unknown\",\"data\":\"cat\"},\"path\":[\"field\"]}"))
 			})
 
-			It("Should correctly encode and decode nested paths", func(ctx SpecContext) {
-				base := errors.New("cat")
-				first := validate.PathedError(base, "first")
-				parent := validate.PathedError(first, "parent")
-				encoded := errors.Encode(ctx, parent, false)
-				decoded := errors.Decode(ctx, encoded)
-				Expect(decoded).To(MatchError(ContainSubstring("parent.first: cat")))
-			})
+			It(
+				"Should correctly encode and decode nested paths",
+				func(ctx SpecContext) {
+					base := errors.New("cat")
+					first := validate.PathedError(base, "first")
+					parent := validate.PathedError(first, "parent")
+					encoded := errors.Encode(ctx, parent, false)
+					decoded := errors.Decode(ctx, encoded)
+					Expect(
+						decoded,
+					).To(MatchError(ContainSubstring("parent.first: cat")))
+				},
+			)
 		})
 	})
 
@@ -62,7 +81,9 @@ var _ = Describe("Errors", func() {
 		It("Should format the error message correctly", func() {
 			err := validate.NewInvalidTypeError("cat", "dog")
 			Expect(err).To(MatchError(validate.ErrInvalidType))
-			Expect(err).To(MatchError(ContainSubstring("expected cat but received dog")))
+			Expect(
+				err,
+			).To(MatchError(ContainSubstring("expected cat but received dog")))
 		})
 	})
 })

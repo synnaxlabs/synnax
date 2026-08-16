@@ -10,7 +10,7 @@
 import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -48,7 +48,7 @@ describe("Client", () => {
         index: time.key,
       });
       const start = TimeStamp.now();
-      await client.write(start, time.key, TimeStamp.now());
+      await client.write(start, time.key, start);
       await client.write(start, data.key, 1);
     });
   });

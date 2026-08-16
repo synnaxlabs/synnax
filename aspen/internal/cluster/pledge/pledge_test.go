@@ -78,43 +78,46 @@ var _ = Describe("PledgeServer", func() {
 	})
 
 	Describe("PledgeServer", func() {
-
 		Context("No nodes Responding", func() {
-			It("Should submit round robin proposals at scaled intervals", func(ctx SpecContext) {
-				const numTransports = 4
-				tCtx, cancel := context.WithCancel(ctx)
-				defer cancel()
-				var (
-					peers []address.Address
-					count int
-					// Terminate once we've observed two full round-robin cycles rather
-					// than on a wall-clock deadline. A short deadline races with coarse
-					// timer resolution (notably on Windows), where the retry ticker's
-					// first tick can fire after the deadline, yielding zero attempts.
-					handler = func(_ context.Context, req pledge.Request) (pledge.Response, error) {
-						count++
-						if count >= 2*numTransports {
-							cancel()
+			It(
+				"Should submit round robin proposals at scaled intervals",
+				func(ctx SpecContext) {
+					const numTransports = 4
+					tCtx, cancel := context.WithCancel(ctx)
+					defer cancel()
+					var (
+						peers []address.Address
+						count int
+						// Terminate once we've observed two full round-robin cycles
+						// rather than on a wall-clock deadline. A short deadline races
+						// with coarse timer resolution (notably on Windows), where the
+						// retry ticker's first tick can fire after the deadline,
+						// yielding zero attempts.
+						handler = func(_ context.Context, req pledge.Request) (pledge.Response, error) {
+							count++
+							if count >= 2*numTransports {
+								cancel()
+							}
+							return req, errors.New("pledge failed")
 						}
-						return req, errors.New("pledge failed")
+					)
+					for range numTransports {
+						t := net.UnaryServer("")
+						t.BindHandler(handler)
+						peers = append(peers, t.Address)
 					}
-				)
-				for range numTransports {
-					t := net.UnaryServer("")
-					t.BindHandler(handler)
-					peers = append(peers, t.Address)
-				}
-				Expect(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
-					Instrumentation: ins.Child("no-nodes-responding"),
-					Peers:           peers,
-					Candidates:      func() node.Group { return node.Group{} },
-				}, pledge.BlazingFastConfig)).Error().To(MatchError(context.Canceled))
-				entries := net.Entries()
-				Expect(len(entries)).To(BeNumerically(">=", 2*numTransports))
-				for i, entry := range entries {
-					Expect(entry.Target).To(Equal(peers[i%numTransports]))
-				}
-			})
+					Expect(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
+						Instrumentation: ins.Child("no-nodes-responding"),
+						Peers:           peers,
+						Candidates:      func() node.Group { return node.Group{} },
+					}, pledge.BlazingFastConfig)).Error().To(MatchError(context.Canceled))
+					entries := net.Entries()
+					Expect(len(entries)).To(BeNumerically(">=", 2*numTransports))
+					for i, entry := range entries {
+						Expect(entry.Target).To(Equal(peers[i%numTransports]))
+					}
+				},
+			)
 		})
 	})
 
@@ -147,9 +150,11 @@ var _ = Describe("PledgeServer", func() {
 					candidates = func(i int) func() node.Group {
 						return func() node.Group {
 							if i == 0 {
-								return nodes.Where(func(key node.Key, _ node.Node) bool {
-									return !lo.Contains([]node.Key{8, 9, 10}, key)
-								})
+								return nodes.Where(
+									func(key node.Key, _ node.Node) bool {
+										return !lo.Contains([]node.Key{8, 9, 10}, key)
+									},
+								)
 							}
 							return nodes
 						}
@@ -177,7 +182,11 @@ var _ = Describe("PledgeServer", func() {
 					allCandidates   = func() node.Group { return nodes }
 					extraCandidates = func() node.Group {
 						n := nodes.Copy()
-						n[10] = node.Node{Key: 10, Address: "localhost:10", State: node.StateHealthy}
+						n[10] = node.Node{
+							Key:     10,
+							Address: "localhost:10",
+							State:   node.StateHealthy,
+						}
 						return n
 					}
 					net = mock.NewNetwork[pledge.Request, pledge.Response]()
@@ -206,9 +215,15 @@ var _ = Describe("PledgeServer", func() {
 					numCandidates = 10
 					nodes         = make(node.Group)
 				)
-				provisionCandidates(numCandidates, net, nodes, nil, func(i int) node.State {
-					return lo.Ternary(i%2 == 0, node.StateHealthy, node.StateDead)
-				})
+				provisionCandidates(
+					numCandidates,
+					net,
+					nodes,
+					nil,
+					func(i int) node.State {
+						return lo.Ternary(i%2 == 0, node.StateHealthy, node.StateDead)
+					},
+				)
 				tCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
 				defer cancel()
 				_, err := pledge.Pledge(
@@ -224,21 +239,24 @@ var _ = Describe("PledgeServer", func() {
 			})
 		})
 		Describe("Cancelling a pledge", func() {
-			It("Should stop all operations and return a cancellation error", func(ctx SpecContext) {
-				var (
-					numCandidates = 10
-					nodes         = make(node.Group)
-				)
-				provisionCandidates(numCandidates, net, nodes, nil, nil)
-				tCtx, cancel := context.WithCancel(ctx)
-				cancel()
-				res, err := pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
-					Peers:      nodes.Addresses(),
-					Candidates: allCandidates(nodes),
-				})
-				Expect(err).To(MatchError(context.Canceled))
-				Expect(res.Key).To(Equal(node.Key(0)))
-			})
+			It(
+				"Should stop all operations and return a cancellation error",
+				func(ctx SpecContext) {
+					var (
+						numCandidates = 10
+						nodes         = make(node.Group)
+					)
+					provisionCandidates(numCandidates, net, nodes, nil, nil)
+					tCtx, cancel := context.WithCancel(ctx)
+					cancel()
+					res, err := pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
+						Peers:      nodes.Addresses(),
+						Candidates: allCandidates(nodes),
+					})
+					Expect(err).To(MatchError(context.Canceled))
+					Expect(res.Key).To(Equal(node.Key(0)))
+				},
+			)
 		})
 
 		Context("Concurrent Pledges", func() {
@@ -283,15 +301,16 @@ var _ = Describe("PledgeServer", func() {
 						ids[i] = res.Key
 						mu.Lock()
 						defer mu.Unlock()
-						nodes[res.Key] = node.Node{Key: res.Key, Address: addr, State: node.StateHealthy}
+						nodes[res.Key] = node.Node{
+							Key:     res.Key,
+							Address: addr,
+							State:   node.StateHealthy,
+						}
 					}(i)
 				}
 				wg.Wait()
 				Expect(lo.Uniq(ids)).To(HaveLen(numPledges))
 			})
-
 		})
-
 	})
-
 })

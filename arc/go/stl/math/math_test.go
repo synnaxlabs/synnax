@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,14 +32,18 @@ import (
 func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 	return graph.Graph{
 		Nodes: []graph.Node{
-			{Key: "input", Type: "input"},
-			{Key: "math", Type: nodeType},
+			{Key: "input"},
+			{Key: "math"},
 		},
-		Edges: []graph.Edge{{
+		Inputs: map[string]msgpack.EncodedJSON{
+			"input": {"type": "input"},
+			"math":  {"type": nodeType},
+		},
+		Edges: graph.Edges{{Edge: ir.Edge{
 			Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "math", Param: ir.DefaultInputParam},
-		}},
-		Functions: []graph.Function{{
+		}}},
+		Functions: []ir.Function{{
 			Key:     "input",
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
 		}},
@@ -48,23 +53,34 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 func makeMathGraphWithReset(nodeType string, dt types.Type) graph.Graph {
 	return graph.Graph{
 		Nodes: []graph.Node{
-			{Key: "input", Type: "input"},
-			{Key: "reset_signal", Type: "reset_signal"},
-			{Key: "math", Type: nodeType},
+			{Key: "input"},
+			{Key: "reset_signal"},
+			{Key: "math"},
 		},
-		Edges: []graph.Edge{
-			{
+		Inputs: map[string]msgpack.EncodedJSON{
+			"input":        {"type": "input"},
+			"reset_signal": {"type": "reset_signal"},
+			"math":         {"type": nodeType},
+		},
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "math", Param: ir.DefaultInputParam},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "reset_signal", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "math", Param: "reset"},
-			},
+			}},
 		},
-		Functions: []graph.Function{
-			{Key: "input", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}}},
-			{Key: "reset_signal", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
+		Functions: []ir.Function{
+			{
+				Key:     "input",
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
+			},
+			{
+				Key:     "reset_signal",
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			},
 		},
 	}
 }
@@ -162,7 +178,13 @@ var _ = Describe("Math", func() {
 
 		It("Should compute i32 power with negative base", func(ctx SpecContext) {
 			var negThree int32 = -3
-			res := rt.Call(ctx, "math", "pow_i32", testutil.I32(negThree), testutil.U32(2))
+			res := rt.Call(
+				ctx,
+				"math",
+				"pow_i32",
+				testutil.I32(negThree),
+				testutil.U32(2),
+			)
 			Expect(testutil.AsU32(res[0])).To(Equal(uint32(9)))
 			var negTwo int32 = -2
 			var expected int32 = -8
@@ -187,31 +209,67 @@ var _ = Describe("Math", func() {
 
 		It("Should truncate negative integer exponents to zero", func(ctx SpecContext) {
 			negOne := int32(-1)
-			res := rt.Call(ctx, "math", "pow_i32", testutil.U32(2), testutil.I32(negOne))
+			res := rt.Call(
+				ctx,
+				"math",
+				"pow_i32",
+				testutil.U32(2),
+				testutil.I32(negOne),
+			)
 			Expect(testutil.AsU32(res[0])).To(Equal(uint32(0)))
 		})
 
 		It("Should compute f64 negative exponents", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "pow_f64", testutil.F64(2.0), testutil.F64(-1.0))
+			res := rt.Call(
+				ctx,
+				"math",
+				"pow_f64",
+				testutil.F64(2.0),
+				testutil.F64(-1.0),
+			)
 			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 0.5, 0.0001))
 		})
 
 		It("Should compute f32 negative exponents", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "pow_f32", testutil.F32(4.0), testutil.F32(-0.5))
+			res := rt.Call(
+				ctx,
+				"math",
+				"pow_f32",
+				testutil.F32(4.0),
+				testutil.F32(-0.5),
+			)
 			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 0.5, 0.001))
 		})
 
 		It("Should compute f64 with negative base", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "pow_f64", testutil.F64(-3.0), testutil.F64(2.0))
+			res := rt.Call(
+				ctx,
+				"math",
+				"pow_f64",
+				testutil.F64(-3.0),
+				testutil.F64(2.0),
+			)
 			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 9.0, 0.0001))
 			res = rt.Call(ctx, "math", "pow_f64", testutil.F64(-2.0), testutil.F64(3.0))
 			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", -8.0, 0.0001))
-			res = rt.Call(ctx, "math", "pow_f64", testutil.F64(-2.0), testutil.F64(-1.0))
+			res = rt.Call(
+				ctx,
+				"math",
+				"pow_f64",
+				testutil.F64(-2.0),
+				testutil.F64(-1.0),
+			)
 			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", -0.5, 0.0001))
 		})
 
 		It("Should compute f32 with negative base", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "pow_f32", testutil.F32(-3.0), testutil.F32(2.0))
+			res := rt.Call(
+				ctx,
+				"math",
+				"pow_f32",
+				testutil.F32(-3.0),
+				testutil.F32(2.0),
+			)
 			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 9.0, 0.001))
 			res = rt.Call(ctx, "math", "pow_f32", testutil.F32(-2.0), testutil.F32(3.0))
 			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", -8.0, 0.001))
@@ -291,35 +349,41 @@ var _ = Describe("Math", func() {
 	})
 
 	Describe("Factory", func() {
-		It("Should create node for math.avg via CompoundFactory", func(ctx SpecContext) {
-			g := makeMathGraph("avg", types.F64())
-			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-			Expect(diagnostics.Ok()).To(BeTrue())
-			s := node.New(analyzed)
-			m := MustSucceed(stlmath.NewHost(ctx, nil))
-			compound := node.CompoundFactory{m}
-			cfg := node.Config{
-				Node:    ir.Node{Key: "math", Type: "math.avg"},
-				State:   s.Node("math"),
-				Program: program.Program{IR: analyzed},
-			}
-			n := MustSucceed(compound.Create(ctx, cfg))
-			Expect(n).ToNot(BeNil())
-		})
-		It("Should create node for math.derivative via CompoundFactory", func(ctx SpecContext) {
-			g := makeMathGraph("derivative", types.F64())
-			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-			Expect(diagnostics.Ok()).To(BeTrue())
-			s := node.New(analyzed)
-			m := MustSucceed(stlmath.NewHost(ctx, nil))
-			compound := node.CompoundFactory{m}
-			cfg := node.Config{
-				Node:  ir.Node{Key: "math", Type: "math.derivative"},
-				State: s.Node("math"),
-			}
-			n := MustSucceed(compound.Create(ctx, cfg))
-			Expect(n).ToNot(BeNil())
-		})
+		It(
+			"Should create node for math.avg via CompoundFactory",
+			func(ctx SpecContext) {
+				g := makeMathGraph("avg", types.F64())
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := node.New(analyzed)
+				m := MustSucceed(stlmath.NewHost(ctx, nil))
+				compound := node.CompoundFactory{m}
+				cfg := node.Config{
+					Node:    ir.Node{Key: "math", Type: "math.avg"},
+					State:   s.Node("math"),
+					Program: program.Program{IR: analyzed},
+				}
+				n := MustSucceed(compound.Create(ctx, cfg))
+				Expect(n).ToNot(BeNil())
+			},
+		)
+		It(
+			"Should create node for math.derivative via CompoundFactory",
+			func(ctx SpecContext) {
+				g := makeMathGraph("derivative", types.F64())
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := node.New(analyzed)
+				m := MustSucceed(stlmath.NewHost(ctx, nil))
+				compound := node.CompoundFactory{m}
+				cfg := node.Config{
+					Node:  ir.Node{Key: "math", Type: "math.derivative"},
+					State: s.Node("math"),
+				}
+				n := MustSucceed(compound.Create(ctx, cfg))
+				Expect(n).ToNot(BeNil())
+			},
+		)
 	})
 })
 
@@ -643,7 +707,10 @@ var _ = Describe("Alignment", func() {
 		s := openMath(ctx, "avg", types.F64(), nil)
 		inputSeries := telem.NewSeriesV(10.0, 20.0, 30.0)
 		inputSeries.Alignment = 250
-		inputSeries.TimeRange = telem.TimeRange{Start: 100 * telem.SecondTS, End: 300 * telem.SecondTS}
+		inputSeries.TimeRange = telem.TimeRange{
+			Start: 100 * telem.SecondTS,
+			End:   300 * telem.SecondTS,
+		}
 		*s.inputNode.Output(0) = inputSeries
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200, 300)
 		nextChanged(ctx, s.n)
@@ -663,13 +730,19 @@ var _ = Describe("Alignment", func() {
 
 		inputSeries := telem.NewSeriesV[int64](10, 20, 30)
 		inputSeries.Alignment = 100
-		inputSeries.TimeRange = telem.TimeRange{Start: 50 * telem.SecondTS, End: 150 * telem.SecondTS}
+		inputSeries.TimeRange = telem.TimeRange{
+			Start: 50 * telem.SecondTS,
+			End:   150 * telem.SecondTS,
+		}
 		*s.inputNode.Output(0) = inputSeries
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
 
 		resetSeries := telem.NewSeriesV[uint8](0)
 		resetSeries.Alignment = 75
-		resetSeries.TimeRange = telem.TimeRange{Start: 25 * telem.SecondTS, End: 175 * telem.SecondTS}
+		resetSeries.TimeRange = telem.TimeRange{
+			Start: 25 * telem.SecondTS,
+			End:   175 * telem.SecondTS,
+		}
 		*resetNode.Output(0) = resetSeries
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(25)
 		nextChanged(ctx, s.n)
@@ -688,14 +761,18 @@ var _ = Describe("Derivative", func() {
 	makeDerivGraph := func(dt types.Type) graph.Graph {
 		return graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "input", Type: "input"},
-				{Key: "deriv", Type: "derivative"},
+				{Key: "input"},
+				{Key: "deriv"},
 			},
-			Edges: []graph.Edge{{
+			Inputs: map[string]msgpack.EncodedJSON{
+				"input": {"type": "input"},
+				"deriv": {"type": "derivative"},
+			},
+			Edges: graph.Edges{{Edge: ir.Edge{
 				Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "deriv", Param: ir.DefaultInputParam},
-			}},
-			Functions: []graph.Function{{
+			}}},
+			Functions: []ir.Function{{
 				Key:     "input",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
 			}},
@@ -834,23 +911,26 @@ var _ = Describe("Construction validation", func() {
 		Entry("max", "max"),
 		Entry("derivative", "derivative"),
 	)
-	It("Should error at construction when the window count value is invalid", func(ctx SpecContext) {
-		prog := ir.IR{Nodes: ir.Nodes{{
-			Key:  "math",
-			Type: "avg",
-			Inputs: types.Params{
-				{Name: ir.DefaultInputParam, Type: types.F64(), Value: 0.0},
-				{Name: "count", Type: types.String(), Value: []any{1}},
-			},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
-		}}}
-		s := node.New(prog)
-		m := MustSucceed(stlmath.NewHost(ctx, nil))
-		cfg := node.Config{
-			Node:    prog.Nodes[0],
-			State:   s.Node("math"),
-			Program: program.Program{IR: prog},
-		}
-		Expect(m.Create(ctx, cfg)).Error().To(BeAValidationPathError())
-	})
+	It(
+		"Should error at construction when the window count value is invalid",
+		func(ctx SpecContext) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:  "math",
+				Type: "avg",
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.F64(), Value: 0.0},
+					{Name: "count", Type: types.String(), Value: []any{1}},
+				},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+			}}}
+			s := node.New(prog)
+			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			cfg := node.Config{
+				Node:    prog.Nodes[0],
+				State:   s.Node("math"),
+				Program: program.Program{IR: prog},
+			}
+			Expect(m.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+		},
+	)
 })

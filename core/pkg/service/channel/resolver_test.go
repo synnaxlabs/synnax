@@ -29,9 +29,11 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
-		sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_test_ch"))
+		sym := MustSucceed(
+			svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_test_ch"),
+		)
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
 		Expect(sym.Kind).To(Equal(symbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.F32())))
@@ -46,9 +48,11 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Internal: true,
 			DataType: telem.Float32T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
-		sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_internal_ch"))
+		sym := MustSucceed(
+			svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_internal_ch"),
+		)
 		Expect(sym.Renameable).To(BeFalse())
 	})
 
@@ -58,9 +62,11 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Virtual:  true,
 			DataType: telem.Int64T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
-		sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, strconv.Itoa(int(ch.Key()))))
+		sym := MustSucceed(
+			svc.NewArcSymbolResolver(nil).Resolve(ctx, strconv.Itoa(int(ch.Key()))),
+		)
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
 		Expect(sym.Kind).To(Equal(symbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.I64())))

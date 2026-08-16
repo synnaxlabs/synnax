@@ -11,99 +11,58 @@
 
 package telem
 
+import "github.com/synnaxlabs/x/telem/versions"
+
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
 // (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency telemetry
 // timestamps.
-type TimeStamp int64
+type TimeStamp = versions.TimeStamp
 
 // TimeSpan is a 64-bit signed integer representing a duration in nanoseconds. Used for
 // expressing time intervals, sampling periods, and durations throughout the telemetry
 // system.
-type TimeSpan int64
+type TimeSpan = versions.TimeSpan
+
+// TimeRange is a time interval defined by a start and end timestamp. The range is
+// start-inclusive and end-exclusive, following standard interval conventions for
+// predictable boundary handling.
+type TimeRange = versions.TimeRange
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
 // frequencies and calculate sample counts over time intervals.
-type Rate float64
+type Rate = versions.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
-type Size int64
+type Size = versions.Size
 
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
-type DataType string
+type DataType = versions.DataType
+
+// TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
+type TimestampFormat = versions.TimestampFormat
+
+const (
+	TimestampFormatISO         TimestampFormat = versions.TimestampFormatISO
+	TimestampFormatISODate     TimestampFormat = versions.TimestampFormatISODate
+	TimestampFormatTime        TimestampFormat = versions.TimestampFormatTime
+	TimestampFormatPreciseTime TimestampFormat = versions.TimestampFormatPreciseTime
+	TimestampFormatDate        TimestampFormat = versions.TimestampFormatDate
+	TimestampFormatPreciseDate TimestampFormat = versions.TimestampFormatPreciseDate
+	TimestampFormatDateTime    TimestampFormat = versions.TimestampFormatDateTime
+)
+
+// TimeZone is the time zone used when rendering timestamps.
+type TimeZone = versions.TimeZone
+
+const (
+	TimeZoneLocal TimeZone = versions.TimeZoneLocal
+	TimeZoneUTC   TimeZone = versions.TimeZoneUTC
+)
 
 // Alignment is a 64-bit index for positioning samples within multi-array structures.
 // Packs a domain index (which array) and sample index (position within array) into a
 // single value for efficient multi-dimensional data access.
 type Alignment uint64
-
-// TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
-type TimestampFormat string
-
-const (
-	TimestampFormatISO         TimestampFormat = "ISO"
-	TimestampFormatISODate     TimestampFormat = "ISODate"
-	TimestampFormatTime        TimestampFormat = "time"
-	TimestampFormatPreciseTime TimestampFormat = "preciseTime"
-	TimestampFormatDate        TimestampFormat = "date"
-	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
-	TimestampFormatDateTime    TimestampFormat = "dateTime"
-)
-
-// IsValid reports whether t is one of the defined TimestampFormat values.
-func (t TimestampFormat) IsValid() bool {
-	switch t {
-	case TimestampFormatISO, TimestampFormatISODate, TimestampFormatTime, TimestampFormatPreciseTime, TimestampFormatDate, TimestampFormatPreciseDate, TimestampFormatDateTime:
-		return true
-	default:
-		return false
-	}
-}
-
-// TimeZone is the time zone used when rendering timestamps.
-type TimeZone string
-
-const (
-	TimeZoneLocal TimeZone = "local"
-	TimeZoneUTC   TimeZone = "UTC"
-)
-
-// IsValid reports whether t is one of the defined TimeZone values.
-func (t TimeZone) IsValid() bool {
-	switch t {
-	case TimeZoneLocal, TimeZoneUTC:
-		return true
-	default:
-		return false
-	}
-}
-
-// TimeRange is a time interval defined by a start and end timestamp. The range is
-// start-inclusive and end-exclusive, following standard interval conventions for
-// predictable boundary handling.
-type TimeRange struct {
-	// Start is the inclusive start of the time range.
-	Start TimeStamp `json:"start" msgpack:"start"`
-	// End is the exclusive end of the time range.
-	End TimeStamp `json:"end" msgpack:"end"`
-}
-
-// Series is a strongly-typed array of telemetry samples backed by a binary buffer.
-// Supports both fixed-density primitive types and variable-density types (strings,
-// JSON). Designed for high-performance, memory-efficient storage and streaming of
-// time-series data.
-type Series struct {
-	// TimeRange is the time range covered by the samples in this series.
-	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
-	// DataType is the data type of all samples in this series.
-	DataType DataType `json:"data_type" msgpack:"data_type"`
-	// Data is the raw binary buffer containing the sample data.
-	Data []byte `json:"data" msgpack:"data"`
-	// Alignment defines the location of the series relative to other series in a logical
-	// group. Typically used for defining the position of the series within a channel's
-	// data.
-	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
-	cachedLength *int64
-}

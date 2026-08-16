@@ -124,7 +124,8 @@ export class Frame {
         data_.keys ??= [];
         const series = data_.series.map((a) => seriesFromPayload(a));
         validateMatchedColsAndSeries(data_.keys, series);
-        data_.keys.forEach((key, i) => this.push(key, series[i]));
+        this.columns = data_.keys.slice();
+        this.series = series;
       } else
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k, 10);
@@ -246,8 +247,8 @@ export class Frame {
    */
   get isWeaklyAligned(): boolean {
     if (this.columns.length <= 1) return true;
-    const ranges = this.timeRanges;
-    return ranges.every((tr) => tr.equals(ranges[0]));
+    const { timeRanges } = this;
+    return timeRanges.every((tr) => tr.equals(timeRanges[0]));
   }
 
   timeRange(col?: channel.Key | channel.Name): TimeRange {

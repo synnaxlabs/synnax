@@ -128,7 +128,7 @@ class ConsolePage:
         """
         tab = self._get_tab()
         tab.wait_for(state="visible", timeout=5000)
-        close_button = tab.get_by_label("pluto-tabs__close")
+        close_button = tab.get_by_label("Close", exact=True)
         close_button.wait_for(state="visible", timeout=5000)
         close_button.click()
 
@@ -287,7 +287,7 @@ class ConsolePage:
         Returns:
             The current page title
         """
-        self.page.locator("#properties").click(timeout=5000)
+        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
         return self.layout.get_input_field("Title")
 
     def copy_link(self) -> str:
@@ -327,7 +327,7 @@ class ConsolePage:
         download = download_info.value
         save_path = resolve_results_path(f"{self.page_name}.json")
         download.save_as(save_path)
-        with open(save_path, "r") as f:
+        with open(save_path, "r", encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
             return result
 

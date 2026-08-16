@@ -24,7 +24,6 @@
 namespace synnax::label {
 
 struct Label;
-struct New;
 
 using Key = x::uuid::UUID;
 
@@ -47,14 +46,5 @@ struct Label {
     to_proto() const;
     static std::pair<Label, x::errors::Error>
     from_proto(const ::service::label::pb::Label &pb);
-};
-
-/// @brief New contains parameters for creating a new label.
-struct New : public Label {
-    /// @brief key is the unique identifier for this label.
-    Key key;
-
-    static New parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
 };
 }

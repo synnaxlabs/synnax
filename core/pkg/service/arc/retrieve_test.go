@@ -23,22 +23,43 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve an Arc", func(ctx SpecContext) {
 			a := arc.Arc{
 				Name:  "test-retrieve",
+				Mode:  arc.ModeText,
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			var retrievedArc arc.Arc
-			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(arc.MatchKeys(a.Key)).
+					Entry(&retrievedArc).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(retrievedArc.Key).To(Equal(a.Key))
 			Expect(retrievedArc.Name).To(Equal(a.Name))
 		})
 
 		It("Should retrieve multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
-				{Name: "arc-multi-1", Graph: graph.Graph{}, Text: text.Text{}},
-				{Name: "arc-multi-2", Graph: graph.Graph{}, Text: text.Text{}},
-				{Name: "arc-multi-3", Graph: graph.Graph{}, Text: text.Text{}},
+				{
+					Name:  "arc-multi-1",
+					Mode:  arc.ModeText,
+					Graph: graph.Graph{},
+					Text:  text.Text{},
+				},
+				{
+					Name:  "arc-multi-2",
+					Mode:  arc.ModeText,
+					Graph: graph.Graph{},
+					Text:  text.Text{},
+				},
+				{
+					Name:  "arc-multi-3",
+					Mode:  arc.ModeText,
+					Graph: graph.Graph{},
+					Text:  text.Text{},
+				},
 			}
 
 			keys := make([]uuid.UUID, 0, len(arcs))
@@ -48,7 +69,12 @@ var _ = Describe("Retrieve", func() {
 			}
 
 			var retrievedArcs []arc.Arc
-			Expect(svc.NewRetrieve().Where(arc.MatchKeys(keys...)).Entries(&retrievedArcs).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(arc.MatchKeys(keys...)).
+					Entries(&retrievedArcs).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(retrievedArcs).To(HaveLen(3))
 		})
 
@@ -56,6 +82,7 @@ var _ = Describe("Retrieve", func() {
 			localTx := db.OpenTx()
 			a := arc.Arc{
 				Name:  "tx-test-arc",
+				Mode:  arc.ModeText,
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}
@@ -65,7 +92,12 @@ var _ = Describe("Retrieve", func() {
 			newTx := db.OpenTx()
 
 			var retrievedArc arc.Arc
-			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&retrievedArc).Exec(ctx, newTx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(arc.MatchKeys(a.Key)).
+					Entry(&retrievedArc).
+					Exec(ctx, newTx),
+			).To(Succeed())
 			Expect(retrievedArc.Name).To(Equal("tx-test-arc"))
 			Expect(newTx.Close()).To(Succeed())
 		})
@@ -74,6 +106,7 @@ var _ = Describe("Retrieve", func() {
 			localTx := db.OpenTx()
 			a := arc.Arc{
 				Name:  "no-tx-arc",
+				Mode:  arc.ModeText,
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}
@@ -81,7 +114,12 @@ var _ = Describe("Retrieve", func() {
 			Expect(localTx.Commit(ctx)).To(Succeed())
 
 			var retrievedArc arc.Arc
-			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&retrievedArc).Exec(ctx, nil)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(arc.MatchKeys(a.Key)).
+					Entry(&retrievedArc).
+					Exec(ctx, nil),
+			).To(Succeed())
 			Expect(retrievedArc.Name).To(Equal("no-tx-arc"))
 		})
 	})

@@ -9,7 +9,6 @@
 
 #include "gtest/gtest.h"
 
-/// local
 #include "x/cpp/test/test.h"
 
 #include "driver/transform/transform.h"
@@ -198,21 +197,8 @@ TEST_F(TareTests, InvalidChannelKey) {
 
 /// @brief it should correctly apply a linear scale to a channel
 TEST(ScaleTests, LinearScale) {
-    x::json::json config = {
-        {"channels",
-         {{{"channel", 1},
-           {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 5.0}}}}}}
-    };
-
-    // Create channel map
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.data_type = x::telem::FLOAT64_T;
-    channels[1] = ch1;
-
-    x::json::Parser parser(config);
-    Scale scale(parser, channels);
+    Scale scale;
+    scale.add(1, UnaryLinearScale(2.0, 5.0, x::telem::FLOAT64_T));
 
     x::telem::Frame frame(1);
     auto series = x::telem::Series(x::telem::FLOAT64_T, 2);
@@ -228,25 +214,8 @@ TEST(ScaleTests, LinearScale) {
 
 /// @brief it should properly apply a map scale to a channel.
 TEST(ScaleTests, MapScale) {
-    x::json::json config = {
-        {"channels",
-         {{{"channel", 1},
-           {"scale",
-            {{"type", "map"},
-             {"pre_scaled_min", 0.0},
-             {"pre_scaled_max", 100.0},
-             {"scaled_min", 0.0},
-             {"scaled_max", 1.0}}}}}}
-    };
-
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.data_type = x::telem::FLOAT64_T;
-    channels[1] = ch1;
-
-    x::json::Parser parser(config);
-    Scale scale(parser, channels);
+    Scale scale;
+    scale.add(1, UnaryMapScale(0.0, 100.0, 0.0, 1.0, x::telem::FLOAT64_T));
 
     x::telem::Frame frame(1);
     auto series = x::telem::Series(x::telem::FLOAT64_T, 3);
@@ -264,32 +233,9 @@ TEST(ScaleTests, MapScale) {
 
 /// @brief it should correctly apply a scale to multiple channels.
 TEST(ScaleTests, MultipleChannels) {
-    x::json::json config = {
-        {"channels",
-         {{{"channel", 1},
-           {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 0.0}}}},
-          {{"channel", 2},
-           {"scale",
-            {{"type", "map"},
-             {"pre_scaled_min", 0.0},
-             {"pre_scaled_max", 10.0},
-             {"scaled_min", 0.0},
-             {"scaled_max", 100.0}}}}}}
-    };
-
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.data_type = x::telem::FLOAT64_T;
-    channels[1] = ch1;
-
-    synnax::channel::Channel ch2;
-    ch2.key = 2;
-    ch2.data_type = x::telem::FLOAT64_T;
-    channels[2] = ch2;
-
-    x::json::Parser parser(config);
-    Scale scale(parser, channels);
+    Scale scale;
+    scale.add(1, UnaryLinearScale(2.0, 0.0, x::telem::FLOAT64_T));
+    scale.add(2, UnaryMapScale(0.0, 10.0, 0.0, 100.0, x::telem::FLOAT64_T));
 
     x::telem::Frame frame(2);
     auto series1 = x::telem::Series(x::telem::FLOAT64_T, 1);
@@ -306,20 +252,8 @@ TEST(ScaleTests, MultipleChannels) {
 
 /// @brief it should correctly ignore channels that are not configured for scaling.
 TEST(ScaleTests, IgnoreUnknownChannels) {
-    x::json::json config = {
-        {"channels",
-         {{{"channel", 1},
-           {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 0.0}}}}}}
-    };
-
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.data_type = x::telem::FLOAT64_T;
-    channels[1] = ch1;
-
-    x::json::Parser parser(config);
-    Scale scale(parser, channels);
+    Scale scale;
+    scale.add(1, UnaryLinearScale(2.0, 0.0, x::telem::FLOAT64_T));
 
     x::telem::Frame frame(2);
 
@@ -337,27 +271,11 @@ TEST(ScaleTests, IgnoreUnknownChannels) {
     ASSERT_EQ(frame.at<double>(2, 0), 5.0); // Unchanged
 }
 
-/// @brief it should correctly ignore disabled channels.
+/// @brief it should leave channels whose scale was not registered unchanged, as
+/// callers skip registration for disabled channels.
 TEST(ScaleTests, DisabledChannel) {
-    x::json::json config = {
-        {"channels",
-         {{{"channel", 1},
-           {"enabled", true},
-           {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 5.0}}}},
-          {{"channel", 2},
-           {"enabled", false},
-           {"scale", {{"type", "linear"}, {"slope", 3.0}, {"offset", 10.0}}}}}}
-    };
-
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.data_type = x::telem::FLOAT64_T;
-    channels[1] = ch1;
-
-    x::json::Parser parser(config);
-    Scale scale(parser, channels);
+    Scale scale;
+    scale.add(1, UnaryLinearScale(2.0, 5.0, x::telem::FLOAT64_T));
 
     x::telem::Frame frame(2);
 
@@ -377,20 +295,8 @@ TEST(ScaleTests, DisabledChannel) {
 
 /// @brief it should apply transformations directly to the frame.
 TEST(ScaleTests, TransformInplaceUsage) {
-    x::json::json config = {
-        {"channels",
-         {{{"channel", 1},
-           {"scale", {{"type", "linear"}, {"slope", 3.0}, {"offset", 2.0}}}}}}
-    };
-
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
-    ch1.key = 1;
-    ch1.data_type = x::telem::FLOAT64_T;
-    channels[1] = ch1;
-
-    x::json::Parser parser(config);
-    Scale scale(parser, channels);
+    Scale scale;
+    scale.add(1, UnaryLinearScale(3.0, 2.0, x::telem::FLOAT64_T));
 
     x::telem::Frame frame(3);
 
@@ -529,17 +435,8 @@ TEST(ChainTests, ComplexTransformChain) {
 
     auto tare = std::make_shared<Tare>(channels);
 
-    x::json::json config = {
-        {"channels",
-         {{{"channel", 1},
-           {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 10.0}}}}}}
-    };
-
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channel_map;
-    channel_map[1] = ch1;
-
-    x::json::Parser parser(config);
-    auto scale = std::make_shared<Scale>(parser, channel_map);
+    auto scale = std::make_shared<Scale>();
+    scale->add(1, UnaryLinearScale(2.0, 10.0, x::telem::FLOAT64_T));
 
     Chain chain;
     chain.add(tare);

@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -30,10 +30,10 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates the given log within the project provided. If the log does not have
-// a key, a new key will be generated. If projectKey is uuid.Nil, the log is created without a
-// project ParentOf relationship; this is used by the import path, which does not yet
-// wire project relationships.
+// Create creates the given log within the project provided. If the log does not have a
+// key, a new key will be generated. If projectKey is uuid.Nil, the log is created
+// without a project ParentOf relationship; this is used by imports that supply no
+// parent project.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
 	var (
 		exists bool
@@ -49,30 +49,43 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 			return err
 		}
 	}
+	l.ApplyDefaults()
+	if err = l.Validate(); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if exists {
-		return nil
+	if !exists {
+		otgID := l.OntologyID()
+		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err = w.otgWriter.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
 	}
-	otgID := OntologyID(l.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return err
-	}
-	if projectKey == uuid.Nil {
-		return nil
-	}
-	return w.otgWriter.DefineRelationship(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, l.Key, "", []Action{NewCreateAction(CreatePayload{Log: *l})},
 	)
+	return nil
 }
 
 // CreateMany creates the given logs within the project provided. If logs with the
 // same key already exist, they will be overwritten.
-func (w Writer) CreateMany(ctx context.Context, projectKey project.Key, logs *[]Log) error {
+func (w Writer) CreateMany(
+	ctx context.Context,
+	projectKey project.Key,
+	logs *[]Log,
+) error {
 	for i := range *logs {
 		if err := w.Create(ctx, projectKey, &(*logs)[i]); err != nil {
 			return err
@@ -112,10 +125,5 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

@@ -38,7 +38,6 @@ class Current(Analog):
         resistance: float | None = None,
         **kwargs: Any,
     ) -> None:
-
         super().__init__(
             layout=layout,
             name=name,

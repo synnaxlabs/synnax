@@ -12,7 +12,7 @@
 package lineplot
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
@@ -20,9 +20,11 @@ import (
 )
 
 const (
+	ActionTypeCreate                = "create"
 	ActionTypeRename                = "rename"
-	ActionTypeSetTitle              = "set_title"
-	ActionTypeSetLegendVisible      = "set_legend_visible"
+	ActionTypeSetTitleVisible       = "set_title_visible"
+	ActionTypeSetTitleLevel         = "set_title_level"
+	ActionTypeSetLegendHidden       = "set_legend_hidden"
 	ActionTypeSetLegendPosition     = "set_legend_position"
 	ActionTypeAddChannel            = "add_channel"
 	ActionTypeRemoveChannel         = "remove_channel"
@@ -54,19 +56,30 @@ const (
 	ActionTypeRemoveRule            = "remove_rule"
 )
 
+// CreatePayload replaces the document with the given created state. Emitted by the Core
+// on create so remote caches ingest new documents; clients never dispatch it.
+type CreatePayload struct {
+	LinePlot LinePlot `json:"line_plot" msgpack:"line_plot"`
+}
+
 // RenamePayload renames the line plot.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// SetTitlePayload replaces the plot title configuration.
-type SetTitlePayload struct {
-	Title Title `json:"title" msgpack:"title"`
+// SetTitleVisiblePayload sets whether the plot title is shown above the plot.
+type SetTitleVisiblePayload struct {
+	Visible bool `json:"visible" msgpack:"visible"`
 }
 
-// SetLegendVisiblePayload sets whether the plot legend is shown.
-type SetLegendVisiblePayload struct {
-	Visible bool `json:"visible" msgpack:"visible"`
+// SetTitleLevelPayload sets the typography level of the plot title.
+type SetTitleLevelPayload struct {
+	Level text.Level `json:"level" msgpack:"level"`
+}
+
+// SetLegendHiddenPayload sets whether the plot legend is hidden.
+type SetLegendHiddenPayload struct {
+	Hidden bool `json:"hidden" msgpack:"hidden"`
 }
 
 // SetLegendPositionPayload sets the anchor position of the plot legend within the
@@ -146,13 +159,13 @@ type SetAxisLabelLevelPayload struct {
 	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
 }
 
-// SetAxisBoundsPayload sets the axis value-space window together with its per-edge auto
-// derivation flags. The two travel together: fixing a bound disables auto derivation
-// for that edge, so callers set both at once.
+// SetAxisBoundsPayload sets the axis value-space window together with its per-edge
+// manual override flags. The two travel together: fixing a bound enables the manual
+// override for that edge, so callers set both at once.
 type SetAxisBoundsPayload struct {
-	Key        AxisKey        `json:"key" msgpack:"key"`
-	Bounds     spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	AutoBounds AutoBounds     `json:"auto_bounds" msgpack:"auto_bounds"`
+	Key          AxisKey        `json:"key" msgpack:"key"`
+	Bounds       spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	ManualBounds ManualBounds   `json:"manual_bounds" msgpack:"manual_bounds"`
 }
 
 // SetAxisTickSpacingPayload sets the target pixel distance between adjacent tick marks.
@@ -272,9 +285,11 @@ type RemoveRulePayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type                  string                        `json:"type" msgpack:"type"`
+	Create                *CreatePayload                `json:"create,omitempty" msgpack:"create,omitempty"`
 	Rename                *RenamePayload                `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	SetTitle              *SetTitlePayload              `json:"set_title,omitempty" msgpack:"set_title,omitempty"`
-	SetLegendVisible      *SetLegendVisiblePayload      `json:"set_legend_visible,omitempty" msgpack:"set_legend_visible,omitempty"`
+	SetTitleVisible       *SetTitleVisiblePayload       `json:"set_title_visible,omitempty" msgpack:"set_title_visible,omitempty"`
+	SetTitleLevel         *SetTitleLevelPayload         `json:"set_title_level,omitempty" msgpack:"set_title_level,omitempty"`
+	SetLegendHidden       *SetLegendHiddenPayload       `json:"set_legend_hidden,omitempty" msgpack:"set_legend_hidden,omitempty"`
 	SetLegendPosition     *SetLegendPositionPayload     `json:"set_legend_position,omitempty" msgpack:"set_legend_position,omitempty"`
 	AddChannel            *AddChannelPayload            `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
 	RemoveChannel         *RemoveChannelPayload         `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
@@ -315,21 +330,31 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
+		case ActionTypeCreate:
+			if a.Create == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
-		case ActionTypeSetTitle:
-			if a.SetTitle == nil {
+		case ActionTypeSetTitleVisible:
+			if a.SetTitleVisible == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetTitle.Handle(state)
-		case ActionTypeSetLegendVisible:
-			if a.SetLegendVisible == nil {
+			state, err = a.SetTitleVisible.Handle(state)
+		case ActionTypeSetTitleLevel:
+			if a.SetTitleLevel == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetLegendVisible.Handle(state)
+			state, err = a.SetTitleLevel.Handle(state)
+		case ActionTypeSetLegendHidden:
+			if a.SetLegendHidden == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetLegendHidden.Handle(state)
 		case ActionTypeSetLegendPosition:
 			if a.SetLegendPosition == nil {
 				return state, union.MissingPayload(a.Type)
@@ -485,19 +510,29 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 	return state, nil
 }
 
+// NewCreateAction wraps a CreatePayload in an Action envelope.
+func NewCreateAction(p CreatePayload) Action {
+	return Action{Type: ActionTypeCreate, Create: &p}
+}
+
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
-// NewSetTitleAction wraps a SetTitlePayload in an Action envelope.
-func NewSetTitleAction(p SetTitlePayload) Action {
-	return Action{Type: ActionTypeSetTitle, SetTitle: &p}
+// NewSetTitleVisibleAction wraps a SetTitleVisiblePayload in an Action envelope.
+func NewSetTitleVisibleAction(p SetTitleVisiblePayload) Action {
+	return Action{Type: ActionTypeSetTitleVisible, SetTitleVisible: &p}
 }
 
-// NewSetLegendVisibleAction wraps a SetLegendVisiblePayload in an Action envelope.
-func NewSetLegendVisibleAction(p SetLegendVisiblePayload) Action {
-	return Action{Type: ActionTypeSetLegendVisible, SetLegendVisible: &p}
+// NewSetTitleLevelAction wraps a SetTitleLevelPayload in an Action envelope.
+func NewSetTitleLevelAction(p SetTitleLevelPayload) Action {
+	return Action{Type: ActionTypeSetTitleLevel, SetTitleLevel: &p}
+}
+
+// NewSetLegendHiddenAction wraps a SetLegendHiddenPayload in an Action envelope.
+func NewSetLegendHiddenAction(p SetLegendHiddenPayload) Action {
+	return Action{Type: ActionTypeSetLegendHidden, SetLegendHidden: &p}
 }
 
 // NewSetLegendPositionAction wraps a SetLegendPositionPayload in an Action envelope.

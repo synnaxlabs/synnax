@@ -38,7 +38,10 @@ export interface UseProps
       >,
       "visible"
     >,
-    Aether.ComponentProps {}
+    Aether.ComponentProps {
+  /** Controlled pause state. When set, the log pauses scrolling while true. */
+  hold?: boolean;
+}
 
 export type LogState = z.output<typeof log.logStateZ>;
 
@@ -51,12 +54,13 @@ export const use = ({
   aetherKey,
   font,
   visible = true,
-  showChannelNames = true,
-  showReceiptTimestamp = true,
+  hideChannelNames = false,
+  hideReceiptTimestamp = false,
   timestampPrecision = 0,
   channels: rawChannels,
   color,
   telem,
+  hold,
 }: UseProps): UseReturn => {
   const channels = rawChannels ?? [];
   const numericChannels = useMemo(
@@ -66,7 +70,7 @@ export const use = ({
         .filter((ch): ch is number => typeof ch === "number" && ch > 0),
     [channels],
   );
-  const { data: retrievedChannels } = Channel.useRetrieveMultiple({
+  const { data: retrievedChannels } = Channel.useResultMultiple({
     keys: numericChannels,
   });
   const channelNames = useMemo(() => {
@@ -87,12 +91,13 @@ export const use = ({
     color,
     telem,
     visible,
-    showChannelNames,
-    showReceiptTimestamp,
+    hideChannelNames,
+    hideReceiptTimestamp,
     timestampPrecision,
     channelNames,
     channelDataTypes,
     channels,
+    ...(hold != null && { scrolling: hold }),
   });
 
   const [, state, setState] = Aether.use({

@@ -10,10 +10,9 @@
 import { TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { ranger } from "@/ranger";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -30,8 +29,8 @@ describe("range", () => {
         timeRange: new TimeRange(1n, 1000n),
         color: "#E774D0",
       });
-      await expect(userClient.ranges.retrieve(randomRange.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.ranges.retrieve(randomRange.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -76,7 +75,7 @@ describe("range", () => {
           timeRange: new TimeRange(1n, 1000n),
           color: "#E774D0",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete ranges with the correct policy", async () => {
@@ -107,8 +106,8 @@ describe("range", () => {
         timeRange: new TimeRange(1n, 1000n),
         color: "#E774D0",
       });
-      await expect(userClient.ranges.delete(randomRange.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.ranges.delete(randomRange.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

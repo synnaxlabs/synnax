@@ -37,18 +37,12 @@ type GCConfig struct {
 	// Threshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1]. Note: Setting this value to 0 will have NO EFFECT as it is the
 	// default value. instead, set it to a very small number greater than 0.
+	//
 	// [OPTIONAL] Default: 0.2
 	Threshold float32
 }
 
-var (
-	_               config.Config[GCConfig] = GCConfig{}
-	DefaultGCConfig                         = GCConfig{
-		MaxGoroutine: 10,
-		TryInterval:  30 * time.Second,
-		Threshold:    0.2,
-	}
-)
+var _ config.Config[GCConfig] = GCConfig{}
 
 // Override implements config.Config.
 func (cfg GCConfig) Override(other GCConfig) GCConfig {
@@ -67,9 +61,7 @@ func (cfg GCConfig) Validate() error {
 	return v.Error()
 }
 
-func keyToDirName(ch ChannelKey) string {
-	return strconv.Itoa(int(ch))
-}
+func keyToDirName(ch ChannelKey) string { return strconv.Itoa(int(ch)) }
 
 // DeleteChannel deletes a channel by its key.
 //
@@ -139,7 +131,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 		err = db.removeChannel(ch)
 		if err != nil {
-			return
+			return err
 		}
 
 		// Rename the files first, so we can avoid hogging the mutex while deleting the
@@ -148,7 +140,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
-			return
+			return err
 		}
 
 		directoriesToRemove = append(directoriesToRemove, newName)
@@ -158,20 +150,20 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	for _, ch := range indexChannels {
 		err = db.removeChannel(ch)
 		if err != nil {
-			return
+			return err
 		}
 
 		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
-			return
+			return err
 		}
 
 		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
-	return
+	return err
 }
 
 // removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
@@ -294,13 +286,16 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
-	signal.GoTick(sCtx, opts.gcCfg.TryInterval, func(ctx context.Context, time time.Time) error {
-		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
-		if err != nil {
-			db.L.Error("garbage collection error", zap.Error(err))
-		}
-		return nil
-	},
+	signal.GoTick(
+		sCtx,
+		opts.gcCfg.TryInterval,
+		func(ctx context.Context, time time.Time) error {
+			err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
+			if err != nil {
+				db.L.Error("garbage collection error", zap.Error(err))
+			}
+			return nil
+		},
 		signal.WithRetryOnPanic(10),
 		signal.RecoverWithoutErrOnPanic(),
 		signal.WithKey("gc-ticker"),

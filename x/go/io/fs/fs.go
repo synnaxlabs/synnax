@@ -55,7 +55,7 @@ type FS interface {
 	Remove(string) error
 	// Rename renames a file or directory. It returns an error if the target does not
 	// exist.
-	Rename(oldPath string, newPath string) error
+	Rename(oldPath, newPath string) error
 	// Stat returns a FileInfo interface.
 	Stat(string) (FileInfo, error)
 }
@@ -81,7 +81,7 @@ func (s *subFS) List(name string) ([]FileInfo, error) {
 
 func (s *subFS) Remove(name string) error { return s.FS.Remove(path.Join(s.dir, name)) }
 
-func (s *subFS) Rename(oldName string, newName string) error {
+func (s *subFS) Rename(oldName, newName string) error {
 	return s.FS.Rename(path.Join(s.dir, oldName), path.Join(s.dir, newName))
 }
 

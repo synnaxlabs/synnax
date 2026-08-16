@@ -17,8 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -27,7 +25,7 @@ import (
 // benchmarks. The sample shape (numChannels x samplesPerSeries) is the same
 // shape the writer translator sees on a steady-state hot stream.
 func benchFrame(numChannels, samplesPerSeries int) (
-	channel.Keys, []telem.DataType, frame.Frame,
+	channel.Keys, []telem.DataType, framer.Frame,
 ) {
 	keys := make(channel.Keys, numChannels)
 	dataTypes := make([]telem.DataType, numChannels)
@@ -54,7 +52,7 @@ func benchFrame(numChannels, samplesPerSeries int) (
 // span more than one domain and the response carries one series per domain per
 // channel.
 func benchIteratorFrame(numChannels, numDomains, samples int) (
-	channel.Keys, []telem.DataType, frame.Frame,
+	channel.Keys, []telem.DataType, framer.Frame,
 ) {
 	keys := make(channel.Keys, numChannels)
 	dataTypes := make([]telem.DataType, numChannels)
@@ -94,15 +92,14 @@ func BenchmarkWriterRequestTranslator_Forward_BufferOnly(b *testing.B) {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
 			keys, dataTypes, fr := benchFrame(nc, 100)
 			cdec := codec.NewStatic(keys, dataTypes)
-			ctx := context.Background()
 			b.ReportAllocs()
 			for b.Loop() {
-				buf, err := cdec.Encode(ctx, fr)
+				buf, err := cdec.Encode(b.Context(), fr)
 				if err != nil {
 					b.Fatalf("encode: %v", err)
 				}
 				_ = &WriterRequest{
-					Command: int32(writer.CommandWrite),
+					Command: int32(framer.WriterCommandWrite),
 					Buffer:  buf,
 				}
 			}
@@ -117,13 +114,12 @@ func BenchmarkWriterRequestTranslator_Forward(b *testing.B) {
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameWriterRequestTranslator{codec: cdec}
 			req := framer.WriterRequest{
-				Command: writer.CommandWrite,
+				Command: framer.WriterCommandWrite,
 				Frame:   fr,
 			}
-			ctx := context.Background()
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := t.Forward(ctx, req); err != nil {
+				if _, err := t.Forward(b.Context(), req); err != nil {
 					b.Fatalf("forward: %v", err)
 				}
 			}
@@ -139,19 +135,18 @@ func BenchmarkWriterRequestTranslator_Backward(b *testing.B) {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
 			keys, dataTypes, fr := benchFrame(nc, 100)
 			cdec := codec.NewStatic(keys, dataTypes)
-			ctx := context.Background()
-			buf, err := cdec.Encode(ctx, fr)
+			buf, err := cdec.Encode(b.Context(), fr)
 			if err != nil {
 				b.Fatalf("encode: %v", err)
 			}
 			pb := &WriterRequest{
-				Command: int32(writer.CommandWrite),
+				Command: int32(framer.WriterCommandWrite),
 				Buffer:  buf,
 			}
 			t := frameWriterRequestTranslator{codec: cdec}
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := t.Backward(ctx, pb); err != nil {
+				if _, err := t.Backward(b.Context(), pb); err != nil {
 					b.Fatalf("backward: %v", err)
 				}
 			}
@@ -164,17 +159,16 @@ func BenchmarkIteratorRequestTranslator_RoundTrip(b *testing.B) {
 	cdec := codec.NewStatic(keys, dataTypes)
 	t := frameIteratorRequestTranslator{codec: cdec}
 	req := framer.IteratorRequest{
-		Command: iterator.CommandNext,
+		Command: framer.IteratorCommandNext,
 		Span:    telem.Second,
 	}
-	ctx := context.Background()
 	b.ReportAllocs()
 	for b.Loop() {
-		pb, err := t.Forward(ctx, req)
+		pb, err := t.Forward(b.Context(), req)
 		if err != nil {
 			b.Fatalf("forward: %v", err)
 		}
-		if _, err := t.Backward(ctx, pb); err != nil {
+		if _, err := t.Backward(b.Context(), pb); err != nil {
 			b.Fatalf("backward: %v", err)
 		}
 	}
@@ -193,14 +187,19 @@ func BenchmarkIteratorResponseTranslator_Forward(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, c := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			c.channels,
+			c.domains,
+			c.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
 				Frame:   fr,
 			}
 			ctx := context.Background()
@@ -232,19 +231,23 @@ func BenchmarkIteratorResponseTranslator_Forward_NoCodec(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, c := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			c.channels,
+			c.domains,
+			c.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			_, _, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			t := frameIteratorResponseTranslator{}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
 				Frame:   fr,
 			}
-			ctx := context.Background()
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := t.Forward(ctx, res); err != nil {
+				if _, err := t.Forward(b.Context(), res); err != nil {
 					b.Fatalf("forward: %v", err)
 				}
 			}
@@ -261,15 +264,20 @@ func BenchmarkIteratorResponseTranslator_Backward(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, c := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			c.channels,
+			c.domains,
+			c.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameIteratorResponseTranslator{codec: cdec}
 			ctx := context.Background()
 			pb, err := t.Forward(ctx, framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
 				Frame:   fr,
 			})
 			if err != nil {

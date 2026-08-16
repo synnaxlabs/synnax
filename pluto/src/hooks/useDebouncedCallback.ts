@@ -14,7 +14,10 @@ export const useDebouncedCallback = <Args extends unknown[]>(
   func: (...args: Args) => void,
   waitFor: CrudeTimeSpan,
   deps: DependencyList,
-): ((...args: Args) => void) => {
+): debounce.DebouncedFn<Args> => {
   const debouncePeriod = new TimeSpan(waitFor).valueOf();
-  return useCallback(debounce(func, debouncePeriod), [debouncePeriod, ...deps]);
+  return useCallback(debounce.debounce(func, debouncePeriod), [
+    debouncePeriod,
+    ...deps,
+  ]);
 };

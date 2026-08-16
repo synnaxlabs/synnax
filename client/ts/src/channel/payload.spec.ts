@@ -46,8 +46,8 @@ describe("nameZ", () => {
   });
 });
 
-describe("newZ", () => {
-  const validNewChannel = {
+describe("schema validation", () => {
+  const validNewChannel: channel.New = {
     name: "temperature_sensor",
     dataType: DataType.FLOAT32,
     virtual: true,
@@ -55,17 +55,17 @@ describe("newZ", () => {
 
   describe("name validation", () => {
     it("should accept valid channel names", () => {
-      const result = channel.newZ.safeParse(validNewChannel);
+      const result = channel.payloadZ.safeParse(validNewChannel);
       expect(result.success).toBe(true);
     });
 
     it("should reject empty name", () => {
-      const result = channel.newZ.safeParse({ ...validNewChannel, name: "" });
+      const result = channel.payloadZ.safeParse({ ...validNewChannel, name: "" });
       expect(result.success).toBe(false);
     });
 
     it("should accept name with underscores", () => {
-      const result = channel.newZ.safeParse({
+      const result = channel.payloadZ.safeParse({
         ...validNewChannel,
         name: "sensor_temp_123",
       });
@@ -73,7 +73,7 @@ describe("newZ", () => {
     });
 
     it("should accept name starting with underscore", () => {
-      const result = channel.newZ.safeParse({
+      const result = channel.payloadZ.safeParse({
         ...validNewChannel,
         name: "_private_sensor",
       });
@@ -81,6 +81,7 @@ describe("newZ", () => {
     });
   });
 });
+
 describe("escapeInvalidName", () => {
   it("should escape invalid name", () => {
     const result = channel.escapeInvalidName("sensor-temp");

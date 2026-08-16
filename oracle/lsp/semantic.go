@@ -15,8 +15,8 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/oracle/parser"
 	xlsp "github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/set"
+	"go.lsp.dev/protocol"
 )
 
 const (
@@ -52,7 +52,10 @@ var primitiveTypes = set.New(
 	"record", "bytes",
 )
 
-func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
+func (s *Server) SemanticTokensFull(
+	_ context.Context,
+	params *protocol.SemanticTokensParams,
+) (*protocol.SemanticTokens, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return &protocol.SemanticTokens{Data: []uint32{}}, nil

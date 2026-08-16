@@ -11,15 +11,22 @@ import { color } from "@synnaxlabs/x";
 
 import { actions } from "@/actions";
 import {
+  type Action,
   addChannel,
   createReduceAll,
   type Handlers,
   removeChannel,
   rename,
+  setChannelAlias,
+  setChannelColor,
   setChannelEntry,
+  setChannelNotation,
+  setChannelPrecision,
   setChannels,
-  setShowChannelNames,
-  setShowReceiptTimestamp,
+  setChannelTimestampFormat,
+  setChannelTimestampTz,
+  setHideChannelNames,
+  setHideReceiptTimestamp,
   setTimestampPrecision,
   swapChannel,
 } from "@/log/actions.gen";
@@ -30,6 +37,11 @@ import { channelEntryZ } from "@/log/types.gen";
 // mutations target the specific channel so concurrent edits to distinct channels
 // neither coalesce nor invalidate each other's undoables.
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.log);
+    return { inverse: [], targets: [payload.log.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -79,6 +91,70 @@ const handlers: Handlers = {
     };
   },
 
+  setChannelColor: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelColor({
+        channel: payload.channel,
+        color: actions.snapshotDraft(entry.color),
+      }),
+    ];
+    entry.color = payload.color;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelNotation: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelNotation({ channel: payload.channel, notation: entry.notation }),
+    ];
+    entry.notation = payload.notation;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelPrecision: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelPrecision({ channel: payload.channel, precision: entry.precision }),
+    ];
+    entry.precision = payload.precision;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelAlias: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [setChannelAlias({ channel: payload.channel, alias: entry.alias })];
+    entry.alias = payload.alias;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelTimestampFormat: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelTimestampFormat({
+        channel: payload.channel,
+        format: entry.timestamp.format,
+      }),
+    ];
+    entry.timestamp.format = payload.format;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelTimestampTz: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelTimestampTz({ channel: payload.channel, tz: entry.timestamp.tz }),
+    ];
+    entry.timestamp.tz = payload.tz;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
   setChannels: (state, payload) => {
     const oldChannels = actions.snapshotDraft(state.channels);
     const targets = new Set<string>();
@@ -107,23 +183,60 @@ const handlers: Handlers = {
     };
   },
 
-  setShowChannelNames: (state, payload) => {
-    const oldValue = state.showChannelNames;
-    state.showChannelNames = payload.showChannelNames;
+  setHideChannelNames: (state, payload) => {
+    const oldValue = state.hideChannelNames;
+    state.hideChannelNames = payload.hideChannelNames;
     return {
-      inverse: [setShowChannelNames({ showChannelNames: oldValue })],
+      inverse: [setHideChannelNames({ hideChannelNames: oldValue })],
       targets: [state.key],
     };
   },
 
-  setShowReceiptTimestamp: (state, payload) => {
-    const oldValue = state.showReceiptTimestamp;
-    state.showReceiptTimestamp = payload.showReceiptTimestamp;
+  setHideReceiptTimestamp: (state, payload) => {
+    const oldValue = state.hideReceiptTimestamp;
+    state.hideReceiptTimestamp = payload.hideReceiptTimestamp;
     return {
-      inverse: [setShowReceiptTimestamp({ showReceiptTimestamp: oldValue })],
+      inverse: [setHideReceiptTimestamp({ hideReceiptTimestamp: oldValue })],
       targets: [state.key],
     };
   },
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.log : undefined;
+
+// kindOf keys single-channel edits by channel so rapid edits to one
+// channel's config coalesce into a single undoable, while edits to distinct
+// channels stay separate. Log-level edits (name, precision, flags) key by their
+// action type; multi-action batches collapse into one "transaction" undoable.
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  if (actions.length > 1) return "transaction";
+  const a = actions[0];
+  switch (a.type) {
+    case "add_channel":
+      return `channel:${a.addChannel.channel}`;
+    case "remove_channel":
+      return `channel:${a.removeChannel.channel}`;
+    case "set_channel_entry":
+      return `channel:${a.setChannelEntry.entry.channel}`;
+    case "set_channel_color":
+      return `channel:${a.setChannelColor.channel}`;
+    case "set_channel_notation":
+      return `channel:${a.setChannelNotation.channel}`;
+    case "set_channel_precision":
+      return `channel:${a.setChannelPrecision.channel}`;
+    case "set_channel_alias":
+      return `channel:${a.setChannelAlias.channel}`;
+    case "set_channel_timestamp_format":
+      return `channel:${a.setChannelTimestampFormat.channel}`;
+    case "set_channel_timestamp_tz":
+      return `channel:${a.setChannelTimestampTz.channel}`;
+    default:
+      return a.type;
+  }
+};

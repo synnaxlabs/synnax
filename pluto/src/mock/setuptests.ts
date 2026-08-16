@@ -10,18 +10,29 @@
 import { ResizeObserver } from "@juggle/resize-observer";
 import { afterAll, beforeAll, vi } from "vitest";
 
+import { installTestWebSocket } from "@/testutil/websocket";
+
 class MockIntersectionObserver {
   observe = vi.fn();
   disconnect = vi.fn();
   unobserve = vi.fn();
 }
 
+// Installed at module scope: an async describe body can open a socket at
+// collection time, before any beforeAll runs.
+installTestWebSocket();
+
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+  HTMLElement.prototype.setPointerCapture = () => {};
+  HTMLElement.prototype.releasePointerCapture = () => {};
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  Element.prototype.scrollIntoView = () => {};
 });
 
 afterAll(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });

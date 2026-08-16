@@ -9,19 +9,22 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, errors, type record, shallow, zod } from "@synnaxlabs/x";
+import { deep, errors, type record, shallow, state, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
+  Batcher,
   type MainInvokeRequest,
   type MainMessage,
   type MainUpdateRequest,
   type Sender,
   type WorkerComms,
+  type WorkerMessage,
   wrapWorkerScope,
 } from "@/aether/aether/message";
 
 export {
+  Batcher,
   createMockPair,
   type MainComms,
   type MainMessage,
@@ -30,7 +33,6 @@ export {
   wrapWorker,
   wrapWorkerScope,
 } from "@/aether/aether/message";
-import { state } from "@/state";
 
 const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
   if (e instanceof Error) {
@@ -197,6 +199,16 @@ export abstract class Node implements Component {
    * their resolved provider (or `null` if unresolved). Non-`null` only while
    * {@link afterUpdate} is running, so reads outside that window are not tracked. */
   private ctxReads: Map<string, Node | null> | null = null;
+  /** {@link toString} and the span labels derived from it, built once. `type` and `path`
+   * never change, and every update would otherwise rebuild these strings only for noop
+   * instrumentation to discard them. */
+  private readonly label: string;
+  private readonly afterUpdateSpan: string;
+  protected readonly updateStateSpan: string;
+  private readonly deleteSpan: string;
+  /** Built on first use and reused. The object closes over `this` alone, so a fresh one
+   * per {@link afterUpdate} would be six identical allocations per update. */
+  private cachedCtx: Context | null = null;
 
   constructor({
     path,
@@ -207,8 +219,12 @@ export abstract class Node implements Component {
   }: ComponentConstructorProps) {
     this.type = type;
     this.path = path;
+    this.label = `${type}(${path[path.length - 1]})`;
+    this.afterUpdateSpan = `${this.label}:afterUpdate`;
+    this.updateStateSpan = `${this.label}:updateState`;
+    this.deleteSpan = `${this.label}:delete`;
     this.sender = sender;
-    this.instrumentation = instrumentation.child(this.toString());
+    this.instrumentation = instrumentation.child(this.label);
     this._parent = parent;
     this._depth = this._parent == null ? 0 : this._parent._depth + 1;
     this.childCtxValues = new Map();
@@ -227,11 +243,11 @@ export abstract class Node implements Component {
   }
 
   toString(): string {
-    return `${this.type}(${this.key})`;
+    return this.label;
   }
 
   private get ctx(): Context {
-    return {
+    return (this.cachedCtx ??= {
       get: <P>(key: string): P => {
         const provider = this.readCtx(key);
         if (provider == null)
@@ -250,7 +266,7 @@ export abstract class Node implements Component {
         this.childCtxValues.set(key, value);
         if (trigger) this.childCtxChangedKeys.add(key);
       },
-    };
+    });
   }
 
   /** Resolves `key` to the nearest ancestor publishing it (self excluded) and records
@@ -270,7 +286,7 @@ export abstract class Node implements Component {
    * resulting subscriptions. Used for both state-driven updates and context-driven
    * re-runs. */
   protected runAfterUpdate(): void {
-    const endSpan = this.instrumentation.T.debug(`${this.toString()}:afterUpdate`);
+    const endSpan = this.instrumentation.T.debug(this.afterUpdateSpan);
     const prevReads = this.ctxReads;
     this.ctxReads = new Map();
     this.childCtxChangedKeys.clear();
@@ -349,7 +365,7 @@ export abstract class Node implements Component {
    * must not call this. */
   _delete(path: readonly string[]): void {
     try {
-      const endSpan = this.instrumentation.T.debug(`${this.toString()}:delete`);
+      const endSpan = this.instrumentation.T.debug(this.deleteSpan);
       this.validatePath(path);
       this._deleted = true;
       this.afterDelete(this.ctx);
@@ -518,7 +534,7 @@ export abstract class Leaf<
     if (this.deleted) return;
     try {
       this.initializeMethods();
-      const endSpan = this.instrumentation.T.debug(`${this.toString()}:updateState`);
+      const endSpan = this.instrumentation.T.debug(this.updateStateSpan);
       this.validatePath(path);
       const state_ = zod.parse(this._schema, state, { label: this.toString() });
       if (this._state != null)
@@ -612,7 +628,7 @@ export abstract class Composite<
 
   /** Returns the child at `key`, or `null` if none. The `T` cast is unchecked — callers
    * must know which subtype they are looking up. */
-  private getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
+  getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
     return (this._children.get(key) ?? null) as T | null;
   }
 
@@ -660,11 +676,17 @@ export abstract class Composite<
     this._children.set(childKey, newChild as ChildComponents);
   }
 
+  /** Deletes every child, running each full delete lifecycle. The component itself
+   * stays alive, so the tree can be rebuilt by later updates. */
+  clearChildren(): void {
+    for (const c of this.children) c._delete([c.key]);
+    this._children.clear();
+  }
+
   _delete(path: readonly string[]): void {
     const subPath = this.parsePath(path);
     if (subPath.length === 0) {
-      for (const c of this.children) c._delete([c.key]);
-      this._children.clear();
+      this.clearChildren();
       super._delete([this.key]);
     }
     const child = this.getChild(subPath[0]);
@@ -743,10 +765,15 @@ export class Root extends Composite<typeof aetherRootState> {
     instrumentation = alamos.Instrumentation.NOOP,
     registry,
   }: RootProps) {
+    // Every component in the tree shares this one sender, so a message batch spans the
+    // whole tree rather than a single component.
+    const sender = new Batcher<WorkerMessage>((values, transfer) =>
+      worker.send(values, transfer),
+    );
     super({
       path: [Root.KEY],
       type: Root.TYPE,
-      sender: worker,
+      sender,
       instrumentation,
       parent: null,
     });
@@ -766,13 +793,15 @@ export class Root extends Composite<typeof aetherRootState> {
       create: shouldNotCallCreate,
     });
     // Messages are handled sequentially: concurrent component updates lead to races, so
-    // the tree is implicitly serialized via the message queue.
-    root.comms.handle((msg) => {
-      try {
-        root.handle(msg);
-      } catch (e) {
-        root.comms.send({ variant: "error", error: errors.encode(e) });
-      }
+    // the tree is implicitly serialized via the message queue. Each message is caught
+    // on its own so one failure reports and the rest of the batch still applies.
+    root.comms.handle((messages) => {
+      for (const msg of messages)
+        try {
+          root.handle(msg);
+        } catch (e) {
+          root.sender.send({ variant: "error", error: errors.encode(e) });
+        }
     });
     return root;
   }
@@ -787,6 +816,11 @@ export class Root extends Composite<typeof aetherRootState> {
 
     if (variant === "delete") {
       this._delete(msg.path);
+      return;
+    }
+
+    if (variant === "clear") {
+      this.clearChildren();
       return;
     }
 
@@ -838,7 +872,7 @@ export class Root extends Composite<typeof aetherRootState> {
     return new Constructor({
       path,
       type,
-      sender: this.comms,
+      sender: this.sender,
       instrumentation: this.instrumentation,
       parent,
     });
