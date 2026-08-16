@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  id,
+  Series,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { UnexpectedError } from "@/errors";
@@ -193,6 +201,57 @@ describe("feed", () => {
     // live buffer.
     expect(received.some((s) => res.series.includes(s))).toBe(true);
     sub.close();
+  });
+
+  it("should refetch samples written while a channel was unstreamed", async () => {
+    const { time, data } = await createChannels();
+    const short = client.openFeed({ removalDelay: TimeSpan.milliseconds(100) });
+    try {
+      const start = TimeStamp.now();
+      const w = await client.openWriter({ start, channels: [time.key, data.key] });
+      let value = 0;
+      try {
+        const received: number[] = [];
+        const sub = short.stream(
+          (res) => {
+            const series = res.get(data.key);
+            if (series != null) received.push(...(Array.from(series) as number[]));
+          },
+          [data.key],
+        );
+        await expect
+          .poll(
+            async () => {
+              await w.write({ [time.key]: [TimeStamp.now()], [data.key]: [value++] });
+              return received.length > 0;
+            },
+            { timeout: 10000, interval: 100 },
+          )
+          .toBe(true);
+        // Ends the channel's streaming demand; the wait outlasts the removal delay
+        // and the reconcile that shrinks the stream.
+        sub.close();
+        await sleep.sleep(TimeSpan.milliseconds(500));
+        for (let i = 0; i < 10; i++)
+          await w.write({ [time.key]: [TimeStamp.now()], [data.key]: [value++] });
+        await w.commit();
+      } finally {
+        await w.close();
+      }
+      const tr = new TimeRange(start, TimeStamp.now());
+      const cached = new Set(Array.from(await short.read(tr, data.key)) as number[]);
+      const fresh = client.openFeed();
+      try {
+        const all = Array.from(await fresh.read(tr, data.key)) as number[];
+        expect(all.length).toBeGreaterThanOrEqual(value - 1);
+        const missing = all.filter((v) => !cached.has(v));
+        expect(missing).toHaveLength(0);
+      } finally {
+        await fresh.close();
+      }
+    } finally {
+      await short.close();
+    }
   });
 
   it("should reject reads after the feed closes", async () => {

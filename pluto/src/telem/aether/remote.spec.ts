@@ -519,7 +519,7 @@ describe("remote", () => {
       c = new MockClient();
     });
 
-    it("should return a zero value when no channel has been set", async () => {
+    it("should return invalid bounds when no channel has been set", async () => {
       const props = {
         timeRange: TimeRange.MAX,
         channel: 0,
@@ -529,13 +529,13 @@ describe("remote", () => {
       cd.onChange(handleChange);
       const [b, data] = cd.value();
       expect(handleChange.mock.calls.length).toBe(0);
-      expect(b).toStrictEqual(bounds.ZERO);
+      expect(b).toStrictEqual(bounds.INVALID);
       expect(data).toHaveLength(0);
       expect(c.readMock).not.toHaveBeenCalled();
       expect(c.retrieveChannelMock).not.toHaveBeenCalled();
     });
 
-    it("should return a zero value when the time range is empty", async () => {
+    it("should return invalid bounds when the time range is empty", async () => {
       const props = {
         timeRange: TimeRange.ZERO,
         channel: c.channel.key,
@@ -544,7 +544,7 @@ describe("remote", () => {
       const handleChange = vi.fn();
       const [b, data] = cd.value();
       expect(handleChange.mock.calls.length).toBe(0);
-      expect(b).toStrictEqual(bounds.ZERO);
+      expect(b).toStrictEqual(bounds.INVALID);
       expect(data).toHaveLength(0);
       expect(c.readMock).not.toHaveBeenCalled();
       expect(c.retrieveChannelMock).not.toHaveBeenCalled();
@@ -604,6 +604,25 @@ describe("remote", () => {
       expect(b).toStrictEqual({ lower: 0, upper: 4 });
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
+    });
+
+    it("should return invalid bounds when the data lies outside the requested range", async () => {
+      const series = new Series({
+        data: new BigInt64Array([
+          TimeStamp.seconds(1).valueOf(),
+          TimeStamp.seconds(2).valueOf(),
+        ]),
+        dataType: DataType.TIMESTAMP,
+        timeRange: TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+      });
+      c.response = { [c.channel.index]: new MultiSeries([series]) };
+      const cd = new ChannelData(c, {
+        timeRange: TimeStamp.seconds(20).range(TimeStamp.seconds(30)),
+        channel: c.channel.key,
+        useIndexOfChannel: true,
+      });
+      const [b] = await waitForResolve(cd);
+      expect(b).toStrictEqual(bounds.INVALID);
     });
 
     it("should not retain data when cleaned up while reading", async () => {
@@ -688,14 +707,14 @@ describe("remote", () => {
       vi.resetAllMocks();
     });
 
-    it("should return a zero value when no channel has been set", async () => {
+    it("should return invalid bounds when no channel has been set", async () => {
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
         channel: 0,
       };
       const cd = new StreamChannelData(c, props);
       const [b, data] = cd.value();
-      expect(b).toStrictEqual(bounds.ZERO);
+      expect(b).toStrictEqual(bounds.INVALID);
       expect(data).toHaveLength(0);
     });
 
@@ -1003,7 +1022,7 @@ describe("remote", () => {
       });
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([d])]]));
       const [b, data] = cd.value();
-      expect(b).toStrictEqual(bounds.ZERO);
+      expect(b).toStrictEqual(bounds.INVALID);
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(d);
     });
@@ -1039,7 +1058,7 @@ describe("remote", () => {
         { onStatusChange: (s) => statuses.push(s) },
       );
       const [b, data] = cd.value();
-      expect(b).toStrictEqual(bounds.ZERO);
+      expect(b).toStrictEqual(bounds.INVALID);
       expect(data).toHaveLength(0);
       expect(statuses).toHaveLength(1);
       expect(statuses[0].variant).toEqual("warning");
