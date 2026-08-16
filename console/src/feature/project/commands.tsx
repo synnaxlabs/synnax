@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project } from "@synnaxlabs/client";
+import { DisconnectedError, project } from "@synnaxlabs/client";
 import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -52,15 +52,19 @@ const ExportProjectCommand = Command.create({
   useOnSelect: () => {
     const handleExport = Export.use();
     const getSelected = Session.Project.useGetSelected();
+    const client = Synnax.use();
+    const handleError = Status.useErrorHandler();
     return useCallback(() => {
-      // getSelected throws when no project is selected, so it runs inside the stream
-      // fetcher, within the export handler's error boundary.
-      handleExport({
-        stream: (client) => client.projects.export(getSelected()),
-        name: "project",
-        extension: "zip",
-      });
-    }, [handleExport, getSelected]);
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const { key, name } = await client.projects.retrieve(getSelected());
+        handleExport({
+          stream: (client) => client.projects.export(key),
+          name,
+          extension: "zip",
+        });
+      }, "Failed to export project");
+    }, [handleError, client, getSelected, handleExport]);
   },
   useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
 });
