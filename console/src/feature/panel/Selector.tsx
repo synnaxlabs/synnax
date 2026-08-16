@@ -61,6 +61,7 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
   const dispatch = useDispatch();
   const client = Synnax.use();
   const openWindow = useOpenWindow();
+  const selected = Session.Panel.useSelectSelected();
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
@@ -89,7 +90,7 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
         <Menu.Item
           itemKey="open-in-new-window"
           onClick={() => openWindow(key)}
-          triggerIndicator={OPEN_WINDOW_TRIGGER}
+          triggerIndicator={key === selected ? OPEN_WINDOW_TRIGGER : undefined}
         >
           <Icon.OpenInNewWindow />
           Open in new window

@@ -508,5 +508,34 @@ describe("Panel.Selector", () => {
       await openPillMenu();
       expect(screen.queryByText("Open in new window")).toBeNull();
     });
+
+    const openPillMenuBeside = async (onSelected: boolean): Promise<void> => {
+      const { key: projectKey } = await client.projects.create({
+        name: uniqueName("project"),
+        layout: {},
+      });
+      const panels = [
+        await createProjectPanel(projectKey, { name: "alpha" }),
+        await createProjectPanel(projectKey, { name: "bravo" }),
+      ];
+      const { row } = await renderStrip(panels, projectKey);
+      await act(async () => {
+        fireEvent.click(screen.getByText(row[0].name));
+      });
+      fireEvent.contextMenu(screen.getByText(row[onSelected ? 0 : 1].name));
+      await screen.findByText("Open in new window");
+    };
+
+    it("should show the shortcut on the selected pill", async () => {
+      mocks.engine = "tauri";
+      await openPillMenuBeside(true);
+      expect(screen.queryByLabelText("trigger-indicator")).not.toBeNull();
+    });
+
+    it("should hide the shortcut on a pill that is not selected", async () => {
+      mocks.engine = "tauri";
+      await openPillMenuBeside(false);
+      expect(screen.queryByLabelText("trigger-indicator")).toBeNull();
+    });
   });
 });
