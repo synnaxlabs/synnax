@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
+// Transport aggregates the client and server transports an aspen DB uses to reach its
+// peers, and manages the underlying network resources.
 type Transport interface {
 	freighter.Transport
 	// Configure prepares the transport for serving: it registers gRPC services and
@@ -40,16 +42,28 @@ type Transport interface {
 	Serve() error
 	// Close gracefully stops the transport.
 	Close() error
+	// PledgeServer returns the server transport for node pledge requests.
 	PledgeServer() pledge.TransportServer
+	// PledgeClient returns the client transport for node pledge requests.
 	PledgeClient() pledge.TransportClient
+	// GossipServer returns the server transport for cluster state gossip.
 	GossipServer() gossip.TransportServer
+	// GossipClient returns the client transport for cluster state gossip.
 	GossipClient() gossip.TransportClient
+	// TxServer returns the server transport for KV transactions.
 	TxServer() kv.TxTransportServer
+	// TxClient returns the client transport for KV transactions.
 	TxClient() kv.TxTransportClient
+	// LeaseServer returns the server transport for leaseholder operations.
 	LeaseServer() kv.LeaseTransportServer
+	// LeaseClient returns the client transport for leaseholder operations.
 	LeaseClient() kv.LeaseTransportClient
+	// FeedbackServer returns the server transport for lease feedback.
 	FeedbackServer() kv.FeedbackTransportServer
+	// FeedbackClient returns the client transport for lease feedback.
 	FeedbackClient() kv.FeedbackTransportClient
+	// RecoveryServer returns the server transport for KV recovery.
 	RecoveryServer() kv.RecoveryTransportServer
+	// RecoveryClient returns the client transport for KV recovery.
 	RecoveryClient() kv.RecoveryTransportClient
 }
