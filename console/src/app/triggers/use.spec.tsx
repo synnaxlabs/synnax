@@ -14,7 +14,14 @@ import { Text, Triggers as PTriggers } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Triggers } from "@/app/triggers";
 import { useSelectorVisible } from "@/app/vis/Selector";
@@ -131,6 +138,10 @@ const leafTabs = async (key: panel.Key): Promise<panel.Tab[]> => {
 const Noop: Modals.Content = () => null;
 
 describe("app/triggers", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -210,6 +221,7 @@ describe("app/triggers", () => {
     });
 
     it("should close the window when the shortcut is held with nothing open", async () => {
+      mocks.engine = "tauri";
       const { store } = await renderTriggers();
       expect(isWindowOpen(store)).toBe(true);
       vi.useFakeTimers();
@@ -218,7 +230,18 @@ describe("app/triggers", () => {
       expect(isWindowOpen(store)).toBe(false);
     });
 
+    // A browser page cannot close its own tab, so the reducer must not drop the
+    // window either: the panel selectors key off it.
+    it("should spare the window in the browser", async () => {
+      const { store } = await renderTriggers();
+      vi.useFakeTimers();
+      act(() => hold(CONTROL, "KeyW"));
+      act(() => void vi.advanceTimersByTime(400));
+      expect(isWindowOpen(store)).toBe(true);
+    });
+
     it("should spare the window when the shortcut is released first", async () => {
+      mocks.engine = "tauri";
       const { store } = await renderTriggers();
       vi.useFakeTimers();
       act(() => hold(CONTROL, "KeyW"));

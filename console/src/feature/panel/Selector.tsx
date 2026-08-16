@@ -85,7 +85,7 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
         <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
       )}
       <Menu.Divider />
-      {keys.length === 1 && (
+      {keys.length === 1 && Session.Runtime.ENGINE === "tauri" && (
         <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
           <Icon.OpenInNewWindow />
           Open in new window

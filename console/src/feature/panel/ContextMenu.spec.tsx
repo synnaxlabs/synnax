@@ -22,7 +22,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Panel as PanelFeature } from "@/feature/panel";
 import { Modals } from "@/platform/modals";
@@ -80,6 +87,10 @@ const renderMenu = (wrapper: FC<PropsWithChildren>, keys: string[]) =>
   );
 
 describe("Panel.TabMenuItems", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+  });
+
   describe("rename", () => {
     it("offers rename for a resource tab", async () => {
       const tab = resourceTab();
@@ -166,7 +177,16 @@ describe("Panel.TabMenuItems", () => {
   });
 
   describe("move to new window", () => {
+    it("hides the item in the browser, which cannot open a window", async () => {
+      const tab = resourceTab();
+      const { wrapper } = await setup([tab], tab.key);
+      renderMenu(wrapper, [tab.key]);
+      await waitFor(() => expect(screen.getByText("Move to panel")).toBeTruthy());
+      expect(screen.queryByText("Move to new window")).toBeNull();
+    });
+
     it("mints a panel holding the tab and opens a window showing it", async () => {
+      mocks.engine = "tauri";
       const moved = resourceTab();
       const stays = resourceTab();
       const existing = await createServerPanel(client, {

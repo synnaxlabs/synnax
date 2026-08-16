@@ -103,6 +103,8 @@ export const use = (): void => {
           });
           return;
         }
+        // A page cannot close the tab that holds it.
+        if (Session.Runtime.ENGINE !== "tauri") return;
         closeWindowTimeout.current = setTimeout(
           () => sessionDispatch(Drift.closeWindow({})),
           CLOSE_WINDOW_TIMEOUT.milliseconds,
