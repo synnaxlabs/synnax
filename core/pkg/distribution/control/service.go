@@ -108,7 +108,6 @@ type Service struct {
 	router   proxy.BatchFactory[channel.Key]
 	updates  observe.Observer[Update]
 	shutdown io.Closer
-	sCtx     signal.Context
 	// disconnectStorage stops the host's storage subscription.
 	disconnectStorage observe.Disconnect
 	// disconnectCluster stops the membership subscription.
@@ -136,20 +135,26 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		updates: observe.New[Update](),
 	}
 	s.mu.peers = make(map[node.Key]*peer)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	s.sCtx = sCtx
+	sCtx, cancel := signal.WithCancel(
+		context.WithoutCancel(ctx),
+		signal.WithInstrumentation(cfg.Instrumentation),
+	)
 	s.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	cfg.Transport.RetrieveServer().BindHandler(s.handleRetrieve)
-	cfg.Transport.SubscribeServer().BindHandler(s.handleSubscribe)
+	cfg.Transport.SubscribeServer().BindHandler(
+		func(ctx context.Context, stream SubscribeStream) error {
+			return s.handleSubscribe(ctx, sCtx.Done(), stream)
+		},
+	)
 	s.disconnectStorage = cfg.TS.OnControlUpdate(
 		func(ctx context.Context, u ts.ControlUpdate) {
 			s.updates.Notify(ctx, updateFromStorage(u))
 		},
 	)
 	s.disconnectCluster = cfg.Cluster.OnChange(
-		func(ctx context.Context, _ cluster.Change) { s.syncPeers(ctx) },
+		func(ctx context.Context, _ cluster.Change) { s.syncPeers(ctx, sCtx) },
 	)
-	s.syncPeers(ctx)
+	s.syncPeers(ctx, sCtx)
 	return s, nil
 }
 
@@ -252,6 +257,7 @@ func (s *Service) handleRetrieve(
 // send is dropped instead of stalling the storage engine.
 func (s *Service) handleSubscribe(
 	ctx context.Context,
+	stop <-chan struct{},
 	stream SubscribeStream,
 ) error {
 	changes := make(chan struct{}, 1)
@@ -274,7 +280,7 @@ func (s *Service) handleSubscribe(
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-s.sCtx.Done():
+		case <-stop:
 			return nil
 		case <-changes:
 			if err := send(); err != nil {
@@ -287,7 +293,7 @@ func (s *Service) handleSubscribe(
 // syncPeers opens a subscription to every peer the host does not already subscribe to.
 // Nodes are never removed from the cluster's view, so a subscription is only ever
 // opened here, never closed.
-func (s *Service) syncPeers(ctx context.Context) {
+func (s *Service) syncPeers(ctx context.Context, sCtx signal.Context) {
 	host := s.cfg.Cluster.HostKey()
 	for _, n := range s.cfg.Cluster.Nodes() {
 		if n.Key == host {
@@ -297,7 +303,7 @@ func (s *Service) syncPeers(ctx context.Context) {
 		_, ok := s.mu.peers[n.Key]
 		s.mu.Unlock()
 		if !ok {
-			s.addPeer(ctx, n.Key)
+			s.addPeer(ctx, sCtx, n.Key)
 		}
 	}
 }
@@ -305,7 +311,7 @@ func (s *Service) syncPeers(ctx context.Context) {
 // addPeer opens a subscription to target and starts reading it. The stream is opened
 // here rather than inside the reader so that the subscription is live before addPeer
 // returns, leaving no window in which a joining peer's transfers go unseen.
-func (s *Service) addPeer(ctx context.Context, target node.Key) {
+func (s *Service) addPeer(ctx context.Context, sCtx signal.Context, target node.Key) {
 	peerCtx, stop := context.WithCancel(context.WithoutCancel(ctx))
 	stream, err := s.openPeerStream(peerCtx, target)
 	s.mu.Lock()
@@ -318,7 +324,7 @@ func (s *Service) addPeer(ctx context.Context, target node.Key) {
 	}
 	s.mu.peers[target] = &peer{states: make(map[channel.Key]State), stop: stop}
 	s.mu.Unlock()
-	s.sCtx.Go(
+	sCtx.Go(
 		func(context.Context) error {
 			return s.subscribeToPeer(peerCtx, target, stream, err)
 		},
