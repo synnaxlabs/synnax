@@ -57,6 +57,7 @@ cc_test(
     name = "labjack_test",
     srcs = [
         "read_task_test.cpp",
+        "write_task_test.cpp",
     ],
     deps = [
         "//client/cpp/testutil",
