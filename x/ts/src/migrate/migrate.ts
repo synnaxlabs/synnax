@@ -123,6 +123,8 @@ export const compareSemVer = ((
 
   // When major.minor.patch are equal, compare pre-release versions
   // Version without pre-release > version with pre-release
+  // Pre-release qualifies the patch version, so skip it when patch is unchecked
+  if (!opts.checkPatch) return compare.EQUAL;
   if (aPreRelease === undefined && bPreRelease === undefined) return compare.EQUAL;
   if (aPreRelease === undefined) return compare.GREATER_THAN;
   if (bPreRelease === undefined) return compare.LESS_THAN;
