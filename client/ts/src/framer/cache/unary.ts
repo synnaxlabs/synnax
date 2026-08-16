@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type MultiSeries, type Series, TimeRange } from "@synnaxlabs/x";
+import { MultiSeries, type Series, TimeRange } from "@synnaxlabs/x";
 
 import { UnexpectedError } from "@/errors";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
@@ -51,6 +51,18 @@ export class Unary {
   get leadingBuffer(): Series | null {
     this.checkOpen("leadingBuffer");
     return this.dynamic.leadingBuffer;
+  }
+
+  /**
+   * Flushes the live leading buffer into the static cache with its real end time,
+   * so reads treat the span after it as a gap to fetch. Call when streaming for
+   * the channel stops.
+   */
+  flushDynamic(): void {
+    this.checkOpen("flushDynamic");
+    const flushed = this.dynamic.flush();
+    if (flushed != null && flushed.length > 0)
+      this.static.write(new MultiSeries([flushed]), true);
   }
 
   writeStatic(series: MultiSeries): void {
