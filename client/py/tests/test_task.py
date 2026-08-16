@@ -15,6 +15,30 @@ import pytest
 import synnax as sy
 
 
+class _StartStopTask(sy.task.StarterStopperMixin):
+    def __init__(self, internal: sy.Task):
+        self._internal = internal
+
+
+def _ack_next_command(client: sy.Synnax, ev: threading.Event, variant, message: str):
+    with client.open_streamer("sy_task_cmd") as s:
+        ev.set()
+        f = s.read(timeout=1)
+        cmd = f["sy_task_cmd"][0]
+        client.statuses.set(
+            sy.Status(
+                key=str(sy.task.ontology_id(cmd["task"])),
+                variant=variant,
+                message=message,
+                details=sy.task.StatusDetails(
+                    task=cmd["task"],
+                    running=False,
+                    cmd=cmd["key"],
+                ),
+            )
+        )
+
+
 @pytest.mark.task
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax):
@@ -68,6 +92,47 @@ class TestTaskClient:
         tsk = client.tasks.create(name="test", type="pagerduty_alert")
         ev.wait()
         tsk.execute_command_sync("test", {"key": "value"})
+        t.join()
+
+    def test_start_succeeds_on_success_ack(self, client: sy.Synnax):
+        """Should return without raising when the driver acks the start."""
+        ev = threading.Event()
+        t = threading.Thread(
+            target=_ack_next_command,
+            args=(client, ev, sy.status.VARIANT_SUCCESS, "Task started successfully"),
+        )
+        t.start()
+        tsk = _StartStopTask(client.tasks.create(name="test", type="pagerduty_alert"))
+        ev.wait()
+        tsk.start()
+        t.join()
+
+    def test_start_raises_on_error_ack(self, client: sy.Synnax):
+        """Should raise ConfigurationError when the driver acks with an error."""
+        ev = threading.Event()
+        t = threading.Thread(
+            target=_ack_next_command,
+            args=(client, ev, sy.status.VARIANT_ERROR, "failed to reserve device"),
+        )
+        t.start()
+        tsk = _StartStopTask(client.tasks.create(name="test", type="pagerduty_alert"))
+        ev.wait()
+        with pytest.raises(sy.ConfigurationError, match="failed to reserve device"):
+            tsk.start()
+        t.join()
+
+    def test_stop_raises_on_error_ack(self, client: sy.Synnax):
+        """Should raise ConfigurationError when the driver acks with an error."""
+        ev = threading.Event()
+        t = threading.Thread(
+            target=_ack_next_command,
+            args=(client, ev, sy.status.VARIANT_ERROR, "failed to flush hardware"),
+        )
+        t.start()
+        tsk = _StartStopTask(client.tasks.create(name="test", type="pagerduty_alert"))
+        ev.wait()
+        with pytest.raises(sy.ConfigurationError, match="failed to flush hardware"):
+            tsk.stop()
         t.join()
 
     def test_execute_command_encodes_absent_args_as_empty_record(

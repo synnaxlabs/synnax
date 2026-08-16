@@ -24,6 +24,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ConfigurationError } from "@/errors";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -226,12 +227,24 @@ export class Task<S extends Schemas = Schemas> {
     });
   }
 
-  async start(): Promise<void> {
-    await this.executeCommand({ type: "start" });
+  /**
+   * Starts the task and blocks until the driver acknowledges the command.
+   * @param timeout - The maximum time to wait for the acknowledgement.
+   * @throws {ConfigurationError} if the driver fails to start the task.
+   */
+  async start(timeout?: CrudeTimeSpan): Promise<void> {
+    const status = await this.executeCommandSync({ type: "start", timeout });
+    if (status.variant === "error") throw new ConfigurationError(status.message);
   }
 
-  async stop(): Promise<void> {
-    await this.executeCommand({ type: "stop" });
+  /**
+   * Stops the task and blocks until the driver acknowledges the command.
+   * @param timeout - The maximum time to wait for the acknowledgement.
+   * @throws {ConfigurationError} if the driver fails to stop the task.
+   */
+  async stop(timeout?: CrudeTimeSpan): Promise<void> {
+    const status = await this.executeCommandSync({ type: "stop", timeout });
+    if (status.variant === "error") throw new ConfigurationError(status.message);
   }
 
   async run<T>(fn: () => Promise<T>): Promise<T> {
