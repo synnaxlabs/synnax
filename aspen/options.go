@@ -107,8 +107,9 @@ func WithTransport(transport Transport) Option {
 
 // WithListener sets a pre-bound listener for the default transport to serve on. Aspen
 // takes ownership of the listener and closes it on shutdown. The host address keeps
-// its configured host with the listener's port substituted. It has no effect on an
-// external transport set with WithTransport.
+// its configured host with the listener's port substituted; Open returns a validation
+// error if the listener's address has no port. It has no effect on an external
+// transport set with WithTransport.
 func WithListener(lis net.Listener) Option {
 	return func(o *options) { o.lis = lis }
 }

@@ -26,7 +26,9 @@ import (
 	falamos "github.com/synnaxlabs/freighter/alamos"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -368,7 +370,15 @@ func (t *Transport) Configure(
 		}
 	}
 	t.lis = lis
-	t.addr = address.Newf("%s:%d", addr.Host(), lis.Addr().(*net.TCPAddr).Port)
+	var port string
+	if _, port, err = net.SplitHostPort(lis.Addr().String()); err != nil {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"listener address %q has no port",
+			lis.Addr(),
+		)
+	}
+	t.addr = address.Newf("%s:%s", addr.Host(), port)
 	return nil
 }
 

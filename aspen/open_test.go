@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Open", func() {
@@ -60,6 +61,13 @@ var _ = Describe("Open", func() {
 	})
 })
 
+// portlessListener reports an address without a port, like a unix socket listener.
+type portlessListener struct{ net.Listener }
+
+func (p portlessListener) Addr() net.Addr {
+	return &net.UnixAddr{Name: "aspen.sock", Net: "unix"}
+}
+
 var _ = Describe("WithListener", func() {
 	It(
 		"Should serve on the pre-bound listener and keep the configured host",
@@ -79,6 +87,23 @@ var _ = Describe("WithListener", func() {
 			Expect(addr).To(Equal(address.Newf("localhost:%d", port)))
 			Expect(MustSucceed(net.Dial("tcp", addr.String())).Close()).To(Succeed())
 			Expect(db.Close()).To(Succeed())
+		},
+	)
+	It(
+		"Should return an error when the listener address has no port",
+		func(ctx SpecContext) {
+			lis := DeferClose(portlessListener{
+				Listener: MustSucceed(net.Listen("tcp", "localhost:0")),
+			})
+			Expect(aspen.Open(
+				ctx,
+				"",
+				"localhost:0",
+				[]address.Address{},
+				aspen.Bootstrap(),
+				aspen.InMemory(),
+				aspen.WithListener(lis),
+			)).Error().To(MatchError(validate.ErrValidation))
 		},
 	)
 })
