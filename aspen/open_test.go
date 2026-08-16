@@ -11,6 +11,7 @@ package aspen_test
 
 import (
 	"context"
+	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -57,4 +58,27 @@ var _ = Describe("Open", func() {
 		}
 		Expect(tx.Commit(ctx)).To(Succeed())
 	})
+})
+
+var _ = Describe("WithListener", func() {
+	It(
+		"Should serve on the pre-bound listener and keep the configured host",
+		func(ctx SpecContext) {
+			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+			port := lis.Addr().(*net.TCPAddr).Port
+			db := MustSucceed(aspen.Open(
+				ctx,
+				"",
+				"localhost:0",
+				[]address.Address{},
+				aspen.Bootstrap(),
+				aspen.InMemory(),
+				aspen.WithListener(lis),
+			))
+			addr := db.Cluster.Host().Address
+			Expect(addr).To(Equal(address.Newf("localhost:%d", port)))
+			Expect(MustSucceed(net.Dial("tcp", addr.String())).Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+		},
+	)
 })

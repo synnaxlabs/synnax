@@ -281,8 +281,8 @@ type Transport struct {
 	server         *grpc.Server
 	// lis is the listener Configure bound. It is nil for an external transport.
 	lis net.Listener
-	// addr is the address lis bound to, which differs from the configured address
-	// when the caller asked for an operating system assigned port.
+	// addr is the configured address with the port lis bound to, which differs from
+	// the configured port when the caller asked for an operating system assigned one.
 	addr     address.Address
 	shutdown io.Closer
 }
@@ -345,6 +345,7 @@ func (t *Transport) Configure(
 	addr address.Address,
 	ins alamos.Instrumentation,
 	external bool,
+	lis net.Listener,
 ) error {
 	t.addr = addr
 	if external {
@@ -355,17 +356,19 @@ func (t *Transport) Configure(
 		grpc.ChainStreamInterceptor(fgrpc.RecoveryStreamServerInterceptor(ins)),
 	)
 	t.BindTo(t.server)
-	lis, err := net.Listen("tcp", addr.String())
-	if err != nil {
-		return err
-	}
-	t.lis = lis
-	t.addr = address.Address(lis.Addr().String())
 	mw, err := falamos.Middleware(falamos.Config{Instrumentation: ins})
 	if err != nil {
 		return err
 	}
 	t.Use(mw)
+	// Bind last so no failure can leak the listener before the caller owns it.
+	if lis == nil {
+		if lis, err = net.Listen("tcp", addr.String()); err != nil {
+			return err
+		}
+	}
+	t.lis = lis
+	t.addr = address.Newf("%s:%d", addr.Host(), lis.Addr().(*net.TCPAddr).Port)
 	return nil
 }
 

@@ -14,6 +14,7 @@
 package aspen
 
 import (
+	"net"
 	"time"
 
 	"github.com/cockroachdb/pebble/v2/vfs"
@@ -55,6 +56,9 @@ type options struct {
 	dirname string
 	// addr sets the address for the host node.
 	addr address.Address
+	// lis is a pre-bound listener for the default transport to serve on. When nil, the
+	// transport binds addr itself.
+	lis net.Listener
 	// kv gives the configuration for KV options.
 	kv kv.Config
 	// peerAddresses sets the addresses for the peers of the host node.
@@ -99,6 +103,14 @@ func WithTransport(transport Transport) Option {
 		o.transport.external = true
 		o.transport.Transport = transport
 	}
+}
+
+// WithListener sets a pre-bound listener for the default transport to serve on. Aspen
+// takes ownership of the listener and closes it on shutdown. The host address keeps
+// its configured host with the listener's port substituted. It has no effect on an
+// external transport set with WithTransport.
+func WithListener(lis net.Listener) Option {
+	return func(o *options) { o.lis = lis }
 }
 
 // WithInstrumentation sets the instrumentation for aspen.

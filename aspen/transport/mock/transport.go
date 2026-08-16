@@ -11,6 +11,7 @@ package mock
 
 import (
 	"go/types"
+	"net"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
@@ -68,6 +69,7 @@ func (t *transport) Configure(
 	addr address.Address,
 	_ alamos.Instrumentation,
 	_ bool,
+	_ net.Listener,
 ) error {
 	t.pledgeServer = t.net.pledge.UnaryServer(addr)
 	t.pledgeClient = t.net.pledge.UnaryClient()

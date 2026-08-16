@@ -73,9 +73,10 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				wg := sync.WaitGroup{}
 				wg.Add(1)
 				// The pledging node must know where the bootstrapper will be before the
-				// bootstrapper opens, so hold the address until it is needed.
-				reserved := MustSucceed(net.Listen("tcp", "localhost:0"))
-				bootstrapAddr := address.Address(reserved.Addr().String())
+				// bootstrapper opens, so bind the listener up front and hand it to the
+				// bootstrapper.
+				lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+				bootstrapAddr := address.Address(lis.Addr().String())
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
@@ -93,7 +94,6 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					By("Assigning a unique Name of 2")
 					Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))
 				}()
-				Expect(reserved.Close()).To(Succeed())
 				db := MustSucceed(aspen.Open(
 					ctx,
 					"",
@@ -101,6 +101,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					[]aspen.Address{},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
+					aspen.WithListener(lis),
 				))
 
 				By("Assigning a unique Name of 1")
