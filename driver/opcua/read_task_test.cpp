@@ -485,6 +485,7 @@ TEST_F(TestReadTask, testStreamRateOptionalInArrayMode) {
     ASSERT_NIL(array_p.error());
     EXPECT_TRUE(array_cfg.array_mode);
     EXPECT_EQ(array_cfg.array_size, 5);
+    EXPECT_EQ(array_cfg.samples_per_chan, 0);
 }
 
 /// @brief it should handle rapid start and stop cycles.
