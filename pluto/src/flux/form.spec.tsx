@@ -9,7 +9,7 @@
 
 import { query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, testutil } from "@synnaxlabs/x";
+import { color, testutil, TimeSpan } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -32,6 +32,10 @@ type Params = {
 
 const client = createTestClient();
 const Wrapper = createSynnaxWrapper({ client });
+
+const DEBOUNCE = TimeSpan.milliseconds(100);
+// Long enough that a debounced save would have landed by now.
+const SETTLE = 500;
 
 describe("useForm", () => {
   let controller: AbortController;
@@ -530,16 +534,14 @@ describe("useForm", () => {
       });
     });
 
-    it("should collapse a burst of changes into a single update", async () => {
+    it("should update once per change when no debounce is set", async () => {
       const update = vi.fn();
-      const retrieve = vi.fn().mockReturnValue(null);
       const { result } = renderHook(
         () =>
           Flux.createForm<Params, typeof formSchema>({
             initialValues: { key: "", name: "John Doe", age: 25 },
             schema: formSchema,
             name: "test",
-            retrieve,
             update: ({ get }) => update(get("name").value),
           })({ query: null, autoSave: true }),
         { wrapper: Wrapper },
@@ -549,24 +551,44 @@ describe("useForm", () => {
         result.current.form.set("name", "Ja");
         result.current.form.set("name", "Jane");
       });
-      await waitFor(() => expect(update).toHaveBeenCalledTimes(1), { timeout: 2000 });
-      expect(update).toHaveBeenCalledWith("Jane");
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(3));
+      expect(update).toHaveBeenLastCalledWith("Jane");
     });
+  });
 
-    it("should flush a pending update when the form unmounts", async () => {
+  describe("autoSaveDebounce", () => {
+    const renderDebouncedForm = () => {
       const update = vi.fn();
-      const retrieve = vi.fn().mockReturnValue(null);
-      const { result, unmount } = renderHook(
+      const rendered = renderHook(
         () =>
           Flux.createForm<Params, typeof formSchema>({
             initialValues: { key: "", name: "John Doe", age: 25 },
             schema: formSchema,
             name: "test",
-            retrieve,
             update: ({ get }) => update(get("name").value),
-          })({ query: null, autoSave: true }),
+          })({ query: null, autoSave: true, autoSaveDebounce: DEBOUNCE }),
         { wrapper: Wrapper },
       );
+      return { ...rendered, update };
+    };
+
+    it("should collapse a burst of changes into a single update", async () => {
+      const { result, update } = renderDebouncedForm();
+      act(() => {
+        result.current.form.set("name", "J");
+        result.current.form.set("name", "Ja");
+        result.current.form.set("name", "Jane");
+      });
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+      expect(update).toHaveBeenCalledWith("Jane");
+      await testutil.expectAlways(
+        () => expect(update).toHaveBeenCalledTimes(1),
+        SETTLE,
+      );
+    });
+
+    it("should flush a pending update when the form unmounts", async () => {
+      const { result, update, unmount } = renderDebouncedForm();
       act(() => {
         result.current.form.set("name", "Jane Doe");
       });
@@ -594,10 +616,16 @@ describe("useForm", () => {
       return { update, useForm, abandon: () => abandon() };
     };
 
+    // Debounced so a save is genuinely queued when the record is abandoned.
     const renderAbandonableForm = () => {
       const { update, useForm, abandon } = createAbandonableForm();
       const rendered = renderHook(
-        () => useForm({ query: { key: "123" }, autoSave: true }),
+        () =>
+          useForm({
+            query: { key: "123" },
+            autoSave: true,
+            autoSaveDebounce: DEBOUNCE,
+          }),
         { wrapper: Wrapper },
       );
       return { ...rendered, update, abandon };
@@ -613,20 +641,21 @@ describe("useForm", () => {
       const { result, update, abandon } = renderAbandonableForm();
       act(() => result.current.form.set("name", "Jane Doe"));
       act(() => abandon());
-      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), 800);
+      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
 
     it("should ignore later changes once the record is abandoned", async () => {
       const { result, update, abandon } = renderAbandonableForm();
       act(() => abandon());
       act(() => result.current.form.set("name", "Jane Doe"));
-      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), 800);
+      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
 
     it("should autosave again once the form re-points at another record", async () => {
       const { update, useForm, abandon } = createAbandonableForm();
       const { result, rerender } = renderHook(
-        ({ key }: { key: string }) => useForm({ query: { key }, autoSave: true }),
+        ({ key }: { key: string }) =>
+          useForm({ query: { key }, autoSave: true, autoSaveDebounce: DEBOUNCE }),
         { wrapper: Wrapper, initialProps: { key: "123" } },
       );
       act(() => abandon());
@@ -640,7 +669,7 @@ describe("useForm", () => {
       act(() => result.current.form.set("name", "Jane Doe"));
       act(() => abandon());
       unmount();
-      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), 800);
+      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
   });
 

@@ -65,7 +65,7 @@ describe("Range.MetaData", () => {
     });
   });
 
-  it("should not restore a deleted pair whose value edit is still pending", async () => {
+  it("should keep a pair deleted right after its value was edited", async () => {
     const range = await createRange();
     const metaKey = id.create();
     await range.kv.set(metaKey, "initial");

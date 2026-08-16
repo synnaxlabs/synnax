@@ -1069,6 +1069,8 @@ describe("queries", () => {
           Ranger.useKVPairForm({
             query: { rangeKey: rng.key, key: "test_key" },
             autoSave: true,
+            // Holds the save open long enough for the delete to overtake it.
+            autoSaveDebounce: TimeSpan.milliseconds(500),
             initialValues: { key: "test_key", value: "initial", range: rng.key },
           }),
         { wrapper },
