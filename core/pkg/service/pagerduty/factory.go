@@ -75,7 +75,7 @@ func (f *factory) ConfigureTask(
 	if t.Type != AlertTaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
-	var cfg AlertTaskConfig
+	var cfg TaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		if cmdKey == driver.NoCommand {
 			f.cfg.L.Warn("failed to configure task",
@@ -87,7 +87,7 @@ func (f *factory) ConfigureTask(
 		}
 		return nil, err
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := validateConfig(cfg); err != nil {
 		if cmdKey == driver.NoCommand && !cfg.AutoStart {
 			f.cfg.L.Warn("failed to configure task",
 				zap.Stringer("task", t),
