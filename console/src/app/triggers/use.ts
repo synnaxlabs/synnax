@@ -9,11 +9,12 @@
 
 import { panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Panel, TimeSpan, Triggers } from "@synnaxlabs/pluto";
+import { Panel as PPanel, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
 import { Palette } from "@/app/palette";
 import { useSelectorVisible } from "@/app/vis/Selector";
+import { Panel } from "@/feature/panel";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";
 import { Session } from "@/session";
@@ -23,7 +24,7 @@ const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
   Palette.SEARCH_TRIGGER,
   Palette.COMMAND_TRIGGER,
   ["Control", "MouseLeft"],
-  Panel.CLOSE_TRIGGER,
+  PPanel.CLOSE_TRIGGER,
 ];
 
 export const PROVIDER_PROPS: Triggers.ProviderProps = {
@@ -31,16 +32,14 @@ export const PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOptions: { double: true },
 };
 
-const OVERLAY_TRIGGERS: Triggers.Trigger[] = [Panel.OVERLAY_TRIGGER];
+const OVERLAY_TRIGGERS: Triggers.Trigger[] = [PPanel.OVERLAY_TRIGGER];
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
-const CLOSE_TRIGGERS: Triggers.Trigger[] = [Panel.CLOSE_TRIGGER];
+const CLOSE_TRIGGERS: Triggers.Trigger[] = [PPanel.CLOSE_TRIGGER];
 const RENAME_TRIGGERS: Triggers.Trigger[] = [PlatformPanel.RENAME_TRIGGER];
 const CREATE_TAB_TRIGGERS: Triggers.Trigger[] = [["Control", "T"]];
+const OPEN_WINDOW_TRIGGERS: Triggers.Trigger[] = [Panel.OPEN_WINDOW_TRIGGER];
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
-
-// TODO(SY-4370): open-in-new-window gesture (formerly Control+O) needs a panel
-// equivalent: create a Drift window and select the panel in it.
 
 export const use = (): void => {
   const sessionDispatch = Session.useDispatch();
@@ -48,7 +47,8 @@ export const use = (): void => {
   const getSelectedPanel = Session.Panel.useGetSelected();
   const getIsOverlaid = Session.Panel.useGetIsOverlaid();
   const getFocusedTab = Session.Panel.useGetFocusedTab();
-  const { dispatch } = Panel.useDispatch();
+  const { dispatch } = PPanel.useDispatch();
+  const openWindow = Panel.useOpenWindow();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createTabEnabled = useSelectorVisible();
   const openSelector = Selector.useOpenTab();
@@ -103,6 +103,8 @@ export const use = (): void => {
           });
           return;
         }
+        // A page cannot close the tab that holds it.
+        if (Session.Runtime.ENGINE !== "tauri") return;
         closeWindowTimeout.current = setTimeout(
           () => sessionDispatch(Drift.closeWindow({})),
           CLOSE_WINDOW_TIMEOUT.milliseconds,
@@ -129,6 +131,17 @@ export const use = (): void => {
         PlatformPanel.editTabName(focused);
       },
       [getFocusedTab],
+    ),
+  });
+  Triggers.use({
+    triggers: OPEN_WINDOW_TRIGGERS,
+    loose: true,
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || Session.Runtime.ENGINE !== "tauri") return;
+        openWindow(getSelectedPanel());
+      },
+      [openWindow, getSelectedPanel],
     ),
   });
   Triggers.use({
