@@ -127,21 +127,62 @@ protected:
         mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
+    std::shared_ptr<hardware::mock::Writer<double>> mock_hw;
+    std::size_t make_hw_calls = 0;
+
     std::unique_ptr<common::WriteTask>
-    create_task(std::unique_ptr<hardware::mock::Writer<double>> mock_hw) {
+    create_task(std::unique_ptr<hardware::mock::Writer<double>> hw) {
+        this->mock_hw = std::move(hw);
+        WriteTaskSink<double>::MakeHardware make_hw = [this](const WriteTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Writer<double>>, x::errors::Error> {
+            ++this->make_hw_calls;
+            return {
+                std::make_unique<hardware::mock::SharedWriter<double>>(this->mock_hw),
+                x::errors::NIL
+            };
+        };
         return std::make_unique<common::WriteTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
             std::make_unique<WriteTaskSink<double>>(
                 std::move(*cfg),
-                std::move(mock_hw)
+                std::move(make_hw)
             ),
             mock_writer_factory,
             mock_streamer_factory
         );
     }
 };
+
+/// @brief every start should claim fresh hardware and every stop should release
+/// it, so a device that disconnects and returns between runs gets a new DAQmx
+/// task on the next start.
+TEST_F(SingleChannelAnalogWriteTest, testStartClaimsFreshHardware) {
+    parse_config();
+    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        {cmd_ch_2.key},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>());
+
+    wt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(make_hw_calls, 1);
+    // The fixture and the running sink both hold the mock.
+    EXPECT_EQ(mock_hw.use_count(), 2);
+
+    wt->stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    // The stop released the sink's claim on the hardware.
+    EXPECT_EQ(mock_hw.use_count(), 1);
+
+    wt->start("start_cmd_2");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
+    EXPECT_EQ(make_hw_calls, 2);
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    wt->stop("stop_cmd_2", true);
+}
 
 /// @brief it should write analog values and update state channels correctly.
 TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
