@@ -178,7 +178,7 @@ func (s *Service) Export(
 	}); err != nil {
 		return nil, err
 	}
-	files, members, err := s.internal.Export(ctx, req.Key, json.Codec)
+	files, members, err := s.internal.Export(ctx, req.Key, json.PrettyCodec)
 	if err != nil {
 		return nil, err
 	}

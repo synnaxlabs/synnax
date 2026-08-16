@@ -10,6 +10,7 @@
 package json
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -22,6 +23,10 @@ import (
 
 // Codec is a JSON implementation of http.FileCodec.
 var Codec http.FileCodec = &codec{}
+
+// PrettyCodec is a JSON implementation of http.FileCodec that encodes with two-space
+// indentation and a trailing newline, for files a user reads. Decoding matches Codec.
+var PrettyCodec http.FileCodec = &prettyCodec{}
 
 type codec struct{}
 
@@ -58,6 +63,25 @@ func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 }
 
 func (*codec) Extension() string { return ".json" }
+
+type prettyCodec struct{ codec }
+
+func (p *prettyCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := p.EncodeStream(ctx, &buf, value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (*prettyCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(value); err != nil {
+		return encoding.SugarEncodingError(value, err)
+	}
+	return nil
+}
 
 // MarshalStringInt64 marshals the int64 value to a UTF-8 string.
 func MarshalStringInt64(n int64) []byte {

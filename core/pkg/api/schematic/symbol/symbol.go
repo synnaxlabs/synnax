@@ -236,7 +236,7 @@ func (s *Service) ExportGroup(
 	}); err != nil {
 		return nil, err
 	}
-	files, members, err := s.internal.ExportGroup(ctx, req.Key, json.Codec)
+	files, members, err := s.internal.ExportGroup(ctx, req.Key, json.PrettyCodec)
 	if err != nil {
 		return nil, err
 	}
