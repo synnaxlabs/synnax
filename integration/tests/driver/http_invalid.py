@@ -104,7 +104,7 @@ class HTTPInvalidConfig(SimulatorCase):
                                 index=idx.key,
                             ),
                             data_type="float64",
-                            enabled=False,
+                            disabled=True,
                         ),
                     ],
                 ),

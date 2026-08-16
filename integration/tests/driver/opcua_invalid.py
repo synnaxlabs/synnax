@@ -97,7 +97,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                     ),
                     node_id="NS=2;I=8",
                     data_type="float32",
-                    enabled=False,
+                    disabled=True,
                 ),
             ],
         )
