@@ -55,15 +55,17 @@ const ExportProjectCommand = Command.create({
     const client = Synnax.use();
     const handleError = Status.useErrorHandler();
     return useCallback(() => {
+      let name = "project";
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
-        const { key, name } = await client.projects.retrieve(getSelected());
+        const p = await client.projects.retrieve(getSelected());
+        name = p.name;
         handleExport({
-          stream: (client) => client.projects.export(key),
+          stream: (client) => client.projects.export(p.key),
           name,
           extension: "zip",
         });
-      }, "Failed to export project");
+      }, `Failed to export ${name}`);
     }, [handleError, client, getSelected, handleExport]);
   },
   useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
