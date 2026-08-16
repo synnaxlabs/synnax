@@ -42,7 +42,7 @@ import {
   useMoveTab,
   useMoveTabToNewPanel,
 } from "@/feature/panel/useMoveTab";
-import { useOpenWindow } from "@/feature/panel/useOpenWindow";
+import { OPEN_WINDOW_TRIGGER, useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -86,7 +86,11 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
       )}
       <Menu.Divider />
       {keys.length === 1 && Session.Runtime.ENGINE === "tauri" && (
-        <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
+        <Menu.Item
+          itemKey="open-in-new-window"
+          onClick={() => openWindow(key)}
+          triggerIndicator={OPEN_WINDOW_TRIGGER}
+        >
           <Icon.OpenInNewWindow />
           Open in new window
         </Menu.Item>

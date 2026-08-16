@@ -264,6 +264,41 @@ describe("app/triggers", () => {
     });
   });
 
+  describe("open window", () => {
+    const openedWindows = (store: TestStore): string[] =>
+      Drift.selectWindows(store.getState())
+        .filter(({ key, reserved }) => key !== Drift.MAIN_WINDOW && reserved)
+        .map(({ key }) => key);
+
+    const selectPanel = async (): Promise<TestStore> => {
+      const { store } = await renderTriggers();
+      act(() => void store.dispatch(Session.Panel.select({ key: PANEL })));
+      return store;
+    };
+
+    it("should open a window on the selected panel", async () => {
+      mocks.engine = "tauri";
+      const store = await selectPanel();
+      act(() => press(CONTROL, "KeyO"));
+      const [opened] = openedWindows(store);
+      expect(opened).toBeDefined();
+      expect(store.getState().panels.windows[opened]?.selected).toEqual(PANEL);
+    });
+
+    it("should leave the selected panel where it is", async () => {
+      mocks.engine = "tauri";
+      const store = await selectPanel();
+      act(() => press(CONTROL, "KeyO"));
+      expect(Session.Panel.selectSelected(store.getState())).toEqual(PANEL);
+    });
+
+    it("should do nothing in the browser", async () => {
+      const store = await selectPanel();
+      act(() => press(CONTROL, "KeyO"));
+      expect(openedWindows(store)).toEqual([]);
+    });
+  });
+
   describe("create tab", () => {
     it("should open a component selector tab in the selected panel", async () => {
       const seed = viewTab();
