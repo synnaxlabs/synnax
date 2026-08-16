@@ -504,21 +504,36 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class UnarySource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
-    /// @brief the API of the device we're reading from.
-    const std::shared_ptr<device::Device> dev;
+    /// @brief acquires the device on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the API of the device we're reading from. Populated on start and
+    /// released on stop.
+    std::shared_ptr<device::Device> dev;
     /// @brief a handle to the interval that is regulating the sample clock.
     const int interval_handle;
 
 public:
-    UnarySource(const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg):
-        cfg(std::move(cfg)), dev(dev), interval_handle(0) {}
+    UnarySource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
+        cfg(std::move(cfg)), devs(devs), interval_handle(0) {}
 
+    /// @brief claims the device on every start so a device that disconnects and
+    /// returns between runs gets a fresh LJM handle on the next start.
     x::errors::Error start() override {
-        if (const auto err = this->cfg.apply(this->dev)) return err;
-        return this->dev->start_interval(
-            this->interval_handle,
-            static_cast<int>(this->cfg.sample_rate.period().microseconds())
-        );
+        auto [d, err] = this->devs->acquire(this->cfg.device_key);
+        if (err) return err;
+        this->dev = std::move(d);
+        if (const auto apply_err = this->cfg.apply(this->dev)) {
+            this->dev.reset();
+            return apply_err;
+        }
+        if (const auto interval_err = this->dev->start_interval(
+                this->interval_handle,
+                static_cast<int>(this->cfg.sample_rate.period().microseconds())
+            )) {
+            this->dev.reset();
+            return interval_err;
+        }
+        return x::errors::NIL;
     }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
@@ -526,7 +541,10 @@ public:
     }
 
     x::errors::Error stop() override {
-        return this->dev->clean_interval(this->interval_handle);
+        if (this->dev == nullptr) return x::errors::NIL;
+        const auto err = this->dev->clean_interval(this->interval_handle);
+        this->dev.reset();
+        return err;
     }
 
     common::ReadResult
@@ -586,8 +604,11 @@ public:
 class StreamSource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
-    /// @brief the API to the device we're reading from.
-    const std::shared_ptr<device::Device> dev;
+    /// @brief acquires the device on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the API to the device we're reading from. Populated on start and
+    /// released on stop.
+    std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
     common::HardwareTimedSampleClock sample_clock;
     /// @brief buffer containing interleaved data directly from device
@@ -609,9 +630,9 @@ class StreamSource final : public common::Source {
     }
 
 public:
-    StreamSource(const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg):
+    StreamSource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
         cfg(std::move(cfg)),
-        dev(dev),
+        devs(devs),
         sample_clock(
             common::HardwareTimedSampleClockConfig::create_simple(
                 this->cfg.sample_rate,
@@ -627,15 +648,31 @@ public:
         return this->cfg.writer();
     }
 
-    x::errors::Error start() override { return this->restart(false); }
+    x::errors::Error start() override {
+        if (const auto err = this->restart(false)) {
+            this->dev.reset();
+            return err;
+        }
+        return x::errors::NIL;
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
-    /// @brief restarts the source.
+    /// @brief restarts the source, claiming the device again so a disconnect and
+    /// reconnect between runs gets a fresh LJM handle.
     x::errors::Error restart(const bool force) {
+        const auto prev = this->dev;
         this->stop();
+        auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
+        if (acquire_err) {
+            // Keep the previous claim so mid-run recovery retries on the old
+            // handle instead of dereferencing null.
+            this->dev = prev;
+            return acquire_err;
+        }
+        this->dev = std::move(d);
         if (const auto err = this->cfg.apply(this->dev); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
@@ -661,7 +698,12 @@ public:
         return x::errors::NIL;
     }
 
-    x::errors::Error stop() override { return this->dev->e_stream_stop(); }
+    x::errors::Error stop() override {
+        if (this->dev == nullptr) return x::errors::NIL;
+        const auto err = this->dev->e_stream_stop();
+        this->dev.reset();
+        return err;
+    }
 
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {

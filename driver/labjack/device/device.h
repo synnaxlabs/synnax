@@ -259,7 +259,9 @@ class Manager {
 public:
     explicit Manager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {}
 
-    x::errors::Error list_all(
+    virtual ~Manager() = default;
+
+    virtual x::errors::Error list_all(
         const int dev_type,
         const int conn_type,
         int *num_found,
@@ -283,23 +285,32 @@ public:
         );
     }
 
-    std::pair<std::shared_ptr<Device>, x::errors::Error>
+    virtual std::pair<std::shared_ptr<Device>, x::errors::Error>
     acquire(const std::string &serial_number) {
-        std::lock_guard lock(mu);
-
-        const auto it = this->handles.find(serial_number);
-        if (it != handles.end()) {
-            const auto existing = it->second.lock();
-            if (existing != nullptr) return {existing, x::errors::NIL};
-            this->handles.erase(it);
+        {
+            std::lock_guard lock(mu);
+            const auto it = this->handles.find(serial_number);
+            if (it != handles.end()) {
+                const auto existing = it->second.lock();
+                if (existing != nullptr) return {existing, x::errors::NIL};
+                this->handles.erase(it);
+            }
         }
 
+        // Opening can block for seconds on an unreachable device, so the lock is
+        // released to keep other callers (notably the scanner) unblocked.
         int dev_handle;
         const int
             err = ljm->open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &dev_handle);
         if (err != 0) return {nullptr, parse_error(ljm, err)};
 
         auto dev = std::make_shared<LJMDevice>(ljm, dev_handle);
+        std::lock_guard lock(mu);
+        // Another caller may have opened the device while the lock was released;
+        // prefer the cached handle and let ours close.
+        if (const auto it = this->handles.find(serial_number); it != handles.end())
+            if (const auto existing = it->second.lock())
+                return {existing, x::errors::NIL};
         this->handles[serial_number] = dev; // Stores weak_ptr automatically
         return {dev, x::errors::NIL};
     }

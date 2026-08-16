@@ -62,6 +62,18 @@ public:
         return x::errors::NIL;
     }
 
+    [[nodiscard]] x::errors::Error clean_interval(int interval_handle) const override {
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
+    }
+
+    [[nodiscard]] x::errors::Error
+    e_read_name(const char *name, double *value) const override {
+        if (should_fail_) return x::errors::Error("mock failure");
+        *value = 0;
+        return x::errors::NIL;
+    }
+
     [[nodiscard]] x::errors::Error
     e_write_name(const char *name, double value) const override {
         if (should_fail_) return x::errors::Error("mock failure");
@@ -123,5 +135,29 @@ public:
 private:
     bool should_fail_{false};
     double requested_scan_rate_{1000.0};
+};
+
+/// @brief a Manager that serves scripted devices for tests instead of opening LJM
+/// handles.
+class MockManager final : public Manager {
+public:
+    /// @brief errors to return from acquire() calls in sequence. Calls past the end
+    /// of the sequence succeed.
+    std::vector<x::errors::Error> acquire_errors;
+    /// @brief number of times acquire() was called.
+    size_t acquire_call_count = 0;
+    /// @brief the device returned by successful acquire() calls.
+    std::shared_ptr<Device> dev;
+
+    explicit MockManager(std::shared_ptr<Device> dev = std::make_shared<Mock>()):
+        Manager(nullptr), dev(std::move(dev)) {}
+
+    std::pair<std::shared_ptr<Device>, x::errors::Error>
+    acquire(const std::string &) override {
+        const auto i = this->acquire_call_count++;
+        if (i < this->acquire_errors.size() && this->acquire_errors[i])
+            return {nullptr, this->acquire_errors[i]};
+        return {this->dev, x::errors::NIL};
+    }
 };
 }

@@ -11,7 +11,10 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "device",
-    srcs = ["device.h"],
+    srcs = [
+        "device.h",
+        "mock.h",
+    ],
     visibility = ["//visibility:public"],
     deps = ["//driver/labjack/ljm"],
 )
