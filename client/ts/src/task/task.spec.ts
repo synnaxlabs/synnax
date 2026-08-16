@@ -484,10 +484,14 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       try {
+        // The assertions attach before the ack: start() can reject the moment the
+        // error status lands, and an unhandled rejection fails the whole run.
         const started = t.start();
-        await ackNextCommand(streamer, t.key, "error", "failed to reserve device");
-        await expect(started).rejects.toThrow(ConfigurationError);
-        await expect(started).rejects.toThrow("failed to reserve device");
+        await Promise.all([
+          expect(started).rejects.toThrow(ConfigurationError),
+          expect(started).rejects.toThrow("failed to reserve device"),
+          ackNextCommand(streamer, t.key, "error", "failed to reserve device"),
+        ]);
       } finally {
         streamer.close();
       }
@@ -515,7 +519,7 @@ describe("Task", async () => {
       }
     });
 
-    it("should throw a ConfigurationError when the driver rejects a stop", async () => {
+    it("should throw a ConfigurationError when the task ended in an error", async () => {
       const t = await testRack.createTask({
         name: "lifecycle-stop-error-test",
         config: {},
@@ -524,9 +528,11 @@ describe("Task", async () => {
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       try {
         const stopped = t.stop();
-        await ackNextCommand(streamer, t.key, "error", "failed to flush hardware");
-        await expect(stopped).rejects.toThrow(ConfigurationError);
-        await expect(stopped).rejects.toThrow("failed to flush hardware");
+        await Promise.all([
+          expect(stopped).rejects.toThrow(ConfigurationError),
+          expect(stopped).rejects.toThrow("device disconnected"),
+          ackNextCommand(streamer, t.key, "error", "device disconnected"),
+        ]);
       } finally {
         streamer.close();
       }
@@ -576,6 +582,7 @@ describe("Task", async () => {
         const ran = t.run(async () => {
           throw new Error("Test error");
         });
+        const rejected = expect(ran).rejects.toThrow("Test error");
         const startCmd = await ackNextCommand(
           streamer,
           t.key,
@@ -591,7 +598,7 @@ describe("Task", async () => {
           "Task stopped successfully",
         );
         expect(stopCmd.type).toBe("stop");
-        await expect(ran).rejects.toThrow("Test error");
+        await rejected;
       } finally {
         streamer.close();
       }

@@ -122,16 +122,16 @@ class TestTaskClient:
         t.join()
 
     def test_stop_raises_on_error_ack(self, client: sy.Synnax):
-        """Should raise ConfigurationError when the driver acks with an error."""
+        """Should raise ConfigurationError when the task ended in an error state."""
         ev = threading.Event()
         t = threading.Thread(
             target=_ack_next_command,
-            args=(client, ev, sy.status.VARIANT_ERROR, "failed to flush hardware"),
+            args=(client, ev, sy.status.VARIANT_ERROR, "device disconnected"),
         )
         t.start()
         tsk = _StartStopTask(client.tasks.create(name="test", type="pagerduty_alert"))
         ev.wait()
-        with pytest.raises(sy.ConfigurationError, match="failed to flush hardware"):
+        with pytest.raises(sy.ConfigurationError, match="device disconnected"):
             tsk.stop()
         t.join()
 
