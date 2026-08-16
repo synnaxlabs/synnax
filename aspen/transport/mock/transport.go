@@ -113,13 +113,21 @@ func (t *transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient
 
 func (t *transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
 
-func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
+func (t *transport) FeedbackClient() kv.FeedbackTransportClient {
+	return t.feedbackClient
+}
 
-func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
+func (t *transport) FeedbackServer() kv.FeedbackTransportServer {
+	return t.feedbackServer
+}
 
-func (t *transport) RecoveryClient() kv.RecoveryTransportClient { return t.recoveryClient }
+func (t *transport) RecoveryClient() kv.RecoveryTransportClient {
+	return t.recoveryClient
+}
 
-func (t *transport) RecoveryServer() kv.RecoveryTransportServer { return t.recoveryServer }
+func (t *transport) RecoveryServer() kv.RecoveryTransportServer {
+	return t.recoveryServer
+}
 
 func (t *transport) Use(middleware ...freighter.Middleware) {
 	if t.pledgeClient == nil {
@@ -142,6 +150,4 @@ func (t *transport) applyMiddleware(middleware ...freighter.Middleware) {
 	t.feedbackServer.Use(middleware...)
 }
 
-func (t *transport) Report() alamos.Report {
-	return t.pledgeClient.Report()
-}
+func (t *transport) Report() alamos.Report { return t.pledgeClient.Report() }

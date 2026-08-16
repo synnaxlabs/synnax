@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// All included pebble code is copyrighted by the cockroachdb team, and is licensed
-// under the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for
+// All included Pebble code is copyrighted by the CockroachDB team, and is licensed
+// under the BSD 3-Clause License. See the repository file licenses/BSD-3-Clause.txt for
 // more information.
 
 package aspen
@@ -37,12 +37,10 @@ func Open(
 		o           = newOptions(dirname, addr, peers, opts...)
 		cleanup, ok = service.NewOpener(ctx, &db.closer)
 	)
-	defer func() {
-		err = cleanup(err)
-	}()
-	// Register the owned grpc client pool first so it closes LAST. The
-	// transport (added below) and any cluster goroutines that hold it must
-	// stop using the pool before pool.Close runs.
+	defer func() { err = cleanup(err) }()
+	// Register the owned gRPC client pool first so it closes LAST. The transport (added
+	// below) and any cluster goroutines that hold it must stop using the pool before
+	// pool.Close runs.
 	if o.transport.ownedPool != nil {
 		if !ok(nil, o.transport.ownedPool) {
 			return nil, ctx.Err()
@@ -55,12 +53,12 @@ func Open(
 	}
 	o.cluster.Storage = o.kv.Engine
 	// configureTransport binds the address, so the transport must be registered as a
-	// closer here to release it on any later failure.
+	// closer here to release it on any later failures.
 	if err = configureTransport(o); !ok(err, o.transport) {
 		return nil, err
 	}
-	// The transport binds in configureTransport, so this is the first point at which an
-	// operating system assigned port is known.
+	// The transport binds in configureTransport, so this is the first point at which a
+	// operating system-assigned port is known.
 	o.cluster.HostAddress = o.transport.Address()
 	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(err, db.Cluster) {
 		return nil, err

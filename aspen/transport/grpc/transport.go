@@ -108,16 +108,14 @@ type (
 	]
 )
 
-type recoveryServer struct {
-	recoveryServerCore
+type recoveryServer struct{ recoveryServerCore }
+
+func (rs *recoveryServer) Exec(server aspenv1.RecoveryService_ExecServer) error {
+	return rs.Handler(server.Context(), server)
 }
 
-func (w *recoveryServer) Exec(server aspenv1.RecoveryService_ExecServer) error {
-	return w.Handler(server.Context(), server)
-}
-
-func (w *recoveryServer) BindTo(reg grpc.ServiceRegistrar) {
-	aspenv1.RegisterRecoveryServiceServer(reg, w)
+func (rs *recoveryServer) BindTo(reg grpc.ServiceRegistrar) {
+	aspenv1.RegisterRecoveryServiceServer(reg, rs)
 }
 
 var (
@@ -143,10 +141,10 @@ var (
 	_ freighter.Transport                = (*Transport)(nil)
 )
 
-// New constructs a Transport that uses the supplied pool for client
-// connections. The Transport does NOT take ownership of the pool — closing
-// the Transport will not close the pool. The caller is responsible for
-// closing the pool after every Transport that references it has been closed.
+// New constructs a Transport that uses the supplied pool for client connections. The
+// Transport does NOT take ownership of the pool — closing the Transport will not close
+// the pool. The caller is responsible for closing the pool after every Transport that
+// references it has been closed.
 func New(pool *fgrpc.Pool) *Transport {
 	return &Transport{
 		pledgeClient: &pledgeClient{
@@ -283,8 +281,8 @@ type Transport struct {
 	server         *grpc.Server
 	// lis is the listener Configure bound. It is nil for an external transport.
 	lis net.Listener
-	// addr is the configured address with the port lis bound to, which differs from
-	// the configured port when the caller asked for an operating system assigned one.
+	// addr is the configured address with the port lis bound to, which differs from the
+	// configured port when the caller asked for an operating system assigned one.
 	addr     address.Address
 	shutdown io.Closer
 }
@@ -339,9 +337,7 @@ func (t *Transport) Use(middleware ...freighter.Middleware) {
 	t.recClient.Use(middleware...)
 }
 
-func (t *Transport) Report() alamos.Report {
-	return t.pledgeServer.Report()
-}
+func (t *Transport) Report() alamos.Report { return t.pledgeServer.Report() }
 
 func (t *Transport) Configure(
 	addr address.Address,
@@ -382,6 +378,8 @@ func (t *Transport) Configure(
 	return nil
 }
 
+// Address returns the configured address with the port lis bound to, which differs from
+// the configured port when the caller asked for an operating system assigned one.
 func (t *Transport) Address() address.Address { return t.addr }
 
 func (t *Transport) Serve() error {
