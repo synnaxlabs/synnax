@@ -112,11 +112,15 @@ TEST_F(SinkClaimTest, testSinkReleasesClaimOnFailedInitialWrite) {
     mock_dev->set_should_fail(true);
     devs = std::make_shared<device::MockManager>(mock_dev);
     WriteSink sink(devs, std::move(*cfg));
+    // The local mock_dev and the manager both hold the device.
+    EXPECT_EQ(devs->dev.use_count(), 2);
     ASSERT_OCCURRED_AS(sink.start(), x::errors::Error("mock failure"));
-    EXPECT_EQ(devs->dev.use_count(), 1);
+    EXPECT_EQ(devs->dev.use_count(), 2);
     mock_dev->set_should_fail(false);
     ASSERT_NIL(sink.start());
     EXPECT_EQ(devs->acquire_call_count, 2);
+    EXPECT_EQ(devs->dev.use_count(), 3);
     ASSERT_NIL(sink.stop());
+    EXPECT_EQ(devs->dev.use_count(), 2);
 }
 }
