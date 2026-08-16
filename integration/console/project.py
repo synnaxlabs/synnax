@@ -812,20 +812,33 @@ class ProjectClient:
         """Wait for the project selector to mark ``name`` as the active project.
 
         The selector trigger shows only the project's avatar, so the dialog is
-        opened and the entry for ``name`` is checked for selection styling.
+        opened and the entry for ``name`` is checked for selection styling. An
+        in-flight project switch (e.g. a just-finished import) remounts the
+        layout and closes the dialog mid-check, so the sequence retries.
         """
-        self._selector_trigger().click(timeout=5000)
         dialog = self.layout.page.locator(".console-project-selector-dialog")
-        dialog.wait_for(state="visible", timeout=5000)
-        dialog.get_by_placeholder("Search projects...").fill(name)
-        item = (
-            dialog.locator(".pluto-list__item.pluto--selected")
-            .filter(has_text=name)
-            .first
-        )
-        item.wait_for(state="visible", timeout=5000)
-        self._selector_trigger().click(timeout=5000)
-        dialog.wait_for(state="hidden", timeout=5000)
+        last_err: PlaywrightTimeoutError | None = None
+        for _ in range(3):
+            try:
+                self._selector_trigger().click(timeout=5000)
+                dialog.wait_for(state="visible", timeout=5000)
+                dialog.get_by_placeholder("Search projects...").fill(name)
+                item = (
+                    dialog.locator(".pluto-list__item.pluto--selected")
+                    .filter(has_text=name)
+                    .first
+                )
+                item.wait_for(state="visible", timeout=5000)
+                self._selector_trigger().click(timeout=5000)
+                dialog.wait_for(state="hidden", timeout=5000)
+                return
+            except PlaywrightTimeoutError as e:
+                last_err = e
+                if dialog.is_visible():
+                    self.layout.press_escape()
+                    dialog.wait_for(state="hidden", timeout=5000)
+        assert last_err is not None
+        raise last_err
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename a project via context menu.
