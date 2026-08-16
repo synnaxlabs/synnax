@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
@@ -32,6 +33,7 @@ class RangesClient:
 
     TOOLBAR_ITEM_SELECTOR = ".console-range-list-item"
     EXPLORER_ITEM_SELECTOR = ".console-range__list-item"
+    EXPLORER_LIST_SELECTOR = ".console-range-explorer .pluto-list__items"
     FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
     UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
@@ -147,13 +149,45 @@ class RangesClient:
     def get_explorer_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
         item = self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name)
-        # The explorer virtualizes its list, so a range beyond the viewport is
-        # absent from the DOM; narrow the list to the name before locating it.
-        # Guard on the explorer actually being open: callers also probe for
-        # absence, and the edit-toggle click would land on an unrelated view.
-        if item.count() == 0 and self.layout.page.get_by_text("All Ranges").count() > 0:
-            self.search_explorer(name)
+        if item.count() == 0:
+            self._scroll_explorer_to(item)
         return item
+
+    def _scroll_explorer_to(
+        self, item: Locator, budget: sy.TimeSpan = 3 * sy.TimeSpan.SECOND
+    ) -> None:
+        """Scroll the explorer list until item renders, or the budget runs out.
+
+        The explorer mounts only the rows in view and pages in more as it nears
+        the bottom, so a range further down has no element to wait on. Filtering
+        the list by name would find it too, but would hide every other range,
+        which breaks selecting several at once.
+
+        Args:
+            item: Locator for the range row to reveal.
+            budget: How long to keep scrolling before giving up. Callers that
+                probe for a range that is not there pay this in full.
+        """
+        lst = self.layout.page.locator(self.EXPLORER_LIST_SELECTOR).first
+        if lst.count() == 0:
+            return
+        lst.evaluate("el => { el.scrollTop = 0; }")
+        timer = sy.Timer()
+        prev_height = -1
+        while timer.elapsed() < budget:
+            if item.count() > 0:
+                return
+            height = lst.evaluate("el => el.scrollHeight")
+            at_bottom = lst.evaluate(
+                "el => el.scrollTop + el.clientHeight >= el.scrollHeight - 1"
+            )
+            # The pager appends on reaching the bottom, so only give up once the
+            # list stops growing there.
+            if at_bottom and height == prev_height:
+                return
+            prev_height = height
+            lst.evaluate("el => { el.scrollTop += el.clientHeight * 0.8; }")
+            self.layout.page.wait_for_timeout(150)
 
     def get_toolbar_item_time(self, name: str) -> str:
         """Get the displayed time text from a toolbar range item.
@@ -998,13 +1032,6 @@ class RangesClient:
 
     def _deselect_all_explorer_ranges(self) -> None:
         """Deselect all explorer ranges by dispatching click on their checkbox labels."""
-        # A lingering name filter from get_explorer_item hides selected rows,
-        # so restore the full list before scanning for checked items.
-        search_input = self.layout.page.get_by_placeholder(
-            self.SEARCH_INPUT_PLACEHOLDER
-        )
-        if search_input.is_visible() and search_input.input_value() != "":
-            self.clear_explorer_search()
         self.layout.deselect_all_items(self.layout.page, self.EXPLORER_ITEM_SELECTOR)
 
     def _select_explorer_ranges(self, names: list[str]) -> Locator:
