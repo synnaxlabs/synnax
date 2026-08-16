@@ -52,12 +52,61 @@ func FromHex(s string) (Color, error) {
 	}
 }
 
-// UnmarshalJSON supports three formats:
+// normalizeAlpha lifts a legacy 0-255 alpha onto the current 0-1 scale. Old Consoles
+// persisted alpha as a fourth 0-255 channel; the current format caps alpha at 1, so
+// any larger value is legacy. Values in (1, 2] clamp to 1 instead of dividing: a
+// legacy alpha that small means a sub-1% opacity no user sets, while a current-scale
+// value nudged past 1 by float error means opaque. An alpha above 255 fits neither
+// scale and fails validation.
+func normalizeAlpha(a float64) (float64, error) {
+	if a <= 1 {
+		return a, nil
+	}
+	if a <= 2 {
+		return 1, nil
+	}
+	if a > 255 {
+		return 0, errors.Wrapf(
+			validate.ErrValidation, "alpha %v is above the 0-255 scale", a,
+		)
+	}
+	return a / 255, nil
+}
+
+// fromNumbers parses an [R, G, B] or [R, G, B, A] number tuple into a Color.
+func fromNumbers(arr []json.Number) (Color, error) {
+	r, err := arr[0].Int64()
+	if err != nil {
+		return Color{}, err
+	}
+	g, err := arr[1].Int64()
+	if err != nil {
+		return Color{}, err
+	}
+	b, err := arr[2].Int64()
+	if err != nil {
+		return Color{}, err
+	}
+	a := 1.0
+	if len(arr) == 4 {
+		if a, err = arr[3].Float64(); err != nil {
+			return Color{}, err
+		}
+		if a, err = normalizeAlpha(a); err != nil {
+			return Color{}, err
+		}
+	}
+	return Color{R: uint8(r), G: uint8(g), B: uint8(b), A: a}, nil
+}
+
+// UnmarshalJSON supports four formats:
 //   - string: "#ff0000" or "#ff000080"
 //   - array:  [255, 0, 0, 1.0]
 //   - object: {"r": 255, "g": 0, "b": 0, "a": 1.0}
+//   - legacy object: {"rgba255": [255, 0, 0, 1.0]}
 //
-// JSON null and the empty string both decode to the zero Color.
+// JSON null and the empty string both decode to the zero Color. An alpha above 1 is
+// lifted from the legacy 0-255 scale onto 0-1.
 func (c *Color) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		*c = Color{}
@@ -80,26 +129,25 @@ func (c *Color) UnmarshalJSON(data []byte) error {
 	// Try array [R, G, B, A]
 	var arr []json.Number
 	if json.Unmarshal(data, &arr) == nil && (len(arr) == 3 || len(arr) == 4) {
-		r, err := arr[0].Int64()
+		parsed, err := fromNumbers(arr)
 		if err != nil {
 			return err
 		}
-		g, err := arr[1].Int64()
+		*c = parsed
+		return nil
+	}
+
+	// Try legacy object {"rgba255": [R, G, B, A]}
+	var legacy struct {
+		RGBA255 []json.Number `json:"rgba255"`
+	}
+	if json.Unmarshal(data, &legacy) == nil &&
+		(len(legacy.RGBA255) == 3 || len(legacy.RGBA255) == 4) {
+		parsed, err := fromNumbers(legacy.RGBA255)
 		if err != nil {
 			return err
 		}
-		b, err := arr[2].Int64()
-		if err != nil {
-			return err
-		}
-		a := 1.0
-		if len(arr) == 4 {
-			a, err = arr[3].Float64()
-			if err != nil {
-				return err
-			}
-		}
-		*c = Color{R: uint8(r), G: uint8(g), B: uint8(b), A: a}
+		*c = parsed
 		return nil
 	}
 
@@ -109,6 +157,11 @@ func (c *Color) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return errors.Newf("cannot unmarshal color from: %s", string(data))
 	}
+	a, err := normalizeAlpha(obj.A)
+	if err != nil {
+		return err
+	}
+	obj.A = a
 	*c = Color(obj)
 	return nil
 }
@@ -174,6 +227,9 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 			if err != nil {
 				return err
 			}
+			if a, err = normalizeAlpha(a); err != nil {
+				return err
+			}
 		}
 		*c = Color{R: r, G: g, B: b, A: a}
 		return nil
@@ -185,6 +241,11 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 	if err := dec.Decode(&obj); err != nil {
 		return err
 	}
+	a, err := normalizeAlpha(obj.A)
+	if err != nil {
+		return err
+	}
+	obj.A = a
 	*c = Color(obj)
 	return nil
 }
