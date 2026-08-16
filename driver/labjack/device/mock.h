@@ -150,7 +150,11 @@ public:
     std::shared_ptr<Device> dev;
 
     explicit MockManager(std::shared_ptr<Device> dev = std::make_shared<Mock>()):
-        Manager(nullptr), dev(std::move(dev)) {}
+        dev(std::move(dev)) {}
+
+    x::errors::Error list_all(int, int, int *, int *, int *, int *, int *) override {
+        return x::errors::NIL;
+    }
 
     std::pair<std::shared_ptr<Device>, x::errors::Error>
     acquire(const std::string &) override {

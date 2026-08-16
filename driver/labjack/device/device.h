@@ -252,16 +252,37 @@ public:
 /// @brief manager handles the lifecycle of LabJack devices, allowing callers to
 /// acquire and release devices for use at will.
 class Manager {
+public:
+    virtual ~Manager() = default;
+
+    /// @brief lists the devices visible to the LJM library.
+    virtual x::errors::Error list_all(
+        int dev_type,
+        int conn_type,
+        int *num_found,
+        int *dev_types,
+        int *conn_types,
+        int *serial_numbers,
+        int *ip_addresses
+    ) = 0;
+
+    /// @brief acquires the device with the given serial number, opening it if no
+    /// other caller currently holds it.
+    virtual std::pair<std::shared_ptr<Device>, x::errors::Error>
+    acquire(const std::string &serial_number) = 0;
+};
+
+/// @brief a Manager that opens devices through the LJM library, sharing one handle
+/// among concurrent holders of the same device.
+class LJMManager final : public Manager {
     std::mutex mu;
     std::map<std::string, std::weak_ptr<Device>> handles;
     std::shared_ptr<ljm::API> ljm;
 
 public:
-    explicit Manager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {}
+    explicit LJMManager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {}
 
-    virtual ~Manager() = default;
-
-    virtual x::errors::Error list_all(
+    x::errors::Error list_all(
         const int dev_type,
         const int conn_type,
         int *num_found,
@@ -269,7 +290,7 @@ public:
         int *conn_types,
         int *serial_numbers,
         int *ip_addresses
-    ) {
+    ) override {
         std::lock_guard lock(this->mu);
         return parse_error(
             ljm,
@@ -285,8 +306,8 @@ public:
         );
     }
 
-    virtual std::pair<std::shared_ptr<Device>, x::errors::Error>
-    acquire(const std::string &serial_number) {
+    std::pair<std::shared_ptr<Device>, x::errors::Error>
+    acquire(const std::string &serial_number) override {
         {
             std::lock_guard lock(mu);
             const auto it = this->handles.find(serial_number);
