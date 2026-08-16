@@ -195,7 +195,6 @@ describe("connection", () => {
       const status = await connection.check({
         host: "invalid-host-that-does-not-exist",
         port: 9999,
-        retry: { maxRetries: 0 },
       });
       expect(status.variant).toEqual("error");
       expect(reasonOf(status)).toEqual("unreachable");
@@ -205,7 +204,6 @@ describe("connection", () => {
       const status = await connection.check({
         host: TEST_CLIENT_PARAMS.host,
         port: 9999,
-        retry: { maxRetries: 0 },
       });
       expect(status.variant).toEqual("error");
     });
