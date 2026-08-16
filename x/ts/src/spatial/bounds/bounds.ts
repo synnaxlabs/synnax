@@ -171,6 +171,11 @@ export const construct: Construct = <T extends numeric.Value>(
 export const ZERO: Bounds = Object.freeze({ lower: 0, upper: 0 });
 /** A lower bound of -Infinity and an upper bound of Infinity. */
 export const INFINITE: Bounds = Object.freeze({ lower: -Infinity, upper: Infinity });
+/**
+ * Bounds containing no values: the identity for {@link max} unions and the dual of
+ * {@link INFINITE}. Use as the "no data" sentinel; {@link isFinite} rejects it.
+ */
+export const INVALID: Bounds = Object.freeze({ lower: Infinity, upper: -Infinity });
 /** A lower bound of 0 and an upper bound of 1. */
 export const DECIMAL: Bounds = Object.freeze({ lower: 0, upper: 1 });
 /** Clip space bounds i.e. a lower bound of -1 and an upper bound of 1. */
@@ -318,22 +323,24 @@ export const mean = (a: Crude): number => {
 
 /**
  * @returns bounds that have the maximum span of the given bounds i.e. the min of all
- * of the lower bounds and the max of all of the upper bounds.
+ * of the lower bounds and the max of all of the upper bounds. Members are not
+ * reordered, so {@link INVALID} entries act as the identity instead of widening the
+ * result to infinity.
  */
 export const max = (bounds: Crude[]): Bounds => ({
-  lower: Math.min(...bounds.map((b) => construct(b).lower)),
-  upper: Math.max(...bounds.map((b) => construct(b).upper)),
+  lower: Math.min(...bounds.map((b) => construct(b, { makeValid: false }).lower)),
+  upper: Math.max(...bounds.map((b) => construct(b, { makeValid: false }).upper)),
 });
 
 /**
  * @returns bounds that have the minimum span of the given bounds i.e. the max of all
  * of the lower bounds and the min of all of the upper bounds. Note that this function
  * may create invalid bounds if the highest lower bound is greater than the lowest upper
- * bound.
+ * bound. Members are not reordered.
  */
 export const min = (bounds: Crude[]): Bounds => ({
-  lower: Math.max(...bounds.map((b) => construct(b).lower)),
-  upper: Math.min(...bounds.map((b) => construct(b).upper)),
+  lower: Math.max(...bounds.map((b) => construct(b, { makeValid: false }).lower)),
+  upper: Math.min(...bounds.map((b) => construct(b, { makeValid: false }).upper)),
 });
 
 /**
