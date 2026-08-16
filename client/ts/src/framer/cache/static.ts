@@ -85,7 +85,7 @@ export class Static {
    *
    * @param series - The series to write.
    * @param streamed - Marks the series as live-streamed data. A fetched write
-   * evicts every streamed entry that overlaps its time range.
+   * evicts every streamed entry whose time range it fully covers.
    */
   write(series: MultiSeries, streamed: boolean = false): void {
     if (series.length === 0) return;
@@ -96,11 +96,17 @@ export class Static {
     this.repairIntegrity(series);
   }
 
+  // Containment, not overlap: a fetch stamped wider than the data it returned
+  // (an uncommitted tail) must not evict streamed samples it did not replace.
   private evictStreamed(written: MultiSeries): void {
     this.data = this.data.filter(
       (e) =>
         !e.streamed ||
-        !written.series.some((s) => s.timeRange.overlapsWith(e.data.timeRange)),
+        !written.series.some(
+          (s) =>
+            s.timeRange.start.beforeEq(e.data.timeRange.start) &&
+            s.timeRange.end.afterEq(e.data.timeRange.end),
+        ),
     );
   }
 
@@ -109,25 +115,32 @@ export class Static {
    * overlap with the given time range. The series may extend before or after the
    * range.
    *
+   * Gaps are computed against fetched entries only. Streamed entries carry
+   * provisional leading alignments that cannot pair with fetched data on another
+   * channel, so they never claim coverage; the fetch they provoke evicts them.
+   *
    * @param tr - The time range to read from the cache.
    * @returns A list of series that overlap with the given time range and a list of
-   * gaps, representing the missing regions of time between the series and before and
-   * after the first and last series.
+   * gaps, representing the regions of time the fetched series do not cover.
    */
   dirtyRead(tr: TimeRange): DirtyReadResult {
     const series: Series[] = [];
-    for (const { data } of this.data)
-      if (data.timeRange.overlapsWith(tr)) series.push(data);
-    if (series.length === 0) return { series: new MultiSeries([]), gaps: [tr] };
+    const fetched: Series[] = [];
+    for (const { data, streamed } of this.data)
+      if (data.timeRange.overlapsWith(tr)) {
+        series.push(data);
+        if (!streamed) fetched.push(data);
+      }
+    if (fetched.length === 0) return { series: new MultiSeries(series), gaps: [tr] };
     const gaps: TimeRange[] = [];
     const pushGap = (start: TimeStamp, end: TimeStamp): void => {
       const gap = new TimeRange(start, end);
       if (gap.isValid && !gap.span.isZero) gaps.push(gap);
     };
-    pushGap(tr.start, series[0].timeRange.start);
-    for (let i = 1; i < series.length; i++)
-      pushGap(series[i - 1].timeRange.end, series[i].timeRange.start);
-    pushGap(series[series.length - 1].timeRange.end, tr.end);
+    pushGap(tr.start, fetched[0].timeRange.start);
+    for (let i = 1; i < fetched.length; i++)
+      pushGap(fetched[i - 1].timeRange.end, fetched[i].timeRange.start);
+    pushGap(fetched[fetched.length - 1].timeRange.end, tr.end);
     return { series: new MultiSeries(series), gaps };
   }
 
