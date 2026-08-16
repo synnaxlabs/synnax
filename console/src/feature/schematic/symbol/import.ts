@@ -17,7 +17,6 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { zipSync } from "fflate";
 import { useCallback } from "react";
 
-import { SYMBOL_FILE_FILTERS } from "@/feature/schematic/symbol/types";
 import { Runtime } from "@/platform/runtime";
 
 // The Core owns symbol envelope decoding, type resolution for typeless legacy files,
@@ -48,7 +47,7 @@ export const useImport = (parentGroup?: string): (() => void) => {
       if (client == null) throw new DisconnectedError();
       const files = await Runtime.pickFiles({
         title: "Import symbol",
-        filters: SYMBOL_FILE_FILTERS,
+        filters: [{ name: "JSON", extensions: ["json"] }],
         multiple: true,
       });
       if (files == null) return;

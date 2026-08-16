@@ -13,5 +13,4 @@ export * from "@/feature/schematic/symbol/import";
 export * from "@/feature/schematic/symbol/MissingForm";
 export * from "@/feature/schematic/symbol/SelectVariant";
 export * from "@/feature/schematic/symbol/tree";
-export * from "@/feature/schematic/symbol/types";
 export * from "@/feature/schematic/symbol/useDeleteGroup";
