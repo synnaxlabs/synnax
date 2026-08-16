@@ -106,6 +106,11 @@ interface FormMountListenersParams<
 >
   extends Form.UseReturn<Schema>, Omit<FormClientParams<Query>, "query"> {
   query: Query;
+  /**
+   * Drops the pending autosave and stops further ones. Call when the record no
+   * longer exists: a save queued before a delete would otherwise write it back.
+   */
+  abandon: () => void;
 }
 
 export interface AfterSaveParams<
@@ -198,13 +203,14 @@ export const createForm = <
         pending,
       );
 
+    const abandonedRef = useRef(false);
     const values = retrieved ?? initialValues ?? baseInitialValues;
     const form = Form.use<Schema>({
       schema,
       values,
       onChange: ({ path }) => {
         // Don't save if the path is empty to prevent infinite save loops.
-        if (autoSave && path !== "") debouncedSave();
+        if (autoSave && path !== "" && !abandonedRef.current) debouncedSave();
       },
       sync,
       onHasTouched,
@@ -224,17 +230,9 @@ export const createForm = <
     useLayoutEffect(() => {
       if (readQuery.current === memoQuery) return;
       readQuery.current = memoQuery;
+      abandonedRef.current = false;
       form.reset(valuesRef.current);
     }, [memoQuery, form]);
-
-    useEffect(() => {
-      if (memoQuery == null || client == null || mountListeners == null) return;
-      listeners.cleanup();
-      listeners.set(
-        mountListeners({ client, query: memoQuery, ...form, set: noNotifySet }),
-      );
-      return () => listeners.cleanup();
-    }, [client, memoQuery, form, noNotifySet]);
 
     const saveAsync = useCallback(
       async (opts: query.FetchOptions = {}): Promise<boolean> => {
@@ -289,6 +287,26 @@ export const createForm = <
       [],
     );
     useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
+
+    const abandon = useCallback(() => {
+      abandonedRef.current = true;
+      debouncedSave.cancel();
+    }, [debouncedSave]);
+
+    useEffect(() => {
+      if (memoQuery == null || client == null || mountListeners == null) return;
+      listeners.cleanup();
+      listeners.set(
+        mountListeners({
+          client,
+          query: memoQuery,
+          ...form,
+          set: noNotifySet,
+          abandon,
+        }),
+      );
+      return () => listeners.cleanup();
+    }, [client, memoQuery, form, noNotifySet, abandon]);
 
     return { form, save, saveAsync, ...result };
   };
