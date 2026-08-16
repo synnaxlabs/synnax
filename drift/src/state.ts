@@ -228,10 +228,17 @@ const maybePositionInCenter = (
   position?: xy.XY,
   size?: dimensions.Dimensions,
 ): xy.XY | undefined => {
-  if (mainWin.position != null && mainWin.size != null && position == null)
+  // Without the new window's size there is nothing to center, so leave placement to
+  // the runtime.
+  if (
+    mainWin.position != null &&
+    mainWin.size != null &&
+    position == null &&
+    size != null
+  )
     return box.topLeft(
       box.positionInCenter(
-        box.construct(xy.ZERO, size ?? xy.ZERO),
+        box.construct(xy.ZERO, size),
         box.construct(mainWin.position, mainWin.size),
       ),
     );
@@ -250,7 +257,11 @@ const reduceCreateWindow = (
   group(s.config.debug, "reducer create window");
 
   const mainWin = s.windows.main;
-  payload.position = maybePositionInCenter(mainWin, payload.position, payload.size);
+  payload.position = maybePositionInCenter(
+    mainWin,
+    payload.position,
+    payload.size ?? s.config.defaultWindowProps.size,
+  );
 
   // If the window already exists, un-minimize and focus it
   if (key in s.keyLabels) {

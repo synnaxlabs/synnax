@@ -52,6 +52,55 @@ describe("createWindow", () => {
     config: { ...ZERO_SLICE_STATE.config, enablePrerender: false },
   };
 
+  // The main window sits at 100,100 and is 1000x800, so its center is 600,500. A
+  // 400x200 window centered on it starts at 400,400.
+  const withMain = (config: Partial<SliceState["config"]> = {}): SliceState => ({
+    ...sliceState({
+      [MAIN_WINDOW]: reserved(MAIN_WINDOW, {
+        ordinal: 1,
+        position: { x: 100, y: 100 },
+        size: { width: 1000, height: 800 },
+      }),
+    }),
+    config: { ...ZERO_SLICE_STATE.config, enablePrerender: false, ...config },
+  });
+
+  const created = (s: SliceState, size?: { width: number; height: number }) =>
+    reducer(s, createWindow({ key: "a", label: "la", prerenderLabel: "pa", size }))
+      .windows.la;
+
+  it("should center a new window on the main window", () => {
+    expect(created(withMain(), { width: 400, height: 200 }).position).toEqual({
+      x: 400,
+      y: 400,
+    });
+  });
+
+  it("should center a sizeless window using the default window props", () => {
+    const s = withMain({ defaultWindowProps: { size: { width: 400, height: 200 } } });
+    expect(created(s).position).toEqual({ x: 400, y: 400 });
+  });
+
+  // Centering a window of unknown size would place its top left at the main window's
+  // center, dropping it well below and right of where it belongs.
+  it("should leave a sizeless window unplaced when no default size exists", () => {
+    expect(created(withMain()).position).toBeUndefined();
+  });
+
+  it("should keep a position the caller asked for", () => {
+    const s = withMain({ defaultWindowProps: { size: { width: 400, height: 200 } } });
+    const next = reducer(
+      s,
+      createWindow({
+        key: "a",
+        label: "la",
+        prerenderLabel: "pa",
+        position: { x: 12, y: 34 },
+      }),
+    );
+    expect(next.windows.la.position).toEqual({ x: 12, y: 34 });
+  });
+
   it("should assign increasing ordinals to freshly created windows", () => {
     let s = noPrerender;
     s = reducer(s, createWindow({ key: "a", label: "la", prerenderLabel: "pa" }));
