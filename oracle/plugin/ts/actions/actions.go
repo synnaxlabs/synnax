@@ -114,6 +114,7 @@ func (p *Plugin) generateFile(
 
 	mgr.AddImport("zod", "z")
 	mgr.AddImport("immer", "Draft")
+	mgr.AddImport("@synnaxlabs/x", "zod")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
 	mgr.AddImport(sameDir+"/types.gen", typ.Name)
 	mgr.AddImport(sameDir+"/types.gen", "keyZ")
@@ -181,7 +182,9 @@ export type Action = z.infer<typeof actionZ>;
 {{range .Actions}}
 export const {{ camelCase .Name }} = (payload: z.input<typeof {{ camelCase .Name }}PayloadZ>): Action => ({
   type: "{{ .TypeName }}",
-  {{ camelCase .Name }}: {{ camelCase .Name }}PayloadZ.parse(payload),
+  {{ camelCase .Name }}: zod.parse({{ camelCase .Name }}PayloadZ, payload, {
+    label: "{{ $.TargetTypeName }} {{ .TypeName }} action payload",
+  }),
 });
 {{end}}
 export type HandlerResult = actions.HandlerResult<Action>;

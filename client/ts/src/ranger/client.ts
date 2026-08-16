@@ -17,6 +17,7 @@ import {
   primitive,
   type Series,
   TimeRange,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -306,7 +307,9 @@ const isParentChange = (rel: ontology.Relationship, id: ontology.ID): boolean =>
 const relOfEvent = (
   event: query.TableEvent<string, ontology.Relationship>,
 ): ontology.Relationship =>
-  event.variant === "set" ? event.value : ontology.relationshipZ.parse(event.key);
+  event.variant === "set"
+    ? event.value
+    : zod.parse(ontology.relationshipZ, event.key, { label: "ontology relationship" });
 
 /** Range keys whose composed labels or parent the relationship affects. */
 const affectedRangeKeys = (rel: ontology.Relationship): Key[] | null => {
@@ -793,7 +796,9 @@ export const convertOntologyResourceToPayload = ({
   id: { key },
   name,
 }: ontology.Resource): Payload => {
-  const timeRange = TimeRange.z.parse(data?.timeRange);
+  const timeRange = zod.parse(TimeRange.z, data?.timeRange, {
+    label: "range time range",
+  });
   const c = color.colorZ.safeParse(data?.color);
   return {
     key,
