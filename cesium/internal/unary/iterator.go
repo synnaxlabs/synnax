@@ -229,9 +229,15 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 	nRemaining := i.AutoChunkSize
 	for {
-		if !i.internal.TimeRange().OverlapsWith(i.view) {
+		domainTR := i.internal.TimeRange()
+		// Domains are ordered, so one starting at or after the view end belongs to the
+		// next chunk. Leave the iterator on it and keep what this chunk already read.
+		if domainTR.Start.AfterEq(i.view.End) {
+			break
+		}
+		if !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Next() {
-				return false
+				break
 			}
 			continue
 		}
@@ -240,10 +246,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		startSample := startApprox.Upper
-		if !startApprox.Exact() && !startApprox.StartExact {
-			startSample = startApprox.Lower
-		}
+		startSample := pickSampleOffset(startApprox)
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err
@@ -299,10 +302,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		endSample := endApprox.Upper
-		if !startApprox.Exact() && !endApprox.StartExact {
-			endSample = endApprox.Lower
-		}
+		endSample := pickSampleOffset(endApprox)
 		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
 		if err != nil {
 			i.err = err
