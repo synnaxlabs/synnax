@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -2067,6 +2068,18 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 	}
 
 	for _, variant := range form.Variants {
+		derived := casing.VariantTypeName(typ.Name, variant.Name)
+		if existing, exists := c.table.Get(c.namespace + "." + derived); exists &&
+			existing.QualifiedName != typ.QualifiedName {
+			d := diagnostics.Errorf(
+				nil,
+				"union %s variant %q: generated variant type name %s collides with an existing type; rename the type or inline it into the variant",
+				typ.Name,
+				variant.Name,
+				derived,
+			)
+			c.report(d)
+		}
 		variantType, ok := variant.Type.Resolve(c.table)
 		if !ok {
 			d := diagnostics.Errorf(nil,

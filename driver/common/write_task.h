@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "client/cpp/task/common/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 
 #include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
@@ -23,10 +23,10 @@ namespace driver::common {
 /// @brief common write task configuration shared across hardware control tasks.
 /// Wraps the schema-generated write config (auto_start, data_saving_disabled,
 /// device) so the field set has a single definition in the oracle schema.
-struct BaseWriteTaskConfig : ::synnax::task::common::BaseWriteConfig {
+struct BaseWriteTaskConfig : ::synnax::task::config::BaseWrite {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
-        ::synnax::task::common::BaseWriteConfig(
-            ::synnax::task::common::BaseWriteConfig::parse(cfg)
+        ::synnax::task::config::BaseWrite(
+            ::synnax::task::config::BaseWrite::parse(cfg)
         ) {
         if (this->device.empty()) cfg.field_err("device", "this field is required");
     }
@@ -39,8 +39,8 @@ class Sink : public pipeline::Sink, public pipeline::Source {
     std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
     /// @brief the index keys of the state channels.
     const std::set<synnax::channel::Key> state_indexes;
-    /// @brief whether data saving is enabled for the task.
-    bool data_saving;
+    /// @brief whether data saving is disabled for the task.
+    bool data_saving_disabled;
 
 public:
     /// @brief the rate at which to communicate state values down the channel.
@@ -57,7 +57,7 @@ public:
     explicit Sink(std::vector<synnax::channel::Key> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
-        data_saving(true),
+        data_saving_disabled(false),
         state_rate(0) {}
 
     Sink(
@@ -65,11 +65,11 @@ public:
         std::set<synnax::channel::Key> state_indexes,
         const std::vector<synnax::channel::Channel> &state_channels,
         std::vector<synnax::channel::Key> cmd_channels,
-        const bool data_saving
+        const bool data_saving_disabled
     ):
         cmd_channels(std::move(cmd_channels)),
         state_indexes(std::move(state_indexes)),
-        data_saving(data_saving),
+        data_saving_disabled(data_saving_disabled),
         state_rate(state_rate) {
         auto idx = 0;
         for (const auto &ch: state_channels) {
@@ -95,7 +95,7 @@ public:
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = data_saving_writer_mode(this->data_saving),
+            .mode = data_saving_writer_mode(this->data_saving_disabled),
         };
     }
 

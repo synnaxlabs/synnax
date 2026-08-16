@@ -243,7 +243,7 @@ x::errors::Error Scanner::start() {
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.scan_rate.period() - x::telem::SECOND).milliseconds(),
+            (this->cfg.rate.period() - x::telem::SECOND).milliseconds(),
             nullptr,
             &this->session
         ))

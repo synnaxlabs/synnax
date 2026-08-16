@@ -100,10 +100,11 @@ export const Fallback = ({
     <Flex.Box className={CSS.BE("error-fallback", "container")} y grow center>
       <Flex.Box
         background={2}
-        rounded
         className={CSS.BE("error-fallback", "content")}
         bordered
-        borderColor={5}
+        borderColor="var(--pluto-error-z-40)"
+        borderWidth={1}
+        rounded="large"
         empty
       >
         <Bar location="top" bordered size="6rem">

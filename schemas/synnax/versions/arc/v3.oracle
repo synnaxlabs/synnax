@@ -54,3 +54,7 @@ Arc struct {
     @go marshal
     @go migrate
 }
+
+ExecutionMode = v1.ExecutionMode
+
+TaskConfig = v1.TaskConfig

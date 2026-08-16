@@ -1,0 +1,25 @@
+{
+  "type": "pagerduty_alert",
+  "routingKey": "fixturefixturefixturefixture1234",
+  "autoStart": true,
+  "alerts": [
+    {
+      "key": "alert-overpressure",
+      "status": "fixture_status_channel_a",
+      "treatErrorAsCritical": true,
+      "component": "fixture-component-pump",
+      "group": "fixture-group-fluids",
+      "class": "fixture-class-overpressure",
+      "enabled": true
+    },
+    {
+      "key": "alert-secondary",
+      "status": "fixture_status_channel_b",
+      "treatErrorAsCritical": true,
+      "component": "fixture-component-valve",
+      "group": "fixture-group-pneumatics",
+      "class": "fixture-class-leak",
+      "enabled": false
+    }
+  ]
+}

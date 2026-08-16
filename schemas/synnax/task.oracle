@@ -120,7 +120,6 @@ Task struct<
     @go migrate
     @ontology type           "task"
     @py name                 "Payload"
-    @retrieve
     @search
     @ts coalesce_type_params
     @ts concrete_types
@@ -152,14 +151,30 @@ Command struct {
     @doc value "is a command to execute on a task in the Driver system."
 }
 
-BaseStartConfig struct {
+KeyedConfig struct {
+    key uuid = create {
+        @doc value "is the unique identifier for the stored configuration record."
+        @key
+    }
+
+    @cpp name   "Keyed"
+    @cpp output "client/cpp/task/config"
+    @doc value  "is the base for every stored task configuration record."
+    @go name    "Keyed"
+    @go output  "core/pkg/service/task/config"
+    @pb omit
+}
+
+BaseStartConfig struct extends KeyedConfig {
     auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
 
-    @cpp output "client/cpp/task/common"
+    @cpp name   "BaseStart"
+    @cpp output "client/cpp/task/config"
     @doc value  "carries the configuration fields shared by every task."
-    @go output  "core/pkg/service/task/common"
+    @go name    "BaseStart"
+    @go output  "core/pkg/service/task/config"
     @pb omit
 }
 
@@ -168,9 +183,11 @@ BasePersistConfig struct extends BaseStartConfig {
         @doc value "is true when task telemetry is not persisted to disk."
     }
 
-    @cpp output "client/cpp/task/common"
+    @cpp name   "BasePersist"
+    @cpp output "client/cpp/task/config"
     @doc value  "carries the configuration fields shared by tasks that write telemetry."
-    @go output  "core/pkg/service/task/common"
+    @go name    "BasePersist"
+    @go output  "core/pkg/service/task/config"
     @pb omit
 }
 
@@ -184,9 +201,11 @@ BaseReadConfig struct extends BasePersistConfig {
         @ts type   "number"
     }
 
-    @cpp output "client/cpp/task/common"
+    @cpp name   "BaseRead"
+    @cpp output "client/cpp/task/config"
     @doc value  "carries the configuration fields shared by hardware acquisition tasks."
-    @go output  "core/pkg/service/task/common"
+    @go name    "BaseRead"
+    @go output  "core/pkg/service/task/config"
     @pb omit
 }
 
@@ -195,8 +214,27 @@ BaseWriteConfig struct extends BasePersistConfig {
         @doc value "is the key of the device the task writes to."
     }
 
-    @cpp output "client/cpp/task/common"
+    @cpp name   "BaseWrite"
+    @cpp output "client/cpp/task/config"
     @doc value  "carries the configuration fields shared by hardware control tasks."
-    @go output  "core/pkg/service/task/common"
+    @go name    "BaseWrite"
+    @go output  "core/pkg/service/task/config"
+    @pb omit
+}
+
+BaseScanConfig struct extends KeyedConfig {
+    rate     telem.Rate = 0.2 {
+        @doc value "is the rate at which the scan runs, in hertz."
+        @ts type   "number"
+    }
+    disabled bool = false {
+        @doc value "is true when scanning is paused."
+    }
+
+    @cpp name   "BaseScan"
+    @cpp output "client/cpp/task/config"
+    @doc value  "carries the fields shared by every scan task configuration."
+    @go name    "BaseScan"
+    @go output  "core/pkg/service/task/config"
     @pb omit
 }

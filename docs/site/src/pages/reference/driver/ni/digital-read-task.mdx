@@ -117,17 +117,17 @@ task = ni.DigitalReadTask(
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
     channels=[
-        ni.DIChan(
+        ni.DIChannel(
             channel=di_0_0.key,
             port=0,
             line=0,
         ),
-        ni.DIChan(
+        ni.DIChannel(
             channel=di_0_1.key,
             port=0,
             line=1,
         ),
-        ni.DIChan(
+        ni.DIChannel(
             channel=di_1_0.key,
             port=1,
             line=0,
@@ -232,19 +232,16 @@ const task = await client.tasks.create({
     data_saving: true,
     channels: [
       {
-        type: "digital_input",
         channel: di00.key,
         port: 0,
         line: 0,
       },
       {
-        type: "digital_input",
         channel: di01.key,
         port: 0,
         line: 1,
       },
       {
-        type: "digital_input",
         channel: di10.key,
         port: 1,
         line: 0,

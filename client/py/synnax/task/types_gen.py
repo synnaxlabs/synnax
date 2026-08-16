@@ -25,14 +25,17 @@ from x import telem
 Key: TypeAlias = UUID
 
 
-class BaseStartConfig(BaseModel):
-    """Carries the configuration fields shared by every task.
+class KeyedConfig(BaseModel):
+    """Is the base for every stored task configuration record.
 
     Attributes:
-        auto_start: Is true when the task should start as soon as it is configured.
+        key: Is the unique identifier for the stored configuration record.
     """
 
-    auto_start: bool = False
+    key: UUID = Field(default_factory=uuid4)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class StatusDetails(BaseModel):
@@ -76,6 +79,37 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
+class BaseStartConfig(KeyedConfig):
+    """Carries the configuration fields shared by every task.
+
+    Attributes:
+        auto_start: Is true when the task should start as soon as it is configured.
+    """
+
+    auto_start: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class BaseScanConfig(KeyedConfig):
+    """Carries the fields shared by every scan task configuration.
+
+    Attributes:
+        rate: Is the rate at which the scan runs, in hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    rate: telem.Rate = telem.Rate(0.200000)
+    disabled: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+Status: TypeAlias = status_.Status[StatusDetails]
+
+
 class BasePersistConfig(BaseStartConfig):
     """Carries the configuration fields shared by tasks that write telemetry.
 
@@ -85,30 +119,8 @@ class BasePersistConfig(BaseStartConfig):
 
     data_saving_disabled: bool = False
 
-
-Status: TypeAlias = status_.Status[StatusDetails]
-
-
-class BaseReadConfig(BasePersistConfig):
-    """Carries the configuration fields shared by hardware acquisition tasks.
-
-    Attributes:
-        sample_rate: Is the per-channel hardware sample rate, in hertz.
-        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
-    """
-
-    sample_rate: telem.Rate = telem.Rate(10)
-    stream_rate: telem.Rate = telem.Rate(5)
-
-
-class BaseWriteConfig(BasePersistConfig):
-    """Carries the configuration fields shared by hardware control tasks.
-
-    Attributes:
-        device: Is the key of the device the task writes to.
-    """
-
-    device: device_.Key = ""
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class Payload(BaseModel):
@@ -142,6 +154,34 @@ class Payload(BaseModel):
     internal: bool = False
     snapshot: bool = False
     status: Status | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class BaseReadConfig(BasePersistConfig):
+    """Carries the configuration fields shared by hardware acquisition tasks.
+
+    Attributes:
+        sample_rate: Is the per-channel hardware sample rate, in hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
+    """
+
+    sample_rate: telem.Rate = telem.Rate(10)
+    stream_rate: telem.Rate = telem.Rate(5)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class BaseWriteConfig(BasePersistConfig):
+    """Carries the configuration fields shared by hardware control tasks.
+
+    Attributes:
+        device: Is the key of the device the task writes to.
+    """
+
+    device: device_.Key = ""
 
     def __hash__(self) -> int:
         return hash(self.key)

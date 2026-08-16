@@ -61,7 +61,7 @@ struct LinearScale final : BaseScale {
     /// @brief The y-intercept (b) in the linear equation
     const double offset;
 
-    LinearScale(const ::synnax::ni::ScaleLinear &s, const int pre_scaled_units):
+    LinearScale(const ::synnax::ni::LinearScale &s, const int pre_scaled_units):
         BaseScale(s.scaled_units, pre_scaled_units),
         slope(s.slope),
         offset(s.y_intercept) {}
@@ -95,7 +95,7 @@ struct MapScale final : BaseScale {
     /// @brief Maximum value in the scaled range
     const double scaled_max;
 
-    MapScale(const ::synnax::ni::ScaleMap &s, const int pre_scaled_units):
+    MapScale(const ::synnax::ni::MapScale &s, const int pre_scaled_units):
         BaseScale(s.scaled_units, pre_scaled_units),
         pre_scaled_min(s.pre_scaled_min),
         pre_scaled_max(s.pre_scaled_max),
@@ -129,7 +129,7 @@ struct PolynomialScale final : BaseScale {
     /// @brief Coefficients for the reverse polynomial transformation
     const std::vector<double> reverse_coeffs;
 
-    PolynomialScale(const ::synnax::ni::ScalePolynomial &s, const int pre_scaled_units):
+    PolynomialScale(const ::synnax::ni::PolynomialScale &s, const int pre_scaled_units):
         BaseScale(s.scaled_units, pre_scaled_units),
         forward_coeffs(s.forward_coeffs),
         reverse_coeffs(s.reverse_coeffs) {}
@@ -161,7 +161,7 @@ struct TableScale final : BaseScale {
     /// @brief Output values for the lookup table
     const std::vector<double> scaled;
 
-    TableScale(const ::synnax::ni::ScaleTable &s, const int pre_scaled_units):
+    TableScale(const ::synnax::ni::TableScale &s, const int pre_scaled_units):
         BaseScale(s.scaled_units, pre_scaled_units),
         pre_scaled(s.pre_scaled_vals),
         scaled(s.scaled_vals) {}
@@ -191,16 +191,16 @@ make_scale(const ::synnax::ni::Scale &s) {
     return std::visit(
         [](const auto &v) -> std::pair<std::unique_ptr<Scale>, x::errors::Error> {
             using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, ::synnax::ni::ScaleNone>)
+            if constexpr (std::is_same_v<T, ::synnax::ni::NoneScale>)
                 return {std::make_unique<Scale>(), x::errors::NIL};
             else {
                 auto [units, err] = parse_units(v.pre_scaled_units);
                 if (err) return {nullptr, err};
-                if constexpr (std::is_same_v<T, ::synnax::ni::ScaleLinear>)
+                if constexpr (std::is_same_v<T, ::synnax::ni::LinearScale>)
                     return {std::make_unique<LinearScale>(v, units), x::errors::NIL};
-                else if constexpr (std::is_same_v<T, ::synnax::ni::ScaleMap>)
+                else if constexpr (std::is_same_v<T, ::synnax::ni::MapScale>)
                     return {std::make_unique<MapScale>(v, units), x::errors::NIL};
-                else if constexpr (std::is_same_v<T, ::synnax::ni::ScaleTable>) {
+                else if constexpr (std::is_same_v<T, ::synnax::ni::TableScale>) {
                     if (v.pre_scaled_vals.size() != v.scaled_vals.size())
                         return {
                             nullptr,

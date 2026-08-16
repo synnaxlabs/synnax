@@ -62,7 +62,7 @@ func validateNode(
 	seenResources set.Set[ontology.ID],
 ) error {
 	switch v := n.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		for _, t := range v.Tabs {
 			key := t.Key()
 			if seen.Contains(key) {
@@ -72,7 +72,7 @@ func validateNode(
 				)
 			}
 			seen.Add(key)
-			if r, ok := t.Variant.(TabResource); ok {
+			if r, ok := t.Variant.(ResourceTab); ok {
 				if seenResources.Contains(r.Resource) {
 					return errors.Wrap(
 						validate.ErrValidation,
@@ -83,7 +83,7 @@ func validateNode(
 			}
 		}
 		return nil
-	case NodeSplit:
+	case SplitNode:
 		if v.Size < 0 || v.Size > 1 {
 			return errInvalidSize
 		}
@@ -115,7 +115,7 @@ func pathDirections(pathKey int32) []bool {
 func walk(root Node, pathKey int32) (Node, error) {
 	n := root
 	for _, isLast := range pathDirections(pathKey) {
-		split, ok := n.Variant.(NodeSplit)
+		split, ok := n.Variant.(SplitNode)
 		if !ok {
 			return Node{}, errInvalidPath
 		}
@@ -141,7 +141,7 @@ func updateAt(n Node, dirs []bool, f func(Node) (Node, error)) (Node, error) {
 	if len(dirs) == 0 {
 		return f(n)
 	}
-	split, ok := n.Variant.(NodeSplit)
+	split, ok := n.Variant.(SplitNode)
 	if !ok {
 		return Node{}, errInvalidPath
 	}
@@ -164,20 +164,20 @@ func updateAt(n Node, dirs []bool, f func(Node) (Node, error)) (Node, error) {
 // updateLeafAt replaces the leaf at the given path key with f(leaf), returning
 // errInvalidPath when the path does not resolve or errNotALeaf when it resolves
 // to a split.
-func updateLeafAt(root *Node, pathKey int32, f func(Leaf) (Leaf, error)) error {
+func updateLeafAt(root *Node, pathKey int32, f func(LeafNode) (LeafNode, error)) error {
 	updated, err := updateAt(
 		*root,
 		pathDirections(pathKey),
 		func(n Node) (Node, error) {
-			leaf, ok := n.Variant.(NodeLeaf)
+			leaf, ok := n.Variant.(LeafNode)
 			if !ok {
 				return Node{}, errNotALeaf
 			}
-			next, err := f(leaf.Leaf)
+			next, err := f(leaf)
 			if err != nil {
 				return Node{}, err
 			}
-			return Node{Variant: NodeLeaf{Leaf: next}}, nil
+			return Node{Variant: next}, nil
 		},
 	)
 	if err != nil {
@@ -189,16 +189,16 @@ func updateLeafAt(root *Node, pathKey int32, f func(Leaf) (Leaf, error)) error {
 
 // walkLeaf returns the leaf at the given path key, or an error if the path resolves
 // to a split or does not resolve at all.
-func walkLeaf(root Node, pathKey int32) (Leaf, error) {
+func walkLeaf(root Node, pathKey int32) (LeafNode, error) {
 	n, err := walk(root, pathKey)
 	if err != nil {
-		return Leaf{}, err
+		return LeafNode{}, err
 	}
-	leaf, ok := n.Variant.(NodeLeaf)
+	leaf, ok := n.Variant.(LeafNode)
 	if !ok {
-		return Leaf{}, errNotALeaf
+		return LeafNode{}, errNotALeaf
 	}
-	return leaf.Leaf, nil
+	return leaf, nil
 }
 
 // findTab walks the tree to find the leaf containing the tab with the given key.
@@ -210,14 +210,14 @@ func findTab(root Node, tabKey uuid.UUID) (leafPath int32, idx int, ok bool) {
 
 func findTabAt(n Node, path int32, tabKey uuid.UUID) (int32, int, bool) {
 	switch v := n.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		for i, t := range v.Tabs {
 			if t.Key() == tabKey {
 				return path, i, true
 			}
 		}
 		return 0, 0, false
-	case NodeSplit:
+	case SplitNode:
 		if p, i, ok := findTabAt(v.First, path*2, tabKey); ok {
 			return p, i, true
 		}
@@ -231,14 +231,14 @@ func findTabAt(n Node, path int32, tabKey uuid.UUID) (int32, int, bool) {
 // displays the given ontology ID. Returns the tab and ok=true when present.
 func findTabByResource(root Node, resource ontology.ID) (Tab, bool) {
 	switch v := root.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		for _, t := range v.Tabs {
-			if r, ok := t.Variant.(TabResource); ok && r.Resource == resource {
+			if r, ok := t.Variant.(ResourceTab); ok && r.Resource == resource {
 				return t, true
 			}
 		}
 		return Tab{}, false
-	case NodeSplit:
+	case SplitNode:
 		if t, ok := findTabByResource(v.First, resource); ok {
 			return t, true
 		}
@@ -252,14 +252,14 @@ func findTabByResource(root Node, resource ontology.ID) (Tab, bool) {
 // given type. Returns the tab and ok=true when present.
 func findTabByType(root Node, viewType string) (Tab, bool) {
 	switch v := root.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		for _, t := range v.Tabs {
-			if view, ok := t.Variant.(TabView); ok && view.Type == viewType {
+			if view, ok := t.Variant.(ViewTab); ok && view.Type == viewType {
 				return t, true
 			}
 		}
 		return Tab{}, false
-	case NodeSplit:
+	case SplitNode:
 		if t, ok := findTabByType(v.First, viewType); ok {
 			return t, true
 		}
@@ -278,9 +278,9 @@ func firstLeafPath(root Node) (path int32, ok bool) {
 
 func firstLeafPathAt(n Node, path int32) (int32, bool) {
 	switch v := n.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		return path, true
-	case NodeSplit:
+	case SplitNode:
 		if p, ok := firstLeafPathAt(v.First, path*2); ok {
 			return p, true
 		}
@@ -302,7 +302,7 @@ func removeTab(root *Node, tabKey uuid.UUID) (Tab, bool) {
 		return Tab{}, false
 	}
 	var removed Tab
-	if err := updateLeafAt(root, path, func(leaf Leaf) (Leaf, error) {
+	if err := updateLeafAt(root, path, func(leaf LeafNode) (LeafNode, error) {
 		removed = leaf.Tabs[idx]
 		leaf.Tabs = append(append([]Tab{}, leaf.Tabs[:idx]...), leaf.Tabs[idx+1:]...)
 		return leaf, nil
@@ -319,7 +319,7 @@ func collapseEmptyLeaves(root *Node) {
 }
 
 func collapseNode(n Node) Node {
-	split, ok := n.Variant.(NodeSplit)
+	split, ok := n.Variant.(SplitNode)
 	if !ok {
 		return n
 	}
@@ -336,17 +336,17 @@ func collapseNode(n Node) Node {
 
 // isEmptyLeaf reports whether the node is a leaf with no tabs.
 func isEmptyLeaf(n Node) bool {
-	leaf, ok := n.Variant.(NodeLeaf)
+	leaf, ok := n.Variant.(LeafNode)
 	return ok && len(leaf.Tabs) == 0
 }
 
 // insertTabAt inserts the tab into the leaf at the given path key at the given
 // index in [0, len(leaf.Tabs)]. To append, pass len(leaf.Tabs).
 func insertTabAt(root *Node, leafPath int32, tab Tab, index int32) error {
-	return updateLeafAt(root, leafPath, func(leaf Leaf) (Leaf, error) {
+	return updateLeafAt(root, leafPath, func(leaf LeafNode) (LeafNode, error) {
 		idx := int(index)
 		if idx < 0 || idx > len(leaf.Tabs) {
-			return Leaf{}, errIndexOutOfRange
+			return LeafNode{}, errIndexOutOfRange
 		}
 		tabs := make([]Tab, 0, len(leaf.Tabs)+1)
 		tabs = append(tabs, leaf.Tabs[:idx]...)
@@ -394,11 +394,11 @@ func splitLeafAt(root *Node, leafPath int32, loc spatial.Location, size float64)
 		*root,
 		pathDirections(leafPath),
 		func(n Node) (Node, error) {
-			if _, ok := n.Variant.(NodeLeaf); !ok {
+			if _, ok := n.Variant.(LeafNode); !ok {
 				return Node{}, errNotALeaf
 			}
-			empty := Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
-			split := Split{Direction: direction, Size: size}
+			empty := Node{Variant: LeafNode{Tabs: []Tab{}}}
+			split := SplitNode{Direction: direction, Size: size}
 			if side == spatial.OrderFirst {
 				split.First = empty
 				split.Last = n
@@ -406,7 +406,7 @@ func splitLeafAt(root *Node, leafPath int32, loc spatial.Location, size float64)
 				split.First = n
 				split.Last = empty
 			}
-			return Node{Variant: NodeSplit{Split: split}}, nil
+			return Node{Variant: split}, nil
 		},
 	)
 	if err != nil {

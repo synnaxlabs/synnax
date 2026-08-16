@@ -148,7 +148,9 @@ Arc struct {
     action RemoveEdge {
         key string
 
-        @doc value "removes the edge with the given key, if present."
+        @doc value """
+            removes the edge with the given key, if present.
+        """
     }
 
     action ReconnectEdge {
@@ -223,6 +225,9 @@ TaskConfig struct extends task.BasePersistConfig {
     arc_key        Key           {
         @doc value "is the key of the Arc module the task executes."
     }
+    hash           string = "" {
+        @doc value "is the semantic hash of the Arc module at deploy time."
+    }
     execution_mode ExecutionMode = auto {
         @doc value "overrides the runtime's automatic loop mode selection."
     }
@@ -236,8 +241,10 @@ TaskConfig struct extends task.BasePersistConfig {
         @doc value "locks the runtime's memory to prevent paging."
     }
 
-    @doc value "configures an Arc task, which runs a compiled Arc module."
-    @go name   "Config"
-    @go output "core/pkg/service/arc/task"
+    @doc value  "configures an Arc task, which runs a compiled Arc module."
+    @go marshal
+    @go migrate
+    @go name    "Config"
+    @go output  "core/pkg/service/arc/task"
     @pb omit
 }

@@ -78,39 +78,33 @@ Tab union on variant extends TabBase {
     @go marshal
 }
 
-Leaf struct {
-    tabs Tab[] {
-        @doc value "is the ordered list of tabs in this leaf."
-    }
-
-    @doc value  "is a leaf node in the panel tree displaying a tab strip."
-    @go marshal
-}
-
-Split struct {
-    direction spatial.Direction {
-        @doc value "is the axis along which this node is split."
-    }
-    size      spatial.Decimal   {
-        @doc value """
-            is the fraction in [0, 1] of the parent area allocated to first. The
-            remainder is allocated to last.
-        """
-    }
-    first     Node              {
-        @doc value "is the first child (left for x, top for y)."
-    }
-    last      Node              {
-        @doc value "is the second child (right for x, bottom for y)."
-    }
-
-    @doc value  "is an interior split node dividing its area between two children."
-    @go marshal
-}
-
 Node union on variant {
-    leaf  Leaf
-    split Split
+    leaf {
+        tabs Tab[] {
+            @doc value "is the ordered list of tabs in this leaf."
+        }
+
+        @doc value "is a leaf node in the panel tree displaying a tab strip."
+    }
+    split {
+        direction spatial.Direction {
+            @doc value "is the axis along which this node is split."
+        }
+        size      spatial.Decimal   {
+            @doc value """
+                is the fraction in [0, 1] of the parent area allocated to first. The
+                remainder is allocated to last.
+            """
+        }
+        first     Node              {
+            @doc value "is the first child (left for x, top for y)."
+        }
+        last      Node              {
+            @doc value "is the second child (right for x, bottom for y)."
+        }
+
+        @doc value "is an interior split node dividing its area between two children."
+    }
 
     @doc value  """
         is a node in the panel tree: either a leaf displaying a tab strip or an interior
@@ -137,19 +131,14 @@ Panel struct {
     }
     parent ontology.ID? {
         @doc value  """
-            is an optional parent resource for the panel in the ontology. When absent on
-            create, the panel is parented to the creating user as a draft. Parenthood
-            lives in the ontology graph, so the field is not persisted on the panel
-            record and is absent on retrieve.
+            is the parent resource for the panel in the ontology, required on create.
+            Parenthood lives in the ontology graph, so the field is not persisted on the
+            panel record and is absent on retrieve.
         """
         @go marshal omit
     }
 
-    @doc value  """
-        is a tab in a project owning a tree of visualization tabs. A panel is owned by a
-        project (project panel) or by a user (draft); renaming a draft promotes it to
-        project ownership.
-    """
+    @doc value  "is a project-owned tab holding a tree of visualization tabs."
     @go marshal
     @go migrate
 }

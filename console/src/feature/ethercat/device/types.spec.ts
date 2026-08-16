@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EtherCAT } from "@/feature/ethercat";
+import { createPDOs } from "@/feature/ethercat/testutil";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
 testPropertiesSchema(
@@ -31,6 +32,10 @@ testPropertiesSchema(
         network: "eth0",
         position: 1,
       },
+    ],
+    [
+      "properties carrying the PDOs written by a device scan",
+      { identifier: "EL3004", position: 1, pdos: createPDOs() },
     ],
   ],
 );

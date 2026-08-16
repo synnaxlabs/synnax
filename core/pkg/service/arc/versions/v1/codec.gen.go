@@ -51,3 +51,54 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tc TaskConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(tc.Key[:])
+	w.Bool(tc.AutoStart)
+	w.Bool(tc.DataSavingDisabled)
+	w.Write(tc.ArcKey[:])
+	w.String(tc.Hash)
+	w.String(string(tc.ExecutionMode))
+	w.Int32(int32(tc.RtPriority))
+	w.Int32(int32(tc.CPUAffinity))
+	w.Bool(tc.LockMemory)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tc *TaskConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(tc.Key[:]); err != nil {
+		return err
+	}
+	if tc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if tc.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if _, err := r.Read(tc.ArcKey[:]); err != nil {
+		return err
+	}
+	if tc.Hash, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.ExecutionMode = ExecutionMode(rawV)
+	}
+	if tc.RtPriority, err = r.Int32(); err != nil {
+		return err
+	}
+	if tc.CPUAffinity, err = r.Int32(); err != nil {
+		return err
+	}
+	if tc.LockMemory, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}

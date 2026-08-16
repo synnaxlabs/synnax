@@ -14,12 +14,12 @@ import * as Device from "@/feature/ethercat/device/types";
 import {
   channelMapKey,
   getChannelByMapKey,
-  type InputChannel,
-  type OutputChannel,
+  type ReadChannel,
+  type WriteChannel,
 } from "@/feature/ethercat/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 
-type Channel = InputChannel | OutputChannel;
+type Channel = ReadChannel | WriteChannel;
 
 export interface SlaveValidationResult<C extends Channel> {
   slaves: Device.SlaveDevice[];

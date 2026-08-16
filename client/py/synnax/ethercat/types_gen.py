@@ -37,8 +37,8 @@ class PDOAddress(BaseModel):
     data_type: telem.DataType = telem.DataType("uint16")
 
 
-class BaseInputChannel(BaseModel):
-    """Carries the fields every EtherCAT input channel shares.
+class BaseReadChannel(BaseModel):
+    """Carries the fields every EtherCAT read channel shares.
 
     Attributes:
         key: Uniquely identifies the channel within the task.
@@ -58,8 +58,8 @@ class BaseInputChannel(BaseModel):
         return hash(self.key)
 
 
-class BaseOutputChannel(BaseModel):
-    """Carries the fields every EtherCAT output channel shares.
+class BaseWriteChannel(BaseModel):
+    """Carries the fields every EtherCAT write channel shares.
 
     Attributes:
         key: Uniquely identifies the channel within the task.
@@ -85,44 +85,51 @@ class BaseOutputChannel(BaseModel):
         return hash(self.key)
 
 
-class InputChannelAutomatic(BaseInputChannel):
+class ScanConfig(task.BaseScanConfig):
+    """Configures an EtherCAT scan task."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class AutomaticReadChannel(BaseReadChannel):
     """Resolves its PDO address from the slave's discovered PDOs."""
 
-    type: Literal["automatic"]
+    type: Literal["automatic"] = "automatic"
     pdo: str = ""
 
 
-class InputChannelManual(BaseInputChannel, PDOAddress):
+class ManualReadChannel(BaseReadChannel, PDOAddress):
     """Specifies its PDO address inline."""
 
-    type: Literal["manual"]
+    type: Literal["manual"] = "manual"
 
 
-# Is a single EtherCAT input channel (TxPDO, slave to master). The type field
+# Is a single EtherCAT read channel (TxPDO, slave to master). The type field
 # selects how the PDO entry is addressed.
-InputChannel = Annotated[
-    Union[InputChannelAutomatic, InputChannelManual],
+ReadChannel = Annotated[
+    Union[AutomaticReadChannel, ManualReadChannel],
     Field(discriminator="type"),
 ]
 
 
-class OutputChannelAutomatic(BaseOutputChannel):
+class AutomaticWriteChannel(BaseWriteChannel):
     """Resolves its PDO address from the slave's discovered PDOs."""
 
-    type: Literal["automatic"]
+    type: Literal["automatic"] = "automatic"
     pdo: str = ""
 
 
-class OutputChannelManual(BaseOutputChannel, PDOAddress):
+class ManualWriteChannel(BaseWriteChannel, PDOAddress):
     """Specifies its PDO address inline."""
 
-    type: Literal["manual"]
+    type: Literal["manual"] = "manual"
 
 
-# Is a single EtherCAT output channel (RxPDO, master to slave). The type field
+# Is a single EtherCAT write channel (RxPDO, master to slave). The type field
 # selects how the PDO entry is addressed.
-OutputChannel = Annotated[
-    Union[OutputChannelAutomatic, OutputChannelManual],
+WriteChannel = Annotated[
+    Union[AutomaticWriteChannel, ManualWriteChannel],
     Field(discriminator="type"),
 ]
 
@@ -132,10 +139,13 @@ class ReadConfig(task.BaseReadConfig):
     slave; all slaves must share one network interface.
 
     Attributes:
-        channels: Are the input channels the task acquires.
+        channels: Are the channels the task acquires.
     """
 
-    channels: list[InputChannel] = Field(default_factory=list)
+    channels: list[ReadChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class WriteConfig(task.BasePersistConfig):
@@ -145,9 +155,12 @@ class WriteConfig(task.BasePersistConfig):
     Attributes:
         state_rate: Is the rate at which output state is reported to Synnax, in hertz.
         execution_rate: Is the rate at which commands are applied to the bus, in hertz.
-        channels: Are the output channels the task drives.
+        channels: Are the channels the task drives.
     """
 
     state_rate: telem.Rate = telem.Rate(25)
     execution_rate: telem.Rate = telem.Rate(1000)
-    channels: list[OutputChannel] = Field(default_factory=list)
+    channels: list[WriteChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

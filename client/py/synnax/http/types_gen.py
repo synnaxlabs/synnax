@@ -125,6 +125,13 @@ class BaseWriteField(BaseModel):
         return hash(self.key)
 
 
+class ScanConfig(task.BaseScanConfig):
+    """Configures an HTTP scan task."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class ReadField(BaseModel):
     """Is a single value extracted from an endpoint's JSON response.
 
@@ -179,18 +186,18 @@ class ChannelField(BaseModel):
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
 
-class WriteFieldStatic(BaseWriteField):
+class StaticWriteField(BaseWriteField):
     """Places a fixed value in the request body."""
 
-    type: Literal["static"]
+    type: Literal["static"] = "static"
     json_type: JSONType = "number"
     value: Any
 
 
-class WriteFieldGenerated(BaseWriteField):
+class GeneratedWriteField(BaseWriteField):
     """Places a freshly generated UUID or timestamp in the body."""
 
-    type: Literal["generated"]
+    type: Literal["generated"] = "generated"
     generator: GeneratorType = "uuid"
     time_format: TimeFormat | None = None
 
@@ -198,7 +205,7 @@ class WriteFieldGenerated(BaseWriteField):
 # Is an additional body field on a write endpoint. The type field selects whether
 # the value is fixed or generated per request.
 WriteField = Annotated[
-    Union[WriteFieldStatic, WriteFieldGenerated],
+    Union[StaticWriteField, GeneratedWriteField],
     Field(discriminator="type"),
 ]
 
@@ -251,7 +258,7 @@ class WriteEndpoint(BaseModel):
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
     query_params: list[QueryParam] = Field(default_factory=list)
-    channel: ChannelField
+    channel: ChannelField = Field(default_factory=lambda: ChannelField())
     fields: list[WriteField] = Field(default_factory=list)
 
     def __hash__(self) -> int:
@@ -272,6 +279,9 @@ class ReadConfig(task.BasePersistConfig):
     rate: telem.Rate = telem.Rate(1)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class WriteConfig(task.BaseStartConfig):
     """Configures an HTTP write task, which sends an HTTP request whenever a value is
@@ -284,3 +294,6 @@ class WriteConfig(task.BaseStartConfig):
 
     device: device_.Key = ""
     endpoints: list[WriteEndpoint] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

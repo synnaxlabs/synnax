@@ -26,7 +26,7 @@ import {
 import { getIconButton, uniqueName } from "@/testutil";
 
 const schemas = {
-  type: z.literal("test_task"),
+  type: z.literal("opc_read"),
   config: z.object({
     device: z.string().default(""),
     channels: z.array(z.object({ key: z.string(), enabled: z.boolean() })).default([]),
@@ -49,7 +49,7 @@ interface MakeRendererParams {
 
 const getInitialValues: Task.GetInitialValues<typeof schemas> = () => ({
   name: "New Test Task",
-  type: "test_task",
+  type: "opc_read",
   config: { device: "", channels: [] },
 });
 
@@ -63,7 +63,7 @@ const createRenderer = ({
     Form,
     schemas,
     deployConfigZ,
-    type: "test_task",
+    type: "opc_read",
     getInitialValues,
     onConfigure,
     showControls,
@@ -72,7 +72,7 @@ const createRenderer = ({
 const createTask = async (client: Synnax) =>
   await client.tasks.create({
     name: "New Test Task",
-    type: "test_task",
+    type: "opc_read",
     config: { device: "", channels: [] },
   });
 
@@ -140,7 +140,7 @@ describe("wrapForm", () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const tsk = await rack.createTask({
         name: uniqueName("tsk"),
-        type: "test_task",
+        type: "opc_read",
         config: { device: "", channels: [] },
       });
       const Renderer = createRenderer({ Form: RackProbe });

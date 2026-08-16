@@ -17,7 +17,7 @@ import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
-import { OPC } from "@/feature/opc";
+import { OPCUA } from "@/feature/opcua";
 import { type Tree } from "@/platform/tree";
 
 export const makeZ = z.enum([
@@ -26,7 +26,7 @@ export const makeZ = z.enum([
   LabJack.Device.MAKE,
   Modbus.Device.MAKE,
   NI.Device.MAKE,
-  OPC.Device.MAKE,
+  OPCUA.Device.MAKE,
 ]);
 export type Make = z.infer<typeof makeZ>;
 
@@ -39,7 +39,7 @@ const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
   [Modbus.Device.MAKE]: <Icon.Logo.Modbus />,
   [NI.Device.MAKE]: <Icon.Logo.NI />,
-  [OPC.Device.MAKE]: <Icon.Logo.OPC />,
+  [OPCUA.Device.MAKE]: <Icon.Logo.OPCUA />,
 };
 
 export const getIcon = (make: Make | null) =>
@@ -57,7 +57,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const labjack = LabJack.Device.useConfigureModal();
   const modbus = Modbus.Device.useConnectModal();
   const ni = NI.Device.useConfigureModal();
-  const opc = OPC.Device.useConnectModal();
+  const opcua = OPCUA.Device.useConnectModal();
   return useCallback(
     (make, deviceKey) => {
       const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
@@ -66,11 +66,11 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
         [LabJack.Device.MAKE]: labjack,
         [Modbus.Device.MAKE]: modbus,
         [NI.Device.MAKE]: ni,
-        [OPC.Device.MAKE]: opc,
+        [OPCUA.Device.MAKE]: opcua,
       };
       openers[make]({ deviceKey });
     },
-    [ethercat, http, labjack, modbus, ni, opc],
+    [ethercat, http, labjack, modbus, ni, opcua],
   );
 };
 
@@ -82,7 +82,7 @@ const CONTEXT_MENU_ITEMS: Partial<
   [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
   [Modbus.Device.MAKE]: Modbus.Device.ContextMenuItems,
   [NI.Device.MAKE]: NI.Device.ContextMenuItems,
-  [OPC.Device.MAKE]: OPC.Device.ContextMenuItems,
+  [OPCUA.Device.MAKE]: OPCUA.Device.ContextMenuItems,
 };
 
 export const getContextMenuItems = (make: unknown) => {

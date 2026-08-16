@@ -49,7 +49,8 @@ Header struct {
         @doc value "is the header value."
     }
 
-    @doc value "is a single HTTP header sent with a request."
+    @doc value  "is a single HTTP header sent with a request."
+    @go marshal
 }
 
 QueryParam struct {
@@ -60,7 +61,8 @@ QueryParam struct {
         @doc value "is the parameter value."
     }
 
-    @doc value "is a single URL query parameter sent with a request."
+    @doc value  "is a single URL query parameter sent with a request."
+    @go marshal
 }
 
 EnumEntry struct {
@@ -71,10 +73,11 @@ EnumEntry struct {
         @doc value "is the numeric channel value the label maps to."
     }
 
-    @doc value """
+    @doc value  """
         maps a string label in a JSON body to a numeric channel value for enum-style
         parsing (e.g. "ON" -> 1, "OFF" -> 0).
     """
+    @go marshal
 }
 
 ReadField struct {
@@ -108,7 +111,8 @@ ReadField struct {
         @doc value "maps string labels in the response to numeric channel values."
     }
 
-    @doc value "is a single value extracted from an endpoint's JSON response."
+    @doc value  "is a single value extracted from an endpoint's JSON response."
+    @go marshal
 }
 
 ReadEndpoint struct {
@@ -141,7 +145,8 @@ ReadEndpoint struct {
         """
     }
 
-    @doc value "is a single HTTP endpoint polled by a read task."
+    @doc value  "is a single HTTP endpoint polled by a read task."
+    @go marshal
 }
 
 ReadConfig struct extends task.BasePersistConfig {
@@ -156,10 +161,12 @@ ReadConfig struct extends task.BasePersistConfig {
         @doc value "contains the endpoints to poll."
     }
 
-    @doc value """
+    @doc value  """
         configures an HTTP read task, which polls one or more endpoints on an HTTP
         server device and writes extracted JSON values to Synnax channels.
     """
+    @go marshal
+    @go migrate
 }
 
 JSONType enum {
@@ -211,7 +218,8 @@ ChannelField struct {
         """
     }
 
-    @doc value "is the command channel value placed into a write endpoint's body."
+    @doc value  "is the command channel value placed into a write endpoint's body."
+    @go marshal
 }
 
 BaseWriteField struct {
@@ -223,7 +231,8 @@ BaseWriteField struct {
         @doc value "is the JSON Pointer where the value is placed in the body."
     }
 
-    @doc value "carries the fields every write body field shares."
+    @doc value  "carries the fields every write body field shares."
+    @go marshal
 }
 
 WriteField union on type extends BaseWriteField {
@@ -250,10 +259,11 @@ WriteField union on type extends BaseWriteField {
         @doc value "places a freshly generated UUID or timestamp in the body."
     }
 
-    @doc value """
+    @doc value  """
         is an additional body field on a write endpoint. The type field selects whether
         the value is fixed or generated per request.
     """
+    @go marshal
 }
 
 WriteEndpoint struct {
@@ -276,14 +286,15 @@ WriteEndpoint struct {
     query_params QueryParam[] {
         @doc value "contains query parameters appended to the request URL."
     }
-    channel      ChannelField {
+    channel      ChannelField = {} {
         @doc value "is the command channel whose writes trigger this endpoint."
     }
     fields       WriteField[] {
         @doc value "contains additional static or generated body fields."
     }
 
-    @doc value "is a single HTTP endpoint written to by a write task."
+    @doc value  "is a single HTTP endpoint written to by a write task."
+    @go marshal
 }
 
 WriteConfig struct extends task.BaseStartConfig {
@@ -294,8 +305,16 @@ WriteConfig struct extends task.BaseStartConfig {
         @doc value "contains the endpoints to write to."
     }
 
-    @doc value """
+    @doc value  """
         configures an HTTP write task, which sends an HTTP request whenever a value is
         written to an endpoint's command channel.
     """
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.BaseScanConfig {
+    @doc value  "configures an HTTP scan task."
+    @go marshal
+    @go migrate
 }

@@ -51,40 +51,8 @@ THERMOCOUPLE_TYPE_C: Literal["C"] = "C"
 ThermocoupleType = Literal["J", "K", "N", "R", "S", "T", "B", "E", "C"]
 
 
-class LinearScale(BaseModel):
-    """Maps raw values to engineering units with a slope and offset.
-
-    Attributes:
-        slope: Is the multiplier applied to the raw value.
-        offset: Is the offset added after scaling.
-    """
-
-    slope: float = 1
-    offset: float = 0
-
-
-class MapScale(BaseModel):
-    """Maps a raw range linearly onto a scaled range.
-
-    Attributes:
-        pre_scaled_min: Is the lower bound of the raw input range.
-        pre_scaled_max: Is the upper bound of the raw input range.
-        scaled_min: Is the lower bound of the scaled output range.
-        scaled_max: Is the upper bound of the scaled output range.
-    """
-
-    pre_scaled_min: float = 0
-    pre_scaled_max: float = 1
-    scaled_min: float = 0
-    scaled_max: float = 1
-
-
-class NoneScale(BaseModel):
-    """Applies no scaling; the raw value is used directly."""
-
-
-class BaseInputChannel(BaseModel):
-    """Carries the fields every LabJack input channel shares.
+class BaseReadChannel(BaseModel):
+    """Carries the fields every LabJack read channel shares.
 
     Attributes:
         key: Uniquely identifies the channel within the task.
@@ -104,8 +72,8 @@ class BaseInputChannel(BaseModel):
         return hash(self.key)
 
 
-class BaseOutputChannel(BaseModel):
-    """Carries the fields every LabJack output channel shares.
+class BaseWriteChannel(BaseModel):
+    """Carries the fields every LabJack write channel shares.
 
     Attributes:
         key: Uniquely identifies the channel within the task.
@@ -129,63 +97,94 @@ class BaseOutputChannel(BaseModel):
         return hash(self.key)
 
 
-class ScaleLinear(LinearScale):
-    type: Literal["linear"]
+class ScanConfig(task.BaseScanConfig):
+    """Configures a LabJack scan task.
+
+    Attributes:
+        tcp_scan_multiplier: Is the number of scan cycles between TCP device scans. USB
+            devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
+    """
+
+    tcp_scan_multiplier: int = Field(default=10, ge=-2147483648, le=2147483647)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
-class ScaleMap(MapScale):
-    type: Literal["map"]
+class LinearScale(BaseModel):
+    """Maps raw values to engineering units with a slope and offset."""
+
+    type: Literal["linear"] = "linear"
+    slope: float = 1
+    offset: float = 0
 
 
-class ScaleNone(NoneScale):
-    type: Literal["none"]
+class MapScale(BaseModel):
+    """Maps a raw range linearly onto a scaled range."""
+
+    type: Literal["map"] = "map"
+    pre_scaled_min: float = 0
+    pre_scaled_max: float = 1
+    scaled_min: float = 0
+    scaled_max: float = 1
+
+
+class NoneScale(BaseModel):
+    """Applies no scaling; the raw value is used directly."""
+
+    type: Literal["none"] = "none"
 
 
 # Determines how raw sensor values are transformed to engineering units.
 Scale = Annotated[
-    Union[ScaleLinear, ScaleMap, ScaleNone],
+    Union[LinearScale, MapScale, NoneScale],
     Field(discriminator="type"),
 ]
 
 
-class OutputChannelAO(BaseOutputChannel):
+class AnalogWriteChannel(BaseWriteChannel):
     """Drives an analog output on a DAC port."""
 
-    type: Literal["AO"]
+    type: Literal["analog"] = "analog"
+    port: str = "DAC0"
 
 
-class OutputChannelDO(BaseOutputChannel):
+class DigitalWriteChannel(BaseWriteChannel):
     """Drives a digital output line on a DIO port."""
 
-    type: Literal["DO"]
+    type: Literal["digital"] = "digital"
+    port: str = "DIO4"
 
 
-# Is a single LabJack output channel. The type field selects the output mode.
-OutputChannel = Annotated[
-    Union[OutputChannelAO, OutputChannelDO],
+# Is a single LabJack write channel. The type field selects the output mode.
+WriteChannel = Annotated[
+    Union[AnalogWriteChannel, DigitalWriteChannel],
     Field(discriminator="type"),
 ]
 
 
-class InputChannelAI(BaseInputChannel):
+class AnalogReadChannel(BaseReadChannel):
     """Reads a voltage from an analog input port."""
 
-    type: Literal["AI"]
+    type: Literal["analog"] = "analog"
+    port: str = "AIN0"
     range: float = 10
     neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
-    scale: Scale
+    scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
 
 
-class InputChannelDI(BaseInputChannel):
+class DigitalReadChannel(BaseReadChannel):
     """Reads a digital input line."""
 
-    type: Literal["DI"]
+    type: Literal["digital"] = "digital"
+    port: str = "DIO4"
 
 
-class InputChannelTc(BaseInputChannel):
+class ThermocoupleReadChannel(BaseReadChannel):
     """Reads temperature from a thermocouple."""
 
-    type: Literal["TC"]
+    type: Literal["thermocouple"] = "thermocouple"
+    port: str = "AIN0"
     thermocouple_type: ThermocoupleType = "K"
     pos_chan: int = Field(default=0, ge=-2147483648, le=2147483647)
     neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
@@ -193,13 +192,13 @@ class InputChannelTc(BaseInputChannel):
     cjc_slope: float = 1
     cjc_offset: float = 0
     units: TemperatureUnits = "K"
-    scale: Scale
+    scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
 
 
-# Is a single LabJack input channel. The type field selects the input mode and the
+# Is a single LabJack read channel. The type field selects the input mode and the
 # fields that accompany it.
-InputChannel = Annotated[
-    Union[InputChannelAI, InputChannelDI, InputChannelTc],
+ReadChannel = Annotated[
+    Union[AnalogReadChannel, DigitalReadChannel, ThermocoupleReadChannel],
     Field(discriminator="type"),
 ]
 
@@ -209,11 +208,14 @@ class WriteConfig(task.BaseWriteConfig):
 
     Attributes:
         state_rate: Is the rate at which output state is reported to Synnax, in hertz.
-        channels: Are the output channels the task drives.
+        channels: Are the channels the task drives.
     """
 
     state_rate: telem.Rate = telem.Rate(10)
-    channels: list[OutputChannel] = Field(default_factory=list)
+    channels: list[WriteChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class ReadConfig(task.BaseReadConfig):
@@ -221,7 +223,7 @@ class ReadConfig(task.BaseReadConfig):
 
     Attributes:
         device: Is the key of the device the task acquires from.
-        channels: Are the input channels the task acquires.
+        channels: Are the channels the task acquires.
         device_scan_backlog_warn_on_count: Is the device-side scan backlog above which
             the task reports a skew warning. Zero lets the driver pick two seconds of
             scans.
@@ -230,6 +232,9 @@ class ReadConfig(task.BaseReadConfig):
     """
 
     device: device_.Key = ""
-    channels: list[InputChannel] = Field(default_factory=list)
+    channels: list[ReadChannel] = Field(default_factory=list)
     device_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
     ljm_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

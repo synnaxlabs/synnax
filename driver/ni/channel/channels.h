@@ -252,9 +252,9 @@ struct CJCArgs {
 };
 
 inline CJCArgs parse_cjc(const ::synnax::ni::CJC &cjc) {
-    if (const auto *c = std::get_if<::synnax::ni::CJCConstVal>(&cjc))
+    if (const auto *c = std::get_if<::synnax::ni::ConstValCJC>(&cjc))
         return {DAQmx_Val_ConstVal, c->val, 0};
-    if (const auto *c = std::get_if<::synnax::ni::CJCChan>(&cjc))
+    if (const auto *c = std::get_if<::synnax::ni::ChanCJC>(&cjc))
         return {DAQmx_Val_Chan, 0, c->port};
     return {};
 }
@@ -1998,7 +1998,7 @@ inline x::errors::Error apply(
 }
 
 inline x::errors::Error apply(
-    const ::synnax::ni::DigitalInputChannel &ch,
+    const ::synnax::ni::DIChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const TaskHandle task_handle
@@ -2014,7 +2014,7 @@ inline x::errors::Error apply(
 }
 
 inline x::errors::Error apply(
-    const ::synnax::ni::DOChannelDigitalOutput &ch,
+    const ::synnax::ni::DOChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const TaskHandle task_handle
@@ -2059,6 +2059,21 @@ using InputUnion = std::
 /// @brief the generated wire representation of any output channel.
 using OutputUnion = std::variant<::synnax::ni::AOChannel, ::synnax::ni::DOChannel>;
 
+/// @brief invokes f with the leaf channel config: nested unions (AI, CI, AO) are
+/// visited through, plain structs (DI, DO) are passed straight to f.
+template<typename F, typename U>
+auto visit_leaf(F &&f, const U &u) {
+    return std::visit(
+        [&](const auto &alt) {
+            if constexpr (requires { std::visit(f, alt); })
+                return std::visit(f, alt);
+            else
+                return f(alt);
+        },
+        u
+    );
+}
+
 /// @brief an input channel: the parsed wire configuration plus the runtime
 /// state the task binds before applying it to the hardware.
 struct Input {
@@ -2087,15 +2102,8 @@ struct Input {
     [[nodiscard]] x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
         const ApplyContext ctx{this->dev_loc, this->cfg_path};
-        const auto err = std::visit(
-            [&](const auto &u) {
-                return std::visit(
-                    [&](const auto &v) {
-                        return channel::apply(v, ctx, dmx, task_handle);
-                    },
-                    u
-                );
-            },
+        const auto err = visit_leaf(
+            [&](const auto &v) { return channel::apply(v, ctx, dmx, task_handle); },
             this->channel
         );
         return at_cfg_path(err, this->cfg_path);
@@ -2128,15 +2136,8 @@ struct Output {
     [[nodiscard]] x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
         const ApplyContext ctx{this->dev_loc, this->cfg_path};
-        const auto err = std::visit(
-            [&](const auto &u) {
-                return std::visit(
-                    [&](const auto &v) {
-                        return channel::apply(v, ctx, dmx, task_handle);
-                    },
-                    u
-                );
-            },
+        const auto err = visit_leaf(
+            [&](const auto &v) { return channel::apply(v, ctx, dmx, task_handle); },
             this->channel
         );
         return at_cfg_path(err, this->cfg_path);
@@ -2154,21 +2155,16 @@ parse_input(x::json::Parser &cfg, const std::string &task_type) {
     } else if (task_type == "ni_counter_read") {
         out->channel = ::synnax::ni::parse_ci_channel(cfg);
     } else if (task_type == "ni_digital_read") {
-        out->channel = ::synnax::ni::parse_di_channel(cfg);
+        out->channel = ::synnax::ni::DIChannel::parse(cfg);
     } else {
         cfg.field_err("type", "unknown read task type: " + task_type);
         return nullptr;
     }
-    std::visit(
-        [&](const auto &u) {
-            std::visit(
-                [&](const auto &v) {
-                    out->enabled = !v.disabled;
-                    out->synnax_key = v.channel;
-                    if constexpr (requires { v.device; }) out->dev_key = v.device;
-                },
-                u
-            );
+    visit_leaf(
+        [&](const auto &v) {
+            out->enabled = !v.disabled;
+            out->synnax_key = v.channel;
+            if constexpr (requires { v.device; }) out->dev_key = v.device;
         },
         out->channel
     );
@@ -2184,21 +2180,16 @@ parse_output(x::json::Parser &cfg, const std::string &task_type) {
     if (task_type == "ni_analog_write")
         out->channel = ::synnax::ni::parse_ao_channel(cfg);
     else if (task_type == "ni_digital_write")
-        out->channel = ::synnax::ni::parse_do_channel(cfg);
+        out->channel = ::synnax::ni::DOChannel::parse(cfg);
     else {
         cfg.field_err("type", "unknown write task type: " + task_type);
         return nullptr;
     }
-    std::visit(
-        [&](const auto &u) {
-            std::visit(
-                [&](const auto &v) {
-                    out->enabled = !v.disabled;
-                    out->cmd_ch_key = v.cmd_channel;
-                    out->state_ch_key = v.state_channel;
-                },
-                u
-            );
+    visit_leaf(
+        [&](const auto &v) {
+            out->enabled = !v.disabled;
+            out->cmd_ch_key = v.cmd_channel;
+            out->state_ch_key = v.state_channel;
         },
         out->channel
     );

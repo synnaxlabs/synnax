@@ -23,8 +23,8 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"

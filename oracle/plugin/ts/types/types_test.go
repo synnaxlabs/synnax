@@ -2948,28 +2948,28 @@ var _ = Describe("TS Union Generation", func() {
 			source := `
 			@ts output "out"
 
-			LinearScale struct {
+			LinearParams struct {
 				slope float64
 				yIntercept float64
 			}
-			NoneScale struct {}
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
-					`export const scaleLinearZ = linearScaleZ.extend({`,
+					`export const linearScaleZ = linearParamsZ.extend({`,
 					`type: z.literal("linear"),`,
-					`export const scaleNoneZ = noneScaleZ.extend({`,
+					`export const noneScaleZ = noneParamsZ.extend({`,
 					`type: z.literal("none"),`,
 					`export const scaleZ = z.discriminatedUnion("type", [`,
-					`scaleLinearZ,`,
-					`scaleNoneZ,`,
-					`export type Scale = ScaleLinear | ScaleNone;`,
+					`linearScaleZ,`,
+					`noneScaleZ,`,
+					`export type Scale = LinearScale | NoneScale;`,
 				)
 		},
 	)
@@ -2996,16 +2996,41 @@ var _ = Describe("TS Union Generation", func() {
 			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
 			content := ExpectContent(resp, "types.gen.ts")
 			content.ToContain(
-				`export const tabResourceZ = tabBaseZ.extend({`,
+				`export const resourceTabZ = tabBaseZ.extend({`,
 				`variant: z.literal("resource"),`,
 				`resource: z.string(),`,
-				`export const tabViewZ = tabBaseZ.extend(labeledZ.shape).extend({`,
+				`export const viewTabZ = tabBaseZ.extend(labeledZ.shape).extend({`,
 				`variant: z.literal("view"),`,
 				`type: z.string(),`,
-				`export const tabEmptyZ = tabBaseZ.extend({`,
+				`export const emptyTabZ = tabBaseZ.extend({`,
 				`variant: z.literal("empty"),`,
 			)
-			content.ToNotContain("TabViewPayload", "tabViewPayloadZ")
+			content.ToNotContain("ViewTabPayload", "viewTabPayloadZ")
+		},
+	)
+
+	It(
+		"Should render a recursive inline variant field as a lazy getter",
+		func(ctx SpecContext) {
+			source := `
+			@ts output "out"
+
+			Node union on variant {
+				leaf {
+					name string
+				}
+				split {
+					first Node
+					last  Node
+				}
+			}
+		`
+			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(
+				`get first(): z.ZodType<Node> {`,
+				`return nodeZ;`,
+				`get last(): z.ZodType<Node> {`,
+			)
 		},
 	)
 
@@ -3029,11 +3054,11 @@ var _ = Describe("TS Union Generation", func() {
 		`
 		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").ToContain(
-			`export const elementConfigBoxZ = z.object({`,
+			`export const boxElementConfigZ = z.object({`,
 			`width: z.number(),`,
-			`export const elementConfigPipeZ = z.object({`,
+			`export const pipeElementConfigZ = z.object({`,
 			`length: z.number(),`,
-			`export type ElementConfig = ElementConfigBox | ElementConfigPipe;`,
+			`export type ElementConfig = BoxElementConfig | PipeElementConfig;`,
 		)
 	})
 
@@ -3049,7 +3074,7 @@ var _ = Describe("TS Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
-				`export const tabEmptyZ = z.object({`,
+				`export const emptyTabZ = z.object({`,
 				`variant: z.literal("empty"),`,
 			)
 		},
@@ -3079,7 +3104,7 @@ var _ = Describe("TS Union Generation", func() {
 				ToContain(
 					`get first(): z.ZodType<Node> {`,
 					`return nodeZ;`,
-					`export type Node = NodeLeaf | NodeSplit;`,
+					`export type Node = LeafNode | SplitNode;`,
 				).
 				ToNotContain(`get first(): typeof nodeZ {`)
 		},
@@ -3131,8 +3156,8 @@ var _ = Describe("TS Union Generation", func() {
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const elementConfigZ = z.discriminatedUnion("variant", [`,
-					`elementConfigTankZ,`,
-					`elementConfigPipeZ,`,
+					`tankElementConfigZ,`,
+					`pipeElementConfigZ,`,
 					`export const ELEMENT_CONFIG_TYPES = ["tank", "pipe"] as const;`,
 				)
 		},
@@ -3166,12 +3191,12 @@ var _ = Describe("TS Union Generation", func() {
 			source := `
 			@ts output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
@@ -3180,7 +3205,7 @@ var _ = Describe("TS Union Generation", func() {
 					`export const SCALE_TYPES = ["linear", "none"] as const;`,
 					`export const scaleTypeZ = z.enum(SCALE_TYPES);`,
 					`export type ScaleType = z.infer<typeof scaleTypeZ>;`,
-					`export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}`,
+					`export interface LinearScale extends z.infer<typeof linearScaleZ> {}`,
 				)
 		},
 	)
@@ -3191,12 +3216,12 @@ var _ = Describe("TS Union Generation", func() {
 			source := `
 			@ts output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
@@ -3205,8 +3230,8 @@ var _ = Describe("TS Union Generation", func() {
 					`export const SCALE_SCHEMAS: {`,
 					`  [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;`,
 					`} = {`,
-					`linear: scaleLinearZ,`,
-					`none: scaleNoneZ,`,
+					`linear: linearScaleZ,`,
+					`none: noneScaleZ,`,
 				)
 		},
 	)
@@ -3278,12 +3303,12 @@ var _ = Describe("TS Union Generation", func() {
 			source := `
 			@ts output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -3300,12 +3325,12 @@ var _ = Describe("TS Union Generation", func() {
 		source := `
 			@ts output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			VoltageFields struct { customScale Scale }
@@ -3326,10 +3351,10 @@ var _ = Describe("TS Union Generation", func() {
 		source := `
 			@ts output "out"
 
-			LinearScale struct { slope float64 }
+			LinearParams struct { slope float64 }
 
 			Scale union on type {
-				linear LinearScale
+				linear LinearParams
 
 				@doc value "determines how raw values are transformed."
 			}
@@ -3355,14 +3380,14 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		return `
 			@ts output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale {
+				linear LinearParams {
 					@doc value "a linear scale."
 				}
-				none NoneScale
+				none NoneParams
 
 				@doc value "determines how raw values are transformed."
 			}
@@ -3389,7 +3414,7 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 			).To(ContainSubstring("/** Scale determines how raw values are transformed. */\nexport const scaleZ = z.discriminatedUnion("))
 			Expect(
 				content,
-			).ToNot(ContainSubstring("/** Scale determines how raw values are transformed. */\nexport const scaleLinearZ"))
+			).ToNot(ContainSubstring("/** Scale determines how raw values are transformed. */\nexport const linearScaleZ"))
 		},
 	)
 
@@ -3405,8 +3430,8 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 			)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
-					"/** ScaleLinear a linear scale. */\nexport const scaleLinearZ = linearScaleZ.extend({",
-					`export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}`,
+					"/** LinearScale a linear scale. */\nexport const linearScaleZ = linearParamsZ.extend({",
+					`export interface LinearScale extends z.infer<typeof linearScaleZ> {}`,
 				)
 		},
 	)
@@ -3447,12 +3472,12 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 			loader.Add("schemas/scales", `
 			@ts output "client/ts/src/scales"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`)
 			source := `

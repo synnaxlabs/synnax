@@ -39,7 +39,7 @@ export type CJCType = ni.CJCType;
 
 // Cross-field scale validation is not generated; re-attach it to the map and table
 // scale schemas the console exposes.
-const mapScaleZ = ni.scaleMapZ
+const mapScaleZ = ni.mapScaleZ
   .refine(({ preScaledMin, preScaledMax }) => preScaledMin < preScaledMax, {
     message: "Pre-scaled min must be less than pre-scaled max",
     path: ["preScaledMin"],
@@ -49,7 +49,7 @@ const mapScaleZ = ni.scaleMapZ
     path: ["scaledMin"],
   });
 
-const tableScaleZ = ni.scaleTableZ
+const tableScaleZ = ni.tableScaleZ
   .check(({ value, issues }) => {
     const { preScaledVals, scaledVals } = value;
     if (preScaledVals.length !== scaledVals.length) {
@@ -81,20 +81,15 @@ export const SCALE_SCHEMAS = {
   table: tableScaleZ,
 } as Record<ScaleType, z.ZodType<Scale>>;
 
-export const ZERO_SCALES = Object.fromEntries(
-  ni.SCALE_TYPES.map((t) => [t, ni.SCALE_SCHEMAS[t].parse({ type: t })]),
-) as Record<ScaleType, Scale>;
+export const createScale = (type: ScaleType): Scale =>
+  SCALE_SCHEMAS[type].parse({ type });
 
 export type AIChannel = ni.AIChannel;
 export type AIChannelType = ni.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 
-// A complete default channel for every generated type, derived from the schema
-// defaults.
-export const ZERO_AI_CHANNELS = Object.fromEntries(
-  ni.AI_CHANNEL_TYPES.map((t) => [t, ni.AI_CHANNEL_SCHEMAS[t].parse({ type: t })]),
-) as Record<AIChannelType, AIChannel>;
-export const ZERO_AI_CHANNEL = ZERO_AI_CHANNELS.ai_voltage;
+export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
+  ni.AI_CHANNEL_SCHEMAS[type].parse({ type });
 
 export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   ai_accel: "Accelerometer",
@@ -181,10 +176,8 @@ export type CICountDirection = ni.CICountDirection;
 export type CIDecodingType = ni.CIDecodingType;
 export const CI_CHANNEL_SCHEMAS = ni.CI_CHANNEL_SCHEMAS;
 
-export const ZERO_CI_CHANNELS = Object.fromEntries(
-  ni.CI_CHANNEL_TYPES.map((t) => [t, ni.CI_CHANNEL_SCHEMAS[t].parse({ type: t })]),
-) as Record<CIChannelType, CIChannel>;
-export const ZERO_CI_CHANNEL = ZERO_CI_CHANNELS.ci_frequency;
+export const createCIChannel = (type: CIChannelType = "ci_frequency"): CIChannel =>
+  ni.CI_CHANNEL_SCHEMAS[type].parse({ type });
 
 export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   ci_frequency: "Frequency",
@@ -223,10 +216,8 @@ export type AOChannelType = ni.AOChannelType;
 export const AO_CHANNEL_SCHEMAS = ni.AO_CHANNEL_SCHEMAS;
 export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
 
-export const ZERO_AO_CHANNELS = Object.fromEntries(
-  ni.AO_CHANNEL_TYPES.map((t) => [t, ni.AO_CHANNEL_SCHEMAS[t].parse({ type: t })]),
-) as Record<AOChannelType, AOChannel>;
-export const ZERO_AO_CHANNEL = ZERO_AO_CHANNELS.ao_voltage;
+export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>
+  ni.AO_CHANNEL_SCHEMAS[type].parse({ type });
 
 export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   ao_current: "Current",
@@ -243,14 +234,12 @@ export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, Icon.FC> = {
 export type AnalogChannel = AIChannel | AOChannel;
 
 export type DIChannel = ni.DIChannel;
-export const ZERO_DI_CHANNEL: DIChannel = ni.diChannelZ.parse({
-  type: "digital_input",
-});
+export const createDIChannel = (): DIChannel =>
+  ni.diChannelZ.parse({ type: "digital_input" });
 
 export type DOChannel = ni.DOChannel;
-export const ZERO_DO_CHANNEL: DOChannel = ni.doChannelZ.parse({
-  type: "digital_output",
-});
+export const createDOChannel = (): DOChannel =>
+  ni.doChannelZ.parse({ type: "digital_output" });
 
 export type DigitalChannel = DIChannel | DOChannel;
 
@@ -313,8 +302,6 @@ export const deployAnalogReadConfigZ = ni.analogReadConfigZ
   })
   .check(Task.validateStreamRate);
 
-const ZERO_ANALOG_READ_CONFIG = ni.analogReadConfigZ.parse({});
-
 const analogReadStatusDataZ = z
   .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
   .nullish();
@@ -328,18 +315,6 @@ export const ANALOG_READ_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;
-
-interface AnalogReadPayload extends task.Payload<AnalogReadSchemas> {}
-export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
-  key: "",
-  rack: 0,
-  name: "NI Analog Read Task",
-  config: ZERO_ANALOG_READ_CONFIG,
-  configHash: "",
-  type: ANALOG_READ_TYPE,
-  internal: false,
-  snapshot: false,
-};
 
 const validateCounterPorts = createPortValidator("Counter");
 
@@ -356,8 +331,6 @@ export const deployCounterReadConfigZ = ni.counterReadConfigZ
   })
   .check(Task.validateStreamRate);
 
-const ZERO_COUNTER_READ_CONFIG = ni.counterReadConfigZ.parse({});
-
 export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
 
 export const COUNTER_READ_SCHEMAS = {
@@ -367,18 +340,6 @@ export const COUNTER_READ_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
-
-interface CounterReadPayload extends task.Payload<CounterReadSchemas> {}
-export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
-  key: "",
-  rack: 0,
-  name: "NI Counter Read Task",
-  config: ZERO_COUNTER_READ_CONFIG,
-  configHash: "",
-  type: COUNTER_READ_TYPE,
-  internal: false,
-  snapshot: false,
-};
 
 export const analogWriteConfigZ = ni.analogWriteConfigZ;
 
@@ -391,8 +352,6 @@ export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
     .check(validateAnalogPorts),
 });
 
-const ZERO_ANALOG_WRITE_CONFIG = ni.analogWriteConfigZ.parse({});
-
 export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
 
 export const ANALOG_WRITE_SCHEMAS = {
@@ -402,18 +361,6 @@ export const ANALOG_WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type AnalogWriteSchemas = typeof ANALOG_WRITE_SCHEMAS;
-
-interface AnalogWritePayload extends task.Payload<AnalogWriteSchemas> {}
-export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
-  key: "",
-  rack: 0,
-  name: "NI Analog Write Task",
-  config: ZERO_ANALOG_WRITE_CONFIG,
-  configHash: "",
-  type: ANALOG_WRITE_TYPE,
-  internal: false,
-  snapshot: false,
-};
 
 export const digitalReadConfigZ = ni.digitalReadConfigZ;
 
@@ -428,8 +375,6 @@ export const deployDigitalReadConfigZ = ni.digitalReadConfigZ
   })
   .check(Task.validateStreamRate);
 
-const ZERO_DIGITAL_READ_CONFIG = ni.digitalReadConfigZ.parse({});
-
 export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
 
 export const DIGITAL_READ_SCHEMAS = {
@@ -439,18 +384,6 @@ export const DIGITAL_READ_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type DigitalReadSchemas = typeof DIGITAL_READ_SCHEMAS;
-
-interface DigitalReadPayload extends task.Payload<DigitalReadSchemas> {}
-export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
-  key: "",
-  rack: 0,
-  name: "NI Digital Read Task",
-  config: ZERO_DIGITAL_READ_CONFIG,
-  configHash: "",
-  type: DIGITAL_READ_TYPE,
-  internal: false,
-  snapshot: false,
-};
 
 export const digitalWriteConfigZ = ni.digitalWriteConfigZ;
 
@@ -463,8 +396,6 @@ export const deployDigitalWriteConfigZ = ni.digitalWriteConfigZ.extend({
     .check(validateDigitalPortsAndLines),
 });
 
-const ZERO_DIGITAL_WRITE_CONFIG = ni.digitalWriteConfigZ.parse({});
-
 export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
 
 export const DIGITAL_WRITE_SCHEMAS = {
@@ -475,22 +406,10 @@ export const DIGITAL_WRITE_SCHEMAS = {
 
 export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
 
-interface DigitalWritePayload extends task.Payload<DigitalWriteSchemas> {}
-export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
-  key: "",
-  rack: 0,
-  name: "NI Digital Write Task",
-  config: ZERO_DIGITAL_WRITE_CONFIG,
-  configHash: "",
-  type: DIGITAL_WRITE_TYPE,
-  internal: false,
-  snapshot: false,
-};
-
 export const SCAN_TYPE = `${PREFIX}_scanner`;
 
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
-  config: z.object({ enabled: z.boolean().default(true) }),
+  config: ni.scanConfigZ,
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;

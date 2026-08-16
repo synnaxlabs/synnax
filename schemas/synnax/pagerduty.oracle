@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/status"
 import "schemas/synnax/task"
 
 @go output "core/pkg/service/pagerduty"
@@ -19,7 +18,7 @@ Alert struct {
         @doc value "uniquely identifies the alert within the task."
         @key
     }
-    status                  status.Key = "" {
+    status                  string = "" {
         @doc value "is the key of the Synnax status the alert watches."
     }
     treat_error_as_critical bool = false {
@@ -38,7 +37,8 @@ Alert struct {
         @doc value "is true when the alert is excluded from the task."
     }
 
-    @doc value "maps a Synnax status to a PagerDuty event routing rule."
+    @doc value  "maps a Synnax status to a PagerDuty event routing rule."
+    @go marshal
 }
 
 TaskConfig struct extends task.BaseStartConfig {
@@ -49,8 +49,10 @@ TaskConfig struct extends task.BaseStartConfig {
         @doc value "are the alerts the task evaluates."
     }
 
-    @doc value """
+    @doc value  """
         configures a PagerDuty alert task, which forwards Synnax status changes to
         PagerDuty as events.
     """
+    @go marshal
+    @go migrate
 }

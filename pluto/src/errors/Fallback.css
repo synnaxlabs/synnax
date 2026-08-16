@@ -23,7 +23,6 @@
         width: 100%;
         overflow: hidden;
         border-color: var(--pluto-error-z-40);
-        border-width: 1px;
 
         .pluto-error-fallback__body {
             padding: 2rem 3rem;

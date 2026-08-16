@@ -106,27 +106,81 @@ const getInsertionIndex = (selector: Element, cursor: xy.Crude): number => {
   return tabs.length;
 };
 
+/** findTab returns the tab element in root carrying the given key, or null for none. */
+const findTab = (root: ParentNode, key: string): HTMLElement | null => {
+  for (const tab of root.querySelectorAll<HTMLElement>(KEY_SELECTOR))
+    if (tab.getAttribute(KEY_ATTRIBUTE) === key) return tab;
+  return null;
+};
+
+/** getFlexGap returns the strip's gap between tabs along its main axis, in pixels. */
+const getFlexGap = (selector: HTMLElement, horizontal: boolean): number => {
+  const { columnGap, rowGap } = getComputedStyle(selector);
+  return parseFloat(horizontal ? columnGap : rowGap) || 0;
+};
+
 /**
- * getIndicatorOffset returns the pixel offset, along the strip's main axis, of the
- * drop indicator for the given insertion index: the leading edge of the tab at the
- * index, or the trailing edge of the last tab past the end.
+ * getSlide returns how far a preview moves the tabs a slot of the given width opens
+ * against. A tab holds its own width and the gap that separates it from its neighbor,
+ * so both leave with it and the gaps around the opened slot stay even. An unmeasured
+ * width opens nothing.
  */
-const getIndicatorOffset = (
+const getSlide = (selector: HTMLElement, width: number, horizontal: boolean): number =>
+  width === 0 ? 0 : width + getFlexGap(selector, horizontal);
+
+/**
+ * getGhostOffset returns the pixel offset, along the strip's main axis, of the slot at
+ * the given insertion index: the leading edge of the tab at the index, or one gap past
+ * the last tab's trailing edge past the end. An empty strip resolves to its own leading
+ * padding, where its first tab would sit. The offsets are layout positions, so a tab
+ * shifted by a preview still reports its unshifted slot.
+ */
+const getGhostOffset = (
   selector: HTMLElement,
   index: number,
   horizontal: boolean,
 ): number => {
   const tabs = selector.querySelectorAll<HTMLElement>(KEY_SELECTOR);
-  if (tabs.length === 0) return 0;
+  if (tabs.length === 0) {
+    const { paddingLeft, paddingTop } = getComputedStyle(selector);
+    return parseFloat(horizontal ? paddingLeft : paddingTop) || 0;
+  }
   if (index < tabs.length) {
     const tab = tabs[index];
     return horizontal ? tab.offsetLeft : tab.offsetTop;
   }
   const last = tabs[tabs.length - 1];
-  return horizontal
+  const end = horizontal
     ? last.offsetLeft + last.offsetWidth
     : last.offsetTop + last.offsetHeight;
+  return end + getFlexGap(selector, horizontal);
 };
+
+/**
+ * getGhostSize returns the size the ghost slot takes along the strip's main axis: the
+ * dragged tab's own size wherever the document still holds it, else the size of this
+ * strip's first tab. Returns null when neither is measurable, leaving the ghost at the
+ * standard tab width the stylesheet gives it.
+ */
+const getGhostSize = (
+  selector: HTMLElement,
+  draggedKey: string | null,
+  horizontal: boolean,
+): number | null => {
+  const dragged = draggedKey == null ? null : findTab(document, draggedKey);
+  const tab = dragged ?? selector.querySelector<HTMLElement>(KEY_SELECTOR);
+  if (tab == null) return null;
+  const size = horizontal ? tab.offsetWidth : tab.offsetHeight;
+  return size > 0 ? size : null;
+};
+
+/** The slot a dragged tab would land in, drawn in the gap a preview opened. */
+interface Ghost {
+  /** Offset along the strip's main axis. */
+  offset: number;
+  /** Size along that axis, or null to keep the stylesheet's standard tab width. */
+  size: number | null;
+}
 
 /** Class marking the source tab whose slot is lifted out during a reorder drag. */
 const HAULED_CLASS = CSS.BEM("tabs", "tab", "hauled");
@@ -148,19 +202,24 @@ const LINE_SCROLL = 16;
 /**
  * applyReorderPreview shifts the strip's tabs to open a gap for a same-strip drag,
  * mirroring the reorder a drop at index would produce, and lifts the source tab out.
- * Returns false when draggedKey names no tab here, so the caller can fall back to the
- * insertion indicator.
+ * Returns the slot it opened, or null when draggedKey names no tab here, so the caller
+ * can fall back to {@link applyInsertPreview}.
  */
 const applyReorderPreview = (
   selector: HTMLElement,
   index: number,
   draggedKey: string,
   horizontal: boolean,
-): boolean => {
+): Ghost | null => {
   const tabs = Array.from(selector.querySelectorAll<HTMLElement>(KEY_SELECTOR));
   const dragged = tabs.findIndex((t) => t.getAttribute(KEY_ATTRIBUTE) === draggedKey);
-  if (dragged === -1) return false;
-  const gap = horizontal ? tabs[dragged].offsetWidth : tabs[dragged].offsetHeight;
+  if (dragged === -1) return null;
+  const start = (tab: HTMLElement): number =>
+    horizontal ? tab.offsetLeft : tab.offsetTop;
+  const size = (tab: HTMLElement): number =>
+    horizontal ? tab.offsetWidth : tab.offsetHeight;
+  const width = size(tabs[dragged]);
+  const slide = getSlide(selector, width, horizontal);
   const axis = horizontal ? "X" : "Y";
   tabs.forEach((tab, i) => {
     if (i === dragged) {
@@ -169,17 +228,41 @@ const applyReorderPreview = (
       return;
     }
     let shift = 0;
-    if (dragged < i && i < index) shift = -gap;
-    else if (index <= i && i < dragged) shift = gap;
+    if (dragged < i && i < index) shift = -slide;
+    else if (index <= i && i < dragged) shift = slide;
     tab.style.transform = shift === 0 ? "" : `translate${axis}(${shift}px)`;
   });
-  return true;
+  // Dragging toward the end, the tabs it passed slid back over its slot, so the ghost
+  // opens one width short of the last passed tab's trailing edge.
+  const offset =
+    index <= dragged
+      ? start(tabs[index])
+      : start(tabs[index - 1]) + size(tabs[index - 1]) - width;
+  return { offset, size: width };
 };
 
 /**
- * resetTabs clears the transforms applyReorderPreview set. snap suppresses the
- * transition so a dropped reorder lands without the tabs sliding back from their old
- * layout; without it the reset animates, closing the gap for a cancelled drag.
+ * applyInsertPreview shifts the strip's tabs from index onward, opening a slot of the
+ * given width for a tab hauled in from elsewhere.
+ */
+const applyInsertPreview = (
+  selector: HTMLElement,
+  index: number,
+  width: number,
+  horizontal: boolean,
+): void => {
+  const slide = getSlide(selector, width, horizontal);
+  const axis = horizontal ? "X" : "Y";
+  selector.querySelectorAll<HTMLElement>(KEY_SELECTOR).forEach((tab, i) => {
+    const shift = i < index ? 0 : slide;
+    tab.style.transform = shift === 0 ? "" : `translate${axis}(${shift}px)`;
+  });
+};
+
+/**
+ * resetTabs clears the transforms the previews set. snap suppresses the transition so a
+ * dropped reorder lands without the tabs sliding back from their old layout; without it
+ * the reset animates, closing the gap for a cancelled drag.
  */
 const resetTabs = (selector: HTMLElement, snap: boolean): void => {
   const tabs = Array.from(selector.querySelectorAll<HTMLElement>(KEY_SELECTOR));
@@ -256,9 +339,9 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
   sizing?: Sizing;
   /**
    * haulType enables drag-and-drop reordering by declaring the Haul item type the
-   * strip accepts. When set, dragging an accepted item over the strip renders an
-   * insertion indicator and dropping it calls onDrop with the target index. When
-   * empty (the default), the strip is passive and registers no drop zone.
+   * strip accepts. When set, dragging an accepted item over the strip opens the slot
+   * it would land in and dropping it calls onDrop with the target index. When empty
+   * (the default), the strip is passive and registers no drop zone.
    */
   haulType?: string;
   /**
@@ -278,7 +361,7 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
  * Selector is the strip that lays out a Frame's tabs. It renders a tablist with
  * arrow-key roving focus (manual activation: focus moves, Enter or Space selects).
  * Given a haulType it becomes a drag-and-drop target for reordering, owning the
- * insertion geometry and indicator and reporting drops through onDrop.
+ * insertion geometry and its preview and reporting drops through onDrop.
  */
 export const Selector = ({
   ref,
@@ -350,6 +433,17 @@ export const Selector = ({
         },
         { passive: false },
       );
+    },
+    [updateOverflow],
+  );
+  // A preview shifting tabs toward the end grows the scrollable overflow, so a
+  // measurement taken before the reset reads a strip that only the drag made
+  // scrollable. Clearing and measuring together keeps the two in step wherever a
+  // preview ends.
+  const clearPreview = useCallback(
+    (el: HTMLElement, snap: boolean): void => {
+      resetTabs(el, snap);
+      updateOverflow();
     },
     [updateOverflow],
   );
@@ -440,10 +534,10 @@ export const Selector = ({
     scrollToTab(el, tab);
   }, [selected]);
 
-  const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
+  const [ghost, setGhost] = useState<Ghost | null>(null);
   // The applied shift (insertion index + dragged key), or null when none. Doubles as
   // an early-out so a dragover that stays in slot skips rewriting the transforms.
-  const previewRef = useRef<{ index: number; key: string } | null>(null);
+  const previewRef = useRef<{ index: number; key: string | null } | null>(null);
   // Set on a drop over a live preview so the layout effect snaps the transforms away.
   const committingRef = useRef(false);
 
@@ -464,15 +558,17 @@ export const Selector = ({
       const [dragged] = Haul.filterByType(haulType, items);
       const key = dragged == null ? null : String(dragged.key);
       const prev = previewRef.current;
-      if (prev != null && key != null && prev.index === index && prev.key === key)
+      if (prev != null && prev.index === index && prev.key === key) return;
+      previewRef.current = { index, key };
+      const reordered =
+        key == null ? null : applyReorderPreview(el, index, key, horizontal);
+      if (reordered != null) {
+        setGhost(reordered);
         return;
-      if (key != null && applyReorderPreview(el, index, key, horizontal)) {
-        previewRef.current = { index, key };
-        setIndicatorOffset(null);
-      } else {
-        previewRef.current = null;
-        setIndicatorOffset(getIndicatorOffset(el, index, horizontal));
       }
+      const size = getGhostSize(el, key, horizontal);
+      applyInsertPreview(el, index, size ?? 0, horizontal);
+      setGhost({ offset: getGhostOffset(el, index, horizontal), size });
     },
     [haulType, horizontal],
   );
@@ -480,18 +576,18 @@ export const Selector = ({
   const handleDrop = useCallback<Haul.OnDrop>(
     (params) => {
       const el = internalRef.current;
-      setIndicatorOffset(null);
+      setGhost(null);
       committingRef.current = previewRef.current != null;
       previewRef.current = null;
       if (params.event == null || el == null || onDrop == null) {
         committingRef.current = false;
-        if (el != null) resetTabs(el, false);
+        if (el != null) clearPreview(el, false);
         return [];
       }
       const cursor = { x: params.event.clientX, y: params.event.clientY };
       return onDrop({ ...params, index: getInsertionIndex(el, cursor) });
     },
-    [onDrop],
+    [onDrop, clearPreview],
   );
 
   const dropProps = Haul.useDrop({
@@ -509,13 +605,13 @@ export const Selector = ({
       // the preview doesn't flicker on every crossing.
       if (el != null && e.relatedTarget instanceof Node && el.contains(e.relatedTarget))
         return;
-      setIndicatorOffset(null);
+      setGhost(null);
       if (el != null && previewRef.current != null) {
-        resetTabs(el, false);
+        clearPreview(el, false);
         previewRef.current = null;
       }
     },
-    [onDragLeave],
+    [onDragLeave, clearPreview],
   );
 
   // Snap the transforms away the frame a dropped reorder commits, before paint, so the
@@ -524,7 +620,7 @@ export const Selector = ({
     const el = internalRef.current;
     if (el == null || !committingRef.current) return;
     committingRef.current = false;
-    resetTabs(el, true);
+    clearPreview(el, true);
   });
 
   // Cleanup for a drag that ends without dropping here (Escape, dropped outside). The
@@ -536,18 +632,21 @@ export const Selector = ({
     const ended = wasDragging.current && !active;
     wasDragging.current = active;
     if (!ended) return;
-    setIndicatorOffset(null);
+    setGhost(null);
     const el = internalRef.current;
     if (el != null && previewRef.current != null && !committingRef.current) {
-      resetTabs(el, false);
+      clearPreview(el, false);
       previewRef.current = null;
     }
-  }, [dragging]);
+  }, [dragging, clearPreview]);
 
-  const indicatorStyle: CSSProperties | undefined =
-    indicatorOffset == null
+  const ghostStyle: CSSProperties | undefined =
+    ghost == null
       ? undefined
-      : { [horizontal ? "left" : "top"]: indicatorOffset };
+      : {
+          [horizontal ? "left" : "top"]: ghost.offset,
+          [horizontal ? "width" : "height"]: ghost.size ?? undefined,
+        };
   // A passive strip registers no drop zone, so it still forwards the consumer's
   // onDragLeave rather than dropping it.
   const dropListeners =
@@ -584,10 +683,10 @@ export const Selector = ({
         {...dropListeners}
       >
         {children}
-        {indicatorStyle != null && (
+        {ghostStyle != null && (
           <span
-            className={CSS(CSS.BE("tabs", "insertion"), CSS.M("direction", dir))}
-            style={indicatorStyle}
+            className={CSS(CSS.BE("tabs", "ghost"), CSS.M("direction", dir))}
+            style={ghostStyle}
           />
         )}
       </Flex.Box>

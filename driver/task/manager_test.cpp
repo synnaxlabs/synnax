@@ -75,7 +75,7 @@ public:
         const synnax::task::Task &task,
         const std::string &cmd_key
     ) override {
-        if (task.type != "echo") return {nullptr, false};
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         return {std::make_unique<MockEchoTask>(ctx, task), true};
     }
 };
@@ -120,12 +120,12 @@ public:
         const synnax::task::Task &task,
         const std::string &cmd_key
     ) override {
-        if (task.type == "blocking")
+        if (task.type == ALT_SYNTHETIC_TASK_TYPE)
             return {
                 std::make_unique<BlockingTask>(ctx, task, started, done, cv, mu),
                 true
             };
-        if (task.type == "echo")
+        if (task.type == SYNTHETIC_TASK_TYPE)
             return {std::make_unique<MockEchoTask>(ctx, task), true};
         return {nullptr, false};
     }
@@ -193,7 +193,7 @@ public:
         const synnax::task::Task &task,
         const std::string &cmd_key
     ) override {
-        if (task.type == "tracking") {
+        if (task.type == SYNTHETIC_TASK_TYPE) {
             auto state = std::make_shared<TrackingTaskState>();
             auto t = std::make_unique<TrackingTask>(ctx, task, state);
             std::lock_guard lock(mu);
@@ -238,7 +238,7 @@ public:
         const synnax::task::Task &task,
         const std::string &cmd_key
     ) override {
-        if (task.type == "timeout")
+        if (task.type == SYNTHETIC_TASK_TYPE)
             return {std::make_unique<TimeoutTask>(ctx, task, release, cv, mu), true};
         return {nullptr, false};
     }
@@ -399,7 +399,7 @@ TEST_F(TaskManagerTest, DeployOnStart) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -418,7 +418,7 @@ TEST_F(TaskManagerTest, NoConfigureOnCreate) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     expect_no_driver_status(task);
@@ -431,7 +431,7 @@ TEST_F(TaskManagerTest, Delete) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "tracking",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -459,7 +459,7 @@ TEST_F(TaskManagerTest, RackMoveStopsLiveInstanceSilently) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "tracking",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task, "s1");
@@ -488,7 +488,7 @@ TEST_F(TaskManagerTest, Command) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -516,7 +516,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
     auto task = synnax::task::Task{
         .rack = other.key,
         .name = "t",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(other.tasks.create(task));
     send_start(client, task);
@@ -542,7 +542,7 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -562,7 +562,7 @@ TEST_F(TaskManagerTest, IgnoresSnapshot) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     task.snapshot = true;
     ASSERT_NIL(rack.tasks.create(task));
@@ -578,7 +578,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
     auto blocking = synnax::task::Task{
         .rack = rack.key,
         .name = "b",
-        .type = "blocking",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(blocking));
     send_start(client, blocking, "start-b");
@@ -587,7 +587,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
     auto echo = synnax::task::Task{
         .rack = rack.key,
         .name = "e",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(echo));
     send_start(client, echo, "start-e");
@@ -612,7 +612,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -626,7 +626,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "echo",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task, "start-0");
@@ -635,7 +635,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     });
 
     for (int i = 0; i < 5; i++) {
-        task.config = x::json::json{{"v", i}};
+        task.config = x::json::json{{"rate", i + 1}};
         ASSERT_NIL(rack.tasks.create(task));
         send_start(client, task, "start-" + std::to_string(i + 1));
     }
@@ -655,7 +655,7 @@ TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "tracking",
+        .type = SYNTHETIC_TASK_TYPE,
         .config = x::json::json{{"rate", 50}},
     };
     ASSERT_NIL(rack.tasks.create(task));
@@ -703,7 +703,7 @@ TEST_F(TaskManagerTest, StartWithStaleCommandHashRedeploys) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "tracking",
+        .type = SYNTHETIC_TASK_TYPE,
         .config = x::json::json{{"rate", 50}},
     };
     ASSERT_NIL(rack.tasks.create(task));
@@ -744,7 +744,7 @@ TEST_F(TaskManagerTest, StaleCommandHashOnCurrentDeployRunsLiveInstance) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "tracking",
+        .type = SYNTHETIC_TASK_TYPE,
         .config = x::json::json{{"rate", 50}},
     };
     ASSERT_NIL(rack.tasks.create(task));
@@ -783,7 +783,7 @@ TEST_F(TaskManagerTest, Timeout) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "timeout",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -823,7 +823,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "tracking",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task, "c0");
@@ -858,7 +858,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "tracking",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task, "s1");
@@ -874,7 +874,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
         [] { return "first not created"; },
     );
 
-    task.config = x::json::json{{"v", 2}};
+    task.config = x::json::json{{"rate", 2}};
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task, "s2");
 
@@ -933,7 +933,7 @@ public:
         const synnax::task::Task &task,
         const std::string &cmd_key
     ) override {
-        if (task.type != "destructor_tracking") return {nullptr, false};
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         int count = configure_count.fetch_add(1);
         std::atomic<bool> *destroyed = (count == 0) ? &first_destroyed
                                                     : &second_destroyed;
@@ -949,7 +949,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "destructor_tracking",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task, "s1");
@@ -961,7 +961,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     ASSERT_EQ(f->configure_count.load(), 1);
     ASSERT_FALSE(f->first_destroyed.load());
 
-    task.config = {{"v", 2}};
+    task.config = {{"rate", 2}};
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task, "s2");
 
@@ -995,7 +995,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "blocking",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -1024,7 +1024,7 @@ TEST_F(ShutdownTest, WithPendingOps) {
         auto task = synnax::task::Task{
             .rack = rack.key,
             .name = "t" + std::to_string(i),
-            .type = "blocking",
+            .type = ALT_SYNTHETIC_TASK_TYPE,
         };
         ASSERT_NIL(rack.tasks.create(task));
         send_start(client, task, "s" + std::to_string(i));
@@ -1079,7 +1079,7 @@ public:
         const synnax::task::Task &task,
         const std::string &
     ) override {
-        if (task.type == "blocking_stop")
+        if (task.type == SYNTHETIC_TASK_TYPE)
             return {
                 std::make_unique<BlockingStopTask>(stop_called, release, cv, mu),
                 true
@@ -1115,7 +1115,7 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "blocking_stop",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -1166,7 +1166,7 @@ public:
         const synnax::task::Task &task,
         const std::string &
     ) override {
-        if (task.type == "slow_stop") {
+        if (task.type == SYNTHETIC_TASK_TYPE) {
             auto flag = new std::atomic<bool>(false);
             std::lock_guard lock(mu);
             stopped_flags.push_back(flag);
@@ -1195,7 +1195,7 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
         auto task = synnax::task::Task{
             .rack = rack.key,
             .name = "t" + std::to_string(i),
-            .type = "slow_stop",
+            .type = SYNTHETIC_TASK_TYPE,
         };
         ASSERT_NIL(rack.tasks.create(task));
         send_start(client, task, "s" + std::to_string(i));
@@ -1228,7 +1228,7 @@ public:
         const synnax::task::Task &task,
         const std::string &
     ) override {
-        if (task.type == "stuck_worker") {
+        if (task.type == SYNTHETIC_TASK_TYPE) {
             configure_started = true;
             std::unique_lock lock(mu);
             cv.wait(lock, [&] { return release.load(); });
@@ -1269,7 +1269,7 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "stuck_worker",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
@@ -1300,7 +1300,7 @@ public:
         const synnax::task::Task &task,
         const std::string &cmd_key
     ) override {
-        if (task.type != "capture") return {nullptr, false};
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         this->captured_ctx = ctx;
         return {std::make_unique<MockEchoTask>(ctx, task), true};
     }
@@ -1314,7 +1314,7 @@ TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "capture_task",
-        .type = "capture",
+        .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);

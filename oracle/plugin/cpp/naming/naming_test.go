@@ -30,7 +30,7 @@ var _ = Describe("VariantTypeName", func() {
 		func(union, variant, expected string) {
 			Expect(naming.VariantTypeName(union, variant)).To(Equal(expected))
 		},
-		Entry("plain union keeps the union prefix", "Scale", "linear", "ScaleLinear"),
+		Entry("plain union takes the variant first", "Scale", "linear", "LinearScale"),
 		Entry(
 			"acronym union factors the shared prefix",
 			"AIChannel",
@@ -38,12 +38,12 @@ var _ = Describe("VariantTypeName", func() {
 			"AIVoltageChannel",
 		),
 		Entry(
-			"variant not repeating the acronym keeps the union prefix",
+			"variant not repeating the acronym prefixes the whole union name",
 			"AIChannel",
 			"voltage",
-			"AIChannelVoltage",
+			"VoltageAIChannel",
 		),
-		Entry("reserved-word variant value", "Scale", "map", "ScaleMap"),
+		Entry("reserved-word variant value", "Scale", "map", "MapScale"),
 	)
 })
 
@@ -60,7 +60,7 @@ var _ = Describe("QualifiedVariantTypeName", func() {
 			"ai_voltage",
 			"::ni::AIVoltageChannel",
 		),
-		Entry("unqualified union", "Scale", "linear", "ScaleLinear"),
+		Entry("unqualified union", "Scale", "linear", "LinearScale"),
 	)
 })
 

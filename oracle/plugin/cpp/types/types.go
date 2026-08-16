@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/internal/includes"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
@@ -30,7 +31,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -611,8 +611,26 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 			qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
 			sd.ExtendsTypes = append(sd.ExtendsTypes, qualifiedName)
 		}
+		// A field that only restates an inherited default keeps the base's member.
+		// C++ cannot replace a base member's initializer, so the new default moves
+		// into a generated constructor; declaring the member again would hide the
+		// base's, which every reference through a base type would still see.
+		defaultOnly := resolver.DefaultOnlyOverrides(
+			form.Extends, form.Fields, data.table,
+		)
 		for _, field := range form.Fields {
-			sd.Fields = append(sd.Fields, p.processField(field, entry, data))
+			fd := p.processField(field, entry, data)
+			if !defaultOnly.Contains(field.Name) {
+				sd.Fields = append(sd.Fields, fd)
+				continue
+			}
+			if fd.DefaultValue == "" {
+				continue
+			}
+			sd.InheritedDefaults = append(
+				sd.InheritedDefaults,
+				inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
+			)
 		}
 	} else {
 		for _, field := range resolution.UnifiedFields(entry, data.table) {
@@ -1331,10 +1349,19 @@ type structData struct {
 	ExtendsTypes   []string
 	TypeParams     []typeParamData
 	Fields         []fieldData
-	HasProto       bool
-	IsAlias        bool
-	IsGeneric      bool
-	HasExtends     bool
+	// InheritedDefaults are inherited members the struct redeclares to change only
+	// their default. A generated constructor assigns them.
+	InheritedDefaults []inheritedDefaultData
+	HasProto          bool
+	IsAlias           bool
+	IsGeneric         bool
+	HasExtends        bool
+}
+
+// inheritedDefaultData assigns a new default to a member declared by a base struct.
+type inheritedDefaultData struct {
+	Name  string
+	Value string
 }
 
 type typeParamData struct {
@@ -1641,6 +1668,14 @@ using {{$td.Name}} = {{$td.CppType}};
     {{formatDoc .Name .Doc | printf "%s"}}
 {{- end}}
     {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
+{{- end}}
+{{- if $s.InheritedDefaults}}
+
+    {{$s.Name}}() {
+{{- range $s.InheritedDefaults}}
+        this->{{.Name}} = {{.Value}};
+{{- end}}
+    }
 {{- end}}
 
     static {{$s.Name}} parse(x::json::Parser parser);

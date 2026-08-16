@@ -29,8 +29,8 @@ import { Menu } from "@/menu";
 import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
 import {
-  useDispatch,
   useLeafNode,
+  useMoveTabToPanel,
   useNodeVariant,
   useRoot,
   useSingleDispatch,
@@ -46,13 +46,7 @@ import { Triggers } from "@/triggers";
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
-  | "onDrop"
-  | "onCreate"
-  | "onFileDrop"
-  | "onResize"
-  | "onSelect"
-  | "children"
-  | "contextMenu"
+  "onDrop" | "onCreate" | "onResize" | "onSelect" | "children" | "contextMenu"
 > {
   selected?: panel.TabKey[];
   onSelect?: (tabKey: panel.TabKey) => void;
@@ -337,12 +331,9 @@ export const Mosaic = ({
   const dispatch = useSingleDispatch();
   const key = Scope.use();
   const client = Synnax.use();
-  const { dispatch: dispatchTo } = useDispatch();
 
-  // A tab dropped from another panel is removed there and inserted here: the two
-  // panels are separate documents, so the move is two dispatches (see the MoveTab
-  // contract in the panel schema). The insert runs first so a failed remove leaves
-  // the tab in both panels rather than nowhere.
+  const moveToPanel = useMoveTabToPanel();
+
   const handleDrop = useCallback(
     ({ nodeKey, tabKey, location, index, data }: Base.OnDropProps) => {
       const source = parseTabDragPayload(data);
@@ -355,19 +346,18 @@ export const Mosaic = ({
           onSelect?.(tabKey);
         return;
       }
-      dispatchTo({
-        key,
-        actions: panel.insertTab({
-          tab: source.tab,
-          targetLeaf: nodeKey,
-          index,
-          location,
-        }),
+      void moveToPanel({
+        source: source.panel,
+        destination: key,
+        tab: source.tab,
+        targetLeaf: nodeKey,
+        index,
+        location,
+      }).then((landed) => {
+        if (landed != null) onSelect?.(landed);
       });
-      dispatchTo({ key: source.panel, actions: panel.removeTab({ key: tabKey }) });
-      onSelect?.(tabKey);
     },
-    [client, dispatch, dispatchTo, key, onSelect],
+    [client, dispatch, moveToPanel, key, onSelect],
   );
 
   const handleResize = useCallback(
@@ -384,9 +374,11 @@ export const Mosaic = ({
     (path: number) => {
       const tab = onCreateTab?.();
       if (tab == null) return;
-      const action = panel.insertTab({ tab, targetLeaf: path });
+      const action = panel.insertTabs({ tabs: [tab], targetLeaf: path });
       dispatch(action);
-      if (action.type === "insert_tab") onSelect?.(action.insertTab.tab.key);
+      const inserted =
+        action.type === "insert_tabs" ? action.insertTabs.tabs[0] : undefined;
+      if (inserted != null) onSelect?.(inserted.key);
     },
     [dispatch, onSelect, onCreateTab],
   );
@@ -397,20 +389,11 @@ export const Mosaic = ({
         .map((tabKey) => resolveDroppedTab?.(tabKey))
         .filter((tab): tab is panel.NewTab => tab != null);
       if (tabs.length === 0) return;
-      const restLeaf =
-        location === "center"
-          ? nodeKey
-          : panel.childNodeKey(nodeKey, panel.splitSide(location));
-      const actions = tabs.map((tab, i) =>
-        panel.insertTab(
-          i === 0
-            ? { tab, targetLeaf: nodeKey, location, index }
-            : { tab, targetLeaf: restLeaf },
-        ),
-      );
-      dispatch(actions);
-      const last = actions.at(-1);
-      if (last?.type === "insert_tab") onSelect?.(last.insertTab.tab.key);
+      const action = panel.insertTabs({ tabs, targetLeaf: nodeKey, location, index });
+      dispatch(action);
+      const last =
+        action.type === "insert_tabs" ? action.insertTabs.tabs.at(-1) : undefined;
+      if (last != null) onSelect?.(last.key);
     },
     [dispatch, onSelect, resolveDroppedTab],
   );

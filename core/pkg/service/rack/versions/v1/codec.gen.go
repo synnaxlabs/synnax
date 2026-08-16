@@ -68,3 +68,17 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (stc StatusTaskConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(stc.Key[:])
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (stc *StatusTaskConfig) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(stc.Key[:]); err != nil {
+		return err
+	}
+	return nil
+}

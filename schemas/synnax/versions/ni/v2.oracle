@@ -1,0 +1,1428 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v0"
+import "schemas/x/versions/telem/v0"
+
+Units enum {
+    volts                     = "Volts"
+    amps                      = "Amps"
+    deg_f                     = "DegF"
+    deg_c                     = "DegC"
+    deg_r                     = "DegR"
+    kelvins                   = "Kelvins"
+    strain                    = "Strain"
+    ohms                      = "Ohms"
+    hz                        = "Hz"
+    seconds                   = "Seconds"
+    meters                    = "Meters"
+    inches                    = "Inches"
+    degrees                   = "Degrees"
+    radians                   = "Radians"
+    g                         = "g"
+    meters_per_second_squared = "MetersPerSecondSquared"
+    newtons                   = "Newtons"
+    pounds                    = "Pounds"
+    kilogram_force            = "KilogramForce"
+    pounds_per_square_inch    = "PoundsPerSquareInch"
+    bar                       = "Bar"
+    pascals                   = "Pascals"
+    volts_per_volt            = "VoltsPerVolt"
+    m_volts_per_volt          = "mVoltsPerVolt"
+    newton_meters             = "NewtonMeters"
+    inch_pounds               = "InchPounds"
+    inch_ounces               = "InchOunces"
+    foot_pounds               = "FootPounds"
+
+    @doc value "enumerates the engineering units an NI analog channel can report."
+}
+
+AccelSensitivityUnits enum {
+    m_volts_per_g = "mVoltsPerG"
+    volts_per_g   = "VoltsPerG"
+
+    @doc value "are the units of an accelerometer's sensitivity rating."
+}
+
+AccelUnits enum {
+    g                         = "g"
+    meters_per_second_squared = "MetersPerSecondSquared"
+    inches_per_second_squared = "InchesPerSecondSquared"
+
+    @doc value "are the engineering units for an acceleration measurement."
+}
+
+ForceUnits enum {
+    newtons        = "Newtons"
+    pounds         = "Pounds"
+    kilogram_force = "KilogramForce"
+
+    @doc value "are the engineering units for a force measurement."
+}
+
+ElectricalUnits enum {
+    m_volts_per_volt = "mVoltsPerVolt"
+    volts_per_volt   = "VoltsPerVolt"
+
+    @doc value "are the electrical output units of a bridge-based sensor."
+}
+
+ExcitationSource enum {
+    internal = "Internal"
+    external = "External"
+    none     = "None"
+
+    @doc value "selects the source of a sensor's excitation signal."
+}
+
+TerminalConfig enum {
+    cfg_default = "Cfg_Default"
+    rse         = "RSE"
+    nrse        = "NRSE"
+    diff        = "Diff"
+    pseudo_diff = "PseudoDiff"
+
+    @doc value "selects the terminal configuration for an analog input channel."
+}
+
+BridgeConfig enum {
+    full_bridge    = "FullBridge"
+    half_bridge    = "HalfBridge"
+    quarter_bridge = "QuarterBridge"
+
+    @doc value "selects the physical bridge wiring of a bridge-based sensor."
+}
+
+ShuntResistorLocation enum {
+    default  = "Default"
+    internal = "Internal"
+    external = "External"
+
+    @doc value """
+        selects where the shunt resistor used for current measurement is located.
+    """
+}
+
+ForceSensitivityUnits enum {
+    m_volts_per_newton = "mVoltsPerNewton"
+    m_volts_per_pound  = "mVoltsPerPound"
+
+    @doc value "are the units of a force IEPE sensor's sensitivity rating."
+}
+
+PressureUnits enum {
+    pounds_per_square_inch = "PoundsPerSquareInch"
+    pascals                = "Pascals"
+    bar                    = "Bar"
+
+    @doc value "are the engineering units for a pressure measurement."
+}
+
+TorqueUnits enum {
+    newton_meters = "NewtonMeters"
+    inch_ounces   = "InchOunces"
+    inch_pounds   = "InchPounds"
+    foot_pounds   = "FootPounds"
+
+    @doc value "are the engineering units for a torque measurement."
+}
+
+ResistanceConfig enum {
+    wire_2 = "2Wire"
+    wire_3 = "3Wire"
+    wire_4 = "4Wire"
+
+    @doc value "selects the number of wires used for a resistance measurement."
+}
+
+TemperatureUnits enum {
+    deg_c   = "DegC"
+    deg_f   = "DegF"
+    kelvins = "Kelvins"
+    deg_r   = "DegR"
+
+    @doc value "are the engineering units for a temperature measurement."
+}
+
+RTDType enum {
+    pt_3750 = "Pt3750"
+    pt_3851 = "Pt3851"
+    pt_3911 = "Pt3911"
+    pt_3916 = "Pt3916"
+    pt_3920 = "Pt3920"
+    pt_3928 = "Pt3928"
+
+    @doc value "selects the resistance-temperature curve of an RTD sensor."
+}
+
+StrainConfig enum {
+    full_bridge_i     = "FullBridgeI"
+    full_bridge_ii    = "FullBridgeII"
+    full_bridge_iii   = "FullBridgeIII"
+    half_bridge_i     = "HalfBridgeI"
+    half_bridge_ii    = "HalfBridgeII"
+    quarter_bridge_i  = "QuarterBridgeI"
+    quarter_bridge_ii = "QuarterBridgeII"
+
+    @doc value "selects the strain-gauge bridge configuration."
+}
+
+ThermocoupleType enum {
+    j = "J"
+    k = "K"
+    n = "N"
+    r = "R"
+    s = "S"
+    t = "T"
+    b = "B"
+    e = "E"
+
+    @doc value "selects the thermocouple alloy type."
+}
+
+CJC union on source {
+    built_in {
+        @doc value "reads the reference temperature from the device's own sensor."
+    }
+    const_val {
+        val float64 = 0 {
+            @doc value "is the reference temperature, in the channel's units."
+        }
+
+        @doc value "uses a fixed reference temperature."
+    }
+    chan {
+        port int32 = 0 {
+            @doc value "is the port of the channel that measures the reference."
+        }
+
+        @doc value "reads the reference temperature from another channel."
+    }
+
+    @doc value  """
+        is the cold-junction compensation for a thermocouple. The source selects where
+        the reference temperature comes from.
+    """
+    @go marshal
+}
+
+VelocityUnits enum {
+    meters_per_second = "MetersPerSecond"
+    inches_per_second = "InchesPerSecond"
+
+    @doc value "are the engineering units for a velocity measurement."
+}
+
+VelocitySensitivityUnits enum {
+    m_volts_per_mm_per_second   = "MillivoltsPerMillimeterPerSecond"
+    m_volts_per_inch_per_second = "MilliVoltsPerInchPerSecond"
+
+    @doc value "are the units of a velocity IEPE sensor's sensitivity rating."
+}
+
+ChargeUnits enum {
+    coulombs      = "Coulombs"
+    pico_coulombs = "PicoCoulombs"
+
+    @doc value "are the units of a charge measurement."
+}
+
+Scale union on type {
+    linear {
+        slope            float64 = 1 {
+            @doc value "is the multiplier applied to the raw value."
+        }
+        y_intercept      float64 = 0 {
+            @doc value "is the offset added after scaling."
+        }
+        pre_scaled_units Units = volts {
+            @doc value "are the units of the raw value before scaling."
+        }
+        scaled_units     string = "Volts" {
+            @doc value "are the units of the value after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a slope and intercept."
+    }
+    map {
+        pre_scaled_min   float64 = 0 {
+            @doc value "is the lower bound of the raw input range."
+        }
+        pre_scaled_max   float64 = 1 {
+            @doc value "is the upper bound of the raw input range."
+        }
+        scaled_min       float64 = 0 {
+            @doc value "is the lower bound of the scaled output range."
+        }
+        scaled_max       float64 = 1 {
+            @doc value "is the upper bound of the scaled output range."
+        }
+        pre_scaled_units Units = volts {
+            @doc value "are the units of the raw value before scaling."
+        }
+        scaled_units     string = "Volts" {
+            @doc value "are the units of the value after scaling."
+        }
+
+        @doc value "maps a raw range linearly onto a scaled range."
+    }
+    table {
+        pre_scaled_vals  float64[] = [] {
+            @doc value "are the raw breakpoints, monotonically increasing."
+        }
+        scaled_vals      float64[] = [] {
+            @doc value "are the engineering-unit values at each breakpoint."
+        }
+        pre_scaled_units Units = volts {
+            @doc value "are the units of the raw values before scaling."
+        }
+        scaled_units     string = "Volts" {
+            @doc value "are the units of the values after scaling."
+        }
+
+        @doc value "maps raw values to engineering units via a lookup table."
+    }
+    polynomial {
+        forward_coeffs   float64[] = [] {
+            @doc value "are the coefficients mapping pre-scaled to scaled values."
+        }
+        reverse_coeffs   float64[] = [] {
+            @doc value "are the coefficients mapping scaled to pre-scaled values."
+        }
+        pre_scaled_units Units = volts {
+            @doc value "are the units of the raw value before scaling."
+        }
+        scaled_units     string = "Volts" {
+            @doc value "are the units of the value after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a polynomial."
+    }
+    none {
+        @doc value "applies no scaling; the raw value is used directly."
+    }
+
+    @doc value  "determines how raw sensor values are transformed to engineering units."
+    @go marshal
+}
+
+MinMaxVal struct {
+    min_val float64 = 0 {
+        @doc value "is the minimum expected value, in scaled units."
+    }
+    max_val float64 = 1 {
+        @doc value "is the maximum expected value, in scaled units."
+    }
+
+    @doc value  "bounds the expected signal range in scaled units."
+    @go marshal
+}
+
+Terminal struct {
+    terminal_config TerminalConfig = cfg_default {
+        @doc value "selects the terminal configuration (RSE, NRSE, Diff, ...)."
+    }
+
+    @doc value  "configures the terminal wiring of an analog input channel."
+    @go marshal
+}
+
+Sensitivity struct {
+    sensitivity float64 = 0 {
+        @doc value "is the sensor's sensitivity rating."
+    }
+
+    @doc value  "specifies a sensor's sensitivity rating."
+    @go marshal
+}
+
+CurrentExcitation struct {
+    current_excit_source ExcitationSource = internal {
+        @doc value "selects the source of the current excitation signal."
+    }
+    current_excit_val    float64 = 0 {
+        @doc value "is the current excitation level, in amps."
+    }
+
+    @doc value  "configures the current excitation supplied to a sensor."
+    @go marshal
+}
+
+VoltageExcitation struct {
+    voltage_excit_source ExcitationSource = internal {
+        @doc value "selects the source of the voltage excitation signal."
+    }
+    voltage_excit_val    float64 = 0 {
+        @doc value "is the voltage excitation level, in volts."
+    }
+
+    @doc value  "configures the voltage excitation supplied to a sensor."
+    @go marshal
+}
+
+Bridge struct {
+    bridge_config             BridgeConfig = full_bridge {
+        @doc value "selects the physical bridge wiring."
+    }
+    nominal_bridge_resistance float64 = 1 {
+        @doc value "is the nominal resistance of the bridge, in ohms."
+    }
+
+    @doc value  "configures the wiring and nominal resistance of a bridge-based sensor."
+    @go marshal
+}
+
+BridgePolynomial struct {
+    forward_coeffs   float64[] = [] {
+        @doc value "are the coefficients mapping electrical to physical values."
+    }
+    reverse_coeffs   float64[] = [] {
+        @doc value "are the coefficients mapping physical to electrical values."
+    }
+    electrical_units ElectricalUnits = m_volts_per_volt {
+        @doc value "are the electrical output units of the bridge."
+    }
+
+    @doc value  "scales bridge electrical output to physical units with a polynomial."
+    @go marshal
+}
+
+Resistance struct {
+    resistance_config ResistanceConfig = wire_2 {
+        @doc value "selects the number of wires used for the resistance measurement."
+    }
+
+    @doc value  "configures the wiring of a resistance measurement."
+    @go marshal
+}
+
+Table struct {
+    electrical_vals  float64[] = [] {
+        @doc value "are the electrical breakpoints of the calibration table."
+    }
+    electrical_units ElectricalUnits = m_volts_per_volt {
+        @doc value "are the units of the electrical breakpoints."
+    }
+    physical_vals    float64[] = [] {
+        @doc value """
+            are the physical values corresponding to each electrical breakpoint.
+        """
+    }
+
+    @doc value  "scales bridge electrical output to physical units with a lookup table."
+    @go marshal
+}
+
+TwoPointLin struct {
+    first_electrical_val  float64 = 0 {
+        @doc value "is the first electrical calibration point."
+    }
+    second_electrical_val float64 = 1 {
+        @doc value "is the second electrical calibration point."
+    }
+    electrical_units      ElectricalUnits = m_volts_per_volt {
+        @doc value "are the units of the electrical calibration points."
+    }
+    first_physical_val    float64 = 0 {
+        @doc value "is the physical value at the first electrical point."
+    }
+    second_physical_val   float64 = 1 {
+        @doc value "is the physical value at the second electrical point."
+    }
+
+    @doc value  """
+        scales bridge electrical output to physical units between two calibration
+        points.
+    """
+    @go marshal
+}
+
+CustomScale struct {
+    custom_scale Scale = none {
+        @doc value "is the scale applied to the raw measurement."
+    }
+
+    @doc value  "applies a user-defined scale to the raw measurement."
+    @go marshal
+}
+
+BaseAIChannel struct {
+    key      string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from acquisition."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel that raw samples are written to."
+    }
+    port     int32 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+    device   device.Key = "" {
+        @doc value "is the key of the device the channel belongs to."
+    }
+
+    @doc value  "carries the fields every NI analog input channel shares."
+    @go marshal
+}
+
+AIChannel union on type extends BaseAIChannel {
+    ai_voltage extends MinMaxVal, Terminal, CustomScale {
+        units Units = volts {
+            @doc value "are the units of the voltage measurement."
+        }
+
+        @doc value "reads a voltage."
+    }
+    ai_accel extends MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale {
+        units             AccelUnits = g {
+            @doc value "are the units of the acceleration measurement."
+        }
+        sensitivity_units AccelSensitivityUnits = m_volts_per_g {
+            @doc value "are the units of the accelerometer sensitivity."
+        }
+
+        @doc value "reads acceleration from an accelerometer."
+    }
+    ai_bridge extends MinMaxVal, Bridge, VoltageExcitation, CustomScale {
+        units ElectricalUnits = m_volts_per_volt {
+            @doc value "are the electrical output units of the bridge."
+        }
+
+        @doc value "reads a generic bridge-based sensor."
+    }
+    ai_current extends MinMaxVal, Terminal, CustomScale {
+        units                  Units = amps {
+            @doc value "are the units of the current measurement."
+        }
+        shunt_resistor_loc     ShuntResistorLocation = default {
+            @doc value "selects where the shunt resistor is located."
+        }
+        ext_shunt_resistor_val float64 = 1 {
+            @doc value "is the external shunt resistor value, in ohms."
+        }
+
+        @doc value "reads a current."
+    }
+    ai_force_bridge_table extends MinMaxVal, Bridge, VoltageExcitation, Table, CustomScale {
+        units          ForceUnits = newtons {
+            @doc value "are the units of the force measurement."
+        }
+        physical_units ForceUnits = newtons {
+            @doc value "are the physical units of the calibration table."
+        }
+
+        @doc value "reads force from a bridge with a calibration table."
+    }
+    ai_force_bridge_two_point_lin extends MinMaxVal, Bridge, VoltageExcitation, TwoPointLin, CustomScale {
+        units          ForceUnits = newtons {
+            @doc value "are the units of the force measurement."
+        }
+        physical_units ForceUnits = newtons {
+            @doc value "are the physical units of the two-point calibration."
+        }
+
+        @doc value "reads force from a bridge with two-point linear calibration."
+    }
+    ai_force_iepe extends MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale {
+        units             ForceUnits = newtons {
+            @doc value "are the units of the force measurement."
+        }
+        sensitivity_units ForceSensitivityUnits = m_volts_per_newton {
+            @doc value "are the units of the IEPE sensor sensitivity."
+        }
+
+        @doc value "reads force from an IEPE sensor."
+    }
+    ai_microphone extends Terminal, CurrentExcitation, CustomScale {
+        units               Units = pascals {
+            @doc value "are the units of the microphone measurement."
+        }
+        mic_sensitivity     float64 = 0 {
+            @doc value "is the microphone sensitivity, in mV/Pa."
+        }
+        max_snd_press_level float64 = 0 {
+            @doc value "is the maximum expected sound pressure level, in dB."
+        }
+
+        @doc value "reads sound pressure from a microphone."
+    }
+    ai_pressure_bridge_table extends MinMaxVal, Bridge, VoltageExcitation, Table, CustomScale {
+        units          PressureUnits = pounds_per_square_inch {
+            @doc value "are the units of the pressure measurement."
+        }
+        physical_units PressureUnits = pounds_per_square_inch {
+            @doc value "are the physical units of the calibration table."
+        }
+
+        @doc value "reads pressure from a bridge with a calibration table."
+    }
+    ai_pressure_bridge_two_point_lin extends MinMaxVal, Bridge, VoltageExcitation, TwoPointLin, CustomScale {
+        units          PressureUnits = pounds_per_square_inch {
+            @doc value "are the units of the pressure measurement."
+        }
+        physical_units PressureUnits = pounds_per_square_inch {
+            @doc value "are the physical units of the two-point calibration."
+        }
+
+        @doc value "reads pressure from a bridge with two-point linear calibration."
+    }
+    ai_resistance extends MinMaxVal, Resistance, CurrentExcitation, CustomScale {
+        units Units = ohms {
+            @doc value "are the units of the resistance measurement."
+        }
+
+        @doc value "reads a resistance."
+    }
+    ai_rtd extends MinMaxVal, Resistance, CurrentExcitation {
+        units    TemperatureUnits = deg_c {
+            @doc value "are the units of the temperature measurement."
+        }
+        rtd_type RTDType = pt_3750 {
+            @doc value "selects the RTD resistance-temperature curve."
+        }
+        r0       float64 = 0 {
+            @doc value "is the sensor resistance at 0 degrees Celsius, in ohms."
+        }
+
+        @doc value "reads temperature from an RTD."
+    }
+    ai_strain_gauge extends MinMaxVal, VoltageExcitation, CustomScale {
+        units                   Units = strain {
+            @doc value "are the units of the strain measurement."
+        }
+        strain_config           StrainConfig = full_bridge_i {
+            @doc value "selects the strain-gauge bridge configuration."
+        }
+        gage_factor             float64 = 0 {
+            @doc value "is the gauge factor of the strain gauge."
+        }
+        initial_bridge_voltage  float64 = 0 {
+            @doc value "is the bridge output voltage in the unloaded state."
+        }
+        nominal_gage_resistance float64 = 0 {
+            @doc value "is the nominal gauge resistance, in ohms."
+        }
+        poisson_ratio           float64 = 0 {
+            @doc value "is the Poisson ratio of the gauge material."
+        }
+        lead_wire_resistance    float64 = 0 {
+            @doc value "is the resistance of the lead wires, in ohms."
+        }
+
+        @doc value "reads strain from a strain gauge."
+    }
+    ai_temp_builtin {
+        units TemperatureUnits = deg_c {
+            @doc value "are the units of the temperature measurement."
+        }
+
+        @doc value "reads temperature from the device's built-in sensor."
+    }
+    ai_thermocouple extends MinMaxVal {
+        units             TemperatureUnits = deg_c {
+            @doc value "are the units of the temperature measurement."
+        }
+        thermocouple_type ThermocoupleType = j {
+            @doc value "selects the thermocouple alloy type."
+        }
+        cjc               CJC = built_in {
+            @doc value "is the cold-junction compensation applied to the reading."
+        }
+
+        @doc value "reads temperature from a thermocouple."
+    }
+    ai_torque_bridge_table extends MinMaxVal, Bridge, VoltageExcitation, Table, CustomScale {
+        units          TorqueUnits = newton_meters {
+            @doc value "are the units of the torque measurement."
+        }
+        physical_units TorqueUnits = newton_meters {
+            @doc value "are the physical units of the calibration table."
+        }
+
+        @doc value "reads torque from a bridge with a calibration table."
+    }
+    ai_torque_bridge_two_point_lin extends MinMaxVal, Bridge, VoltageExcitation, TwoPointLin, CustomScale {
+        units          TorqueUnits = newton_meters {
+            @doc value "are the units of the torque measurement."
+        }
+        physical_units TorqueUnits = newton_meters {
+            @doc value "are the physical units of the two-point calibration."
+        }
+
+        @doc value "reads torque from a bridge with two-point linear calibration."
+    }
+    ai_velocity_iepe extends MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale {
+        units             VelocityUnits = meters_per_second {
+            @doc value "are the units of the velocity measurement."
+        }
+        sensitivity_units VelocitySensitivityUnits = m_volts_per_mm_per_second {
+            @doc value "are the units of the IEPE sensor sensitivity."
+        }
+
+        @doc value "reads velocity from an IEPE sensor."
+    }
+    ai_accel_4_wire_dc_voltage extends MinMaxVal, Terminal, Sensitivity, VoltageExcitation, CustomScale {
+        units                 AccelUnits = g {
+            @doc value "are the units of the acceleration measurement."
+        }
+        sensitivity_units     AccelSensitivityUnits = m_volts_per_g {
+            @doc value "are the units of the accelerometer sensitivity."
+        }
+        use_excit_for_scaling bool = false {
+            @doc value """
+                is true when the excitation voltage is used to scale the reading.
+            """
+        }
+
+        @doc value "reads acceleration from a 4-wire DC-voltage accelerometer."
+    }
+    ai_accel_charge extends MinMaxVal, Terminal, CustomScale {
+        units             AccelUnits = g {
+            @doc value "are the units of the acceleration measurement."
+        }
+        sensitivity       float64 = 0 {
+            @doc value "is the sensitivity of the accelerometer."
+        }
+        sensitivity_units AccelSensitivityUnits = m_volts_per_g {
+            @doc value "are the units of the accelerometer's sensitivity rating."
+        }
+
+        @doc value "reads acceleration from a charge-mode accelerometer."
+    }
+    ai_charge extends MinMaxVal, Terminal, CustomScale {
+        units ChargeUnits = coulombs {
+            @doc value "are the units of the charge measurement."
+        }
+
+        @doc value "reads a raw charge."
+    }
+    ai_current_rms extends MinMaxVal, Terminal, CustomScale {
+        units                  Units = amps {
+            @doc value "are the units of the current measurement."
+        }
+        shunt_resistor_loc     ShuntResistorLocation = default {
+            @doc value "selects where the shunt resistor is located."
+        }
+        ext_shunt_resistor_val float64 = 1 {
+            @doc value "is the external shunt resistor value, in ohms."
+        }
+
+        @doc value "reads RMS current."
+    }
+    ai_force_bridge_polynomial extends MinMaxVal, Bridge, VoltageExcitation, BridgePolynomial, CustomScale {
+        units          ForceUnits = newtons {
+            @doc value "are the units of the force measurement."
+        }
+        physical_units ForceUnits = newtons {
+            @doc value "are the physical units of the polynomial calibration."
+        }
+
+        @doc value "reads force from a bridge with polynomial calibration."
+    }
+    ai_freq_voltage extends MinMaxVal, CustomScale {
+        units           Units = hz {
+            @doc value "are the units of the frequency measurement."
+        }
+        threshold_level float64 = 0 {
+            @doc value "is the voltage level at which a cycle is counted."
+        }
+        hysteresis      float64 = 0 {
+            @doc value "is the hysteresis applied around the threshold level."
+        }
+
+        @doc value "reads frequency from a voltage signal."
+    }
+    ai_pressure_bridge_polynomial extends MinMaxVal, Bridge, VoltageExcitation, BridgePolynomial, CustomScale {
+        units          PressureUnits = pounds_per_square_inch {
+            @doc value "are the units of the pressure measurement."
+        }
+        physical_units PressureUnits = pounds_per_square_inch {
+            @doc value "are the physical units of the polynomial calibration."
+        }
+
+        @doc value "reads pressure from a bridge with polynomial calibration."
+    }
+    ai_thermistor_iex extends MinMaxVal, Resistance, CurrentExcitation {
+        units TemperatureUnits = deg_c {
+            @doc value "are the units of the temperature measurement."
+        }
+        a     float64 = 0 {
+            @doc value "is the first Steinhart-Hart coefficient."
+        }
+        b     float64 = 0 {
+            @doc value "is the second Steinhart-Hart coefficient."
+        }
+        c     float64 = 0 {
+            @doc value "is the third Steinhart-Hart coefficient."
+        }
+
+        @doc value "reads temperature from a current-excited thermistor."
+    }
+    ai_thermistor_vex extends MinMaxVal, Resistance, VoltageExcitation {
+        units TemperatureUnits = deg_c {
+            @doc value "are the units of the temperature measurement."
+        }
+        a     float64 = 0 {
+            @doc value "is the first Steinhart-Hart coefficient."
+        }
+        b     float64 = 0 {
+            @doc value "is the second Steinhart-Hart coefficient."
+        }
+        c     float64 = 0 {
+            @doc value "is the third Steinhart-Hart coefficient."
+        }
+        r1    float64 = 0 {
+            @doc value "is the reference resistor value, in ohms."
+        }
+
+        @doc value "reads temperature from a voltage-excited thermistor."
+    }
+    ai_torque_bridge_polynomial extends MinMaxVal, Bridge, VoltageExcitation, BridgePolynomial, CustomScale {
+        units          TorqueUnits = newton_meters {
+            @doc value "are the units of the torque measurement."
+        }
+        physical_units TorqueUnits = newton_meters {
+            @doc value "are the physical units of the polynomial calibration."
+        }
+
+        @doc value "reads torque from a bridge with polynomial calibration."
+    }
+    ai_voltage_rms extends MinMaxVal, Terminal, CustomScale {
+        units Units = volts {
+            @doc value "are the units of the voltage measurement."
+        }
+
+        @doc value "reads RMS voltage."
+    }
+    ai_voltage_with_excit extends MinMaxVal, Terminal, VoltageExcitation, CustomScale {
+        units                 Units = volts {
+            @doc value "are the units of the voltage measurement."
+        }
+        bridge_config         BridgeConfig = full_bridge {
+            @doc value "selects the physical bridge wiring."
+        }
+        use_excit_for_scaling bool = false {
+            @doc value """
+                is true when the excitation voltage is used to scale the reading.
+            """
+        }
+
+        @doc value "reads a voltage with excitation."
+    }
+
+    @doc value  """
+        is a single NI analog input channel. The type field selects the measurement mode
+        and the fields that accompany it.
+    """
+    @go marshal
+}
+
+CIEdge enum {
+    rising  = "Rising"
+    falling = "Falling"
+
+    @doc value "selects the signal edge a counter responds to."
+}
+
+CIMeasMethod enum {
+    low_freq_1_ctr  = "LowFreq1Ctr"
+    high_freq_2_ctr = "HighFreq2Ctr"
+    large_rng_2_ctr = "LargeRng2Ctr"
+    dynamic_avg     = "DynamicAvg"
+
+    @doc value "selects the counter measurement method."
+}
+
+CIFreqUnits enum {
+    hz      = "Hz"
+    seconds = "Seconds"
+    ticks   = "Ticks"
+
+    @doc value "are the units of a frequency measurement."
+}
+
+CITimeUnits enum {
+    seconds = "Seconds"
+    ticks   = "Ticks"
+
+    @doc value "are the units of a counter time measurement (period, pulse width, ...)."
+}
+
+CICountDirection enum {
+    count_up              = "CountUp"
+    count_down            = "CountDown"
+    externally_controlled = "ExternallyControlled"
+
+    @doc value "selects the direction an edge counter counts."
+}
+
+CIDecodingType enum {
+    x1        = "X1"
+    x2        = "X2"
+    x4        = "X4"
+    two_pulse = "TwoPulse"
+
+    @doc value "selects the quadrature decoding type of an encoder."
+}
+
+CILinearVelocityUnits enum {
+    m_per_s  = "m/s"
+    in_per_s = "in/s"
+
+    @doc value "are the units of a linear velocity measurement."
+}
+
+CIAngularVelocityUnits enum {
+    rpm                = "RPM"
+    radians_per_second = "Radians/s"
+    degrees_per_second = "Degrees/s"
+
+    @doc value "are the units of an angular velocity measurement."
+}
+
+CILinearPositionUnits enum {
+    meters = "Meters"
+    inches = "Inches"
+    ticks  = "Ticks"
+
+    @doc value "are the units of a linear position measurement."
+}
+
+CIAngularPositionUnits enum {
+    degrees = "Degrees"
+    radians = "Radians"
+    ticks   = "Ticks"
+
+    @doc value "are the units of an angular position measurement."
+}
+
+ZIndexPhase enum {
+    a_high_b_high = "AHighBHigh"
+    a_high_b_low  = "AHighBLow"
+    a_low_b_high  = "ALowBHigh"
+    a_low_b_low   = "ALowBLow"
+
+    @doc value """
+        selects the encoder channel states at which the Z index resets the count.
+    """
+}
+
+ZIndex struct {
+    z_index_enable bool = false {
+        @doc value "is true when the encoder's Z index resets the count."
+    }
+    z_index_val    float64 = 0 {
+        @doc value "is the count value the Z index resets to."
+    }
+    z_index_phase  ZIndexPhase = a_high_b_high {
+        @doc value "selects the A/B states at which the Z index is active."
+    }
+    terminal_z     string = "" {
+        @doc value "is the terminal the Z index signal is wired to."
+    }
+
+    @doc value  "configures the Z-index reset behavior of an encoder."
+    @go marshal
+}
+
+BaseCIChannel struct {
+    key      string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from acquisition."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel that raw samples are written to."
+    }
+    port     int32 = 0 {
+        @doc value "is the physical counter the channel uses."
+    }
+    device   device.Key = "" {
+        @doc value "is the key of the device the counter belongs to."
+    }
+
+    @doc value  "carries the fields every NI counter input channel shares."
+    @go marshal
+}
+
+CIChannel union on type extends BaseCIChannel {
+    ci_frequency extends CustomScale {
+        min_val     float64 = 2 {
+            @doc value "is the minimum expected frequency."
+        }
+        max_val     float64 = 100 {
+            @doc value "is the maximum expected frequency."
+        }
+        units       CIFreqUnits = hz {
+            @doc value "are the units of the frequency measurement."
+        }
+        edge        CIEdge = rising {
+            @doc value "selects the edge the counter responds to."
+        }
+        meas_method CIMeasMethod = dynamic_avg {
+            @doc value "selects the measurement method."
+        }
+        meas_time   float64 = 0.000006 {
+            @doc value """
+                is the averaging window for high-frequency measurement, in seconds.
+            """
+        }
+        divisor     int32 = 4 {
+            @doc value "is the counter divisor for large-range measurement."
+        }
+        terminal    string = "" {
+            @doc value "is the terminal the counter signal is wired to."
+        }
+
+        @doc value "measures signal frequency."
+    }
+    ci_edge_count {
+        active_edge     CIEdge = rising {
+            @doc value "selects the edge that increments the count."
+        }
+        count_direction CICountDirection = count_up {
+            @doc value "selects the direction the counter counts."
+        }
+        initial_count   float64 = 0 {
+            @doc value "is the value the counter starts at."
+        }
+        terminal        string = "" {
+            @doc value "is the terminal the counter signal is wired to."
+        }
+
+        @doc value "counts signal edges."
+    }
+    ci_period extends CustomScale {
+        min_val       float64 = 0.000001 {
+            @doc value "is the minimum expected period, in seconds."
+        }
+        max_val       float64 = 0.1 {
+            @doc value "is the maximum expected period, in seconds."
+        }
+        units         CITimeUnits = seconds {
+            @doc value "are the units of the period measurement."
+        }
+        starting_edge CIEdge = rising {
+            @doc value "selects the edge that starts a period measurement."
+        }
+        meas_method   CIMeasMethod = dynamic_avg {
+            @doc value "selects the measurement method."
+        }
+        meas_time     float64 = 0.001 {
+            @doc value """
+                is the averaging window for high-frequency measurement, in seconds.
+            """
+        }
+        divisor       int32 = 4 {
+            @doc value "is the counter divisor for large-range measurement."
+        }
+        terminal      string = "" {
+            @doc value "is the terminal the counter signal is wired to."
+        }
+
+        @doc value "measures signal period."
+    }
+    ci_pulse_width extends CustomScale {
+        min_val       float64 = 0.000001 {
+            @doc value "is the minimum expected pulse width, in seconds."
+        }
+        max_val       float64 = 0.1 {
+            @doc value "is the maximum expected pulse width, in seconds."
+        }
+        units         CITimeUnits = seconds {
+            @doc value "are the units of the pulse-width measurement."
+        }
+        starting_edge CIEdge = rising {
+            @doc value "selects the edge that starts a pulse-width measurement."
+        }
+        terminal      string = "" {
+            @doc value "is the terminal the counter signal is wired to."
+        }
+
+        @doc value "measures pulse width."
+    }
+    ci_semi_period extends CustomScale {
+        min_val  float64 = 0.000001 {
+            @doc value "is the minimum expected semi-period, in seconds."
+        }
+        max_val  float64 = 0.1 {
+            @doc value "is the maximum expected semi-period, in seconds."
+        }
+        units    CITimeUnits = seconds {
+            @doc value "are the units of the semi-period measurement."
+        }
+        terminal string = "" {
+            @doc value "is the terminal the counter signal is wired to."
+        }
+
+        @doc value "measures semi-period."
+    }
+    ci_two_edge_sep extends CustomScale {
+        min_val         float64 = 0.000001 {
+            @doc value "is the minimum expected separation, in seconds."
+        }
+        max_val         float64 = 1 {
+            @doc value "is the maximum expected separation, in seconds."
+        }
+        units           CITimeUnits = seconds {
+            @doc value "are the units of the two-edge-separation measurement."
+        }
+        first_edge      CIEdge = rising {
+            @doc value "selects the edge that starts the measurement."
+        }
+        second_edge     CIEdge = falling {
+            @doc value "selects the edge that stops the measurement."
+        }
+        first_terminal  string = "" {
+            @doc value "is the terminal the first edge's signal is wired to."
+        }
+        second_terminal string = "" {
+            @doc value "is the terminal the second edge's signal is wired to."
+        }
+
+        @doc value "measures the separation between two edges."
+    }
+    ci_velocity_linear extends CustomScale {
+        min_val        float64 = 0 {
+            @doc value "is the minimum expected velocity."
+        }
+        max_val        float64 = 1 {
+            @doc value "is the maximum expected velocity."
+        }
+        units          CILinearVelocityUnits = m_per_s {
+            @doc value "are the units of the velocity measurement."
+        }
+        decoding_type  CIDecodingType = x4 {
+            @doc value "selects the encoder decoding type."
+        }
+        dist_per_pulse float64 = 0.001 {
+            @doc value "is the linear distance per encoder pulse."
+        }
+        terminal_a     string = "" {
+            @doc value "is the terminal for encoder channel A."
+        }
+        terminal_b     string = "" {
+            @doc value "is the terminal for encoder channel B."
+        }
+
+        @doc value "measures linear velocity from an encoder."
+    }
+    ci_velocity_angular extends CustomScale {
+        min_val        float64 = 0 {
+            @doc value "is the minimum expected velocity."
+        }
+        max_val        float64 = 1 {
+            @doc value "is the maximum expected velocity."
+        }
+        units          CIAngularVelocityUnits = rpm {
+            @doc value "are the units of the velocity measurement."
+        }
+        decoding_type  CIDecodingType = x4 {
+            @doc value "selects the encoder decoding type."
+        }
+        pulses_per_rev float64 = 24 {
+            @doc value "is the number of encoder pulses per revolution."
+        }
+        terminal_a     string = "" {
+            @doc value "is the terminal for encoder channel A."
+        }
+        terminal_b     string = "" {
+            @doc value "is the terminal for encoder channel B."
+        }
+
+        @doc value "measures angular velocity from an encoder."
+    }
+    ci_position_linear extends CustomScale, ZIndex {
+        units          CILinearPositionUnits = meters {
+            @doc value "are the units of the position measurement."
+        }
+        decoding_type  CIDecodingType = x4 {
+            @doc value "selects the encoder decoding type."
+        }
+        dist_per_pulse float64 = 0.000001 {
+            @doc value "is the linear distance per encoder pulse."
+        }
+        initial_pos    float64 = 0 {
+            @doc value "is the position the encoder starts at."
+        }
+        terminal_a     string = "" {
+            @doc value "is the terminal for encoder channel A."
+        }
+        terminal_b     string = "" {
+            @doc value "is the terminal for encoder channel B."
+        }
+
+        @doc value "measures linear position from an encoder."
+    }
+    ci_position_angular extends CustomScale, ZIndex {
+        units          CIAngularPositionUnits = degrees {
+            @doc value "are the units of the position measurement."
+        }
+        decoding_type  CIDecodingType = x4 {
+            @doc value "selects the encoder decoding type."
+        }
+        pulses_per_rev float64 = 24 {
+            @doc value "is the number of encoder pulses per revolution."
+        }
+        initial_angle  float64 = 0 {
+            @doc value "is the angle the encoder starts at."
+        }
+        terminal_a     string = "" {
+            @doc value "is the terminal for encoder channel A."
+        }
+        terminal_b     string = "" {
+            @doc value "is the terminal for encoder channel B."
+        }
+
+        @doc value "measures angular position from an encoder."
+    }
+    ci_duty_cycle extends CustomScale {
+        min_val     float64 = 2 {
+            @doc value "is the minimum expected duty-cycle frequency."
+        }
+        max_val     float64 = 10000 {
+            @doc value "is the maximum expected duty-cycle frequency."
+        }
+        active_edge CIEdge = rising {
+            @doc value "selects the edge the counter responds to."
+        }
+        terminal    string = "" {
+            @doc value "is the terminal the counter signal is wired to."
+        }
+
+        @doc value "measures the duty cycle of a signal."
+    }
+
+    @doc value  """
+        is a single NI counter input channel. The type field selects the measurement
+        mode and the fields that accompany it.
+    """
+    @go marshal
+}
+
+WaveType enum {
+    sine     = "Sine"
+    triangle = "Triangle"
+    square   = "Square"
+    sawtooth = "Sawtooth"
+
+    @doc value "selects the waveform a function generator produces."
+}
+
+BaseAOChannel struct {
+    key                string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    disabled           bool = false {
+        @doc value "is true when the channel is excluded from the task."
+    }
+    cmd_channel        channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+    state_channel      channel.Key = 0 {
+        @doc value "is the Synnax channel the output state is written to."
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
+    port               int32 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
+
+    @doc value  "carries the fields every NI analog output channel shares."
+    @go marshal
+}
+
+AOChannel union on type extends BaseAOChannel {
+    ao_current extends MinMaxVal, CustomScale {
+        units Units = amps {
+            @doc value "are the units of the current output."
+        }
+
+        @doc value "drives a current output."
+    }
+    ao_func_gen {
+        wave_type WaveType = sine {
+            @doc value "selects the waveform to generate."
+        }
+        frequency float64 = 0 {
+            @doc value "is the waveform frequency, in hertz."
+        }
+        amplitude float64 = 0 {
+            @doc value "is the waveform amplitude."
+        }
+        offset    float64 = 0 {
+            @doc value "is the waveform DC offset."
+        }
+
+        @doc value "drives a function-generator output."
+    }
+    ao_voltage extends MinMaxVal, CustomScale {
+        units Units = volts {
+            @doc value "are the units of the voltage output."
+        }
+
+        @doc value "drives a voltage output."
+    }
+
+    @doc value  """
+        is a single NI analog output channel. The type field selects the output mode and
+        the fields that accompany it.
+    """
+    @go marshal
+}
+
+DIChannel struct {
+    key      string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from acquisition."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel that raw samples are written to."
+    }
+    port     int32 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+    line     int32 = 0 {
+        @doc value "is the digital line within the port the channel reads from."
+    }
+
+    @doc value  "is a digital input channel the task acquires from."
+    @go marshal
+}
+
+DOChannel struct {
+    key                string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    disabled           bool = false {
+        @doc value "is true when the channel is excluded from the task."
+    }
+    cmd_channel        channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+    state_channel      channel.Key = 0 {
+        @doc value "is the Synnax channel the output state is written to."
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
+    port               int32 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
+    line               int32 = 0 {
+        @doc value "is the digital line within the port the channel writes to."
+    }
+
+    @doc value  "is a digital output channel the task drives."
+    @go marshal
+}
+
+AnalogReadConfig struct extends task.BaseReadConfig {
+    channels AIChannel[] {
+        @doc value "are the analog input channels the task acquires."
+    }
+
+    @doc value  """
+        configures an NI analog read task. Each channel carries its own device.
+    """
+    @go marshal
+    @go migrate
+}
+
+CounterReadConfig struct extends task.BaseReadConfig {
+    channels CIChannel[] {
+        @doc value "are the counter input channels the task acquires."
+    }
+
+    @doc value  """
+        configures an NI counter read task. Each channel carries its own device.
+    """
+    @go marshal
+    @go migrate
+}
+
+WriteConfig struct extends task.BaseWriteConfig {
+    state_rate telem.Rate = 10 {
+        @doc value "is the rate at which output state is reported to Synnax, in hertz."
+    }
+
+    @doc value  "carries the configuration fields shared by NI write tasks."
+    @go marshal
+}
+
+AnalogWriteConfig struct extends WriteConfig {
+    channels AOChannel[] {
+        @doc value "are the analog output channels the task drives."
+    }
+
+    @doc value  "configures an NI analog write task."
+    @go marshal
+    @go migrate
+}
+
+DigitalReadConfig struct extends task.BaseReadConfig {
+    device   device.Key = "" {
+        @doc value "is the key of the device the task acquires from."
+    }
+    channels DIChannel[] {
+        @doc value "are the digital input channels the task acquires."
+    }
+
+    @doc value  "configures an NI digital read task."
+    @go marshal
+    @go migrate
+}
+
+DigitalWriteConfig struct extends WriteConfig {
+    channels DOChannel[] {
+        @doc value "are the digital output channels the task drives."
+    }
+
+    @doc value  "configures an NI digital write task."
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.BaseScanConfig {
+    ignored_models string[] = ["^cRIO.*", "^nown.*"] {
+        @doc value "are regex patterns matching the device models the scan skips."
+    }
+
+    @doc value  "configures the NI device scanner task."
+    @go marshal
+    @go migrate
+}

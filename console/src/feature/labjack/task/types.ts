@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type task } from "@synnaxlabs/client";
+import { labjack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import * as Device from "@/feature/labjack/device/types";
@@ -15,211 +15,63 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";
 
+export type Scale = labjack.Scale;
+export type ScaleType = labjack.ScaleType;
+export const SCALE_SCHEMAS = labjack.SCALE_SCHEMAS;
+
+const NO_SCALE: Scale = { type: "none" };
+
+export type TemperatureUnits = labjack.TemperatureUnits;
+export type ThermocoupleType = labjack.ThermocoupleType;
+
+export const DEVICE_CJC_SOURCE = "TEMPERATURE_DEVICE_K";
+
+export const AIR_CJC_SOURCE = "TEMPERATURE_AIR_K";
+
+export type ReadChannel = labjack.ReadChannel;
+export type ReadChannelType = labjack.ReadChannelType;
+export const READ_CHANNEL_SCHEMAS = labjack.READ_CHANNEL_SCHEMAS;
+
+// The scale union has no schema default, so analog and thermocouple seed it
+// explicitly.
+const READ_CHANNEL_SEEDS: Record<ReadChannelType, object> = {
+  analog: { type: "analog", scale: NO_SCALE },
+  digital: { type: "digital" },
+  thermocouple: { type: "thermocouple", scale: NO_SCALE },
+};
+
+export const createReadChannel = <T extends ReadChannelType>(
+  type: T,
+): Extract<ReadChannel, { type: T }> =>
+  READ_CHANNEL_SCHEMAS[type].parse(READ_CHANNEL_SEEDS[type]);
+
+export const writeChannelZ = labjack.writeChannelZ;
+export type WriteChannel = labjack.WriteChannel;
+export type WriteChannelType = labjack.WriteChannelType;
+export const WRITE_CHANNEL_SCHEMAS = labjack.WRITE_CHANNEL_SCHEMAS;
+
+export const createWriteChannel = <T extends WriteChannelType>(
+  type: T,
+): Extract<WriteChannel, { type: T }> => WRITE_CHANNEL_SCHEMAS[type].parse({ type });
+
+export type Channel = ReadChannel | WriteChannel;
+
 const deployPortZ = z.string().min(1, "Port must be specified");
-
-const deployDigitalPortZ = deployPortZ.regex(
-  Device.DIO_PORT_REGEX,
-  "Invalid port, port must start with DIO and end with an integer",
-);
-
-const linearScaleZ = z.object({
-  type: z.literal("linear"),
-  slope: z.number(),
-  offset: z.number(),
-});
-
-interface LinearScale extends z.infer<typeof linearScaleZ> {}
-
-const ZERO_LINEAR_SCALE = {
-  type: "linear",
-  slope: 1,
-  offset: 0,
-} as const satisfies LinearScale;
-
-const noScaleZ = z.object({ type: z.literal("none") });
-
-interface NoScale extends z.infer<typeof noScaleZ> {}
-
-const NO_SCALE = { type: "none" } as const satisfies NoScale;
-
-const scaleZ = z.union([noScaleZ, linearScaleZ]);
-
-export type Scale = z.infer<typeof scaleZ>;
-
-export type ScaleType = Scale["type"];
-
-export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
-  none: noScaleZ,
-  linear: linearScaleZ,
-};
-
-export const ZERO_SCALES: Record<ScaleType, Scale> = {
-  none: NO_SCALE,
-  linear: ZERO_LINEAR_SCALE,
-};
-
-const aiChannelZ = Task.readChannelZ.extend({
-  type: z.literal("AI"),
-  range: z.number().optional(),
-  scale: scaleZ,
-  port: z.string(),
-});
 
 const deployAIPortZ = deployPortZ.regex(
   Device.AIN_PORT_REGEX,
   "Invalid port, ports must start with AIN and end with an integer",
 );
 
-interface AIChannel extends z.infer<typeof aiChannelZ> {}
-
-const ZERO_AI_CHANNEL = {
-  ...Task.ZERO_READ_CHANNEL,
-  type: "AI",
-  port: "AIN0",
-  range: 10,
-  scale: ZERO_SCALES.none,
-} as const satisfies AIChannel;
-
-const diChannelZ = Task.readChannelZ.extend({
-  type: z.literal("DI"),
-  port: z.string(),
-});
-
-interface DIChannel extends z.infer<typeof diChannelZ> {}
-
-const ZERO_DI_CHANNEL = {
-  ...Task.ZERO_READ_CHANNEL,
-  port: "DIO4",
-  type: "DI",
-} as const satisfies DIChannel;
-
-const temperatureUnitsZ = z.enum(["C", "F", "K"]);
-
-export type TemperatureUnits = z.infer<typeof temperatureUnitsZ>;
-
-const thermocoupleTypeZ = z.enum(["J", "K", "N", "R", "S", "T", "B", "E", "C"]);
-
-export type ThermocoupleType = z.infer<typeof thermocoupleTypeZ>;
-
-export const DEVICE_CJC_SOURCE = "TEMPERATURE_DEVICE_K";
-
-export const AIR_CJC_SOURCE = "TEMPERATURE_AIR_K";
-
-const tcChannelZ = aiChannelZ.omit({ type: true, range: true }).extend({
-  type: z.literal("TC"),
-  thermocoupleType: thermocoupleTypeZ,
-  posChan: z.number().int(),
-  negChan: z.number().int(),
-  cjcSource: z.string(),
-  cjcSlope: z.number(),
-  cjcOffset: z.number(),
-  units: temperatureUnitsZ,
-});
-
-interface TCChannel extends z.infer<typeof tcChannelZ> {}
-
-const ZERO_TC_CHANNEL = {
-  ...ZERO_AI_CHANNEL,
-  type: "TC",
-  thermocoupleType: "K",
-  posChan: 0,
-  negChan: 199,
-  units: "K",
-  cjcSource: DEVICE_CJC_SOURCE,
-  cjcSlope: 1,
-  cjcOffset: 0,
-  scale: NO_SCALE,
-} as const satisfies TCChannel;
-
-const inputChannelZ = z.union([aiChannelZ, diChannelZ, tcChannelZ]);
-
-export type InputChannel = z.infer<typeof inputChannelZ>;
-
-export type InputChannelType = InputChannel["type"];
-
-export const INPUT_CHANNEL_SCHEMAS: Record<
-  InputChannelType,
-  z.ZodType<InputChannel>
-> = {
-  AI: aiChannelZ,
-  DI: diChannelZ,
-  TC: tcChannelZ,
-};
-
-export const ZERO_INPUT_CHANNELS = {
-  AI: ZERO_AI_CHANNEL,
-  DI: ZERO_DI_CHANNEL,
-  TC: ZERO_TC_CHANNEL,
-} as const satisfies Record<InputChannelType, InputChannel>;
-
-export const ZERO_INPUT_CHANNEL = ZERO_INPUT_CHANNELS.AI;
-
-const v0BaseOutputChannelZ = Task.channelZ.extend({
-  cmdKey: channel.keyZ,
-  stateKey: channel.keyZ,
-});
-
-const aoChannelExtension = {
-  type: z.literal("AO"),
-  port: z.string(),
-};
+const deployDigitalPortZ = deployPortZ.regex(
+  Device.DIO_PORT_REGEX,
+  "Invalid port, port must start with DIO and end with an integer",
+);
 
 const deployAOPortZ = deployPortZ.regex(
   Device.DAC_PORT_REGEX,
   "Invalid port, ports must start with DAC and end with an integer",
 );
-
-const v0AOChannelZ = v0BaseOutputChannelZ.extend(aoChannelExtension);
-
-const aoChannelZ = Task.writeChannelZ.extend(aoChannelExtension);
-
-interface AOChannel extends z.infer<typeof aoChannelZ> {}
-
-const ZERO_AO_CHANNEL = {
-  ...Task.ZERO_WRITE_CHANNEL,
-  type: "AO",
-  port: "DAC0",
-} as const satisfies AOChannel;
-
-const doChannelExtension = {
-  type: z.literal("DO"),
-  port: z.string(),
-};
-
-const deployDOPortZ = deployPortZ.regex(
-  Device.DIO_PORT_REGEX,
-  "Invalid port, ports must start with DIO and end with an integer",
-);
-
-const v0DOChannelZ = v0BaseOutputChannelZ.extend(doChannelExtension);
-
-const doChannelZ = Task.writeChannelZ.extend(doChannelExtension);
-
-interface DOChannel extends z.infer<typeof doChannelZ> {}
-
-const ZERO_DO_CHANNEL = {
-  ...Task.ZERO_WRITE_CHANNEL,
-  type: "DO",
-  port: "DIO4",
-} as const satisfies DOChannel;
-
-const v0OutputChannelZ = z.union([v0AOChannelZ, v0DOChannelZ]);
-
-export const outputChannelZ = z.union([aoChannelZ, doChannelZ]);
-
-export type OutputChannel = z.infer<typeof outputChannelZ>;
-
-export type OutputChannelType = OutputChannel["type"];
-
-export const ZERO_OUTPUT_CHANNELS: Record<OutputChannelType, OutputChannel> = {
-  AO: ZERO_AO_CHANNEL,
-  DO: ZERO_DO_CHANNEL,
-};
-export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS.DO;
-
-export type Channel = InputChannel | OutputChannel;
-
-export type ChannelType = Channel["type"];
 
 const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
   value: channels,
@@ -241,41 +93,33 @@ const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const readConfigZ = Task.baseReadConfigZ.extend({
-  channels: z.array(inputChannelZ),
-  sampleRate: z.number(),
-  streamRate: z.number(),
-});
+export interface ReadConfig extends labjack.ReadConfig {}
 
-const deployInputChannelZ = z.union([
-  aiChannelZ.extend({ range: z.number().positive().optional(), port: deployAIPortZ }),
-  diChannelZ.extend({ port: deployDigitalPortZ }),
-  tcChannelZ.extend({
+export const readConfigZ = labjack.readConfigZ;
+
+const deployReadChannelZ = z.union([
+  labjack.analogReadChannelZ.extend({
+    range: z.number().positive().default(10),
+    port: deployAIPortZ,
+  }),
+  labjack.digitalReadChannelZ.extend({ port: deployDigitalPortZ }),
+  labjack.thermocoupleReadChannelZ.extend({
     port: deployAIPortZ,
     cjcSource: z.string().min(1, "CJC Source must be specified"),
   }),
 ]);
 
-export const deployReadConfigZ = readConfigZ
+export const deployReadConfigZ = labjack.readConfigZ
   .extend({
     device: Task.deviceKeyZ,
     channels: z
-      .array(deployInputChannelZ)
+      .array(deployReadChannelZ)
       .check(Task.validateReadChannels)
       .check(validateUniquePorts),
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
   .check(Task.validateStreamRate);
-
-interface ReadConfig extends z.infer<typeof readConfigZ> {}
-
-const ZERO_READ_CONFIG = {
-  ...Task.ZERO_BASE_READ_CONFIG,
-  channels: [],
-  sampleRate: 10,
-  streamRate: 5,
-} as const satisfies ReadConfig;
 
 const readStatusDataZ = z
   .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
@@ -292,60 +136,25 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
-export const ZERO_READ_PAYLOAD = {
-  key: "",
-  rack: 0,
-  name: "LabJack Read Task",
-  config: ZERO_READ_CONFIG,
-  configHash: "",
-  type: "labjack_read",
-  internal: false,
-  snapshot: false,
-} as const satisfies ReadPayload;
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeConfigZ = Task.baseConfigZ.extend({
-  channels: z
-    .array(v0OutputChannelZ)
-    .transform((channels) =>
-      channels.map<OutputChannel>(({ cmdKey, stateKey, ...rest }) => ({
-        cmdChannel: cmdKey,
-        stateChannel: stateKey,
-        cmdChannelName: "",
-        stateChannelName: "",
-        ...rest,
-      })),
-    )
-    .or(z.array(outputChannelZ)),
-  stateRate: z.number(),
-  dataSaving: z.boolean().default(true),
-});
+export interface WriteConfig extends labjack.WriteConfig {}
 
-// Deploy validates form values, which are always post-migration, so the v0
-// transform branch is unnecessary here.
-const deployOutputChannelZ = z.union([
-  aoChannelZ.extend({ port: deployAOPortZ }),
-  doChannelZ.extend({ port: deployDOPortZ }),
+export const writeConfigZ = labjack.writeConfigZ;
+
+const deployWriteChannelZ = z.union([
+  labjack.analogWriteChannelZ.extend({ port: deployAOPortZ }),
+  labjack.digitalWriteChannelZ.extend({ port: deployDigitalPortZ }),
 ]);
 
-export const deployWriteConfigZ = writeConfigZ.extend({
+export const deployWriteConfigZ = labjack.writeConfigZ.extend({
   device: Task.deviceKeyZ,
   channels: z
-    .array(deployOutputChannelZ)
+    .array(deployWriteChannelZ)
     .check(Task.validateWriteChannels)
     .check(validateUniquePorts),
   stateRate: z.number().positive().max(50000),
 });
-
-interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-const ZERO_WRITE_CONFIG = {
-  ...Task.ZERO_BASE_CONFIG,
-  channels: [],
-  dataSaving: true,
-  stateRate: 10,
-} as const satisfies WriteConfig;
 
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
@@ -356,14 +165,3 @@ export const WRITE_SCHEMAS = {
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
-
-export const ZERO_WRITE_PAYLOAD = {
-  key: "",
-  rack: 0,
-  name: "LabJack Write Task",
-  config: ZERO_WRITE_CONFIG,
-  configHash: "",
-  type: "labjack_write",
-  internal: false,
-  snapshot: false,
-} as const satisfies WritePayload;

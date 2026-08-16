@@ -74,13 +74,13 @@ var _ = Describe("Go PB Plugin", func() {
 						ToContain(
 							"func SourceToPB(r schematic.Source) (*Source, error)",
 							"if r.Variant == nil {",
-							"case schematic.SourceBoolean:",
+							"case schematic.BooleanSource:",
 							"inner, err := SpecToPB(v.Spec)",
 							"pb.Variant = &Source_Boolean{Boolean: inner}",
 							`errors.Newf("Source: unknown variant %T", r.Variant)`,
 							"func SourceFromPB(pb *Source) (schematic.Source, error)",
 							"case *Source_Number:",
-							"r.Variant = schematic.SourceNumber{Spec: inner}",
+							"r.Variant = schematic.NumberSource{Spec: inner}",
 							"func SourcesToPB(rs []schematic.Source) ([]*Source, error)",
 						)
 				},
@@ -136,10 +136,10 @@ var _ = Describe("Go PB Plugin", func() {
 					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							"case schematic.ShapeIsoCap:",
+							"case schematic.IsoCapShape:",
 							"pb.Variant = &Shape_IsoCap{IsoCap: inner}",
 							"case *Shape_TJunction:",
-							"r.Variant = schematic.ShapeTJunction{Body: inner}",
+							"r.Variant = schematic.TJunctionShape{Body: inner}",
 						)
 				},
 			)
@@ -266,7 +266,7 @@ var _ = Describe("Go PB Plugin", func() {
 						ToBeValidGoSource().
 						ToContain(
 							"pb.Base, err = BaseToPB(v.Base)",
-							"m := schematic.ShapeSquare{Body: inner}",
+							"m := schematic.SquareShape{Body: inner}",
 							"m.Base, err = BaseFromPB(pb.Base)",
 							"r.Variant = m",
 						)
@@ -295,8 +295,8 @@ var _ = Describe("Go PB Plugin", func() {
 					ExpectContent(resp, "translator.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							"func ShapeSquareToPB(r schematic.ShapeSquare) (*ShapeSquarePayload, error)",
-							"inner, err := ShapeSquareToPB(v)",
+							"func SquareShapeToPB(r schematic.SquareShape) (*ShapeSquarePayload, error)",
+							"inner, err := SquareShapeToPB(v)",
 							"m := inner",
 							"m.Base, err = BaseFromPB(pb.Base)",
 						)
@@ -328,9 +328,9 @@ var _ = Describe("Go PB Plugin", func() {
 					ExpectContent(resp, "translator.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							"func NodeConfigBoxToPB(r schematic.NodeConfigBox) (*NodeConfigBoxPayload, error)",
-							"func ElementConfigBoxToPB(r schematic.ElementConfigBox) (*NodeConfigBoxPayload, error)",
-							"func ElementConfigPipeToPB(r schematic.ElementConfigPipe) (*EdgeConfigPipePayload, error)",
+							"func BoxNodeConfigToPB(r schematic.BoxNodeConfig) (*NodeConfigBoxPayload, error)",
+							"func BoxElementConfigToPB(r schematic.BoxElementConfig) (*NodeConfigBoxPayload, error)",
+							"func PipeElementConfigToPB(r schematic.PipeElementConfig) (*EdgeConfigPipePayload, error)",
 							"pb.Variant = &ElementConfig_Box{Box: inner}",
 						).
 						ToNotContain("NodeConfigBoxPayloadToPB")

@@ -11,9 +11,9 @@ package json
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 

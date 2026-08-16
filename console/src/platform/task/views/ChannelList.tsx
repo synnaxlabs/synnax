@@ -16,7 +16,7 @@ import {
   type ChannelListProps as BaseProps,
 } from "@/platform/task/ChannelList";
 import { useIsSnapshot } from "@/platform/task/Form";
-import { type Channel, type DisabledChannel } from "@/platform/task/types";
+import { type Channel } from "@/platform/task/types";
 
 interface HeaderProps {
   onAdd: () => void;
@@ -58,7 +58,7 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
   );
 };
 
-export interface ChannelListProps<C extends Channel | DisabledChannel> extends Omit<
+export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
   "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
 > {
@@ -67,7 +67,7 @@ export interface ChannelListProps<C extends Channel | DisabledChannel> extends O
   path?: string;
 }
 
-export const ChannelList = <C extends Channel | DisabledChannel>({
+export const ChannelList = <C extends Channel>({
   createChannel,
   createChannels,
   path = "config.channels",

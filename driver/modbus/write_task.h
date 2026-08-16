@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <variant>
+
+#include "client/cpp/modbus/json.gen.h"
+
 #include "driver/common/write_task.h"
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
@@ -138,24 +142,19 @@ public:
 };
 
 /// @brief configuration for a modbus write task.
-struct WriteTaskConfig {
-    /// @brief the key of the device to read from.
-    std::string device_key;
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the connection configuration for the device.
     /// Dynamically populated from device properties.
     device::ConnectionConfig conn;
     /// @brief the list of writers to use for writing data to the device.
     std::vector<std::unique_ptr<Writer>> writers;
-    /// @brief whether to automatically start the task after configuration.
-    bool auto_start;
 
     WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg
     ):
-        device_key(cfg.field<std::string>("device")),
-        auto_start(cfg.field<bool>("auto_start", false)) {
-        auto [dev_info, dev_err] = client->devices.retrieve(this->device_key);
+        common::BaseWriteTaskConfig(cfg) {
+        auto [dev_info, dev_err] = client->devices.retrieve(this->device);
         if (dev_err) {
             cfg.field_err("device", dev_err);
             return;
@@ -169,13 +168,23 @@ struct WriteTaskConfig {
         std::vector<channel::OutputCoil> coils;
         std::vector<channel::OutputHoldingRegister> registers;
         cfg.iter("channels", [&](x::json::Parser &ch) {
-            const auto type = ch.field<std::string>("type");
-            if (type == "coil_output")
-                coils.emplace_back(ch);
-            else if (type == "holding_register_output")
-                registers.emplace_back(ch);
+            const auto parsed = ::synnax::modbus::parse_write_channel(ch);
+            const auto &base = std::visit(
+                [](const auto &c) -> const ::synnax::modbus::BaseWriteChannel & {
+                    return c;
+                },
+                parsed
+            );
+            if (base.disabled) return;
+            if (base.channel == 0)
+                return ch.field_err("channel", "channel must be specified");
+            if (const auto *c = std::get_if<
+                    ::synnax::modbus::HoldingRegisterWriteChannel>(&parsed))
+                registers.emplace_back(*c);
             else
-                cfg.field_err("channels", "invalid channel type: " + type);
+                coils.emplace_back(
+                    std::get<::synnax::modbus::CoilWriteChannel>(parsed)
+                );
         });
         if (!coils.empty())
             writers.push_back(std::make_unique<CoilWriter>(std::move(coils)));
@@ -217,7 +226,9 @@ class WriteTaskSink final : public common::Sink {
 
 public:
     WriteTaskSink(const std::shared_ptr<device::Device> &dev, WriteTaskConfig cfg):
-        Sink(cfg.cmd_keys()), config(std::move(cfg)), dev(dev) {}
+        Sink(x::telem::Rate(0), {}, {}, cfg.cmd_keys(), cfg.data_saving_disabled),
+        config(std::move(cfg)),
+        dev(dev) {}
 
     x::errors::Error write(x::telem::Frame &frame) override {
         for (const auto &writer: config.writers)

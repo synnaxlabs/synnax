@@ -17,7 +17,7 @@ import { getIconButton, stubClipboardWriteText } from "@/testutil";
 describe("layouts.DetailsHeader", () => {
   it("should copy the form value at the given path as JSON", async () => {
     const writeText = stubClipboardWriteText();
-    const channels = [{ key: "a", enabled: true }];
+    const channels = [{ key: "a", disabled: false }];
     const { container } = await renderInTaskForm(
       <Task.Views.DetailsHeader path="config" />,
       { values: { config: { channels } } },

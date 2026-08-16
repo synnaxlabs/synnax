@@ -13,7 +13,6 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { Errors } from "@/platform/errors";
-import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
 import {
@@ -78,12 +77,12 @@ export const renderTreeContextMenu = async (
   };
   const { wrapper } = await createConsoleWrapper({ client, store: resolvedStore });
   await renderSuspended(
-    <Import.FileIngestersProvider fileIngesters={{}}>
+    <>
       <Errors.SuspenseBoundary loading={null}>
         <TreeContextMenu {...props} />
       </Errors.SuspenseBoundary>
       <Modals.Stack />
-    </Import.FileIngestersProvider>,
+    </>,
     { wrapper },
   );
   return { store: resolvedStore, props };

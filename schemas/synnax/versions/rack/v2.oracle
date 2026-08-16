@@ -43,3 +43,5 @@ Rack struct {
     @go marshal
     @go migrate
 }
+
+StatusTaskConfig = v1.StatusTaskConfig

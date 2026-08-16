@@ -11,6 +11,7 @@ package marshal_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1035,6 +1036,31 @@ var _ = Describe("Go Marshal Plugin", func() {
 					)
 			})
 		})
+
+		Context("field that restates an inherited default", func() {
+			It("Should build the test literal through the embedded parent", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Base struct {
+						port string = ""
+					}
+
+					Child struct extends Base {
+						port string = "AIN0"
+						name string = ""
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				gen := MustContentOf(resp, "codec_gen_test.go")
+				// Child has no port member of its own, so a Child literal that
+				// assigned one would not compile.
+				Expect(strings.Count(gen, "Port:")).
+					To(Equal(strings.Count(gen, "Base{")))
+			})
+		})
 	})
 })
 
@@ -1075,17 +1101,17 @@ var _ = Describe("Union Codecs", func() {
 				ToContain(
 					"func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {",
 					"switch v := ec.Variant.(type) {",
-					"case ElementConfigTank:",
+					"case TankElementConfig:",
 					`w.String("tank")`,
 					"if err := v.BaseElement.EncodeOrc(w); err != nil { return err }",
 					"if err := v.TankConfig.EncodeOrc(w); err != nil { return err }",
-					"case ElementConfigValve:",
+					"case ValveElementConfig:",
 					`w.String("valve")`,
 					`return errors.Newf("ElementConfig: nil or unknown variant %T", ec.Variant)`,
 					"func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {",
 					"tag, err := r.String()",
 					`case "tank":`,
-					"var v ElementConfigTank",
+					"var v TankElementConfig",
 					"if err := v.BaseElement.DecodeOrc(r); err != nil { return err }",
 					"if err := v.TankConfig.DecodeOrc(r); err != nil { return err }",
 					"ec.Variant = v",
@@ -1152,8 +1178,8 @@ var _ = Describe("Union Codecs", func() {
 					`Describe("ElementConfig"`,
 					`Entry("tank variant"`,
 					`Entry("valve variant"`,
-					"test.ElementConfigTank{",
-					"test.ElementConfigValve{",
+					"test.TankElementConfig{",
+					"test.ValveElementConfig{",
 					"BaseElement: fullyPopulatedBaseElement",
 					"func BenchmarkEncodeDecodeElementConfig(b *testing.B) {",
 					"func FuzzDecodeElementConfig(f *testing.F) {",
@@ -1186,7 +1212,7 @@ var _ = Describe("Union Codecs", func() {
 			content := ExpectContent(resp, "codec.gen.go")
 			content.ToBeValidGoSource()
 			content.ToContain(
-				`case TabView:`,
+				`case ViewTab:`,
 				"if err := v.TabBase.EncodeOrc(w); err != nil { return err }",
 				"w.String(v.Type)",
 				"if err := v.TabBase.DecodeOrc(r); err != nil { return err }",
@@ -1201,6 +1227,43 @@ var _ = Describe("Union Codecs", func() {
 					"TabBase: fullyPopulatedTabBase",
 					"Type:",
 				)
+		},
+	)
+
+	It(
+		"Should encode a variant's restated base default only once",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			TabBase struct { port string = "" }
+
+			Tab union on variant extends TabBase {
+				view {
+					port string = "AIN0"
+				}
+			}
+
+			Test struct {
+				tab Tab
+			}
+		`
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			content := ExpectContent(resp, "codec.gen.go")
+			content.ToBeValidGoSource()
+			content.ToContain(
+				"if err := v.TabBase.EncodeOrc(w); err != nil { return err }",
+			)
+			// The base already carries port; writing it again would corrupt the
+			// field order every reader depends on.
+			content.ToNotContain("w.String(v.Port)")
+			gen := MustContentOf(resp, "codec_gen_test.go")
+			// Every TabBase literal sets port once; the variant never sets it
+			// again, since it declares no port member of its own.
+			Expect(strings.Count(gen, "Port:")).
+				To(Equal(strings.Count(gen, "TabBase{")))
 		},
 	)
 

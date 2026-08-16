@@ -241,7 +241,11 @@ func (r *renderer) renderVariant(typeName string, v resolution.UnionVariant) {
 	if v.Inline && r.opts.Resolve != nil {
 		if t, ok := r.opts.Resolve(v.Type.Name); ok {
 			if sf, isStruct := t.Form.(resolution.StructForm); isStruct {
-				r.line(v.Name + " {")
+				head := v.Name
+				if len(sf.Extends) > 0 {
+					head += " extends " + r.refList(sf.Extends)
+				}
+				r.line(head + " {")
 				r.indent++
 				for _, field := range sf.Fields {
 					r.renderField(typeName, field)
@@ -368,7 +372,9 @@ func (r *renderer) value(v resolution.ExpressionValue) string {
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:
-		return strconv.FormatFloat(v.FloatValue, 'g', -1, 64)
+		// The schema grammar has no exponent form, so 'f' keeps tiny magnitudes
+		// like 0.000006 parseable where 'g' would emit 6e-06.
+		return strconv.FormatFloat(v.FloatValue, 'f', -1, 64)
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindIdent:

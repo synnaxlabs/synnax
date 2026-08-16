@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, device } from "@synnaxlabs/client";
+import { type channel, device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export type Command = "start" | "stop";
@@ -15,21 +15,11 @@ export type Command = "start" | "stop";
 // Deploy-time only: shape schemas keep device lax so drafts round-trip.
 export const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
 
-export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
-export interface Channel extends z.infer<typeof channelZ> {}
-export const ZERO_CHANNEL: Channel = { enabled: true, key: "" };
-
-// Generated config schemas store enablement inverted (RFC 0043 zero-default booleans);
-// integrations on generated types carry channels of this shape instead of Channel.
-export interface DisabledChannel {
+// The channel shape every generated task config carries.
+export interface Channel {
   disabled: boolean;
   key: string;
 }
-
-// Polarity names which boolean a channel shape carries. Components that toggle
-// enablement take it as a prop; "enabled" is the legacy default and goes away once
-// every integration is on generated types.
-export type Polarity = "enabled" | "disabled";
 
 export const validateChannels = ({
   value: channels,
@@ -51,6 +41,15 @@ export const validateChannels = ({
 
 export const nameZ = z.string().default("");
 
+// Spread over a duplicated channel to reset its Synnax channel bindings.
+export const READ_CHANNEL_OVERRIDE = { channel: 0, name: "" } as const;
+export const WRITE_CHANNEL_OVERRIDE = {
+  cmdChannel: 0,
+  stateChannel: 0,
+  cmdChannelName: "",
+  stateChannelName: "",
+} as const;
+
 export const validateChannelDevices = ({
   value: channels,
   issues,
@@ -64,19 +63,6 @@ export const validateChannelDevices = ({
       input: channels,
     });
   });
-};
-
-export const readChannelZ = channelZ.extend({ channel: channel.keyZ, name: nameZ });
-export interface ReadChannel extends z.infer<typeof readChannelZ> {}
-
-export const READ_CHANNEL_OVERRIDE = {
-  channel: 0,
-  name: "",
-} as const satisfies Partial<ReadChannel>;
-
-export const ZERO_READ_CHANNEL: ReadChannel = {
-  ...ZERO_CHANNEL,
-  ...READ_CHANNEL_OVERRIDE,
 };
 
 export const validateReadChannels = (
@@ -109,24 +95,6 @@ export const validateReadChannels = (
     issues.push({ code, message, path: [index, "channel"], input: channels });
     issues.push({ code, message, path: [i, "channel"], input: channels });
   });
-};
-
-export const writeChannelZ = channelZ.extend({
-  cmdChannel: channel.keyZ,
-  stateChannel: channel.keyZ,
-  cmdChannelName: nameZ,
-  stateChannelName: nameZ,
-});
-export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
-export const WRITE_CHANNEL_OVERRIDE = {
-  cmdChannel: 0,
-  stateChannel: 0,
-  cmdChannelName: "",
-  stateChannelName: "",
-} as const satisfies Partial<WriteChannel>;
-export const ZERO_WRITE_CHANNEL: WriteChannel = {
-  ...ZERO_CHANNEL,
-  ...WRITE_CHANNEL_OVERRIDE,
 };
 
 export type WriteChannelType = "cmd" | "state";
@@ -213,25 +181,6 @@ export const validateWriteChannels = (
       } else channelsToIndexMap.set(stateChannel, { index: i, type: "state" });
     },
   );
-};
-
-export const baseConfigZ = z.object({
-  autoStart: z.boolean().default(false),
-  device: device.keyZ,
-});
-export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
-export const ZERO_BASE_CONFIG: BaseConfig = {
-  autoStart: false,
-  device: "",
-};
-
-export const baseReadConfigZ = baseConfigZ.extend({
-  dataSaving: z.boolean().default(true),
-});
-export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
-export const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
-  ...ZERO_BASE_CONFIG,
-  dataSaving: true,
 };
 
 interface ConfigWithSampleRateAndStreamRate {

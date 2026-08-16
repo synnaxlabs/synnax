@@ -68,7 +68,6 @@ tsk = http.ReadTask(
     name="HTTP Py - Read Task",
     device=dev.key,
     rate=1,  # Poll at 1 Hz
-    data_saving=True,
     endpoints=[
         http.ReadEndpoint(
             method="GET",

@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -210,7 +210,7 @@ func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDe
 		discDecl := len(decls) - 1
 		for _, v := range form.Variants {
 			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
-			constName := discType + casing.PascalAcronym(v.Name)
+			constName := casing.VariantConstName(name, v.Name)
 			decls[discDecl].Consts = append(decls[discDecl].Consts, aliasConst{
 				Name:   constName,
 				Type:   discType,

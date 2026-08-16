@@ -22,11 +22,11 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
@@ -2160,7 +2160,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{- if .Doc }}
 {{ formatVariantDocstring . }}
 {{- end }}
-    {{ $disc }}: Literal["{{ .Value }}"]
+    {{ $disc }}: Literal["{{ .Value }}"] = "{{ .Value }}"
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}

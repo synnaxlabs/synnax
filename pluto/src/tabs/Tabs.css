@@ -161,22 +161,25 @@
     min-width: var(--pluto-tabs-selected-min-width);
 }
 
-.pluto-tabs__insertion {
+/* The slot a hauled tab would land in. An absolute child of a flex container takes its
+   cross-axis position from align-self, so the ghost lands where the tabs sit. */
+.pluto-tabs__ghost {
     position: absolute;
-    background: var(--pluto-primary-z);
+    align-self: var(--pluto-tabs-tab-align, auto);
     pointer-events: none;
-    z-index: 2;
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-primary-z-20);
+    box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-primary-z-35);
 
     &.pluto--direction-x {
-        width: 2px;
-        top: 0;
-        bottom: 0;
+        width: var(--pluto-tabs-tab-min-width);
+        height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
     }
 
     &.pluto--direction-y {
-        height: 2px;
         left: 0;
         right: 0;
+        height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
     }
 }
 

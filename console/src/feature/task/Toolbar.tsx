@@ -336,25 +336,25 @@ const ContextMenu = ({
   const someSelected = selectedTasks.length > 0;
   const isSingle = selectedTasks.length === 1;
 
-  // Only tasks with a dataSaving field in their config (primarily read tasks) are
-  // eligible for these menu items. Write tasks without this field are excluded.
+  // Only tasks with a dataSavingDisabled field in their config (primarily read
+  // tasks) are eligible for these menu items. Tasks without this field are excluded.
   const dataSavingTasks = selectedTasks.filter(
     ({ config }) =>
-      config != null && typeof config === "object" && "dataSaving" in config,
+      config != null && typeof config === "object" && "dataSavingDisabled" in config,
   );
   const canEnableDataSaving = dataSavingTasks.some(
     ({ config }) =>
       config != null &&
       typeof config === "object" &&
-      "dataSaving" in config &&
-      config.dataSaving === false,
+      "dataSavingDisabled" in config &&
+      config.dataSavingDisabled === true,
   );
   const canDisableDataSaving = dataSavingTasks.some(
     ({ config }) =>
       config != null &&
       typeof config === "object" &&
-      "dataSaving" in config &&
-      config.dataSaving === true,
+      "dataSavingDisabled" in config &&
+      config.dataSavingDisabled === false,
   );
 
   const addStatus = Status.useAdder();

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/status"
+import "schemas/synnax/versions/task/v0"
 
 Key = v0.Key
 
@@ -45,6 +46,12 @@ Rack struct {
         cluster node. Racks serve as the integration point between the Synnax server and
         physical hardware via the Driver system.
     """
+    @go marshal
+    @go migrate
+}
+
+StatusTaskConfig struct extends task.KeyedConfig {
+    @doc value  "configures the rack status reporting task, which carries no settings."
     @go marshal
     @go migrate
 }

@@ -21,9 +21,11 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // chainFiles emits migrate.gen.go for every chain version: the auto-copy
@@ -85,9 +87,12 @@ func chainFile(
 	if err != nil {
 		return plugin.File{}, false, err
 	}
+	// A chain may span several Go outputs (task and task/config); this file
+	// belongs to origPath, so members living in another output stay out of it.
+	foreign := foreignOutputs(req, livePath, origPath)
 	var oldEntries []resolution.Type
 	for _, t := range oldTable.TypesInNamespace(oldNS) {
-		if domain.HasExprFromType(t, "go", "migrate") {
+		if domain.HasExprFromType(t, "go", "migrate") && !foreign.Contains(t.Name) {
 			oldEntries = append(oldEntries, t)
 		}
 	}
@@ -96,7 +101,7 @@ func chainFile(
 		// Value-type paths have no migrate entries; their changed types still
 		// need auto-copies because other resources' migrations consume them.
 		for _, t := range newFile.Defined {
-			if t.Synthetic {
+			if t.Synthetic || foreign.Contains(t.Name) {
 				continue
 			}
 			if old, ok := oldTable.Get(oldNS + "." + t.Name); ok {
@@ -235,4 +240,23 @@ func cmpStrings(a, b string) int {
 	default:
 		return 0
 	}
+}
+
+// foreignOutputs returns the names of livePath's chain members whose live @go
+// output is a different package than origPath. A chain spanning several outputs
+// (task and task/config) emits one migrate file per output; each covers only
+// the types that live in it.
+func foreignOutputs(
+	req *plugin.Request, livePath, origPath string,
+) set.Set[string] {
+	foreign := make(set.Set[string])
+	for _, t := range req.Resolutions.Types {
+		if t.FilePath != livePath+".oracle" {
+			continue
+		}
+		if p := output.GetPath(t, "go"); p != "" && p != origPath {
+			foreign.Add(t.Name)
+		}
+	}
+	return foreign
 }

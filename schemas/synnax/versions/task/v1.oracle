@@ -53,3 +53,15 @@ Task struct<
     @go marshal
     @go migrate
 }
+
+KeyedConfig = v0.KeyedConfig
+
+BaseStartConfig = v0.BaseStartConfig
+
+BasePersistConfig = v0.BasePersistConfig
+
+BaseReadConfig = v0.BaseReadConfig
+
+BaseWriteConfig = v0.BaseWriteConfig
+
+BaseScanConfig = v0.BaseScanConfig

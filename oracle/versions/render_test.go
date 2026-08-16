@@ -333,6 +333,46 @@ Entry struct {
 		Expect(rendered).To(ContainSubstring(`@doc value "is inline."`))
 	})
 
+	It("Should render an inline variant's extends clause", func() {
+		payload := resolution.Type{
+			Name:      "payload",
+			Synthetic: true,
+			Form: resolution.StructForm{
+				Extends: []resolution.TypeRef{{Name: "RegisterValue"}},
+				Fields: []resolution.Field{{
+					Name: "string_length",
+					Type: resolution.TypeRef{Name: "int32"},
+				}},
+			},
+		}
+		t := resolution.Type{
+			Name: "ReadChannel",
+			Form: resolution.UnionForm{
+				Discriminator: "type",
+				Variants: []resolution.UnionVariant{{
+					Name:   "holding_register",
+					Type:   resolution.TypeRef{Name: "payload"},
+					Inline: true,
+				}},
+			},
+		}
+		rendered := versions.Render(
+			[]versions.Decl{{Type: t}},
+			versions.RenderOptions{
+				Resolve: func(name string) (resolution.Type, bool) {
+					if name == "payload" {
+						return payload, true
+					}
+					return resolution.Type{}, false
+				},
+			},
+		)
+		Expect(rendered).To(
+			ContainSubstring("holding_register extends RegisterValue {"),
+		)
+		Expect(rendered).To(ContainSubstring("string_length int32"))
+	})
+
 	It("Should append extra lines to single-line declarations", func() {
 		t := resolution.Type{
 			Name: "Span",
