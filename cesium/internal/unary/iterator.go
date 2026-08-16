@@ -274,7 +274,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 func (i *Iterator) autoPrev(ctx context.Context) bool {
 	i.view.End = i.view.Start
-	startApprox, err := i.idx.Stamp(
+	viewStart, err := i.idx.Stamp(
 		ctx,
 		i.view.Start,
 		-i.AutoChunkSize,
@@ -284,18 +284,29 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	if startApprox.Lower.Before(i.bounds.Start) {
+	if viewStart.Lower.Before(i.bounds.Start) {
 		return i.Prev(ctx, i.bounds.Start.Span(i.view.End))
 	}
-	i.view.Start = startApprox.Lower + 1
+	i.view.Start = viewStart.Lower + 1
 	i.reset(i.view.BoundBy(i.bounds))
 	nRemaining := i.AutoChunkSize
 	for {
-		if !i.internal.TimeRange().OverlapsWith(i.view) {
+		domainTR := i.internal.TimeRange()
+		// Domains are ordered, so one ending at or before the view start belongs to the
+		// previous chunk. Leave the iterator on it and keep this chunk's samples.
+		if domainTR.End.BeforeEq(i.view.Start) {
+			break
+		}
+		if !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Prev() {
-				return false
+				break
 			}
 			continue
+		}
+		startApprox, alignment, err := i.approximateStart(ctx)
+		if err != nil {
+			i.err = err
+			return false
 		}
 		endApprox, err := i.approximateEnd(ctx)
 		if err != nil {
@@ -309,12 +320,15 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			return false
 		}
 		startSample := max(endSample-nRemaining, 0)
+		// approximateStart stamps the alignment at the view start. This chunk may begin
+		// earlier in the domain, so move the alignment back with it.
+		alignment -= telem.Alignment(pickSampleOffset(startApprox) - startSample)
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, 0, startOffset, endOffset-startOffset)
+		series, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false

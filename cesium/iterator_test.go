@@ -441,6 +441,36 @@ var _ = Describe("Iterator Behavior", func() {
 						uint32(0),
 					),
 				)
+
+				// Each value equals the index of the sample holding it, so a chunk is
+				// aligned correctly when its alignment equals its first value.
+				DescribeTable(
+					"should align a backward auto-span read with the samples it returns",
+					func(ctx SpecContext, chunk int64) {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:        telem.SecondTS.Range(telem.TimeStampMax),
+							Channels:      []cesium.ChannelKey{dataKey},
+							AutoChunkSize: chunk,
+						}))
+						Expect(i.SeekLast()).To(BeTrue())
+						var got []int64
+						for i.Prev(cesium.AutoSpan) {
+							for _, s := range i.Value().RawSeries() {
+								vals := telem.UnmarshalSeries[int64](s)
+								Expect(s.Alignment).To(Equal(
+									telem.NewAlignment(0, uint32(vals[0])),
+								))
+								got = append(got, vals...)
+							}
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(ContainElements(
+							int64(0), int64(1), int64(2), int64(3), int64(4),
+						))
+					},
+					Entry("chunk smaller than the domain", int64(2)),
+					Entry("chunk larger than the domain", int64(10)),
+				)
 			})
 
 			// A chunk that runs out of samples before it is full must stop at the next
