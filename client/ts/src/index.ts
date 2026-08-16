@@ -26,6 +26,7 @@ export { control } from "@/control";
 export { device } from "@/device";
 export {
   AuthError,
+  ConfigurationError,
   ContiguityError,
   DisconnectedError,
   isConnectionError,

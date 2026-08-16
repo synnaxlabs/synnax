@@ -14,6 +14,11 @@ import { z } from "zod";
 export class SynnaxError extends errors.createTyped("sy") {}
 
 /**
+ * Raised when a configuration error occurs.
+ */
+export class ConfigurationError extends SynnaxError.sub("configuration") {}
+
+/**
  * Raised when a validation error occurs.
  */
 export class ValidationError extends SynnaxError.sub("validation") {}
