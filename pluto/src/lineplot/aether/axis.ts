@@ -191,7 +191,7 @@ export class BaseAxis<
     hold: boolean,
     fetchDataBounds: () => bounds.Bounds[],
     viewport: box.Box,
-  ): [scale.Scale, Error | null] {
+  ): [scale.Scale, bounds.Bounds, Error | null] {
     const [bounds, err] = this.iBounds(hold, fetchDataBounds);
     const dir = direction.swap(direction.construct(this.state.location));
     return [
@@ -199,6 +199,7 @@ export class BaseAxis<
         .scale(1)
         .translate(-box.root(viewport)[dir])
         .magnify(1 / box.dim(viewport, dir)),
+      bounds,
       err,
     ];
   }

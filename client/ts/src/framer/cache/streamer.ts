@@ -260,6 +260,13 @@ export class MultiplexedStreamer {
     });
   }
 
+  // A flushed buffer stops claiming live coverage, so reads refetch the span the
+  // stream will not deliver.
+  private flushBuffers(keys: Iterable<channel.Key>): void {
+    const { cache } = this.props;
+    for (const key of keys) cache.get(key).flushDynamic();
+  }
+
   private async reconcile(): Promise<void> {
     const { instrumentation: ins } = this.props;
     let retry = false;
@@ -268,9 +275,11 @@ export class MultiplexedStreamer {
       const desired = this.desiredKeys();
       try {
         if (desired.size === 0) {
+          const removed = this.sentKeys;
           this.sentKeys = new Set();
           this.statuses.clear();
           await this.releaseStream();
+          this.flushBuffers(removed);
           this.breaker.reset();
           ins.L.info("streamer closed, no keys to stream");
           return;
@@ -283,6 +292,7 @@ export class MultiplexedStreamer {
           return;
         const arrKeys = Array.from(desired);
         const fresh = arrKeys.filter((k) => !this.sentKeys.has(k));
+        const removed = Array.from(this.sentKeys).filter((k) => !desired.has(k));
         if (this.streamer == null) {
           ins.L.info("creating new streamer", { keys: arrKeys });
           const streamer = await this.props.openStreamer(
@@ -290,8 +300,12 @@ export class MultiplexedStreamer {
             {
               onReopen: () =>
                 this.sentKeys.forEach((key) => this.setStatus(key, STREAMING)),
-              onDrop: () =>
-                this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING)),
+              // Frames may drop until the reopen, so the buffers' live-coverage
+              // claims end here.
+              onDrop: () => {
+                this.flushBuffers(this.sentKeys);
+                this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
+              },
             },
           );
           this.streamer = streamer;
@@ -304,6 +318,7 @@ export class MultiplexedStreamer {
           await this.streamer.update(arrKeys);
         }
         this.sentKeys = desired;
+        this.flushBuffers(removed);
         // Existing keys keep their status so a demand change cannot clear a per-key
         // error.
         fresh.forEach((key) => this.setStatus(key, STREAMING));
@@ -337,9 +352,14 @@ export class MultiplexedStreamer {
           else existing.push(s);
         });
         const changed: Map<channel.Key, MultiSeries> = new Map();
+        const demanded = this.desiredKeys();
         grouped.forEach((series, k) => {
           try {
-            changed.set(k, cache.get(k).writeDynamic(new MultiSeries(series)));
+            const unary = cache.get(k);
+            changed.set(k, unary.writeDynamic(new MultiSeries(series)));
+            // A frame for a key with no remaining demand arrived behind the
+            // stream update; its buffer must not claim live coverage.
+            if (!demanded.has(k)) unary.flushDynamic();
             this.setStatus(k, STREAMING);
           } catch (e) {
             this.setStatus(k, status.fromException(e, "failed to buffer channel"));
@@ -362,6 +382,7 @@ export class MultiplexedStreamer {
       if (!this.connMu.closed && this.streamer === streamer) {
         this.streamer = null;
         this.runLoop = null;
+        this.flushBuffers(this.sentKeys);
         this.sentKeys = new Set();
         this.scheduleReconcile(TimeSpan.ZERO);
       }
