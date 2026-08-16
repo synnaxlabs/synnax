@@ -25,7 +25,7 @@ const SOURCES: HandleSpec[] = [{ key: "output", Icon: Icon.Value }];
 
 export const StableFor = ({ config: { duration } }: SymbolProps) => (
   <Base
-    type="Stable For"
+    type="Stable for"
     Icon={<Icon.Time />}
     color={color.cssString(color.setAlpha(PURPLE_HEX, 0.2))}
     textColor={color.cssString(PURPLE_HEX)}

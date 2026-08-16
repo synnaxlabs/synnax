@@ -34,7 +34,7 @@ describe("User.useAssignRoleModal", () => {
       client,
       params: { userKey: subject.key },
     });
-    await waitFor(() => expect(screen.getByText("Assign Role")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Assign role")).toBeTruthy());
     await waitFor(() =>
       expect(findButton("Assign").className).not.toContain("pluto--disabled"),
     );

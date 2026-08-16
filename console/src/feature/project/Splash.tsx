@@ -101,7 +101,7 @@ export const Splash = (): ReactElement => {
             <Header.Actions>
               <PButton.Button variant="text" color={9} size="medium" onClick={logout}>
                 <Icon.Logout />
-                Log Out
+                Log out
               </PButton.Button>
             </Header.Actions>
           </Header.Header>
@@ -130,7 +130,7 @@ export const Splash = (): ReactElement => {
             <Empty.Action
               grow
               message={
-                searchTerm === "" ? "No projects created." : "No matching projects."
+                searchTerm === "" ? "No projects created" : "No matching projects"
               }
             />
           ) : (
@@ -140,7 +140,7 @@ export const Splash = (): ReactElement => {
           )}
           {hasCreatePermission ? (
             <Button.CreateListItem size="large" onClick={() => openCreate()}>
-              New Project
+              New project
             </Button.CreateListItem>
           ) : (
             <Text.Text color={9} className={CSS.BE("project-splash", "denied")}>

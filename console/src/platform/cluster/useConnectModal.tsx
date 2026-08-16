@@ -108,7 +108,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
           dispatch(Session.Cluster.set({ ...data, key, username: "", password: "" }));
         }
         close();
-      }, "Failed to connect to cluster");
+      }, "Failed to connect to the Core");
 
     return (
       <Modals.Frame className={CSS.B("connect-cluster")}>

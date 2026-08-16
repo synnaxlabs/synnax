@@ -110,7 +110,7 @@ class ConsoleCase(TestCase):
         password_input = self.page.locator(".pluto-field__password input").first
         password_input.fill(password)
 
-        self.page.get_by_role("button", name="Log In").click(timeout=2000)
+        self.page.get_by_role("button", name="Log in").click(timeout=2000)
 
         self.console = Console(self.page, self.client)
 

@@ -129,7 +129,7 @@ interface EmptyActionContentProps {
 }
 
 const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => (
-  <Empty.Action message="No alerts." action="Add an alert" onClick={onAdd} />
+  <Empty.Action message="No alerts" action="Add alert" onClick={onAdd} />
 );
 
 const AlertListItem = (props: List.ItemProps<string>) => {
@@ -294,7 +294,7 @@ const Form: FC = () => {
 const getInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {
   const parsed = ALERT_SCHEMAS.config.safeParse(config ?? {});
   return {
-    name: "PagerDuty Alert Task",
+    name: "PagerDuty alert task",
     type: ALERT_TYPE,
     config: parsed.success ? parsed.data : ALERT_SCHEMAS.config.parse({}),
   };

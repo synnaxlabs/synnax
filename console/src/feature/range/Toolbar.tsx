@@ -43,7 +43,7 @@ const NoRanges = (): ReactElement => {
   return (
     <Empty.Action
       message="No favorited ranges."
-      action={hasRetrievePermission ? "Open Range Explorer" : undefined}
+      action={hasRetrievePermission ? "Open range explorer" : undefined}
       onClick={openExplorer}
     />
   );
@@ -168,7 +168,7 @@ const Actions = (): ReactElement | null => {
   return (
     <Toolbar.Actions>
       {hasRetrievePermission && (
-        <Toolbar.Action tooltip="Open Range Explorer" onClick={openExplorer}>
+        <Toolbar.Action tooltip="Open range explorer" onClick={openExplorer}>
           <Icon.Explore />
         </Toolbar.Action>
       )}

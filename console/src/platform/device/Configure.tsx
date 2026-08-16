@@ -99,8 +99,7 @@ const Internal = <
           {isNameStep ? (
             <>
               <Text.Text>
-                Before you can acquire data from this device, we'll need a few details.
-                To start off, enter a name so it's easy to look up later.
+                First, give this device a name so it's easy to find later.
               </Text.Text>
               <Form.TextField
                 autoFocus
@@ -112,10 +111,8 @@ const Internal = <
           ) : (
             <>
               <Text.Text>
-                Next, we'll need a short identifier for{" "}
-                {methods.get<string>("name").value}. We'll use this as a prefix for all
-                channels associated with this device. We've given you some suggestions
-                below.
+                Next, pick a short identifier for {methods.get<string>("name").value}.
+                It will prefix every channel on this device.
               </Text.Text>
               <Flex.Box gap="small">
                 <Form.TextField

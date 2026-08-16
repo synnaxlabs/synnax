@@ -33,7 +33,7 @@ export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {
         addStatus({
           variant: "error",
           message: `Failed to copy link to ${params.name}`,
-          description: "No active cluster is found",
+          description: "No active Core",
         });
         return;
       }

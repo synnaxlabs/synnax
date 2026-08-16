@@ -426,7 +426,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-const EMPTY_CONTENT = <Empty.Action message="No additional fields." action="" />;
+const EMPTY_CONTENT = <Empty.Action message="No additional fields" />;
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
@@ -565,7 +565,7 @@ const Form: FC = () => {
               emptyContent={
                 <Empty.Action
                   message="No endpoints."
-                  action="Add an endpoint"
+                  action="Add endpoint"
                   onClick={isSnapshot ? undefined : handleAddEndpoint}
                 />
               }
@@ -603,7 +603,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "HTTP Write Task", type: WRITE_TYPE, config: cfg };
+  return { name: "HTTP write task", type: WRITE_TYPE, config: cfg };
 };
 
 const retrieveChannel = async (
@@ -704,7 +704,7 @@ export const useCreateWrite = Task.createUseCreate({
 
 export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  title: "HTTP Write Task",
+  title: "HTTP write task",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateWrite,
 });

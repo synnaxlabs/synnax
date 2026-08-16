@@ -59,7 +59,7 @@ describe("arc editor toolbar", () => {
     expect(await screen.findByText("Basic")).toBeTruthy();
     expect(screen.getByText("Telemetry")).toBeTruthy();
     expect(screen.getByText("Operators")).toBeTruthy();
-    expect(screen.getByText("Flow Control")).toBeTruthy();
+    expect(screen.getByText("Flow control")).toBeTruthy();
     expect(screen.getAllByText("Constant").length).toBeGreaterThan(0);
   });
 
@@ -79,7 +79,7 @@ describe("arc editor toolbar", () => {
     await screen.findByText("Basic");
     fireEvent.click(screen.getByText("Properties"));
     expect(
-      await screen.findByText("Select an Arc element to configure its properties."),
+      await screen.findByText("Select an Arc element to configure its properties"),
     ).toBeTruthy();
   });
 
@@ -159,7 +159,7 @@ describe("arc editor toolbar", () => {
     });
     await renderToolbar(arc.key);
     expect(await screen.findByText(arc.name)).toBeTruthy();
-    expect(await screen.findByText("No Content")).toBeTruthy();
+    expect(await screen.findByText("No content")).toBeTruthy();
     expect(screen.queryByText("Basic")).toBeNull();
   });
 });

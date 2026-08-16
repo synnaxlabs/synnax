@@ -38,7 +38,7 @@ describe("Schematic Commands", () => {
       },
     });
     await openCommandPalette();
-    await selectCommand("Create a schematic");
+    await selectCommand("Create schematic");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource")
       throw new Error("focused tab is not a schematic resource");

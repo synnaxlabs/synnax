@@ -17,7 +17,7 @@ const DEVICE = { key: "dev-key", name: "My Device" };
 describe("device empty states", () => {
   it("should render the none-selected message", () => {
     render(<Device.NoneSelected />);
-    expect(screen.getByText("No device selected.")).toBeTruthy();
+    expect(screen.getByText("No device selected")).toBeTruthy();
   });
 
   it("should prompt to configure and hand the device key to onConfigure", () => {

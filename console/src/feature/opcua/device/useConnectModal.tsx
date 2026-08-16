@@ -47,9 +47,9 @@ const useForm = PDevice.createForm(SCHEMAS);
 
 const INITIAL_VALUES: Device = {
   key: "",
-  name: "OPC UA Server",
+  name: "OPC UA server",
   make: "opc",
-  model: "OPC UA Server",
+  model: "OPC UA server",
   location: "",
   properties: ZERO_PROPERTIES,
   rack: 0,
@@ -114,7 +114,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
         <Modals.Body gap="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-            <Form.Field<rack.Key> path="rack" label="Connect From" required>
+            <Form.Field<rack.Key> path="rack" label="Connect from" required>
               {selectRackRenderProp}
             </Form.Field>
             <Form.TextField
@@ -134,7 +134,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                 inputProps={PASSWORD_INPUT_PROPS}
               />
               <Form.Field<SecurityMode>
-                label="Security Mode"
+                label="Security mode"
                 path="properties.connection.securityMode"
               >
                 {({ value, onChange }) => (
@@ -146,7 +146,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             <Form.Field<SecurityPolicy>
               grow={!hasSecurity}
               path="properties.connection.securityPolicy"
-              label="Security Policy"
+              label="Security policy"
             >
               {({ value, onChange }) => (
                 <SelectSecurityPolicy value={value} onChange={onChange} />
@@ -155,20 +155,20 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             {hasSecurity && (
               <>
                 <Form.Field<string>
-                  label="Client Certificate"
+                  label="Client certificate"
                   path="properties.connection.clientCertificate"
                 >
                   {FS.InputFilePath}
                 </Form.Field>
                 <Form.Field<string>
-                  label="Client Private Key"
+                  label="Client private key"
                   path="properties.connection.clientPrivateKey"
                 >
                   {FS.InputFilePath}
                 </Form.Field>
                 <Form.Field<string>
                   grow
-                  label="Server Certificate"
+                  label="Server certificate"
                   path="properties.connection.serverCertificate"
                 >
                   {FS.InputFilePath}
@@ -180,7 +180,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
         <Modals.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
-              <Triggers.SaveHelpText action="Test Connection" noBar />
+              <Triggers.SaveHelpText action="Connect" noBar />
             ) : (
               <Status.Summary variant={variant} message={stat.description} />
             )}
@@ -211,7 +211,7 @@ const selectRackRenderProp = Component.renderProp(
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "OPC UA Server",
+  placeholder: "OPC UA server",
 } as const;
 
 const ENDPOINT_INPUT_PROPS = {

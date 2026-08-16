@@ -145,8 +145,7 @@ describe("Schematic.useRangeSnapshot", () => {
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "success" && st.message.includes("Successfully snapshotted"),
+          (st) => st.variant === "success" && st.message.includes("Snapshotted"),
         ),
       ).toBe(true),
     );

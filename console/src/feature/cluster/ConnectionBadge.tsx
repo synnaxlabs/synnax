@@ -163,7 +163,7 @@ const Diagnostics = (): ReactElement => {
               onClick={() => client.connection.retryNow()}
             >
               <Icon.Refresh />
-              Retry Now
+              Retry now
             </Button.Button>
           )}
           {activeKey != null && (

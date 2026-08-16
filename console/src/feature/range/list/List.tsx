@@ -180,7 +180,7 @@ const AddButton = (): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
-    <Button.Button tooltip="Create Range" onClick={() => openCreate()} variant="filled">
+    <Button.Button tooltip="Create range" onClick={() => openCreate()} variant="filled">
       <Icon.Add />
     </Button.Button>
   );

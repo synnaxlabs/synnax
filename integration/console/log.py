@@ -63,7 +63,7 @@ class Log(ConsolePage):
         """Add a channel to the log via the 'Add a channel...' row."""
         self.layout.show_visualization_toolbar()
         toolbar = self.page.locator(".console-log-toolbar")
-        add_trigger = toolbar.get_by_text("Add a channel...")
+        add_trigger = toolbar.get_by_text("Add channel...")
         add_trigger.click()
         self.layout.select_from_dropdown(channel_name, "Search channels")
 

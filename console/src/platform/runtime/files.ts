@@ -307,7 +307,7 @@ const pickWritableDirectoryBrowser = async ({
 }: PickWritableDirectoryParams): Promise<WritableDirectory | null> => {
   if (window.showDirectoryPicker == null)
     throw new Error(
-      "This browser does not support writing to a chosen directory. Use Chrome, Edge, or Safari, or run the desktop app.",
+      "This browser cannot write to a chosen directory. Use Chrome, Edge, or Safari, or run the desktop app.",
     );
   let root: FileSystemDirectoryHandle;
   try {

@@ -34,7 +34,7 @@ const Header = ({ onAdd }: HeaderProps) => {
           <Button.Button
             onClick={onAdd}
             variant="filled"
-            tooltip="Add Channel"
+            tooltip="Add channel"
             size="small"
           >
             <Icon.Add />
@@ -51,8 +51,8 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
   const isSnapshot = useIsSnapshot();
   return (
     <Empty.Action
-      message="No channels in task."
-      action="Add a channel"
+      message="No channels in task"
+      action="Add channel"
       onClick={isSnapshot ? undefined : onAdd}
     />
   );

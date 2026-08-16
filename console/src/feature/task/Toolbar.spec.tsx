@@ -128,7 +128,7 @@ describe("task/Toolbar", () => {
     const t = await createTask();
     await renderToolbar();
     expect(await screen.findByText(t.name)).toBeTruthy();
-    expect((await screen.findAllByText("NI Analog Read Task")).length).toBeGreaterThan(
+    expect((await screen.findAllByText("NI analog read task")).length).toBeGreaterThan(
       0,
     );
   });

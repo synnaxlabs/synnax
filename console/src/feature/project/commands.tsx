@@ -22,7 +22,7 @@ const useViewVisible = () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID)
 
 const CreateCommand = Command.create({
   key: "project_create",
-  name: "Create a project",
+  name: "Create project",
   icon: <PProject.CreateIcon />,
   useOnSelect: Project.useCreateModal,
   useVisible: useCreateVisible,
@@ -40,7 +40,7 @@ const useImportProject = () => {
 
 const ImportProjectCommand = Command.create({
   key: "project_import",
-  name: "Import a project",
+  name: "Import project",
   icon: <PProject.ImportIcon />,
   useOnSelect: useImportProject,
   useVisible: useCreateVisible,

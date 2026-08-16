@@ -118,9 +118,9 @@ class TaskPage(ConsolePage):
             layout.press_enter()
 
         if data_saving is not None:
-            if data_saving != layout.get_toggle("Data Saving"):
-                layout.click_checkbox("Data Saving")
+            if data_saving != layout.get_toggle("Data saving"):
+                layout.click_checkbox("Data saving")
 
         if auto_start is not None:
-            if auto_start != layout.get_toggle("Auto Start"):
-                layout.click_checkbox("Auto Start")
+            if auto_start != layout.get_toggle("Auto start"):
+                layout.click_checkbox("Auto start")

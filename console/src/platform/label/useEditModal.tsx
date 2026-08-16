@@ -106,7 +106,7 @@ const LabelListItem = ({
             padHelpText={false}
             inputProps={{
               ref: inputRef,
-              placeholder: "Label Name",
+              placeholder: "Name",
               variant: "text",
               selectOnFocus: true,
               autoFocus: isCreate,
@@ -204,7 +204,7 @@ export const useEditModal = Modals.create(() => {
               onClick={() => setNewFormVisible(true)}
               className={CSS.BE("label", "create")}
             >
-              New Label
+              New label
             </PlatformButton.CreateListItem>
           )}
         </Flex.Box>

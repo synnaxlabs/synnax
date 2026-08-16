@@ -323,7 +323,7 @@ describe("Runtime files", () => {
       removeFilePickers();
       await expect(
         Runtime.pickWritableDirectory({ subdirectory: "out" }),
-      ).rejects.toThrow(/does not support/);
+      ).rejects.toThrow(/cannot write/);
     });
 
     it("should return null when the directory picker is aborted", async () => {

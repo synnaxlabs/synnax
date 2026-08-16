@@ -51,7 +51,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
       if (!allNames.includes(name)) return true;
       addStatus({
         variant: "error",
-        message: `Cannot rename Core to ${name}`,
+        message: `Failed to rename Core to ${name}`,
         description: `A Core with name "${name}" already exists.`,
       });
       return false;
@@ -173,8 +173,8 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         >
           {keys.length === 0 ? (
             <Empty.Action
-              message="No Cores added."
-              action="Add a Core"
+              message="No Cores added"
+              action="Add Core"
               onClick={() => openConnect()}
             />
           ) : (

@@ -26,15 +26,15 @@ const renderSelector = async (renderClient: typeof client | null) => {
 describe("task/Selector", () => {
   it("should render vendor task types once creation is granted", async () => {
     await renderSelector(client);
-    expect(await screen.findByText("NI Analog Read Task")).toBeTruthy();
+    expect(await screen.findByText("NI analog read task")).toBeTruthy();
     expect(screen.getByText("Create a task")).toBeTruthy();
-    expect(screen.getByText("OPC UA Read Task")).toBeTruthy();
-    expect(screen.getByText("LabJack Read Task")).toBeTruthy();
+    expect(screen.getByText("OPC UA read task")).toBeTruthy();
+    expect(screen.getByText("LabJack read task")).toBeTruthy();
   });
 
   it("should render no vendor task types without a client to grant creation", async () => {
     await renderSelector(null);
     expect(await screen.findByText("Create a task")).toBeTruthy();
-    expect(screen.queryByText("NI Analog Read Task")).toBeNull();
+    expect(screen.queryByText("NI analog read task")).toBeNull();
   });
 });

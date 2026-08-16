@@ -78,7 +78,7 @@ const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
 }) => {
   const cfg = digitalWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "NI Digital Write Task", type: DIGITAL_WRITE_TYPE, config: cfg };
+  return { name: "NI digital write task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
@@ -210,7 +210,7 @@ export const useCreateDigitalWrite = Task.createUseCreate({
 
 export const DigitalWriteSelectable = Selector.createSelectable({
   type: DIGITAL_WRITE_TYPE,
-  title: "NI Digital Write Task",
+  title: "NI digital write task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalWrite,
 });

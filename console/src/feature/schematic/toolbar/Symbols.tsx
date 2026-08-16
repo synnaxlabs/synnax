@@ -239,7 +239,7 @@ const RemoteListEmptyContent = ({
   const createSymbol = useCreateSymbol(groupKey);
   return (
     <Empty.Action
-      message="No symbols found."
+      message="No symbols found"
       action="Create symbol"
       onClick={createSymbol}
     />

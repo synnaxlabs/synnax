@@ -17,12 +17,12 @@ import { Select } from "@/select";
 
 const DATA: Select.StaticEntry<TimestampFormat>[] = [
   { key: "ISO", name: "ISO 8601" },
-  { key: "ISODate", name: "ISO Date" },
+  { key: "ISODate", name: "ISO date" },
   { key: "time", name: "Time" },
-  { key: "preciseTime", name: "Precise Time" },
+  { key: "preciseTime", name: "Precise time" },
   { key: "date", name: "Date" },
   { key: "dateTime", name: "Date + Time" },
-  { key: "preciseDate", name: "Precise Date" },
+  { key: "preciseDate", name: "Precise date" },
 ];
 
 export interface SelectTimestampFormatProps extends Omit<

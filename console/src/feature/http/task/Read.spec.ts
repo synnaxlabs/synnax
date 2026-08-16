@@ -25,7 +25,7 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(HTTP.Task.Read, { task: ZERO_DRAFT, ...options });
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add an endpoint"));
+  fireEvent.click(await screen.findByText("Add endpoint"));
   await screen.findByText("Timing mode");
 };
 
@@ -51,7 +51,7 @@ const createReadConfig = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<HTTP.Task.ReadSchemas> = {
-  name: "HTTP Read Task",
+  name: "HTTP read task",
   type: HTTP.Task.READ_TYPE,
   config: HTTP.Task.READ_SCHEMAS.config.parse({}),
 };
@@ -100,7 +100,7 @@ describe("HTTP Read form", () => {
   it("should add a field, select it, and show the enum mapping editor", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByText("Add a field"));
+    fireEvent.click(screen.getByText("Add field"));
     await screen.findByPlaceholderText("/temperature");
     await screen.findByText("Enum mapping");
   });
@@ -108,7 +108,7 @@ describe("HTTP Read form", () => {
   it("should copy the previous field's settings when adding another field", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByText("Add a field"));
+    fireEvent.click(screen.getByText("Add field"));
     const pointer = await screen.findByPlaceholderText("/temperature");
     fireEvent.change(pointer, { target: { value: "/a" } });
     fireEvent.blur(pointer);

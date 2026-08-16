@@ -68,7 +68,7 @@ export interface ToggleEnabledParams {
 }
 
 export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
-  name: "Toggle Enabled",
+  name: "toggle enabled",
   verbs: verbs.UPDATE,
   update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);

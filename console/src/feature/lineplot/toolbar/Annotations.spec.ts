@@ -26,13 +26,13 @@ const renderRulesTab = async () => {
     preloadedState: (key) => createPreloadedState(key),
   });
   fireEvent.click(await screen.findByText("Rules"));
-  await screen.findByText("No annotations added.");
+  await screen.findByText("No annotations added");
   return handle;
 };
 
 const createRule = async () => {
   const handle = await renderRulesTab();
-  fireEvent.click(screen.getByText("Create an annotation"));
+  fireEvent.click(screen.getByText("Create annotation"));
   await screen.findByText("Rule 1");
   await waitFor(async () => {
     const plot = await client.lineplots.retrieve(handle.key);
@@ -97,7 +97,7 @@ describe("lineplot/toolbar/Annotations", () => {
 
   it("persists a line width change to the server", async () => {
     const { key } = await createRule();
-    const input = getLabeledInput("Line Width");
+    const input = getLabeledInput("Line width");
     fireEvent.change(input, { target: { value: "5" } });
     fireEvent.blur(input);
     await waitFor(async () => {
@@ -119,7 +119,7 @@ describe("lineplot/toolbar/Annotations", () => {
 
   it("persists a line dash change to the server", async () => {
     const { key } = await createRule();
-    const input = getLabeledInput("Line Dash");
+    const input = getLabeledInput("Line dash");
     fireEvent.change(input, { target: { value: "8" } });
     fireEvent.blur(input);
     await waitFor(async () => {
@@ -132,7 +132,7 @@ describe("lineplot/toolbar/Annotations", () => {
     const { key, store } = await createRule();
     fireEvent.contextMenu(screen.getByText("Rule 1"));
     fireEvent.click(await screen.findByText("Delete"));
-    expect(await screen.findByText("No annotations added.")).toBeDefined();
+    expect(await screen.findByText("No annotations added")).toBeDefined();
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
       expect(plot.rules).toHaveLength(0);

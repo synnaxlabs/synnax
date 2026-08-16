@@ -71,7 +71,7 @@ export const useImport = (parentGroup?: string): (() => void) => {
             const name = await importSymbolFromData(client, data, parentID, file.name);
             addStatus({
               variant: "success",
-              message: `Successfully imported symbol: ${name}`,
+              message: `Imported ${name}`,
             });
           } catch (e) {
             handleError(e, `Failed to import symbol from ${file.name}`);
@@ -133,7 +133,7 @@ export const useImportGroup = (): (() => void) => {
       if (successCount === memberPaths.length)
         addStatus({
           variant: "success",
-          message: `Successfully imported ${successCount} symbols into group "${manifest.name}"`,
+          message: `Imported ${successCount} symbols into ${manifest.name}`,
         });
       else if (successCount > 0)
         addStatus({

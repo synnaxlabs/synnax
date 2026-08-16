@@ -52,7 +52,7 @@ import { Triggers } from "@/platform/triggers";
 
 const INITIAL_VALUES: Device = {
   key: "",
-  name: "HTTP Server",
+  name: "HTTP server",
   make: "http",
   model: "HTTP server",
   location: "",
@@ -284,7 +284,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                     <Form.TextField
                       grow
                       path="properties.auth.key"
-                      label="API Key"
+                      label="API key"
                       inputProps={AUTH_KEY_INPUT_PROPS}
                     />
                   </Flex.Box>
@@ -309,7 +309,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               <Divider.Divider x />
             </Flex.Box>
             <Flex.Box gap="large">
-              <Text.Text level="h4">Health Check</Text.Text>
+              <Text.Text level="h4">Health check</Text.Text>
               <Flex.Box gap="small">
                 <Flex.Box x align="end">
                   <Form.Field<HealthCheckMethod>
@@ -430,7 +430,7 @@ const selectRackRenderProp = Component.renderProp(
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "HTTP Server",
+  placeholder: "HTTP server",
 } as const;
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "www.example.com" } as const;
@@ -467,14 +467,14 @@ const SelectAuthType = (props: SelectAuthTypeProps) => (
       tooltip={authBearerTooltip}
       tooltipLocation="top"
     >
-      Bearer Token
+      Bearer token
     </Select.Button>
     <Select.Button<AuthType>
       itemKey="api_key"
       tooltip="Sends your API key as a header or query parameter"
       tooltipLocation="top"
     >
-      API Key
+      API key
     </Select.Button>
     <Select.Button<AuthType>
       itemKey="basic"
@@ -497,7 +497,7 @@ const SelectSendAs = (props: SelectSendAsProps) => (
   <Select.Buttons<APIKeyAuthConfigSendAs> {...props} keys={SEND_AS_DATA}>
     <Select.Button<APIKeyAuthConfigSendAs> itemKey="header">Header</Select.Button>
     <Select.Button<APIKeyAuthConfigSendAs> itemKey="query_param">
-      Query Parameter
+      Query parameter
     </Select.Button>
   </Select.Buttons>
 );

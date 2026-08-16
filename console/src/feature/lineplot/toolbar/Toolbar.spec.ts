@@ -32,7 +32,7 @@ describe("lineplot/toolbar/Toolbar", () => {
   it("switches tabs and records the active tab in the session store", async () => {
     const { key, store } = await renderToolbar();
     fireEvent.click(await screen.findByText("Axes"));
-    expect(await screen.findByText("Lower Bound")).toBeDefined();
+    expect(await screen.findByText("Lower bound")).toBeDefined();
     expect(
       Session.LinePlot.selectActiveToolbarTab({ state: store.getState(), key }),
     ).toBe("axes");
@@ -59,7 +59,7 @@ describe("lineplot/toolbar/Toolbar", () => {
   it("renames the plot from the properties tab", async () => {
     const { key, name } = await renderToolbar();
     fireEvent.click(await screen.findByText("Properties"));
-    await screen.findByText("Show Title");
+    await screen.findByText("Show title");
     const newName = uniqueName("renamed");
     const input = await waitFor(() => screen.getByDisplayValue(name));
     fireEvent.change(input, { target: { value: newName } });
@@ -73,8 +73,8 @@ describe("lineplot/toolbar/Toolbar", () => {
   it("toggles title visibility from the properties tab", async () => {
     const { key } = await renderToolbar();
     fireEvent.click(await screen.findByText("Properties"));
-    await screen.findByText("Show Title");
-    const titleSwitch = getSwitch("Show Title");
+    await screen.findByText("Show title");
+    const titleSwitch = getSwitch("Show title");
     expect(titleSwitch.checked).toBe(false);
     fireEvent.click(titleSwitch);
     await waitFor(async () => {
@@ -87,8 +87,8 @@ describe("lineplot/toolbar/Toolbar", () => {
   it("toggles legend visibility from the properties tab", async () => {
     const { key } = await renderToolbar();
     fireEvent.click(await screen.findByText("Properties"));
-    await screen.findByText("Show Legend");
-    const legendSwitch = getSwitch("Show Legend");
+    await screen.findByText("Show legend");
+    const legendSwitch = getSwitch("Show legend");
     expect(legendSwitch.checked).toBe(true);
     fireEvent.click(legendSwitch);
     await waitFor(async () => {

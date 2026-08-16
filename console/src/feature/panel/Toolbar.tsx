@@ -45,7 +45,7 @@ const DeletedContent = ({ name }: Flux.Tombstone): ReactElement => (
 // Deletion is handled by the ResourceGuard, so only the not-found race lands here.
 const NotFoundFallback = (props: Errors.FallbackProps): ReactElement => {
   if (!isNotFound(props.error)) return <Errors.Fallback {...props} />;
-  return <EmptyContent message="This resource could not be found." />;
+  return <EmptyContent message="Resource not found" />;
 };
 
 // Header for a focused component without its own toolbar: the tab's Name (icon +
@@ -59,7 +59,7 @@ const NoToolbarContent = (): ReactElement => {
           <Name allowRename={false} />
         </Toolbar.Title>
       </Toolbar.Header>
-      <Empty.Action x message="This component has no configurable properties." />
+      <Empty.Action x message="No properties to configure" />
     </Toolbar.Content>
   );
 };

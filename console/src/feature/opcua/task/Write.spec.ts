@@ -53,7 +53,7 @@ const createWriteConfig = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<OPCUA.Task.WriteSchemas> = {
-  name: "OPC UA Write Task",
+  name: "OPC UA write task",
   type: OPCUA.Task.WRITE_TYPE,
   config: OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
 };

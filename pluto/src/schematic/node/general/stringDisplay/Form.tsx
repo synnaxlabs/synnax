@@ -40,7 +40,7 @@ const TelemForm = (): ReactElement => {
     onChange(telem.streamChannelStringValue({ channel: key ?? 0 }));
   };
   if (typeof source.channel != "number")
-    throw new Error("Must pass in a channel by key to the String Display form");
+    throw new Error("Must pass in a channel by key to the string display form");
   return (
     <>
       <Input.Item label="Channel" grow>

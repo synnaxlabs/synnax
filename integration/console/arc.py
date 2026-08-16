@@ -67,7 +67,7 @@ class ArcClient:
         add_btn = self.layout.page.locator(f"{self.TOOLBAR_CLASS} button").first
         add_btn.click()
 
-        name_input = self.layout.page.locator("input[placeholder='Automation Name']")
+        name_input = self.layout.page.locator("input[placeholder='Automation name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
 

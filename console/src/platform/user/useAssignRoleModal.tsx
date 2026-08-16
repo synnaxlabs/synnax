@@ -29,7 +29,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
     return (
       <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
         <Modals.Frame>
-          <Modals.Header icon={<Icon.User />}>{title ?? "Assign Role"}</Modals.Header>
+          <Modals.Header icon={<Icon.User />}>{title ?? "Assign role"}</Modals.Header>
           <Modals.Body>
             <Form.Field<access.role.Key> path="role" label="Role">
               {(props) => <Access.Role.Select {...props} />}

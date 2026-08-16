@@ -111,7 +111,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         dragScale={STROKE_WIDTH_DRAG_SCALE}
         bounds={STROKE_WIDTH_BOUNDS}
         shrink={false}
-        tooltip="Stroke Width"
+        tooltip="Stroke width"
       />
       <Input.Numeric
         variant="shadow"
@@ -122,7 +122,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         bounds={DOWNSAMPLE_BOUNDS}
         shrink={false}
         tooltip={
-          line.downsampleMode === "average" ? "Averaging Window" : "Downsampling Factor"
+          line.downsampleMode === "average" ? "Averaging window" : "Downsampling factor"
         }
       />
       <SelectDownsampleMode

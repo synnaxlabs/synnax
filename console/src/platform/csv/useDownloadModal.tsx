@@ -113,12 +113,11 @@ export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
               </Form.Field>
               <DownsampleFactorField
                 path="downsampleFactor"
-                label="Downsample Factor"
+                label="Downsample factor"
               />
               {runtime.getOS() !== "Windows" && (
                 <Text.Text status="warning" weight={450}>
-                  For improved performance when downloading large datasets, we recommend
-                  exporting from the Console when it is running in Google Chrome or
+                  Large downloads are faster when the Console runs in Google Chrome or
                   Microsoft Edge.
                 </Text.Text>
               )}
@@ -179,7 +178,7 @@ const formSchema = z.object({
   channelNames: z.record(channel.keyZ, z.string()).optional(),
   channels: channel.keyZ.array(),
   timeRange: numericTimeRangeZ.refine(({ start, end }) => end >= start, {
-    error: "End time must be after start time",
+    error: "Start time must be before end time",
     path: ["end"],
   }),
   downsampleFactor: z.int().min(1).default(1),

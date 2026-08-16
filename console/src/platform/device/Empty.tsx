@@ -15,7 +15,7 @@ import { Empty } from "@/platform/empty";
 
 export const NoneSelected = (): ReactElement => (
   <Text.Text center color={9}>
-    No device selected.
+    No device selected
   </Text.Text>
 );
 

@@ -30,7 +30,7 @@ export const useRangeSnapshot = () => {
       ({ data }: Flux.AfterSuccessParams<Task.SnapshotParams>) =>
         addStatus({
           variant: "success",
-          message: `Successfully snapshotted ${buildMessage(data)}`,
+          message: `Snapshotted ${buildMessage(data)}`,
         }),
       [buildMessage, addStatus],
     ),

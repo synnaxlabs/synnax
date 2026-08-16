@@ -251,7 +251,7 @@ const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
         className={CSS.BE("mosaic", "empty-action")}
         level="h5"
         message="No components open."
-        action="Create a new component"
+        action="Create component"
         onClick={handleCreate}
       />
     </Flex.Box>
@@ -350,7 +350,7 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
           className={CSS.BE("mosaic", "empty-action")}
           level="h5"
           message="No panels open."
-          action="Create a new panel"
+          action="Create panel"
           onClick={createPanel}
         />
       </Flex.Box>

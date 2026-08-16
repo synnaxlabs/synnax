@@ -27,7 +27,7 @@ describe("arc useCreate", () => {
     await renderArc(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
     await waitFor(() =>
-      expect(screen.getByPlaceholderText("Automation Name")).toBeTruthy(),
+      expect(screen.getByPlaceholderText("Name")).toBeTruthy(),
     );
     const create = await screen.findByRole("button", { name: "Create" });
     await act(async () => {
@@ -42,7 +42,7 @@ describe("arc useCreate", () => {
     await selectTestProject(store, client);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
 
-    const input = await screen.findByPlaceholderText("Automation Name");
+    const input = await screen.findByPlaceholderText("Name");
     fireEvent.change(input, { target: { value: name } });
 
     const create = await screen.findByRole("button", { name: "Create" });

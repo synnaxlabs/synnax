@@ -38,7 +38,7 @@ const UnitsField = Form.buildSelectField<CIFreqUnits, record.KeyedNamed<CIFreqUn
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    resourceName: "Units",
+    resourceName: "units",
     data: [
       { key: "Hz", name: "Hz" },
       { key: "Ticks", name: "Ticks" },
@@ -53,7 +53,7 @@ const PeriodUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    resourceName: "Units",
+    resourceName: "units",
     data: [
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
@@ -66,9 +66,9 @@ const PulseWidthUnitsField = Form.buildSelectField<
   record.KeyedNamed<CIPulseWidthUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
+    resourceName: "scaled units",
     data: [
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
@@ -81,9 +81,9 @@ const SemiPeriodUnitsField = Form.buildSelectField<
   record.KeyedNamed<CISemiPeriodUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
+    resourceName: "scaled units",
     data: [
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
@@ -96,9 +96,9 @@ const TwoEdgeSepUnitsField = Form.buildSelectField<
   record.KeyedNamed<CITwoEdgeSepUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
+    resourceName: "scaled units",
     data: [
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
@@ -108,9 +108,9 @@ const TwoEdgeSepUnitsField = Form.buildSelectField<
 
 const EdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
   fieldKey: "edge",
-  fieldProps: { label: "Starting Edge" },
+  fieldProps: { label: "Starting edge" },
   inputProps: {
-    resourceName: "Starting Edge",
+    resourceName: "starting edge",
     data: [
       { key: "Rising", name: "Rising" },
       { key: "Falling", name: "Falling" },
@@ -120,9 +120,9 @@ const EdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
 
 const StartingEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
   fieldKey: "startingEdge",
-  fieldProps: { label: "Starting Edge" },
+  fieldProps: { label: "Starting edge" },
   inputProps: {
-    resourceName: "Starting Edge",
+    resourceName: "starting edge",
     data: [
       { key: "Rising", name: "Rising" },
       { key: "Falling", name: "Falling" },
@@ -132,9 +132,9 @@ const StartingEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge
 
 const ActiveEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
   fieldKey: "activeEdge",
-  fieldProps: { label: "Active Edge" },
+  fieldProps: { label: "Active edge" },
   inputProps: {
-    resourceName: "Active Edge",
+    resourceName: "active edge",
     data: [
       { key: "Rising", name: "Rising" },
       { key: "Falling", name: "Falling" },
@@ -147,20 +147,20 @@ const CountDirectionField = Form.buildSelectField<
   record.KeyedNamed<CICountDirection>
 >({
   fieldKey: "countDirection",
-  fieldProps: { label: "Count Direction" },
+  fieldProps: { label: "Count direction" },
   inputProps: {
-    resourceName: "Count Direction",
+    resourceName: "count direction",
     data: [
-      { key: "CountUp", name: "Count Up" },
-      { key: "CountDown", name: "Count Down" },
-      { key: "ExternallyControlled", name: "Externally Controlled" },
+      { key: "CountUp", name: "Count up" },
+      { key: "CountDown", name: "Count down" },
+      { key: "ExternallyControlled", name: "Externally controlled" },
     ],
   },
 });
 
 const InitialCountField = Form.buildNumericField({
   fieldKey: "initialCount",
-  fieldProps: { label: "Initial Count" },
+  fieldProps: { label: "Initial count" },
   inputProps: {},
 });
 
@@ -169,21 +169,21 @@ const MeasMethodField = Form.buildSelectField<
   record.KeyedNamed<CIMeasMethod>
 >({
   fieldKey: "measMethod",
-  fieldProps: { label: "Measurement Method" },
+  fieldProps: { label: "Measurement method" },
   inputProps: {
-    resourceName: "Measurement Method",
+    resourceName: "measurement method",
     data: [
-      { key: "LowFreq1Ctr", name: "One Counter (Low Frequency)" },
-      { key: "HighFreq2Ctr", name: "Two Counters (High Frequency)" },
-      { key: "LargeRng2Ctr", name: "Two Counters (Large Range)" },
-      { key: "DynamicAvg", name: "Dynamic Averaging" },
+      { key: "LowFreq1Ctr", name: "One counter (low frequency)" },
+      { key: "HighFreq2Ctr", name: "Two counters (high frequency)" },
+      { key: "LargeRng2Ctr", name: "Two counters (large range)" },
+      { key: "DynamicAvg", name: "Dynamic averaging" },
     ],
   },
 });
 
 const MeasTimeField = Form.buildNumericField({
   fieldKey: "measTime",
-  fieldProps: { label: "Measurement Time (s)" },
+  fieldProps: { label: "Measurement time (s)" },
   inputProps: {},
 });
 
@@ -214,9 +214,9 @@ const COUNTER_TERMINALS = [
 
 const TerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminal",
-  fieldProps: { label: "Input Terminal" },
+  fieldProps: { label: "Input terminal" },
   inputProps: {
-    resourceName: "Input Terminal",
+    resourceName: "input terminal",
     allowNone: true,
     data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
   },
@@ -226,7 +226,7 @@ const FirstEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>(
   fieldKey: "firstEdge",
   fieldProps: { label: "Edge 1" },
   inputProps: {
-    resourceName: "Edge 1",
+    resourceName: "edge 1",
     data: [
       { key: "Rising", name: "Rising" },
       { key: "Falling", name: "Falling" },
@@ -238,7 +238,7 @@ const SecondEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>
   fieldKey: "secondEdge",
   fieldProps: { label: "Edge 2" },
   inputProps: {
-    resourceName: "Edge 2",
+    resourceName: "edge 2",
     data: [
       { key: "Rising", name: "Rising" },
       { key: "Falling", name: "Falling" },
@@ -248,9 +248,9 @@ const SecondEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>
 
 const _FirstTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "firstTerminal",
-  fieldProps: { label: "First Terminal" },
+  fieldProps: { label: "First terminal" },
   inputProps: {
-    resourceName: "First Terminal",
+    resourceName: "first terminal",
     allowNone: true,
     data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
   },
@@ -258,9 +258,9 @@ const _FirstTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
 
 const _SecondTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "secondTerminal",
-  fieldProps: { label: "Second Terminal" },
+  fieldProps: { label: "Second terminal" },
   inputProps: {
-    resourceName: "Second Terminal",
+    resourceName: "second terminal",
     allowNone: true,
     data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
   },
@@ -268,9 +268,9 @@ const _SecondTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
 
 const TerminalAField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminalA",
-  fieldProps: { label: "Input Terminal A" },
+  fieldProps: { label: "Input terminal A" },
   inputProps: {
-    resourceName: "Input Terminal A",
+    resourceName: "input terminal A",
     allowNone: true,
     data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
   },
@@ -278,9 +278,9 @@ const TerminalAField = Form.buildSelectField<string, record.KeyedNamed>({
 
 const TerminalBField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminalB",
-  fieldProps: { label: "Input Terminal B" },
+  fieldProps: { label: "Input terminal B" },
   inputProps: {
-    resourceName: "Input Terminal B",
+    resourceName: "input terminal B",
     allowNone: true,
     data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
   },
@@ -291,14 +291,14 @@ const DecodingTypeField = Form.buildSelectField<
   record.KeyedNamed<CIDecodingType>
 >({
   fieldKey: "decodingType",
-  fieldProps: { label: "Decoding Type" },
+  fieldProps: { label: "Decoding type" },
   inputProps: {
-    resourceName: "Decoding Type",
+    resourceName: "decoding type",
     data: [
       { key: "X1", name: "X1" },
       { key: "X2", name: "X2" },
       { key: "X4", name: "X4" },
-      { key: "TwoPulse", name: "Two Pulse" },
+      { key: "TwoPulse", name: "Two pulse" },
     ],
   },
 });
@@ -308,9 +308,9 @@ const LinearVelocityUnitsField = Form.buildSelectField<
   record.KeyedNamed<CILinearVelocityUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
+    resourceName: "scaled units",
     data: [
       { key: "m/s", name: "m/s" },
       { key: "in/s", name: "in/s" },
@@ -323,9 +323,9 @@ const AngularVelocityUnitsField = Form.buildSelectField<
   record.KeyedNamed<CIAngularVelocityUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
+    resourceName: "scaled units",
     data: [
       { key: "RPM", name: "RPM" },
       { key: "Radians/s", name: "Radians/s" },
@@ -348,18 +348,18 @@ const PulsesPerRevField = Form.buildNumericField({
 
 const InitialPosField = Form.buildNumericField({
   fieldKey: "initialPos",
-  fieldProps: { label: "Initial Position" },
+  fieldProps: { label: "Initial position" },
   inputProps: {},
 });
 
 const InitialAngleField = Form.buildNumericField({
   fieldKey: "initialAngle",
-  fieldProps: { label: "Initial Angle" },
+  fieldProps: { label: "Initial angle" },
   inputProps: {},
 });
 
 const ZIndexEnableField: FC<{ path: string; grow?: boolean }> = ({ path }) => (
-  <Form.SwitchField path={`${path}.zIndexEnable`} label="Z Index Enable" />
+  <Form.SwitchField path={`${path}.zIndexEnable`} label="Z index enable" />
 );
 
 const ZIndexValField: FC<{ path: string; grow?: boolean; disabled?: boolean }> = ({
@@ -383,12 +383,12 @@ const ZIndexPhaseField: FC<{ path: string; grow?: boolean; disabled?: boolean }>
         value={value}
         onChange={(v: string) => onChange(v)}
         disabled={disabled}
-        resourceName="Phase"
+        resourceName="phase"
         data={[
-          { key: "AHighBHigh", name: "A High B High" },
-          { key: "AHighBLow", name: "A High B Low" },
-          { key: "ALowBHigh", name: "A Low B High" },
-          { key: "ALowBLow", name: "A Low B Low" },
+          { key: "AHighBHigh", name: "A high B high" },
+          { key: "AHighBLow", name: "A high B low" },
+          { key: "ALowBHigh", name: "A low B high" },
+          { key: "ALowBLow", name: "A low B low" },
         ]}
       />
     )}
@@ -399,14 +399,14 @@ const TerminalZField: FC<{ path: string; grow?: boolean; disabled?: boolean }> =
   path,
   disabled,
 }) => (
-  <Form.Field<string> path={`${path}.terminalZ`} label="Input Terminal Z">
+  <Form.Field<string> path={`${path}.terminalZ`} label="Input terminal Z">
     {({ value, onChange }) => (
       <Select.Static
         value={value}
         onChange={(v: string | null) => onChange(v ?? "")}
         allowNone
         disabled={disabled}
-        resourceName="Input Terminal Z"
+        resourceName="input terminal Z"
         data={COUNTER_TERMINALS.map((t) => ({ key: t, name: t }))}
       />
     )}
@@ -420,7 +420,7 @@ const LinearPositionUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    resourceName: "Units",
+    resourceName: "units",
     data: [
       { key: "Meters", name: "Meters" },
       { key: "Inches", name: "Inches" },
@@ -436,7 +436,7 @@ const AngularPositionUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    resourceName: "Units",
+    resourceName: "units",
     data: [
       { key: "Degrees", name: "Degrees" },
       { key: "Radians", name: "Radians" },

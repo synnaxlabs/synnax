@@ -35,7 +35,7 @@ class RangesClient:
     FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
     UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
-    NAME_INPUT_PLACEHOLDER = "Range Name"
+    NAME_INPUT_PLACEHOLDER = "Name"
 
     def __init__(
         self,
@@ -135,8 +135,8 @@ class RangesClient:
 
     def open_explorer(self) -> None:
         """Open the Range Explorer page (shows all ranges)."""
-        self.layout.command_palette("Open the Range Explorer")
-        self.layout.page.get_by_text("All Ranges").wait_for(
+        self.layout.command_palette("Open range explorer")
+        self.layout.page.get_by_text("All ranges").wait_for(
             state="visible", timeout=5000
         )
 
@@ -207,9 +207,9 @@ class RangesClient:
             persisted: If True, saves to Synnax server. If False, saves locally only.
             parent: Optional parent range name to set.
             labels: Optional list of label names to add.
-            stage: Optional stage to set ("To Do", "In Progress", "Completed").
+            stage: Optional stage to set ("To do", "In progress", "Completed").
         """
-        self.layout.command_palette("Create a range")
+        self.layout.command_palette("Create range")
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
         self._fill_create_modal(
@@ -238,15 +238,15 @@ class RangesClient:
         if stage is not None:
             stage_button = (
                 modal.locator("button")
-                .filter(has_text="To Do")
-                .or_(modal.locator("button").filter(has_text="In Progress"))
+                .filter(has_text="To do")
+                .or_(modal.locator("button").filter(has_text="In progress"))
                 .or_(modal.locator("button").filter(has_text="Completed"))
                 .first
             )
             self._pick_stage_from_dropdown(stage_button, stage)
 
         if parent is not None:
-            parent_button = modal.locator("button").filter(has_text="Select a range")
+            parent_button = modal.locator("button").filter(has_text="Select range")
             parent_button.click()
             search_input = self.layout.page.locator(
                 "input[placeholder='Search ranges...']"
@@ -516,12 +516,12 @@ class RangesClient:
         """Set the stage in the range overview.
 
         Args:
-            stage: The stage to set ("To Do", "In Progress", "Completed").
+            stage: The stage to set ("To do", "In progress", "Completed").
         """
         stage_button = (
             self.layout.page.locator("button")
-            .filter(has_text="To Do")
-            .or_(self.layout.page.locator("button").filter(has_text="In Progress"))
+            .filter(has_text="To do")
+            .or_(self.layout.page.locator("button").filter(has_text="In progress"))
             .or_(self.layout.page.locator("button").filter(has_text="Completed"))
             .first
         )
@@ -801,7 +801,7 @@ class RangesClient:
     def _get_child_ranges_section(self) -> Locator:
         """Get the Child Ranges section in the overview."""
         return (
-            self.layout.page.get_by_text("Child Ranges", exact=True)
+            self.layout.page.get_by_text("Child ranges", exact=True)
             .locator("..")
             .locator("..")
         )
@@ -861,7 +861,7 @@ class RangesClient:
 
         Args:
             name: The name of the child range.
-            stage: The stage to set ("To Do", "In Progress", "Completed").
+            stage: The stage to set ("To do", "In progress", "Completed").
         """
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)

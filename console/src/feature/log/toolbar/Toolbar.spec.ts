@@ -45,22 +45,22 @@ describe("log/toolbar/Toolbar", () => {
 
   it("defaults to the channels tab", async () => {
     await renderToolbar();
-    expect(await screen.findByText("Add a channel...")).toBeDefined();
+    expect(await screen.findByText("Add channel...")).toBeDefined();
   });
 
   it("switches to the Properties tab when clicked", async () => {
     await renderToolbar();
-    await screen.findByText("Add a channel...");
+    await screen.findByText("Add channel...");
     fireEvent.click(screen.getByText("Properties"));
-    expect(await screen.findByText("Show Channel Names")).toBeDefined();
+    expect(await screen.findByText("Show channel names")).toBeDefined();
   });
 
   it("switches back to the channels tab", async () => {
     await renderToolbar();
-    await screen.findByText("Add a channel...");
+    await screen.findByText("Add channel...");
     fireEvent.click(screen.getByText("Properties"));
-    await screen.findByText("Show Channel Names");
+    await screen.findByText("Show channel names");
     fireEvent.click(screen.getByText("Channels"));
-    expect(await screen.findByText("Add a channel...")).toBeDefined();
+    expect(await screen.findByText("Add channel...")).toBeDefined();
   });
 });

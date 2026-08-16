@@ -151,7 +151,7 @@ describe("Panel.Selector", () => {
     });
     const selected = Session.Panel.selectSelected(store.getState());
     expect(selected).toBeDefined();
-    await waitFor(() => expect(screen.getByText("New Panel")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("New panel")).toBeTruthy());
   });
 
   // The membership query answers in an order the user never chose; the session's

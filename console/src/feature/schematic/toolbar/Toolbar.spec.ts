@@ -67,7 +67,7 @@ describe("Schematic.Toolbar", () => {
       );
       expect(
         await screen.findByText(
-          "Select a schematic element to configure its properties.",
+          "Select a schematic element to configure its properties",
         ),
       ).toBeDefined();
     });

@@ -28,13 +28,13 @@ describe("project/Splash", () => {
       expect(
         screen.getByText("You do not have permission to create a project."),
       ).toBeDefined();
-      expect(screen.queryByText("New Project")).toBeNull();
+      expect(screen.queryByText("New project")).toBeNull();
     });
 
     it("should report why the list is empty when it never loaded", async () => {
       await renderWithConsole(<Project.Splash />);
       expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
-      expect(screen.queryByText("No projects created.")).toBeNull();
+      expect(screen.queryByText("No projects created")).toBeNull();
     });
   });
 
@@ -88,8 +88,8 @@ describe("project/Splash", () => {
       const input = await screen.findByPlaceholderText("Search projects...");
       fireEvent.change(input, { target: { value: uniqueName("nomatchterm") } });
 
-      await screen.findByText("No matching projects.");
-      expect(screen.queryByText("No projects created.")).toBeNull();
+      await screen.findByText("No matching projects");
+      expect(screen.queryByText("No projects created")).toBeNull();
     });
   });
 
@@ -105,8 +105,8 @@ describe("project/Splash", () => {
       );
       const name = `proj-${id.create()}`;
 
-      fireEvent.click(await screen.findByText("New Project"));
-      fireEvent.change(await screen.findByPlaceholderText("Project Name"), {
+      fireEvent.click(await screen.findByText("New project"));
+      fireEvent.change(await screen.findByPlaceholderText("Name"), {
         target: { value: name },
       });
       fireEvent.click(screen.getByRole("button", { name: "Create" }));

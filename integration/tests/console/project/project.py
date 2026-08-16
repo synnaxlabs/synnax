@@ -293,7 +293,7 @@ class Project(ConsoleCase):
             ), f"Export should contain {page_name}.json"
 
     def test_import_project(self) -> None:
-        """Test importing a project through the real "Import a project" command."""
+        """Test importing a project through the real "Import project" command."""
         self.log("Testing import project via command palette")
 
         # Rename the export directory so the imported project has a

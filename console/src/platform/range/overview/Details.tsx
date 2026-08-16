@@ -44,7 +44,7 @@ const Internal = ({ rangeKey }: ParentRangeButtonProps): ReactElement | null => 
   return (
     <Flex.Box x gap="small" align="center">
       <Text.Text weight={450} color={9}>
-        Child Range of
+        Child range of
       </Text.Text>
       <Button.Button
         color={9}
@@ -144,10 +144,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           <Flex.Box x className={CSS.BE("range-overview", "actions")} gap="small">
             <Button.Copy
               text={getPythonCode}
-              tooltip={`Copy Python code to retrieve ${name}`}
+              tooltip={`Copy Python code for ${name}`}
               tooltipLocation="bottom"
               variant="text"
-              successMessage={`Copied Python code to retrieve ${name} to clipboard`}
+              successMessage={`Copied Python code for ${name} to clipboard`}
               textColor={9}
             >
               <Icon.Python />
@@ -155,16 +155,16 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <Button.Copy
               variant="text"
               text={getTypeScriptCode}
-              tooltip={`Copy TypeScript code to retrieve ${name}`}
+              tooltip={`Copy TypeScript code for ${name}`}
               tooltipLocation="bottom"
-              successMessage={`Copied TypeScript code to retrieve ${name} to clipboard`}
+              successMessage={`Copied TypeScript code for ${name} to clipboard`}
               textColor={9}
             >
               <Icon.TypeScript />
             </Button.Copy>
             <Divider.Divider y />
             <Button.Button
-              tooltip={`Download data for ${name} as a CSV`}
+              tooltip={`Download data for ${name} as CSV`}
               tooltipLocation="bottom"
               variant="text"
               textColor={9}

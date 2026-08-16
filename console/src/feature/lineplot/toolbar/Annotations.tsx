@@ -37,8 +37,8 @@ interface EmptyContentProps {
 const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
   <Empty.Action
     x
-    message="No annotations added."
-    action="Create an annotation"
+    message="No annotations added"
+    action="Create annotation"
     onClick={onCreateRule}
   />
 );
@@ -96,7 +96,7 @@ const List = ({
     >
       <Flex.Box className={CSS.BE("line-plot", "toolbar", "annotations-add")}>
         <Button.Button
-          tooltip="Add Rule"
+          tooltip="Add annotation"
           onClick={onCreate}
           size="small"
           variant="filled"
@@ -203,14 +203,14 @@ const Details = ({ ruleKey }: DetailsProps): ReactElement | null => {
         <Input.Item label="Color">
           <Color.Swatch value={rule.color} onChange={handleChangeColor} />
         </Input.Item>
-        <Input.Item label="Line Width">
+        <Input.Item label="Line width">
           <Input.Numeric
             bounds={LINE_WIDTH_BOUNDS}
             onChange={handleChangeLineWidth}
             value={rule.lineWidth}
           />
         </Input.Item>
-        <Input.Item label="Line Dash">
+        <Input.Item label="Line dash">
           <Input.Numeric
             bounds={LINE_DASH_BOUNDS}
             onChange={handleChangeLineDash}

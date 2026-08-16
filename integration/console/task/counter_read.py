@@ -27,24 +27,24 @@ from console.task.ni import NIChannel, NITask
 
 # Valid channel types for NI Counter Read tasks
 COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
-    "Position Angular": AngularPosition,
-    "Velocity Angular": AngularVelocity,
-    "Duty Cycle": DutyCycle,
-    "Edge Count": EdgeCount,
+    "Position angular": AngularPosition,
+    "Velocity angular": AngularVelocity,
+    "Duty cycle": DutyCycle,
+    "Edge count": EdgeCount,
     "Frequency": Frequency,
-    "Position Linear": LinearPosition,
-    "Velocity Linear": LinearVelocity,
+    "Position linear": LinearPosition,
+    "Velocity linear": LinearVelocity,
     "Period": Period,
-    "Pulse Width": PulseWidth,
-    "Semi Period": SemiPeriod,
-    "Two Edge Separation": TwoEdgeSeparation,
+    "Pulse width": PulseWidth,
+    "Semi period": SemiPeriod,
+    "Two edge separation": TwoEdgeSeparation,
 }
 
 
 class CounterRead(NITask):
     """NI Counter Read Task automation interface."""
 
-    page_type: str = "NI Counter Read Task"
+    page_type: str = "NI counter read task"
     pluto_label: str = ".console-task-configure--ni_counter_read"
 
     def add_channel(
@@ -115,7 +115,7 @@ class CounterRead(NITask):
         )
 
         if sample_rate is not None:
-            self.layout.fill_input_field("Sample Rate", str(sample_rate))
+            self.layout.fill_input_field("Sample rate", str(sample_rate))
 
         if stream_rate is not None:
-            self.layout.fill_input_field("Stream Rate", str(stream_rate))
+            self.layout.fill_input_field("Stream rate", str(stream_rate))
