@@ -123,7 +123,7 @@ std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {
     auto [ljm, ljm_err] = ljm::API::load();
     if (ljm_err) LOG(WARNING) << ljm_err;
     return std::make_unique<Factory>(
-        ljm != nullptr ? std::make_shared<device::Manager>(ljm) : nullptr,
+        ljm != nullptr ? std::make_shared<device::LJMManager>(ljm) : nullptr,
         timing_cfg
     );
 }
