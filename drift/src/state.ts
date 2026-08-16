@@ -419,8 +419,13 @@ export const reduceInternalSetInitial = (
   s: SliceState,
   a: PayloadAction<InternalSetInitialPayload>,
 ): void => {
-  s.config = { ...s.config, ...a.payload };
-  s.label = a.payload.label;
+  // configureStore passes every config key, so an option the caller omitted arrives
+  // as an explicit undefined that a spread would write over the default.
+  const { label, enablePrerender, defaultWindowProps, debug } = a.payload;
+  if (enablePrerender != null) s.config.enablePrerender = enablePrerender;
+  if (defaultWindowProps != null) s.config.defaultWindowProps = defaultWindowProps;
+  if (debug != null) s.config.debug = debug;
+  s.label = label;
   if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
     const prerenderLabel = id.create();
     s.windows[prerenderLabel] = {

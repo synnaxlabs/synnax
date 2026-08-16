@@ -14,6 +14,7 @@ import {
   assignLabel,
   createWindow,
   type CreateWindowPayload,
+  internalSetInitial,
   reducer,
   restoreWindows,
   runtimeSetWindowProps,
@@ -145,6 +146,30 @@ describe("setWindowProps", () => {
     expect(s.windows.pre.visible).toEqual(true);
     s = reducer(s, runtimeSetWindowProps({ label: "pre", position: { x: 5, y: 5 } }));
     expect(s.windows.pre.position).toEqual({ x: 5, y: 5 });
+  });
+});
+
+describe("internalSetInitial", () => {
+  it("should keep the default window props when the caller omits them", () => {
+    const s: SliceState = {
+      ...ZERO_SLICE_STATE,
+      config: {
+        ...ZERO_SLICE_STATE.config,
+        defaultWindowProps: { size: { width: 400, height: 200 } },
+      },
+    };
+    const next = reducer(
+      s,
+      internalSetInitial({
+        label: MAIN_WINDOW,
+        enablePrerender: false,
+        debug: false,
+        defaultWindowProps: undefined,
+      }),
+    );
+    expect(next.config.defaultWindowProps).toEqual({
+      size: { width: 400, height: 200 },
+    });
   });
 });
 
