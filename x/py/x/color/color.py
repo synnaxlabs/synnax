@@ -32,26 +32,7 @@ class Color(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _parse(cls, v: object) -> object:
-        if isinstance(v, Color):
-            return v
-        if isinstance(v, str):
-            if v.startswith("rgb"):
-                return _from_rgb(v)
-            return _from_hex(v)
-        if isinstance(v, (list, tuple)):
-            if len(v) == 3:
-                return {"r": int(v[0]), "g": int(v[1]), "b": int(v[2]), "a": 1.0}
-            if len(v) == 4:
-                return {
-                    "r": int(v[0]),
-                    "g": int(v[1]),
-                    "b": int(v[2]),
-                    "a": float(v[3]),
-                }
-            raise ValueError(f"Invalid color array length: {len(v)}")
-        if isinstance(v, dict):
-            return v
-        raise ValueError(f"Cannot parse color from: {v!r}")
+        return _coerce(v)
 
     def hex(self) -> str:
         """Return the hex string representation of the color."""
@@ -71,6 +52,51 @@ class Color(BaseModel):
     @property
     def is_zero(self) -> bool:
         return self.r == 0 and self.g == 0 and self.b == 0 and self.a == 0
+
+
+def _coerce(v: object) -> object:
+    if isinstance(v, Color):
+        return v
+    if isinstance(v, str):
+        if v.startswith("rgb"):
+            return _from_rgb(v)
+        return _from_hex(v)
+    if isinstance(v, (list, tuple)):
+        if len(v) == 3:
+            return {"r": int(v[0]), "g": int(v[1]), "b": int(v[2]), "a": 1.0}
+        if len(v) == 4:
+            return {
+                "r": int(v[0]),
+                "g": int(v[1]),
+                "b": int(v[2]),
+                "a": _normalize_alpha(float(v[3])),
+            }
+        raise ValueError(f"Invalid color array length: {len(v)}")
+    if isinstance(v, dict):
+        rgba255 = v.get("rgba255")
+        if isinstance(rgba255, (list, tuple)):
+            return _coerce(list(rgba255))
+        a = v.get("a")
+        if isinstance(a, (int, float)) and a > 1:
+            return {**v, "a": _normalize_alpha(float(a))}
+        return v
+    raise ValueError(f"Cannot parse color from: {v!r}")
+
+
+def _normalize_alpha(a: float) -> float:
+    """Lift a legacy 0-255 alpha onto the current 0-1 scale. Old Consoles persisted
+    alpha as a fourth 0-255 channel; the current format caps alpha at 1, so any larger
+    value is legacy. Values in (1, 2] clamp to 1 instead of dividing: a legacy alpha
+    that small means a sub-1% opacity no user sets, while a current-scale value nudged
+    past 1 by float error means opaque. An alpha above 255 fits neither scale and
+    fails validation. Mirrors the rule in the Go color decoders."""
+    if a <= 1:
+        return a
+    if a <= 2:
+        return 1.0
+    if a > 255:
+        raise ValueError(f"alpha {a} is above the 0-255 scale")
+    return a / 255
 
 
 def _from_hex(s: str) -> dict[str, int | float]:
