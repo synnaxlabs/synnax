@@ -18,10 +18,6 @@ import { Project } from "@/platform/project";
 import { Session } from "@/session";
 
 const useCreateVisible = () => Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
-const useExportVisible = () => {
-  const granted = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
-  return Session.Project.useSelectIsAnySelected() && granted;
-};
 
 const CreateCommand = Command.create({
   key: "project_create",
@@ -55,15 +51,12 @@ const ExportProjectCommand = Command.create({
   icon: <PProject.ExportIcon />,
   useOnSelect: () => {
     const handleExport = useExport();
-    const key = Session.Project.useSelectOptionalSelected();
+    const getSelected = Session.Project.useGetSelected();
     return useCallback(() => {
-      // Unreachable outside the deselection race: the command hides without a
-      // selected project.
-      if (key == null) return;
-      handleExport(key);
-    }, [handleExport, key]);
+      handleExport(getSelected());
+    }, [handleExport, getSelected]);
   },
-  useVisible: useExportVisible,
+  useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [CreateCommand, ImportProjectCommand, ExportProjectCommand];
