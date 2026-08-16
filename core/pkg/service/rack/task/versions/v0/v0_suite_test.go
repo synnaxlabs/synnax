@@ -7,8 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2
+package v0_test
 
-// CustomTypeName gives StatusConfig records a table prefix that cannot collide with
-// the identically named config types of other integrations.
-func (StatusConfig) CustomTypeName() string { return "rack_status_config" }
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestRackTaskV0(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Rack Task v0 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

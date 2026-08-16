@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/task_config/v0"
-
 Key = v1.Key
 
 StatusDetails = v1.StatusDetails
@@ -42,12 +40,6 @@ Rack struct {
         Core. Racks are the integration point between the Core and physical hardware
         through the Driver.
     """
-    @go marshal
-    @go migrate
-}
-
-StatusTaskConfig struct extends task_config.Keyed {
-    @doc value  "configures the rack status reporting task, which carries no settings."
     @go marshal
     @go migrate
 }
