@@ -9,18 +9,18 @@
 
 import { Button, Icon } from "@synnaxlabs/pluto";
 
-import { type Params, use } from "@/platform/export/use";
+import { type ResourceParams, useResource } from "@/platform/export/use";
 
 export interface ToolbarButtonProps extends Omit<
   Button.ButtonProps,
   "onClick" | "children"
 > {
   /** Resolves the resource to export, evaluated when the button is clicked. */
-  getParams: () => Params;
+  getParams: () => ResourceParams;
 }
 
 export const ToolbarButton = ({ getParams, ...rest }: ToolbarButtonProps) => {
-  const handleExport = use();
+  const handleExport = useResource();
   return (
     <Button.Button
       tooltip="Export layout"

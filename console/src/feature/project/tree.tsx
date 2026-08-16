@@ -30,7 +30,6 @@ import {
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/project/export";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
@@ -80,7 +79,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const createSchematic = Schematic.useCreate({ project: projectKey });
   const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = useExport();
+  const handleExport = Export.use();
   const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];
@@ -139,12 +138,18 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           {hasUpdatePermission && (
             <Menu.Item itemKey="import" onClick={() => importComponent(firstID.key)}>
               <Icon.Import />
-              Import component(s)
+              Import components
             </Menu.Item>
           )}
           <Menu.Divider />
           <Export.ContextMenuItem
-            onClick={() => handleExport(first.id.key, first.name)}
+            onClick={() =>
+              handleExport({
+                stream: (client) => client.projects.export(first.id.key),
+                name: first.name,
+                extension: "zip",
+              })
+            }
           />
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: first.name, ontologyID: first.id })}

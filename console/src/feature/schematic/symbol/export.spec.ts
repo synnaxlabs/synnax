@@ -11,7 +11,6 @@ import { group, schematic } from "@synnaxlabs/client";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Schematic } from "@/feature/schematic";
 import { client, createSymbolPayload } from "@/feature/schematic/testutil";
 import { Export } from "@/platform/export";
 import {
@@ -54,7 +53,9 @@ describe("exporting a symbol", () => {
       ...createSymbolPayload(name),
       parent: group.ontologyID(root.key),
     });
-    const { result } = await renderHookWithConsole(() => Export.use(), { client });
+    const { result } = await renderHookWithConsole(() => Export.useResource(), {
+      client,
+    });
     act(() => result.current({ id: schematic.symbol.ontologyID(symbol.key), name }));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${name}.json`);
@@ -66,16 +67,19 @@ describe("exporting a symbol", () => {
   });
 });
 
-describe("Schematic.Symbol.useExportGroup", () => {
+describe("exporting a symbol group", () => {
   it("downloads the group as a zip named after the group", async () => {
     const downloads = captureBrowserDownloads();
     const names = [uniqueName("sym_a"), uniqueName("sym_b")];
     const { grp } = await createSymbolGroup(names);
-    const { result } = await renderHookWithConsole(
-      () => Schematic.Symbol.useExportGroup(),
-      { client },
+    const { result } = await renderHookWithConsole(() => Export.use(), { client });
+    act(() =>
+      result.current({
+        stream: (c) => c.schematics.symbols.exportGroup(grp.key),
+        name: grp.name,
+        extension: "zip",
+      }),
     );
-    act(() => result.current(grp));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${grp.name}.zip`);
     // Zip entry names are stored uncompressed, so the archive names its own files.

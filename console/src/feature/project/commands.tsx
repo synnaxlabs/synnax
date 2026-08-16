@@ -11,9 +11,9 @@ import { project } from "@synnaxlabs/client";
 import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useExport } from "@/feature/project/export";
 import { import_ } from "@/feature/project/import";
 import { Command } from "@/platform/command";
+import { Export } from "@/platform/export";
 import { Project } from "@/platform/project";
 import { Session } from "@/session";
 
@@ -50,16 +50,17 @@ const ExportProjectCommand = Command.create({
   name: "Export current project",
   icon: <PProject.ExportIcon />,
   useOnSelect: () => {
-    const handleExport = useExport();
+    const handleExport = Export.use();
     const getSelected = Session.Project.useGetSelected();
-    const handleError = Status.useErrorHandler();
     return useCallback(() => {
-      // getSelected throws when no project is selected, so it runs inside the
-      // handler boundary instead of the bare click handler.
-      handleError(() => {
-        handleExport(getSelected());
-      }, "Failed to export project");
-    }, [handleExport, getSelected, handleError]);
+      // getSelected throws when no project is selected, so it runs inside the stream
+      // fetcher, within the export handler's error boundary.
+      handleExport({
+        stream: (client) => client.projects.export(getSelected()),
+        name: "project",
+        extension: "zip",
+      });
+    }, [handleExport, getSelected]);
   },
   useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
 });

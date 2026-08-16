@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Export } from "@/platform/export";
 import { renderWithConsole } from "@/testutil";
 
-const getParams = (): Export.Params => ({
+const getParams = (): Export.ResourceParams => ({
   id: log.ontologyID("k"),
   name: "My Log",
 });

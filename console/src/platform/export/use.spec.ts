@@ -35,6 +35,27 @@ describe("Export.use", () => {
       run: Export.use(),
       notifications: Status.useNotifications(),
     }));
+    const stream = vi.fn();
+    act(() => result.current.run({ stream, name: "My Plot", extension: "json" }));
+    await waitFor(() =>
+      expect(
+        result.current.notifications.statuses.some(
+          (s) => s.variant === "error" && s.message === "Failed to export My Plot",
+        ),
+      ).toBe(true),
+    );
+    // The disconnected check runs before the stream fetcher, so no request is made.
+    expect(stream).not.toHaveBeenCalled();
+    expect(downloads.anchors).toHaveLength(0);
+  });
+});
+
+describe("Export.useResource", () => {
+  it("surfaces an error status and saves nothing when disconnected", async () => {
+    const { result } = await renderHookWithConsole(() => ({
+      run: Export.useResource(),
+      notifications: Status.useNotifications(),
+    }));
     act(() =>
       result.current.run({ id: lineplot.ontologyID("plot-1"), name: "My Plot" }),
     );

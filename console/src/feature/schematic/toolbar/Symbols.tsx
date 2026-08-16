@@ -30,7 +30,6 @@ import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import { useExportGroup } from "@/feature/schematic/symbol/export";
 import {
   useImport as useImportSymbol,
   useImportGroup,
@@ -192,7 +191,7 @@ const RemoteSymbolListContextMenu = ({
     icon: "Schematic",
   });
   const openEdit = Symbol.Edit.useModal();
-  const exportSymbol = Export.use();
+  const exportSymbol = Export.useResource();
   const del = Schematic.Symbol.useDelete({
     beforeUpdate: async () => {
       if (item == null) return false;
@@ -426,7 +425,7 @@ const GroupListContextMenu = ({
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Group>(firstKey);
-  const exportGroup = useExportGroup();
+  const exportGroup = Export.use();
   const deleteSymbolGroup = Symbol.useDeleteGroup();
 
   if (!isRemoteGroup) return null;
@@ -436,7 +435,12 @@ const GroupListContextMenu = ({
       <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => {
-          if (item != null) exportGroup(item);
+          if (item != null)
+            exportGroup({
+              stream: (client) => client.schematics.symbols.exportGroup(item.key),
+              name: item.name,
+              extension: "zip",
+            });
         }}
       />
       <Menu.Divider />

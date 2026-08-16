@@ -360,7 +360,7 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = Export.use();
+  const handleExport = Export.useResource();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
