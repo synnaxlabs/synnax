@@ -30,7 +30,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
-import { BoundsCache, seriesOverlap } from "@/vis/line/aether/bounds";
+import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
@@ -275,7 +275,6 @@ interface InternalState {
 
   xDownsampler: telem.SeriesDownsampler;
   yDownsampler: telem.SeriesDownsampler;
-  boundsCache: BoundsCache;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -289,7 +288,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     };
     i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
     i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
-    i.boundsCache ??= new BoundsCache();
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
@@ -330,11 +328,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    * @returns the y bounds of this line's samples inside the window.
    */
   yBounds(xWindow: bounds.Bounds): bounds.Bounds {
-    const { xTelem, yTelem, boundsCache } = this.internal;
+    const { xTelem, yTelem } = this.internal;
     const [b, yData] = yTelem.value();
     if (!bounds.isFinite(xWindow)) return b;
     const [, xData] = xTelem.value();
-    return boundsCache.value(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD);
+    return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD);
   }
 
   findByXValue(props: LineProps, target: number): FindResult {
