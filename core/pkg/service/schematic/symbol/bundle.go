@@ -10,9 +10,7 @@
 package symbol
 
 import (
-	"cmp"
 	"context"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -49,13 +47,7 @@ func (s *Service) ExportGroup(
 	}
 	symbols, skipped := partitionSymbols(children)
 	s.warnSkipped(root.Name, skipped)
-	// A stable order keeps suffix assignment deterministic across exports.
-	slices.SortFunc(symbols, func(a, b ontology.Resource) int {
-		return cmp.Or(
-			cmp.Compare(a.Name, b.Name),
-			cmp.Compare(a.ID.String(), b.ID.String()),
-		)
-	})
+	imex.SortResources(symbols)
 	members := lo.Map(symbols, func(r ontology.Resource, _ int) ontology.ID {
 		return r.ID
 	})

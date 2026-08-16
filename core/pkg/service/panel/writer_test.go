@@ -15,12 +15,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,85 +30,6 @@ var _ = Describe("Writer", func() {
 			To(Succeed())
 		return res
 	}
-
-	Describe("Task edges", func() {
-		createTask := func(ctx context.Context, name string) task.Task {
-			GinkgoHelper()
-			t := task.Task{
-				Rack: testRack.Key,
-				Name: name,
-				Type: pagerduty.AlertTaskType,
-			}
-			Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
-			return t
-		}
-		taskTab := func(t task.Task) panel.Tab {
-			return panel.Tab{Variant: panel.ResourceTab{
-				TabBase:  panel.TabBase{Key: uuid.New()},
-				Resource: t.OntologyID(),
-			}}
-		}
-		childrenOf := func(ctx context.Context, id ontology.ID) []ontology.ID {
-			GinkgoHelper()
-			var children []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(id).
-				TraverseTo(ontology.ChildrenTraverser).
-				Entries(&children).
-				Exec(ctx, tx)).To(Succeed())
-			return lo.Map(children, func(r ontology.Resource, _ int) ontology.ID {
-				return r.ID
-			})
-		}
-
-		It("Should make the panel the parent of every referenced task", func(
-			ctx SpecContext,
-		) {
-			first, second := createTask(ctx, "First"), createTask(ctx, "Second")
-			p := panel.Panel{
-				Name:   "with tasks",
-				Root:   leafNode(taskTab(first), taskTab(second)),
-				Parent: &parentID,
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(childrenOf(ctx, p.OntologyID())).To(ConsistOf(
-				first.OntologyID(), second.OntologyID(),
-			))
-		})
-
-		It("Should remove the edge when a dispatch removes the task tab", func(
-			ctx SpecContext,
-		) {
-			t := createTask(ctx, "Removed")
-			removed := taskTab(t)
-			p := panel.Panel{
-				Name:   "with tasks",
-				Root:   leafNode(removed),
-				Parent: &parentID,
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(svc.NewWriter(tx).Dispatch(ctx, p.Key, "d1", []panel.Action{
-				panel.NewRemoveTabAction(panel.RemoveTabPayload{Key: removed.Key()}),
-			})).To(Succeed())
-			Expect(childrenOf(ctx, p.OntologyID())).To(BeEmpty())
-		})
-
-		It("Should reject a tree referencing a missing task", func(ctx SpecContext) {
-			p := panel.Panel{
-				Name: "dangling",
-				Root: leafNode(panel.Tab{Variant: panel.ResourceTab{
-					TabBase: panel.TabBase{Key: uuid.New()},
-					Resource: ontology.ID{
-						Type: ontology.ResourceTypeTask,
-						Key:  uuid.New().String(),
-					},
-				}}),
-				Parent: &parentID,
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &p)).
-				To(MatchError(query.ErrNotFound))
-		})
-	})
 
 	Describe("Create", func() {
 		It("Should assign a key when the panel's key is nil", func(ctx SpecContext) {

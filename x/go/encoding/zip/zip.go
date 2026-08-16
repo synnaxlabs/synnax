@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/fs"
 	"maps"
 	"slices"
 	"strings"
@@ -76,11 +77,11 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	return encoding.SugarEncodingError(value, zw.Close())
 }
 
-// validateEntryName returns an error wrapping validate.ErrValidation when name is not a
-// relative forward-slash path of non-empty segments: an empty name, a backslash, a
-// leading, trailing, or doubled slash, or a "." or ".." segment. It names the offender
-// itself rather than going through encoding.SugarEncodingError, which reports the whole
-// file map and drops the reason.
+// validateEntryName returns an error wrapping validate.ErrValidation when name is not
+// a relative forward-slash path of non-empty segments — the fs.ValidPath rules, minus
+// the "." root, which addresses a directory — or when it holds a backslash. It names
+// the offender itself rather than going through encoding.SugarEncodingError, which
+// reports the whole file map and drops the reason.
 func validateEntryName(name string) error {
 	if name == "" {
 		return errors.Wrap(validate.ErrValidation, "file name is empty")
@@ -90,19 +91,10 @@ func validateEntryName(name string) error {
 			validate.ErrValidation, "file name %q holds a backslash", name,
 		)
 	}
-	for segment := range strings.SplitSeq(name, "/") {
-		switch segment {
-		case "":
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"file name %q holds an empty path segment",
-				name,
-			)
-		case ".", "..":
-			return errors.Wrapf(
-				validate.ErrValidation, "file name %q addresses a directory", name,
-			)
-		}
+	if name == "." || !fs.ValidPath(name) {
+		return errors.Wrapf(
+			validate.ErrValidation, "file name %q is not a valid relative path", name,
+		)
 	}
 	return nil
 }

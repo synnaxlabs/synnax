@@ -52,9 +52,14 @@ const ExportProjectCommand = Command.create({
   useOnSelect: () => {
     const handleExport = useExport();
     const getSelected = Session.Project.useGetSelected();
+    const handleError = Status.useErrorHandler();
     return useCallback(() => {
-      handleExport(getSelected());
-    }, [handleExport, getSelected]);
+      // getSelected throws when no project is selected, so it runs inside the
+      // handler boundary instead of the bare click handler.
+      handleError(() => {
+        handleExport(getSelected());
+      }, "Failed to export project");
+    }, [handleExport, getSelected, handleError]);
   },
   useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
 });

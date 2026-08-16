@@ -19,7 +19,7 @@ import { Session } from "@/session";
 import {
   captureBrowserDownloads,
   interceptFilePicker,
-  removeFilePickers,
+  removeSaveFilePicker,
   uniqueName,
 } from "@/testutil";
 
@@ -51,7 +51,7 @@ const createProjectWithPanel = async (): Promise<{
 
 describe("Project Commands", () => {
   afterEach(() => {
-    removeFilePickers();
+    removeSaveFilePicker();
     vi.restoreAllMocks();
   });
 
@@ -96,7 +96,9 @@ describe("Project Commands", () => {
     await openCommandPalette();
     await selectCommand("Export current project");
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
-    expect(downloads.anchors[0].download).toBe(`${proj.name}.zip`);
+    // The palette command does not know the selected project's name, so the file
+    // takes the default.
+    expect(downloads.anchors[0].download).toBe("project.zip");
     // Zip entry names are stored uncompressed, so the archive names its own files.
     const archive = new TextDecoder().decode(await downloads.blobs[0].arrayBuffer());
     expect(archive.startsWith("PK")).toBe(true);

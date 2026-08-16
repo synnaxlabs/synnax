@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -153,14 +152,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	testRack = &rack.Rack{Name: "API Test Rack"}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 })
-
-// authedCtx returns a freighter.Context derived from ctx with the given user
-// installed as the request subject so auth.GetSubject succeeds.
-func authedCtx(ctx SpecContext, u user.User) freighter.Context {
-	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
-	return fctx
-}
 
 // grantOn creates a policy granting the given action on the given objects to a
 // fresh role and assigns the role to the given subject. Writes commit directly

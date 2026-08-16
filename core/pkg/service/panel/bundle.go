@@ -10,8 +10,11 @@
 package panel
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -53,15 +56,42 @@ type bundleSplit struct {
 func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 	root := stripNonMemberTabs(p.Root, refs)
 	collapseEmptyLeaves(&root)
+	node, err := bundleNode(root, refs)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
 	env := imex.Envelope{
 		Version: 0,
 		Type:    string(ontology.ResourceTypePanel),
 		Name:    p.Name,
 	}
-	if err := imex.Encode(&env, bundleBody{Root: bundleNode(root, refs)}); err != nil {
+	if err := imex.Encode(&env, bundleBody{Root: node}); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
+}
+
+// TaskRefs returns the ID of every task the tree's resource tabs reference, each once.
+func TaskRefs(root Node) []ontology.ID {
+	ids := set.New[ontology.ID]()
+	collectTaskRefs(root, ids)
+	return lo.Keys(ids)
+}
+
+// collectTaskRefs adds the ID of every task the tree's resource tabs reference to ids.
+func collectTaskRefs(n Node, ids set.Set[ontology.ID]) {
+	switch v := n.Variant.(type) {
+	case LeafNode:
+		for _, t := range v.Tabs {
+			if r, ok := t.Variant.(ResourceTab); ok &&
+				r.Resource.Type == ontology.ResourceTypeTask {
+				ids.Add(r.Resource)
+			}
+		}
+	case SplitNode:
+		collectTaskRefs(v.First, ids)
+		collectTaskRefs(v.Last, ids)
+	}
 }
 
 // stripNonMemberTabs removes every resource tab whose target refs does not name,
@@ -90,9 +120,9 @@ func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 }
 
 // bundleNode converts a node to its bundle wire form, rewriting each resource tab's
-// target to its path from refs. A resource tab whose target refs does not name is
-// skipped, the same rule stripNonMemberTabs applies.
-func bundleNode(n Node, refs map[ontology.ID]string) any {
+// target to its path from refs. stripNonMemberTabs runs first, so a tab whose target
+// refs does not name is an invariant violation and errors.
+func bundleNode(n Node, refs map[ontology.ID]string) (any, error) {
 	switch v := n.Variant.(type) {
 	case LeafNode:
 		tabs := make([]any, 0, len(v.Tabs))
@@ -102,24 +132,36 @@ func bundleNode(n Node, refs map[ontology.ID]string) any {
 				tabs = append(tabs, t)
 				continue
 			}
-			if path, ok := refs[r.Resource]; ok {
-				tabs = append(tabs, bundleResourceTab{
-					TabBase:  r.TabBase,
-					Variant:  ResourceTabType,
-					Resource: path,
-				})
+			path, ok := refs[r.Resource]
+			if !ok {
+				return nil, errors.Newf(
+					"panel tab references non-member resource %s", r.Resource,
+				)
 			}
+			tabs = append(tabs, bundleResourceTab{
+				TabBase:  r.TabBase,
+				Variant:  ResourceTabType,
+				Resource: path,
+			})
 		}
-		return bundleLeaf{Variant: LeafNodeType, Tabs: tabs}
+		return bundleLeaf{Variant: LeafNodeType, Tabs: tabs}, nil
 	case SplitNode:
+		first, err := bundleNode(v.First, refs)
+		if err != nil {
+			return nil, err
+		}
+		last, err := bundleNode(v.Last, refs)
+		if err != nil {
+			return nil, err
+		}
 		return bundleSplit{
 			Variant:   SplitNodeType,
 			Direction: v.Direction,
 			Size:      v.Size,
-			First:     bundleNode(v.First, refs),
-			Last:      bundleNode(v.Last, refs),
-		}
+			First:     first,
+			Last:      last,
+		}, nil
 	default:
-		return nil
+		return nil, nil
 	}
 }

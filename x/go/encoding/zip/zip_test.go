@@ -91,13 +91,17 @@ var _ = Describe("Encoder", func() {
 			},
 			Entry("an empty name", "", "file name is empty"),
 			Entry("a backslash", `nested\valve.json`, "holds a backslash"),
-			Entry("a leading slash", "/valve.json", "empty path segment"),
-			Entry("a trailing slash", "nested/", "empty path segment"),
-			Entry("a doubled slash", "nested//valve.json", "empty path segment"),
-			Entry("the current directory", ".", "addresses a directory"),
-			Entry("the parent directory", "..", "addresses a directory"),
-			Entry("a parent segment", "nested/../valve.json", "addresses a directory"),
-			Entry("a current segment", "./valve.json", "addresses a directory"),
+			Entry("a leading slash", "/valve.json", "not a valid relative path"),
+			Entry("a trailing slash", "nested/", "not a valid relative path"),
+			Entry("a doubled slash", "nested//valve.json", "not a valid relative path"),
+			Entry("the current directory", ".", "not a valid relative path"),
+			Entry("the parent directory", "..", "not a valid relative path"),
+			Entry(
+				"a parent segment",
+				"nested/../valve.json",
+				"not a valid relative path",
+			),
+			Entry("a current segment", "./valve.json", "not a valid relative path"),
 		)
 	})
 	Describe("EncodeStream", func() {

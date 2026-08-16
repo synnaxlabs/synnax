@@ -181,12 +181,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
   /**
    * Exports the project and its contents as a bundle: a zip archive holding one JSON
    * file per document and panel, group children as directories, and a manifest.json
-   * naming the project. The caller pipes the stream wherever it likes without the
-   * client buffering the whole archive.
+   * naming the project. Two members of one directory that take the same file name keep
+   * distinct names through a numeric suffix. The caller pipes the stream wherever it
+   * likes without the client buffering the whole archive.
    *
    * @param key - the key of the project to export.
    * @returns the bundle as a stream of zip bytes.
-   * @throws {ValidationError} if two members in one directory take the same file name.
    */
   async export(key: Key): Promise<ReadableStream<Uint8Array>> {
     return await this.cfg.file.download("/project/export", { key }, exportReqZ, {

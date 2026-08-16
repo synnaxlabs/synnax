@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -48,7 +49,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := newUser(ctx)
 				p := panel.Panel{Key: uuid.New(), Name: "no-policy", Parent: &parentID}
-				Expect(apiSvc.Create(authedCtx(ctx, u), nil, apipanel.CreateRequest{
+				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -60,7 +61,7 @@ var _ = Describe("Service", func() {
 			grant(ctx, u.OntologyID(), access.ActionCreate,
 				ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
 			res := MustSucceed(
-				apiSvc.Create(authedCtx(ctx, u), nil, apipanel.CreateRequest{
+				apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				}),
 			)
@@ -80,7 +81,7 @@ var _ = Describe("Service", func() {
 				p := panel.Panel{Key: uuid.New(), Name: "no-parent"}
 				grant(ctx, u.OntologyID(), access.ActionCreate,
 					ontology.ID{Type: ontology.ResourceTypePanel})
-				Expect(apiSvc.Create(authedCtx(ctx, u), nil, apipanel.CreateRequest{
+				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil, apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(validate.ErrValidation))
 			},
@@ -94,7 +95,7 @@ var _ = Describe("Service", func() {
 				p := createPanel(ctx, "retrievable")
 				grant(ctx, author.OntologyID(), access.ActionRetrieve, p.OntologyID())
 				res := MustSucceed(
-					apiSvc.Retrieve(authedCtx(ctx, author), apipanel.RetrieveRequest{
+					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 						Keys: []panel.Key{p.Key},
 					}),
 				)
@@ -108,7 +109,7 @@ var _ = Describe("Service", func() {
 			"Should reject the request when the subject cannot retrieve a matched panel",
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "forbidden")
-				Expect(apiSvc.Retrieve(authedCtx(ctx, author), apipanel.RetrieveRequest{
+				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 					Keys: []panel.Key{p.Key},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -122,7 +123,7 @@ var _ = Describe("Service", func() {
 				grant(ctx, author.OntologyID(), access.ActionRetrieve,
 					panel.OntologyID(p.Key), panel.OntologyID(missing))
 				res := MustSucceed(
-					apiSvc.Retrieve(authedCtx(ctx, author), apipanel.RetrieveRequest{
+					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 						Keys:                []panel.Key{p.Key, missing},
 						IgnoreNotFoundError: true,
 					}),
@@ -136,7 +137,7 @@ var _ = Describe("Service", func() {
 			"Should return an empty result when every requested key is missing",
 			func(ctx SpecContext) {
 				res := MustSucceed(
-					apiSvc.Retrieve(authedCtx(ctx, author), apipanel.RetrieveRequest{
+					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 						Keys:                []panel.Key{uuid.New()},
 						IgnoreNotFoundError: true,
 					}),
@@ -151,7 +152,7 @@ var _ = Describe("Service", func() {
 			grant(ctx, author.OntologyID(), access.ActionRetrieve,
 				a.OntologyID(), b.OntologyID())
 			res := MustSucceed(
-				apiSvc.Retrieve(authedCtx(ctx, author), apipanel.RetrieveRequest{
+				apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
 					Keys:   []panel.Key{a.Key, b.Key},
 					Limit:  1,
 					Offset: 1,
@@ -168,7 +169,7 @@ var _ = Describe("Service", func() {
 				p := createPanel(ctx, "dispatch-denied")
 				Expect(
 					apiSvc.Dispatch(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						nil,
 						apipanel.DispatchRequest{
 							Key:         p.Key,
@@ -190,7 +191,7 @@ var _ = Describe("Service", func() {
 				grant(ctx, author.OntologyID(), access.ActionUpdate, p.OntologyID())
 				Expect(
 					apiSvc.Dispatch(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						nil,
 						apipanel.DispatchRequest{
 							Key:         p.Key,
@@ -218,7 +219,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "delete-denied")
 				Expect(
-					apiSvc.Delete(authedCtx(ctx, author), nil, apipanel.DeleteRequest{
+					apiSvc.Delete(AuthedCtx(ctx, author), nil, apipanel.DeleteRequest{
 						Keys: []panel.Key{p.Key},
 					}),
 				).Error().
@@ -229,7 +230,7 @@ var _ = Describe("Service", func() {
 		It("Should delete the panels with the given keys", func(ctx SpecContext) {
 			p := createPanel(ctx, "deletable")
 			grant(ctx, author.OntologyID(), access.ActionDelete, p.OntologyID())
-			Expect(apiSvc.Delete(authedCtx(ctx, author), nil, apipanel.DeleteRequest{
+			Expect(apiSvc.Delete(AuthedCtx(ctx, author), nil, apipanel.DeleteRequest{
 				Keys: []panel.Key{p.Key},
 			})).Error().To(Succeed())
 			var got panel.Panel

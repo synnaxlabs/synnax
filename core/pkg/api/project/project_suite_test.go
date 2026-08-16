@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -109,14 +108,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Username: "test",
 	}))
 })
-
-// authedCtx returns a freighter.Context derived from ctx with the given user installed
-// as the request subject, so auth.GetSubject succeeds inside the api service.
-func authedCtx(ctx SpecContext, u user.User) freighter.Context {
-	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
-	return fctx
-}
 
 func createProject(ctx SpecContext, name string) project.Project {
 	GinkgoHelper()

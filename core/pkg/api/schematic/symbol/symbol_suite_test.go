@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -98,14 +97,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Username: "test",
 	}))
 })
-
-// authedCtx returns a freighter.Context derived from ctx with the given user installed
-// as the request subject, so auth.GetSubject succeeds inside the api service.
-func authedCtx(ctx SpecContext, u user.User) freighter.Context {
-	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
-	return fctx
-}
 
 // createGroup creates a group under the ontology root. It writes outside a transaction
 // so the api enforcers, which read committed state, observe the new resource.

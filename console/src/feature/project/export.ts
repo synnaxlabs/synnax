@@ -16,15 +16,14 @@ import { Runtime } from "@/platform/runtime";
 // The Core owns membership, document serialization, file naming, and the manifest, and
 // the bundle travels as an archive, so the Console streams the response straight to the
 // file the user picks without ever holding it in memory.
-export const useExport = (): ((key: project.Key) => void) => {
+export const useExport = (): ((key: project.Key, name?: string) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const download = Runtime.useDownload();
   return useCallback(
-    (key: project.Key) => {
+    (key: project.Key, name: string = "project") => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
-        const { name } = await client.projects.retrieve(key);
         await download({
           stream: await client.projects.export(key),
           name,

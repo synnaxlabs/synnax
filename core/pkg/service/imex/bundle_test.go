@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,9 +33,35 @@ var _ = Describe("Manifest", func() {
 			"type":    "project",
 			"name":    "Test Stand 12",
 		}))
-		Expect(m).To(HaveKeyWithValue("version", BeNumerically("==", 1)))
-		Expect(m).To(HaveKeyWithValue("type", "project"))
-		Expect(m).To(HaveKeyWithValue("name", "Test Stand 12"))
+	})
+})
+
+var _ = Describe("SortResources", func() {
+	resource := func(name, key string) ontology.Resource {
+		return ontology.Resource{
+			ID:   ontology.ID{Type: "log", Key: key},
+			Name: name,
+		}
+	}
+
+	It("Should order resources by name", func() {
+		resources := []ontology.Resource{
+			resource("Thrust", "b"),
+			resource("Pressure", "a"),
+		}
+		imex.SortResources(resources)
+		Expect(resources[0].Name).To(Equal("Pressure"))
+		Expect(resources[1].Name).To(Equal("Thrust"))
+	})
+
+	It("Should break name ties by ID", func() {
+		resources := []ontology.Resource{
+			resource("Pressure", "b"),
+			resource("Pressure", "a"),
+		}
+		imex.SortResources(resources)
+		Expect(resources[0].ID.Key).To(Equal("a"))
+		Expect(resources[1].ID.Key).To(Equal("b"))
 	})
 })
 

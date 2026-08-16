@@ -297,8 +297,8 @@ class ProjectClient:
             container.wait_for(state="attached", timeout=2000)
         except PlaywrightTimeoutError:
             return False
-        # The list is virtualized, so the wheel is the only way to reach detached
-        # rows. The rendered text stops changing once the list hits bottom.
+        # The list is virtualized, so the wheel is the only way to reach detached rows.
+        # The rendered text stops changing once the list hits bottom.
         container.hover()
         prev_rows: str | None = None
         for _ in range(50):

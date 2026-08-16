@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -40,7 +41,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				res := MustSucceed(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
@@ -80,7 +81,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				res := MustSucceed(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: key,
@@ -112,7 +113,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				res := MustSucceed(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
@@ -136,7 +137,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusTypeOnly)
 
 				Expect(
-					apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
+					apiSvc.SetByKeyOrName(AuthedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 						KeyOrName: name,
 						Message:   "x",
 						Variant:   "bogus",
@@ -154,7 +155,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusTypeOnly)
 
 				Expect(
-					apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
+					apiSvc.SetByKeyOrName(AuthedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 						KeyOrName: "",
 						Message:   "x",
 						Variant:   status.VariantInfo,
@@ -172,7 +173,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				Expect(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, anon),
+						AuthedCtx(ctx, anon),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
@@ -200,7 +201,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				Expect(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, anon),
+						AuthedCtx(ctx, anon),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,

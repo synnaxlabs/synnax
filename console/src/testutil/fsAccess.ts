@@ -36,7 +36,7 @@ export const installSaveFilePicker = (
   window.showSaveFilePicker = picker;
 };
 
-/** removeFilePickers removes the File System Access save picker from window. */
-export const removeFilePickers = (): void => {
+/** removeSaveFilePicker removes the File System Access save picker from window. */
+export const removeSaveFilePicker = (): void => {
   delete window.showSaveFilePicker;
 };

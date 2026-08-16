@@ -78,10 +78,10 @@ export const useDownload = (): ((params: DownloadParams) => Promise<void>) => {
           addFinishStatus(fileHandle.name);
           return;
         } catch (error) {
-          // A rejection before pipeTo starts leaves the response stream open, so
-          // cancel unconditionally. After a pipeTo failure the stream is locked and
-          // this cancel rejects; ignoring it is correct because pipeTo has already
-          // cancelled the source.
+          // A rejection before pipeTo starts leaves the response stream open, so cancel
+          // unconditionally. After a pipeTo failure the stream is locked and this
+          // cancel rejects; ignoring it is correct because pipeTo has already cancelled
+          // the source.
           await stream.cancel().catch(console.error);
           if (error instanceof DOMException && error.name === "AbortError") return;
           throw errors.fromUnknown(error);

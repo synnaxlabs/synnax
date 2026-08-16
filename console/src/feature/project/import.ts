@@ -30,8 +30,8 @@ import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-//NOTE: All client/console side project import code is TEMPORARY and will be replaced by
-//server-side project import before we release.
+// NOTE: all client/console side project import code is temporary. Server-side project
+// import replaces it before release.
 
 /** The panel documents file inside an interim (pre-manifest) project export. */
 export const PANELS_FILE_NAME = "PANELS.json";
@@ -165,7 +165,8 @@ const bundlePanelZ = z.object({
   root: z.unknown(),
 });
 
-const pathOf = (file: Import.File): string => file.path ?? file.name;
+const pathOf = (file: { name: string; path?: string }): string =>
+  file.path ?? file.name;
 
 const parentDirOf = (path: string): string =>
   path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
@@ -254,6 +255,9 @@ const ingestBundle = async (
   // exporter), so a member rejected for a missing importer is skipped and every panel
   // tab referencing it is dropped. Server-side project import removes this.
   const skipped = new Set<string>();
+  // Minted IDs accumulate per directory so each group receives one moveChildren call
+  // instead of one per document.
+  const moves = new Map<string, ontology.ID[]>();
   for (const member of members.filter(({ data }) => !isPanelEnvelope(data))) {
     const path = pathOf(member);
     let id: ontology.ID;
@@ -274,9 +278,10 @@ const ingestBundle = async (
     }
     refs.set(path, id);
     const dir = parentDirOf(path);
-    if (dir !== "")
-      await client.ontology.moveChildren(projectID, await groupFor(dir), id);
+    if (dir !== "") moves.set(dir, [...(moves.get(dir) ?? []), id]);
   }
+  for (const [dir, ids] of moves)
+    await client.ontology.moveChildren(projectID, await groupFor(dir), ...ids);
   for (const member of members.filter(({ data }) => isPanelEnvelope(data))) {
     const path = pathOf(member);
     const envelope = bundlePanelZ.parse(member.data);
@@ -344,7 +349,7 @@ export const import_ = ({ handleError, client, store }: IngestContext) => {
     name = directory.name;
     const fileData = await Promise.all(
       directory.files
-        .filter((file) => Import.isParsableFile(file.path ?? file.name))
+        .filter((file) => Import.isParsableFile(pathOf(file)))
         .map(async (file): Promise<Import.File> => ({
           name: file.name,
           path: file.path,

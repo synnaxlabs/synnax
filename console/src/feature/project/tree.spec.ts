@@ -70,6 +70,8 @@ describe("project ontology service", () => {
 
   it("should export the clicked project rather than the active one", async () => {
     const p = await createProject();
+    const logName = uniqueName("log");
+    await client.logs.create(p.key, { name: logName });
     const active = await createProject();
     const downloads = captureBrowserDownloads();
     assertDefined(Item.ContextMenu);
@@ -80,8 +82,11 @@ describe("project ontology service", () => {
     });
     fireEvent.click(await screen.findByText("Export"));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
-    // The zip is named after the clicked row, proving the export took its key.
+    // The zip takes the clicked row's name and carries its members, proving the
+    // export took the clicked project's key.
     expect(downloads.anchors[0].download).toBe(`${p.name}.zip`);
+    const archive = new TextDecoder().decode(await downloads.blobs[0].arrayBuffer());
+    expect(archive).toContain(`${logName}.json`);
   });
 
   it("should create a log inside the project from the context menu", async () => {

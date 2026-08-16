@@ -153,6 +153,44 @@ var _ = Describe("EncodeBundle", func() {
 	})
 })
 
+var _ = Describe("TaskRefs", func() {
+	taskID := func() ontology.ID {
+		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.NewString()}
+	}
+	taskTab := func(id ontology.ID) panel.Tab {
+		return panel.Tab{Variant: panel.ResourceTab{
+			TabBase:  panel.TabBase{Key: uuid.New()},
+			Resource: id,
+		}}
+	}
+
+	It("Should collect every task the tree's resource tabs reference", func() {
+		first, second := taskID(), taskID()
+		root := splitNode(
+			spatial.DirectionX,
+			0.5,
+			leafNode(taskTab(first), tab(uuid.New())),
+			leafNode(taskTab(second), viewTab(uuid.New(), "docs")),
+		)
+		Expect(panel.TaskRefs(root)).To(ConsistOf(first, second))
+	})
+
+	It("Should return a task referenced by two tabs once", func() {
+		id := taskID()
+		root := splitNode(
+			spatial.DirectionX,
+			0.5,
+			leafNode(taskTab(id)),
+			leafNode(taskTab(id)),
+		)
+		Expect(panel.TaskRefs(root)).To(ConsistOf(id))
+	})
+
+	It("Should return nothing for a tree without task tabs", func() {
+		Expect(panel.TaskRefs(leafNode(tab(uuid.New())))).To(BeEmpty())
+	})
+})
+
 // mustResource returns the ontology ID behind a resource tab fixture.
 func mustResource(t panel.Tab) ontology.ID {
 	GinkgoHelper()

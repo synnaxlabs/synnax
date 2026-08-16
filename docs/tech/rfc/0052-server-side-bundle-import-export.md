@@ -174,9 +174,9 @@ is three small helpers:
 - An access-check helper in `imex`: `ActionCreate` for each distinct member type.
 
 Reference rewriting is not shared: only a member that carries references knows where its
-reference fields are, and the panel is the only such member today. Each service defines
-its own manifest struct beside its bundle code, and the API services call the owning
-domain services directly.
+reference fields are, and the panel is the only such member today. The manifest's
+`{version, type, name}` headers are domain-blind, so every bundle encodes the one shared
+`imex.Manifest`, and the API services call the owning domain services directly.
 
 ### 4.3 Project bundles
 
@@ -332,8 +332,9 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   registry forced a symbol-group handler onto the generic `group` type. A unified
   surface can be added later without breaking these endpoints.
 - **6.2 Bundle logic lives in the owning services.** Bundling inside `imex` was
-  rejected: it leaks domain semantics into a domain-blind package. Each service defines
-  its own manifest struct.
+  rejected: it leaks domain semantics into a domain-blind package. The manifest struct
+  is the one exception: its `{version, type, name}` headers are domain-blind, so one
+  shared `imex` struct is the format's single recognition point.
 - **6.3 Leaf import parity is a dependency.** Phase 1 implements it per RFC 0042, not
   redesigned here.
 - **6.4 A reference is the target's path from the bundle root.** Keeping source

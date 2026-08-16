@@ -10,8 +10,11 @@
 package imex
 
 import (
+	"cmp"
+	"slices"
 	"strconv"
 
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/set"
 )
@@ -30,6 +33,18 @@ type Manifest struct {
 	// Name is the exported resource's name, which an import gives the resource it
 	// creates.
 	Name string `json:"name"`
+}
+
+// SortResources orders resources by name and then by ID. Bundle walks sort each
+// directory's members with it before claiming file names, so Claims assigns numeric
+// suffixes deterministically across exports.
+func SortResources(resources []ontology.Resource) {
+	slices.SortFunc(resources, func(a, b ontology.Resource) int {
+		return cmp.Or(
+			cmp.Compare(a.Name, b.Name),
+			cmp.Compare(a.ID.String(), b.ID.String()),
+		)
+	})
 }
 
 // Claims tracks the file names taken in one bundle directory. Names are folded before

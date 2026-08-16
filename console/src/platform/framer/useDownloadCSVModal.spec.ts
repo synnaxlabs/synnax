@@ -18,7 +18,7 @@ import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import {
   captureBrowserDownloads,
   type CapturedDownloads,
-  removeFilePickers,
+  removeSaveFilePicker,
 } from "@/testutil";
 
 const TIME_RANGE = new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(10));
@@ -78,7 +78,7 @@ describe("useDownloadCSVModal", () => {
   describe("with test client", () => {
     let downloads: CapturedDownloads;
     beforeEach(() => {
-      removeFilePickers();
+      removeSaveFilePicker();
       downloads = captureBrowserDownloads();
     });
     afterEach(() => {

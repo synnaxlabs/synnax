@@ -16,14 +16,14 @@ import { client, createSymbolPayload } from "@/feature/schematic/testutil";
 import { Export } from "@/platform/export";
 import {
   captureBrowserDownloads,
-  removeFilePickers,
+  removeSaveFilePicker,
   renderHookWithConsole,
   uniqueName,
 } from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();
-  removeFilePickers();
+  removeSaveFilePicker();
 });
 
 const createSymbolGroup = async (

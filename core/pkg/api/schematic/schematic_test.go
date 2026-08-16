@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -49,7 +50,7 @@ var _ = Describe("Service", func() {
 					schematic.OntologyID(s.Key), schematic.OntologyID(missing))
 				res := MustSucceed(
 					apiSvc.Retrieve(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						apischematic.RetrieveRequest{
 							Keys:                []schematic.Key{s.Key, missing},
 							IgnoreNotFoundError: true,
@@ -66,7 +67,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				res := MustSucceed(
 					apiSvc.Retrieve(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						apischematic.RetrieveRequest{
 							Keys:                []schematic.Key{uuid.New()},
 							IgnoreNotFoundError: true,
@@ -86,7 +87,7 @@ var _ = Describe("Service", func() {
 					s := createSchematic(ctx, "no-policy")
 					Expect(
 						apiSvc.Dispatch(
-							authedCtx(ctx, author),
+							AuthedCtx(ctx, author),
 							db,
 							apischematic.DispatchRequest{
 								Key:         s.Key,
@@ -112,7 +113,7 @@ var _ = Describe("Service", func() {
 					grantUpdateOn(ctx, author.OntologyID(), s.OntologyID())
 					Expect(
 						apiSvc.Dispatch(
-							authedCtx(ctx, author),
+							AuthedCtx(ctx, author),
 							db,
 							apischematic.DispatchRequest{
 								Key:         s.Key,
@@ -146,7 +147,7 @@ var _ = Describe("Service", func() {
 					grantUpdateOn(ctx, author.OntologyID(), a.OntologyID())
 					Expect(
 						apiSvc.Dispatch(
-							authedCtx(ctx, author),
+							AuthedCtx(ctx, author),
 							db,
 							apischematic.DispatchRequest{
 								Key:         b.Key,
@@ -174,7 +175,7 @@ var _ = Describe("Service", func() {
 					grantUpdateOn(ctx, author.OntologyID(), s.OntologyID())
 					Expect(
 						apiSvc.Dispatch(
-							authedCtx(ctx, author),
+							AuthedCtx(ctx, author),
 							db,
 							apischematic.DispatchRequest{
 								Key:         s.Key,
@@ -231,7 +232,7 @@ var _ = Describe("Service", func() {
 					grantUpdateOn(ctx, author.OntologyID(), snap.OntologyID())
 					Expect(
 						apiSvc.Dispatch(
-							authedCtx(ctx, author),
+							AuthedCtx(ctx, author),
 							db,
 							apischematic.DispatchRequest{
 								Key:         snap.Key,
@@ -261,7 +262,7 @@ var _ = Describe("Service", func() {
 					)
 					Expect(
 						apiSvc.Dispatch(
-							authedCtx(ctx, author),
+							AuthedCtx(ctx, author),
 							db,
 							apischematic.DispatchRequest{
 								Key:         missing,
@@ -296,7 +297,7 @@ var _ = Describe("Service", func() {
 					DeferCleanup(disconnect)
 					Expect(
 						apiSvc.Dispatch(
-							authedCtx(ctx, author),
+							AuthedCtx(ctx, author),
 							db,
 							apischematic.DispatchRequest{
 								Key:         s.Key,

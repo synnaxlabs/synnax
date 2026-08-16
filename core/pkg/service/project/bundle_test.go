@@ -19,8 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -73,6 +75,19 @@ var _ = Describe("Export", func() {
 			Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
 		})
 		return g
+	}
+	createTask := func(ctx SpecContext, name string) task.Task {
+		GinkgoHelper()
+		t := task.Task{
+			Rack: testRack.Key,
+			Name: name,
+			Type: pagerduty.AlertTaskType,
+		}
+		Expect(taskSvc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(taskSvc.NewWriter(nil).Delete(ctx, t.Key, false)).To(Succeed())
+		})
+		return t
 	}
 	createPanel := func(
 		ctx SpecContext, name string, parent ontology.ID, root panel.Node,
@@ -190,20 +205,55 @@ var _ = Describe("Export", func() {
 		Expect(members).ToNot(ContainElement(lp.OntologyID()))
 	})
 
-	It("Should export a panel's ontology children beside it", func(ctx SpecContext) {
-		proj := createProject(ctx, "Panel Children")
-		l := createLog(ctx, proj.Key, "Sequence")
+	It("Should export the tasks a panel's tabs reference beside it", func(
+		ctx SpecContext,
+	) {
+		proj := createProject(ctx, "Panel Tasks")
+		t := createTask(ctx, "Sequence")
 		p := createPanel(
-			ctx, "Controls", proj.OntologyID(), leaf(resourceTab(l.OntologyID())),
+			ctx, "Controls", proj.OntologyID(), leaf(resourceTab(t.OntologyID())),
 		)
-		moveToGroup(ctx, l.OntologyID(), proj.OntologyID(), p.OntologyID())
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Sequence.json"))
 		root := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Sequence.json"),
 		))
-		Expect(members).To(ConsistOf(l.OntologyID(), p.OntologyID()))
+		Expect(members).To(ConsistOf(t.OntologyID(), p.OntologyID()))
+	})
+
+	It("Should place a task referenced by two panels once", func(ctx SpecContext) {
+		proj := createProject(ctx, "Shared Task")
+		t := createTask(ctx, "Sequence")
+		createPanel(
+			ctx, "First", proj.OntologyID(), leaf(resourceTab(t.OntologyID())),
+		)
+		createPanel(
+			ctx, "Second", proj.OntologyID(), leaf(resourceTab(t.OntologyID())),
+		)
+		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		Expect(files).To(HaveLen(4))
+		Expect(files).To(HaveKey("Sequence.json"))
+		for _, name := range []string{"First.json", "Second.json"} {
+			root := decode(files[name])["root"].(map[string]any)
+			Expect(root["tabs"]).To(ConsistOf(
+				HaveKeyWithValue("resource", "Sequence.json"),
+			))
+		}
+		Expect(members).To(ContainElement(t.OntologyID()))
+	})
+
+	It("Should skip a task tab whose task no longer exists", func(ctx SpecContext) {
+		proj := createProject(ctx, "Dangling Task")
+		dangling := ontology.ID{
+			Type: ontology.ResourceTypeTask,
+			Key:  uuid.NewString(),
+		}
+		createPanel(ctx, "Controls", proj.OntologyID(), leaf(resourceTab(dangling)))
+		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		Expect(files).To(HaveLen(2))
+		root := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(root["tabs"]).To(BeEmpty())
 	})
 
 	It("Should place a document with two parent groups once", func(ctx SpecContext) {
@@ -214,8 +264,8 @@ var _ = Describe("Export", func() {
 		moveToGroup(ctx, l.OntologyID(), proj.OntologyID(), first.OntologyID())
 		addToGroup(ctx, l.OntologyID(), second.OntologyID())
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
-		// The manifest plus one placement: the first parent keeps the document, and
-		// the other group drops as empty.
+		// The manifest plus one placement: the first parent keeps the document, and the
+		// other group drops as empty.
 		Expect(files).To(HaveLen(2))
 		Expect(members).To(HaveLen(2))
 		Expect(members).To(ContainElement(l.OntologyID()))
