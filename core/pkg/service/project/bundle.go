@@ -25,13 +25,9 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-const (
-	// legacyLayoutFileName is reserved so a stable-release project directory migrated
-	// in place keeps working.
-	legacyLayoutFileName = "LAYOUT.json"
-	manifestVersion      = 1
-	manifestType         = "project"
-)
+// legacyLayoutFileName is reserved so a stable-release project directory migrated in
+// place keeps working.
+const legacyLayoutFileName = "LAYOUT.json"
 
 // Export serializes the project identified by key and its ontology descendants as a
 // bundle: one envelope per member document and panel, group children as directories,
@@ -85,8 +81,8 @@ func (s *Service) Export(
 		return nil, nil, err
 	}
 	manifest, err := encoder.Encode(ctx, imex.Manifest{
-		Version: manifestVersion,
-		Type:    manifestType,
+		Version: 1,
+		Type:    "project",
 		Name:    proj.Name,
 	})
 	if err != nil {
@@ -102,8 +98,8 @@ type bundleWalk struct {
 	svc *Service
 	// ext is the extension the encoder gives every member file.
 	ext string
-	// visited holds every resource the walk already placed, so a resource with
-	// multiple parents in the project is placed only once.
+	// visited holds every resource the walk already placed, so a resource with multiple
+	// parents in the project is placed only once.
 	visited set.Set[ontology.ID]
 	// refs maps each member document to its path from the bundle root. Panel encoding
 	// resolves resource tabs through it.
@@ -134,8 +130,7 @@ func (w *bundleWalk) members() []ontology.ID {
 }
 
 // directory walks the children of parent into the directory at prefix ("" for the
-// bundle root, "a/b/" otherwise). claims tracks the file names taken in this
-// directory.
+// bundle root, "a/b/" otherwise). claims tracks the file names taken in this directory.
 func (w *bundleWalk) directory(
 	ctx context.Context,
 	parent ontology.ID,
@@ -174,8 +169,8 @@ func (w *bundleWalk) directory(
 			if err != nil {
 				return err
 			}
-			// An empty group is dropped: it enforces no access, and the name it
-			// claimed only pushes a same-named sibling group to the next suffix.
+			// An empty group is dropped: it enforces no access, and the name it claimed
+			// only pushes a same-named sibling group to the next suffix.
 			if len(w.refs)+len(w.panels) == before {
 				continue
 			}
@@ -191,8 +186,8 @@ func (w *bundleWalk) directory(
 				id:   child.ID,
 				path: prefix + fileName,
 			})
-			// A panel's ontology children — the tasks its tabs reference — export
-			// into the panel's directory.
+			// A panel's ontology children — the tasks its tabs reference — export into
+			// the panel's directory.
 			if err = w.directory(ctx, child.ID, prefix, claims); err != nil {
 				return err
 			}

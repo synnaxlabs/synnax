@@ -90,8 +90,8 @@ func (w Writer) CreateMany(ctx context.Context, ps *[]Panel) error {
 }
 
 // Dispatch applies a sequence of actions atomically to the panel with the given key.
-// After a successful update the actions are notified to the service-level dispatcher
-// so subscribers (cluster signals) can broadcast them. dispatchKey identifies the
+// After a successful update the actions are notified to the service-level dispatcher so
+// subscribers (cluster signals) can broadcast them. dispatchKey identifies the
 // originating batch so the originating client can recognize and skip its own echo.
 func (w Writer) Dispatch(
 	ctx context.Context,
@@ -123,6 +123,9 @@ func (w Writer) Dispatch(
 // reference and removes the edge for every task only prev references. The edges make a
 // panel's tasks ontology descendants of its project, so a project export carries them.
 // Every referenced task must exist in the ontology.
+//
+// NOTE: this is temporary code and should be cleaned up before release when we decide
+// the actual ontology relationship model for projects, panels, and tasks.
 func (w Writer) syncTaskEdges(ctx context.Context, key Key, prev, next Node) error {
 	prevTasks, nextTasks := set.New[ontology.ID](), set.New[ontology.ID]()
 	collectTaskRefs(prev, prevTasks)

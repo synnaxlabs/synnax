@@ -15,9 +15,6 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-// bundleVersion is the version stamped on panel envelopes in project bundles.
-const bundleVersion imex.Version = 0
-
 // bundleBody is the envelope body for a panel bundle member.
 type bundleBody struct {
 	// Root is the panel tree with each resource reference rewritten to a bundle path.
@@ -57,7 +54,7 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 	root := stripNonMemberTabs(p.Root, refs)
 	collapseEmptyLeaves(&root)
 	env := imex.Envelope{
-		Version: bundleVersion,
+		Version: 0,
 		Type:    string(ontology.ResourceTypePanel),
 		Name:    p.Name,
 	}
