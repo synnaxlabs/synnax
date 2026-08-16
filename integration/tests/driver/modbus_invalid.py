@@ -114,39 +114,31 @@ class ModbusInvalidConfig(SimulatorCase):
             cleanup_task(self.client, task)
 
     def test_invalid_rates(self) -> None:
-        """Construct a read task with sample rate less than stream rate.
+        """Start a read task with sample rate less than stream rate.
 
-        The Modbus Python SDK validates this in Pydantic before reaching
-        the driver, so the error is a ValidationError at construction time.
+        The driver validates the rate relation when the task deploys.
         """
         self.log("Testing: Invalid rates (sample_rate < stream_rate)")
         idx = create_index(self.client, "modbus_inv_rate_idx")
-        try:
-            sy.modbus.ReadTask(
-                name="Modbus Invalid Rate Test",
-                device=self.device.key,
-                sample_rate=10 * sy.Rate.HZ,
-                stream_rate=100 * sy.Rate.HZ,
-                channels=[
-                    sy.modbus.InputRegisterReadChannel(
-                        channel=create_channel(
-                            self.client,
-                            name="modbus_inv_rate_ch",
-                            data_type=sy.DataType.UINT8,
-                            index=idx.key,
-                        ),
-                        address=0,
-                        data_type="uint8",
+        task = sy.modbus.ReadTask(
+            name="Modbus Invalid Rate Test",
+            device=self.device.key,
+            sample_rate=10 * sy.Rate.HZ,
+            stream_rate=100 * sy.Rate.HZ,
+            channels=[
+                sy.modbus.InputRegisterReadChannel(
+                    channel=create_channel(
+                        self.client,
+                        name="modbus_inv_rate_ch",
+                        data_type=sy.DataType.UINT8,
+                        index=idx.key,
                     ),
-                ],
-            )
-        except Exception as e:
-            self.log(f"  Correctly rejected (invalid rates): {e}")
-            return
-        self.fail(
-            "Driver did not reject invalid rates — "
-            "task construction succeeded unexpectedly"
+                    address=0,
+                    data_type="uint8",
+                ),
+            ],
         )
+        self._assert_deploy_fails(task, "invalid rates")
 
     def test_nonexistent_channel_key(self) -> None:
         """Configure a read task with a Synnax channel key that doesn't exist."""
