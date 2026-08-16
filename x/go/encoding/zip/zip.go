@@ -27,28 +27,29 @@ import (
 )
 
 // Files is a flat namespace of file name to file contents. It carries no directories
-// and no nesting: every name is a leaf, which the Encoder enforces.
+// and no nesting: every name is a leaf, which the Codec enforces.
 type Files = map[string][]byte
 
-// Encoder encodes a Files value into a zip archive with one entry per file. Entries are
-// written in sorted name order, so equal Files always encode to equal bytes. Encoding a
-// value that is not a Files fails, and a file name that is not a leaf returns an error
-// wrapping validate.ErrValidation.
-var Encoder http.Encoder = encoder{}
+// Codec encodes a Files value into a zip archive with one entry per file and decodes
+// such an archive back into a *Files. Entries are written in sorted name order, so
+// equal Files always encode to equal bytes. A value of another type fails, and a file
+// name that is not a leaf, or an archive holding two entries under one name, returns
+// an error wrapping validate.ErrValidation.
+var Codec http.Codec = codec{}
 
-type encoder struct{}
+type codec struct{}
 
-func (encoder) ContentType() string { return "application/zip" }
+func (codec) ContentType() string { return "application/zip" }
 
-func (e encoder) Encode(ctx context.Context, value any) ([]byte, error) {
+func (c codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := e.EncodeStream(ctx, &buf, value); err != nil {
+	if err := c.EncodeStream(ctx, &buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	files, ok := value.(Files)
 	if !ok {
 		return encoding.SugarEncodingError(
@@ -76,17 +77,7 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	return encoding.SugarEncodingError(value, zw.Close())
 }
 
-// Decoder decodes a zip archive into a Files value with one file per entry. Decoding
-// into a value that is not a *Files fails, and an archive holding an entry name that is
-// not a leaf, or holding two entries under one name, returns an error wrapping
-// validate.ErrValidation.
-var Decoder http.Decoder = decoder{}
-
-type decoder struct{}
-
-func (decoder) ContentType() string { return "application/zip" }
-
-func (decoder) Decode(_ context.Context, data []byte, value any) error {
+func (codec) Decode(_ context.Context, data []byte, value any) error {
 	files, ok := value.(*Files)
 	if !ok {
 		return encoding.SugarDecodingError(
@@ -127,12 +118,12 @@ func (decoder) Decode(_ context.Context, data []byte, value any) error {
 	return nil
 }
 
-func (d decoder) DecodeStream(ctx context.Context, r io.Reader, value any) error {
+func (c codec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return encoding.SugarDecodingError(nil, value, err)
 	}
-	return d.Decode(ctx, data, value)
+	return c.Decode(ctx, data, value)
 }
 
 // validateLeaf returns an error wrapping validate.ErrValidation when name cannot be a
