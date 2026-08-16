@@ -1873,6 +1873,15 @@ describe("Series", () => {
       expect(series.boundsFor(-5, 100)).toStrictEqual({ lower: 1, upper: 3 });
     });
 
+    // Exercises the bigint samples against the number Infinity sentinels in both the
+    // block-build and tail scans.
+    it("should compute bounds for bigint-backed series", () => {
+      const data = new BigInt64Array(5000);
+      for (let i = 0; i < data.length; i++) data[i] = BigInt(i);
+      const series = new Series({ data, dataType: DataType.INT64 });
+      expect(series.boundsFor(1, 4999)).toStrictEqual({ lower: 1, upper: 4998 });
+    });
+
     it("should return invalid bounds for an empty range", () => {
       const series = new Series({ data: new Float32Array([1, 2, 3]) });
       const b = series.boundsFor(2, 2);
