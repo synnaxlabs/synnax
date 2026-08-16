@@ -215,6 +215,8 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    std::shared_ptr<hardware::mock::Reader<double>> mock_hw;
+    std::size_t make_hw_calls = 0;
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
@@ -289,14 +291,29 @@ protected:
     }
 
     std::unique_ptr<common::ReadTask>
-    create_task(std::unique_ptr<hardware::mock::Reader<double>> mock_hw) {
+    create_task(std::unique_ptr<hardware::mock::Reader<double>> hw) {
+        this->mock_hw = std::move(hw);
+        ni::ReadTaskSource<double>::MakeHardware make_hw =
+            [this](const ni::ReadTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            ++this->make_hw_calls;
+            return {
+                std::make_unique<hardware::mock::SharedReader<double>>(this->mock_hw),
+                x::errors::NIL
+            };
+        };
+        return this->create_task(std::move(make_hw));
+    }
+
+    std::unique_ptr<common::ReadTask>
+    create_task(ni::ReadTaskSource<double>::MakeHardware make_hw) {
         return std::make_unique<common::ReadTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
             std::make_unique<ni::ReadTaskSource<double>>(
                 std::move(*cfg),
-                std::move(mock_hw)
+                std::move(make_hw)
             ),
             mock_factory
         );
@@ -512,6 +529,73 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     EXPECT_EQ(stop_state_2.message, "Task stopped successfully");
 }
 
+/// @brief every start should claim fresh hardware and every stop should release
+/// it, so a device that disconnects and returns between runs gets a new DAQmx
+/// task on the next start.
+TEST_F(AnalogReadTest, testStartClaimsFreshHardware) {
+    parse_config();
+    const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(make_hw_calls, 1);
+    // The fixture and the running source both hold the mock.
+    EXPECT_EQ(mock_hw.use_count(), 2);
+
+    rt->stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    // The stop released the source's claim on the hardware.
+    EXPECT_EQ(mock_hw.use_count(), 1);
+
+    rt->start("start_cmd_2");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
+    EXPECT_EQ(make_hw_calls, 2);
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    rt->stop("stop_cmd_2", true);
+}
+
+/// @brief a start whose hardware build fails should report the error and leave
+/// the task able to start once the hardware comes back.
+TEST_F(AnalogReadTest, testHardwareBuildFailureRetriesOnNextStart) {
+    parse_config();
+    mock_hw = std::make_shared<hardware::mock::Reader<double>>();
+    size_t calls = 0;
+    const auto rt = create_task(
+        [&](
+            const ni::ReadTaskConfig &
+        ) -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            if (++calls == 1)
+                return {
+                    nullptr,
+                    x::errors::Error(
+                        errors::CRITICAL_HARDWARE_ERROR,
+                        "device not found"
+                    )
+                };
+            return {
+                std::make_unique<hardware::mock::SharedReader<double>>(mock_hw),
+                x::errors::NIL
+            };
+        }
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto failed = ctx->statuses[0];
+    EXPECT_EQ(failed.details.cmd, "start_cmd");
+    EXPECT_EQ(failed.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(failed.message, "device not found");
+
+    rt->start("start_cmd_2");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    const auto recovered = ctx->statuses[1];
+    EXPECT_EQ(recovered.details.cmd, "start_cmd_2");
+    EXPECT_EQ(recovered.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(recovered.message, "Task started successfully");
+    EXPECT_EQ(calls, 2);
+    rt->stop("stop_cmd", true);
+}
+
 class DigitalReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
@@ -519,6 +603,7 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    std::shared_ptr<hardware::mock::Reader<uint8_t>> mock_hw;
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
@@ -582,14 +667,22 @@ protected:
     }
 
     std::unique_ptr<common::ReadTask>
-    create_task(std::unique_ptr<hardware::mock::Reader<uint8_t>> mock_hw) {
+    create_task(std::unique_ptr<hardware::mock::Reader<uint8_t>> hw) {
+        this->mock_hw = std::move(hw);
+        ReadTaskSource<uint8_t>::MakeHardware make_hw = [this](const ReadTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Reader<uint8_t>>, x::errors::Error> {
+            return {
+                std::make_unique<hardware::mock::SharedReader<uint8_t>>(this->mock_hw),
+                x::errors::NIL
+            };
+        };
         return std::make_unique<common::ReadTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
             std::make_unique<ReadTaskSource<uint8_t>>(
                 std::move(*cfg),
-                std::move(mock_hw)
+                std::move(make_hw)
             ),
             mock_factory
         );
@@ -708,6 +801,7 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    std::shared_ptr<hardware::mock::Reader<double>> mock_hw;
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
@@ -780,14 +874,23 @@ protected:
     }
 
     std::unique_ptr<common::ReadTask>
-    create_task(std::unique_ptr<hardware::mock::Reader<double>> mock_hw) {
+    create_task(std::unique_ptr<hardware::mock::Reader<double>> hw) {
+        this->mock_hw = std::move(hw);
+        ni::ReadTaskSource<double>::MakeHardware make_hw =
+            [this](const ni::ReadTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            return {
+                std::make_unique<hardware::mock::SharedReader<double>>(this->mock_hw),
+                x::errors::NIL
+            };
+        };
         return std::make_unique<common::ReadTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
             std::make_unique<ni::ReadTaskSource<double>>(
                 std::move(*cfg),
-                std::move(mock_hw)
+                std::move(make_hw)
             ),
             mock_factory
         );
