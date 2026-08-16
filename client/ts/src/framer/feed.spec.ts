@@ -26,6 +26,20 @@ const client = createTestClient();
 const feed = client.openFeed();
 afterAll(async () => await feed.close());
 
+/**
+ * Returns a source of strictly increasing timestamps. `TimeStamp.now()` resolves to the
+ * millisecond, so a tight write loop repeats one, and an index channel must never
+ * repeat a timestamp.
+ */
+const createClock = (): (() => TimeStamp) => {
+  let last = TimeStamp.now();
+  return () => {
+    const now = TimeStamp.now();
+    last = now.after(last) ? now : last.add(TimeSpan.microseconds(1));
+    return last;
+  };
+};
+
 const createChannels = async () => {
   const time = await client.channels.create({
     name: id.create(),
@@ -86,6 +100,7 @@ describe("feed", () => {
     );
     // The writer must stream as well as persist: the plain write convenience is
     // persist-only and the relay never broadcasts it.
+    const next = createClock();
     const writer = await client.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],
@@ -96,8 +111,7 @@ describe("feed", () => {
       await expect
         .poll(
           async () => {
-            const now = TimeStamp.now();
-            await writer.write({ [time.key]: [now], [data.key]: [42] });
+            await writer.write({ [time.key]: [next()], [data.key]: [42] });
             return received.length > 0;
           },
           { timeout: 10000, interval: 250 },
@@ -121,6 +135,7 @@ describe("feed", () => {
       [data.key],
     );
     const start = TimeStamp.now();
+    const next = createClock();
     let value = 0;
     const writeUntilStreamed = async (
       w: Awaited<ReturnType<typeof client.openWriter>>,
@@ -129,8 +144,7 @@ describe("feed", () => {
       await expect
         .poll(
           async () => {
-            const now = TimeStamp.now();
-            await w.write({ [time.key]: [now], [data.key]: [value++] });
+            await w.write({ [time.key]: [next()], [data.key]: [value++] });
             return received.length > before;
           },
           { timeout: 10000, interval: 250 },
@@ -180,13 +194,13 @@ describe("feed", () => {
       [data.key],
     );
     const start = TimeStamp.now();
+    const next = createClock();
     const writer = await client.openWriter({ start, channels: [time.key, data.key] });
     try {
       await expect
         .poll(
           async () => {
-            const now = TimeStamp.now();
-            await writer.write({ [time.key]: [now], [data.key]: [1] });
+            await writer.write({ [time.key]: [next()], [data.key]: [1] });
             return received.length > 0;
           },
           { timeout: 10000, interval: 250 },
@@ -208,6 +222,7 @@ describe("feed", () => {
     const short = client.openFeed({ removalDelay: TimeSpan.milliseconds(100) });
     try {
       const start = TimeStamp.now();
+      const next = createClock();
       const w = await client.openWriter({
         start,
         channels: [time.key, data.key],
@@ -219,7 +234,7 @@ describe("feed", () => {
         // index cache covers the window with leading-alignment data only.
         const sub = short.stream(() => {}, [time.key]);
         for (let i = 0; i < 40; i++) {
-          await w.write({ [time.key]: [TimeStamp.now()], [data.key]: [value++] });
+          await w.write({ [time.key]: [next()], [data.key]: [value++] });
           await sleep.sleep(TimeSpan.milliseconds(5));
         }
         // A plot opens on the never-streamed channel: it reads the channel and its
@@ -268,6 +283,7 @@ describe("feed", () => {
     const small = client.openFeed({ dynamicBufferSize: 50 });
     try {
       const start = TimeStamp.now();
+      const next = createClock();
       const w = await client.openWriter({
         start,
         channels: [time.key, data.key],
@@ -277,13 +293,11 @@ describe("feed", () => {
         const sub = small.stream(() => {}, [time.key, data.key]);
         let value = 0;
         for (let i = 0; i < 10; i++) {
-          for (let j = 0; j < 30; j++) {
-            const now = TimeStamp.now();
+          for (let j = 0; j < 30; j++)
             await w.write({
-              [time.key]: [now, now.add(TimeSpan.microseconds(1))],
+              [time.key]: [next(), next()],
               [data.key]: [value++, value++],
             });
-          }
           const tr = new TimeRange(start, TimeStamp.now());
           // The fresh baseline reads first: anything committed by now must also
           // reach the later cached read, so autocommit lag cannot flake this.
@@ -311,6 +325,7 @@ describe("feed", () => {
     const short = client.openFeed({ removalDelay: TimeSpan.milliseconds(100) });
     try {
       const start = TimeStamp.now();
+      const next = createClock();
       const w = await client.openWriter({ start, channels: [time.key, data.key] });
       let value = 0;
       try {
@@ -325,7 +340,7 @@ describe("feed", () => {
         await expect
           .poll(
             async () => {
-              await w.write({ [time.key]: [TimeStamp.now()], [data.key]: [value++] });
+              await w.write({ [time.key]: [next()], [data.key]: [value++] });
               return received.length > 0;
             },
             { timeout: 10000, interval: 100 },
@@ -336,7 +351,7 @@ describe("feed", () => {
         sub.close();
         await sleep.sleep(TimeSpan.milliseconds(500));
         for (let i = 0; i < 10; i++)
-          await w.write({ [time.key]: [TimeStamp.now()], [data.key]: [value++] });
+          await w.write({ [time.key]: [next()], [data.key]: [value++] });
         await w.commit();
       } finally {
         await w.close();
