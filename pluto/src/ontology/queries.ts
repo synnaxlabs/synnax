@@ -65,7 +65,7 @@ export const createDependentsListHook = (
       return await dependentSpace(client, direction).retrieve({ ids: id });
     },
     retrieveByKey: async ({ client, key }) =>
-      await client.ontology.retrieve(ontology.idZ.parse(key)),
+      await client.ontology.retrieve(ontology.parseID(key)),
     onChange: ({ client, query: { id } }, handler) => {
       if (id == null) return () => {};
       return dependentSpace(client, direction).onChange({ ids: id }, handler);
@@ -75,7 +75,7 @@ export const createDependentsListHook = (
       return dependentSpace(client, direction).getCached({ ids: id });
     },
     onChangeByKey: ({ client, key }, handler) =>
-      client.ontology.onChange(ontology.idZ.parse(key), handler),
+      client.ontology.onChange(ontology.parseID(key), handler),
   });
 
 export const useListChildren = createDependentsListHook(
@@ -89,11 +89,11 @@ export const useResourceList = Flux.createList<ListQuery, string, ontology.Resou
   name: PLURAL_RESOURCE_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
-    await client.ontology.retrieve(ontology.idZ.parse(key)),
+    await client.ontology.retrieve(ontology.parseID(key)),
   onChange: ({ client, query }, handler) => client.ontology.onChange(query, handler),
   getCached: ({ client, query }) => client.ontology.getCached(query),
   onChangeByKey: ({ client, key }, handler) =>
-    client.ontology.onChange(ontology.idZ.parse(key), handler),
+    client.ontology.onChange(ontology.parseID(key), handler),
 });
 
 export interface MoveChildrenParams {
