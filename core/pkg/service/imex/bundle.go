@@ -34,16 +34,21 @@ type Manifest struct {
 // Claims tracks the file names taken in one bundle directory. Names are folded before
 // comparison so a bundle extracts safely on case-insensitive file systems.
 type Claims struct {
+	// prefix is the directory's path from the bundle root ("" for the root,
+	// "a/b/" otherwise), prepended to file names in collision errors.
+	prefix string
 	// reserved maps folded reserved names to their display form.
 	reserved map[string]string
 	// claimed maps each folded file name to the resource that took it.
 	claimed map[string]string
 }
 
-// NewClaims returns a claim set for one bundle directory. reserved lists file names, in
-// display form, that no member may take.
-func NewClaims(reserved ...string) *Claims {
+// NewClaims returns a claim set for the bundle directory at prefix ("" for the root,
+// "a/b/" otherwise). reserved lists file names, in display form, that no member may
+// take.
+func NewClaims(prefix string, reserved ...string) *Claims {
 	c := &Claims{
+		prefix:   prefix,
 		reserved: make(map[string]string, len(reserved)),
 		claimed:  map[string]string{},
 	}
@@ -53,10 +58,9 @@ func NewClaims(reserved ...string) *Claims {
 	return c
 }
 
-// Claim records fileName as taken by the resource named owner. path is the file's path
-// from the bundle root, shown in the collision error. It returns a validation error
-// when fileName folds to a reserved name or to a name another resource claimed.
-func (c *Claims) Claim(owner, fileName, path string) error {
+// Claim records fileName as taken by the resource named owner. It returns a validation
+// error when fileName folds to a reserved name or to a name another resource claimed.
+func (c *Claims) Claim(owner, fileName string) error {
 	folded := filename.Fold(fileName)
 	if display, ok := c.reserved[folded]; ok {
 		return errors.Wrapf(
@@ -69,7 +73,7 @@ func (c *Claims) Claim(owner, fileName, path string) error {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"%q and %q both export to %q; rename one and export again",
-			prev, owner, path,
+			prev, owner, c.prefix+fileName,
 		)
 	}
 	c.claimed[folded] = owner

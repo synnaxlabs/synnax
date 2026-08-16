@@ -56,14 +56,14 @@ func (s *Service) ExportGroup(
 	manifestFileName := imex.ManifestBaseName + ext
 	var (
 		files  = make(zip.Files, len(symbols)+1)
-		claims = imex.NewClaims(manifestFileName)
+		claims = imex.NewClaims("", manifestFileName)
 	)
 	for _, child := range symbols {
 		fileName, err := filename.Sanitize(child.Name, ext)
 		if err != nil {
 			return nil, nil, err
 		}
-		if err = claims.Claim(child.Name, fileName, fileName); err != nil {
+		if err = claims.Claim(child.Name, fileName); err != nil {
 			return nil, nil, err
 		}
 		env, err := s.Export(ctx, child.ID)

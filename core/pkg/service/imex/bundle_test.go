@@ -28,6 +28,11 @@ var _ = Describe("Manifest", func() {
 		}))
 		var m map[string]any
 		Expect(json.Unmarshal(raw, &m)).To(Succeed())
+		Expect(m).To(Equal(map[string]any{
+			"version": float64(1),
+			"type":    "project",
+			"name":    "Test Stand 12",
+		}))
 		Expect(m).To(HaveKeyWithValue("version", BeNumerically("==", 1)))
 		Expect(m).To(HaveKeyWithValue("type", "project"))
 		Expect(m).To(HaveKeyWithValue("name", "Test Stand 12"))
@@ -36,15 +41,14 @@ var _ = Describe("Manifest", func() {
 
 var _ = Describe("Claims", func() {
 	It("Should claim distinct names", func() {
-		claims := imex.NewClaims()
-		Expect(claims.Claim("Pressure", "Pressure.json", "Pressure.json")).
-			To(Succeed())
-		Expect(claims.Claim("Thrust", "Thrust.json", "Thrust.json")).To(Succeed())
+		claims := imex.NewClaims("")
+		Expect(claims.Claim("Pressure", "Pressure.json")).To(Succeed())
+		Expect(claims.Claim("Thrust", "Thrust.json")).To(Succeed())
 	})
 
 	It("Should reject a reserved name in its display form", func() {
-		claims := imex.NewClaims("Manifest.json")
-		Expect(claims.Claim("manifest", "manifest.json", "manifest.json")).
+		claims := imex.NewClaims("", "Manifest.json")
+		Expect(claims.Claim("manifest", "manifest.json")).
 			To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
@@ -54,10 +58,9 @@ var _ = Describe("Claims", func() {
 	})
 
 	It("Should reject names that fold together", func() {
-		claims := imex.NewClaims()
-		Expect(claims.Claim("Pressure", "Pressure.json", "g/Pressure.json")).
-			To(Succeed())
-		Expect(claims.Claim("pressure", "pressure.json", "g/pressure.json")).
+		claims := imex.NewClaims("g/")
+		Expect(claims.Claim("Pressure", "Pressure.json")).To(Succeed())
+		Expect(claims.Claim("pressure", "pressure.json")).
 			To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(

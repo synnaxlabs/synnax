@@ -64,7 +64,7 @@ func (s *Service) Export(
 		refs:    map[ontology.ID]string{},
 	}
 	manifestFileName := imex.ManifestBaseName + w.ext
-	claims := imex.NewClaims(manifestFileName, legacyLayoutFileName)
+	claims := imex.NewClaims("", manifestFileName, legacyLayoutFileName)
 	if err := w.directory(ctx, OntologyID(key), "", claims); err != nil {
 		return nil, nil, err
 	}
@@ -159,7 +159,9 @@ func (w *bundleWalk) directory(
 			}
 			w.visited.Add(child.ID)
 			before := len(w.refs) + len(w.panels)
-			err = w.directory(ctx, child.ID, prefix+dirName+"/", imex.NewClaims())
+			err = w.directory(
+				ctx, child.ID, prefix+dirName+"/", imex.NewClaims(prefix+dirName+"/"),
+			)
 			if err != nil {
 				return err
 			}
@@ -167,7 +169,7 @@ func (w *bundleWalk) directory(
 			if len(w.refs)+len(w.panels) == before {
 				continue
 			}
-			if err = claims.Claim(child.Name, dirName, prefix+dirName); err != nil {
+			if err = claims.Claim(child.Name, dirName); err != nil {
 				return err
 			}
 			w.groups = append(w.groups, child.ID)
@@ -176,7 +178,7 @@ func (w *bundleWalk) directory(
 			if err != nil {
 				return err
 			}
-			if err = claims.Claim(child.Name, fileName, prefix+fileName); err != nil {
+			if err = claims.Claim(child.Name, fileName); err != nil {
 				return err
 			}
 			w.visited.Add(child.ID)
@@ -194,7 +196,7 @@ func (w *bundleWalk) directory(
 			if err != nil {
 				return err
 			}
-			if err = claims.Claim(child.Name, fileName, prefix+fileName); err != nil {
+			if err = claims.Claim(child.Name, fileName); err != nil {
 				return err
 			}
 			w.visited.Add(child.ID)
