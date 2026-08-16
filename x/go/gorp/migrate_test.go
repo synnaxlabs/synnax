@@ -21,15 +21,14 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/graph"
+	. "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 type entryV1 struct {
-	ID   int32  `msgpack:"id" json:"id"`
+	ID   int32  `msgpack:"id"   json:"id"`
 	Data string `msgpack:"data" json:"data"`
 }
 
@@ -38,7 +37,11 @@ func (e entryV1) SetOptions() []any { return nil }
 
 const testNamespace = "test"
 
-func migrateWithEntryV1(ctx context.Context, testDB *gorp.DB, migrations []migrate.Migration) error {
+func migrateWithEntryV1(
+	ctx context.Context,
+	testDB *gorp.DB,
+	migrations []migrate.Migration,
+) error {
 	return gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         testDB,
 		Namespace:  testNamespace,
@@ -49,7 +52,7 @@ func migrateWithEntryV1(ctx context.Context, testDB *gorp.DB, migrations []migra
 var _ = Describe("Migrate", func() {
 	Describe("NewMigration", func() {
 		It("Should provide a working gorp.Tx for read/write", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "raw"})).To(Succeed())
@@ -63,33 +66,40 @@ var _ = Describe("Migrate", func() {
 					return w.Set(ctx, e)
 				},
 			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration})).To(Succeed())
+			Expect(
+				migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration}),
+			).To(Succeed())
 			r := gorp.WrapReader[int32, entryV1](testDB)
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("raw_migrated"))
 		})
 	})
 
 	Describe("NewEntryMigration", func() {
-		It("Should transform entries from one schema to another", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			w := gorp.WrapWriter[int32, entryV1](testDB)
-			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
-			Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
-			migration := gorp.NewEntryMigration(
-				"add_suffix",
-				func(_ context.Context, old entryV1) (entryV1, error) {
-					return entryV1{ID: old.ID, Data: old.Data + "_migrated"}, nil
-				},
-			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration})).To(Succeed())
-			r := gorp.WrapReader[int32, entryV1](testDB)
-			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one_migrated"))
-			Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two_migrated"))
-		})
+		It(
+			"Should transform entries from one schema to another",
+			func(ctx SpecContext) {
+				testDB := OpenGorpMsgpackDB()
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, entryV1](testDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
+				Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
+				migration := gorp.NewEntryMigration(
+					"add_suffix",
+					func(_ context.Context, old entryV1) (entryV1, error) {
+						return entryV1{ID: old.ID, Data: old.Data + "_migrated"}, nil
+					},
+				)
+				Expect(
+					migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration}),
+				).To(Succeed())
+				r := gorp.WrapReader[int32, entryV1](testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one_migrated"))
+				Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two_migrated"))
+			},
+		)
 
 		It("Should apply the transform function to each entry", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
@@ -99,7 +109,9 @@ var _ = Describe("Migrate", func() {
 					return entryV1{ID: old.ID, Data: "post:" + old.Data}, nil
 				},
 			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration})).To(Succeed())
+			Expect(
+				migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration}),
+			).To(Succeed())
 			r := gorp.WrapReader[int32, entryV1](testDB)
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("post:one"))
 		})
@@ -107,13 +119,15 @@ var _ = Describe("Migrate", func() {
 
 	Describe("Version tracking", func() {
 		It("Should store applied migration names", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			migration := gorp.NewMigration(
 				"noop",
 				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error { return nil },
 			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration})).To(Succeed())
+			Expect(
+				migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration}),
+			).To(Succeed())
 			versionKey := []byte("gorp.migration." + testNamespace)
 			b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
 			Expect(closer.Close()).To(Succeed())
@@ -121,7 +135,7 @@ var _ = Describe("Migrate", func() {
 		})
 
 		It("Should skip already-completed migrations on re-run", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			executionCount := 0
 			migration := gorp.NewMigration(
@@ -138,28 +152,41 @@ var _ = Describe("Migrate", func() {
 			Expect(executionCount).To(Equal(1))
 		})
 
-		It("Should only run new migrations after partial completion", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			var executed []string
-			m1 := gorp.NewMigration("first", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				executed = append(executed, "first")
-				return nil
-			})
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1})).To(Succeed())
-			Expect(executed).To(Equal([]string{"first"}))
-			m2 := gorp.NewMigration("second", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				executed = append(executed, "second")
-				return nil
-			})
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).To(Succeed())
-			Expect(executed).To(Equal([]string{"first", "second"}))
-		})
+		It(
+			"Should only run new migrations after partial completion",
+			func(ctx SpecContext) {
+				testDB := OpenGorpMsgpackDB()
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				var executed []string
+				m1 := gorp.NewMigration(
+					"first",
+					func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
+						executed = append(executed, "first")
+						return nil
+					},
+				)
+				Expect(
+					migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1}),
+				).To(Succeed())
+				Expect(executed).To(Equal([]string{"first"}))
+				m2 := gorp.NewMigration(
+					"second",
+					func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
+						executed = append(executed, "second")
+						return nil
+					},
+				)
+				Expect(
+					migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2}),
+				).To(Succeed())
+				Expect(executed).To(Equal([]string{"first", "second"}))
+			},
+		)
 	})
 
 	Describe("Sequential execution", func() {
 		It("Should chain two entry migrations sequentially", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "chain"})).To(Succeed())
@@ -175,42 +202,49 @@ var _ = Describe("Migrate", func() {
 					return entryV1{ID: old.ID, Data: old.Data + "_v3"}, nil
 				},
 			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).To(Succeed())
+			Expect(
+				migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2}),
+			).To(Succeed())
 			r := gorp.WrapReader[int32, entryV1](testDB)
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("chain_v2_v3"))
 		})
 
-		It("Should chain an entry migration with a raw migration", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			w := gorp.WrapWriter[int32, entryV1](testDB)
-			Expect(w.Set(ctx, entryV1{ID: 1, Data: "mixed"})).To(Succeed())
-			m1 := gorp.NewEntryMigration(
-				"typed_transform",
-				func(_ context.Context, old entryV1) (entryV1, error) {
-					return entryV1{ID: old.ID, Data: old.Data + "_typed"}, nil
-				},
-			)
-			m2 := gorp.NewMigration("raw_update", func(
-				ctx context.Context,
-				tx gorp.Tx,
-				ins alamos.Instrumentation,
-			) error {
-				r := gorp.WrapReader[int32, entryV1](tx)
-				e := MustSucceed(r.Get(ctx, 1))
-				e.Data = e.Data + "_raw"
-				w := gorp.WrapWriter[int32, entryV1](tx)
-				return w.Set(ctx, e)
-			}, "typed_transform")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).To(Succeed())
-			r := gorp.WrapReader[int32, entryV1](testDB)
-			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("mixed_typed_raw"))
-		})
+		It(
+			"Should chain an entry migration with a raw migration",
+			func(ctx SpecContext) {
+				testDB := OpenGorpMsgpackDB()
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, entryV1](testDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "mixed"})).To(Succeed())
+				m1 := gorp.NewEntryMigration(
+					"typed_transform",
+					func(_ context.Context, old entryV1) (entryV1, error) {
+						return entryV1{ID: old.ID, Data: old.Data + "_typed"}, nil
+					},
+				)
+				m2 := gorp.NewMigration("raw_update", func(
+					ctx context.Context,
+					tx gorp.Tx,
+					ins alamos.Instrumentation,
+				) error {
+					r := gorp.WrapReader[int32, entryV1](tx)
+					e := MustSucceed(r.Get(ctx, 1))
+					e.Data = e.Data + "_raw"
+					w := gorp.WrapWriter[int32, entryV1](tx)
+					return w.Set(ctx, e)
+				})
+				Expect(
+					migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2}),
+				).To(Succeed())
+				r := gorp.WrapReader[int32, entryV1](testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("mixed_typed_raw"))
+			},
+		)
 	})
 
 	Describe("Error handling", func() {
 		It("Should not commit when a migration fails", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "original"})).To(Succeed())
@@ -227,142 +261,82 @@ var _ = Describe("Migrate", func() {
 		})
 	})
 
-	Describe("Dependencies", func() {
-		It("Should order migrations respecting declared dependencies", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+	Describe("Ordering", func() {
+		It("Should run migrations in list order", func(ctx SpecContext) {
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			var order []string
-			m1 := gorp.NewMigration("alpha", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "alpha")
-				return nil
-			})
-			m2 := gorp.NewMigration("beta", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "beta")
-				return nil
-			}, "alpha")
-			m3 := gorp.NewMigration("gamma", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "gamma")
-				return nil
-			}, "beta")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m3, m2, m1})).To(Succeed())
+			m1 := gorp.NewMigration(
+				"alpha",
+				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
+					order = append(order, "alpha")
+					return nil
+				},
+			)
+			m2 := gorp.NewMigration(
+				"beta",
+				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
+					order = append(order, "beta")
+					return nil
+				},
+			)
+			m3 := gorp.NewMigration(
+				"gamma",
+				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
+					order = append(order, "gamma")
+					return nil
+				},
+			)
+			Expect(
+				migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2, m3}),
+			).To(Succeed())
 			Expect(order).To(Equal([]string{"alpha", "beta", "gamma"}))
 		})
 
-		It("Should treat already-applied dependencies as satisfied", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			var order []string
-			m1 := gorp.NewMigration("first", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "first")
-				return nil
-			})
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1})).To(Succeed())
-			Expect(order).To(Equal([]string{"first"}))
-			m2 := gorp.NewMigration("second", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "second")
-				return nil
-			}, "first")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).To(Succeed())
-			Expect(order).To(Equal([]string{"first", "second"}))
-		})
-
-		It("Should detect cyclic dependencies", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			m1 := gorp.NewMigration(
-				"a",
-				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error { return nil },
-				"b",
-			)
-			m2 := gorp.NewMigration(
-				"b",
-				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error { return nil },
-				"a",
-			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).
-				To(MatchError(graph.ErrCyclicDependency))
-		})
-
-		It("Should return error for missing dependency", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			m1 := gorp.NewMigration(
-				"orphan",
-				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error { return nil },
-				"nonexistent",
-			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1})).
-				To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should work with migrations that do not declare dependencies", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			var order []string
-			m1 := gorp.NewMigration("plain_a", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "plain_a")
-				return nil
-			})
-			m2 := gorp.NewMigration("plain_b", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "plain_b")
-				return nil
-			})
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m1, m2})).To(Succeed())
-			Expect(order).To(Equal([]string{"plain_a", "plain_b"}))
-		})
-
-		It("Should preserve insertion order for migrations without dependencies "+
-			"when mixed with dependency-declaring migrations", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			var order []string
-			m1 := gorp.NewMigration("no_dep", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "no_dep")
-				return nil
-			})
-			m2 := gorp.NewMigration("has_dep", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "has_dep")
-				return nil
-			}, "no_dep")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m2, m1})).To(Succeed())
-			Expect(order).To(Equal([]string{"no_dep", "has_dep"}))
-		})
-
-		It("Should respect dependencies declared on an entry migration", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			defer func() { Expect(testDB.Close()).To(Succeed()) }()
-			w := gorp.WrapWriter[int32, entryV1](testDB)
-			Expect(w.Set(ctx, entryV1{ID: 1, Data: "x"})).To(Succeed())
-			var order []string
-			base := gorp.NewMigration("base", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
-				order = append(order, "base")
-				return nil
-			})
-			entry := gorp.NewEntryMigration(
-				"entry_dep",
-				func(_ context.Context, old entryV1) (entryV1, error) {
-					order = append(order, "entry_dep")
-					return entryV1{ID: old.ID, Data: old.Data + "_done"}, nil
-				},
-				"base",
-			)
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{entry, base})).To(Succeed())
-			Expect(order).To(Equal([]string{"base", "entry_dep"}))
-			r := gorp.WrapReader[int32, entryV1](testDB)
-			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("x_done"))
-		})
+		It(
+			"Should run an entry migration after an earlier raw migration",
+			func(ctx SpecContext) {
+				testDB := OpenGorpMsgpackDB()
+				defer func() { Expect(testDB.Close()).To(Succeed()) }()
+				w := gorp.WrapWriter[int32, entryV1](testDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "x"})).To(Succeed())
+				var order []string
+				base := gorp.NewMigration(
+					"base",
+					func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
+						order = append(order, "base")
+						return nil
+					},
+				)
+				entry := gorp.NewEntryMigration(
+					"entry_after",
+					func(_ context.Context, old entryV1) (entryV1, error) {
+						order = append(order, "entry_after")
+						return entryV1{ID: old.ID, Data: old.Data + "_done"}, nil
+					},
+				)
+				Expect(
+					migrateWithEntryV1(ctx, testDB, []migrate.Migration{base, entry}),
+				).To(Succeed())
+				Expect(order).To(Equal([]string{"base", "entry_after"}))
+				r := gorp.WrapReader[int32, entryV1](testDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("x_done"))
+			},
+		)
 	})
 
 	Describe("CodecMigration", func() {
 		It("Should re-encode all entries without changing data", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
 			Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
 			Expect(w.Set(ctx, entryV1{ID: 3, Data: "three"})).To(Succeed())
 			migration := gorp.CodecMigration[int32, entryV1]("codec_v1")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration})).To(Succeed())
+			Expect(
+				migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration}),
+			).To(Succeed())
 			r := gorp.WrapReader[int32, entryV1](testDB)
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one"))
 			Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two"))
@@ -370,44 +344,52 @@ var _ = Describe("Migrate", func() {
 		})
 
 		It("Should work on an empty table", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			migration := gorp.CodecMigration[int32, entryV1]("codec_empty")
-			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration})).To(Succeed())
+			Expect(
+				migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration}),
+			).To(Succeed())
 		})
 
-		It("Should re-encode entries from an old codec to a new one", func(ctx SpecContext) {
-			kvDB := memkv.New()
-			defer func() { Expect(kvDB.Close()).To(Succeed()) }()
+		It(
+			"Should re-encode entries from an old codec to a new one",
+			func(ctx SpecContext) {
+				kvDB := memkv.New()
+				defer func() { Expect(kvDB.Close()).To(Succeed()) }()
 
-			// Write entries using JSON codec.
-			jsonDB := gorp.Wrap(kvDB, gorp.WithCodec(json.Codec))
-			w := gorp.WrapWriter[int32, entryV1](jsonDB)
-			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
-			Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
+				// Write entries using JSON codec.
+				jsonDB := gorp.Wrap(kvDB, gorp.WithCodec(json.Codec))
+				w := gorp.WrapWriter[int32, entryV1](jsonDB)
+				Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
+				Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
 
-			// Run CodecMigration with msgpack primary + JSON fallback.
-			// This reads entries via JSON fallback and writes them back as msgpack.
-			fallbackDB := gorp.Wrap(
-				kvDB,
-				gorp.WithCodec(encoding.NewDecodeFallbackCodec(msgpack.Codec, json.Codec)),
-			)
-			migration := gorp.CodecMigration[int32, entryV1]("json_to_msgpack")
-			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-				DB:         fallbackDB,
-				Namespace:  testNamespace,
-				Migrations: []migrate.Migration{migration},
-			})).To(Succeed())
+				// Run CodecMigration with MessagePack primary + JSON fallback. This
+				// reads entries via JSON fallback and writes them back as MessagePack.
+				fallbackDB := gorp.Wrap(
+					kvDB,
+					gorp.WithCodec(
+						encoding.NewDecodeFallbackCodec(msgpack.Codec, json.Codec),
+					),
+				)
+				migration := gorp.CodecMigration[int32, entryV1]("json_to_msgpack")
+				Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+					DB:         fallbackDB,
+					Namespace:  testNamespace,
+					Migrations: []migrate.Migration{migration},
+				})).To(Succeed())
 
-			// Verify entries are now readable with plain msgpack (no fallback needed).
-			msgpackDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
-			r := gorp.WrapReader[int32, entryV1](msgpackDB)
-			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one"))
-			Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two"))
-		})
+				// Verify entries are now readable with plain MessagePack (no fallback
+				// needed).
+				msgpackDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
+				r := gorp.WrapReader[int32, entryV1](msgpackDB)
+				Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one"))
+				Expect(MustSucceed(r.Get(ctx, 2)).Data).To(Equal("two"))
+			},
+		)
 
 		It("Should be skipped on re-run", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "stable"})).To(Succeed())
@@ -422,7 +404,7 @@ var _ = Describe("Migrate", func() {
 
 	Describe("Error context", func() {
 		It("Should include entry key in transform error", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 42, Data: "bad"})).To(Succeed())
@@ -437,7 +419,7 @@ var _ = Describe("Migrate", func() {
 		})
 
 		It("Should include raw key in decode error", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
+			testDB := OpenGorpMsgpackDB()
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			prefix := "gorp.entryV1"
 			key := make([]byte, len(prefix)+4)

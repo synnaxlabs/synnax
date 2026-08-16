@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/session/cluster";
+import { CONNECTION_PARAMS } from "@/session/cluster/testutil";
 
 const TEMP_KEY = "temp-uuid-1234";
 const REAL_KEY = "real-cluster-key-5678";
@@ -43,8 +44,8 @@ describe("purgeDuplicateClusters", () => {
       Cluster.set({
         ...BASE_CLUSTER,
         key: REAL_KEY,
-        username: "synnax",
-        password: "seldon",
+        username: CONNECTION_PARAMS.username,
+        password: CONNECTION_PARAMS.password,
       }),
     );
     expect(
@@ -119,6 +120,20 @@ describe("remove", () => {
     expect(Object.keys(state.clusters)).toEqual(
       Object.keys(Cluster.ZERO_SLICE_STATE.clusters),
     );
+  });
+
+  it("should clear the selection when the selected cluster is removed", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(state, Cluster.select(TEMP_KEY));
+    state = Cluster.reducer(state, Cluster.remove(TEMP_KEY));
+    expect(state.selected).toBeUndefined();
+  });
+
+  it("should keep the selection when a different cluster is removed", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(state, Cluster.select("LOCAL"));
+    state = Cluster.reducer(state, Cluster.remove(TEMP_KEY));
+    expect(state.selected).toBe("LOCAL");
   });
 });
 

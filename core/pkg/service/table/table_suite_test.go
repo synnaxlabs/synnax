@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -32,10 +33,11 @@ func TestTable(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db   *gorp.DB
-	proj project.Project
-	svc  *table.Service
-	tx   gorp.Tx
+	db      *gorp.DB
+	proj    project.Project
+	svc     *table.Service
+	imexSvc *imex.Service
+	tx      gorp.Tx
 )
 
 var (
@@ -57,10 +59,12 @@ var (
 				Search:   searchIdx,
 			}))
 		)
+		imexSvc = imex.NewService()
 		svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
+			ImEx:     imexSvc,
 		}))
 		proj.Name = "test-project"
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())

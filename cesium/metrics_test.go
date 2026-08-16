@@ -29,108 +29,59 @@ var _ = Describe("Metrics", Ordered, func() {
 			})
 
 			Describe("Metrics", func() {
-				It("Should return zero metrics for an empty database", func(ctx SpecContext) {
-					sub := MustSucceed(fs.Sub("empty-metrics"))
-					emptyDB := openDBOnFS(ctx, sub)
-					defer func() { Expect(emptyDB.Close()).To(Succeed()) }()
+				It(
+					"Should return zero metrics for an empty database",
+					func(ctx SpecContext) {
+						sub := MustSucceed(fs.Sub("empty-metrics"))
+						emptyDB := openDBOnFS(ctx, sub)
+						defer func() { Expect(emptyDB.Close()).To(Succeed()) }()
 
-					m := emptyDB.Metrics()
-					Expect(m.DiskSize).To(Equal(telem.Size(0)))
-					Expect(m.ChannelCount).To(Equal(0))
-				})
+						m := emptyDB.Metrics()
+						Expect(m.DiskSize).To(Equal(telem.Size(0)))
+					},
+				)
 
-				It("Should return correct channel count for unary channels", func(ctx SpecContext) {
-					sub := MustSucceed(fs.Sub("unary-metrics"))
-					subDB := openDBOnFS(ctx, sub)
-					defer func() { Expect(subDB.Close()).To(Succeed()) }()
+				It(
+					"Should return correct disk size after writing data",
+					func(ctx SpecContext) {
+						sub := MustSucceed(fs.Sub("size-metrics"))
+						subDB := openDBOnFS(ctx, sub)
+						defer func() { Expect(subDB.Close()).To(Succeed()) }()
 
-					indexKey := GenerateChannelKey()
-					dataKey := GenerateChannelKey()
+						indexKey := GenerateChannelKey()
+						dataKey := GenerateChannelKey()
 
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{
-						Key:      indexKey,
-						Name:     "index",
-						IsIndex:  true,
-						DataType: telem.TimeStampT,
-					})).To(Succeed())
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      indexKey,
+							Name:     "index",
+							IsIndex:  true,
+							DataType: telem.TimeStampT,
+						})).To(Succeed())
 
-					m := subDB.Metrics()
-					Expect(m.ChannelCount).To(Equal(1))
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      dataKey,
+							Name:     "data",
+							Index:    indexKey,
+							DataType: telem.Int64T,
+						})).To(Succeed())
 
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{
-						Key:      dataKey,
-						Name:     "data",
-						Index:    indexKey,
-						DataType: telem.Float64T,
-					})).To(Succeed())
+						m := subDB.Metrics()
+						Expect(m.DiskSize).To(Equal(telem.Size(0)))
 
-					m = subDB.Metrics()
-					Expect(m.ChannelCount).To(Equal(2))
-				})
+						Expect(subDB.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{indexKey, dataKey},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
+								telem.NewSeriesV[int64](10, 20, 30, 40, 50),
+							},
+						))).To(Succeed())
 
-				It("Should return correct channel count including virtual channels", func(ctx SpecContext) {
-					sub := MustSucceed(fs.Sub("virtual-metrics"))
-					subDB := openDBOnFS(ctx, sub)
-					defer func() { Expect(subDB.Close()).To(Succeed()) }()
-
-					indexKey := GenerateChannelKey()
-					virtualKey := GenerateChannelKey()
-
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{
-						Key:      indexKey,
-						Name:     "index",
-						IsIndex:  true,
-						DataType: telem.TimeStampT,
-					})).To(Succeed())
-
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{
-						Key:      virtualKey,
-						Name:     "virtual",
-						Virtual:  true,
-						DataType: telem.Float64T,
-					})).To(Succeed())
-
-					m := subDB.Metrics()
-					Expect(m.ChannelCount).To(Equal(2))
-				})
-
-				It("Should return correct disk size after writing data", func(ctx SpecContext) {
-					sub := MustSucceed(fs.Sub("size-metrics"))
-					subDB := openDBOnFS(ctx, sub)
-					defer func() { Expect(subDB.Close()).To(Succeed()) }()
-
-					indexKey := GenerateChannelKey()
-					dataKey := GenerateChannelKey()
-
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{
-						Key:      indexKey,
-						Name:     "index",
-						IsIndex:  true,
-						DataType: telem.TimeStampT,
-					})).To(Succeed())
-
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{
-						Key:      dataKey,
-						Name:     "data",
-						Index:    indexKey,
-						DataType: telem.Int64T,
-					})).To(Succeed())
-
-					m := subDB.Metrics()
-					Expect(m.DiskSize).To(Equal(telem.Size(0)))
-
-					Expect(subDB.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
-						[]cesium.ChannelKey{indexKey, dataKey},
-						[]telem.Series{
-							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
-							telem.NewSeriesV[int64](10, 20, 30, 40, 50),
-						},
-					))).To(Succeed())
-
-					m = subDB.Metrics()
-					// 5 timestamps (8 bytes each) + 5 int64s (8 bytes each) = 80 bytes
-					Expect(m.DiskSize).To(Equal(telem.Size(80)))
-				})
+						m = subDB.Metrics()
+						// 5 timestamps (8 bytes each) + 5 int64s (8 bytes each) = 80
+						// bytes
+						Expect(m.DiskSize).To(Equal(telem.Size(80)))
+					},
+				)
 			})
 		})
 	}

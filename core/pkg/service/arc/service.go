@@ -20,19 +20,19 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
-	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -55,27 +55,36 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Task is used for deleting tasks associated with Arcs when Arcs are deleted.
+	// Task is used for creating and deleting the tasks that deploy Arcs to racks.
 	//
 	// [REQUIRED]
 	Task *task.Service
+	// Status is used to check whether an Arc's task is running before undeploying it.
+	//
+	// [REQUIRED]
+	Status *status.Service
 	// Search is the search index for fuzzy searching Arcs.
 	//
 	// [REQUIRED]
 	Search *search.Index
 	// Signals is used to broadcast collaborative-edit actions to the cluster.
 	//
-	// [OPTIONAL]
+	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
-	// TextSweepQuiescence is how long an arc's text must go unedited before its
+	// ImEx is the import/export registry the Arc service registers itself with as the
+	// exporter for Arc resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
+	// TextSweepQuiescence is how long an Arc's text must go unedited before its
 	// tombstoned characters become eligible to be reclaimed.
 	//
-	// [OPTIONAL] - Defaults to defaultTextSweepQuiescence.
+	// [OPTIONAL] - Defaults to 5 seconds
 	TextSweepQuiescence telem.TimeSpan
 	// TextSweepThreshold is the number of tombstoned characters that must accumulate
 	// before a sweep is broadcast.
 	//
-	// [OPTIONAL] - Defaults to defaultTextSweepThreshold.
+	// [OPTIONAL] - Defaults to 128.
 	TextSweepThreshold int
 	// Now returns the current cluster time. It gates the text sweeper's quiescence
 	// check and is injectable for testing.
@@ -83,18 +92,12 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig holds the default values for a ServiceConfig.
-	DefaultServiceConfig = ServiceConfig{
-		TextSweepQuiescence: defaultTextSweepQuiescence,
-		TextSweepThreshold:  defaultTextSweepThreshold,
-		Now:                 telem.Now,
-	}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -104,9 +107,17 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.TextSweepQuiescence = override.Numeric(c.TextSweepQuiescence, other.TextSweepQuiescence)
-	c.TextSweepThreshold = override.Numeric(c.TextSweepThreshold, other.TextSweepThreshold)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.TextSweepQuiescence = override.Numeric(
+		c.TextSweepQuiescence,
+		other.TextSweepQuiescence,
+	)
+	c.TextSweepThreshold = override.Numeric(
+		c.TextSweepThreshold,
+		other.TextSweepThreshold,
+	)
 	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
@@ -118,7 +129,9 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "task", c.Task)
+	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
@@ -136,7 +149,7 @@ type Service struct {
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
 	syms := slices.Concat(
 		stl.NewSymbols(),
-		status.NewSymbols(),
+		arcstatus.NewSymbols(),
 		ranges.NewSymbols(),
 	)
 	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
@@ -203,41 +216,41 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 // OpenService instantiates a new Arc service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
+	cfg, err := config.New(ServiceConfig{
+		TextSweepQuiescence: 5 * telem.Second,
+		TextSweepThreshold:  128,
+		Now:                 telem.Now,
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s = &Service{
-		cfg:     cfg,
-		state:   actions.NewState[Key, Action](),
-		sweeper: newTextSweeper(cfg.Now, cfg.TextSweepQuiescence, cfg.TextSweepThreshold),
+		cfg:   cfg,
+		state: actions.NewState[Key, Action](),
+		sweeper: newTextSweeper(
+			cfg.Now,
+			cfg.TextSweepQuiescence,
+			cfg.TextSweepThreshold,
+		),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_program_status", arcv56.MigrateArc),
-				"msgpack_to_orc",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v55_rename_set_status", arcv56.RenameSetStatus),
-				"v54_drop_program_status",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v56_to_live", MigrateArc),
-				"v55_rename_set_status",
-			),
-		},
+		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
+		return nil, err
+	}
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
@@ -249,7 +262,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
-		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			deleteCfg,
+		); !ok(
+			err,
+			sig,
+		) {
 			return nil, err
 		}
 	}
@@ -273,7 +293,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		otg:        s.cfg.Ontology,
-		task:       s.cfg.Task.NewWriter(tx),
+		tasks:      s.cfg.Task,
+		status:     s.cfg.Status,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 		sweeper:    s.sweeper,

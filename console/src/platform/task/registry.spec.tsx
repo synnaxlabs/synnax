@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -16,12 +15,6 @@ import { describe, expect, it, vi } from "vitest";
 import { Task } from "@/platform/task";
 
 const registry: Task.Registry = {
-  createLayout: (t: task.Task) => ({
-    type: "task",
-    name: t.name,
-    location: "mosaic",
-    icon: "Task",
-  }),
   getIcon: () => <Icon.Task />,
   parseType: (type: string) => type.replace("ni_", ""),
 };

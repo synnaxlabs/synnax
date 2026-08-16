@@ -14,7 +14,7 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-interface RenderProps extends Omit<schematic.NodeConfigLight, "variant"> {
+interface RenderProps extends Omit<schematic.LightNodeConfig, "variant"> {
   className?: string;
   enabled?: boolean;
 }

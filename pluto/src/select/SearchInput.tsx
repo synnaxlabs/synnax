@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { type Dialog } from "@/dialog";
 import { Flex } from "@/flex";
+import { Icon } from "@/icon";
 import { type Input } from "@/input";
 import { Text as InputText } from "@/input/Text";
 
@@ -19,6 +20,7 @@ export interface SearchInputProps {
   onSearch?: (term: string) => void;
   actions?: Input.TextProps["children"];
   dialogVariant?: Dialog.FrameProps["variant"];
+  loading?: boolean;
 }
 
 export const SearchInput = ({
@@ -26,15 +28,17 @@ export const SearchInput = ({
   onSearch,
   actions,
   dialogVariant = "floating",
+  loading = false,
 }: SearchInputProps) => {
   const [term, setTerm] = useState<string>("");
   const inputContent = (
     <InputText
       value={term}
       autoFocus
+      flush
+      startContent={loading ? <Icon.Loading /> : <Icon.Search />}
       placeholder={searchPlaceholder}
       size={dialogVariant === "modal" ? "large" : "medium"}
-      contrast={3}
       rounded
       grow
       full="x"

@@ -27,7 +27,7 @@ export const Symbol = ({
     dimensions,
     borderRadius,
   },
-}: NodeProps<schematic.NodeConfigTank>): ReactElement => (
+}: NodeProps<schematic.TankNodeConfig>): ReactElement => (
   <Grid.Grid
     allowCenter
     allowRotate={false}

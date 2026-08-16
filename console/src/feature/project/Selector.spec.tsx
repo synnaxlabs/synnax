@@ -14,11 +14,18 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { createActiveState, createSavedLayout } from "@/platform/project/testutil";
+import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, renderWithConsole } from "@/testutil";
+import {
+  createConsoleWrapper,
+  getBySelector,
+  renderWithConsole,
+  uniqueName,
+} from "@/testutil";
 
 const client: Synnax = createTestClient();
+
+const TRIGGER = ".console-project-selector__trigger";
 
 describe("Project.Selector", () => {
   it("renders nothing when the user lacks retrieve permission", async () => {
@@ -30,32 +37,56 @@ describe("Project.Selector", () => {
         },
       },
     });
-    expect(container.querySelector(".console-trigger")).toBeNull();
+    expect(container.querySelector(TRIGGER)).toBeNull();
   });
 
-  it("switches the active project and loads its layout on selection", async () => {
+  it("switches the active project on selection", async () => {
     const active: project.Project = await client.projects.create({
       name: `proj-active-${id.create()}`,
-      layout: Session.Layout.ZERO_SLICE_STATE,
+      layout: {},
     });
-    const layoutKey = id.create();
     const target: project.Project = await client.projects.create({
       name: `proj-target-${id.create()}`,
-      layout: createSavedLayout(layoutKey),
+      layout: {},
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
     });
-    render(<Project.Selector />, { wrapper });
+    const { container } = render(<Project.Selector />, { wrapper });
 
-    const trigger = await screen.findByText(active.name);
+    const trigger = await waitFor(() => getBySelector(container, TRIGGER));
     fireEvent.click(trigger);
+    const search = await screen.findByPlaceholderText("Search projects...");
+    fireEvent.change(search, { target: { value: target.name } });
     fireEvent.click(await screen.findByText(target.name));
 
     await waitFor(() =>
       expect(Session.Project.selectSelected(store.getState())).toBe(target.key),
     );
-    expect(Session.Layout.select(store.getState(), layoutKey)?.name).toBe("Operator");
+  });
+
+  it("gives numbered siblings different avatar initials", async () => {
+    const active: project.Project = await client.projects.create({
+      name: `proj-active-${id.create()}`,
+      layout: {},
+    });
+    const prefix = uniqueName("stand");
+    await client.projects.create({ name: `${prefix}_1`, layout: {} });
+    await client.projects.create({ name: `${prefix}_2`, layout: {} });
+    const { wrapper } = await createConsoleWrapper({
+      client,
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
+    });
+    const { container } = render(<Project.Selector />, { wrapper });
+
+    const trigger = await waitFor(() => getBySelector(container, TRIGGER));
+    fireEvent.click(trigger);
+    const search = await screen.findByPlaceholderText("Search projects...");
+    fireEvent.change(search, { target: { value: prefix } });
+    await screen.findByText(`${prefix}_1`);
+
+    expect(await screen.findByText("S1")).toBeTruthy();
+    expect(await screen.findByText("S2")).toBeTruthy();
   });
 });

@@ -35,10 +35,6 @@ func OntologyIDsFromKeys(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
 
-// OntologyID returns a unique identifier for the user for use within a resource
-// ontology.
-func (u User) OntologyID() ontology.ID { return OntologyID(u.Key) }
-
 // OntologyIDsFromUsers returns a slice of unique identifiers for a slice of Users for
 // use within a resource ontology.
 func OntologyIDsFromUsers(users []User) []ontology.ID {
@@ -69,13 +65,20 @@ func (s *Service) SearchableFields() []string {
 }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
 	uuidKey, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
 	var u User
-	if err = s.NewRetrieve().Entry(&u).Where(MatchKeys(uuidKey)).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().
+		Entry(&u).
+		Where(MatchKeys(uuidKey)).
+		Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(u), nil
@@ -92,7 +95,9 @@ func translateChange(ch change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, User]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -100,7 +105,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -109,5 +116,5 @@ func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], 
 }
 
 func newResource(u User) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(u.Key), u.Username, u)
+	return ontology.NewResource(schema, u.OntologyID(), u.Username, u)
 }

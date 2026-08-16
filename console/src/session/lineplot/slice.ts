@@ -252,7 +252,7 @@ export const { actions, reducer } = createSlice({
 });
 
 export const {
-  create: internalCreate,
+  create,
   setViewport,
   storeViewport,
   setSelection,

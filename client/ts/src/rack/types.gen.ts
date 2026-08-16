@@ -29,23 +29,21 @@ export type Status = z.infer<typeof statusZ>;
 
 /**
  * Payload is a collection container for hardware devices and tasks running on a
- * specific cluster node. Racks serve as the integration point between the
- * Synnax server and physical hardware via the Driver system.
+ * specific Core. Racks are the integration point between the Core and physical hardware
+ * through the Driver.
  */
 export const payloadZ = z.object({
   /** key is the composite identifier for this rack. */
   key: keyZ.refine((v) => v !== 0, "key is required"),
   /** name is a human-readable name for the rack. */
   name: z.string().min(1, "name is required"),
-  /** taskCounter is an internal counter used for generating unique local task keys. */
-  taskCounter: z.uint32().default(0),
   /** embedded is true if this rack is embedded within the Synnax server process. */
   embedded: z.boolean().default(false),
   /** status is the current operational status of the rack. */
   status: statusZ.optional(),
   /**
-   * integrations is the list of hardware integrations this rack supports (e.g., "ni", "opc",
-   * "labjack"). An empty or nil list means the rack supports no integrations.
+   * integrations is the list of hardware integrations this rack supports (e.g., "ni",
+   * "opc", "labjack"). An empty or nil list means the rack supports no integrations.
    */
   integrations: z
     .string()
@@ -54,11 +52,9 @@ export const payloadZ = z.object({
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ
-  .omit({ taskCounter: true, embedded: true, key: true })
-  .extend({
-    key: keyZ.refine((v) => v !== 0, "key is required").default(0),
-  });
+export const newZ = payloadZ.omit({ embedded: true, key: true }).extend({
+  key: keyZ.refine((v) => v !== 0, "key is required").default(0),
+});
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("rack");

@@ -7,20 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import "@/feature/range/list/List.css";
+
+import { type label, type ranger } from "@synnaxlabs/client";
 import {
   Dialog,
   Flex,
   Icon,
   Label as PLabel,
   Menu,
-  state,
   Tag,
   Text,
 } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { location, state } from "@synnaxlabs/x";
 
+import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 import { Label } from "@/platform/label";
+import { View } from "@/platform/view";
 
 export interface SelectFiltersProps {
   request: ranger.RetrieveRequest;
@@ -55,8 +59,8 @@ export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) 
     </Dialog.Trigger>
     <Dialog.Dialog
       background={1}
-      style={{ padding: "1rem" }}
-      borderColor={5}
+      className={CSS.B("range-select-filters-dialog")}
+      borderColor={6}
       pack={false}
     >
       <FilterContextMenu request={request} onRequestChange={onRequestChange} />
@@ -68,30 +72,30 @@ interface HasLabelsFilterProps {
   request: ranger.RetrieveRequest;
 }
 
-const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
-  const labels =
-    PLabel.useRetrieveMultiple({ keys: request.hasLabels ?? [] }).data ?? [];
-  if (request.hasLabels == null || request.hasLabels.length === 0) return null;
+interface TagsProps {
+  keys: label.Key[];
+}
+
+const Tags = ({ keys }: TagsProps) => {
+  const labels = PLabel.useMultiple({ keys });
+  return labels.map(({ color, key, name }) => (
+    <Tag.Tag key={key} color={color} size="small" textColor={9}>
+      {name}
+    </Tag.Tag>
+  ));
+};
+
+const HasLabelsFilter = ({ request: { hasLabels } }: HasLabelsFilterProps) => {
+  if (hasLabels == null || hasLabels.length === 0) return null;
   return (
     <Flex.Box x pack background={0}>
-      <Text.Text
-        el="span"
-        bordered
-        size="small"
-        style={{ padding: "0 1rem", boxShadow: "var(--pluto-shadow-v1)" }}
-        background={0}
-        borderColor={5}
-        level="small"
-        color={9}
-      >
+      <View.FilterChip el="span" background={0} color={9}>
         <Icon.Label />
         Labels
-      </Text.Text>
-      {labels.map(({ color, key, name }) => (
-        <Tag.Tag key={key} color={color} size="small" textColor={9}>
-          {name}
-        </Tag.Tag>
-      ))}
+      </View.FilterChip>
+      <Errors.SuspenseBoundary loading={null}>
+        <Tags keys={hasLabels} />
+      </Errors.SuspenseBoundary>
     </Flex.Box>
   );
 };

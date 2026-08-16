@@ -13,7 +13,9 @@ import {
   framer,
   type ontology,
   project,
+  query,
   ranger,
+  type Synnax,
   user,
 } from "@synnaxlabs/client";
 import {
@@ -22,12 +24,22 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Access } from "@/access";
-import { Flux } from "@/flux";
-import { type Pluto } from "@/pluto";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+const subjectOf = (c: Synnax): ontology.ID => {
+  const u = c.auth?.user;
+  assert(u != null, "client has no authenticated user");
+  return user.ontologyID(u.key);
+};
+
+const cachedPoliciesOf = (c: Synnax): access.policy.Policy[] => {
+  const cached = c.access.policies.getCached({ for: subjectOf(c) });
+  return query.isLive(cached) ? cached : [];
+};
 
 describe("Access Queries", () => {
   let controller: AbortController;
@@ -97,11 +109,9 @@ describe("Access Queries", () => {
         expect(result.current).toBe(true);
       });
       expect(result.current).toBe(true);
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
+      const policies = cachedPoliciesOf(userClient).filter(
+        (p) => p.name === policyName,
       );
-      const policies = storeResult.current.policies.get((p) => p.name === policyName);
       expect(policies.length).toBe(1);
       expect(policies[0].name).toBe(policyName);
     });
@@ -156,16 +166,15 @@ describe("Access Queries", () => {
       const { result } = renderHook(
         () => {
           renders++;
-          const granted = Access.useGranted({
+          return Access.useGranted({
             objects: ranger.TYPE_ONTOLOGY_ID,
             action: "retrieve",
           });
-          return { granted, store: Flux.useStore<Pluto.FluxStore>() };
         },
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
-        expect(result.current.granted).toBe(true);
+        expect(result.current).toBe(true);
       });
       const rendersWhenSettled = renders;
       // A project's group -> project link is not a role link, so the gate must
@@ -174,16 +183,40 @@ describe("Access Queries", () => {
         name: id.create(),
         layout: {},
       });
-      // Wait until the link reaches the store (event delivered)...
+      // Wait until the link reaches the cache (event delivered)...
       await waitFor(() => {
-        const rels = result.current.store.relationships.get(
+        const rels = userClient.ontology.cache.relationships.get(
           (rel) => rel.to.type === "project" && rel.to.key === proj.key,
         );
         expect(rels.length).toBeGreaterThan(0);
       });
       // ...then confirm it caused no re-evaluation.
       expect(renders).toBe(rendersWhenSettled);
-      expect(result.current.granted).toBe(true);
+      expect(result.current).toBe(true);
+    });
+
+    it("should pass an identity-stable query to the client on every render", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: id.create(),
+        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const spy = vi.spyOn(userClient.access.granted, "getCached");
+      const { result, rerender } = renderHook(
+        () =>
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+      rerender();
+      rerender();
+      // One query object across every read is what keys the client's verdict
+      // memo; a fresh object per render would evaluate the policies each time.
+      const queries = new Set(spy.mock.calls.map((call) => call[1]));
+      expect(queries.size).toBe(1);
+      spy.mockRestore();
     });
 
     it("should handle multiple objects correctly", async () => {
@@ -223,12 +256,7 @@ describe("Access Queries", () => {
       await waitFor(() => {
         expect(grantedResult.current).toBe(true);
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
-      );
       const result = Access.isGranted({
-        store: storeResult.current,
         client: userClient,
         query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
       });
@@ -251,33 +279,22 @@ describe("Access Queries", () => {
       await waitFor(() => {
         expect(grantedResult.current).toBe(false);
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
-      );
       const result = Access.isGranted({
-        store: storeResult.current,
         client: userClient,
         query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
       });
       expect(result).toBe(false);
     });
 
-    it("should return false when client is null", async () => {
-      const wrapper = await createAsyncSynnaxWrapper({ client });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
-      );
+    it("should return false when client is null", () => {
       const result = Access.isGranted({
-        store: storeResult.current,
         client: null,
         query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
       });
       expect(result).toBe(false);
     });
 
-    it("should use cached policies from the store", async () => {
+    it("should use cached policies", async () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
@@ -293,26 +310,21 @@ describe("Access Queries", () => {
       await waitFor(() => {
         expect(grantedResult.current).toBe(true);
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
+      const policies = cachedPoliciesOf(userClient).filter(
+        (p) => p.name === policyName,
       );
-      const policies = storeResult.current.policies.get((p) => p.name === policyName);
       expect(policies.length).toBe(1);
       const resultRetrieve = Access.isGranted({
-        store: storeResult.current,
         client: userClient,
         query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
       });
       expect(resultRetrieve).toBe(true);
       const resultCreate = Access.isGranted({
-        store: storeResult.current,
         client: userClient,
         query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "create" },
       });
       expect(resultCreate).toBe(true);
       const resultDelete = Access.isGranted({
-        store: storeResult.current,
         client: userClient,
         query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "delete" },
       });
@@ -327,7 +339,7 @@ describe("Access Queries", () => {
         objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
         actions: ["retrieve"],
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
@@ -342,7 +354,7 @@ describe("Access Queries", () => {
         objects: [...baseObjects],
         actions: ["retrieve"],
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
@@ -357,7 +369,7 @@ describe("Access Queries", () => {
         objects: [ranger.TYPE_ONTOLOGY_ID, channel.TYPE_ONTOLOGY_ID, ...baseObjects],
         actions: ["retrieve"],
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () =>
           Access.useRetrieveGranted([
             ranger.TYPE_ONTOLOGY_ID,
@@ -476,19 +488,14 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result: grantedResult } = renderHook(
+      const { result: grantedResult } = await renderHookSuspended(
         () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper },
       );
       await waitFor(() => {
         expect(grantedResult.current).toBe(true);
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
-      );
       const result = Access.viewGranted({
-        store: storeResult.current,
         client: userClient,
         id: ranger.TYPE_ONTOLOGY_ID,
       });
@@ -512,12 +519,7 @@ describe("Access Queries", () => {
       await waitFor(() => {
         expect(grantedResult.current).toBe(true);
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
-      );
       const result = Access.updateGranted({
-        store: storeResult.current,
         client: userClient,
         id: ranger.TYPE_ONTOLOGY_ID,
       });
@@ -541,12 +543,7 @@ describe("Access Queries", () => {
       await waitFor(() => {
         expect(grantedResult.current).toBe(true);
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
-      );
       const result = Access.deleteGranted({
-        store: storeResult.current,
         client: userClient,
         id: ranger.TYPE_ONTOLOGY_ID,
       });
@@ -570,12 +567,7 @@ describe("Access Queries", () => {
       await waitFor(() => {
         expect(grantedResult.current).toBe(true);
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
-      );
       const result = Access.createGranted({
-        store: storeResult.current,
         client: userClient,
         id: ranger.TYPE_ONTOLOGY_ID,
       });
@@ -592,12 +584,12 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}), { wrapper });
-      await waitFor(() => {
-        expect(result.current.data).toBeDefined();
+      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
+        wrapper,
       });
-      expect(result.current.data!.length).toBeGreaterThan(0);
-      const policy = result.current.data!.find((p) => p.name === policyName);
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current!.length).toBeGreaterThan(0);
+      const policy = result.current!.find((p) => p.name === policyName);
       expect(policy).toBeDefined();
       expect(policy!.actions).toContain("retrieve");
     });
@@ -629,14 +621,12 @@ describe("Access Queries", () => {
       });
       const wrapper = await createAsyncSynnaxWrapper({ client });
       const { result } = renderHook(
-        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }),
+        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }).data,
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.data).toBeDefined();
-      });
-      expect(result.current.data!.length).toBeGreaterThan(0);
-      const policy = result.current.data!.find((pol) => pol.name === policyName);
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current!.length).toBeGreaterThan(0);
+      const policy = result.current!.find((pol) => pol.name === policyName);
       expect(policy).toBeDefined();
       expect(policy!.actions).toContain("retrieve");
     });
@@ -650,16 +640,14 @@ describe("Access Queries", () => {
       });
       const wrapper = await createAsyncSynnaxWrapper({ client });
       const { result } = renderHook(
-        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }),
+        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }).data,
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.data).toBeDefined();
-      });
-      expect(result.current.data!.length).toBe(0);
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current!.length).toBe(0);
     });
 
-    it("should cache loaded policies in the store", async () => {
+    it("should cache loaded policies", async () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
@@ -667,15 +655,13 @@ describe("Access Queries", () => {
         actions: ["retrieve", "create"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}), { wrapper });
-      await waitFor(() => {
-        expect(result.current.data).toBeDefined();
+      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
+        wrapper,
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
+      await waitFor(() => expect(result.current).toBeDefined());
+      const policies = cachedPoliciesOf(userClient).filter(
+        (p) => p.name === policyName,
       );
-      const policies = storeResult.current.policies.get((p) => p.name === policyName);
       expect(policies.length).toBe(1);
       expect(policies[0].name).toBe(policyName);
       expect(policies[0].actions).toContain("retrieve");
@@ -690,22 +676,18 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}), { wrapper });
-      await waitFor(() => {
-        expect(result.current.data).toBeDefined();
+      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
+        wrapper,
       });
-      const { result: storeResult } = renderHook(
-        () => Flux.useStore<Pluto.FluxStore>(),
-        { wrapper },
-      );
-      const policies = storeResult.current.policies.get((p) => p.name === policyName);
-      expect(policies.length).toBe(1);
-      const policyID = access.policy.ontologyID(policies[0].key);
-      const relationships = storeResult.current.relationships.get(
+      await waitFor(() => expect(result.current).toBeDefined());
+      const policy = result.current!.find((p) => p.name === policyName);
+      expect(policy).toBeDefined();
+      const policyID = access.policy.ontologyID(policy!.key);
+      const relationships = userClient.ontology.cache.relationships.get(
         (r) => r.from.type === "role" && r.to.type === "policy",
       );
       expect(relationships.length).toBeGreaterThan(0);
-      const roleToPolicyRel = relationships.find((r) => r.to.key === policies[0].key);
+      const roleToPolicyRel = relationships.find((r) => r.to.key === policy!.key);
       expect(roleToPolicyRel).toBeDefined();
       expect(roleToPolicyRel!.to).toEqual(policyID);
     });

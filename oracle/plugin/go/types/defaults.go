@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -41,12 +41,11 @@ type enumCheckData struct {
 	FieldName string
 }
 
-// goDefaultFills returns the fills for a field's static default (RFC 0043 section 5). A
-// scalar default yields a single fill; a struct-literal default (e.g.
-// `x1 Axis = { key = AxisKeyX1 }`) yields one fill per non-zero leaf component, keyed by a
-// nested selector (X1.Key). It returns nil for fields with no default, nullable/optional
-// fields, defaults that equal the zero value (nothing to fill), and non-static defaults
-// such as create/now.
+// goDefaultFills returns the fills for a field's static default. A scalar default
+// yields a single fill; a struct-literal default (e.g. `x1 Axis = { key = AxisKeyX1 }`)
+// yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key). It
+// returns nil for fields with no default, nullable/optional fields, defaults that equal
+// the zero value (nothing to fill), and non-static defaults such as create/now.
 func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
 	if field.Default == nil || field.Optional {
 		return nil
@@ -55,15 +54,29 @@ func goDefaultFills(field resolution.Field, data *templateData) []defaultFillDat
 	if field.Default.Kind == resolution.ValueKindStruct {
 		return structDefaultFills(name, field.Type, *field.Default, data)
 	}
-	if fill, ok := scalarFill(name, field.Type, field.Default, data); ok {
+	if fill, ok := componentFill(name, field.Type, field.Default, data); ok {
 		return []defaultFillData{fill}
 	}
 	return nil
 }
 
+// componentFill returns the fill for a scalar or array default, dispatching on kind.
+func componentFill(
+	goName string,
+	typeRef resolution.TypeRef,
+	d *resolution.ExpressionValue,
+	data *templateData,
+) (defaultFillData, bool) {
+	if d.Kind == resolution.ValueKindArray {
+		return arrayFill(goName, typeRef, d, data)
+	}
+	return scalarFill(goName, typeRef, d, data)
+}
+
 // structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
 // component. prefix is the Go selector to the struct field (e.g. "X1"), structRef its
-// type, and val the literal. Nested struct components recurse with an extended selector.
+// type, and val the literal. Nested struct components recurse with an extended
+// selector.
 func structDefaultFills(
 	prefix string,
 	structRef resolution.TypeRef,
@@ -86,19 +99,82 @@ func structDefaultFills(
 		}
 		selector := prefix + "." + naming.GetFieldName(f)
 		if comp.Value.Kind == resolution.ValueKindStruct {
-			fills = append(fills, structDefaultFills(selector, f.Type, comp.Value, data)...)
+			fills = append(
+				fills,
+				structDefaultFills(selector, f.Type, comp.Value, data)...)
 			continue
 		}
-		if fill, ok := scalarFill(selector, f.Type, &comp.Value, data); ok {
+		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {
 			fills = append(fills, fill)
 		}
 	}
 	return fills
 }
 
+// arrayFill returns the fill assigning the array default d to the Go selector goName of
+// slice type typeRef. It returns ok=false when d is empty, since the nil slice the
+// caller starts from already carries that value, and when an element has no Go literal.
+func arrayFill(
+	goName string,
+	typeRef resolution.TypeRef,
+	d *resolution.ExpressionValue,
+	data *templateData,
+) (defaultFillData, bool) {
+	if len(d.Elements) == 0 || typeRef.Name != "Array" || len(typeRef.TypeArgs) != 1 {
+		return defaultFillData{}, false
+	}
+	lits := make([]string, 0, len(d.Elements))
+	for i := range d.Elements {
+		lit, ok := goLiteral(typeRef.TypeArgs[0], &d.Elements[i], data)
+		if !ok {
+			return defaultFillData{}, false
+		}
+		lits = append(lits, lit)
+	}
+	return defaultFillData{
+		GoName:  goName,
+		ZeroLit: "nil",
+		Expr: fmt.Sprintf(
+			"%s{%s}",
+			data.resolver.ResolveTypeRef(typeRef, data.ctx),
+			strings.Join(lits, ", "),
+		),
+	}, true
+}
+
+// goLiteral renders v as a Go literal of type typeRef. Unlike scalarFill it does not
+// suppress the zero value, because an element of an array default must be written out
+// even when it is zero. It returns ok=false for a kind with no literal rendering, such
+// as a struct or a magic default like create.
+func goLiteral(
+	typeRef resolution.TypeRef,
+	v *resolution.ExpressionValue,
+	data *templateData,
+) (string, bool) {
+	switch v.Kind {
+	case resolution.ValueKindString:
+		return strconv.Quote(v.StringValue), true
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", v.IntValue), true
+	case resolution.ValueKindFloat:
+		return strconv.FormatFloat(v.FloatValue, 'g', -1, 64), true
+	case resolution.ValueKindBool:
+		return strconv.FormatBool(v.BoolValue), true
+	case resolution.ValueKindIdent:
+		ev, ok := validation.ResolveEnumVariant(v.IdentValue, typeRef, data.table)
+		if !ok {
+			return "", false
+		}
+		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+		return enumType + naming.ToPascalCase(ev.Variant.Name), true
+	}
+	return "", false
+}
+
 // scalarFill returns the fill assigning the scalar or enum default d to the Go selector
-// goName of type typeRef. It returns ok=false when d equals the type's zero value (nothing
-// to fill) or is an integer-enum default (whose zeroth member is the zero value).
+// goName of type typeRef. It returns ok=false when d equals the type's zero value
+// (nothing to fill) or is an integer-enum default (whose zeroth member is the zero
+// value).
 func scalarFill(
 	goName string,
 	typeRef resolution.TypeRef,
@@ -110,18 +186,48 @@ func scalarFill(
 		if d.StringValue == "" {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: goName, ZeroLit: `""`, Expr: strconv.Quote(d.StringValue)}, true
+		return defaultFillData{
+			GoName:  goName,
+			ZeroLit: `""`,
+			Expr:    strconv.Quote(d.StringValue),
+		}, true
 	case resolution.ValueKindInt:
 		if d.IntValue == 0 {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: goName, ZeroLit: "0", Expr: fmt.Sprintf("%d", d.IntValue)}, true
+		return defaultFillData{
+			GoName:  goName,
+			ZeroLit: "0",
+			Expr:    fmt.Sprintf("%d", d.IntValue),
+		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: goName, ZeroLit: "0", Expr: strconv.FormatFloat(d.FloatValue, 'g', -1, 64)}, true
+		return defaultFillData{
+			GoName:  goName,
+			ZeroLit: "0",
+			Expr:    strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
+		}, true
 	case resolution.ValueKindIdent:
+		if uv, ok := validation.ResolveUnionVariant(
+			d.IdentValue,
+			typeRef,
+			data.table,
+		); ok {
+			// The wrapper holds the active variant behind a nil-able interface, so
+			// the fill targets that field rather than the wrapper itself.
+			unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+			return defaultFillData{
+				GoName:  goName + ".Variant",
+				ZeroLit: "nil",
+				Expr: casing.QualifiedVariantTypeName(
+					unionType,
+					uv.Variant.Name,
+					".",
+				) + "{}",
+			}, true
+		}
 		ev, ok := validation.ResolveEnumVariant(d.IdentValue, typeRef, data.table)
 		if !ok {
 			return defaultFillData{}, false
@@ -133,7 +239,11 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
-		return defaultFillData{GoName: goName, ZeroLit: `""`, Expr: enumType + naming.ToPascalCase(ev.Variant.Name)}, true
+		return defaultFillData{
+			GoName:  goName,
+			ZeroLit: `""`,
+			Expr:    enumType + naming.ToPascalCase(ev.Variant.Name),
+		}, true
 	}
 	return defaultFillData{}, false
 }
@@ -150,11 +260,14 @@ type constraintCheckData struct {
 	Arg string
 }
 
-// goConstraintChecks returns the @validate constraint assertions for a field, classified
-// against the field type's underlying primitive so a distinct numeric type (e.g. a Key
-// over uint32) validates as a number. Optional fields are skipped: a bound on an absent
-// value is ambiguous.
-func goConstraintChecks(field resolution.Field, data *templateData) []constraintCheckData {
+// goConstraintChecks returns the @validate constraint assertions for a field,
+// classified against the field type's underlying primitive so a distinct numeric type
+// (e.g. a Key over uint32) validates as a number. Optional fields are skipped: a bound
+// on an absent value is ambiguous.
+func goConstraintChecks(
+	field resolution.Field,
+	data *templateData,
+) []constraintCheckData {
 	if field.Optional {
 		return nil
 	}
@@ -170,7 +283,12 @@ func goConstraintChecks(field resolution.Field, data *templateData) []constraint
 	jsonName := casing.FieldSnake(field.Name)
 	base := resolution.PrimitiveBase(field.Type, data.table)
 	check := func(kind, arg string) constraintCheckData {
-		return constraintCheckData{GoName: name, FieldName: jsonName, Kind: kind, Arg: arg}
+		return constraintCheckData{
+			GoName:    name,
+			FieldName: jsonName,
+			Kind:      kind,
+			Arg:       arg,
+		}
 	}
 	var checks []constraintCheckData
 	if resolution.IsStringPrimitive(base) {
@@ -178,10 +296,16 @@ func goConstraintChecks(field resolution.Field, data *templateData) []constraint
 		case rules.Required, rules.MinLength != nil && *rules.MinLength <= 1:
 			checks = append(checks, check("non_empty_string", ""))
 		case rules.MinLength != nil:
-			checks = append(checks, check("min_len", strconv.FormatInt(*rules.MinLength, 10)))
+			checks = append(
+				checks,
+				check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
+			)
 		}
 		if rules.MaxLength != nil {
-			checks = append(checks, check("max_len", strconv.FormatInt(*rules.MaxLength, 10)))
+			checks = append(
+				checks,
+				check("max_len", strconv.FormatInt(*rules.MaxLength, 10)),
+			)
 		}
 	}
 	if resolution.IsNumberPrimitive(base) {
@@ -207,8 +331,8 @@ func numberLiteral(n *validation.Number) string {
 }
 
 // goEnumCheck returns an enum-membership validation for a required field whose type is
-// an enum (RFC 0043 section 5.2). Nullable and optional fields are skipped: their
-// pointer may be nil, and absence is legitimate.
+// an enum. Nullable and optional fields are skipped: their pointer may be nil, and
+// absence is legitimate.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
 	if field.Optional {
 		return enumCheckData{}, false
@@ -228,7 +352,10 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	if form.IsIntEnum {
 		return enumCheckData{}, false
 	}
-	return enumCheckData{GoName: naming.GetFieldName(field), FieldName: field.Name}, true
+	return enumCheckData{
+		GoName:    naming.GetFieldName(field),
+		FieldName: field.Name,
+	}, true
 }
 
 // stripPointer removes a leading pointer marker from a resolved Go type.
@@ -246,19 +373,20 @@ const (
 	recurseMap     recurseKind = "map"
 )
 
-// recurseStepData describes one nested call a generated method makes into a field (or an
-// embedded type) whose own type carries an ApplyDefaults/Validate method. JSONName is the
-// wire field name used as the Validate error path segment; it is empty for an embedded
-// type, whose fields are promoted to the embedder's level and so take no path segment.
+// recurseStepData describes one nested call a generated method makes into a field (or
+// an embedded type) whose own type carries an ApplyDefaults/Validate method. JSONName
+// is the wire field name used as the Validate error path segment; it is empty for an
+// embedded type, whose fields are promoted to the embedder's level and so take no path
+// segment.
 type recurseStepData struct {
 	GoName   string
 	JSONName string
 	Kind     recurseKind
 }
 
-// fieldHasOwn reports whether a field is itself a reason for its struct to emit a method,
-// independent of any nested type: a fillable static default for ApplyDefaults, an enum
-// membership check for Validate.
+// fieldHasOwn reports whether a field is itself a reason for its struct to emit a
+// method, independent of any nested type: a fillable static default for ApplyDefaults,
+// an enum membership check for Validate.
 type fieldHasOwn func(resolution.Field, *templateData) bool
 
 func defaultsHasOwn(f resolution.Field, data *templateData) bool {
@@ -304,10 +432,10 @@ func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	return false
 }
 
-// typeNeedsMethod reports whether the type named by ref emits a recursive method: it has
-// a field satisfying hasOwn, or a nested struct field, slice/array element, map value, or
-// union variant payload that (transitively) does. Generic types and type parameters never
-// emit a method. visited guards against cycles in recursive types.
+// typeNeedsMethod reports whether the type named by ref emits a recursive method: it
+// has a field satisfying hasOwn, or a nested struct field, slice/array element, map
+// value, or union variant payload that (transitively) does. Generic types and type
+// parameters never emit a method. visited guards against cycles in recursive types.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
@@ -362,8 +490,8 @@ func typeNeedsMethod(
 	return false
 }
 
-// hasSliceRecurse reports whether any step iterates a slice or array, which requires the
-// strconv import for the index path segment in a generated Validate method.
+// hasSliceRecurse reports whether any step iterates a slice or array, which requires
+// the strconv import for the index path segment in a generated Validate method.
 func hasSliceRecurse(steps []recurseStepData) bool {
 	for _, step := range steps {
 		if step.Kind == recurseSlice {

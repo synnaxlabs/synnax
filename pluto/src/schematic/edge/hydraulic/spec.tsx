@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { type direction, type xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
@@ -41,21 +41,24 @@ const HydraulicSymbol = ({ position, direction }: SymbolProps): ReactElement => 
   );
 };
 
-export const spec: Spec<"hydraulic", schematic.EdgeConfigHydraulic> =
+export const spec: Spec<"hydraulic", schematic.HydraulicEdgeConfig> =
   Segmented.createSpec(
     "hydraulic",
     "Hydraulic",
-    ({ points, crossings, color: colorVal }) => (
-      <g
-        className={CSS.B("symbol-colored")}
-        style={{ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }}
-      >
-        <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
-        {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
-          ({ position, direction }, i) => (
-            <HydraulicSymbol key={i} position={position} direction={direction} />
-          ),
-        )}
-      </g>
-    ),
+    ({ points, crossings, color: colorVal }) => {
+      const symbolStyle = useMemo(
+        () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
+        [colorVal],
+      );
+      return (
+        <g className={CSS.B("symbol-colored")} style={symbolStyle}>
+          <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
+          {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
+            ({ position, direction }, i) => (
+              <HydraulicSymbol key={i} position={position} direction={direction} />
+            ),
+          )}
+        </g>
+      );
+    },
   );

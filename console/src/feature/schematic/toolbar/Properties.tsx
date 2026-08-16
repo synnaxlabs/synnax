@@ -49,7 +49,7 @@ import { Session } from "@/session";
 
 export const Properties = memo((): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
-  const configByKey = Schematic.useSelectConfigs({ keys: selected });
+  const configByKey = Schematic.useConfigs({ keys: selected });
   if (selected.length === 0 || configByKey.size === 0)
     return (
       <Text.Text status="disabled" center>
@@ -67,7 +67,7 @@ interface IndividualConfigProps {
 }
 
 const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null => {
-  const config = Schematic.useSelectElementConfig({ elKey });
+  const config = Schematic.useElementConfig({ elKey });
   // A true invariant that should never occur.
   if (config == null) throw new Error(`Element with key ${elKey} not found`);
   const schematicKey = Schematic.useKey();
@@ -78,7 +78,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     values: initialValues,
     sync: true,
     onChange: useCallback(
-      ({ values }: Form.OnChangeArgs<typeof Schematic.elementConfigZ>) =>
+      ({ values }: Form.OnChangeParams<typeof Schematic.elementConfigZ>) =>
         dispatch(schematic.setConfig({ key: elKey, config: deep.copy(values) })),
       [dispatch, elKey],
     ),
@@ -136,11 +136,8 @@ const CustomVariantForm = ({
   VariantForm,
 }: CustomVariantFormProps): ReactElement => {
   const schematicKey = Schematic.useKey();
-  const result = Schematic.Symbol.useRetrieve(
-    { key: specKey },
-    { addStatusOnFailure: false },
-  );
-  if (Schematic.Symbol.isMissing(result)) return <Symbol.MissingForm />;
+  const { missing } = Schematic.Symbol.useResolved(specKey);
+  if (missing) return <Symbol.MissingForm />;
   return <VariantForm key={elKey} actions={actions} schematicKey={schematicKey} />;
 };
 
@@ -152,9 +149,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const schematicKey = Schematic.useKey();
   const handleError = Status.useErrorHandler();
   const selected = Session.Schematic.useSelectSelected();
-  const selectedNodes = Schematic.useSelectNodes({ keys: selected });
+  const selectedNodes = Schematic.useNodes({ keys: selected });
   const dispatch = Schematic.useSingleDispatch();
-  const store = Session.useStore();
+  const getViewport = Session.Schematic.useGetViewport();
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, schematic.Node>();
@@ -206,12 +203,8 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   };
 
   const getZoom = useCallback(
-    () =>
-      Session.Schematic.selectViewport({
-        state: store.getState(),
-        key: schematicKey,
-      }).zoom,
-    [schematicKey, store],
+    () => getViewport({ key: schematicKey }).zoom,
+    [schematicKey, getViewport],
   );
 
   const getLayoutsForAlignment = () => {
@@ -246,10 +239,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const zoom = Session.Schematic.selectViewport({
-      state: store.getState(),
-      key: schematicKey,
-    }).zoom;
+    const zoom = getViewport({ key: schematicKey }).zoom;
     const topOffsets = new Map<string, number>();
     const layouts = selected
       .map((nodeKey) => {

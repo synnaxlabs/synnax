@@ -20,6 +20,7 @@ import { Import } from "@/feature/import";
 import { Label } from "@/feature/label";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
+import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
@@ -29,6 +30,7 @@ import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
+import { Version } from "@/feature/version";
 import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
@@ -41,12 +43,14 @@ const COMMANDS: Command.Command[] = [
   ...Label.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,
+  ...Panel.COMMANDS,
   ...Persist.COMMANDS,
   ...Range.COMMANDS,
   ...Schematic.COMMANDS,
   ...Table.COMMANDS,
   ...Task.COMMANDS,
   ...User.COMMANDS,
+  ...Version.COMMANDS,
   ...Project.COMMANDS,
   ...Arc.COMMANDS,
   ...Status.COMMANDS,

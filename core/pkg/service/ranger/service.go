@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package ranger implements a service for managing ranges in a Synnax cluster. A range
+// is a user defined region of time in a Synnax cluster. They act as a method for
+// labeling and categorizing data.
 package ranger
 
 import (
@@ -18,14 +21,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
@@ -112,18 +114,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{
-		Ontology:        cfg.Ontology,
-		Group:           cfg.Group,
-		Instrumentation: cfg.Instrumentation,
-	})
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Range]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[Key, v0.Range](codecMigrationKey, v0Mig.Key()),
-			colorNullableMigration(),
-		},
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Ontology:        cfg.Ontology,
+			Group:           cfg.Group,
+			Instrumentation: cfg.Instrumentation,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

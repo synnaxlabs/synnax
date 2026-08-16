@@ -12,8 +12,7 @@
 .console-configure {
     position: relative;
     overflow: hidden;
-    height: 100%;
-    width: 100%;
+    width: 133rem;
 
     .pluto-navbar {
         .pluto--start {

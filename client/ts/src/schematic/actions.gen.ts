@@ -13,7 +13,17 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { edgeZ, keyZ, nodeZ, type Schematic } from "@/schematic/types.gen";
+import { edgeZ, keyZ, nodeZ, type Schematic, schematicZ } from "@/schematic/types.gen";
+
+/**
+ * Create replaces the document with the given created state. Emitted by the Core on
+ * create so remote caches ingest new documents; clients never dispatch it.
+ */
+export const createPayloadZ = z.object({
+  schematic: schematicZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
 
 /** Rename renames the schematic. */
 export const renamePayloadZ = z.object({
@@ -31,9 +41,9 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
- * SetNode inserts the node if no node with the same key exists, otherwise
- * replaces the existing node in place. If config is non-empty it is
- * stored under the node's key in the schematic configs map.
+ * SetNode inserts the node if no node with the same key exists, otherwise replaces the
+ * existing node in place. If config is non-empty it is stored under the node's key in
+ * the schematic configs map.
  */
 export const setNodePayloadZ = z.object({
   node: nodeZ,
@@ -50,8 +60,8 @@ export const removeNodePayloadZ = z.object({
 export type RemoveNodePayload = z.infer<typeof removeNodePayloadZ>;
 
 /**
- * AddEdge appends the edge to the schematic. No-op when an edge with the
- * same key already exists.
+ * AddEdge appends the edge to the schematic. No-op when an edge with the same key
+ * already exists.
  */
 export const addEdgePayloadZ = z.object({
   edge: edgeZ,
@@ -67,11 +77,10 @@ export const removeEdgePayloadZ = z.object({
 export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
 
 /**
- * SetConfig merges the given config fields into the existing config entry for
- * the given node or edge key. Top-level fields present in the payload
- * overwrite existing fields; fields absent from the payload are
- * preserved. When no entry exists yet and the key matches an edge
- * whose source node carries a color, the source color overrides
+ * SetConfig merges the given config fields into the existing config entry for the given
+ * node or edge key. Top-level fields present in the payload overwrite existing fields;
+ * fields absent from the payload are preserved. When no entry exists yet and the key
+ * matches an edge whose source node carries a color, the source color overrides
  * whatever color (if any) was in the payload.
  */
 export const setConfigPayloadZ = z.object({
@@ -82,6 +91,7 @@ export const setConfigPayloadZ = z.object({
 export type SetConfigPayload = z.infer<typeof setConfigPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({
     type: z.literal("set_node_position"),
@@ -95,6 +105,11 @@ export const actionZ = z.discriminatedUnion("type", [
 ]);
 
 export type Action = z.infer<typeof actionZ>;
+
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: createPayloadZ.parse(payload),
+});
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
@@ -138,6 +153,7 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<Schematic, Action>;
 
 export interface Handlers {
+  create: (state: Draft<Schematic>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Schematic>, payload: RenamePayload) => HandlerResult;
   setNodePosition: (
     state: Draft<Schematic>,
@@ -153,6 +169,8 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Schematic, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
       case "set_node_position":

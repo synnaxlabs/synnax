@@ -18,52 +18,6 @@ import (
 )
 
 var _ = Describe("Resource", func() {
-	Describe("Type", func() {
-		Describe("String", func() {
-			It("Should return the string representation of the type", func() {
-				Expect(ontology.ResourceTypeChannel.String()).To(Equal("channel"))
-			})
-		})
-	})
-	Describe("ID", func() {
-		Describe("Validate", func() {
-			It("Should return an error if the ID does not have a type", func() {
-				id := ontology.ID{Key: "foo"}
-				Expect(id.Validate()).To(And(
-					MatchError(ContainSubstring("type: invalid type")),
-				))
-			})
-			It("Should return nil if the resource ID is valid", func() {
-				id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "bar"}
-				Expect(id.Validate()).To(Succeed())
-			})
-		})
-		Describe("String", func() {
-			It("Should return the string representation of the ID", func() {
-				Expect(ontology.ID{Key: "dog", Type: ontology.ResourceTypeChannel}.String()).
-					To(Equal("channel:dog"))
-			})
-		})
-		Describe("IsZero", func() {
-			It("Should return true if both the type and key are empty", func() {
-				Expect(ontology.ID{}.IsZero()).To(BeTrue())
-			})
-			It("Should return false when the type is not empty", func() {
-				Expect(ontology.ID{Type: ontology.ResourceTypeChannel}.IsZero()).To(BeFalse())
-			})
-			It("Should return false when the key is not empty", func() {
-				Expect(ontology.ID{Key: "cat"}.IsZero()).To(BeFalse())
-			})
-		})
-		Describe("IsType", func() {
-			It("Should return true if the Key is empty", func() {
-				Expect(ontology.ID{Type: ontology.ResourceTypeChannel}.IsType()).To(BeTrue())
-			})
-			It("Should return false if the Key is not empty", func() {
-				Expect(ontology.ID{Type: ontology.ResourceTypeChannel, Key: "foo"}.IsType()).To(BeFalse())
-			})
-		})
-	})
 	Describe("ParseID", func() {
 		It("Should parse an ID from a string", func() {
 			Expect(ontology.ParseID("channel:bar")).To(Equal(ontology.ID{
@@ -75,37 +29,64 @@ var _ = Describe("Resource", func() {
 			Expect(ontology.ParseID("foo")).Error().
 				To(And(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: foo")),
+					MatchError(
+						ContainSubstring(
+							"[ontology.resource] - failed to parse id: foo",
+						),
+					),
 				))
 		})
 		It("Should return an error if the ID is an empty string", func() {
 			Expect(ontology.ParseID("")).Error().
 				To(And(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: ")),
+					MatchError(
+						ContainSubstring("[ontology.resource] - failed to parse id: "),
+					),
 				))
 		})
-		It("Should return an error if the ID has an empty type (leading colon)", func() {
-			Expect(ontology.ParseID(":bar")).Error().
-				To(And(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: :bar (empty type)")),
-				))
-		})
-		It("Should return an error if the ID has an empty type with colons in key", func() {
-			Expect(ontology.ParseID(":word1:word2")).Error().
-				To(And(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: :word1:word2 (empty type)")),
-				))
-		})
-		It("Should return an error if the ID has an empty type and key starts with colon", func() {
-			Expect(ontology.ParseID("::word1")).Error().
-				To(And(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: ::word1 (empty type)")),
-				))
-		})
+		It(
+			"Should return an error if the ID has an empty type (leading colon)",
+			func() {
+				Expect(ontology.ParseID(":bar")).Error().
+					To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(
+							ContainSubstring(
+								"[ontology.resource] - failed to parse id: :bar (empty type)",
+							),
+						),
+					))
+			},
+		)
+		It(
+			"Should return an error if the ID has an empty type with colons in key",
+			func() {
+				Expect(ontology.ParseID(":word1:word2")).Error().
+					To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(
+							ContainSubstring(
+								"[ontology.resource] - failed to parse id: :word1:word2 (empty type)",
+							),
+						),
+					))
+			},
+		)
+		It(
+			"Should return an error if the ID has an empty type and key starts with colon",
+			func() {
+				Expect(ontology.ParseID("::word1")).Error().
+					To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(
+							ContainSubstring(
+								"[ontology.resource] - failed to parse id: ::word1 (empty type)",
+							),
+						),
+					))
+			},
+		)
 		It("Should parse an ID with empty key (trailing colon)", func() {
 			Expect(ontology.ParseID("channel:")).
 				To(Equal(ontology.ID{Type: "channel", Key: ""}))
@@ -123,13 +104,20 @@ var _ = Describe("Resource", func() {
 					ontology.ID{Type: "channel", Key: "baz"},
 				))
 		})
-		It("Should return an error if any of the IDs have an invalid structure", func() {
-			Expect(ontology.ParseIDs([]string{"channel:bar", "foo"})).Error().
-				To(And(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: foo")),
-				))
-		})
+		It(
+			"Should return an error if any of the IDs have an invalid structure",
+			func() {
+				Expect(ontology.ParseIDs([]string{"channel:bar", "foo"})).Error().
+					To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(
+							ContainSubstring(
+								"[ontology.resource] - failed to parse id: foo",
+							),
+						),
+					))
+			},
+		)
 		It("Should return an empty slice when given an empty slice", func() {
 			Expect(ontology.ParseIDs([]string{})).To(BeEmpty())
 		})

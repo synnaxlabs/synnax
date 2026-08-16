@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -32,11 +33,12 @@ func TestSchematic(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db   *gorp.DB
-	otg  *ontology.Ontology
-	proj project.Project
-	svc  *schematic.Service
-	tx   gorp.Tx
+	db      *gorp.DB
+	otg     *ontology.Ontology
+	proj    project.Project
+	svc     *schematic.Service
+	imexSvc *imex.Service
+	tx      gorp.Tx
 )
 
 var (
@@ -46,7 +48,7 @@ var (
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		var (
 			searchIdx = MustOpen(search.OpenIndex())
-			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			groupSvc  = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Search:   searchIdx,
@@ -54,14 +56,17 @@ var (
 			projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
+				Group:    groupSvc,
 				Search:   searchIdx,
 			}))
 		)
+		imexSvc = imex.NewService()
 		svc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
+			Group:    groupSvc,
 			Search:   searchIdx,
+			ImEx:     imexSvc,
 		}))
 		proj.Name = "test-project"
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())

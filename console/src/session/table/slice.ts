@@ -16,6 +16,7 @@ export const stateZ = z.object({
   selectedCells: z.array(z.string()).default([]),
   lastSelected: z.string().nullable().default(null),
   hideIndicators: z.boolean().default(false),
+  centered: z.boolean().default(false),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
@@ -53,6 +54,10 @@ export interface SetEditablePayload extends KeyedPayload {
 
 export interface SetHideIndicatorsPayload extends KeyedPayload {
   hideIndicators?: boolean;
+}
+
+export interface SetCenteredPayload extends KeyedPayload {
+  centered?: boolean;
 }
 
 export interface RemovePayload {
@@ -106,6 +111,11 @@ export const { actions, reducer } = createSlice({
         state.hideIndicators = hideIndicators ?? !state.hideIndicators;
       },
     ),
+    setCentered: withSelectedState(
+      (state, { payload: { centered } }: PayloadAction<SetCenteredPayload>) => {
+        state.centered = centered ?? !state.centered;
+      },
+    ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.tables[key]);
     },
@@ -113,10 +123,11 @@ export const { actions, reducer } = createSlice({
 });
 
 export const {
-  create: internalCreate,
+  create,
   setSelectedCells,
   setEditable,
   setHideIndicators,
+  setCentered,
   remove,
 } = actions;
 

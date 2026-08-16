@@ -67,14 +67,30 @@ type (
 )
 
 var (
-	_ grpc.Translator[alias.SetRequest, *SetRequest]             = (*setRequestTranslator)(nil)
-	_ grpc.Translator[alias.ResolveRequest, *ResolveRequest]     = (*resolveRequestTranslator)(nil)
-	_ grpc.Translator[alias.ResolveResponse, *ResolveResponse]   = (*resolveResponseTranslator)(nil)
-	_ grpc.Translator[alias.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
-	_ grpc.Translator[alias.ListRequest, *ListRequest]           = (*listRequestTranslator)(nil)
-	_ grpc.Translator[alias.ListResponse, *ListResponse]         = (*listResponseTranslator)(nil)
-	_ grpc.Translator[alias.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[alias.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[alias.SetRequest, *SetRequest] = (*setRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[alias.ResolveRequest, *ResolveRequest] = (*resolveRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[alias.ResolveResponse, *ResolveResponse] = (*resolveResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[alias.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[alias.ListRequest, *ListRequest] = (*listRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[alias.ListResponse, *ListResponse] = (*listResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[alias.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[alias.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+		nil,
+	)
 )
 
 func (setRequestTranslator) Forward(

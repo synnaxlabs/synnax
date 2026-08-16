@@ -44,8 +44,10 @@ export const Symbol = ({
     notation,
     bounds,
     barWidth,
+    stalenessColor,
+    stalenessTimeout,
   },
-}: NodeProps<schematic.NodeConfigGauge>): ReactElement => {
+}: NodeProps<schematic.GaugeNodeConfig>): ReactElement => {
   const dims = useMemo(
     () => dimensions.construct(GAUGE_SIZE_MULTIPLIER[level] ?? 100),
     [level],
@@ -64,6 +66,8 @@ export const Symbol = ({
     bounds,
     notation,
     barWidth,
+    stalenessColor,
+    stalenessTimeout,
   });
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>

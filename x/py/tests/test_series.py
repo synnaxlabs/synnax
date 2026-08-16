@@ -107,6 +107,43 @@ class TestSeries:
         with pytest.raises(ValueError):
             assert telem.Series(b"57678")
 
+    def test_construction_from_bool_list(self) -> None:
+        """Should infer BOOL from a list of Python booleans"""
+        s = telem.Series([True, False, True, False])
+        assert len(s) == 4
+        assert s.data_type == telem.DataType.BOOL
+        assert s.data == b"\x01\x00\x01\x00"
+        assert bool(s[0]) is True
+        assert bool(s[1]) is False
+
+    def test_construction_from_np_bool_array(self) -> None:
+        """Should infer BOOL from a numpy bool_ array"""
+        d = np.array([True, False, True], dtype=np.bool_)
+        s = telem.Series(d)
+        assert len(s) == 3
+        assert s.data_type == telem.DataType.BOOL
+        assert s.data == b"\x01\x00\x01"
+
+    def test_bool_normalizes_nonzero_numeric_inputs(self) -> None:
+        """Should normalize nonzero numeric inputs to 0x01 when dtype is BOOL"""
+        s = telem.Series([0, 1, 42, -3, 0], data_type=telem.DataType.BOOL)
+        assert s.data == b"\x00\x01\x01\x01\x00"
+        assert bool(s[2]) is True
+
+    def test_bool_to_numeric_cast_is_identity(self) -> None:
+        """Casting a BOOL series to a numeric dtype should preserve 0/1 values"""
+        s = telem.Series([True, False, True, True], data_type=telem.DataType.BOOL)
+        as_int32 = s.to_numpy(dtype=np.dtype(np.int32))
+        assert list(as_int32) == [1, 0, 1, 1]
+        as_float64 = s.to_numpy(dtype=np.dtype(np.float64))
+        assert list(as_float64) == [1.0, 0.0, 1.0, 1.0]
+
+    def test_numeric_to_bool_cast_normalizes_nonzero(self) -> None:
+        """Casting a numeric series to BOOL via to_numpy should normalize nonzero values"""
+        s = telem.Series([0, 1, 42, -3, 0], data_type=telem.DataType.INT32)
+        as_bool = s.to_numpy(dtype=np.dtype(np.bool_))
+        assert list(as_bool) == [False, True, True, True, False]
+
     def test_construction_from_np_timestamp(self) -> None:
         d = telem.Series([telem.TimeStamp.now()])
         assert len(d) == 1

@@ -60,23 +60,29 @@ var _ = Describe("token", func() {
 			cfg.Now = func() time.Time { return now }
 		})
 
-		It("Should refresh the token if the user submits a validation request within the refresh threshold", func() {
-			id, newToken := MustSucceed2(svc.ValidateMaybeRefresh(tk))
-			Expect(id).To(Equal(issuer))
-			Expect(newToken).To(BeEmpty())
-			now = now.Add(time.Second * 6)
-			id, newToken = MustSucceed2(svc.ValidateMaybeRefresh(tk))
-			Expect(id).To(Equal(issuer))
-			Expect(newToken).ToNot(BeEmpty())
-		})
+		It(
+			"Should refresh the token if the user submits a validation request within the refresh threshold",
+			func() {
+				id, newToken := MustSucceed2(svc.ValidateMaybeRefresh(tk))
+				Expect(id).To(Equal(issuer))
+				Expect(newToken).To(BeEmpty())
+				now = now.Add(time.Second * 6)
+				id, newToken = MustSucceed2(svc.ValidateMaybeRefresh(tk))
+				Expect(id).To(Equal(issuer))
+				Expect(newToken).ToNot(BeEmpty())
+			},
+		)
 
-		It("Should not refresh the token if the user does not submit a validation request within the refresh threshold", func() {
-			id, newToken := MustSucceed2(svc.ValidateMaybeRefresh(tk))
-			Expect(id).To(Equal(issuer))
-			Expect(newToken).To(BeEmpty())
-			now = now.Add(time.Second * 11)
-			Expect(svc.ValidateMaybeRefresh(tk)).Error().
-				To(MatchError(auth.ErrExpiredToken))
-		})
+		It(
+			"Should not refresh the token if the user does not submit a validation request within the refresh threshold",
+			func() {
+				id, newToken := MustSucceed2(svc.ValidateMaybeRefresh(tk))
+				Expect(id).To(Equal(issuer))
+				Expect(newToken).To(BeEmpty())
+				now = now.Add(time.Second * 11)
+				Expect(svc.ValidateMaybeRefresh(tk)).Error().
+					To(MatchError(auth.ErrExpiredToken))
+			},
+		)
 	})
 })

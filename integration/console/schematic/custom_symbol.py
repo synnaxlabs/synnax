@@ -78,7 +78,10 @@ class CustomSymbol(Symbol):
         self.layout.show_visualization_toolbar()
 
         self.page.get_by_text("Properties").click()
-        control_tab = self.page.locator("#control").nth(1)
+        # Two "control" tabs exist: the toolbar's own and the symbol form's, which
+        # renders after it. Tab DOM ids are namespaced per Tabs.Frame, so match on the
+        # stable key attribute.
+        control_tab = self.page.locator("[data-tab-key='control']").last
         control_tab.wait_for(state="visible", timeout=5000)
         control_tab.click()
 

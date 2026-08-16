@@ -7,13 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Selector, SELECTOR_LAYOUT_TYPE } from "@/app/vis/Selector";
-import { type Layout } from "@/platform/layout";
-
 export * from "@/app/vis/Selector";
-export * from "@/app/vis/Toolbar";
 export * from "@/platform/vis/Canvas";
-
-export const LAYOUTS: Layout.Renderers = {
-  [SELECTOR_LAYOUT_TYPE]: Selector,
-};

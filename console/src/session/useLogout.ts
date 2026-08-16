@@ -10,17 +10,19 @@
 import { useCallback } from "react";
 
 import { Cluster } from "@/session/cluster";
-import { Layout } from "@/session/layout";
 import { Nav } from "@/session/nav";
+import { Panel } from "@/session/panel";
 import { Project } from "@/session/project";
 import { useDispatch } from "@/session/store";
 
 export const useLogout = () => {
   const dispatch = useDispatch();
   return useCallback(() => {
-    dispatch(Cluster.clearSelected());
+    // The cluster clear must come last: it flushes the cluster's persistence
+    // partition, which must already hold the cleared project selection.
     dispatch(Project.clearSelected());
-    dispatch(Layout.clearProject());
+    dispatch(Panel.reset());
     dispatch(Nav.hideAll({}));
+    dispatch(Cluster.clearSelected());
   }, [dispatch]);
 };

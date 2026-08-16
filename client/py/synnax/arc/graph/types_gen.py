@@ -20,10 +20,9 @@ from x import spatial
 
 
 class Node(BaseModel):
-    """Is a visual node in the Arc graph editor representing a function
-    instantiation with position data. The function type and input
-    parameter values are stored in the graph's inputs map, keyed by the
-    node key.
+    """Is a visual node in the Arc graph editor representing a function instantiation
+    with position data. The function type and input parameter values are stored in the
+    graph's inputs map, keyed by the node key.
 
     Attributes:
         key: Is the unique identifier for this node instance.
@@ -35,9 +34,9 @@ class Node(BaseModel):
 
 
 class Edge(ir.Edge):
-    """Is a dataflow connection between node parameters carrying a stable
-    identifier. The key persists across endpoint edits, distinguishing the
-    editable graph edge from the keyless ir.Edge consumed by the compiler.
+    """Is a dataflow connection between node parameters carrying a stable identifier.
+    The key persists across endpoint edits, distinguishing the editable graph edge from
+    the keyless ir.Edge consumed by the compiler.
 
     Attributes:
         key: Is the stable identifier for this edge within the graph.
@@ -52,17 +51,17 @@ Edges: TypeAlias = list[Edge]
 
 
 class Graph(BaseModel):
-    """Is a visual dataflow graph representation combining IR elements with
-    canvas layout for the Arc graph editor.
+    """Is a visual dataflow graph representation combining IR elements with canvas
+    layout for the Arc graph editor.
 
     Attributes:
         functions: Contains function definitions available in this graph.
         edges: Contains dataflow connections between node parameters.
         nodes: Contains visual nodes with canvas positions.
-        inputs: Contains per-node inputs keyed by node key. Each value is a JSON
-            object holding the node's function type under "type" plus its input
-            parameter values. The wire format stores it as an opaque record; the
-            client types it per function.
+        inputs: Contains per-node inputs keyed by node key. Each value is a JSON object
+            holding the node's function type under "type" plus its input parameter
+            values. The wire format stores it as an opaque record; the client types it
+            per function.
     """
 
     functions: ir.Functions = Field(default_factory=list)

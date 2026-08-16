@@ -10,7 +10,6 @@
 @ts output "client/ts/src/access/action"
 @go output "core/pkg/service/access"
 @py output "client/py/synnax/access/action"
-@pb
 
 Action enum {
     create   = "create"
@@ -18,7 +17,8 @@ Action enum {
     retrieve = "retrieve"
     update   = "update"
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is the fundamental operations that are controlled by the permission system.
         Actions define what operations a subject can perform on resources.
     """

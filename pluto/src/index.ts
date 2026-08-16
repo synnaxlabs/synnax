@@ -15,7 +15,6 @@ export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";
 export { Channel } from "@/channel";
-export { Cluster } from "@/cluster";
 export { Code } from "@/code";
 export { Color } from "@/color";
 export { Component } from "@/component";
@@ -53,6 +52,7 @@ export { OS } from "@/os";
 export { Panel } from "@/panel";
 export { Pluto } from "@/pluto";
 export { Portal } from "@/portal";
+export { position } from "@/position";
 export { Progress } from "@/progress";
 export { Project } from "@/project";
 export { Rack } from "@/rack";
@@ -89,6 +89,7 @@ export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
 export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
+export { Staleness } from "@/vis/staleness";
 export { Value } from "@/vis/value";
 export {
   type CrudeDataType,

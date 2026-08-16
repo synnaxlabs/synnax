@@ -18,7 +18,7 @@ import { Symbol } from "@/schematic/node/general/select/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigSelect => ({
+export const defaultConfig = (t: Theming.Theme): schematic.SelectNodeConfig => ({
   variant: "select",
   orientation: "left",
   color: t.colors.gray.l11,
@@ -29,7 +29,7 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigSelect => (
   control: { show: true },
 });
 
-const Preview = ({ color }: schematic.NodeConfigSelect): ReactElement => (
+const Preview = ({ color }: schematic.SelectNodeConfig): ReactElement => (
   <Select
     onChange={() => {}}
     options={[]}
@@ -39,7 +39,7 @@ const Preview = ({ color }: schematic.NodeConfigSelect): ReactElement => (
   />
 );
 
-export const spec: Spec<"select", schematic.NodeConfigSelect> = {
+export const spec: Spec<"select", schematic.SelectNodeConfig> = {
   key: "select",
   name: "Select",
   Form: SelectForm,

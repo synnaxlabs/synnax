@@ -7,43 +7,61 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type CrudeSeries, Series } from "@synnaxlabs/x";
+import { type CrudeSeries, Series } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
-import { ValidationError } from "@/errors";
+import { type channel } from "@/channel";
+import { analyzeParams, paramsZ } from "@/channel/payload";
+import { QueryError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 
+/** Fetches channel payloads. Missing channels are omitted, not thrown. */
+export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
+
+/** Fetches channel payloads, throwing a {@link QueryError} when any is missing. */
+const retrieveRequired = async (
+  retrieve: ChannelRetriever,
+  channels: channel.Params,
+): Promise<channel.Payload[]> => {
+  const { normalized } = analyzeParams(channels);
+  const results = await retrieve(normalized);
+  const notFound: (channel.Key | channel.Name)[] = [];
+  normalized.forEach((v) => {
+    if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
+  });
+  if (notFound.length > 0)
+    throw new QueryError(`Could not find channels: ${JSON.stringify(notFound)}`);
+  return results;
+};
+
 export class ReadAdapter {
   private adapter: Map<channel.Key, string> | null;
-  retriever: channel.Retriever;
+  private readonly retrieveChannels: ChannelRetriever;
   keys: Set<channel.Key>;
   codec: Codec;
 
-  private constructor(retriever: channel.Retriever) {
-    this.retriever = retriever;
+  private constructor(retrieveChannels: ChannelRetriever) {
+    this.retrieveChannels = retrieveChannels;
     this.adapter = null;
     this.keys = new Set();
     this.codec = new Codec();
   }
 
   static async open(
-    retriever: channel.Retriever,
+    retrieveChannels: ChannelRetriever,
     channels: channel.Params,
   ): Promise<ReadAdapter> {
-    const adapter = new ReadAdapter(retriever);
+    const adapter = new ReadAdapter(retrieveChannels);
     await adapter.update(channels);
     return adapter;
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const { variant, normalized } = channel.analyzeParams(channels);
-    const fetched = await this.retriever.retrieve(normalized);
+    const { variant, normalized } = analyzeParams(channels);
+    const fetched = await this.retrieveChannels(normalized);
     const newKeys = fetched.map((c) => c.key);
-    if (
-      compare.uniqueUnorderedPrimitiveArrays(Array.from(this.keys), newKeys) ===
-      compare.EQUAL
-    )
+    const newKeySet = new Set(newKeys);
+    if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys))
       return false;
     this.codec.update(
       newKeys,
@@ -51,7 +69,7 @@ export class ReadAdapter {
     );
     if (variant === "keys") {
       this.adapter = null;
-      this.keys = new Set(normalized as channel.Key[]);
+      this.keys = new Set(normalized);
       return true;
     }
     const a = new Map<channel.Key, string>();
@@ -74,10 +92,10 @@ export class ReadAdapter {
       if (shouldFilter) return frm.filter((k) => this.keys.has(k as channel.Key));
       return frm;
     }
-    const a = this.adapter;
+    const { adapter } = this;
     return frm.mapFilter((col, arr) => {
       if (typeof col === "number") {
-        const name = a.get(col);
+        const name = adapter.get(col);
         if (name == null) return [col, arr, false];
         return [name, arr, true];
       }
@@ -87,29 +105,31 @@ export class ReadAdapter {
 }
 
 export class WriteAdapter {
-  private adapter: Map<string, channel.Key> | null;
-  retriever: channel.Retriever;
+  private byName: Map<channel.Name, channel.Payload> | null;
+  private byKey: Map<channel.Key, channel.Payload>;
+  private readonly retrieveChannels: ChannelRetriever;
   keys: channel.Key[];
   codec: Codec;
 
-  private constructor(retriever: channel.Retriever) {
-    this.retriever = retriever;
-    this.adapter = null;
+  private constructor(retrieveChannels: ChannelRetriever) {
+    this.retrieveChannels = retrieveChannels;
+    this.byName = null;
+    this.byKey = new Map();
     this.keys = [];
     this.codec = new Codec();
   }
 
   static async open(
-    retriever: channel.Retriever,
+    retrieveChannels: ChannelRetriever,
     channels: channel.Params,
   ): Promise<WriteAdapter> {
-    const adapter = new WriteAdapter(retriever);
+    const adapter = new WriteAdapter(retrieveChannels);
     await adapter.update(channels);
     return adapter;
   }
 
   async adaptParams(data: channel.Params): Promise<channel.Key[]> {
-    const arrParams = channel.paramsZ.parse(data);
+    const arrParams = paramsZ.parse(data);
     const keys = await Promise.all(
       arrParams.map(async (p) => await this.adaptToKey(p)),
     );
@@ -117,15 +137,14 @@ export class WriteAdapter {
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const results = await channel.retrieveRequired(this.retriever, channels);
+    const results = await retrieveRequired(this.retrieveChannels, channels);
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);
-    const hasAddedKeys = !newKeySet.isSubsetOf(previousKeySet);
-    const hasRemovedKeys = !previousKeySet.isSubsetOf(newKeySet);
-    const hasChanged = hasAddedKeys || hasRemovedKeys;
-    if (!hasChanged) return false;
-    this.adapter = new Map<string, channel.Key>(results.map((c) => [c.name, c.key]));
+    if (newKeySet.size === previousKeySet.size && newKeySet.isSubsetOf(previousKeySet))
+      return false;
+    this.byName = new Map(results.map((c) => [c.name, c]));
+    this.byKey = new Map(results.map((c) => [c.key, c]));
     this.keys = newKeys;
     this.codec.update(
       this.keys,
@@ -137,7 +156,13 @@ export class WriteAdapter {
   private async fetchChannel(
     ch: channel.Key | channel.Name | channel.Payload,
   ): Promise<channel.Payload> {
-    const res = await this.retriever.retrieve(ch);
+    // The channel set is fixed between updates, so cached payloads cannot go stale.
+    let cached: channel.Payload | undefined;
+    if (typeof ch === "number") cached = this.byKey.get(ch);
+    else if (typeof ch === "string") cached = this.byName?.get(ch);
+    else cached = this.byKey.get(ch.key);
+    if (cached != null) return cached;
+    const res = await this.retrieveChannels(ch);
     if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
     return res[0];
   }
@@ -203,9 +228,9 @@ export class WriteAdapter {
 
     if (columnsOrData instanceof Frame || columnsOrData instanceof Map) {
       const fr = new Frame(columnsOrData);
-      if (this.adapter == null) return fr;
+      if (this.byName == null) return fr;
       const cols = fr.columns.map((col_) => {
-        const col = typeof col_ === "string" ? this.adapter?.get(col_) : col_;
+        const col = typeof col_ === "string" ? this.byName?.get(col_)?.key : col_;
         if (col == null)
           throw new ValidationError(`
           Channel ${col_} was not provided in the list of channels when opening the writer

@@ -148,8 +148,7 @@ const mask = (): HTMLElement | null => document.querySelector(".pluto-mosaic__ma
 const shield = (): HTMLElement | null =>
   document.querySelector(".pluto-mosaic__shield");
 
-const insertionIndicator = (): HTMLElement | null =>
-  document.querySelector(".pluto-tabs__insertion");
+const ghost = (): HTMLElement | null => document.querySelector(".pluto-tabs__ghost");
 
 describe("Mosaic", () => {
   afterEach(() => {
@@ -340,8 +339,7 @@ describe("Mosaic", () => {
       dragOver(strip(), 150, 16);
       const el = mask();
       expect(el).not.toBeNull();
-      expect(el?.style.width).toEqual("100%");
-      expect(el?.style.height).toEqual("100%");
+      expect(el?.className).toContain("pluto-mosaic__mask--center");
     });
 
     it("should ignore file drops when the frame has no onFileDrop", () => {
@@ -360,12 +358,10 @@ describe("Mosaic", () => {
       dragOver(leaf(), 40, 150);
       const el = mask();
       expect(el).not.toBeNull();
-      expect(el?.style.left).toEqual("0%");
-      expect(el?.style.width).toEqual("50%");
-      expect(el?.style.height).toEqual("100%");
+      expect(el?.className).toContain("pluto-mosaic__mask--left");
     });
 
-    it("should swap the mask for the strip's insertion indicator over the strip", () => {
+    it("should swap the mask for the strip's ghost slot over the strip", () => {
       render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
       beginDrag(leaf());
       dragOver(leaf(), 40, 150);
@@ -375,14 +371,14 @@ describe("Mosaic", () => {
       fireEvent.dragLeave(leaf(), { relatedTarget: strip() });
       dragOver(strip(), 150, 16);
       expect(mask()).toBeNull();
-      expect(insertionIndicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
     });
 
     it("should not re-mask the leaf while dragging over the strip", () => {
       render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
       beginDrag(leaf());
       dragOver(strip(), 150, 16);
-      expect(insertionIndicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
       expect(mask()).toBeNull();
     });
 
@@ -395,13 +391,13 @@ describe("Mosaic", () => {
       expect(mask()).toBeNull();
     });
 
-    it("should clear the mask and indicator once a drop lands", () => {
+    it("should clear the mask and ghost once a drop lands", () => {
       render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
       beginDrag(leaf());
       dragOver(strip(), 150, 16);
-      expect(insertionIndicator()).not.toBeNull();
+      expect(ghost()).not.toBeNull();
       drop(strip(), 150, 16);
-      expect(insertionIndicator()).toBeNull();
+      expect(ghost()).toBeNull();
       expect(mask()).toBeNull();
     });
 
@@ -416,6 +412,23 @@ describe("Mosaic", () => {
 
     it("should not shield the leaf for unrelated drags", () => {
       render(<Harness items={[{ type: "unrelated", key: "u" }]} />);
+      beginDrag(leaf());
+      expect(shield()).toBeNull();
+    });
+
+    // Without the shield a tab's own content swallows the drag, so the leaf never
+    // resolves a region and an OS file drop lands nowhere.
+    it("should shield the leaf's content while an OS file drag is in flight", () => {
+      render(<Harness onFileDrop={vi.fn()} items={[Haul.FILE]} />);
+      expect(shield()).toBeNull();
+      beginDrag(leaf());
+      expect(shield()).not.toBeNull();
+      drop(leaf(), 200, 150);
+      expect(shield()).toBeNull();
+    });
+
+    it("should not shield the leaf for a file drag the frame does not accept", () => {
+      render(<Harness items={[Haul.FILE]} />);
       beginDrag(leaf());
       expect(shield()).toBeNull();
     });

@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -88,6 +89,7 @@ func newRuntimeHarness(
 		timeMod,
 		selector.NewHost(),
 		constant.NewHost(),
+		variable.NewHost(),
 		stlop.NewHost(),
 		stable.NewHost(),
 		control.NewHost(authorityState),
@@ -154,7 +156,12 @@ func (h *runtimeHarness) Ingest(channelKey uint32, data telem.Series) {
 	h.channelState.Ingest(fr)
 }
 
-func (h *runtimeHarness) IngestIndexed(indexKey uint32, timestamps telem.Series, dataKey uint32, data telem.Series) {
+func (h *runtimeHarness) IngestIndexed(
+	indexKey uint32,
+	timestamps telem.Series,
+	dataKey uint32,
+	data telem.Series,
+) {
 	timestamps.Alignment = h.alignment
 	data.Alignment = h.alignment
 	h.alignment += telem.Alignment(data.Len())

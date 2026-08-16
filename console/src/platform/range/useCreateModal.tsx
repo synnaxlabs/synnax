@@ -51,7 +51,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
     const client = Synnax.use();
     const clientExists = client != null;
     const { form, save, variant } = Ranger.useForm({
-      query: { key: rangeKey },
+      query: rangeKey == null ? null : { key: rangeKey },
       autoSave: false,
       initialValues: {
         key: rangeKey ?? uuid.create(),
@@ -160,7 +160,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
                 )}
               </Form.Field>
               <Form.Field<string[]> path="labels" required={false}>
-                {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
+                {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
               </Form.Field>
             </Flex.Box>
           </Form.Form>
@@ -169,7 +169,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
           <Triggers.SaveHelpText action={saveName} />
           <Nav.Bar.End>
             <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
-              Save Locally
+              Save locally
             </Button.Button>
             <Button.Button
               variant="filled"

@@ -38,43 +38,46 @@ var _ = Describe("Dotted modules", func() {
 	// output. This test drives two invocations, asserts the first is a
 	// plausible post-2017 wall-clock value, and that the second is
 	// monotonically non-decreasing within a sane delta.
-	It("time.now() dispatches, returns a wall-clock timestamp, and is monotonic", func(ctx SpecContext) {
-		resolver := channelSymbols(map[string]channelDef{
-			"trig":    {types.U8(), 100},
-			"now_out": {types.I64(), 101},
-		})
-		h := newRuntimeHarness(ctx, `
+	It(
+		"time.now() dispatches, returns a wall-clock timestamp, and is monotonic",
+		func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig":    {types.U8(), 100},
+				"now_out": {types.I64(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
 			import time
 			func get_now(t u8) i64 {
 			    return time.now()
 			}
 			trig -> get_now{} -> now_out`, resolver,
-			channels.Digest{Key: 100, DataType: telem.Uint8T},
-			channels.Digest{Key: 101, DataType: telem.Int64T},
-		)
-		defer h.Close(ctx)
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
 
-		h.Ingest(100, telem.NewSeriesV[uint8](1))
-		h.Tick(ctx, telem.Millisecond)
-		h.channelState.ClearReads()
-		out, _ := h.Flush()
-		t0 := lastI64(out, 101)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+			out, _ := h.Flush()
+			t0 := lastI64(out, 101)
 
-		h.Ingest(100, telem.NewSeriesV[uint8](1))
-		h.Tick(ctx, 2*telem.Millisecond)
-		h.channelState.ClearReads()
-		out, _ = h.Flush()
-		t1 := lastI64(out, 101)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, 2*telem.Millisecond)
+			h.channelState.ClearReads()
+			out, _ = h.Flush()
+			t1 := lastI64(out, 101)
 
-		// 1.5e18 ns since Unix epoch is roughly 2017-07-14. A healthy
-		// time.now() must return a value well past this floor.
-		Expect(t0).To(BeNumerically(">", int64(1.5e18)),
-			"time.now() should return a realistic wall-clock nanosecond timestamp")
-		Expect(t1).To(BeNumerically(">=", t0),
-			"time.now() must be monotonically non-decreasing across calls")
-		// The two calls happen microseconds apart in test time. A delta
-		// over one second would indicate something is very wrong.
-		Expect(t1-t0).To(BeNumerically("<", int64(telem.Second)),
-			"successive time.now() calls in a test should be close in wall-clock time")
-	})
+			// 1.5e18 ns since Unix epoch is roughly 2017-07-14. A healthy
+			// time.now() must return a value well past this floor.
+			Expect(t0).To(BeNumerically(">", int64(1.5e18)),
+				"time.now() should return a realistic wall-clock nanosecond timestamp")
+			Expect(t1).To(BeNumerically(">=", t0),
+				"time.now() must be monotonically non-decreasing across calls")
+			// The two calls happen microseconds apart in test time. A delta
+			// over one second would indicate something is very wrong.
+			Expect(t1-t0).To(BeNumerically("<", int64(telem.Second)),
+				"successive time.now() calls in a test should be close in wall-clock time")
+		},
+	)
 })

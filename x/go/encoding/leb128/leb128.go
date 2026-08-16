@@ -9,12 +9,11 @@
 
 package leb128
 
-import (
-	"io"
-)
+import "io"
 
-// WriteUnsigned writes an unsigned LEB128 encoded integer to the given writer.
-// LEB128 (Little Endian Base 128) is a variable-length encoding used in WASM and other formats.
+// WriteUnsigned writes an unsigned LEB128 encoded integer to the given writer. LEB128
+// (Little Endian Base 128) is a variable-length encoding used in WASM and other
+// formats.
 func WriteUnsigned(w io.ByteWriter, val uint64) error {
 	for {
 		b := byte(val & 0x7f)
@@ -33,6 +32,7 @@ func WriteUnsigned(w io.ByteWriter, val uint64) error {
 }
 
 // WriteSigned writes a signed LEB128 encoded integer to the given writer.
+//
 // Note: This is NOT the same as Go's binary.PutVarint, which uses zigzag encoding.
 // LEB128 signed encoding uses two's complement representation.
 func WriteSigned(w io.ByteWriter, val int64) error {

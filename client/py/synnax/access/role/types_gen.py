@@ -23,13 +23,12 @@ Key: TypeAlias = UUID
 
 class Role(BaseModel):
     """Is a named collection of policies that can be assigned to users, enabling
-    group-based permission management. Roles define what actions users can
-    perform on resources.
+    group-based permission management. Roles define what actions users can perform on
+    resources.
 
     Attributes:
         key: Is the unique identifier for this role.
-        name: Is a human-readable name for the role (e.g., 'Administrator',
-            'Engineer').
+        name: Is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
         description: Is an optional description explaining what permissions the role
             provides.
         internal: Is true if this is a built-in system role that cannot be deleted.

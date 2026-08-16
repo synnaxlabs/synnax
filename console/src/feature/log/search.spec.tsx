@@ -8,19 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { log, type ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Select } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
 import { createResource } from "@/platform/tree/testutil";
-import { Session } from "@/session";
-import { renderWithConsole, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  resolveFocusedTab,
+  selectTestProject,
+  uniqueName,
+} from "@/testutil";
+
+const client = createTestClient();
 
 describe("log/search", () => {
-  it("places the log's layout when the search result is selected", async () => {
+  it("opens the log as a tab when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("log");
     const resource = createResource(log.ontologyID(key), name);
@@ -40,12 +47,12 @@ describe("log/search", () => {
         </Select.Frame>
       );
     };
-    const { store } = await renderWithConsole(<Harness />);
+    const { wrapper, store } = await createConsoleWrapper({ client });
+    await selectTestProject(store, client);
+    render(<Harness />, { wrapper });
     fireEvent.click(await screen.findByText(name), { detail: 0 });
-    await waitFor(() => {
-      const placed = Session.Layout.select(store.getState(), key);
-      expect(placed?.type).toBe(Log.LAYOUT_TYPE);
-      expect(placed?.name).toBe(name);
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.key).toBe(key);
   });
 });

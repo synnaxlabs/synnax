@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,11 +31,16 @@ var _ = Describe("Reduce", func() {
 		Expect(next.Name).To(Equal("new"))
 	})
 
-	It("Should route an InsertTab action", func() {
+	It("Should route an InsertTabs action", func() {
 		k := uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode()},
-			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: 1}),
+			panel.NewInsertTabsAction(
+				panel.InsertTabsPayload{
+					Tabs:       []panel.Tab{tab(k)},
+					TargetLeaf: new(int32(1)),
+				},
+			),
 		))
 		Expect(tabKeys(next.Root)).To(ContainElement(k))
 	})
@@ -54,56 +58,62 @@ var _ = Describe("Reduce", func() {
 		k1, k2 := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k1), tab(k2))},
-			panel.NewMoveTabAction(panel.MoveTabPayload{Key: k1, TargetLeaf: 1, Index: new(int32(1))}),
+			panel.NewMoveTabAction(
+				panel.MoveTabPayload{Key: k1, TargetLeaf: 1, Index: new(int32(2))},
+			),
 		))
 		Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{k2, k1}))
 	})
 
-	It("Should route a SplitLeaf action", func() {
+	It("Should route a SplitTab action", func() {
+		k1, k2 := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
-			panel.Panel{Root: leafNode()},
-			panel.NewSplitLeafAction(panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft}),
+			panel.Panel{Root: leafNode(tab(k1), tab(k2))},
+			panel.NewSplitTabAction(
+				panel.SplitTabPayload{Key: k2, Direction: spatial.DirectionX},
+			),
 		))
 		MustBeOk(asSplit(next.Root))
 	})
 
 	It("Should route a ResizeSplit action", func() {
 		next := MustSucceed(panel.Reduce(
-			panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
+			panel.Panel{
+				Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode()),
+			},
 			panel.NewResizeSplitAction(panel.ResizeSplitPayload{Split: 1, Size: 0.7}),
 		))
 		split := MustBeOk(asSplit(next.Root))
 		Expect(split.Size).To(Equal(0.7))
 	})
 
-	It("Should route a SetTabResource action", func() {
-		k := uuid.New()
-		res := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: uuid.New().String()}
+	It("Should route a SetResourceTab action", func() {
+		k, other := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
-			panel.Panel{Root: leafNode(tab(k))},
-			panel.NewSetTabResourceAction(panel.SetTabResourcePayload{Key: k, Resource: res}),
+			panel.Panel{Root: leafNode(viewTab(k, "selector"))},
+			panel.NewSetTabResourceAction(
+				panel.SetTabResourcePayload{Key: k, Resource: tabResource(other)},
+			),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabResource{
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ResourceTab{
 			TabBase:  panel.TabBase{Key: k},
-			Resource: res,
-		}))
+			Resource: tabResource(other),
+		}}))
 	})
 
-	It("Should route a SetTabView action", func() {
+	It("Should route a SetViewTab action", func() {
 		k := uuid.New()
+		view := panel.View{Type: "docs"}
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k))},
-			panel.NewSetTabViewAction(panel.SetTabViewPayload{
-				Key:  k,
-				View: panel.View{Type: "docs"},
-			}),
+			panel.NewSetTabViewAction(panel.SetTabViewPayload{Key: k, View: view}),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ViewTab{
 			TabBase: panel.TabBase{Key: k},
-			View:    panel.View{Type: "docs"},
-		}))
+			View:    view,
+		}}))
 	})
 
 	It("Should apply a multi-action sequence in order", func() {
@@ -111,13 +121,19 @@ var _ = Describe("Reduce", func() {
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Name: "old", Root: leafNode()},
 			panel.NewRenameAction(panel.RenamePayload{Name: "new"}),
-			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: 1}),
+			panel.NewInsertTabsAction(
+				panel.InsertTabsPayload{
+					Tabs:       []panel.Tab{tab(k)},
+					TargetLeaf: new(int32(1)),
+				},
+			),
 		))
 		Expect(next.Name).To(Equal("new"))
 		Expect(tabKeys(next.Root)).To(ContainElement(k))
 	})
 
-	DescribeTable("Should return a missing-payload error and leave state unchanged when an action carries no payload",
+	DescribeTable(
+		"Should return a missing-payload error and leave state unchanged when an action carries no payload",
 		func(actionType string) {
 			p := panel.Panel{Root: leafNode()}
 			res, err := panel.Reduce(p, panel.Action{Type: actionType})
@@ -128,12 +144,12 @@ var _ = Describe("Reduce", func() {
 			Expect(res).To(Equal(p))
 		},
 		Entry("Rename", panel.ActionTypeRename),
-		Entry("InsertTab", panel.ActionTypeInsertTab),
+		Entry("InsertTabs", panel.ActionTypeInsertTabs),
 		Entry("RemoveTab", panel.ActionTypeRemoveTab),
 		Entry("MoveTab", panel.ActionTypeMoveTab),
-		Entry("SplitLeaf", panel.ActionTypeSplitLeaf),
+		Entry("SplitTab", panel.ActionTypeSplitTab),
 		Entry("ResizeSplit", panel.ActionTypeResizeSplit),
-		Entry("SetTabResource", panel.ActionTypeSetTabResource),
-		Entry("SetTabView", panel.ActionTypeSetTabView),
+		Entry("SetResourceTab", panel.ActionTypeSetTabResource),
+		Entry("SetViewTab", panel.ActionTypeSetTabView),
 	)
 })

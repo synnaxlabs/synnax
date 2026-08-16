@@ -7,23 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
-import {
-  Flex,
-  Form,
-  Input,
-  List,
-  Ranger,
-  Select,
-  stopPropagation,
-  Tag,
-  Telem,
-} from "@synnaxlabs/pluto";
+import { ranger } from "@synnaxlabs/client";
+import { Flex, Form, Input, List, Ranger, Select, Tag, Telem } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
-import { memo, useMemo } from "react";
+import { memo, type MouseEvent, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
@@ -41,8 +31,8 @@ const Base = ({
   ...props
 }: ItemProps) => {
   const { itemKey } = props;
-  const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
-  const placeLayout = Layout.usePlacer();
+  const { onSelect, selected, hovered } = Select.useItemState(itemKey);
+  const openTab = Panel.useOpenTab();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
     if (item == null) return undefined;
@@ -54,7 +44,7 @@ const Base = ({
     };
   }, [item]);
   const { form } = Ranger.useForm({
-    query: {},
+    query: null,
     initialValues,
     sync: true,
     autoSave: true,
@@ -63,8 +53,10 @@ const Base = ({
 
   const { name, parent, labels, timeRange } = item;
 
-  const handleSelect = () =>
-    placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key: itemKey });
+  const handleSelect = (_: ranger.Key, e: MouseEvent<HTMLElement>) => {
+    if (Select.hasModifier(e)) onSelect();
+    else openTab({ variant: "resource", resource: ranger.ontologyID(itemKey) });
+  };
 
   return (
     <List.Item
@@ -72,8 +64,7 @@ const Base = ({
       onSelect={handleSelect}
       justify="between"
       selected={selected}
-      rounded={!selected}
-      {...selectProps}
+      hovered={hovered}
       {...props}
     >
       <Form.Form<typeof Ranger.formSchema> {...form}>
@@ -81,10 +72,9 @@ const Base = ({
           <Input.Checkbox
             value={selected}
             onChange={onSelect}
-            onClick={stopPropagation}
             size="medium"
             variant="text"
-            ghost={!selected}
+            reveal={!selected}
           />
           <Flex.Box x align="center" gap="tiny">
             <Form.Field<NumericTimeRange>
@@ -96,7 +86,6 @@ const Base = ({
                 <Ranger.SelectStage
                   {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
                   variant="floating"
-                  onClick={stopPropagation}
                   triggerProps={{ variant: "text", iconOnly: true }}
                 />
               )}
@@ -122,7 +111,7 @@ const Base = ({
           {showTimeRange && (
             <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
           )}
-          {showFavorite && <Range.FavoriteButton range={item} ghost />}
+          {showFavorite && <Range.FavoriteButton range={item} reveal />}
         </Flex.Box>
       </Form.Form>
     </List.Item>

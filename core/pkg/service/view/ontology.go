@@ -45,7 +45,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 
 // OntologyIDsFromViews converts a slice of views to a slice of ontology IDs.
 func OntologyIDsFromViews(views []View) []ontology.ID {
-	return lo.Map(views, func(v View, _ int) ontology.ID { return OntologyID(v.Key) })
+	return lo.Map(views, func(v View, _ int) ontology.ID { return v.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -55,7 +55,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(v View) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(v.Key), v.Name, v)
+	return ontology.NewResource(schema, v.OntologyID(), v.Name, v)
 }
 
 var (

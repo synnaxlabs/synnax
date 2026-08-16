@@ -43,15 +43,23 @@ func run(pass *analysis.Pass) (any, error) {
 			keyStr := nodeString(pass.Fset, mt.Key)
 			if isEmptyStruct(mt.Value) {
 				pass.Report(analysis.Diagnostic{
-					Pos:     mt.Pos(),
-					End:     mt.End(),
-					Message: fmt.Sprintf("map[%s]struct{} can be replaced with set.Set[%s]", keyStr, keyStr),
+					Pos: mt.Pos(),
+					End: mt.End(),
+					Message: fmt.Sprintf(
+						"map[%s]struct{} can be replaced with set.Set[%s]",
+						keyStr,
+						keyStr,
+					),
 				})
 			} else if isBool(mt.Value) {
 				pass.Report(analysis.Diagnostic{
-					Pos:     mt.Pos(),
-					End:     mt.End(),
-					Message: fmt.Sprintf("map[%s]bool can be replaced with set.Set[%s]", keyStr, keyStr),
+					Pos: mt.Pos(),
+					End: mt.End(),
+					Message: fmt.Sprintf(
+						"map[%s]bool can be replaced with set.Set[%s]",
+						keyStr,
+						keyStr,
+					),
 				})
 			}
 			return true

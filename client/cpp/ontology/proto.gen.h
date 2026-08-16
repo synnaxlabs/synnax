@@ -15,7 +15,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include "client/cpp/ontology/json.gen.h"
 #include "client/cpp/ontology/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"

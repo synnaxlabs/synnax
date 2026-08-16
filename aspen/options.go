@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// All included pebble code is copyrighted by the cockroachdb team, and is licensed under
-// the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for more
-// information.
+// All included pebble code is copyrighted by the cockroachdb team, and is licensed
+// under the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for
+// more information.
 
 package aspen
 
@@ -84,8 +84,8 @@ func (o *options) Report() alamos.Report {
 func Bootstrap() Option { return func(o *options) { o.bootstrap = true } }
 
 // WithEngine sets the underlying KV engine that aspen uses to store its data. When
-// using this option, the caller should transfer all responsibility for executing queries
-// on the engine to aspen.
+// using this option, the caller should transfer all responsibility for executing
+// queries on the engine to aspen.
 func WithEngine(engine xkv.DB) Option {
 	return func(o *options) {
 		o.externalKV = true
@@ -114,9 +114,9 @@ func InMemory() Option {
 	return func(o *options) { o.dirname = ""; o.fs = vfs.NewMem() }
 }
 
-// PropagationConfig is a set of configurable values that tune how quickly state converges
-// across the cluster. Lower intervals typically bring faster convergence, but also use
-// considerably more network traffic.
+// PropagationConfig is a set of configurable values that tune how quickly state
+// converges across the cluster. Lower intervals typically bring faster convergence, but
+// also use considerably more network traffic.
 type PropagationConfig struct {
 	// PledgeRetryInterval is the interval at which aspen will retry sending a pledge to
 	// a peer. Pledges are sent at a scaled interval (see PledgeRetryScale).
@@ -140,8 +140,8 @@ type PropagationConfig struct {
 	KVGossipInterval time.Duration
 }
 
-// WithPropagationConfig sets the parameters defining how quickly cluster state converges.
-// See PropagationConfig for more details.
+// WithPropagationConfig sets the parameters defining how quickly cluster state
+// converges. See PropagationConfig for more details.
 func WithPropagationConfig(config PropagationConfig) Option {
 	return func(o *options) {
 		o.cluster.Pledge.RetryInterval = config.PledgeRetryInterval
@@ -186,7 +186,10 @@ func mergeDefaultOptions(o *options) {
 	// provide their own transport. Otherwise the eagerly-created pool would
 	// leak: nothing would reference it and nothing would close it.
 	if o.transport.Transport == nil {
-		pool := fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		pool := fgrpc.OpenPool(
+			"",
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 		o.transport.ownedPool = pool
 		o.transport.Transport = grpct.New(pool)
 	}

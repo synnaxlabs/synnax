@@ -19,7 +19,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
-interface RenderProps extends Omit<schematic.NodeConfigTextBox, "variant"> {
+interface RenderProps extends Omit<schematic.TextBoxNodeConfig, "variant"> {
   className?: string;
   onChange?: (value: string) => void;
 }

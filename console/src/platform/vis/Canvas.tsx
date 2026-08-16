@@ -13,16 +13,7 @@ import { Canvas as Base } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
 
-export const Canvas = ({ children }: PropsWithChildren): ReactElement => {
-  const { focused } = Session.Layout.useSelectFocused();
-  return (
-    <Base.Canvas
-      id={CSS.BE("vis", "canvas")}
-      className={CSS(focused != null && CSS.M("focused"))}
-    >
-      {children}
-    </Base.Canvas>
-  );
-};
+export const Canvas = ({ children }: PropsWithChildren): ReactElement => (
+  <Base.Canvas id={CSS.BE("vis", "canvas")}>{children}</Base.Canvas>
+);

@@ -24,11 +24,14 @@ var _ = Describe("Builtin", func() {
 		Expect(res.ID).To(Equal(ontology.RootID))
 		Expect(res.Name).To(Equal("root"))
 	})
-	It("Should return query.ErrNotFound for a nonexistent builtin resource", func(ctx SpecContext) {
-		id := ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "nonexistent"}
-		Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
-		var res ontology.Resource
-		Expect(otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx)).
-			To(MatchError(query.ErrNotFound))
-	})
+	It(
+		"Should return query.ErrNotFound for a nonexistent builtin resource",
+		func(ctx SpecContext) {
+			id := ontology.ID{Type: ontology.ResourceTypeBuiltin, Key: "nonexistent"}
+			Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
+			var res ontology.Resource
+			Expect(otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx)).
+				To(MatchError(query.ErrNotFound))
+		},
+	)
 })

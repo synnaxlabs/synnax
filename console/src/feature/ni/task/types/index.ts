@@ -7,114 +7,409 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as v0 from "@/feature/ni/task/types/v0";
-import * as v1 from "@/feature/ni/task/types/v1";
+import { ni, type task } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/pluto";
+import { z } from "zod";
 
-export const PREFIX = v0.PREFIX;
+import { createPortValidator } from "@/feature/ni/task/types/validation";
+import { Task } from "@/platform/task";
 
-export type AccelSensitivityUnits = v0.AccelSensitivityUnits;
-export type ForceUnits = v0.ForceUnits;
-export type ElectricalUnits = v0.ElectricalUnits;
-export type ShuntResistorLoc = v0.ShuntResistorLoc;
-export type PressureUnits = v0.PressureUnits;
-export type TemperatureUnits = v0.TemperatureUnits;
-export type TorqueUnits = v0.TorqueUnits;
-export type VelocityUnits = v0.VelocityUnits;
-export type VelocitySensitivityUnits = v0.VelocitySensitivityUnits;
-export type Units = v0.Units;
+export const PREFIX = "ni";
 
-export type Scale = v0.Scale;
-export type ScaleType = v0.ScaleType;
-export const ZERO_SCALES = v0.ZERO_SCALES;
-export const SCALE_SCHEMAS = v0.SCALE_SCHEMAS;
+export type Units = ni.Units;
+export type AccelUnits = ni.AccelUnits;
+export type AccelSensitivityUnits = ni.AccelSensitivityUnits;
+export type ChargeUnits = ni.ChargeUnits;
+export type ForceUnits = ni.ForceUnits;
+export type ElectricalUnits = ni.ElectricalUnits;
+export type ShuntResistorLoc = ni.ShuntResistorLocation;
+export type PressureUnits = ni.PressureUnits;
+export type TemperatureUnits = ni.TemperatureUnits;
+export type TorqueUnits = ni.TorqueUnits;
+export type VelocityUnits = ni.VelocityUnits;
+export type VelocitySensitivityUnits = ni.VelocitySensitivityUnits;
 
-export const WAVE_TYPES = v0.WAVE_TYPES;
-export type WaveType = v0.WaveType;
+export const WAVE_TYPES = ni.WAVE_TYPES;
+export type WaveType = ni.WaveType;
 
-export type AIChannel = v1.AIChannel;
-export type AIChannelType = v0.AIChannelType;
-export const AI_CHANNEL_SCHEMAS = v1.AI_CHANNEL_SCHEMAS;
-export const ZERO_AI_CHANNELS = v1.ZERO_AI_CHANNELS;
-export const ZERO_AI_CHANNEL = v1.ZERO_AI_CHANNEL;
-export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHANNEL_TYPE_NAMES;
-export const AI_CHANNEL_TYPE_ICONS = v0.AI_CHANNEL_TYPE_ICONS;
+export type Scale = ni.Scale;
+export type ScaleType = ni.ScaleType;
+export type CJC = ni.CJC;
+export type CJCType = ni.CJCType;
 
-export type CIChannel = v0.CIChannel;
-export type CIChannelType = v0.CIChannelType;
-export type CIFreqUnits = v0.CIFreqUnits;
-export type CIPeriodUnits = v0.CIPeriodUnits;
-export type CIPulseWidthUnits = v0.CIPulseWidthUnits;
-export type CISemiPeriodUnits = v0.CISemiPeriodUnits;
-export type CITwoEdgeSepUnits = v0.CITwoEdgeSepUnits;
-export type CILinearVelocityUnits = v0.CILinearVelocityUnits;
-export type CIAngularVelocityUnits = v0.CIAngularVelocityUnits;
-export type CILinearPositionUnits = v0.CILinearPositionUnits;
-export type CIAngularPositionUnits = v0.CIAngularPositionUnits;
-export type CIZIndexPhase = v0.CIZIndexPhase;
-export type CIEdge = v0.CIEdge;
-export type CIMeasMethod = v0.CIMeasMethod;
-export type CICountDirection = v0.CICountDirection;
-export type CIDecodingType = v0.CIDecodingType;
-export const CI_CHANNEL_SCHEMAS = v0.CI_CHANNEL_SCHEMAS;
-export const ZERO_CI_CHANNELS = v0.ZERO_CI_CHANNELS;
-export const ZERO_CI_CHANNEL = v0.ZERO_CI_CHANNEL;
-export const CI_CHANNEL_TYPE_NAMES = v0.CI_CHANNEL_TYPE_NAMES;
-export const CI_CHANNEL_TYPE_ICONS = v0.CI_CHANNEL_TYPE_ICONS;
+// Cross-field scale validation is not generated; re-attach it to the map and table
+// scale schemas the console exposes.
+const mapScaleZ = ni.mapScaleZ
+  .refine(({ preScaledMin, preScaledMax }) => preScaledMin < preScaledMax, {
+    message: "Pre-scaled min must be less than pre-scaled max",
+    path: ["preScaledMin"],
+  })
+  .refine(({ scaledMin, scaledMax }) => scaledMin < scaledMax, {
+    message: "Scaled min must be less than scaled max",
+    path: ["scaledMin"],
+  });
 
-export const AO_CURRENT_CHAN_TYPE = v0.AO_CURRENT_CHAN_TYPE;
-export const AO_FUNC_GEN_CHAN_TYPE = v0.AO_FUNC_GEN_CHAN_TYPE;
-export const AO_VOLTAGE_CHAN_TYPE = v0.AO_VOLTAGE_CHAN_TYPE;
-export type AOChannel = v0.AOChannel;
-export type AOChannelType = v0.AOChannelType;
-export const AO_CHANNEL_SCHEMAS = v0.AO_CHANNEL_SCHEMAS;
-export const ZERO_AO_CHANNELS = v0.ZERO_AO_CHANNELS;
-export const ZERO_AO_CHANNEL = v0.ZERO_AO_CHANNEL;
-export const AO_CHANNEL_TYPES = v0.AO_CHANNEL_TYPES;
-export const AO_CHANNEL_TYPE_NAMES = v0.AO_CHANNEL_TYPE_NAMES;
-export const AO_CHANNEL_TYPE_ICONS = v0.AO_CHANNEL_TYPE_ICONS;
+const tableScaleZ = ni.tableScaleZ
+  .check(({ value, issues }) => {
+    const { preScaledVals, scaledVals } = value;
+    if (preScaledVals.length !== scaledVals.length) {
+      const code = "custom";
+      const message = "Pre-scaled and scaled values must have the same length";
+      issues.push({ path: ["preScaledVals"], code, message, input: value });
+      issues.push({ path: ["scaledVals"], code, message, input: value });
+    }
+  })
+  .check(({ value, issues }) => {
+    const { preScaledVals } = value;
+    if (preScaledVals.length === 0) return;
+    let lastVal = preScaledVals[0];
+    for (let i = 1; i < preScaledVals.length; i++) {
+      if (preScaledVals[i] <= lastVal)
+        issues.push({
+          code: "custom",
+          message: "Pre-scaled values must be monotonically increasing",
+          path: ["preScaledVals"],
+          input: value,
+        });
+      lastVal = preScaledVals[i];
+    }
+  });
 
-export type AnalogChannel = v1.AnalogChannel;
+export const SCALE_SCHEMAS = {
+  ...ni.SCALE_SCHEMAS,
+  map: mapScaleZ,
+  table: tableScaleZ,
+} as Record<ScaleType, z.ZodType<Scale>>;
 
-export interface DIChannel extends v0.DIChannel {}
-export const ZERO_DI_CHANNEL = v0.ZERO_DI_CHANNEL;
+export const createScale = (type: ScaleType): Scale =>
+  SCALE_SCHEMAS[type].parse({ type });
 
-export interface DOChannel extends v0.DOChannel {}
-export const ZERO_DO_CHANNEL = v0.ZERO_DO_CHANNEL;
+export type AIChannel = ni.AIChannel;
+export type AIChannelType = ni.AIChannelType;
+export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 
-export type DigitalChannel = v0.DigitalChannel;
+export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
+  ni.AI_CHANNEL_SCHEMAS[type].parse({ type });
 
-export type Channel = v1.Channel;
+export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
+  ai_accel: "Accelerometer",
+  ai_accel_4_wire_dc_voltage: "Accelerometer 4-Wire DC Voltage",
+  ai_accel_charge: "Accelerometer Charge",
+  ai_bridge: "Bridge",
+  ai_charge: "Charge",
+  ai_current: "Current",
+  ai_current_rms: "Current RMS",
+  ai_force_bridge_polynomial: "Force Bridge Polynomial",
+  ai_force_bridge_table: "Force Bridge Table",
+  ai_force_bridge_two_point_lin: "Force Bridge Two-Point Linear",
+  ai_force_iepe: "Force IEPE",
+  ai_freq_voltage: "Frequency Voltage",
+  ai_microphone: "Microphone",
+  ai_pressure_bridge_polynomial: "Pressure Bridge Polynomial",
+  ai_pressure_bridge_table: "Pressure Bridge Table",
+  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
+  ai_resistance: "Resistance",
+  ai_rtd: "RTD",
+  ai_strain_gauge: "Strain Gauge",
+  ai_temp_builtin: "Temperature Built-In Sensor",
+  ai_thermistor_iex: "Thermistor Current Excitation",
+  ai_thermistor_vex: "Thermistor Voltage Excitation",
+  ai_thermocouple: "Thermocouple",
+  ai_torque_bridge_polynomial: "Torque Bridge Polynomial",
+  ai_torque_bridge_table: "Torque Bridge Table",
+  ai_torque_bridge_two_point_lin: "Torque Bridge Two-Point Linear",
+  ai_velocity_iepe: "Velocity IEPE",
+  ai_voltage: "Voltage",
+  ai_voltage_rms: "Voltage RMS",
+  ai_voltage_with_excit: "Voltage with Excitation",
+};
 
-export const analogReadConfigZ = v1.analogReadConfigZ;
-export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
-export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
-export const ANALOG_READ_SCHEMAS = v1.ANALOG_READ_SCHEMAS;
-export type AnalogReadSchemas = v1.AnalogReadSchemas;
+// Types without a dedicated icon reuse their measurement category's icon.
+export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
+  ai_accel: Icon.Units.Acceleration,
+  ai_accel_4_wire_dc_voltage: Icon.Units.Acceleration,
+  ai_accel_charge: Icon.Units.Acceleration,
+  ai_bridge: Icon.Bridge,
+  ai_charge: Icon.Units.Voltage,
+  ai_current: Icon.Units.Current,
+  ai_current_rms: Icon.Units.Current,
+  ai_force_bridge_polynomial: Icon.Units.Force,
+  ai_force_bridge_table: Icon.Units.Force,
+  ai_force_bridge_two_point_lin: Icon.Units.Force,
+  ai_force_iepe: Icon.Units.Force,
+  ai_freq_voltage: Icon.Units.Voltage,
+  ai_microphone: Icon.Sound,
+  ai_pressure_bridge_polynomial: Icon.Units.Pressure,
+  ai_pressure_bridge_table: Icon.Units.Pressure,
+  ai_pressure_bridge_two_point_lin: Icon.Units.Pressure,
+  ai_resistance: Icon.Units.Resistance,
+  ai_rtd: Icon.Units.Temperature,
+  ai_strain_gauge: Icon.Units.Strain,
+  ai_temp_builtin: Icon.Units.Temperature,
+  ai_thermistor_iex: Icon.Units.Temperature,
+  ai_thermistor_vex: Icon.Units.Temperature,
+  ai_thermocouple: Icon.Units.Temperature,
+  ai_torque_bridge_polynomial: Icon.Units.Torque,
+  ai_torque_bridge_table: Icon.Units.Torque,
+  ai_torque_bridge_two_point_lin: Icon.Units.Torque,
+  ai_velocity_iepe: Icon.Units.Velocity,
+  ai_voltage: Icon.Units.Voltage,
+  ai_voltage_rms: Icon.Units.Voltage,
+  ai_voltage_with_excit: Icon.Units.Voltage,
+};
 
-export const analogWriteConfigZ = v0.analogWriteConfigZ;
-export const ANALOG_WRITE_TYPE = v0.ANALOG_WRITE_TYPE;
-export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;
-export const ANALOG_WRITE_SCHEMAS = v0.ANALOG_WRITE_SCHEMAS;
-export type AnalogWriteSchemas = v0.AnalogWriteSchemas;
+export type CIChannel = ni.CIChannel;
+export type CIChannelType = ni.CIChannelType;
+export type CIFreqUnits = ni.CIFreqUnits;
+export type CIPeriodUnits = ni.CITimeUnits;
+export type CIPulseWidthUnits = ni.CITimeUnits;
+export type CISemiPeriodUnits = ni.CITimeUnits;
+export type CITwoEdgeSepUnits = ni.CITimeUnits;
+export type CILinearVelocityUnits = ni.CILinearVelocityUnits;
+export type CIAngularVelocityUnits = ni.CIAngularVelocityUnits;
+export type CILinearPositionUnits = ni.CILinearPositionUnits;
+export type CIAngularPositionUnits = ni.CIAngularPositionUnits;
+export type ZIndexPhase = ni.ZIndexPhase;
+export type CIEdge = ni.CIEdge;
+export type CIMeasMethod = ni.CIMeasMethod;
+export type CICountDirection = ni.CICountDirection;
+export type CIDecodingType = ni.CIDecodingType;
+export const CI_CHANNEL_SCHEMAS = ni.CI_CHANNEL_SCHEMAS;
 
-export const counterReadConfigZ = v0.counterReadConfigZ;
-export const COUNTER_READ_TYPE = v0.COUNTER_READ_TYPE;
-export const ZERO_COUNTER_READ_PAYLOAD = v0.ZERO_COUNTER_READ_PAYLOAD;
-export const COUNTER_READ_SCHEMAS = v0.COUNTER_READ_SCHEMAS;
-export type CounterReadSchemas = v0.CounterReadSchemas;
+export const createCIChannel = (type: CIChannelType = "ci_frequency"): CIChannel =>
+  ni.CI_CHANNEL_SCHEMAS[type].parse({ type });
 
-export const digitalReadConfigZ = v0.digitalReadConfigZ;
-export const DIGITAL_READ_TYPE = v0.DIGITAL_READ_TYPE;
-export const ZERO_DIGITAL_READ_PAYLOAD = v0.ZERO_DIGITAL_READ_PAYLOAD;
-export const DIGITAL_READ_SCHEMAS = v0.DIGITAL_READ_SCHEMAS;
-export type DigitalReadSchemas = v0.DigitalReadSchemas;
+export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
+  ci_frequency: "Frequency",
+  ci_edge_count: "Edge Count",
+  ci_period: "Period",
+  ci_pulse_width: "Pulse Width",
+  ci_semi_period: "Semi Period",
+  ci_two_edge_sep: "Two Edge Separation",
+  ci_position_angular: "Position Angular",
+  ci_position_linear: "Position Linear",
+  ci_velocity_angular: "Velocity Angular",
+  ci_velocity_linear: "Velocity Linear",
+  ci_duty_cycle: "Duty Cycle",
+};
 
-export const digitalWriteConfigZ = v0.digitalWriteConfigZ;
-export const DIGITAL_WRITE_TYPE = v0.DIGITAL_WRITE_TYPE;
-export const ZERO_DIGITAL_WRITE_PAYLOAD = v0.ZERO_DIGITAL_WRITE_PAYLOAD;
-export const DIGITAL_WRITE_SCHEMAS = v0.DIGITAL_WRITE_SCHEMAS;
-export type DigitalWriteSchemas = v0.DigitalWriteSchemas;
+export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
+  ci_frequency: Icon.Wave.Square,
+  ci_edge_count: Icon.Value,
+  ci_period: Icon.Time,
+  ci_pulse_width: Icon.AutoFitWidth,
+  ci_semi_period: Icon.Range,
+  ci_two_edge_sep: Icon.AutoFitWidth,
+  ci_position_angular: Icon.Rotate,
+  ci_position_linear: Icon.Linear,
+  ci_velocity_angular: Icon.Rotate,
+  ci_velocity_linear: Icon.Linear,
+  ci_duty_cycle: Icon.Wave.Square,
+};
 
-export const SCAN_TYPE = v0.SCAN_TYPE;
+export const AO_CURRENT_CHAN_TYPE = "ao_current";
+export const AO_FUNC_GEN_CHAN_TYPE = "ao_func_gen";
+export const AO_VOLTAGE_CHAN_TYPE = "ao_voltage";
 
-export const SCAN_SCHEMAS = v0.SCAN_SCHEMAS;
+export type AOChannel = ni.AOChannel;
+export type AOChannelType = ni.AOChannelType;
+export const AO_CHANNEL_SCHEMAS = ni.AO_CHANNEL_SCHEMAS;
+export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
+
+export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>
+  ni.AO_CHANNEL_SCHEMAS[type].parse({ type });
+
+export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
+  ao_current: "Current",
+  ao_func_gen: "Function Generator",
+  ao_voltage: "Voltage",
+};
+
+export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, Icon.FC> = {
+  ao_current: Icon.Units.Current,
+  ao_func_gen: Icon.Function,
+  ao_voltage: Icon.Units.Voltage,
+};
+
+export type AnalogChannel = AIChannel | AOChannel;
+
+export type DIChannel = ni.DIChannel;
+export const createDIChannel = (): DIChannel =>
+  ni.diChannelZ.parse({ type: "digital_input" });
+
+export type DOChannel = ni.DOChannel;
+export const createDOChannel = (): DOChannel =>
+  ni.doChannelZ.parse({ type: "digital_output" });
+
+export type DigitalChannel = DIChannel | DOChannel;
+
+export type Channel = AnalogChannel | DigitalChannel;
+
+const deployReadRateShape = {
+  sampleRate: z.number().positive().max(1000000),
+  streamRate: z.number().positive().max(20000),
+} as const;
+
+const deployStateRateZ = z.number().positive().max(50000);
+
+const validateAnalogPorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<{ port: number }[]>) => {
+  const portsToIndexMap = new Map<number, number>();
+  channels.forEach(({ port }, i) => {
+    if (!portsToIndexMap.has(port)) {
+      portsToIndexMap.set(port, i);
+      return;
+    }
+    const index = portsToIndexMap.get(port) as number;
+    const code = "custom";
+    const message = `Port ${port} has already been used on another channel`;
+    issues.push({ code, message, path: [index, "port"], input: channels[index] });
+    issues.push({ code, message, path: [i, "port"], input: channels[i] });
+  });
+};
+
+const validateDigitalPortsAndLines = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<DigitalChannel[]>) => {
+  const portLineToIndexMap = new Map<string, number>();
+  channels.forEach(({ line, port }, i) => {
+    const key = `${port}/${line}`;
+    if (!portLineToIndexMap.has(key)) {
+      portLineToIndexMap.set(key, i);
+      return;
+    }
+    const index = portLineToIndexMap.get(key) as number;
+    const code = "custom";
+    const message = `Port ${port}, line ${line} has already been used on another channel`;
+    issues.push({ code, message, path: [index, "line"], input: channels[index] });
+    issues.push({ code, message, path: [i, "line"], input: channels[i] });
+  });
+};
+
+export const analogReadConfigZ = ni.analogReadConfigZ;
+
+export const deployAnalogReadConfigZ = ni.analogReadConfigZ
+  .extend({
+    ...deployReadRateShape,
+    channels: z
+      .array(ni.aiChannelZ)
+      .check(Task.validateReadChannels)
+      .check(createPortValidator())
+      .check(Task.validateChannelDevices),
+  })
+  .check(Task.validateStreamRate);
+
+const analogReadStatusDataZ = z
+  .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
+  .nullish();
+
+export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
+
+export const ANALOG_READ_SCHEMAS = {
+  type: z.literal(ANALOG_READ_TYPE),
+  config: analogReadConfigZ,
+  statusData: analogReadStatusDataZ,
+} as const satisfies task.Schemas;
+
+export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;
+
+const validateCounterPorts = createPortValidator("Counter");
+
+export const counterReadConfigZ = ni.counterReadConfigZ;
+
+export const deployCounterReadConfigZ = ni.counterReadConfigZ
+  .extend({
+    ...deployReadRateShape,
+    channels: z
+      .array(ni.ciChannelZ)
+      .check(Task.validateReadChannels)
+      .check(validateCounterPorts)
+      .check(Task.validateChannelDevices),
+  })
+  .check(Task.validateStreamRate);
+
+export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
+
+export const COUNTER_READ_SCHEMAS = {
+  type: z.literal(COUNTER_READ_TYPE),
+  config: counterReadConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
+
+export const analogWriteConfigZ = ni.analogWriteConfigZ;
+
+export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
+  device: Task.deviceKeyZ,
+  stateRate: deployStateRateZ,
+  channels: z
+    .array(ni.aoChannelZ)
+    .check(Task.validateWriteChannels)
+    .check(validateAnalogPorts),
+});
+
+export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
+
+export const ANALOG_WRITE_SCHEMAS = {
+  type: z.literal(ANALOG_WRITE_TYPE),
+  config: analogWriteConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type AnalogWriteSchemas = typeof ANALOG_WRITE_SCHEMAS;
+
+export const digitalReadConfigZ = ni.digitalReadConfigZ;
+
+export const deployDigitalReadConfigZ = ni.digitalReadConfigZ
+  .extend({
+    ...deployReadRateShape,
+    device: Task.deviceKeyZ,
+    channels: z
+      .array(ni.diChannelZ)
+      .check(Task.validateReadChannels)
+      .check(validateDigitalPortsAndLines),
+  })
+  .check(Task.validateStreamRate);
+
+export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
+
+export const DIGITAL_READ_SCHEMAS = {
+  type: z.literal(DIGITAL_READ_TYPE),
+  config: digitalReadConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type DigitalReadSchemas = typeof DIGITAL_READ_SCHEMAS;
+
+export const digitalWriteConfigZ = ni.digitalWriteConfigZ;
+
+export const deployDigitalWriteConfigZ = ni.digitalWriteConfigZ.extend({
+  device: Task.deviceKeyZ,
+  stateRate: deployStateRateZ,
+  channels: z
+    .array(ni.doChannelZ)
+    .check(Task.validateWriteChannels)
+    .check(validateDigitalPortsAndLines),
+});
+
+export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
+
+export const DIGITAL_WRITE_SCHEMAS = {
+  type: z.literal(DIGITAL_WRITE_TYPE),
+  config: digitalWriteConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
+
+export const SCAN_TYPE = `${PREFIX}_scanner`;
+
+export const SCAN_SCHEMAS = {
+  type: z.literal(SCAN_TYPE),
+  config: ni.scanConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;

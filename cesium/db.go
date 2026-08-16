@@ -41,8 +41,6 @@ var (
 type Metrics struct {
 	// DiskSize is the total disk space used by all channel data.
 	DiskSize telem.Size
-	// ChannelCount is the number of channels in the database.
-	ChannelCount int
 }
 
 // LeadingAlignment returns an Alignment whose array index is the maximum possible value
@@ -78,7 +76,10 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	}
 	_, span := db.T.Bench(ctx, "write")
 	defer span.End()
-	w, err := db.OpenWriter(ctx, WriterConfig{Start: start, Channels: frame.KeysSlice()})
+	w, err := db.OpenWriter(
+		ctx,
+		WriterConfig{Start: start, Channels: frame.KeysSlice()},
+	)
 	if err != nil {
 		return span.Error(err)
 	}
@@ -92,7 +93,12 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 }
 
 // WriteSeries writes a series into the specified channel at the specified start time.
-func (db *DB) WriteSeries(ctx context.Context, key channel.Key, start telem.TimeStamp, series telem.Series) error {
+func (db *DB) WriteSeries(
+	ctx context.Context,
+	key channel.Key,
+	start telem.TimeStamp,
+	series telem.Series,
+) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
@@ -100,7 +106,11 @@ func (db *DB) WriteSeries(ctx context.Context, key channel.Key, start telem.Time
 }
 
 // Read reads from the database at the specified time range and outputs a frame.
-func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...channel.Key) (frame Frame, err error) {
+func (db *DB) Read(
+	ctx context.Context,
+	tr telem.TimeRange,
+	keys ...channel.Key,
+) (frame Frame, err error) {
 	if db.closed.Load() {
 		return frame, ErrDBClosed
 	}
@@ -128,10 +138,7 @@ func (db *DB) Metrics() Metrics {
 	for _, u := range db.mu.dbs.unary {
 		size += u.Size()
 	}
-	return Metrics{
-		DiskSize:     size,
-		ChannelCount: len(db.mu.dbs.unary) + len(db.mu.dbs.virtual),
-	}
+	return Metrics{DiskSize: size}
 }
 
 // Close closes the database.

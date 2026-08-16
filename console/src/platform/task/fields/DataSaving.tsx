@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
+import { Form, Input } from "@synnaxlabs/pluto";
 
 export const DataSaving = () => (
-  <Form.SwitchField label="Data saving" path="config.dataSaving" />
+  <Form.Field<boolean> label="Data saving" path="config.dataSavingDisabled">
+    {({ value, onChange, ...rest }) => (
+      <Input.Switch {...rest} value={!value} onChange={(v) => onChange(!v)} />
+    )}
+  </Form.Field>
 );

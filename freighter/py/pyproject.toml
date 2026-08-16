@@ -17,13 +17,13 @@ dependencies = [
     "synnax-x",
     "pydantic>=2.13.4,<3",
     "urllib3>=2.7.0,<3",
-    "websockets>=16.0,<17",
+    "websockets>=16.1.1,<17",
 ]
 
 [dependency-groups]
 dev = [
-    "mypy>=2.1.0,<3",
-    "ruff>=0.15.18,<1",
+    "mypy>=2.3.0,<3",
+    "ruff>=0.16.0,<1",
     "pytest>=9.1.1,<10",
     "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",

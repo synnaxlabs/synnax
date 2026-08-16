@@ -7,12 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LAYOUT_TYPE, Selector } from "@/app/selector/Selector";
-import { type Layout } from "@/platform/layout";
-
 export * from "@/app/selector/selectables";
 export * from "@/app/selector/Selector";
-
-export const LAYOUTS: Layout.Renderers = {
-  [LAYOUT_TYPE]: Selector,
-};

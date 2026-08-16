@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Access, Arc as PArc, Icon } from "@synnaxlabs/pluto";
 
-import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
+import { Explorer } from "@/feature/arc/explorer";
 import { Arc } from "@/platform/arc";
 import { Command } from "@/platform/command";
 
@@ -25,8 +25,8 @@ export const CreateCommand = Command.create({
 export const OpenExplorerCommand = Command.create({
   key: "open_arc_explorer",
   name: "Open the Arc Explorer",
-  icon: <Icon.Explore />,
-  useOnSelect: Command.createPlacerUseOnSelect(EXPLORER_LAYOUT),
+  icon: <PArc.ExplorerIcon />,
+  useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),
 });
 

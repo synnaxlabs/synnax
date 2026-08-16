@@ -9,29 +9,36 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Flux, Task } from "@synnaxlabs/pluto";
+import { verbs } from "@synnaxlabs/x";
 
 export interface SetDataSavingParams {
   key: task.Key;
   dataSaving: boolean;
 }
 
-export const { useUpdate: useSetDataSaving } = Flux.createUpdate<
-  SetDataSavingParams,
-  Task.FluxSubStore
->({
+export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingParams>({
   name: Task.RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
-  update: async ({ client, data, store }) => {
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
     const { key, dataSaving } = data;
-    const t = await Task.retrieveSingle({ client, store, query: { key } });
+    const t = await client.tasks.retrieve({ key, includeStatus: true });
     const config = t.payload.config;
-    // Only tasks with a dataSaving field in their config (primarily read tasks)
-    // are eligible. Write tasks without this field are skipped.
-    if (typeof config !== "object" || config == null || !("dataSaving" in config))
+    // Only tasks with a dataSavingDisabled field in their config (primarily read
+    // tasks) are eligible. Tasks without this field are skipped.
+    if (
+      typeof config !== "object" ||
+      config == null ||
+      !("dataSavingDisabled" in config)
+    )
       return data;
-    if ((config as Record<string, unknown>).dataSaving === dataSaving) return data;
+    const dataSavingDisabled = !dataSaving;
+    if ((config as Record<string, unknown>).dataSavingDisabled === dataSavingDisabled)
+      return data;
     const wasRunning = t.status?.details.running === true;
-    await client.tasks.create({ ...t.payload, config: { ...config, dataSaving } });
+    await client.tasks.create({
+      ...t.payload,
+      config: { ...config, dataSavingDisabled },
+    });
     if (wasRunning) await client.tasks.executeCommand({ task: key, type: "start" });
     return data;
   },

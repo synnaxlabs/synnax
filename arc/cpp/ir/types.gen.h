@@ -180,6 +180,7 @@ struct Function {
     friend std::ostream &operator<<(std::ostream &os, const Function &f);
 };
 
+/// @brief Nodes is a collection of node instantiations in an Arc module.
 struct Nodes : private std::vector<Node> {
     using Base = std::vector<Node>;
 
@@ -253,6 +254,7 @@ struct Edge {
     friend std::ostream &operator<<(std::ostream &os, const Edge &e);
 };
 
+/// @brief Functions is a collection of function definitions in an Arc module.
 struct Functions : private std::vector<Function> {
     using Base = std::vector<Function>;
 
@@ -307,6 +309,7 @@ struct Functions : private std::vector<Function> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Edges is a collection of dataflow edges in an Arc graph.
 struct Edges : private std::vector<Edge> {
     using Base = std::vector<Edge>;
 
@@ -403,9 +406,9 @@ struct Scope {
     /// Unset
     /// for always-live scopes.
     std::optional<Handle> activation;
-    /// @brief strata contains stratified execution layers for parallel scopes. Empty
-    /// for
-    /// sequential scopes. Stratum N depends only on strata 0 to N-1.
+    /// @brief strata contains stratified execution layers for parallel scopes. On
+    /// sequential scopes, strata hold variable nodes that run every pass alongside the
+    /// active step. Stratum N depends only on strata 0 to N-1.
     std::vector<Members> strata;
     /// @brief steps contains ordered steps for sequential scopes. Empty for parallel
     /// scopes.

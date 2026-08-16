@@ -11,47 +11,17 @@
 
 package crdt
 
-import (
-	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/validate"
-)
+import "github.com/synnaxlabs/x/crdt/versions"
 
 // ID uniquely identifies a character within a replicated text document. It pairs the
 // replica that created the character with that replica's per-character counter, making
 // the identifier globally unique without coordination.
-type ID struct {
-	// Replica is the replica that created the character. A zero replica marks the document
-	// root sentinel.
-	Replica uint32 `json:"replica" msgpack:"replica"`
-	// Counter is the per-replica counter, incremented for every character the replica
-	// inserts.
-	Counter uint32 `json:"counter" msgpack:"counter"`
-}
+type ID = versions.ID
 
 // Insert introduces a single character into a replicated text document.
-type Insert struct {
-	// ID is the identity of the inserted character.
-	ID ID `json:"id" msgpack:"id"`
-	// Origin is the existing character this one anchors to. The root sentinel anchors to
-	// the start of the document.
-	Origin ID `json:"origin" msgpack:"origin"`
-	// Side is the side of origin the character anchors to: left places it immediately
-	// before the origin, right immediately after.
-	Side spatial.XLocation `json:"side" msgpack:"side"`
-	// Char is the inserted Unicode code point.
-	Char int32 `json:"char" msgpack:"char"`
-}
-
-func (i Insert) Validate() error {
-	v := validate.New("Insert")
-	v.Ternaryf("side", !i.Side.IsValid(), "invalid side: %v", i.Side)
-	return v.Error()
-}
+type Insert = versions.Insert
 
 // Delete tombstones the character with the given id. It carries only the id because
 // removal needs no position; the character remains in the document tree as a tombstone
 // so concurrently-inserted neighbors can still anchor to it.
-type Delete struct {
-	// ID is the identity of the character to tombstone.
-	ID ID `json:"id" msgpack:"id"`
-}
+type Delete = versions.Delete

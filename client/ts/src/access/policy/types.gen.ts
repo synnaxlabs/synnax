@@ -19,9 +19,9 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * Policy is an access control policy that defines which actions are permitted on
- * which resources. Policies are attached to roles, and roles are assigned
- * to users via ontology relationships.
+ * Policy is an access control policy that defines which actions are permitted on which
+ * resources. Policies are attached to roles, and roles are assigned to users via
+ * ontology relationships.
  */
 export const policyZ = z.object({
   /** key is the unique identifier for this policy. */

@@ -22,7 +22,7 @@ option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
 message Channel {
   // name is the human-readable channel name.
   string name = 1;
-  // leaseholder is the cluster node that holds the lease for this channel and is
+  // leaseholder is the node that holds the lease for this channel and is
   // authorized to accept writes.
   uint32 leaseholder = 2;
   // data_type is the data type of samples stored in this channel.

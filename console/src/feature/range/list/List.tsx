@@ -21,13 +21,14 @@ import {
   List as PList,
   Menu,
   Select,
-  type state,
 } from "@synnaxlabs/pluto";
+import { type state } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/feature/range/list/Item";
 import { Filters, SelectFilters } from "@/feature/range/list/SelectFilters";
+import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Range } from "@/platform/range";
 
@@ -35,7 +36,7 @@ export interface ListProps
   extends
     Pick<
       Flux.UseListReturn<PList.PagerParams, ranger.Key, ranger.Range>,
-      "data" | "getItem" | "subscribe" | "retrieve"
+      "data" | "getItem" | "subscribe" | "retrieve" | "answered"
     >,
     Pick<ItemProps, "showParent" | "showLabels" | "showTimeRange" | "showFavorite"> {
   enableSearch?: boolean;
@@ -62,6 +63,7 @@ export const List = ({
   getItem,
   subscribe,
   retrieve,
+  answered,
   enableSearch = false,
   enableFilters = false,
   enableAddButton = false,
@@ -102,13 +104,13 @@ export const List = ({
         onChange={setSelected}
         value={selected}
         onFetchMore={handleFetchMore}
-        itemHeight={45}
+        itemHeight={40}
       >
         {enableSearch && (
           <Flex.Box
             x
             bordered
-            style={{ padding: "1.5rem" }}
+            className={CSS.B("range-list-search")}
             background={1}
             justify="between"
           >
@@ -132,7 +134,7 @@ export const List = ({
           <Flex.Box
             x
             bordered
-            style={{ padding: "1rem 2rem", borderTop: "none" }}
+            className={CSS.B("range-list-filters")}
             background={1}
             justify="between"
           >
@@ -149,7 +151,7 @@ export const List = ({
         )}
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
         <PList.Items<string>
-          emptyContent={emptyContent}
+          emptyContent={answered && emptyContent}
           grow
           onContextMenu={menuProps.open}
         >
@@ -178,7 +180,7 @@ const AddButton = (): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
-    <Button.Button tooltip="Create Range" onClick={() => openCreate()}>
+    <Button.Button tooltip="Create Range" onClick={() => openCreate()} variant="filled">
       <Icon.Add />
     </Button.Button>
   );

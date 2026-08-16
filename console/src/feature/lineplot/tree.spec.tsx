@@ -16,11 +16,10 @@ import {
 } from "@synnaxlabs/client";
 import { List, Text } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
-import { createCluster, createClusterState } from "@/platform/cluster/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton, findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
@@ -32,12 +31,14 @@ import {
 } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
+import { createCluster, createClusterState } from "@/session/cluster/testutil";
 import {
   awaitTextEditing,
   captureBrowserDownloads,
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
+  resolveFocusedTab,
   stubClipboardWriteText,
   uniqueName,
 } from "@/testutil";
@@ -47,16 +48,16 @@ const Item = LinePlot.TREE_ITEMS.lineplot;
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
   await client.lineplots.create(await project(), { name: uniqueName("plot") });
 
-interface SetupArgs {
+interface SetupParams {
   plots: lineplot.LinePlot[];
   overrides?: Partial<Tree.BaseProps>;
   withCluster?: boolean;
 }
 
-const renderMenu = async ({ plots, overrides, withCluster = false }: SetupArgs) => {
+const renderMenu = async ({ plots, overrides, withCluster = false }: SetupParams) => {
   const store = await createTestStore({
     preloadedState: {
-      ...createPreloadedState(plots[0].key, plots[0].name),
+      ...createPreloadedState(plots[0].key),
       ...(withCluster ? createClusterState([createCluster("test")], "test") : {}),
     },
   });
@@ -107,13 +108,9 @@ describe("lineplot/ontology", () => {
       expect(screen.queryByText("Copy link")).toBeNull();
     });
 
-    it("deletes the plot, its layout, and its session state after confirmation", async () => {
+    it("deletes the plot and its session state after confirmation", async () => {
       const plot = await createLinePlot();
-      const removeLayout = vi.fn();
-      const { store } = await renderMenu({
-        plots: [plot],
-        overrides: { removeLayout },
-      });
+      const { store } = await renderMenu({ plots: [plot] });
       fireEvent.click(await screen.findByText("Delete"));
       await waitFor(() =>
         expect(
@@ -122,19 +119,18 @@ describe("lineplot/ontology", () => {
       );
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => {
-        await expect(client.lineplots.retrieve({ key: plot.key })).rejects.toSatisfy(
-          (e) => NotFoundError.matches(e),
+        await expect(client.lineplots.retrieve(plot.key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
         );
       });
-      expect(removeLayout).toHaveBeenCalledWith(plot.key);
       expect(
         Session.LinePlot.selectSliceState(store.getState()).plots[plot.key],
       ).toBeUndefined();
     });
 
-    it("renames the plot on the cluster and in the layout store", async () => {
+    it("renames the plot on the cluster", async () => {
       const plot = await createLinePlot();
-      const { store, itemID } = await renderMenu({ plots: [plot] });
+      const { itemID } = await renderMenu({ plots: [plot] });
       fireEvent.click(await screen.findByText("Rename"));
       const el = await awaitTextEditing(itemID);
       const newName = uniqueName("renamed");
@@ -142,10 +138,9 @@ describe("lineplot/ontology", () => {
         commitTextEdit(el, newName);
       });
       await waitFor(async () => {
-        const renamed = await client.lineplots.retrieve({ key: plot.key });
+        const renamed = await client.lineplots.retrieve(plot.key);
         expect(renamed.name).toBe(newName);
       });
-      expect(Session.Layout.select(store.getState(), plot.key)?.name).toBe(newName);
     });
 
     it("exports the plot as a JSON download", async () => {
@@ -191,16 +186,16 @@ describe("lineplot/ontology", () => {
       );
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => {
-        await expect(client.lineplots.retrieve({ key: control.key })).rejects.toSatisfy(
-          (e) => NotFoundError.matches(e),
+        await expect(client.lineplots.retrieve(control.key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
         );
       });
-      await expect(client.lineplots.retrieve({ key: plot.key })).resolves.toBeDefined();
+      await expect(client.lineplots.retrieve(plot.key)).resolves.toBeDefined();
     });
   });
 
   describe("onSelect", () => {
-    it("places the plot's layout when a tree row is double-clicked", async () => {
+    it("retrieves the plot and opens it as a tab when double-clicked", async () => {
       const plot = await createLinePlot();
       const { store } = await renderOntologyTree({
         client,
@@ -208,12 +203,9 @@ describe("lineplot/ontology", () => {
         items: LinePlot.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(plot.name));
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), plot.key)?.name).toBe(plot.name),
-      );
-      expect(Session.Layout.select(store.getState(), plot.key)?.type).toBe(
-        LinePlot.LAYOUT_TYPE,
-      );
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.key).toBe(plot.key);
     });
   });
 

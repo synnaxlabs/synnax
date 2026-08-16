@@ -9,41 +9,42 @@
 
 import {
   type ontology,
+  panel,
+  query,
   type ranger,
   ranger as rangerClient,
   schematic,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Icon } from "@synnaxlabs/pluto";
+import { Errors, Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type ComponentType } from "react";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { Range as CommonRange } from "@/platform/range";
+import { createResourceTab } from "@/platform/panel/testutil";
+import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
-import {
-  createConsoleWrapper,
-  getIconButton,
-  stubGeometry,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 interface RenderOverviewResult {
   onSnapshotClick: ReturnType<typeof vi.fn>;
   onSnapshotDelete: ReturnType<typeof vi.fn>;
+  setTabResource: (rangeKey: string) => Promise<void>;
 }
 
-const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> => {
+const renderOverview = async (
+  rangeKey: string,
+  FallbackComponent?: ComponentType<Errors.FallbackProps>,
+): Promise<RenderOverviewResult> => {
   const onSnapshotClick = vi.fn(async () => {});
   const onSnapshotDelete = vi.fn(async () => {});
-  const services: CommonRange.SnapshotServices = {
+  const services: PlatformRange.SnapshotServices = {
     schematic: {
       icon: <Icon.Schematic />,
       onClick: onSnapshotClick,
@@ -51,14 +52,33 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
     },
   };
   const { wrapper } = await createConsoleWrapper({ client });
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
+    rangerClient.ontologyID(rangeKey),
+  );
   render(
-    <CommonRange.SnapshotServicesProvider services={services}>
-      <Range.Overview layoutKey={rangeKey} visible focused onClose={() => {}} />
-      <Modals.Stack />
-    </CommonRange.SnapshotServicesProvider>,
+    <PlutoPanel.Scope.Provider value={panelKey}>
+      <PlutoPanel.TabScope.Provider value={tabKey}>
+        <PlatformRange.SnapshotServicesProvider services={services}>
+          <Errors.SuspenseBoundary FallbackComponent={FallbackComponent}>
+            <Range.Overview.Overview />
+          </Errors.SuspenseBoundary>
+          <Modals.Stack />
+        </PlatformRange.SnapshotServicesProvider>
+      </PlutoPanel.TabScope.Provider>
+    </PlutoPanel.Scope.Provider>,
     { wrapper },
   );
-  return { onSnapshotClick, onSnapshotDelete };
+  const setTabResource = async (nextKey: string) =>
+    await act(async () => {
+      await client.panels.dispatch(panelKey, [
+        panel.setTabResource({
+          key: tabKey,
+          resource: rangerClient.ontologyID(nextKey),
+        }),
+      ]);
+    });
+  return { onSnapshotClick, onSnapshotDelete, setTabResource };
 };
 
 const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => {
@@ -104,12 +124,22 @@ describe("range/overview/Overview", () => {
     expect(await screen.findByText(child.name)).toBeTruthy();
   });
 
+  it("lists the new range's children after the tab swaps resource", async () => {
+    const parent = await createTestRange(client);
+    const child = await createChildRange(parent);
+    const { setTabResource } = await renderOverview(child.key);
+    expect(await screen.findByDisplayValue(child.name)).toBeTruthy();
+    await setTabResource(parent.key);
+    expect(await screen.findByDisplayValue(parent.name)).toBeTruthy();
+    expect(await screen.findByText(child.name)).toBeTruthy();
+  });
+
   it("opens the create modal for a new child range", async () => {
     const rng = await createTestRange(client);
     await renderOverview(rng.key);
     await screen.findByText("Child Ranges");
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 
   it("lists snapshots and routes selection to the snapshot service", async () => {
@@ -133,5 +163,87 @@ describe("range/overview/Overview", () => {
     await screen.findByText(`Are you sure you want to delete ${name}?`);
     fireEvent.click(findButton("Delete"));
     await waitFor(() => expect(onSnapshotDelete).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("range/overview tab", () => {
+  it("throws the deleted range to the tab's boundary while it is open", async () => {
+    const rng = await createTestRange(client);
+    const DeletedProbe = ({ error }: Errors.FallbackProps) => (
+      <div>{`deleted-${Flux.DeletedError.matches(error) ? error.corpseName : ""}`}</div>
+    );
+    DeletedProbe.displayName = "DeletedProbe";
+    await renderOverview(rng.key, DeletedProbe);
+    expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
+    await act(async () => {
+      await client.ranges.delete(rng.key);
+    });
+    expect(await screen.findByText(`deleted-${rng.name}`)).toBeTruthy();
+    // The whole tab tombstones. A section left behind would render its own
+    // inline "failed to retrieve" state next to the tombstone.
+    expect(screen.queryByText("Child Ranges")).toBeNull();
+    expect(screen.queryByText("Snapshots")).toBeNull();
+  });
+
+  it("shows the restored range's details after retry", async () => {
+    const { restore } = Range.Overview.TABS[rangerClient.TYPE_ONTOLOGY_ID.type];
+    assert(restore != null);
+    const rng = await createTestRange(client);
+    const Probe = ({ resetErrorBoundary }: Errors.FallbackProps) => (
+      <button data-testid="restore" onClick={resetErrorBoundary}>
+        restore
+      </button>
+    );
+    Probe.displayName = "Probe";
+    await renderOverview(rng.key, Probe);
+    expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
+    await act(async () => {
+      await client.ranges.delete(rng.key);
+    });
+    await screen.findByTestId("restore");
+
+    const project = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
+    await act(async () => {
+      await restore({ client, project: project.key, resource: rng.ontologyID });
+    });
+    fireEvent.click(screen.getByTestId("restore"));
+    expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
+  });
+
+  it("restores a deleted range under its original key", async () => {
+    const { restore } = Range.Overview.TABS[rangerClient.TYPE_ONTOLOGY_ID.type];
+    assert(restore != null);
+    const rng = await createTestRange(client);
+    // Restore rebuilds from the corpse the cache holds, which exists only once
+    // the client has seen the range live.
+    await client.ranges.retrieve(rng.key);
+    await client.ranges.delete(rng.key);
+    await waitFor(() =>
+      expect(query.Deleted.matches(client.ranges.getCached(rng.key))).toBe(true),
+    );
+
+    const project = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
+    await restore({ client, project: project.key, resource: rng.ontologyID });
+
+    // The tab heals off the cache going live again, not off the create call.
+    await waitFor(() =>
+      expect(query.isLive(client.ranges.getCached(rng.key))).toBe(true),
+    );
+    // Read back through a second client: the restoring client write-throughs its
+    // own cache, so retrieving on it would pass even if the cluster never got it.
+    const remote = createTestClient();
+    const [restored] = await remote.ranges.retrieve([rng.key]);
+    expect(restored.name).toEqual(rng.name);
+    expect(restored.timeRange).toEqual(rng.timeRange);
+    // The tab chip and every tree view read the range through the ontology, not
+    // the range store.
+    const resource = await remote.ontology.retrieve(rng.ontologyID);
+    expect(resource.name).toEqual(rng.name);
   });
 });

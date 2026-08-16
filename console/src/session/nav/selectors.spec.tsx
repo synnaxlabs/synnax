@@ -9,8 +9,8 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { act, renderHook } from "@testing-library/react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
@@ -21,79 +21,65 @@ const rootReducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
 });
 
-const storeWith = (...actions: Nav.Action[]) => {
-  const store = configureStore({ reducer: rootReducer });
-  actions.forEach((action) => store.dispatch(action));
-  return store;
-};
+const createStore = () => configureStore({ reducer: rootReducer });
 
-const wrapperFor = (store: ReturnType<typeof storeWith>) => {
+const createWrapper = (
+  store: ReturnType<typeof createStore>,
+): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>{children}</Provider>
   );
+  Wrapper.displayName = "Wrapper";
   return Wrapper;
 };
 
 describe("nav selectors", () => {
-  describe("selectSliceState", () => {
-    it("should return the slice state", () => {
-      const state = storeWith().getState();
-      expect(Nav.selectSliceState(state)).toBe(state[Nav.SLICE_NAME]);
-    });
-  });
-
-  describe("selectWindowState", () => {
-    it("should fall back to the zero window state when the window is absent", () => {
-      expect(Nav.selectWindowState(storeWith().getState())).toEqual(
-        Nav.ZERO_WINDOW_STATE,
-      );
-    });
-
-    it("should resolve the active window's state", () => {
-      const state = storeWith(
-        Nav.selectLeft({ windowKey: MAIN_WINDOW, key: "a" }),
-      ).getState();
-      expect(Nav.selectWindowState(state).left.selected).toBe("a");
-    });
-  });
-
-  describe("selectLeftSelected", () => {
-    it("should return the selected left item for the active window", () => {
-      const state = storeWith(
-        Nav.selectLeft({ windowKey: MAIN_WINDOW, key: "a" }),
-      ).getState();
-      expect(Nav.selectLeftSelected(state)).toBe("a");
+  describe("reactive hooks", () => {
+    it("useSelectLeft should re-render with the active window's left state", () => {
+      const store = createStore();
+      const { result } = renderHook(() => Nav.useSelectLeft(), {
+        wrapper: createWrapper(store),
+      });
+      expect(result.current.selected).toBeUndefined();
+      act(() => {
+        store.dispatch(Nav.selectLeft({ windowKey: MAIN_WINDOW, key: "a" }));
+      });
+      expect(result.current.selected).toBe("a");
+      expect(result.current.hover).toBe(false);
     });
 
-    it("should return undefined when nothing is selected", () => {
-      expect(Nav.selectLeftSelected(storeWith().getState())).toBeUndefined();
-    });
-  });
-
-  describe("selectBottomVisible", () => {
-    it("should report the bottom nav visibility for the active window", () => {
-      const state = storeWith(Nav.showBottom({ windowKey: MAIN_WINDOW })).getState();
-      expect(Nav.selectBottomVisible(state)).toBe(true);
-    });
-
-    it("should default to hidden", () => {
-      expect(Nav.selectBottomVisible(storeWith().getState())).toBe(false);
-    });
-  });
-
-  describe("hooks", () => {
-    it("useSelectLeftSelected should read through the Redux provider", () => {
-      const store = storeWith(Nav.selectLeft({ windowKey: MAIN_WINDOW, key: "a" }));
+    it("useSelectLeftSelected should re-render with the selected left item", () => {
+      const store = createStore();
       const { result } = renderHook(() => Nav.useSelectLeftSelected(), {
-        wrapper: wrapperFor(store),
+        wrapper: createWrapper(store),
+      });
+      expect(result.current).toBeUndefined();
+      act(() => {
+        store.dispatch(Nav.selectLeft({ windowKey: MAIN_WINDOW, key: "a" }));
       });
       expect(result.current).toBe("a");
     });
 
-    it("useSelectBottomVisible should read through the Redux provider", () => {
-      const store = storeWith(Nav.showBottom({ windowKey: MAIN_WINDOW }));
+    it("useSelectBottom should re-render with the active window's bottom state", () => {
+      const store = createStore();
+      const { result } = renderHook(() => Nav.useSelectBottom(), {
+        wrapper: createWrapper(store),
+      });
+      expect(result.current.visible).toBe(false);
+      act(() => {
+        store.dispatch(Nav.showBottom({ windowKey: MAIN_WINDOW }));
+      });
+      expect(result.current.visible).toBe(true);
+    });
+
+    it("useSelectBottomVisible should re-render with the bottom visibility", () => {
+      const store = createStore();
       const { result } = renderHook(() => Nav.useSelectBottomVisible(), {
-        wrapper: wrapperFor(store),
+        wrapper: createWrapper(store),
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        store.dispatch(Nav.showBottom({ windowKey: MAIN_WINDOW }));
       });
       expect(result.current).toBe(true);
     });

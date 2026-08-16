@@ -18,9 +18,7 @@ import {
   renderTable,
 } from "@/feature/table/testutil";
 import { Session } from "@/session";
-import { getLabeledDialogTrigger, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { getLabeledDialogTrigger, uniqueName } from "@/testutil";
 
 interface RenderToolbarOptions {
   tableState?: Partial<Session.Table.State>;
@@ -34,7 +32,7 @@ const renderToolbar = async ({
   const name = uniqueName("table");
   const handle = await renderTable(Table.Toolbar, {
     table: { name, ...(withCells ? createCellGrid() : {}) },
-    preloadedState: (key) => createPreloadedState(key, name, tableState),
+    preloadedState: (key) => createPreloadedState(key, tableState),
   });
   return { name, ...handle };
 };
@@ -84,7 +82,7 @@ describe("table/Toolbar", () => {
     const input = await screen.findByDisplayValue("Cell A");
     fireEvent.change(input, { target: { value: "Updated" } });
     await waitFor(async () => {
-      const t = await client.tables.retrieve({ key });
+      const t = await client.tables.retrieve(key);
       expect(t.cells.a.props.value).toBe("Updated");
     });
   });
@@ -97,7 +95,7 @@ describe("table/Toolbar", () => {
     fireEvent.click(getLabeledDialogTrigger("Variant"));
     fireEvent.click(await screen.findByText("Value"));
     await waitFor(async () => {
-      const t = await client.tables.retrieve({ key });
+      const t = await client.tables.retrieve(key);
       expect(t.cells.a.variant).toBe("value");
     });
   });
@@ -119,7 +117,7 @@ describe("table/Toolbar", () => {
     await screen.findByText("Size");
     fireEvent.click(screen.getByText("M"));
     await waitFor(async () => {
-      const t = await client.tables.retrieve({ key });
+      const t = await client.tables.retrieve(key);
       expect(t.cells.a.props.level).toBe("h4");
       expect(t.cells.b.props.level).toBe("h4");
     });

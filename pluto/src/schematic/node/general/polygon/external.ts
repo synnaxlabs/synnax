@@ -21,7 +21,7 @@ import { Symbol } from "@/schematic/node/general/polygon/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigPolygon => ({
+export const defaultConfig = (t: Theming.Theme): schematic.PolygonNodeConfig => ({
   variant: "polygon",
   numSides: 6,
   sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
@@ -33,7 +33,7 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigPolygon => 
   label: Label.defaultConfig("Polygon"),
 });
 
-export const spec: Spec<"polygon", schematic.NodeConfigPolygon> = {
+export const spec: Spec<"polygon", schematic.PolygonNodeConfig> = {
   key: "polygon",
   name: "Polygon",
   Form: CommonPolygonForm,

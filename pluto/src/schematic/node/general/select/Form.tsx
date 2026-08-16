@@ -21,7 +21,7 @@ import { Tabs } from "@/tabs";
 const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
     Base.useField<
-      Pick<schematic.NodeConfigSelect, "commandChannel" | "control" | "disabled">
+      Pick<schematic.SelectNodeConfig, "commandChannel" | "control" | "disabled">
     >(path);
 
   const handleSinkChange = (v: channel.Key): void =>

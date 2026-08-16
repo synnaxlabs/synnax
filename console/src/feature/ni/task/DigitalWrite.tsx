@@ -15,36 +15,23 @@ import { type FC } from "react";
 import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
-import { createDOChannel } from "@/feature/ni/task/createChannel";
+import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
 import {
+  deployDigitalWriteConfigZ,
   DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
   digitalWriteConfigZ,
   type DigitalWriteSchemas,
   type DOChannel,
-  ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const DIGITAL_WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
-  icon: "Logo.NI",
-  name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
-  type: DIGITAL_WRITE_TYPE,
-};
-
-export const DigitalWriteSelectable = Selector.createSimpleItem({
-  title: "NI Digital Write Task",
-  icon: <Icon.Logo.NI />,
-  layout: DIGITAL_WRITE_LAYOUT,
-});
 
 const Properties = () => (
   <>
@@ -77,10 +64,9 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<Task.FormProps<DigitalWriteSchemas>> = (props) => (
+const Form: FC = () => (
   <DigitalChannelList
-    {...props}
-    createChannel={createDOChannel}
+    createChannel={createNextDOChannel}
     name={name}
     contextMenuItems={Task.writeChannelContextMenuItems}
   />
@@ -90,14 +76,9 @@ const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null
-      ? digitalWriteConfigZ.parse(config)
-      : ZERO_DIGITAL_WRITE_PAYLOAD.config;
-  return {
-    ...ZERO_DIGITAL_WRITE_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = digitalWriteConfigZ.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "NI Digital Write Task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
@@ -217,7 +198,19 @@ export const DigitalWrite = Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,
+  deployConfigZ: deployDigitalWriteConfigZ,
   getInitialValues,
   onConfigure,
   type: "ni_digital_write",
+});
+
+export const useCreateDigitalWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const DigitalWriteSelectable = Selector.createSelectable({
+  type: DIGITAL_WRITE_TYPE,
+  title: "NI Digital Write Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateDigitalWrite,
 });

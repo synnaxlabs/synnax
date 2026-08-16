@@ -13,13 +13,11 @@ import { Access, Table } from "@synnaxlabs/pluto";
 import { Command } from "@/platform/command";
 import { Table as PlatformTable } from "@/platform/table";
 
-const useCreate = () => PlatformTable.useCreate({});
-
 const CreateCommand = Command.create({
   key: "create_table",
   name: "Create a table",
   icon: <Table.CreateIcon />,
-  useOnSelect: useCreate,
+  useOnSelect: PlatformTable.useCreate,
   useVisible: () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID),
 });
 

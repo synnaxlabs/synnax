@@ -54,7 +54,7 @@ describe("useCreateEmpty", () => {
       commitTextEdit(editable, name);
     });
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(parentID);
+      const children = await client.ontology.children.retrieve({ ids: parentID });
       const created = children.find((c) => c.name === name);
       expect(created).toBeDefined();
       expect(created?.id.type).toBe("group");
@@ -99,12 +99,33 @@ describe("useCreateEmpty", () => {
       commitTextEdit(editable, name);
     });
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(child.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(child.key),
+      });
       const created = children.find((c) => c.name === name);
       expect(created).toBeDefined();
       expect(created?.id.type).toBe("group");
+    });
+  });
+
+  it("should keep the pending group when the parent's children change under it", async () => {
+    const { parentID, editable } = await setup();
+    // The answer this creation triggers carries the parent's whole membership, and
+    // the cluster has never heard of the group being named.
+    const sibling = await client.groups.create({
+      parent: parentID,
+      name: uniqueName("sibling"),
+    });
+    await screen.findByText(sibling.name);
+    const stillEditing = document.getElementById(editable.id);
+    if (stillEditing == null) throw new Error("the pending group left the tree");
+    const name = uniqueName("grp");
+    await act(async () => {
+      commitTextEdit(stillEditing, name);
+    });
+    await waitFor(async () => {
+      const children = await client.ontology.children.retrieve({ ids: parentID });
+      expect(children.map((c) => c.name)).toContain(name);
     });
   });
 
@@ -116,7 +137,7 @@ describe("useCreateEmpty", () => {
     });
     await awaitTextEditingExit();
     await waitFor(() => expect(document.getElementById(placeholderID)).toBeNull());
-    const children = await client.ontology.retrieveChildren(parentID);
+    const children = await client.ontology.children.retrieve({ ids: parentID });
     expect(children.map((c) => c.id.key)).toEqual([child.key]);
   });
 });

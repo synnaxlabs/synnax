@@ -11,21 +11,10 @@
 
 package border
 
-import (
-	"github.com/synnaxlabs/x/spatial"
-)
+import "github.com/synnaxlabs/x/border/versions"
 
 // Radius is a per-corner border radius with independent x and y components, expressed
 // as percentages of the element's dimensions. The wire format also accepts shorthand
 // forms: a bare number, a single { x, y } pair, or per-corner numbers, each of which
 // expands to this canonical shape.
-type Radius struct {
-	// TopLeft is the top-left corner radius.
-	TopLeft spatial.XY `json:"top_left" msgpack:"top_left"`
-	// TopRight is the top-right corner radius.
-	TopRight spatial.XY `json:"top_right" msgpack:"top_right"`
-	// BottomLeft is the bottom-left corner radius.
-	BottomLeft spatial.XY `json:"bottom_left" msgpack:"bottom_left"`
-	// BottomRight is the bottom-right corner radius.
-	BottomRight spatial.XY `json:"bottom_right" msgpack:"bottom_right"`
-}
+type Radius = versions.Radius

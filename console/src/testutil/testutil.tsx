@@ -11,14 +11,16 @@ import { type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type ontology,
+  panel,
   type Synnax as Client,
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Access, Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { Access, Status, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id } from "@synnaxlabs/x";
 import {
+  act,
   render,
   renderHook,
   type RenderHookOptions,
@@ -30,6 +32,7 @@ import {
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { Provider } from "react-redux";
+import { assert } from "vitest";
 
 import { Session } from "@/session";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
@@ -41,12 +44,16 @@ import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax
 export const uniqueName = (prefix: string = "test"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
 
-/** Throws when value is null or undefined, narrowing it for subsequent use. */
+/**
+ * Throws when value is null or undefined, narrowing it for subsequent use.
+ * Excludes void as well as null and undefined: NonNullable leaves `void & {}`
+ * behind, which drops every property off a `T | void` return.
+ */
 export function assertDefined<T>(
   value: T,
   message = "expected value to be defined",
-): asserts value is NonNullable<T> {
-  if (value == null) throw new Error(message);
+): asserts value is Exclude<T, null | undefined | void> {
+  assert(value != null, message);
 }
 
 /**
@@ -56,7 +63,7 @@ export function assertDefined<T>(
 export const findDialogTrigger = async (): Promise<HTMLElement> =>
   await waitFor(() => {
     const el = document.querySelector<HTMLElement>(".pluto-dialog__trigger");
-    if (el == null) throw new Error("dialog trigger not found");
+    assertDefined(el, "dialog trigger not found");
     return el;
   });
 
@@ -66,26 +73,69 @@ export const findTagCloseButton = (name: string): HTMLElement => {
     .getByText(name)
     .closest(".pluto-tag")
     ?.querySelector<HTMLElement>(".pluto-tag__close");
-  if (btn == null) throw new Error(`close button for tag ${name} not found`);
+  assertDefined(btn, `close button for tag ${name} not found`);
   return btn;
 };
 
 /**
- * Polls the store until a layout of the given type has been placed and returns its
- * key.
+ * Polls the store until the active window has a focused tab (the definite session
+ * effect of opening a tab via Panel.useOpenTab) and returns its key.
  */
-export const waitForPlacedLayout = async (
-  store: TestStore,
-  type: string,
-): Promise<string> =>
+export const waitForFocusedTab = async (store: TestStore): Promise<string> =>
   await waitFor(() => {
-    const placed = Session.Layout.selectByFilter(
-      store.getState(),
-      (l) => l.type === type,
-    );
-    if (placed == null) throw new Error(`no ${type} layout placed`);
-    return placed.key;
+    const state = store.getState();
+    const panelKey = Session.Panel.selectSelected(state);
+    const focused =
+      panelKey == null
+        ? undefined
+        : Session.Panel.selectSelectedTabs(state, panelKey)[0];
+    assertDefined(focused, "no tab focused");
+    return focused;
   });
+
+/**
+ * Polls until the active window's focused tab resolves to a tab in the selected
+ * panel's document and returns it. Bridges the session focus state (a tab key)
+ * and the panel document (fetched from the cluster) that together define what a
+ * Panel.useOpenTab call produced.
+ */
+export const resolveFocusedTab = async (
+  store: TestStore,
+  client: Client,
+  match?: (tab: panel.Tab) => boolean,
+): Promise<panel.Tab> =>
+  await waitFor(async () => {
+    const state = store.getState();
+    const panelKey = Session.Panel.selectSelected(state);
+    const focused =
+      panelKey == null
+        ? undefined
+        : Session.Panel.selectSelectedTabs(state, panelKey)[0];
+    assertDefined(focused, "no tab focused");
+    assertDefined(panelKey, "no panel selected");
+    const doc = await client.panels.retrieve(panelKey);
+    const tab = panel.findTab(doc.root, focused);
+    assertDefined(tab, "focused tab not found in panel");
+    // Placement lands focus one dispatch after the click, so a test opening a
+    // second tab must poll until focus reaches the expected one rather than
+    // reading the still-focused prior tab.
+    assert(match == null || match(tab), "focused tab does not match");
+    return tab;
+  });
+
+/**
+ * Creates a project on the cluster and marks it active in the session. Panel
+ * placement (Panel.useOpenTab) auto-creates panels under the active project, so
+ * any spec that exercises opening a tab must establish one first.
+ */
+export const selectTestProject = async (
+  store: TestStore,
+  client: Client,
+): Promise<string> => {
+  const proj = await client.projects.create({ name: id.create(), layout: {} });
+  store.dispatch(Session.Project.select(proj.key));
+  return proj.key;
+};
 
 export interface CaptureStatusesProps {
   onStatuses: (statuses: Status.NotificationSpec[]) => void;
@@ -107,6 +157,8 @@ export type ConsolePreloadedState = Partial<Session.State>;
 
 export interface ConsoleTestProviderOptions {
   preloadedState?: ConsolePreloadedState;
+  /** Label of the window the store believes it runs in; defaults to main. */
+  windowLabel?: string;
 }
 
 /**
@@ -117,14 +169,12 @@ export interface ConsoleTestProviderOptions {
  * is the one console store — every render helper below is backed by it.
  */
 export const createTestStore = async (options: ConsoleTestProviderOptions = {}) => {
-  const { preloadedState } = options;
+  const { preloadedState, windowLabel } = options;
   return await Drift.configureStore({
-    runtime: new Drift.NoopRuntime(),
+    runtime: new Drift.NoopRuntime(windowLabel),
     reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    // The layout middleware is omitted: it drives real Tauri window creation, which
-    // cannot run in jsdom. Everything else matches the production store.
-    middleware: (getDefault) => getDefault().concat(...Session.Nav.MIDDLEWARE),
+    middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
     enablePrerender: false,
   });
 };
@@ -147,6 +197,22 @@ const composeConsole = (
   return Wrapper;
 };
 
+/**
+ * Renders a tree that suspends on a cold cache, resolving once its render commits.
+ * RTL's own `render` never commits a tree that suspends during the initial render,
+ * leaving the container empty.
+ */
+export const renderSuspended = async (
+  ui: ReactElement,
+  options?: RenderOptions,
+): Promise<RenderResult> => {
+  let rendered!: RenderResult;
+  await act(async () => {
+    rendered = render(ui, options);
+  });
+  return rendered;
+};
+
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
@@ -162,17 +228,26 @@ export const renderWithConsole = async (
     createSynnaxWrapper({ client: null, additionalRegistry: ADDITIONAL_REGISTRY }),
     resolvedStore,
   );
-  return { ...render(ui, { wrapper: Wrapper, ...rest }), store: resolvedStore };
+  return {
+    ...(await renderSuspended(ui, { wrapper: Wrapper, ...rest })),
+    store: resolvedStore,
+  };
 };
+
+export interface RenderLinkHookOptions {
+  client?: Client | null;
+  preloadedState?: ConsolePreloadedState;
+}
 
 export const renderLinkHook = async <H,>(
   useHook: () => H,
+  options: RenderLinkHookOptions = {},
 ): Promise<{ handler: H; store: TestStore; modals: Session.Modals.Store }> => {
-  const store = await createTestStore();
-  const Wrapper = ({ children }: PropsWithChildren) => (
-    <Provider store={store}>
-      <Session.Modals.Context>{children}</Session.Modals.Context>
-    </Provider>
+  const { client = null, preloadedState } = options;
+  const store = await createTestStore({ preloadedState });
+  const Wrapper = composeConsole(
+    createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
+    store,
   );
   const { result } = renderHook(
     () => ({ handler: useHook(), modals: Session.Modals.useStore("renderLinkHook") }),
@@ -200,7 +275,7 @@ export const renderHookWithConsole = async <Result, Props>(
   return { ...renderHook(cb, { wrapper: Wrapper, ...rest }), store: resolvedStore };
 };
 
-export interface CreateConsoleWrapperArgs {
+export interface CreateConsoleWrapperParams {
   client: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
@@ -213,7 +288,7 @@ export const createConsoleWrapper = async ({
   preloadedState,
   store,
   additionalRegistry,
-}: CreateConsoleWrapperArgs): Promise<{
+}: CreateConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
@@ -229,43 +304,38 @@ export const createConsoleWrapper = async ({
 };
 
 /**
- * Builds a flux store whose permission cache has resolved a grant for `action` on `id`
- * against the given client, so synchronous Access checks (createGranted,
- * updateGranted) used by file ingesters pass exactly as they do in a running app.
+ * Warms the client's permission cache with a resolved grant for `action` on `id`, so
+ * synchronous Access checks (createGranted, updateGranted) used by file ingesters pass
+ * exactly as they do in a running app.
  */
-export const createGrantedFluxStore = async (
+export const awaitGranted = async (
   client: Client,
   id: ontology.ID,
   action: access.Action = "create",
-): Promise<Pluto.FluxStore> => {
+): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  const { result } = renderHook(
-    () => ({
-      store: Flux.useStore<Pluto.FluxStore>(),
-      granted: Access.useGranted({ objects: id, action }),
-    }),
-    { wrapper },
-  );
-  await waitFor(() => {
-    if (!result.current.granted) throw new Error(`${action} grant did not resolve`);
+  const { result } = renderHook(() => Access.useGranted({ objects: id, action }), {
+    wrapper,
   });
-  return result.current.store;
+  await waitFor(() => {
+    if (!result.current) throw new Error(`${action} grant did not resolve`);
+  });
 };
 
-export interface CreateConnectedConsoleWrapperArgs extends CreateConsoleWrapperArgs {
+export interface CreateConnectedConsoleWrapperParams extends CreateConsoleWrapperParams {
   /** Connection parameters handed to the production pluto Synnax.Provider. */
   connParams: SynnaxParams;
 }
 
 /**
  * Like createConsoleWrapper, but nests the production pluto Synnax.Provider inside the
- * stack, so Synnax.useConnectionState reflects a live connection to the cluster at
+ * stack, so Synnax.useConnectionStatus reflects a live connection to the cluster at
  * connParams, the same wiring the app uses in production.
  */
 export const createConnectedConsoleWrapper = async ({
   connParams,
   ...args
-}: CreateConnectedConsoleWrapperArgs): Promise<{
+}: CreateConnectedConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
@@ -275,5 +345,29 @@ export const createConnectedConsoleWrapper = async ({
       <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
     </Console>
   );
+  return { wrapper: Wrapper, store };
+};
+
+const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const cluster = Session.Cluster.useSelectState();
+  return <Synnax.Provider connParams={cluster}>{children}</Synnax.Provider>;
+};
+SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
+
+/**
+ * Like createConnectedConsoleWrapper, but derives the provider's connection params from
+ * the store's selected cluster, exactly as the production Pluto.Context does. Use for
+ * tests that exercise the login -> select -> connect flow.
+ */
+export const createSessionConsoleWrapper = async (
+  args: CreateConsoleWrapperParams,
+): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+  const { wrapper: Console, store } = await createConsoleWrapper(args);
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <SessionSynnaxProvider>{children}</SessionSynnaxProvider>
+    </Console>
+  );
+  Wrapper.displayName = "SessionConsoleWrapper";
   return { wrapper: Wrapper, store };
 };

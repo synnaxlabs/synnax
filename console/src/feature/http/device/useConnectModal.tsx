@@ -23,7 +23,6 @@ import {
   Rack,
   Select,
   Status,
-  Task,
   Text,
 } from "@synnaxlabs/pluto";
 import { json } from "@synnaxlabs/x";
@@ -67,17 +66,12 @@ const useForm = PDevice.createForm(SCHEMAS);
 const beforeSave = async ({
   client,
   get,
-  store,
   set,
-}: Flux.FormBeforeSaveParams<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema,
-  PDevice.FluxSubStore
->) => {
-  const scanTask = await Task.retrieveSingle({
-    client,
-    store,
-    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+  const scanTask = await client.tasks.retrieve({
+    type: SCAN_TYPE,
+    rack: get<rack.Key>("rack").value,
+    includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
   const props = get<Properties>("properties").value;
@@ -116,7 +110,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       status: stat,
       variant,
     } = useForm({
-      query: { key: deviceKey ?? "" },
+      query: deviceKey == null ? null : { key: deviceKey },
       initialValues: INITIAL_VALUES,
       beforeSave,
       afterSave: useCallback(() => close(), [close]),
@@ -315,9 +309,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               <Divider.Divider x />
             </Flex.Box>
             <Flex.Box gap="large">
-              <Text.Text level="h4" weight={500}>
-                Health Check
-              </Text.Text>
+              <Text.Text level="h4">Health Check</Text.Text>
               <Flex.Box gap="small">
                 <Flex.Box x align="end">
                   <Form.Field<HealthCheckMethod>
@@ -427,7 +419,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   },
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "http" };
+const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "http" };
 
 const selectRackRenderProp = Component.renderProp(
   (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (

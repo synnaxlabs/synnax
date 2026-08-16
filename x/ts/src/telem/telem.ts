@@ -1968,6 +1968,8 @@ export class DataType
     if (this.equals(other)) return true;
     if (!this.isNumeric || !other.isNumeric) return false;
     if (this.isVariable || other.isVariable) return false;
+    if (this.equals(DataType.BOOLEAN)) return true;
+    if (other.equals(DataType.BOOLEAN)) return false;
     if (this.isUnsignedInteger && other.isSignedInteger) return false;
 
     if (this.isFloat)
@@ -2039,6 +2041,9 @@ export class DataType
   /** Represents a bytes data type for arbitrary byte arrays. Bytes have an unknown
    * density and are encoded as uint32-length-prefixed samples. */
   static readonly BYTES = new DataType("bytes");
+  /** Represents a boolean data type. Samples are a single byte with canonical values
+   * 0x00 (false) and 0x01 (true). */
+  static readonly BOOLEAN = new DataType("bool");
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([
@@ -2057,6 +2062,7 @@ export class DataType
       [DataType.JSON.toString(), Uint8Array],
       [DataType.UUID.toString(), Uint8Array],
       [DataType.BYTES.toString(), Uint8Array],
+      [DataType.BOOLEAN.toString(), Uint8Array],
     ]);
 
   private static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
@@ -2091,6 +2097,7 @@ export class DataType
     [DataType.JSON.toString(), Density.UNKNOWN],
     [DataType.UUID.toString(), Density.BIT128],
     [DataType.BYTES.toString(), Density.UNKNOWN],
+    [DataType.BOOLEAN.toString(), Density.BIT8],
   ]);
 
   /** All the data types. */
@@ -2106,6 +2113,7 @@ export class DataType
     DataType.INT64,
     DataType.FLOAT32,
     DataType.FLOAT64,
+    DataType.BOOLEAN,
     DataType.TIMESTAMP,
     DataType.UUID,
     DataType.STRING,
@@ -2124,6 +2132,7 @@ export class DataType
     [DataType.INT64.toString(), "i64"],
     [DataType.FLOAT32.toString(), "f32"],
     [DataType.FLOAT64.toString(), "f64"],
+    [DataType.BOOLEAN.toString(), "bool"],
     [DataType.TIMESTAMP.toString(), "ts"],
     [DataType.UUID.toString(), "uuid"],
     [DataType.STRING.toString(), "str"],
@@ -2417,6 +2426,7 @@ export const convertDataType = (
   value: math.Numeric,
   offset: math.Numeric = 0,
 ): math.Numeric => {
+  if (target.equals(DataType.BOOLEAN)) return primitive.isZero(value) ? 0 : 1;
   if (source.usesBigInt && !target.usesBigInt)
     return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)

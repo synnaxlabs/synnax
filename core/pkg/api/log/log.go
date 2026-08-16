@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -43,7 +45,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Logs    []log.Log   `json:"logs" msgpack:"logs"`
+		Logs    []log.Log   `json:"logs"    msgpack:"logs"`
 		Project project.Key `json:"project" msgpack:"project"`
 	}
 	CreateResponse struct {
@@ -63,7 +65,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.Logs); err != nil {
+	if err := s.internal.NewWriter(tx).
+		CreateMany(ctx, req.Project, &req.Logs); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Logs: req.Logs}, nil
@@ -94,7 +97,8 @@ func (s *Service) Dispatch(
 
 type (
 	RetrieveRequest struct {
-		Keys []log.Key `json:"keys" msgpack:"keys"`
+		Keys                []log.Key `json:"keys"                   msgpack:"keys"`
+		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Logs []log.Log `json:"logs,omitzero" msgpack:"logs,omitzero"`
@@ -106,8 +110,12 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if err := s.internal.NewRetrieve().
-		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil); err != nil {
+	err := s.internal.NewRetrieve().
+		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

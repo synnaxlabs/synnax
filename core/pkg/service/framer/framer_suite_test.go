@@ -69,7 +69,7 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      n.Channel,
 		DB:           n.DB,
-		HostResolver: n.Cluster,
+		HostProvider: n.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Search:       searchIdx,
@@ -79,7 +79,7 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 		Framer:       n.Framer,
 		Channel:      channelSvc,
 		Status:       statusSvc,
-		HostResolver: n.Cluster,
+		HostProvider: n.Cluster,
 	}
 }
 

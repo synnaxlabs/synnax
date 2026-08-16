@@ -9,7 +9,7 @@
 
 import "@/platform/label/Edit.css";
 
-import { type label } from "@synnaxlabs/client";
+import { type label, type query } from "@synnaxlabs/client";
 import {
   Button,
   Color,
@@ -29,6 +29,7 @@ import {
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
@@ -47,17 +48,11 @@ const LabelListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, label.Label>(itemKey);
   const { form, save } = Label.useForm({
-    query: {},
+    query: null,
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
-      ({
-        reset,
-      }: Flux.AfterSaveParams<
-        Flux.Query,
-        typeof Label.formSchema,
-        Label.FluxSubStore
-      >) => {
+      ({ reset }: Flux.AfterSaveParams<query.Params, typeof Label.formSchema>) => {
         onClose?.();
         if (isCreate) reset({ name: "", color: color.construct("#000000") });
       },
@@ -82,7 +77,6 @@ const LabelListItem = ({
   return (
     <List.Item
       ref={ref}
-      highlightHovered={false}
       className={CSS(
         CSS.BE("label", "list-item"),
         isCreate && CSS.M("create"),
@@ -100,7 +94,7 @@ const LabelListItem = ({
             padHelpText={false}
             showLabel={false}
           >
-            {({ onChange, variant: _, ...p }) => (
+            {({ onChange, ...p }) => (
               <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
             )}
           </Form.Field>
@@ -140,8 +134,8 @@ const LabelListItem = ({
         <Button.Button
           variant="outlined"
           size="small"
+          reveal
           onClick={() => handleDelete(itemKey)}
-          className={CSS.BE("label", "delete")}
         >
           <Icon.Delete />
         </Button.Button>
@@ -153,7 +147,7 @@ const LabelListItem = ({
 const listItem = Component.renderProp(LabelListItem);
 
 export const useEditModal = Modals.create(() => {
-  const { data, getItem, retrieve, subscribe } = Label.useList();
+  const { data, getItem, retrieve, subscribe, answered } = Label.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -166,29 +160,20 @@ export const useEditModal = Modals.create(() => {
         onFetchMore={fetchMore}
         subscribe={subscribe}
       >
-        <Flex.Box x justify="between" className={CSS.BE("label", "edit-header")}>
-          <Input.Text
-            placeholder={
-              <>
-                <Icon.Search />
-                Search labels
-              </>
-            }
-            value={searchTerm}
-            onChange={(v) => {
-              setSearchTerm(v);
-              search(v);
-            }}
-          />
-          <Button.Button
-            variant="filled"
-            className={CSS.BE("label", "add-btn")}
-            gap="small"
-            onClick={() => setNewFormVisible(true)}
-          >
-            <Icon.Add />
-          </Button.Button>
-        </Flex.Box>
+        <Input.Text
+          value={searchTerm}
+          onChange={(v) => {
+            setSearchTerm(v);
+            search(v);
+          }}
+          placeholder="Search labels..."
+          startContent={<Icon.Search />}
+          autoFocus
+          flush
+          size="large"
+          full="x"
+          className={CSS.BE("label", "search")}
+        />
         <Divider.Divider x />
         <Flex.Box y className={CSS.BE("label", "items-container")} empty>
           <LabelListItem
@@ -202,9 +187,10 @@ export const useEditModal = Modals.create(() => {
           <List.Items
             grow
             emptyContent={
+              answered &&
               !newFormVisible && (
                 <Flex.Box center>
-                  <Text.Text level="h4" color={8}>
+                  <Text.Text level="h4" color={9}>
                     No labels created
                   </Text.Text>
                 </Flex.Box>
@@ -213,6 +199,14 @@ export const useEditModal = Modals.create(() => {
           >
             {listItem}
           </List.Items>
+          {!newFormVisible && (
+            <PlatformButton.CreateListItem
+              onClick={() => setNewFormVisible(true)}
+              className={CSS.BE("label", "create")}
+            >
+              New Label
+            </PlatformButton.CreateListItem>
+          )}
         </Flex.Box>
       </List.Frame>
     </Modals.Frame>

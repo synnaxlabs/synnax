@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { xy } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { List } from "@/feature/status/list";
@@ -19,6 +19,7 @@ import { findModalButton } from "@/platform/tree/menuTestutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
+  renderSuspended,
   stubClipboardWriteText,
   type TestStore,
   uniqueName,
@@ -47,7 +48,7 @@ const renderMenu = async (
       [Session.Status.SLICE_NAME]: { version: 0, favorites },
     },
   });
-  render(
+  await renderSuspended(
     <>
       {List.contextMenu({ keys, visible: true, position: xy.ZERO, cursor: xy.ZERO })}
       <Modals.Stack />
@@ -80,7 +81,7 @@ describe("status list context menu", () => {
   it("should copy the status diagnostics to the clipboard", async () => {
     const s = await createStatus("valve stuck open");
     await renderMenu([s.key]);
-    fireEvent.click(await screen.findByText("Copy Diagnostics"));
+    fireEvent.click(await screen.findByText("Copy diagnostics"));
     await waitFor(() => expect(clipboard).toHaveBeenCalledTimes(1));
     const copied = clipboard.mock.calls[0][0];
     expect(copied).toContain(s.name);
@@ -95,7 +96,7 @@ describe("status list context menu", () => {
     fireEvent.click(findModalButton("Delete"));
     const statusExists = async (): Promise<boolean> => {
       try {
-        await client.statuses.retrieve({ key: s.key });
+        await client.statuses.retrieve(s.key);
         return true;
       } catch {
         return false;
@@ -113,7 +114,7 @@ describe("status list context menu", () => {
     fireEvent.change(input, { target: { value: newName } });
     fireEvent.click(findModalButton("Save"));
     await waitFor(async () => {
-      const updated = await client.statuses.retrieve({ key: s.key });
+      const updated = await client.statuses.retrieve(s.key);
       expect(updated.name).toBe(newName);
     });
   });

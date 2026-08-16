@@ -17,7 +17,7 @@ import { Cylinder } from "@/schematic/node/vessels/cylinder/Primitive";
 import { Symbol } from "@/schematic/node/vessels/cylinder/Symbol";
 import { type Theming } from "@/theming";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigCylinder => ({
+export const defaultConfig = (t: Theming.Theme): schematic.CylinderNodeConfig => ({
   variant: "cylinder",
   orientation: "left",
   color: color.ZERO,
@@ -26,7 +26,7 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigCylinder =>
   dimensions: { width: 66, height: 181 },
 });
 
-export const spec: Spec<"cylinder", schematic.NodeConfigCylinder> = {
+export const spec: Spec<"cylinder", schematic.CylinderNodeConfig> = {
   key: "cylinder",
   name: "Cylinder",
   Form: CylinderForm,

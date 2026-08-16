@@ -259,7 +259,7 @@ find current IDs.
 
 ### Read Channels
 
-- **ReadChannel**: Generic read channel for any OPC UA variable
+- **InputChannel**: Generic read channel for any OPC UA variable
   - `channel`: Synnax channel key
   - `node_id`: OPC UA node identifier (e.g., `"NS=2;I=8"`)
   - `data_type`: Synnax data type (e.g., `"float32"`, `"uint16"`, `"bool"`)
@@ -267,7 +267,7 @@ find current IDs.
 
 ### Write Channels
 
-- **WriteChannel**: Generic write channel for any writable OPC UA variable
+- **OutputChannel**: Generic write channel for any writable OPC UA variable
   - `cmd_channel`: Synnax command channel key
   - `node_id`: OPC UA node identifier
   - Use for any writable OPC UA variable
@@ -329,7 +329,7 @@ server and client are generated automatically under `examples/opcua/certificates
 from examples.opcua import OPCUATLSSim
 
 sim = OPCUATLSSim()
-sim.start()   # Starts TLS server on opc.tcp://127.0.0.1:4842/
+sim.start()  # Starts TLS server on opc.tcp://127.0.0.1:4842/
 sim.stop()
 ```
 
@@ -343,7 +343,7 @@ credentials (`testuser` / `testpass`).
 from examples.opcua import OPCUATLSAuthSim
 
 sim = OPCUATLSAuthSim()
-sim.start()   # Starts on opc.tcp://127.0.0.1:4843/
+sim.start()  # Starts on opc.tcp://127.0.0.1:4843/
 sim.stop()
 ```
 

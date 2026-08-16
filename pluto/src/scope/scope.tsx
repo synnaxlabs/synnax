@@ -38,6 +38,11 @@ export interface Instance<K extends record.Key> {
   /** useOptional behaves like use but returns undefined instead of throwing. */
   useOptional: (override?: K) => K | undefined;
   /**
+   * require narrows an already-resolved key, throwing if it is nullish. Use inside a
+   * callback to enforce a key where the use hook cannot be called.
+   */
+  require: (key: K | undefined) => K;
+  /**
    * bindHook lifts a hook that requires a key into one whose key is optional, sourcing
    * it from the surrounding scope. All non-key arguments are forwarded unchanged.
    */
@@ -68,14 +73,15 @@ export const create = <K extends record.Key>(name: string): Instance<K> => {
     return override ?? fromScope;
   };
 
-  const use = (override?: K): K => {
-    const value = useOptional(override);
-    if (value == null)
+  const require = (key: K | undefined): K => {
+    if (key == null)
       throw new Error(
         `${name} scope requires a key: pass one explicitly or render within ${name}.Provider`,
       );
-    return value;
+    return key;
   };
+
+  const use = (override?: K): K => require(useOptional(override));
 
   const bindHook =
     <Args extends record.Keyed<K>, R>(hook: (args: Args) => R): Hook<K, Args, R> =>
@@ -84,5 +90,5 @@ export const create = <K extends record.Key>(name: string): Instance<K> => {
       return hook({ ...args, key } as Args);
     };
 
-  return { Provider, use, useOptional, bindHook };
+  return { Provider, use, useOptional, require, bindHook };
 };

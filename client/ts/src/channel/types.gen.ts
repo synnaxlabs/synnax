@@ -12,7 +12,7 @@
 import { control, telem, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cluster } from "@/cluster";
+import { node } from "@/node";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
 
@@ -33,8 +33,8 @@ export type OperationType = z.infer<typeof operationTypeZ>;
 
 /**
  * Operation defines an aggregation operation applied to channel data. Operations
- * calculate min, max, or average values over a time duration or triggered
- * by a reset channel.
+ * calculate min, max, or average values over a time duration or triggered by a reset
+ * channel.
  */
 export const operationZ = z.object({
   /** type is the aggregation operation type: min, max, avg, or none. */
@@ -56,51 +56,50 @@ export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 
 /**
- * Payload is a logical collection of samples emitted by or representing values
- * from a single source. Channels are the fundamental unit of telemetry
- * storage and streaming in Synnax.
+ * Payload is a logical collection of samples emitted by or representing values from a
+ * single source. Channels are the fundamental unit of telemetry storage and streaming
+ * in Synnax.
  */
 export const payloadZ = z.object({
   /**
-   * key is the unique identifier for this channel, automatically assigned
-   * by Synnax.
+   * key is the unique identifier for this channel, automatically assigned by Synnax.
    */
   key: keyZ.default(0),
   /** name is the human-readable channel name. */
   name: nameZ,
   /**
-   * leaseholder is the cluster node that holds the lease for this channel. Mostly
-   * for internal use.
+   * leaseholder is the node that holds the lease for this channel. Mostly for internal
+   * use.
    */
-  leaseholder: cluster.nodeKeyZ.default(0),
+  leaseholder: node.keyZ.default(0),
   /**
-   * dataType is the data type of samples stored in this channel (e.g., Float64,
-   * Int32, TimeStamp).
+   * dataType is the data type of samples stored in this channel (e.g., Float64, Int32,
+   * TimeStamp).
    */
   dataType: telem.dataTypeZ,
   /**
-   * isIndex is true if this is an index channel. Index channels must have int64
-   * values (TIMESTAMP data type) written in ascending order, and are
-   * most commonly unix nanosecond timestamps.
+   * isIndex is true if this is an index channel. Index channels must have int64 values
+   * (TIMESTAMP data type) written in ascending order, and are most commonly unix
+   * nanosecond timestamps.
    */
   isIndex: z.boolean().default(false),
   /**
-   * index is the channel used to index this channel's values, associating
-   * each value with a timestamp.
+   * index is the channel used to index this channel's values, associating each value
+   * with a timestamp.
    */
   index: keyZ.default(0),
   /** alias is an optional alternate name for the channel within a specific context. */
   alias: z.string().optional(),
   /**
-   * virtual is true if this channel does not store data in the database but can
-   * still be used for streaming purposes.
+   * virtual is true if this channel does not store data in the database but can still
+   * be used for streaming purposes.
    */
   virtual: z.boolean().default(false),
   /** internal is true if this is a system channel hidden from normal user queries. */
   internal: z.boolean().default(false),
   /**
-   * expression is an Arc expression for calculated channels. If set, the channel
-   * is automatically configured as virtual.
+   * expression is an Arc expression for calculated channels. If set, the channel is
+   * automatically configured as virtual.
    */
   expression: z.string().default(""),
   /**

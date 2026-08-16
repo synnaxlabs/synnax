@@ -30,6 +30,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//client/cpp/ethercat",
+        "//client/cpp/task/config",
         "//driver/common",
         "//driver/errors",
         "//driver/ethercat/channel",
@@ -46,7 +48,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/lib",
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ] + select({
         ":linux": [
             "//driver/ethercat/igh",

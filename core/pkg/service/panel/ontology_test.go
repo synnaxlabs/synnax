@@ -38,7 +38,9 @@ var _ = Describe("Ontology", func() {
 			Expect(panel.OntologyIDs([]panel.Key{a, b})).To(Equal([]ontology.ID{
 				panel.OntologyID(a), panel.OntologyID(b),
 			}))
-			Expect(panel.OntologyIDsFromPanels([]panel.Panel{{Key: a}, {Key: b}})).To(Equal(
+			Expect(
+				panel.OntologyIDsFromPanels([]panel.Panel{{Key: a}, {Key: b}}),
+			).To(Equal(
 				[]ontology.ID{panel.OntologyID(a), panel.OntologyID(b)},
 			))
 		})
@@ -66,25 +68,30 @@ var _ = Describe("Ontology", func() {
 			p := panel.Panel{Name: "resource", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
-			Expect(res.ID).To(Equal(panel.OntologyID(p.Key)))
+			Expect(res.ID).To(Equal(p.OntologyID()))
 			Expect(res.Name).To(Equal("resource"))
 		})
 
-		It("Should error when retrieving a resource with a non-UUID key", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, "not-a-uuid", tx)).Error().
-				To(MatchError(ContainSubstring("invalid UUID")))
-		})
+		It(
+			"Should error when retrieving a resource with a non-UUID key",
+			func(ctx SpecContext) {
+				Expect(svc.RetrieveResource(ctx, "not-a-uuid", tx)).Error().
+					To(MatchError(ContainSubstring("invalid UUID")))
+			},
+		)
 
 		It("Should emit a Set change when a panel is created", func(ctx SpecContext) {
 			var (
 				mu      sync.Mutex
 				changes []ontology.Change
 			)
-			DeferCleanup(svc.OnChange(func(_ context.Context, seq iter.Seq[ontology.Change]) {
-				mu.Lock()
-				defer mu.Unlock()
-				changes = append(changes, slices.Collect(seq)...)
-			}))
+			DeferCleanup(
+				svc.OnChange(func(_ context.Context, seq iter.Seq[ontology.Change]) {
+					mu.Lock()
+					defer mu.Unlock()
+					changes = append(changes, slices.Collect(seq)...)
+				}),
+			)
 			p := panel.Panel{Name: "observed", Parent: &parentID}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
@@ -95,7 +102,7 @@ var _ = Describe("Ontology", func() {
 				defer mu.Unlock()
 				g.Expect(changes).To(ContainElement(SatisfyAll(
 					HaveField("Variant", Equal(change.VariantSet)),
-					HaveField("Key", Equal(panel.OntologyID(p.Key).String())),
+					HaveField("Key", Equal(p.OntologyID().String())),
 					HaveField("Value.Name", Equal("observed")),
 				)))
 			}).Should(Succeed())
@@ -113,7 +120,7 @@ var _ = Describe("Ontology", func() {
 			for res := range next {
 				ids = append(ids, res.ID)
 			}
-			Expect(ids).To(ContainElement(panel.OntologyID(p.Key)))
+			Expect(ids).To(ContainElement(p.OntologyID()))
 		})
 	})
 })

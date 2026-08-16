@@ -22,17 +22,13 @@ import { Tabs } from "@/tabs";
 export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
     Base.useField<
-      Pick<
-        schematic.NodeConfigSetpoint,
-        "commandChannel" | "stateChannel" | "control" | "disabled"
-      >
+      Pick<schematic.SetpointNodeConfig, "commandChannel" | "control" | "disabled">
     >(path);
   const handleSinkChange = (v: channel.Key | null): void => {
     v ??= 0;
     onChange({
       ...value,
       commandChannel: v,
-      stateChannel: v,
       control: { ...value.control, showChip: true, showIndicator: true },
       disabled: v == 0,
     });

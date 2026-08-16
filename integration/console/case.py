@@ -21,8 +21,9 @@ from playwright.sync_api import (
 )
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.console import Console
-from framework.models import STATUS
+from framework.models import STATUS, SynnaxConnection
 from framework.run_dir import resolve_results_path
 from framework.test_case import TestCase
 
@@ -43,6 +44,17 @@ class ConsoleCase(TestCase):
     default_timeout: int
     default_nav_timeout: int
     console: Console
+
+    def __init__(
+        self,
+        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        *,
+        name: str,
+        **params: object,
+    ) -> None:
+        super().__init__(synnax_connection, name=name, **params)
+        self._cleanup_pages: list[str] = []
+        self._project: sy.Project | None = None
 
     def setup(self) -> None:
         env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
@@ -119,28 +131,28 @@ class ConsoleCase(TestCase):
         self.console.access.bootstrap_project = project_name
         self.console.project.select_bootstrap(self._project.name)
 
+        # Panels belong to the project, so a fresh project has none and the mosaic
+        # does not render until one exists.
+        self.console.layout.create_panel()
+
         # Prevent state pollution
         self.console.close_all_tabs()
         self.console.notifications.close_connection()
-        self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
         # Stop and persist the trace before cleanup; cleanup may mutate page state
         # in ways that mask the failure we want to capture.
         self._stop_tracing()
 
-        # setup() may fail before _cleanup_pages is assigned; tolerate that here
-        # so teardown still closes the browser instead of raising.
-        if getattr(self, "_cleanup_pages", None):
+        if self._cleanup_pages:
             try:
                 self.console.project.delete_pages(self._cleanup_pages)
             except PlaywrightTimeoutError:
                 pass
         # Delete the per-test project through the client. Server-side delete is
         # fast and works regardless of the browser's auth state, which a
-        # UI-driven delete does not (e.g. after a test logs out). setup() may
-        # fail before _project is assigned.
-        project = getattr(self, "_project", None)
+        # UI-driven delete does not (e.g. after a test logs out).
+        project = self._project
         if project is not None:
             try:
                 self.client.projects.delete(project.key)
@@ -149,6 +161,7 @@ class ConsoleCase(TestCase):
         self.context.close()
         self.browser.close()
         self.playwright.stop()
+        super().teardown()
 
     def _stop_tracing(self) -> None:
         failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)

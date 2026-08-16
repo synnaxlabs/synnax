@@ -27,7 +27,8 @@ struct Transport {
         const std::string &ip,
         const std::string &ca_cert_file,
         const std::string &client_cert_file,
-        const std::string &client_key_file
+        const std::string &client_key_file,
+        bool secure
     );
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;

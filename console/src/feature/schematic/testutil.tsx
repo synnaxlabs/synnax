@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project, type schematic } from "@synnaxlabs/client";
+import { project, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Haul, Schematic as PSchematic, Triggers } from "@synnaxlabs/pluto";
+import {
+  Haul,
+  Panel as PlutoPanel,
+  Schematic as PSchematic,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { act, render, screen, within } from "@testing-library/react";
@@ -23,9 +28,11 @@ import {
 
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
+import { createResourceTab } from "@/platform/panel/testutil";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
+  assertDefined,
   type ConsolePreloadedState,
   createConsoleWrapper,
   uniqueName,
@@ -64,14 +71,14 @@ export const createPreloadedState = (
 });
 
 // loadSchematic primes key's flux cache through the production retrieve path. The
-// single-hook bootstrap keeps the suspending useEnsureRetrieved from being followed by
+// single-hook bootstrap keeps the suspending useEnsure from being followed by
 // other hooks, a shape that trips a React 19 concurrent-replay error.
 const loadSchematic = async (
   Wrapper: FC<PropsWithChildren>,
   key: string,
 ): Promise<void> => {
   const Bootstrap = (): ReactElement => {
-    PSchematic.useEnsureRetrieved({ key });
+    PSchematic.useEnsure({ key });
     return <div data-testid="loaded" />;
   };
   let utils!: ReturnType<typeof render>;
@@ -94,12 +101,13 @@ export interface RenderSchematicOptions {
 }
 
 /**
- * renderSchematic creates a schematic on the server, mounts Component with the
- * schematic loaded into the flux cache and its Session state preloaded, and returns
- * the render result plus the Redux store and schematic.
+ * renderSchematic creates a schematic on the server, mounts Component inside the panel
+ * and tab scopes of a seeded resource tab (the way the mosaic renders a tab) with the
+ * schematic loaded into the flux cache and its Session state preloaded, and returns the
+ * render result plus the Redux store and schematic.
  */
 export const renderSchematic = async (
-  Component: ComponentType<{ layoutKey: string }>,
+  Component: ComponentType,
   {
     schematic: overrides,
     sessionState,
@@ -113,11 +121,17 @@ export const renderSchematic = async (
     additionalRegistry,
   });
   await loadSchematic(Wrapper, created.key);
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
+    schematic.ontologyID(created.key),
+  );
   const result = render(
-    <PSchematic.Scope.Provider value={created.key}>
-      <Component layoutKey={created.key} />
-      <Modals.Stack />
-    </PSchematic.Scope.Provider>,
+    <PlutoPanel.Scope.Provider value={panelKey}>
+      <PlutoPanel.TabScope.Provider value={tabKey}>
+        <Component />
+        <Modals.Stack />
+      </PlutoPanel.TabScope.Provider>
+    </PlutoPanel.Scope.Provider>,
     { wrapper: Wrapper },
   );
   return { key: created.key, schematic: created, result, store };
@@ -162,7 +176,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
 export const getEditSectionHeaderButton = (title: string): HTMLButtonElement => {
   const header = screen.getByText(title).closest("header");
   const button = header?.querySelector("button");
-  if (button == null) throw new Error(`no button in section header ${title}`);
+  assertDefined(button, `no button in section header ${title}`);
   return button;
 };
 
@@ -181,7 +195,7 @@ export const getOverlayHandles = (
  */
 export const getPreviewTransformWrapper = (container: ParentNode): HTMLElement => {
   const el = container.querySelector<HTMLElement>("[style*='transform']");
-  if (el == null) throw new Error("preview transform wrapper not found");
+  assertDefined(el, "preview transform wrapper not found");
   return el;
 };
 

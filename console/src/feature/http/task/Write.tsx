@@ -12,6 +12,7 @@ import "@/feature/http/task/Form.css";
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
+  Channel as PChannel,
   Component,
   Divider,
   Flex,
@@ -31,38 +32,24 @@ import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
+import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
+  deployWriteConfigZ,
   type GeneratorType,
   type TimeFormat,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteEndpoint,
+  writeEndpointZ,
   type WriteField,
   type WriteMethod,
-  type WritePayload,
   type WriteSchemas,
-  ZERO_CHANNEL_FIELD,
-  ZERO_WRITE_ENDPOINT,
-  ZERO_WRITE_PAYLOAD,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
-  type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.HTTP",
-};
-
-export const WriteSelectable = Selector.createSimpleItem({
-  title: "HTTP Write Task",
-  icon: <Icon.Logo.HTTP />,
-  layout: WRITE_LAYOUT,
-});
 
 const Properties = () => (
   <>
@@ -86,7 +73,7 @@ const GENERATOR_DATA: Select.StaticEntry<GeneratorType | TimeFormat>[] = [
   { key: "iso8601", name: "Timestamp (ISO 8601)" },
   { key: "unix_sec", name: "Timestamp (s)" },
   { key: "unix_ms", name: "Timestamp (ms)" },
-  { key: "unix_us", name: "Timestamp (μs)" },
+  { key: "unix_us", name: "Timestamp (µs)" },
   { key: "unix_ns", name: "Timestamp (ns)" },
 ];
 
@@ -147,6 +134,11 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
   const channelPath = `${epPath}.channel`;
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
   const jsonType = PForm.useFieldValue<string>(`${channelPath}.jsonType`);
+  const channelQuery = useMemo(
+    () => (primitive.isNonZero(channelKey) ? { key: channelKey } : null),
+    [channelKey],
+  );
+  const { data: dataType } = PChannel.useResultDataType(channelQuery);
 
   return (
     <>
@@ -180,6 +172,9 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
           >
             {renderSelectDataType}
           </PForm.Field>
+        )}
+        {dataType != null && DataType.TIMESTAMP.equals(dataType) && (
+          <TimeFormatField path={`${channelPath}.timeFormat`} label="Time format" />
         )}
         {jsonType === "string" && <EnumValuesEditor channelPath={channelPath} />}
       </Flex.Box>
@@ -318,7 +313,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           resourceName="generator"
         />
       )}
-      <Text.Text level="small" color={7}>
+      <Text.Text level="small" color={9}>
         {fieldType}
       </Text.Text>
     </Select.ListItem>
@@ -391,19 +386,17 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           <Header.Actions>
             <Button.Button
               onClick={handleAddStatic}
-              variant="text"
-              contrast={2}
+              variant="filled"
               tooltip="Add static field"
-              sharp
+              size="small"
             >
               <Icon.Add />
             </Button.Button>
             <Button.Button
               onClick={handleAddGenerated}
-              variant="text"
-              contrast={2}
+              variant="filled"
               tooltip="Add generated field"
-              sharp
+              size="small"
             >
               <Icon.Time />
             </Button.Button>
@@ -478,7 +471,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
 
 const PATH_INPUT_PROPS = { placeholder: "/api/control" };
 
-const Form: FC<Task.FormProps<WriteSchemas>> = () => {
+const Form: FC = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, WriteEndpoint>(
     "config.endpoints",
@@ -487,12 +480,7 @@ const Form: FC<Task.FormProps<WriteSchemas>> = () => {
   const isSnapshot = Task.useIsSnapshot();
 
   const handleAddEndpoint = useCallback(() => {
-    const ep: WriteEndpoint = {
-      ...ZERO_WRITE_ENDPOINT,
-      key: id.create(),
-      channel: { ...ZERO_CHANNEL_FIELD },
-      fields: [],
-    };
+    const ep: WriteEndpoint = { ...writeEndpointZ.parse({}), key: id.create() };
     push(ep);
     setSelectedEndpoints([ep.key]);
   }, [push]);
@@ -551,10 +539,9 @@ const Form: FC<Task.FormProps<WriteSchemas>> = () => {
             <Header.Actions>
               <Button.Button
                 onClick={handleAddEndpoint}
-                variant="text"
-                contrast={2}
+                variant="filled"
                 tooltip="Add endpoint"
-                sharp
+                size="small"
               >
                 <Icon.Add />
               </Button.Button>
@@ -590,7 +577,7 @@ const Form: FC<Task.FormProps<WriteSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>
-        <Task.Layouts.DetailsHeader
+        <Task.Views.DetailsHeader
           path={
             selectedEndpoints.length > 0
               ? `config.endpoints.${selectedEndpoints[0]}`
@@ -614,17 +601,9 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  if (config != null) {
-    const pld: WritePayload = {
-      ...ZERO_WRITE_PAYLOAD,
-      config: WRITE_SCHEMAS.config.parse(config),
-    };
-    if (deviceKey != null) pld.config.device = deviceKey;
-    return pld;
-  }
-  const pld: WritePayload = { ...ZERO_WRITE_PAYLOAD };
-  if (deviceKey != null) pld.config = { ...pld.config, device: deviceKey };
-  return pld;
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "HTTP Write Task", type: WRITE_TYPE, config: cfg };
 };
 
 const retrieveChannel = async (
@@ -713,7 +692,19 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "HTTP Write Task",
+  icon: <Icon.Logo.HTTP />,
+  useOnSelect: useCreateWrite,
 });

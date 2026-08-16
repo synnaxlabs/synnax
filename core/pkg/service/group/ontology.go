@@ -19,9 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 func OntologyID(key Key) ontology.ID {
@@ -33,11 +36,35 @@ func OntologyIDs(keys []Key) []ontology.ID {
 }
 
 func OntologyIDsFromGroups(groups []Group) []ontology.ID {
-	return lo.Map(groups, func(g Group, _ int) ontology.ID { return OntologyID(g.Key) })
+	return lo.Map(groups, func(g Group, _ int) ontology.ID { return g.OntologyID() })
 }
 
+// KeyFromOntologyID converts id to the Key of the group it identifies. It returns an
+// error wrapping validate.ErrValidation if id is not a group or its key is not a valid
+// UUID. Callers that resolve a caller-supplied field scope the returned error to that
+// field with validate.PathedError.
+func KeyFromOntologyID(id ontology.ID) (Key, error) {
+	if id.Type != ontology.ResourceTypeGroup {
+		return uuid.Nil, errors.Wrapf(
+			validate.ErrValidation, "must be a group, got %q", id.Type,
+		)
+	}
+	key, err := uuid.Parse(id.Key)
+	if err != nil {
+		return uuid.Nil, errors.Wrapf(
+			validate.ErrValidation, "invalid group key %q: %v", id.Key, err,
+		)
+	}
+	return key, nil
+}
+
+var schema = zyn.Object(map[string]zyn.Schema{
+	"key":  zyn.UUID(),
+	"name": zyn.String(),
+})
+
 func newResource(g Group) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(g.Key), g.Name, g)
+	return ontology.NewResource(schema, g.OntologyID(), g.Name, g)
 }
 
 type change = xchange.Change[Key, Group]

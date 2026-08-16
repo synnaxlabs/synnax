@@ -10,40 +10,25 @@
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
+import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Palette } from "@/app/palette";
 import { Toolbars } from "@/app/toolbars";
+import { Project } from "@/feature/project";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Session } from "@/session";
 
 const BottomMenu = () => {
-  const dispatch = Session.useDispatch();
   const visible = Session.Nav.useSelectBottomVisible();
-  const handleSelect = useCallback(
-    () => dispatch(Session.Nav.selectBottom({})),
-    [dispatch],
-  );
-  const handleToggle = useCallback(
-    () => dispatch(Session.Nav.toggleBottom({})),
-    [dispatch],
-  );
-  const handlePin = useCallback(() => dispatch(Session.Nav.showBottom({})), [dispatch]);
-  const handleStartHover = useCallback(
-    () => dispatch(Session.Nav.startBottomHover({})),
-    [dispatch],
-  );
-  const handlestopHover = useCallback(
-    () => dispatch(Session.Nav.stopBottomHover({})),
-    [dispatch],
-  );
+  const { select, toggle, pin, startHover, stopHover } = useBottomActions();
   return (
     <PlatformNav.Menu
       items={Toolbars.BOTTOM}
       selected={visible ? Toolbars.BOTTOM.key : undefined}
-      onSelect={handleSelect}
-      onToggle={handleToggle}
-      onPin={handlePin}
-      onStartHover={handleStartHover}
-      onStopHover={handlestopHover}
+      onSelect={select}
+      onToggle={toggle}
+      onPin={pin}
+      onStartHover={startHover}
+      onStopHover={stopHover}
     />
   );
 };
@@ -85,14 +70,19 @@ const LeftMenu = () => {
 };
 
 export const Left = (): ReactElement => (
-  <PlatformNav.Bar location="left" size="8rem">
-    <Nav.Bar.Start bordered align="center">
-      <Palette.Palette />
+  <PlatformNav.Bar
+    location="left"
+    size="var(--console-left-bar-size)"
+    data-tauri-drag-region
+  >
+    <Nav.Bar.Start bordered align="center" data-tauri-drag-region>
+      <Project.Selector />
     </Nav.Bar.Start>
-    <Nav.Bar.Content align="center">
+    <Nav.Bar.Content align="center" data-tauri-drag-region>
+      <Palette.Palette />
       <LeftMenu />
     </Nav.Bar.Content>
-    <Nav.Bar.End bordered>
+    <Nav.Bar.End bordered data-tauri-drag-region>
       <BottomMenu />
     </Nav.Bar.End>
   </PlatformNav.Bar>

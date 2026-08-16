@@ -16,7 +16,7 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -30,7 +30,7 @@ type Service struct{ proxy *leaseProxy }
 
 // ServiceConfig is the configuration for the Service.
 type ServiceConfig struct {
-	HostResolver node.HostResolver
+	HostResolver cluster.HostResolver
 	TSChannel    *ts.DB
 	Transport    Transport
 }
@@ -64,9 +64,14 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Transport.Server().BindHandler(func(ctx context.Context, req Request) (types.Nil, error) {
-		return types.Nil{}, cfg.TSChannel.DeleteTimeRange(ctx, req.Keys.Storage(), req.Bounds)
-	})
+	cfg.Transport.Server().
+		BindHandler(func(ctx context.Context, req Request) (types.Nil, error) {
+			return types.Nil{}, cfg.TSChannel.DeleteTimeRange(
+				ctx,
+				req.Keys.Storage(),
+				req.Bounds,
+			)
+		})
 	return &Service{proxy: proxy}, nil
 }
 

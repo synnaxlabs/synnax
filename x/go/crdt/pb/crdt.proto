@@ -21,8 +21,8 @@ option go_package = "github.com/synnaxlabs/x/crdt/pb";
 // replica that created the character with that replica's per-character counter, making
 // the identifier globally unique without coordination.
 message ID {
-  // replica is the replica that created the character. A zero replica marks the document
-  // root sentinel.
+  // replica is the replica that created the character. A zero replica marks the
+  // document root sentinel.
   uint32 replica = 1;
   // counter is the per-replica counter, incremented for every character the replica
   // inserts.

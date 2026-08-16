@@ -11,7 +11,6 @@ import {
   DisconnectedError,
   group,
   type ontology,
-  schematic,
   status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -19,20 +18,31 @@ import { Group, Status, Synnax } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { groupManifestZ, SYMBOL_FILE_FILTERS } from "@/feature/schematic/symbol/types";
+import {
+  groupManifestZ,
+  MANIFEST_FILE_NAME,
+  SYMBOL_FILE_FILTERS,
+} from "@/feature/schematic/symbol/types";
 import { Runtime } from "@/platform/runtime";
 
-const createSymbolFromData = async (
+// The Core owns symbol envelope decoding, type resolution for typeless legacy files,
+// legacy-version migration, file-name naming, and group parenting, so the file's bytes
+// are streamed up untouched. Returns the imported symbol's name for status messages.
+const importSymbolFromData = async (
   client: Client,
   data: string,
   parentID: ontology.ID,
-): Promise<schematic.symbol.Symbol> => {
-  const parsed = schematic.symbol.symbolZ.parse(JSON.parse(data));
-  return await client.schematics.symbols.create({
-    ...parsed,
-    key: uuid.create(),
+  fileName: string,
+): Promise<string> => {
+  const id = await client.imex.import(data, {
+    encoding: "JSON",
+    fileName,
     parent: parentID,
   });
+  // TEMPORARY: costs a retrieve per symbol, which useImportGroup then discards. Server-
+  // side group import replaces both callers and reports the names itself.
+  const created = await client.schematics.symbols.retrieve({ key: id.key });
+  return created.name;
 };
 
 export const useImport = (parentGroup?: string): (() => void) => {
@@ -44,7 +54,7 @@ export const useImport = (parentGroup?: string): (() => void) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const files = await Runtime.pickFiles({
-        title: "Import Symbol",
+        title: "Import symbol",
         filters: SYMBOL_FILE_FILTERS,
         multiple: true,
       });
@@ -58,10 +68,10 @@ export const useImport = (parentGroup?: string): (() => void) => {
         files.map(async (file) => {
           try {
             const data = await file.read();
-            const created = await createSymbolFromData(client, data, parentID);
+            const name = await importSymbolFromData(client, data, parentID, file.name);
             addStatus({
               variant: "success",
-              message: `Successfully imported symbol: ${created.name}`,
+              message: `Successfully imported symbol: ${name}`,
             });
           } catch (e) {
             handleError(e, `Failed to import symbol from ${file.name}`);
@@ -81,12 +91,18 @@ export const useImportGroup = (): (() => void) => {
   return useCallback(() => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const directory = await Runtime.pickDirectory({ title: "Import Symbol Group" });
+      const directory = await Runtime.pickDirectory({ title: "Import symbol group" });
       if (directory == null) return;
-      const manifestFile = directory.files.find((f) => f.path === "manifest.json");
+      const manifestFile = directory.files.find((f) => f.path === MANIFEST_FILE_NAME);
       if (manifestFile == null)
-        throw new Error("manifest.json not found in selected directory");
+        throw new Error(`${MANIFEST_FILE_NAME} not found in selected directory`);
       const manifest = groupManifestZ.parse(JSON.parse(await manifestFile.read()));
+      const memberPaths =
+        manifest.version === 1
+          ? manifest.symbols.map(({ file }) => file)
+          : directory.files
+              .map(({ path }) => path)
+              .filter((path) => path !== MANIFEST_FILE_NAME && path.endsWith(".json"));
       const symbolGroup = await client.schematics.symbols.retrieveGroup();
       const newGroupKey = uuid.create();
       await createGroup({
@@ -100,13 +116,13 @@ export const useImportGroup = (): (() => void) => {
 
       const errors: unknown[] = [];
       await Promise.all(
-        manifest.symbols.map(async (symbolRef) => {
+        memberPaths.map(async (memberPath) => {
           try {
-            const symbolFile = directory.files.find((f) => f.path === symbolRef.file);
+            const symbolFile = directory.files.find((f) => f.path === memberPath);
             if (symbolFile == null)
-              throw new Error(`Symbol file ${symbolRef.file} not found`);
+              throw new Error(`Symbol file ${memberPath} not found`);
             const data = await symbolFile.read();
-            await createSymbolFromData(client, data, parentID);
+            await importSymbolFromData(client, data, parentID, symbolFile.path);
             successCount++;
           } catch (e) {
             errors.push(e);
@@ -114,7 +130,7 @@ export const useImportGroup = (): (() => void) => {
         }),
       );
 
-      if (successCount === manifest.symbols.length)
+      if (successCount === memberPaths.length)
         addStatus({
           variant: "success",
           message: `Successfully imported ${successCount} symbols into group "${manifest.name}"`,
@@ -122,7 +138,7 @@ export const useImportGroup = (): (() => void) => {
       else if (successCount > 0)
         addStatus({
           variant: "warning",
-          message: `Imported ${successCount}/${manifest.symbols.length} symbols. Some imports failed.`,
+          message: `Imported ${successCount}/${memberPaths.length} symbols. Some imports failed.`,
           description: errors.map((e) => status.fromException(e).message).join("\n"),
         });
     }, "Failed to import symbol group");

@@ -28,7 +28,8 @@ topLevelItem
     | flowStatement
     | sequenceDeclaration
     | stageDeclaration
-    | globalConstant
+    | variableDeclaration
+    | assignment
     ;
 
 // =============================================================================
@@ -127,6 +128,8 @@ sequenceDeclaration
 sequenceItem
     : stageDeclaration
     | sequenceDeclaration
+    | variableDeclaration
+    | assignment
     | flowStatement
     | singleInvocation
     ;
@@ -146,7 +149,9 @@ stageBody
     ;
 
 stageItem
-    : flowStatement
+    : variableDeclaration
+    | assignment
+    | flowStatement
     | singleInvocation
     | sequenceDeclaration
     ;
@@ -154,17 +159,6 @@ stageItem
 singleInvocation
     : function
     | expression
-    ;
-
-// =============================================================================
-// Global Constants
-// =============================================================================
-
-// Top-level variable declarations are compile-time constants.
-// Only literals are allowed (no expressions), and stateful declarations ($=) are prohibited.
-globalConstant
-    : IDENTIFIER DECLARE literal
-    | IDENTIFIER type DECLARE literal
     ;
 
 // =============================================================================
@@ -185,7 +179,7 @@ routingTable
     ;
 
 routingEntry
-    : IDENTIFIER COLON flowNode (ARROW flowNode)* (COLON IDENTIFIER)?
+    : IDENTIFIER COLON flowNode (flowOperator flowNode)* (COLON IDENTIFIER)?
     ;
 
 flowNode

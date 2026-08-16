@@ -20,7 +20,7 @@ import { type Theming } from "@/theming";
 
 const NAME = "Circle";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigCircle => ({
+export const defaultConfig = (t: Theming.Theme): schematic.CircleNodeConfig => ({
   variant: "circle",
   radius: 20,
   color: color.ZERO,
@@ -29,11 +29,11 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigCircle => (
   strokeWidth: 2,
 });
 
-export const spec: Spec<"circle", schematic.NodeConfigCircle> = {
+export const spec: Spec<"circle", schematic.CircleNodeConfig> = {
   key: "circle",
   name: NAME,
   Form: CircleForm,
-  Node: Label.createLabeled<schematic.NodeConfigCircle>(Circle, {
+  Node: Label.createLabeled<schematic.CircleNodeConfig>(Circle, {
     grid: { allowRotate: false, keepAspectRatio: true },
     onResize: ({ width }) => ({ radius: width / (2 * Primitive.BASE_SCALE) }),
   }),

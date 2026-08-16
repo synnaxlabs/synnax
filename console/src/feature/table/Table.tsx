@@ -10,24 +10,32 @@
 import "@/feature/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { Access, Button, Icon, Table as Base } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Button,
+  Icon,
+  Panel as PPanel,
+  Table as Base,
+} from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
-const Internal: Layout.Renderer = ({ visible }) => {
+const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
   const selected = Session.Table.useSelectSelectedCellKeys();
+  const centered = Session.Table.useSelectCentered();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = Session.useDispatch();
+  const visible = Session.Panel.useSelectIsTabVisible();
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>
@@ -45,6 +53,11 @@ const Internal: Layout.Renderer = ({ visible }) => {
   const handleShowIndicatorsChange = useCallback(
     (next: boolean) =>
       dispatch(Session.Table.setHideIndicators({ key, hideIndicators: !next })),
+    [dispatch, key],
+  );
+
+  const handleCenteredChange = useCallback(
+    (next: boolean) => dispatch(Session.Table.setCentered({ key, centered: next })),
     [dispatch, key],
   );
 
@@ -66,6 +79,8 @@ const Internal: Layout.Renderer = ({ visible }) => {
         onEditableChange={hasUpdatePermission ? handleEditableChange : undefined}
         showIndicators={showIndicators}
         onShowIndicatorsChange={handleShowIndicatorsChange}
+        centered={centered}
+        onCenteredChange={handleCenteredChange}
         onDoubleClick={handleDoubleClick}
         extraMenuItems={<ContextMenu.ReloadConsoleItem />}
       />
@@ -74,10 +89,11 @@ const Internal: Layout.Renderer = ({ visible }) => {
   );
 };
 
-const TableControls = (): ReactElement | null => {
+const TableControls = (): ReactElement => {
   const key = Base.useKey();
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
+  const centered = Session.Table.useSelectCentered();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const dispatch = Session.useDispatch();
   const handleEdit = useCallback(
@@ -88,13 +104,25 @@ const TableControls = (): ReactElement | null => {
     () => dispatch(Session.Table.setHideIndicators({ key })),
     [dispatch, key],
   );
+  const handleToggleCentered = useCallback(
+    () => dispatch(Session.Table.setCentered({ key })),
+    [dispatch, key],
+  );
   const canEdit = hasUpdatePermission && editable;
   // Hide-indicators only matters outside edit mode; the toggle is irrelevant
   // while editing because indicators are forced visible.
   const showHideToggle = !canEdit;
-  if (!hasUpdatePermission && !showHideToggle) return null;
   return (
     <Vis.Controls x>
+      <Button.Toggle
+        value={centered}
+        onChange={handleToggleCentered}
+        size="small"
+        tooltipLocation={location.BOTTOM_LEFT}
+        tooltip={centered ? "Align table to top left" : "Center table"}
+      >
+        {centered ? <Icon.Align.BoxCenter /> : <Icon.Align.BoxTopLeft />}
+      </Button.Toggle>
       {showHideToggle && (
         <Button.Toggle
           value={hideIndicators}
@@ -121,12 +149,11 @@ const TableControls = (): ReactElement | null => {
   );
 };
 
-export const Table: Layout.Renderer = (props) => (
-  <Base.Suspended tableKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-Table.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);
+export const Table: Panel.Content = () => {
+  const { key } = PPanel.useTabResource();
+  return (
+    <Base.Suspended tableKey={key}>
+      <Internal />
+    </Base.Suspended>
+  );
+};

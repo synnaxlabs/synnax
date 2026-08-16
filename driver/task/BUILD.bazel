@@ -24,7 +24,7 @@ cc_library(
         "//x/cpp/log",
         "//x/cpp/os",
         "//x/cpp/thread/rt",
-        "@glog",
+        "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
     ],
 )
@@ -36,6 +36,7 @@ cc_test(
         "//client/cpp/status",
         "//client/cpp/testutil",
         "//driver/task",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

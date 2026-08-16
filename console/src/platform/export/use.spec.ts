@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,28 +29,28 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("Export.use", () => {
-  it("extracts with the key and current store/client, then saves the result", async () => {
-    const extract = vi
-      .fn()
-      .mockResolvedValue({ name: "My Plot", data: '{"key":"plot-1"}' });
-    const { result, store } = await renderHookWithConsole(() =>
-      Export.use(extract, "lineplot"),
-    );
-    act(() => result.current("plot-1"));
-    await waitFor(() => expect(extract).toHaveBeenCalledTimes(1));
-    expect(extract).toHaveBeenCalledWith("plot-1", { store, client: null });
-    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
-    expect(downloads.anchors[0].download).toEqual("My Plot.json");
-  });
+const streamOf = (data: string): ReadableStream<Uint8Array> =>
+  new Response(data).body as ReadableStream<Uint8Array>;
 
-  it("surfaces an error status and saves nothing when the extractor fails", async () => {
-    const extract = vi.fn().mockRejectedValue(new Error("cannot extract"));
+describe("Export.fetchFileData", () => {
+  it("streams the envelope and promotes its name", async () => {
+    const body = JSON.stringify({ version: 1, type: "lineplot", name: "My Plot" });
+    const exportFn = vi.fn().mockResolvedValue(streamOf(body));
+    const client = { imex: { export: exportFn } } as unknown as Client;
+    const id = lineplot.ontologyID("plot-1");
+    const file = await Export.fetchFileData(client, id);
+    expect(file).toEqual({ data: body, name: "My Plot" });
+    expect(exportFn).toHaveBeenCalledWith(id, { encoding: "JSON" });
+  });
+});
+
+describe("Export.use", () => {
+  it("surfaces an error status and saves nothing when disconnected", async () => {
     const { result } = await renderHookWithConsole(() => ({
-      run: Export.use(extract, "lineplot"),
+      run: Export.use(),
       notifications: Status.useNotifications(),
     }));
-    act(() => result.current.run("plot-1"));
+    act(() => result.current.run(lineplot.ontologyID("plot-1")));
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
@@ -57,7 +58,6 @@ describe("Export.use", () => {
         ),
       ).toBe(true),
     );
-    expect(extract).toHaveBeenCalledTimes(1);
     expect(downloads.anchors).toHaveLength(0);
   });
 });

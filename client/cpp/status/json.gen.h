@@ -18,7 +18,7 @@
 #include "client/cpp/label/json.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/json.gen.h"
+#include "x/cpp/telem/types.gen.h"
 
 namespace synnax::status {
 

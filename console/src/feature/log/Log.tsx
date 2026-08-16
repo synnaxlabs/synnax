@@ -7,31 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Log as Base } from "@synnaxlabs/pluto";
+import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
-import { Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-const Internal: Layout.Renderer = ({ visible }) => {
+const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
-  const store = Session.useStore();
-  const channelKeys = Base.useSelectChannelKeys();
+  const visible = Session.Panel.useSelectIsTabVisible();
+  const channelKeys = Base.useChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
-
-  const modals = Session.Modals.useStore("Log");
-  const enableTriggers = useCallback(
-    () =>
-      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
-      key,
-    [store, key, modals],
-  );
+  const hold = Session.Log.useSelectHold();
 
   const handleDoubleClick = useCallback(() => {
     dispatch(Session.Nav.showBottom({}));
@@ -42,10 +36,16 @@ const Internal: Layout.Renderer = ({ visible }) => {
     handleDoubleClick();
   }, [dispatch, key, handleDoubleClick]);
 
+  const handleHold = useCallback(
+    (hold: boolean) => dispatch(Session.Log.setHold({ key, hold })),
+    [dispatch, key],
+  );
+
   return (
     <Base.Log
       onDoubleClick={handleDoubleClick}
-      enableTriggers={enableTriggers}
+      hold={hold}
+      onHold={handleHold}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action
@@ -59,13 +59,17 @@ const Internal: Layout.Renderer = ({ visible }) => {
         />
       }
       visible={visible}
-    />
+    >
+      <Controls />
+    </Base.Log>
   );
 };
 
-export const Log: Layout.Renderer = (props) => (
-  <Base.Suspended logKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-Log.useName = Layout.createUseFluxName(Base.useRename, Base.useRetrieveObservableName);
+export const Log: Panel.Content = () => {
+  const { key } = PPanel.useTabResource();
+  return (
+    <Base.Suspended logKey={key}>
+      <Internal />
+    </Base.Suspended>
+  );
+};

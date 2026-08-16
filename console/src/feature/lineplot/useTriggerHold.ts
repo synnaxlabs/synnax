@@ -7,31 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type lineplot } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { HOLD_TRIGGER } from "@/feature/lineplot/Controls";
 import { Session } from "@/session";
 
-export type Config = Triggers.ModeConfig<"toggle">;
+export interface UseTriggerHoldProps {
+  key: lineplot.Key;
+  enabled: Triggers.Condition;
+}
 
-const CONFIG: Triggers.ModeConfig<"toggle"> = {
-  defaultMode: "toggle",
-  toggle: [["H"]],
-};
-
-export const useTriggerHold = (): void => {
-  const { layoutKey: activeTab } = Session.Layout.useSelectActiveMosaicTabState();
+export const useTriggerHold = ({ key, enabled }: UseTriggerHoldProps): void => {
   const dispatch = Session.useDispatch();
-  const flat = Triggers.useFlattenedMemoConfig(CONFIG);
   Triggers.use({
-    triggers: flat,
+    triggers: HOLD_TRIGGER,
     loose: true,
+    enabled,
     callback: useCallback(
-      (e: Triggers.UseEvent) => {
-        if (e.stage === "start" && activeTab != null)
-          dispatch(Session.LinePlot.setControlHold({ key: activeTab }));
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        dispatch(Session.LinePlot.setControlHold({ key }));
       },
-      [dispatch, activeTab, flat],
+      [dispatch, key],
     ),
   });
 };

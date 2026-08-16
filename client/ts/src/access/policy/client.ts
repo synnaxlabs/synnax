@@ -8,17 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   type Key,
   keyZ,
   type New,
+  ontologyID,
   type Policy,
   policyZ,
 } from "@/access/policy/types.gen";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
@@ -31,11 +33,7 @@ const retrieveRequestZ = z.object({
   internal: z.boolean().optional(),
 });
 
-const keyRetrieveRequestZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
-
-const listRetrieveArgsZ = z.union([
+const listRetrieveParamsZ = z.union([
   z
     .object({ for: ontology.idZ })
     .transform(({ for: forId }) => ({ subjects: [forId] })),
@@ -44,71 +42,165 @@ const listRetrieveArgsZ = z.union([
     .transform(({ for: forIds }) => ({ subjects: forIds })),
   retrieveRequestZ,
 ]);
+const retrieveMultiParamsZ = listRetrieveParamsZ.or(query.keyListZ(keyZ));
 
-export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
-export type RetrieveMultipleParams = z.input<typeof listRetrieveArgsZ>;
+export type RetrieveSingleParams = { key: Key };
+export type RetrieveMultipleParams = z.input<typeof listRetrieveParamsZ>;
 
-const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
-
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
 const retrieveResZ = z.object({ policies: policyZ.array().default(() => []) });
 
-const singleCreateArgsZ = policyZ.transform((p) => ({ policies: [p] }));
-export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
+const singleCreateParamsZ = policyZ.transform((p) => ({ policies: [p] }));
+export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
 
-export const multipleCreateArgsZ = policyZ
+export const multipleCreateParamsZ = policyZ
   .array()
   .transform((policies) => ({ policies }));
 
-export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
-export type CreateArgs = z.input<typeof createArgsZ>;
+export const createParamsZ = z.union([singleCreateParamsZ, multipleCreateParamsZ]);
+export type CreateParams = z.input<typeof createParamsZ>;
 
 const createResZ = z.object({ policies: policyZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-export class Client {
-  private readonly client: UnaryClient;
+/**
+ * Query fields only the server can evaluate: policy records do not carry
+ * their subjects, so subject membership cannot be checked locally.
+ */
+const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
 
-  constructor(client: UnaryClient) {
-    this.client = client;
+/**
+ * Client-side matching for a request: key sets and the internal flag.
+ * Server-computed shapes (subjects, pagination) never reach this filter; they
+ * refetch instead.
+ */
+const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
+  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  return (p) => {
+    if (keySet != null && !keySet.has(p.key)) return false;
+    if (req.internal != null && p.internal !== req.internal) return false;
+    return true;
+  };
+};
+
+export interface ClientConfig {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
+
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Policy> {
+  private readonly cfg: ClientConfig;
+  private readonly store: query.Table<Key, Policy>;
+
+  constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
+    const store = cache.createTable<Key, Policy>({
+      name: "policies",
+      fetch: async (keys) => await this.execRetrieve({ keys }),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, policyZ),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
+    super(cache, {
+      name: "policy",
+      table: store,
+      request: {
+        schema: retrieveMultiParamsZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (policy, req) => requestFilter(req)(policy),
+        serverFields: SERVER_FIELDS,
+      },
+    });
+    this.cfg = cfg;
+    this.store = store;
   }
 
   async create(policy: New): Promise<Policy>;
   async create(policies: New[]): Promise<Policy[]>;
-  async create(policies: CreateArgs): Promise<Policy | Policy[]> {
+  async create(policies: CreateParams): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/access/policy/create",
       policies,
-      createArgsZ,
+      createParamsZ,
       createResZ,
     );
+    this.store.set(res.policies);
     return isMany ? res.policies : res.policies[0];
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Policy>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Policy[]>;
-  async retrieve(args: RetrieveArgs): Promise<Policy | Policy[]> {
-    const isSingle = "key" in args;
-    const res = await this.client.send(
-      "/access/policy/retrieve",
-      args,
-      retrieveArgsZ,
-      retrieveResZ,
+  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const ids = ontologyID(keysArr);
+    const drop = () => [
+      this.cfg.ontology.cache.deleteResources(ids),
+      this.store.delete(keysArr),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/access/policy/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          deleteResZ,
+        ),
+    });
+    drop();
+    this.cfg.ontology.cache.relationships.delete((r) =>
+      ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
-    return isSingle ? res.policies[0] : res.policies;
   }
 
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/access/policy/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      deleteResZ,
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const existing = await this.retrieve(key);
+    const rename = () => [
+      query.partialUpdate(this.store, key, { name }),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+    ];
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => {
+        await this.create({ ...existing, name });
+      },
+    });
+    rename();
+  }
+
+  /**
+   * Retrieves every policy governing the subject, warming the role links of
+   * the subject and its policies so role reads resolve from the cache.
+   */
+  async retrieveForSubject(subject: ontology.ID): Promise<Policy[]> {
+    const policies = await this.retrieve({ for: subject });
+    const { parents } = this.cfg.ontology;
+    const warms = [parents.retrieve({ ids: subject, types: ["role"] })];
+    if (policies.length > 0)
+      warms.push(
+        parents.retrieve({
+          ids: policies.map((p) => ontologyID(p.key)),
+          types: ["role"],
+        }),
+      );
+    await Promise.all(warms);
+    return policies;
+  }
+
+  private async execRetrieve(params: RetrieveRequest): Promise<Policy[]> {
+    const res = await this.cfg.unary.send(
+      "/access/policy/retrieve",
+      params,
+      retrieveRequestZ,
+      retrieveResZ,
     );
+    return res.policies;
   }
 }

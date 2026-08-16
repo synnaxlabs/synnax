@@ -35,13 +35,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
   return (
     <Select.ListItem {...rest} align="center" justify="between" full="x">
       <Flex.Box align="center" x justify="evenly">
-        <Flex.Box
-          pack
-          align="center"
-          className="port-line-input"
-          x
-          style={{ maxWidth: "50rem" }}
-        >
+        <Flex.Box pack align="center" className="port-line-input" x>
           <Form.NumericField
             inputProps={{ showDragHandle: false }}
             hideIfNull
@@ -70,14 +64,14 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
         {name({ ...channel, itemKey: rest.itemKey, path })}
-        <Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
 };
 
 export interface DigitalChannelListProps<C extends DigitalChannel>
-  extends Omit<Task.Layouts.ListProps<C>, "listItem">, Pick<ListItemProps<C>, "name"> {}
+  extends Omit<Task.Views.ListProps<C>, "listItem">, Pick<ListItemProps<C>, "name"> {}
 
 export const DigitalChannelList = <C extends DigitalChannel>({
   name,
@@ -90,5 +84,5 @@ export const DigitalChannelList = <C extends DigitalChannel>({
     [name],
   );
 
-  return <Task.Layouts.List<C> {...rest} listItem={listItem} />;
+  return <Task.Views.List<C> {...rest} listItem={listItem} />;
 };

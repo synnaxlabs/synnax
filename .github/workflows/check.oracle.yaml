@@ -86,7 +86,7 @@ jobs:
       # workflows so this is the canonical superset.
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: oracle/go.mod
           cache-dependency-path: |
@@ -97,18 +97,18 @@ jobs:
         uses: pnpm/action-setup@v6
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           cache: pnpm
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version-file: pyproject.toml
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
 

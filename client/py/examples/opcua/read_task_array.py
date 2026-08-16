@@ -85,7 +85,6 @@ tsk = sy.opcua.ReadTask(
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     array_mode=True,  # Enable array mode
     array_size=5,  # Each array contains 5 float values (matches server ARRAY_SIZE)
-    data_saving=True,
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_array_0 and my_array_1 in the OPC UA server

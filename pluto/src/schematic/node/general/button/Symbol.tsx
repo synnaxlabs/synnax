@@ -22,7 +22,7 @@ export const Symbol = ({
   selected,
   onConfigChange,
   config: { label, orientation = "left", commandChannel, control, mode, ...rest },
-}: NodeProps<schematic.NodeConfigButton>): ReactElement => {
+}: NodeProps<schematic.ButtonNodeConfig>): ReactElement => {
   const sink = useMemo(() => CommonTelem.booleanSink(commandChannel), [commandChannel]);
   const { onMouseDown, onMouseUp } = BaseButton.use({ aetherKey: nodeKey, sink, mode });
   return (

@@ -23,7 +23,7 @@ from typing import Any
 
 def load_channel_mapping(mapping_path: Path) -> dict[int, int]:
     """Load channel mapping and create config_key -> synnax_key dict."""
-    with open(mapping_path) as f:
+    with open(mapping_path, encoding="utf-8") as f:
         mappings = json.load(f)
 
     # Build lookup dict: config_key -> synnax_key
@@ -80,7 +80,7 @@ def transform_schematic(
 
     # Load schematic
     print(f"Loading schematic from: {schematic_path}")
-    with open(schematic_path) as f:
+    with open(schematic_path, encoding="utf-8") as f:
         schematic = json.load(f)
     print("✓ Loaded schematic\n")
 
@@ -99,7 +99,7 @@ def transform_schematic(
 
     # Save transformed schematic
     print(f"Saving transformed schematic to: {output_path}")
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(transformed, f, indent=2)
     print("✓ Saved successfully\n")
 

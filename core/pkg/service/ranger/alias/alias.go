@@ -11,7 +11,6 @@
 package alias
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -20,15 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/zyn"
 )
 
 const keySeparator = "---"
-
-func gorpKey(r ranger.Key, ch channel.Key) string {
-	return fmt.Sprintf("%s%s%s", r, keySeparator, ch)
-}
 
 func parseGorpKey(key string) (ranger.Key, channel.Key, error) {
 	split := strings.Split(key, keySeparator)
@@ -46,17 +40,12 @@ func parseGorpKey(key string) (ranger.Key, channel.Key, error) {
 	return r, c, nil
 }
 
-var _ gorp.Entry[string] = Alias{}
-
-// GorpKey implements gorp.Entry.
-func (a Alias) GorpKey() string { return gorpKey(a.Range, a.Channel) }
-
-// SetOptions implements gorp.Entry.
-func (a Alias) SetOptions() []any { return nil }
-
 // OntologyID returns the ontology ID for an alias.
 func OntologyID(r ranger.Key, ch channel.Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRangeAlias, Key: gorpKey(r, ch)}
+	return ontology.ID{
+		Type: ontology.ResourceTypeRangeAlias,
+		Key:  Alias{Range: r, Channel: ch}.GorpKey(),
+	}
 }
 
 // OntologyIDs returns ontology IDs for multiple aliases.

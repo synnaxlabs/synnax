@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/edit/Edit.css";
+
 import { type schematic } from "@synnaxlabs/client";
 import { Button, Component, Form, type Input, List, Select } from "@synnaxlabs/pluto";
+
+import { CSS } from "@/platform/css";
 
 interface StateListProps extends Input.Control<string> {}
 
@@ -22,7 +26,7 @@ const StateListItem = (props: List.ItemRenderProps<string>) => {
       variant={selected ? "filled" : "outlined"}
       justify="center"
       onClick={onSelect}
-      style={{ minWidth: 80 }}
+      className={CSS.B("schematic-state-list-item")}
       grow
     >
       {state.name}

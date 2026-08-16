@@ -16,18 +16,18 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { TJunction } from "@/schematic/node/vessels/tJunction/Primitive";
 
-export const defaultConfig = (): schematic.NodeConfigTJunction => ({
+export const defaultConfig = (): schematic.TJunctionNodeConfig => ({
   variant: "t_junction",
   color: color.ZERO,
   label: Label.defaultConfig(""),
   ...Primitive.ZERO_PROPS,
 });
 
-export const spec: Spec<"t_junction", schematic.NodeConfigTJunction> = {
+export const spec: Spec<"t_junction", schematic.TJunctionNodeConfig> = {
   key: "t_junction",
   name: "T Junction",
   Form: Form.StyleForm,
-  Node: Label.createLabeled<schematic.NodeConfigTJunction>(TJunction),
+  Node: Label.createLabeled<schematic.TJunctionNodeConfig>(TJunction),
   Preview: TJunction,
   defaultConfig,
   zIndex: 24,

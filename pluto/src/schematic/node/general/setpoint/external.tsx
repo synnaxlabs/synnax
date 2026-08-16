@@ -18,7 +18,7 @@ import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigSetpoint => ({
+export const defaultConfig = (t: Theming.Theme): schematic.SetpointNodeConfig => ({
   variant: "setpoint",
   orientation: "left",
   units: "mV",
@@ -28,19 +28,17 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigSetpoint =>
   control: { show: true },
 });
 
-const Preview = ({ ...rest }: schematic.NodeConfigSetpoint): ReactElement => (
+const Preview = ({ ...rest }: schematic.SetpointNodeConfig): ReactElement => (
   <Setpoint
-    value={12}
     onChange={() => {}}
     units="mV"
-    style={{ width: 120, transform: "scale(0.95)" }}
     className={CSS.BM("setpoint", "preview")}
     disabled
     {...rest}
   />
 );
 
-export const spec: Spec<"setpoint", schematic.NodeConfigSetpoint> = {
+export const spec: Spec<"setpoint", schematic.SetpointNodeConfig> = {
   key: "setpoint",
   name: "Setpoint",
   Form: SetpointForm,

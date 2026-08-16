@@ -9,29 +9,30 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
-import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil";
+import { awaitTaskResourceTab, createSelectedPanel } from "@/platform/task/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Task.useLink", () => {
-  it("should place a task layout for the retrieved task", async () => {
+  it("should open the task's resource tab for the retrieved task", async () => {
     const rack = await client.racks.create({ name: `test-rack-${id.create()}` });
     const task = await rack.createTask({
       name: "Analog Read",
       type: NI.Task.ANALOG_READ_TYPE,
       config: {},
     });
-    const { handler, store } = await renderLinkHook(Task.useLink);
-    await handler({ client, key: String(task.key) });
-    const placed = Session.Layout.selectByFilter(
-      store.getState(),
-      (l) => l.name === "Analog Read",
-    );
-    expect(placed).toBeDefined();
+    const { wrapper, store } = await createConsoleWrapper({ client });
+    const created = await createSelectedPanel(store, client);
+    const { result } = renderHook(() => Task.useLink(), { wrapper });
+    await act(async () => {
+      await result.current({ client, key: String(task.key) });
+    });
+    expect(await awaitTaskResourceTab(created)).toBe(task.key);
   });
 });

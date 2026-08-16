@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Docs } from "@/platform/docs";
 import { Session } from "@/session";
-import { renderWithConsole } from "@/testutil";
+import {
+  createConsoleWrapper,
+  renderWithConsole,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const getIframe = (container: HTMLElement): HTMLIFrameElement => {
   const iframe = container.querySelector("iframe");
@@ -51,14 +57,16 @@ describe("Docs", () => {
       expect(src).toContain("noHeader=true");
     });
 
-    it("should show the loading watermark until the iframe finishes loading", async () => {
+    it("should show the loading orbital until the iframe finishes loading", async () => {
       const { container } = await renderWithConsole(<Docs.Docs />);
       await waitFor(() => expect(container.querySelector("iframe")).not.toBeNull());
-      expect(container.querySelector("svg")).not.toBeNull();
+      expect(container.querySelector(".console-docs__loading")).not.toBeNull();
       act(() => {
         fireEvent.load(getIframe(container));
       });
-      await waitFor(() => expect(container.querySelector("svg")).toBeNull());
+      await waitFor(() =>
+        expect(container.querySelector(".console-docs__loading")).toBeNull(),
+      );
     });
 
     it("should dispatch a location update when the frame posts a message", async () => {
@@ -81,14 +89,19 @@ describe("Docs", () => {
   });
 
   describe("OpenButton", () => {
-    it("should place the documentation layout in the mosaic when clicked", async () => {
-      const { store } = await renderWithConsole(<Docs.OpenButton />);
+    it("should open the documentation view as a tab when clicked", async () => {
+      const client = createTestClient();
+      const proj = await client.projects.create({
+        name: uniqueName("proj"),
+        layout: {},
+      });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(<Docs.OpenButton />, { wrapper });
+      store.dispatch(Session.Project.select(proj.key));
       fireEvent.click(screen.getByRole("button"));
-      const layout = Session.Layout.select(store.getState(), Docs.LAYOUT_TYPE);
-      expect(layout).toBeDefined();
-      expect(layout?.type).toBe(Docs.LAYOUT_TYPE);
-      expect(layout?.location).toBe("mosaic");
-      expect(layout?.name).toBe("Documentation");
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "view") throw new Error("expected a view tab");
+      expect(tab.type).toBe(Docs.TAB_TYPE);
     });
   });
 });

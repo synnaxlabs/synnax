@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/lib/lib.h"
 
@@ -122,15 +122,16 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.scan_rate
+        cfg.rate
     );
-    result.auto_start = cfg.enabled;
+    result.auto_start = !cfg.disabled;
     return {std::move(result), x::errors::NIL};
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const std::string &cmd_key
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
@@ -142,7 +143,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = this->configure_scan(ctx, task);
     else
         return {nullptr, false};
-    return common::handle_config_err(ctx, task, std::move(res));
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>

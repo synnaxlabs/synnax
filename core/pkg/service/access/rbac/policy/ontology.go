@@ -35,9 +35,10 @@ func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
-// OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given Policys.
+// OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given
+// Policys.
 func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
-	return lo.Map(policies, func(l Policy, _ int) ontology.ID { return OntologyID(l.Key) })
+	return lo.Map(policies, func(p Policy, _ int) ontology.ID { return p.OntologyID() })
 }
 
 // KeysFromOntologyIDs extracts the Policy keys from the given ontology.IDs.
@@ -54,7 +55,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(p Policy) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
+	return ontology.NewResource(schema, p.OntologyID(), p.Name, p)
 }
 
 type change = xchange.Change[Key, Policy]
@@ -87,7 +88,9 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Policy]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -95,7 +98,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

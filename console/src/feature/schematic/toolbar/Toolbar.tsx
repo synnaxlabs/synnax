@@ -10,16 +10,23 @@
 import "@/feature/schematic/toolbar/Toolbar.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";
+import {
+  Breadcrumb,
+  Flex,
+  Icon,
+  Panel as PlutoPanel,
+  Schematic,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/schematic/export";
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
 import { Symbols } from "@/feature/schematic/toolbar/Symbols";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Errors } from "@/platform/errors";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -29,7 +36,7 @@ const NotEditableContent = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const controlState = Session.Schematic.useSelectControlStatus();
   const { canEdit } = Session.Schematic.useSelectEditable();
-  const name = Schematic.useSelectName();
+  const name = Schematic.useName();
   return (
     <Empty.Action
       x
@@ -52,11 +59,10 @@ const Internal = (): ReactElement => {
   const key = Schematic.useKey();
   const dispatch = Session.useDispatch();
   const activeTab = Session.Schematic.useSelectActiveToolbarTab();
-  const name = Schematic.useSelectName();
+  const name = Schematic.useName();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
-  const handleExport = useExport();
   const selected = Session.Schematic.useSelectSelected();
-  const singleSelectedConfig = Schematic.useSelectElementConfig({
+  const singleSelectedConfig = Schematic.useElementConfig({
     elKey: selected.length === 1 ? selected[0] : "",
   });
   const singleSelectedName =
@@ -86,14 +92,14 @@ const Internal = (): ReactElement => {
               {name}
             </Breadcrumb.Segment>
             {singleSelectedName !== null && (
-              <Breadcrumb.Segment weight={400} color={8} level="small">
+              <Breadcrumb.Segment weight={400} color={9} level="small">
                 {singleSelectedName}
               </Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton getID={() => schematic.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}
@@ -111,13 +117,19 @@ const Internal = (): ReactElement => {
         {isCurrentlyEditable ? (
           <>
             <Tabs.Content itemKey="symbols">
-              <Symbols />
+              <Errors.SuspenseBoundary>
+                <Symbols />
+              </Errors.SuspenseBoundary>
             </Tabs.Content>
             <Tabs.Content itemKey="properties">
-              <Properties />
+              <Errors.SuspenseBoundary>
+                <Properties />
+              </Errors.SuspenseBoundary>
             </Tabs.Content>
             <Tabs.Content itemKey="control">
-              <Control />
+              <Errors.SuspenseBoundary>
+                <Control />
+              </Errors.SuspenseBoundary>
             </Tabs.Content>
           </>
         ) : (
@@ -130,12 +142,11 @@ const Internal = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Schematic.Suspended schematicKey={layoutKey}>
-    <Internal />
-  </Schematic.Suspended>
-);
+export const Toolbar = (): ReactElement => {
+  const { key } = PlutoPanel.useTabResource();
+  return (
+    <Schematic.Suspended schematicKey={key}>
+      <Internal />
+    </Schematic.Suspended>
+  );
+};

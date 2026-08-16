@@ -9,15 +9,18 @@
 
 package mock
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/node"
+import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+)
 
 type staticHostProvider struct{ node node.Node }
 
-var _ node.HostProvider = staticHostProvider{}
+var _ cluster.HostProvider = staticHostProvider{}
 
-// NewStaticHostProvider returns a node.HostProvider that always reports the node
+// NewStaticHostProvider returns a cluster.HostProvider that always reports the node
 // identified by key as the host.
-func NewStaticHostProvider(key node.Key) node.HostProvider {
+func NewStaticHostProvider(key node.Key) cluster.HostProvider {
 	return staticHostProvider{node: node.Node{Key: key}}
 }
 

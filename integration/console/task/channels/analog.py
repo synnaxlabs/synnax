@@ -65,7 +65,9 @@ class Analog:
 
         # Configure channel type
         layout.click_btn("Channel Type")
-        layout.select_from_dropdown(chan_type, exact=True)
+        layout.select_from_dropdown(
+            chan_type, exact=True, reopen=lambda: layout.click_btn("Channel Type")
+        )
         values["Channel Type"] = chan_type
 
         # Get device (set by task.add_channel)
@@ -80,7 +82,11 @@ class Analog:
 
         if terminal_config is not None:
             layout.click_btn("Terminal Configuration")
-            layout.select_from_dropdown(terminal_config, exact=True)
+            layout.select_from_dropdown(
+                terminal_config,
+                exact=True,
+                reopen=lambda: layout.click_btn("Terminal Configuration"),
+            )
             values["Terminal Configuration"] = terminal_config
         elif self.has_terminal_config():
             values["Terminal Configuration"] = layout.get_dropdown_value(
@@ -103,7 +109,11 @@ class Analog:
         no_custom_scale_types = ("RTD", "Temperature Built-In Sensor", "Thermocouple")
         if custom_scale is not None:
             layout.click_btn("Custom Scaling")
-            layout.select_from_dropdown(custom_scale, exact=True)
+            layout.select_from_dropdown(
+                custom_scale,
+                exact=True,
+                reopen=lambda: layout.click_btn("Custom Scaling"),
+            )
             values["Custom Scaling"] = custom_scale
         elif chan_type not in no_custom_scale_types:
             values["Custom Scaling"] = layout.get_dropdown_value("Custom Scaling")
@@ -152,12 +162,41 @@ class Analog:
             track: Whether to track the value in form_values
         """
         if value is not None:
-            self.layout.click_btn(label)
-            self.layout.select_from_dropdown(value, exact=True)
+            # A single-option dropdown (e.g. sound pressure units) already shows its
+            # only value, and opening it renders no selectable list, so selecting the
+            # value it already holds would hang. Skip when it already matches.
+            if self.layout.get_dropdown_value(label) != value:
+                self.layout.click_btn(label)
+                self.layout.select_from_dropdown(
+                    value, exact=True, reopen=lambda: self.layout.click_btn(label)
+                )
             if track:
                 self.form_values[label] = value
         elif track:
             self.form_values[label] = self.layout.get_dropdown_value(label)
+
+    def _configure_symbol_dropdown(self, trigger_text: str, value: str | None) -> None:
+        """Select a value in a dropdown whose options carry special characters.
+
+        The trigger and options are matched by text rather than a form label.
+        Skips when the trigger already shows the target, since reopening a
+        single-option dropdown to reselect its value hangs.
+
+        Args:
+            trigger_text: A substring identifying the dropdown trigger button.
+            value: The exact option text to select, or None to leave unchanged.
+        """
+        if value is None:
+            return
+        trigger = self.layout.page.locator(
+            f"button.pluto-dialog__trigger:has-text('{trigger_text}')"
+        )
+        if trigger.inner_text().strip() == value:
+            return
+        trigger.click()
+        self.layout.page.locator(".pluto-list__item").get_by_text(
+            value, exact=True
+        ).dispatch_event("click")
 
     def _configure_input(
         self,

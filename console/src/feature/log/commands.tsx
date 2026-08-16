@@ -13,13 +13,11 @@ import { Access, Log } from "@synnaxlabs/pluto";
 import { Command } from "@/platform/command";
 import { Log as PlatformLog } from "@/platform/log";
 
-const useCreate = () => PlatformLog.useCreate({});
-
 const CreateCommand = Command.create({
   key: "create_log",
   name: "Create a log",
   icon: <Log.CreateIcon />,
-  useOnSelect: useCreate,
+  useOnSelect: PlatformLog.useCreate,
   useVisible: () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID),
 });
 

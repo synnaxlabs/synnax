@@ -16,9 +16,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -69,7 +69,8 @@ func StatusDetailsListFromPB(pbs []*StatusDetails) ([]device.StatusDetails, erro
 	return result, nil
 }
 
-// DeviceToPB converts Device to Device using provided type converters.
+// DeviceToPB converts Device to Device using provided type
+// converters.
 func DeviceToPB(
 	r device.Device,
 ) (*Device, error) {
@@ -89,7 +90,7 @@ func DeviceToPB(
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[device.StatusDetails]((status.Status[device.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +105,8 @@ func DeviceToPB(
 	return pb, nil
 }
 
-// DeviceFromPB converts Device to Device using provided type converters.
+// DeviceFromPB converts Device to Device using provided type
+// converters.
 func DeviceFromPB(
 	pb *Device,
 ) (device.Device, error) {
@@ -121,11 +123,11 @@ func DeviceFromPB(
 	r.Name = pb.Name
 	r.Configured = pb.Configured
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[device.StatusDetails](pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return device.Device{}, err
 		}
-		r.Status = (*device.Status)(&val)
+		r.Status = &val
 	}
 	if pb.Parent != nil {
 		val, err := ontologypb.IDFromPB(pb.Parent)
@@ -167,8 +169,9 @@ func DevicesFromPB(
 	return result, nil
 }
 
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
-// It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
+// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
+// translators. It wraps the value in structpb.Struct (JSON) for cross-language
+// compatibility.
 func StatusDetailsToPBAny(v device.StatusDetails) (*anypb.Any, error) {
 	pb, err := StatusDetailsToPB(v)
 	if err != nil {
@@ -186,8 +189,10 @@ func StatusDetailsToPBAny(v device.StatusDetails) (*anypb.Any, error) {
 	return anypb.New(s)
 }
 
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
-// It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
+// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
+// translators. It handles typed protos and JSON (google.protobuf.Value, or
+// google.protobuf.Struct from peers on releases before value packing) for
+// cross-language compatibility.
 func StatusDetailsFromPBAny(a *anypb.Any) (device.StatusDetails, error) {
 	if a == nil {
 		return device.StatusDetails{}, nil
@@ -197,13 +202,20 @@ func StatusDetailsFromPBAny(a *anypb.Any) (device.StatusDetails, error) {
 	if err := a.UnmarshalTo(&pb); err == nil {
 		return StatusDetailsFromPB(&pb)
 	}
-	// Fall back to JSON (structpb.Struct) for cross-language compatibility
-	var s structpb.Struct
-	if err := a.UnmarshalTo(&s); err != nil {
+	// Fall back to JSON for cross-language compatibility
+	var (
+		msg proto.Message
+		v   structpb.Value
+		s   structpb.Struct
+	)
+	if err := a.UnmarshalTo(&v); err == nil {
+		msg = &v
+	} else if err := a.UnmarshalTo(&s); err != nil {
 		return device.StatusDetails{}, err
+	} else {
+		msg = &s
 	}
-	// Convert map to JSON then unmarshal to Go struct
-	jsonBytes, err := json.Marshal(s.AsMap())
+	jsonBytes, err := protojson.Marshal(msg)
 	if err != nil {
 		return device.StatusDetails{}, err
 	}

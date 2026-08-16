@@ -46,35 +46,40 @@ var _ = Describe("Transport", func() {
 	})
 
 	Describe("Use", func() {
-		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
-			var clientCalls, serverCalls atomic.Int32
-			transport.Use(freighter.MiddlewareFunc(func(
-				mCtx freighter.Context,
-				next freighter.Next,
-			) (freighter.Context, error) {
-				switch mCtx.Role {
-				case freighter.RoleClient:
-					clientCalls.Add(1)
-				case freighter.RoleServer:
-					serverCalls.Add(1)
-				}
-				return next(mCtx)
-			}))
-			transport.Server().BindHandler(func(
-				_ context.Context,
-				srv freighter.ServerStream[writer.Request, writer.Response],
-			) error {
-				if _, err := srv.Receive(); err != nil {
-					return err
-				}
-				return srv.Send(writer.Response{})
-			})
-			stream := MustSucceed(transport.Client().Stream(ctx, addr))
-			Expect(stream.Send(writer.Request{Command: writer.CommandWrite})).To(Succeed())
-			MustSucceed(stream.Receive())
-			Expect(stream.CloseSend()).To(Succeed())
-			Expect(clientCalls.Load()).To(Equal(int32(1)))
-			Expect(serverCalls.Load()).To(Equal(int32(1)))
-		})
+		It(
+			"Should apply middleware to both the client and server endpoints",
+			func(ctx SpecContext) {
+				var clientCalls, serverCalls atomic.Int32
+				transport.Use(freighter.MiddlewareFunc(func(
+					mCtx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					switch mCtx.Role {
+					case freighter.RoleClient:
+						clientCalls.Add(1)
+					case freighter.RoleServer:
+						serverCalls.Add(1)
+					}
+					return next(mCtx)
+				}))
+				transport.Server().BindHandler(func(
+					_ context.Context,
+					srv freighter.ServerStream[writer.Request, writer.Response],
+				) error {
+					if _, err := srv.Receive(); err != nil {
+						return err
+					}
+					return srv.Send(writer.Response{})
+				})
+				stream := MustSucceed(transport.Client().Stream(ctx, addr))
+				Expect(
+					stream.Send(writer.Request{Command: writer.CommandWrite}),
+				).To(Succeed())
+				MustSucceed(stream.Receive())
+				Expect(stream.CloseSend()).To(Succeed())
+				Expect(clientCalls.Load()).To(Equal(int32(1)))
+				Expect(serverCalls.Load()).To(Equal(int32(1)))
+			},
+		)
 	})
 })

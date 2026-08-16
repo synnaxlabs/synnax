@@ -18,8 +18,8 @@ import (
 // from firing and returns true if the call stopped the timer, or false if the timer
 // has already fired or been stopped.
 type Timer interface {
-	// Stop prevents the timer from firing and returns true if the call stopped the timer,
-	// or false if the timer has already fired or been stopped.
+	// Stop prevents the timer from firing and returns true if the call stopped the
+	// timer, or false if the timer has already fired or been stopped.
 	Stop() bool
 }
 

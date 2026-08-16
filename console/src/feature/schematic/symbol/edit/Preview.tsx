@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/edit/Edit.css";
+
 import { type schematic } from "@synnaxlabs/client";
 import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/pluto";
 import { box, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
@@ -198,6 +207,16 @@ export const Preview = ({
   const fileDropEnabled = spec.svg.length === 0;
   let svgBox: box.Box = box.ZERO;
   if (svgElementRef.current != null) svgBox = box.construct(svgElementRef.current);
+
+  const svgWrapperStyle = useMemo(
+    () => ({
+      transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
+      transition: isDragging ? "none" : "transform 0.2s ease-out",
+      cursor: isDragging ? "grabbing" : "default",
+    }),
+    [pan.value, zoom.value, isDragging],
+  );
+
   return (
     <FileDrop
       onContentsChange={handleContentsChange}
@@ -210,32 +229,21 @@ export const Preview = ({
       >
         <Flex.Box
           ref={themeContainerRef}
-          style={{
-            position: "relative",
-            width: "100%",
-            height: "100%",
-            overflow: "hidden",
-            display: fileDropEnabled ? "none" : "flex",
-          }}
+          className={CSS(
+            CSS.B("schematic-preview-theme-container"),
+            fileDropEnabled && CSS.M("hidden"),
+          )}
           onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           background={0}
-          rounded={1}
+          rounded="small"
         >
           {spec.svg.length > 0 && (
-            <Flex.Box
-              x
-              style={{
-                position: "absolute",
-                top: 16,
-                right: 16,
-                zIndex: 1000,
-              }}
-            >
-              <Text.Text level="small" color={7}>
+            <Flex.Box x className={CSS.B("schematic-preview-controls")}>
+              <Text.Text level="small" color={9}>
                 {Math.round(zoom.value * 100)}%
               </Text.Text>
               <Button.Button
@@ -246,16 +254,16 @@ export const Preview = ({
                 {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
               </Button.Button>
               <Flex.Box pack x>
-                <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom Out">
+                <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom out">
                   <Icon.Subtract />
                 </Button.Button>
-                <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom In">
+                <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom in">
                   <Icon.Add />
                 </Button.Button>
                 <Button.Button
                   onClick={handleResetZoom}
                   size="small"
-                  tooltip="Reset Zoom"
+                  tooltip="Reset zoom"
                 >
                   <Icon.Expand />
                 </Button.Button>
@@ -265,15 +273,10 @@ export const Preview = ({
           <Flex.Box
             center
             ref={svgWrapperRef}
-            style={{
-              transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
-              transformOrigin: "center",
-              transition: isDragging ? "none" : "transform 0.2s ease-out",
-              cursor: isDragging ? "grabbing" : "default",
-            }}
-            rounded={1}
+            className={CSS.B("schematic-preview-svg-wrapper")}
+            style={svgWrapperStyle}
           >
-            <div style={{ position: "relative" }}>
+            <div className={CSS.B("schematic-preview-svg-wrapper-inner")}>
               <HandleOverlay
                 handles={spec.handles}
                 selectedHandle={selectedHandle}
@@ -281,7 +284,7 @@ export const Preview = ({
                 onSelect={onHandleSelect}
                 onDrag={onHandlePlace}
               />
-              <div ref={setContainer} className={CSS.B("preview")} style={{}}></div>
+              <div ref={setContainer} className={CSS.B("preview")}></div>
             </div>
           </Flex.Box>
         </Flex.Box>

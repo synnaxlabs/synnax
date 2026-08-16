@@ -13,12 +13,13 @@ import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
 import { z } from "zod";
 
+import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import {
+  createScale,
   type Scale,
   SCALE_SCHEMAS,
   type ScaleType,
   type Units,
-  ZERO_SCALES,
 } from "@/feature/ni/task/types";
 import { FS } from "@/platform/fs";
 
@@ -32,7 +33,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
     onChange: (value, { get, set, path }) => {
       const prevType = get<ScaleType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_SCALES[value]);
+      const next = createScale(value);
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<Scale>(parentPath).value;
       set(parentPath, {
@@ -46,6 +47,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
     data: [
       { key: "linear", name: "Linear", icon: <Icon.Linear /> },
       { key: "map", name: "Map", icon: <Icon.Map /> },
+      { key: "polynomial", name: "Polynomial", icon: <Icon.Function /> },
       { key: "table", name: "Table", icon: <Icon.Table /> },
       { key: "none", name: "None", icon: <Icon.None /> },
     ],
@@ -145,6 +147,19 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
         <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
         <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
       </Flex.Box>
+    </>
+  ),
+  polynomial: ({ prefix }) => (
+    <>
+      <CustomScaleUnitsFields prefix={prefix} />
+      <CoefficientsField
+        path={`${prefix}.forwardCoeffs`}
+        label="Forward Coefficients"
+      />
+      <CoefficientsField
+        path={`${prefix}.reverseCoeffs`}
+        label="Reverse Coefficients"
+      />
     </>
   ),
   table: ({ prefix }) => {

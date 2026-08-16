@@ -49,6 +49,32 @@ const receiveResponse = async (
   );
 };
 
+/**
+ * Drains messages from the stream until a response for every expected id has
+ * arrived. The server handles concurrent calls concurrently, so responses may
+ * arrive in any order.
+ */
+const receiveResponses = async (
+  stream: LSPReceiver,
+  expectedIds: number[],
+): Promise<Map<number, JSONRPCResponse>> => {
+  const pending = new Set(expectedIds);
+  const responses = new Map<number, JSONRPCResponse>();
+  for (let i = 0; i < MAX_DRAIN && pending.size > 0; i++) {
+    const res = await stream.receive();
+    const msg = JSON.parse(res.content);
+    if (!("method" in msg) && "id" in msg && pending.has(msg.id)) {
+      responses.set(msg.id, msg as JSONRPCResponse);
+      pending.delete(msg.id);
+    }
+  }
+  if (pending.size > 0)
+    throw new Error(
+      `receiveResponses: drained ${MAX_DRAIN} messages without seeing ids=[${[...pending].join(", ")}]`,
+    );
+  return responses;
+};
+
 /** Drains messages from the stream until a JSON-RPC notification with the expected method arrives. */
 const receiveNotification = async (
   stream: LSPReceiver,
@@ -147,7 +173,7 @@ describe("Arc LSP", () => {
     expect(diagMsg.jsonrpc).toBe("2.0");
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   it("should handle hover request", async () => {
@@ -214,7 +240,7 @@ describe("Arc LSP", () => {
       throw new Error(`LSP error: ${responseMsg.error.message}`);
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   it("should handle multiple concurrent messages", async () => {
@@ -258,8 +284,13 @@ describe("Arc LSP", () => {
 
     for (const req of requests) stream.send({ content: JSON.stringify(req) });
 
+    const responses = await receiveResponses(
+      stream,
+      requests.map((req) => req.id),
+    );
     for (const req of requests) {
-      const msg = await receiveResponse(stream, req.id);
+      const msg = responses.get(req.id);
+      if (msg == null) throw new Error(`missing response for id=${req.id}`);
       if ("error" in msg) throw new Error(`LSP error: ${msg.error.message}`);
       receivedMessages.push(msg);
     }
@@ -272,7 +303,7 @@ describe("Arc LSP", () => {
     }
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   it("should properly encode and decode JSON-RPC messages without headers", async () => {
@@ -295,7 +326,7 @@ describe("Arc LSP", () => {
     if ("error" in parsed) expect(parsed.error).toBeDefined();
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   it("should provide semantic tokens for Arc code", async () => {
@@ -384,7 +415,7 @@ describe("Arc LSP", () => {
     }
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   describe("Block Expression Wrapping", () => {
@@ -447,7 +478,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
 
     it("should provide correct diagnostics for block with syntax error", async () => {
@@ -514,7 +545,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
 
     it("should handle multi-line block expressions", async () => {
@@ -575,7 +606,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
 
     it("should handle textDocument/didChange for block expressions", async () => {
@@ -647,7 +678,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
 
     it("should reject non-block URIs without metadata", async () => {
@@ -708,7 +739,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
   });
 });

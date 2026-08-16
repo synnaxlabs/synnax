@@ -20,8 +20,8 @@ import { Session } from "@/session";
 import {
   assertDefined,
   createTestStore,
+  resolveFocusedTab,
   uniqueName,
-  waitForPlacedLayout,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -72,8 +72,9 @@ describe("project ontology service", () => {
       store: await createStoreWithActive(p.key),
     });
     fireEvent.click(await screen.findByText("Create log"));
-    const key = await waitForPlacedLayout(store, "log");
-    const created = await client.logs.retrieve({ key });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+    const created = await client.logs.retrieve(tab.resource.key);
     expect(created.name).toBe("Log");
     expect(Session.Project.selectOptionalSelected(store.getState())).toBe(p.key);
   });
@@ -102,7 +103,9 @@ describe("project ontology service", () => {
 
   it("should select the project when the row is double-clicked", async () => {
     const p = await createProject();
-    const [parent] = await client.ontology.retrieveParents(project.ontologyID(p.key));
+    const [parent] = await client.ontology.parents.retrieve({
+      ids: project.ontologyID(p.key),
+    });
     const { store } = await renderOntologyTree({
       client,
       root: parent.id,

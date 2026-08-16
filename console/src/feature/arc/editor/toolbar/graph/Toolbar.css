@@ -24,6 +24,7 @@
     .console-arc__stages-group {
         overflow: auto;
         height: 100%;
+        --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
         & > .pluto-list__virtualizer {
             height: fit-content;
         }
@@ -52,4 +53,13 @@
             transform: scale(0.8);
         }
     }
+}
+
+.console-arc-toolbar__actions {
+    height: 100%;
+    width: 66px;
+}
+
+.console-arc-toolbar__tabs {
+    width: 180px;
 }

@@ -45,6 +45,7 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         ":wasm",
+        "//arc/cpp/runtime/testutil:compile",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/telem",
@@ -66,6 +67,7 @@ cc_test(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/testutil:compile",
         "//arc/cpp/stl/channels",
         "//arc/cpp/stl/channels:state",
         "//arc/cpp/stl/error",

@@ -30,13 +30,27 @@ import (
 )
 
 var (
-	_ grpc.Translator[writer.Request, *WriterRequest]       = (*WriterRequestTranslator)(nil)
-	_ grpc.Translator[writer.Response, *WriterResponse]     = (*WriterResponseTranslator)(nil)
-	_ grpc.Translator[iterator.Request, *IteratorRequest]   = (*IteratorRequestTranslator)(nil)
-	_ grpc.Translator[iterator.Response, *IteratorResponse] = (*IteratorResponseTranslator)(nil)
-	_ grpc.Translator[relay.Request, *RelayRequest]         = (*RelayRequestTranslator)(nil)
-	_ grpc.Translator[relay.Response, *RelayResponse]       = (*RelayResponseTranslator)(nil)
-	_ grpc.Translator[deleter.Request, *DeleteRequest]      = (*DeleteRequestTranslator)(nil)
+	_ grpc.Translator[writer.Request, *WriterRequest] = (*WriterRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[writer.Response, *WriterResponse] = (*WriterResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[iterator.Request, *IteratorRequest] = (*IteratorRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[iterator.Response, *IteratorResponse] = (*IteratorResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[relay.Request, *RelayRequest] = (*RelayRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[relay.Response, *RelayResponse] = (*RelayResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[deleter.Request, *DeleteRequest] = (*DeleteRequestTranslator)(
+		nil,
+	)
 )
 
 type WriterRequestTranslator struct{}
@@ -60,14 +74,19 @@ func (WriterRequestTranslator) Backward(
 			ControlSubject: cs,
 			Keys:           channel.KeysFromUint32(req.Config.Keys),
 			Start:          telem.TimeStamp(req.Config.Start),
-			Authorities: lo.Map(req.Config.Authorities, func(auth uint32, _ int) control.Authority {
-				return control.Authority(auth)
-			}),
-			ErrOnUnauthorized:        new(req.Config.ErrOnUnauthorized),
-			Mode:                     ts.WriterMode(req.Config.Mode),
-			EnableAutoCommit:         new(req.Config.EnableAutoCommit),
-			AutoIndexPersistInterval: telem.TimeSpan(req.Config.AutoIndexPersistInterval),
-			AutoIndex:                new(req.Config.AutoIndex),
+			Authorities: lo.Map(
+				req.Config.Authorities,
+				func(auth uint32, _ int) control.Authority {
+					return control.Authority(auth)
+				},
+			),
+			ErrOnUnauthorized: new(req.Config.ErrOnUnauthorized),
+			Mode:              ts.WriterMode(req.Config.Mode),
+			EnableAutoCommit:  new(req.Config.EnableAutoCommit),
+			AutoIndexPersistInterval: telem.TimeSpan(
+				req.Config.AutoIndexPersistInterval,
+			),
+			AutoIndex: new(req.Config.AutoIndex),
 		},
 		Frame: fr,
 	}, nil
@@ -86,9 +105,12 @@ func (WriterRequestTranslator) Forward(
 		ControlSubject: subject,
 		Keys:           req.Config.Keys.Uint32(),
 		Start:          int64(req.Config.Start),
-		Authorities: lo.Map(req.Config.Authorities, func(auth control.Authority, _ int) uint32 {
-			return uint32(auth)
-		}),
+		Authorities: lo.Map(
+			req.Config.Authorities,
+			func(auth control.Authority, _ int) uint32 {
+				return uint32(auth)
+			},
+		),
 		Mode:                     uint32(req.Config.Mode),
 		AutoIndexPersistInterval: int64(req.Config.AutoIndexPersistInterval),
 	}

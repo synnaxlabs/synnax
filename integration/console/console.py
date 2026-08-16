@@ -106,9 +106,7 @@ class Console:
 
         Skips tabs that become stale during iteration (can happen if DOM updates).
         """
-        for tab in self.page.locator(
-            ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
-        ).all():
+        for tab in self.page.locator(LayoutClient.TAB_SELECTOR).all():
             try:
                 name = tab.inner_text(timeout=5000).strip()
             except PlaywrightTimeoutError:
@@ -133,9 +131,7 @@ class Console:
 
         tabs_to_close = [
             tab
-            for tab in self.page.locator(
-                ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
-            ).all()
+            for tab in self.page.locator(LayoutClient.TAB_SELECTOR).all()
             if tab.inner_text(timeout=5000).strip() not in except_tabs
         ]
 

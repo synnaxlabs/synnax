@@ -10,58 +10,45 @@
 import "@/feature/arc/editor/toolbar/graph/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
-import { Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
+import { Arc, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Stages } from "@/feature/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/feature/arc/editor/toolbar/graph/Properties";
 import { Cluster } from "@/platform/cluster";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const NotEditableContent = (): ReactElement => {
   const key = Arc.useKey();
-  const name = Arc.useSelectName();
+  const name = Arc.useName();
   const dispatch = Session.useDispatch();
   const { canEdit } = Session.Arc.useSelectEditable();
   return (
-    <Flex.Box x gap="small" center>
-      <Text.Text status="disabled">
-        {name} is not editable.
-        {canEdit ? " To make changes," : ""}
-      </Text.Text>
-      {canEdit && (
-        <Text.Text
-          onClick={(e) => {
-            e.stopPropagation();
-            dispatch(Session.Arc.setEditable({ key, editable: true }));
-          }}
-          variant="link"
-          level="p"
-          weight={500}
-        >
-          enable editing.
-        </Text.Text>
-      )}
-    </Flex.Box>
+    <Empty.Action
+      x
+      message={`${name} is not editable.${canEdit ? " To make changes," : ""}`}
+      action={canEdit ? "enable editing." : undefined}
+      onClick={(e) => {
+        e.stopPropagation();
+        dispatch(Session.Arc.setEditable({ key, editable: true }));
+      }}
+    />
   );
 };
 
-export interface ToolbarProps {
-  onExport: (key: arc.Key) => void;
-}
-
-export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
+export const Toolbar = (): ReactElement | null => {
   const key = Arc.useKey();
   const dispatch = Session.useDispatch();
   const toolbar = Session.Arc.useSelectToolbar();
   const { canEdit, isCurrentlyEditable } = Session.Arc.useSelectEditable();
   const selected = Session.Arc.useSelectSelected();
   const singleNodeKey = selected.length === 1 ? selected[0] : "";
-  const singleConfig = Arc.useSelectNodeConfig({ nodeKey: singleNodeKey });
-  const name = Arc.useSelectName();
-  const handleExport = useCallback(() => onExport(key), [key]);
+  const singleConfig = Arc.useNodeConfig({ nodeKey: singleNodeKey });
+  const name = Arc.useName();
   const selectedName =
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
@@ -89,15 +76,15 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
           )}
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
-          <Flex.Box x empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={handleExport} />
+          <Flex.Box x empty className={CSS.BE("arc-toolbar", "actions")}>
+            <Export.ToolbarButton getID={() => arc.ontologyID(key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={arc.ontologyID(key)}
             />
           </Flex.Box>
           {canEdit && (
-            <Tabs.Selector style={{ borderBottom: "none", width: 180 }}>
+            <Tabs.Selector className={CSS.BE("arc-toolbar", "tabs")}>
               <Tabs.Tab itemKey="stages">Stages</Tabs.Tab>
               <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
             </Tabs.Selector>

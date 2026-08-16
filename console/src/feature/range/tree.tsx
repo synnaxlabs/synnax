@@ -11,15 +11,14 @@ import { type ontology, type ranger } from "@synnaxlabs/client";
 import { type Haul, Icon, Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Layout } from "@/platform/layout";
-import { Range } from "@/platform/range";
+import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const client = Synnax.use();
   const store = Session.useStore();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   return useCallback(
     (resource) => {
@@ -27,11 +26,10 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
       handleError(async () => {
         const ranges = await client.ranges.retrieve([resource.id.key]);
         store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
-        const first = ranges[0];
-        placeLayout({ ...Range.OVERVIEW_LAYOUT, name: first.name, key: first.key });
+        openTab({ variant: "resource", resource: resource.id });
       }, `Failed to select ${resource.name}`);
     },
-    [client, store, placeLayout, handleError],
+    [client, store, openTab, handleError],
   );
 };
 

@@ -15,7 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
@@ -76,7 +76,7 @@ type ServiceConfig struct {
 	// cluster.
 	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostResolver cluster.HostResolver
 	// Transport is the network transport for moving telemetry frames across nodes.
 	//
 	// [REQUIRED]
@@ -182,7 +182,13 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needPeerRouting {
 		routeInletTo = peerSenderAddr
-		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, cfg.ChunkSize, batch.Peers, !needGatewayRouting)
+		sender, receivers, err := s.openManyPeers(
+			ctx,
+			cfg.Bounds,
+			cfg.ChunkSize,
+			batch.Peers,
+			!needGatewayRouting,
+		)
 		if err != nil {
 			return nil, err
 		}

@@ -24,7 +24,7 @@ interface InputTelemFormProps {
 const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   const { value, onChange } =
     Base.useField<
-      Pick<schematic.NodeConfigInput, "commandChannel" | "control" | "disabled">
+      Pick<schematic.InputNodeConfig, "commandChannel" | "control" | "disabled">
     >(path);
   const handleSinkChange = (v: channel.Key | null): void => {
     v ??= 0;

@@ -1,0 +1,25 @@
+{
+  "type": "labjack_write",
+  "autoStart": false,
+  "device": "fixture-labjack-v0-device",
+  "dataSaving": true,
+  "stateRate": 12.5,
+  "channels": [
+    {
+      "enabled": true,
+      "key": "ch-lj-v0-ao",
+      "cmdKey": 7210,
+      "stateKey": 7211,
+      "type": "AO",
+      "port": "DAC0"
+    },
+    {
+      "enabled": false,
+      "key": "ch-lj-v0-do",
+      "cmdKey": 7220,
+      "stateKey": 7221,
+      "type": "DO",
+      "port": "DIO3"
+    }
+  ]
+}

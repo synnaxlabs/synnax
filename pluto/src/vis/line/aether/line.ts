@@ -30,6 +30,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
@@ -321,8 +322,17 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return this.internal.xTelem.value()[0];
   }
 
-  yBounds(): bounds.Bounds {
-    return this.internal.yTelem.value()[0];
+  /**
+   * @param xWindow - the visible x range. Bounds cover only samples whose x value
+   * falls inside it; non-finite windows fall back to the source's full bounds.
+   * @returns the y bounds of this line's samples inside the window.
+   */
+  yBounds(xWindow: bounds.Bounds): bounds.Bounds {
+    const { xTelem, yTelem } = this.internal;
+    const [b, yData] = yTelem.value();
+    if (!bounds.isFinite(xWindow)) return b;
+    const [, xData] = xTelem.value();
+    return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD);
   }
 
   findByXValue(props: LineProps, target: number): FindResult {
@@ -505,22 +515,3 @@ export const buildDrawOperations = (
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
-
-const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
-  if (x.alignmentMultiple !== ys.alignmentMultiple) {
-    console.warn(
-      "encountered two series with different alignment multiples in draw operations",
-      { x: x.digest, y: ys.digest },
-    );
-    return false;
-  }
-  // If the time ranges of the x and y series overlap, we meet the first condition
-  // for drawing them together. Dynamic buffering can sometimes lead to very slight,
-  // unintended overlaps, so we only consider them overlapping if they overlap by a
-  // certain threshold.
-  const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange, overlapThreshold);
-  // If the 'indexes' of the x and y series overlap, we meet the second condition
-  // for drawing them together.
-  const alignmentsOverlap = bounds.overlapsWith(x.alignmentBounds, ys.alignmentBounds);
-  return timeRangesOverlap && alignmentsOverlap;
-};

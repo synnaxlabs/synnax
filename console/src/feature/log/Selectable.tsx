@@ -9,24 +9,14 @@
 
 import { log } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Log } from "@/platform/log";
 import { Selector } from "@/platform/selector";
 
-export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
-  const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
-  const create = Log.useCreate({});
-  const handleClick = useCallback(() => create({ key }), [create, key]);
-  if (!hasCreatePermission) return null;
-  return (
-    <Selector.Item
-      key={Log.LAYOUT_TYPE}
-      title="Log"
-      icon={<Icon.Log />}
-      onClick={handleClick}
-    />
-  );
-};
-Selectable.type = Log.LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
+export const Selectable = Selector.createSelectable({
+  type: log.TYPE_ONTOLOGY_ID.type,
+  title: "Log",
+  icon: <Icon.Log />,
+  useOnSelect: Log.useCreate,
+  useVisible: () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID),
+});

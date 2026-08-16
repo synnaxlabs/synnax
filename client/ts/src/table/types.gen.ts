@@ -20,15 +20,13 @@ export const cellZ = z.object({
   key: z.string(),
   /**
    * variant is the cell variant identifier (e.g. "text", "value"). The variant
-   * determines the shape of props and which Pluto cell component renders
-   * the cell.
+   * determines the shape of props and which Pluto cell component renders the cell.
    */
   variant: z.string(),
   /**
-   * props is the variant-specific cell configuration. The shape is determined
-   * by the variant; the wire format intentionally stores it as an
-   * opaque record so new variants can be added without a schema
-   * migration.
+   * props is the variant-specific cell configuration. The shape is determined by the
+   * variant; the wire format intentionally stores it as an opaque record so new
+   * variants can be added without a schema migration.
    */
   props: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
@@ -39,8 +37,8 @@ export const rowZ = z.object({
   /** size is the height of the row in pixels. */
   size: z.number(),
   /**
-   * cells is the ordered list of cell keys in this row from left to right.
-   * Each key points at an entry in the table's cells map.
+   * cells is the ordered list of cell keys in this row from left to right. Each key
+   * points at an entry in the table's cells map.
    */
   cells: z
     .string()
@@ -63,9 +61,9 @@ export const cellTemplateZ = cellZ.omit({ key: true });
 export interface CellTemplate extends z.infer<typeof cellTemplateZ> {}
 
 /**
- * Table is a tabular data display component for viewing structured telemetry
- * data. Tables support multiple columns, channel data sources, and
- * customizable formatting options.
+ * Table is a tabular data display component for viewing structured telemetry data.
+ * Tables support multiple columns, channel data sources, and customizable formatting
+ * options.
  */
 export const tableZ = z.object({
   /** key is the unique identifier for this table. */
@@ -77,10 +75,9 @@ export const tableZ = z.object({
   /** columns are the table columns in display order, left to right. */
   columns: columnZ.array().default(() => []),
   /**
-   * cells contains all cells in the table, keyed by cell key. Cell positions
-   * are derived from rows[*].cells[*] references; cells not referenced
-   * by any row are orphaned and will be pruned on the next structural
-   * edit.
+   * cells contains all cells in the table, keyed by cell key. Cell positions are
+   * derived from rows[*].cells[*] references; cells not referenced by any row are
+   * orphaned and will be pruned on the next structural edit.
    */
   cells: caseconv.preserveCase(z.record(z.string(), cellZ).default(() => ({}))),
 });

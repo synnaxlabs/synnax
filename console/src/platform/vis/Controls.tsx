@@ -16,6 +16,11 @@ import { CSS } from "@/platform/css";
 
 export interface ControlsProps extends Flex.BoxProps {}
 
+/** Marks a control as exempt from the hover fade, keeping it visible while an
+ * active mode (acquired control, paused plotting) must stay indicated. May sit
+ * at any depth inside Controls; its siblings still fade. */
+export const CONTROLS_PINNED_CLASS = CSS.BM("controls", "pinned");
+
 export const Controls = ({ className, ...rest }: ControlsProps): ReactElement => (
-  <Flex.Box x className={CSS(CSS.B("controls"), className)} gap="small" {...rest} />
+  <Flex.Box className={CSS(CSS.B("controls"), className)} gap="small" {...rest} />
 );

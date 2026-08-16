@@ -19,7 +19,7 @@ on:
       - aspen/**
       - codecov.yaml
       - freighter/go/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   push:
     branches:
@@ -33,7 +33,7 @@ on:
       - aspen/**
       - codecov.yaml
       - freighter/go/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   workflow_dispatch:
 

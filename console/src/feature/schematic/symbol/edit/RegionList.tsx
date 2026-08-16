@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/edit/Edit.css";
+
 import { type schematic } from "@synnaxlabs/client";
 import {
   Button,
@@ -21,7 +23,9 @@ import {
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { type color } from "@synnaxlabs/x";
+
+import { CSS } from "@/platform/css";
 
 export interface RegionListProps extends Input.Control<string | undefined> {
   selectedState: string;
@@ -41,7 +45,11 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
   );
   if (region == null) return null;
   return (
-    <Select.ListItem {...props} justify="between" style={{ paddingRight: "0.5rem" }}>
+    <Select.ListItem
+      {...props}
+      justify="between"
+      className={CSS.B("schematic-region-list-item")}
+    >
       <Flex.Box x align="center" gap={1}>
         <Form.Field<string> path={`${path}.name`} showLabel={false}>
           {({ onChange, value }) => (
@@ -49,38 +57,30 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
               level="small"
               value={value}
               onChange={onChange}
-              style={{ minWidth: 80 }}
+              className={CSS.B("schematic-region-name")}
             />
           )}
         </Form.Field>
       </Flex.Box>
       <Flex.Box x align="center" gap={1}>
-        <Text.Text level="small" color={7}>
-          {region?.selectors?.length || 0} Elements
+        <Text.Text level="small" color={9}>
+          {region?.selectors?.length || 0} elements
         </Text.Text>
-        <Form.Field<string> path={`${path}.strokeColor`} showLabel={false}>
+        <Form.Field<color.Color> path={`${path}.strokeColor`} showLabel={false}>
           {({ onChange, value }) => (
-            <Color.Swatch
-              value={value}
-              onChange={(v) => onChange(color.hex(v))}
-              size="small"
-            />
+            <Color.Swatch value={value} onChange={onChange} size="small" />
           )}
         </Form.Field>
-        <Form.Field<string> path={`${path}.fillColor`} showLabel={false}>
+        <Form.Field<color.Color> path={`${path}.fillColor`} showLabel={false}>
           {({ onChange, value }) => (
-            <Color.Swatch
-              value={value}
-              onChange={(v) => onChange(color.hex(v))}
-              size="small"
-            />
+            <Color.Swatch value={value} onChange={onChange} size="small" />
           )}
         </Form.Field>
         <Button.Button
           onClick={() => remove(itemKey)}
           size="small"
           variant="text"
-          ghost
+          reveal
         >
           <Icon.Close />
         </Button.Button>
@@ -99,13 +99,13 @@ export const RegionList = ({
     `data.states.${selectedState}.regions`,
   );
   return (
-    <Flex.Box y gap={1} style={{ maxHeight: 200 }}>
-      <Header.Header level="p" padded bordered={false}>
+    <Flex.Box y gap={1} className={CSS.B("schematic-region-list")}>
+      <Header.Header level="p" bordered={false}>
         <Header.Title level="p" weight={500}>
           Colors
         </Header.Title>
         <Header.Actions>
-          <Text.Text level="p" color={7} gap={3}>
+          <Text.Text level="p" color={9} gap={3}>
             <Tooltip.Dialog>
               <Text.Text level="small">Stroke Color</Text.Text>
               <Flex.Box>
@@ -119,7 +119,7 @@ export const RegionList = ({
               </Flex.Box>
             </Tooltip.Dialog>
           </Text.Text>
-          <Button.Button onClick={onAddRegion} size="small" variant="outlined">
+          <Button.Button onClick={onAddRegion} size="small" variant="filled">
             <Icon.Add />
           </Button.Button>
         </Header.Actions>

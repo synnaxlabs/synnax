@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -28,8 +28,8 @@ describe("arc", () => {
         mode: "text",
       };
       const randomArc = await client.arcs.create(a);
-      await expect(userClient.arcs.retrieve({ key: randomArc.key })).rejects.toThrow(
-        AuthError,
+      await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -43,7 +43,7 @@ describe("arc", () => {
         name: "test",
         mode: "text",
       });
-      const retrieved = await userClient.arcs.retrieve({ key: randomArc.key });
+      const retrieved = await userClient.arcs.retrieve(randomArc.key);
       expect(retrieved.key).toBe(randomArc.key);
       expect(retrieved.name).toBe(randomArc.name);
     });
@@ -71,7 +71,7 @@ describe("arc", () => {
           name: "test",
           mode: "text",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete arcs with the correct policy", async () => {
@@ -85,7 +85,7 @@ describe("arc", () => {
         mode: "text",
       });
       await userClient.arcs.delete(randomArc.key);
-      await expect(userClient.arcs.retrieve({ key: randomArc.key })).rejects.toThrow(
+      await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -100,7 +100,9 @@ describe("arc", () => {
         name: "test",
         mode: "text",
       });
-      await expect(userClient.arcs.delete(randomArc.key)).rejects.toThrow(AuthError);
+      await expect(userClient.arcs.delete(randomArc.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

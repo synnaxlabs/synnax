@@ -17,7 +17,7 @@ import { OffPageReference } from "@/schematic/node/general/offPageReference/Prim
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-export const defaultConfig = (): schematic.NodeConfigOffPageReference => ({
+export const defaultConfig = (): schematic.OffPageReferenceNodeConfig => ({
   variant: "off_page_reference",
   color: color.ZERO,
   orientation: "right",
@@ -27,11 +27,11 @@ export const defaultConfig = (): schematic.NodeConfigOffPageReference => ({
 const Preview = ({
   label: _,
   ...rest
-}: schematic.NodeConfigOffPageReference): ReactElement => (
+}: schematic.OffPageReferenceNodeConfig): ReactElement => (
   <OffPageReference label="Off Page" {...rest} orientation="right" />
 );
 
-export const spec: Spec<"off_page_reference", schematic.NodeConfigOffPageReference> = {
+export const spec: Spec<"off_page_reference", schematic.OffPageReferenceNodeConfig> = {
   key: "off_page_reference",
   name: "Off Page",
   Form: OffPageReferenceForm,

@@ -29,3 +29,8 @@
         min-height: 10rem;
     }
 }
+
+.console-user-badge__dialog {
+    padding: 1rem;
+    width: 200px;
+}

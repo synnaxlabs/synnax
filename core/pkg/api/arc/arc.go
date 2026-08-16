@@ -25,9 +25,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type (
@@ -77,6 +81,9 @@ func (s *Service) Create(
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Arcs); err != nil {
 		return CreateResponse{}, err
 	}
+	for i := range req.Arcs {
+		req.Arcs[i].Text = req.Arcs[i].Text.Materialize()
+	}
 	return CreateResponse(req), nil
 }
 
@@ -105,9 +112,9 @@ func (s *Service) Delete(
 // edits.
 type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
 
-// Dispatch relays the action sequence to the other clients editing the arc, broadcasting
-// it on the arc collaborative-edit signals channel. The caller must hold update access
-// to the arc. The server does not interpret or persist the actions.
+// Dispatch relays the action sequence to the other clients editing the arc,
+// broadcasting it on the arc collaborative-edit signals channel. The caller must hold
+// update access to the arc.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -125,14 +132,59 @@ func (s *Service) Dispatch(
 }
 
 type (
+	// SetRackRequest binds the arc to a rack. A zero Rack unbinds it.
+	SetRackRequest struct {
+		Key  arc.Key  `json:"key"  msgpack:"key"`
+		Rack rack.Key `json:"rack" msgpack:"rack"`
+	}
+	// SetRackResponse carries the arc's task, or a nil Task after an unbind.
+	SetRackResponse struct {
+		Task *task.Task `json:"task,omitempty" msgpack:"task,omitempty"`
+	}
+)
+
+// SetRack creates or moves the arc's task so it runs on the requested rack. A zero
+// rack unbinds the arc, deleting its task; unbinding a running arc is rejected.
+func (s *Service) SetRack(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetRackRequest,
+) (SetRackResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{arc.OntologyID(req.Key)},
+	}); err != nil {
+		return SetRackResponse{}, err
+	}
+	taskAction := access.ActionCreate
+	if req.Rack == 0 {
+		taskAction = access.ActionDelete
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  taskAction,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
+	}); err != nil {
+		return SetRackResponse{}, err
+	}
+	tsk, err := s.internal.NewWriter(tx).SetRack(ctx, req.Key, req.Rack)
+	if err != nil {
+		return SetRackResponse{}, err
+	}
+	return SetRackResponse{Task: tsk}, nil
+}
+
+type (
 	RetrieveRequest struct {
-		SearchTerm    string    `json:"search_term" msgpack:"search_term"`
-		Keys          []arc.Key `json:"keys" msgpack:"keys"`
-		Names         []string  `json:"names" msgpack:"names"`
-		Limit         int       `json:"limit" msgpack:"limit"`
-		Offset        int       `json:"offset" msgpack:"offset"`
-		IncludeStatus bool      `json:"include_status" msgpack:"include_status"`
-		Compile       bool      `json:"compile" msgpack:"compile"`
+		SearchTerm          string    `json:"search_term"            msgpack:"search_term"`
+		Keys                []arc.Key `json:"keys"                   msgpack:"keys"`
+		Names               []string  `json:"names"                  msgpack:"names"`
+		Limit               int       `json:"limit"                  msgpack:"limit"`
+		Offset              int       `json:"offset"                 msgpack:"offset"`
+		IncludeStatus       bool      `json:"include_status"         msgpack:"include_status"`
+		Compile             bool      `json:"compile"                msgpack:"compile"`
+		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Arcs []Arc `json:"arcs,omitzero" msgpack:"arcs,omitzero"`
@@ -165,14 +217,18 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	err := q.Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 
 	res := RetrieveResponse{Arcs: arcs}
 
-	// Raw is derived from the replicated document and not stored, so materialize it before
-	// compilation and for clients that read the source text directly rather than
+	// Raw is derived from the replicated document and not stored, so materialize it
+	// before compilation and for clients that read the source text directly rather than
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()

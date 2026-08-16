@@ -16,17 +16,22 @@ import { StateIndicatorForm } from "@/schematic/node/general/stateIndicator/Form
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
+import { type Theming } from "@/theming";
 
-export const defaultConfig = (): schematic.NodeConfigStateIndicator => ({
+export const defaultConfig = (
+  t: Theming.Theme,
+): schematic.StateIndicatorNodeConfig => ({
   variant: "state_indicator",
   orientation: "left",
   color: color.ZERO,
   inlineSize: 100,
   options: [],
   label: Label.defaultConfig("State Indicator"),
+  stalenessTimeout: 5,
+  stalenessColor: t.colors.warning.m1,
 });
 
-const Preview = ({ color }: schematic.NodeConfigStateIndicator): ReactElement => (
+const Preview = ({ color }: schematic.StateIndicatorNodeConfig): ReactElement => (
   <StateIndicator
     matchedOptionKey="1"
     options={[{ key: "1", name: "Active", value: 1 }]}
@@ -34,7 +39,7 @@ const Preview = ({ color }: schematic.NodeConfigStateIndicator): ReactElement =>
   />
 );
 
-export const spec: Spec<"state_indicator", schematic.NodeConfigStateIndicator> = {
+export const spec: Spec<"state_indicator", schematic.StateIndicatorNodeConfig> = {
   key: "state_indicator",
   name: "State Indicator",
   Form: StateIndicatorForm,

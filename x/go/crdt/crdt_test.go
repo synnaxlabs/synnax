@@ -116,17 +116,20 @@ var _ = Describe("CRDT", func() {
 			Expect(a.String()).To(SatisfyAny(Equal("abcxyz"), Equal("xyzabc")))
 		})
 
-		It("Should not interleave concurrent inserts before a shared character", func() {
-			a, b := crdt.New(1), crdt.New(2)
-			seed := a.Insert(0, "o")
-			b.ApplyInsert(seed...)
-			opsA := a.Insert(0, "ab")
-			opsB := b.Insert(0, "xy")
-			b.ApplyInsert(opsA...)
-			a.ApplyInsert(opsB...)
-			Expect(a.String()).To(Equal(b.String()))
-			Expect(a.String()).To(SatisfyAny(Equal("abxyo"), Equal("xyabo")))
-		})
+		It(
+			"Should not interleave concurrent inserts before a shared character",
+			func() {
+				a, b := crdt.New(1), crdt.New(2)
+				seed := a.Insert(0, "o")
+				b.ApplyInsert(seed...)
+				opsA := a.Insert(0, "ab")
+				opsB := b.Insert(0, "xy")
+				b.ApplyInsert(opsA...)
+				a.ApplyInsert(opsB...)
+				Expect(a.String()).To(Equal(b.String()))
+				Expect(a.String()).To(SatisfyAny(Equal("abxyo"), Equal("xyabo")))
+			},
+		)
 
 		It("Should integrate inserts delivered before their origin", func() {
 			a, b := crdt.New(1), crdt.New(2)
@@ -217,28 +220,31 @@ var _ = Describe("CRDT", func() {
 			Expect(t.Collectable()).To(BeEmpty())
 		})
 
-		It("Should leave the value unchanged after dropping collectable operations", func() {
-			t := crdt.New(1)
-			t.Insert(0, "hello world")
-			t.Delete(6, 5)
-			collectable := set.New(t.Collectable()...)
-			inserts, deletes := t.Snapshot()
-			keptInserts := make([]crdt.Insert, 0, len(inserts))
-			for _, in := range inserts {
-				if !collectable.Contains(in.ID) {
-					keptInserts = append(keptInserts, in)
+		It(
+			"Should leave the value unchanged after dropping collectable operations",
+			func() {
+				t := crdt.New(1)
+				t.Insert(0, "hello world")
+				t.Delete(6, 5)
+				collectable := set.New(t.Collectable()...)
+				inserts, deletes := t.Snapshot()
+				keptInserts := make([]crdt.Insert, 0, len(inserts))
+				for _, in := range inserts {
+					if !collectable.Contains(in.ID) {
+						keptInserts = append(keptInserts, in)
+					}
 				}
-			}
-			keptDeletes := make([]crdt.Delete, 0, len(deletes))
-			for _, del := range deletes {
-				if !collectable.Contains(del.ID) {
-					keptDeletes = append(keptDeletes, del)
+				keptDeletes := make([]crdt.Delete, 0, len(deletes))
+				for _, del := range deletes {
+					if !collectable.Contains(del.ID) {
+						keptDeletes = append(keptDeletes, del)
+					}
 				}
-			}
-			reloaded := crdt.New(2)
-			reloaded.Load(keptInserts, keptDeletes)
-			Expect(reloaded.String()).To(Equal("hello "))
-			Expect(keptDeletes).To(BeEmpty())
-		})
+				reloaded := crdt.New(2)
+				reloaded.Load(keptInserts, keptDeletes)
+				Expect(reloaded.String()).To(Equal("hello "))
+				Expect(keptDeletes).To(BeEmpty())
+			},
+		)
 	})
 })

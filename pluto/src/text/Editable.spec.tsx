@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Editable } from "@/text/Editable";
+import { asyncEdit, edit, Editable, MaybeEditable } from "@/text/Editable";
 
 describe("Editable", () => {
   describe("rendering", () => {
@@ -127,6 +127,82 @@ describe("Editable", () => {
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Escape" });
       expect(text.innerText).toBe("Hello");
+    });
+  });
+
+  describe("edit", () => {
+    it("rejects asyncEdit when the element never appears", async () => {
+      vi.useFakeTimers();
+      try {
+        const promise = asyncEdit("does-not-exist");
+        const expectation = expect(promise).rejects.toThrow("Could not find element");
+        await vi.advanceTimersByTimeAsync(1100);
+        await expectation;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("reports a missing element through console.error instead of throwing", async () => {
+      vi.useFakeTimers();
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        edit("does-not-exist");
+        await vi.advanceTimersByTimeAsync(1100);
+        expect(consoleError).toHaveBeenCalledTimes(1);
+      } finally {
+        consoleError.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it("resolves asyncEdit with the committed value", async () => {
+      const c = render(<Editable id="rename-me" value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      let promise!: Promise<[string, boolean]>;
+      act(() => {
+        promise = asyncEdit("rename-me");
+      });
+      expect(text.getAttribute("contenteditable")).toBe("true");
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      await expect(promise).resolves.toEqual(["World", true]);
+    });
+
+    it("resolves asyncEdit with renamed=false on escape", async () => {
+      const c = render(<Editable id="escape-me" value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      let promise!: Promise<[string, boolean]>;
+      act(() => {
+        promise = asyncEdit("escape-me");
+      });
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Escape" });
+      await expect(promise).resolves.toEqual(["Hello", false]);
+    });
+
+    it("should put the element with the given id into edit mode", () => {
+      const c = render(<Editable id="tab-name" value="Hello" onChange={vi.fn()} />);
+      edit("tab-name");
+      expect(c.getByText("Hello").getAttribute("contenteditable")).toBe("true");
+    });
+
+    it("should edit the editable copy when a read-only copy shares its id", () => {
+      const c = render(
+        <>
+          <MaybeEditable
+            id="tab-name"
+            value="Hello"
+            onChange={vi.fn<(value: string) => void>()}
+            disabled
+          />
+          <Editable id="tab-name" value="Hello" onChange={vi.fn()} />
+        </>,
+      );
+      edit("tab-name");
+      const [readOnly, editable] = c.getAllByText("Hello");
+      expect(editable.getAttribute("contenteditable")).toBe("true");
+      expect(readOnly.getAttribute("contenteditable")).toBeNull();
     });
   });
 

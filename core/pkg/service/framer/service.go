@@ -18,8 +18,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -89,11 +89,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// HostResolver identifies the host node, used to name and lease the node's control
+	// HostProvider identifies the host node, used to name and lease the node's control
 	// update channel.
 	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostProvider cluster.HostProvider
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -108,7 +108,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "host_resolver", c.HostResolver)
+	validate.NotNil(v, "host_provider", c.HostProvider)
 	return v.Error()
 }
 
@@ -118,7 +118,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
+	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	return c
 }
 
@@ -244,10 +244,10 @@ func (s *Service) Close() error { return s.closer.Close() }
 // not already exist) and registers it with the distribution framer so control state
 // changes are streamed to clients.
 func (s *Service) configureControlUpdates(ctx context.Context) error {
-	name := fmt.Sprintf("sy_node_%v_control", s.cfg.HostResolver.HostKey())
+	name := fmt.Sprintf("sy_node_%v_control", s.cfg.HostProvider.HostKey())
 	controlCh := channel.Channel{
 		Name:        name,
-		Leaseholder: s.cfg.HostResolver.HostKey(),
+		Leaseholder: s.cfg.HostProvider.HostKey(),
 		Virtual:     true,
 		DataType:    telem.StringT,
 		Internal:    true,

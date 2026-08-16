@@ -10,7 +10,6 @@
 import re
 from uuid import uuid4
 
-import numpy as np
 import pydantic
 import pytest
 
@@ -173,7 +172,7 @@ class TestRangeClient:
     class TestRangeChannelResolution:
         @pytest.fixture(scope="class")
         def rng(self, client: sy.Synnax) -> sy.Range:
-            name = f"test_{np.random.randint(0, 10000)}"
+            name = f"test_{random_name()}"
             return client.ranges.create(
                 name=name,
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),

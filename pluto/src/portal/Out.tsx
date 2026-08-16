@@ -20,19 +20,26 @@ import { useContext } from "@/portal/Context";
 // React synthetic events on hosted content bubble through the React tree of its
 // In, not the DOM tree of the host, so handlers passed here are bound natively
 // on the host element to catch interaction with whatever it currently hosts.
+// The Capture variant binds in the capture phase, so it fires before any handler
+// inside the hosted content and can act ahead of it (e.g. focusing this host's
+// tab before a same-click navigation the content triggers).
 const DELEGATED_EVENTS = {
-  onClick: "click",
-  onDoubleClick: "dblclick",
-  onContextMenu: "contextmenu",
-  onPointerDown: "pointerdown",
-  onPointerUp: "pointerup",
-  onMouseDown: "mousedown",
-  onMouseUp: "mouseup",
-  onMouseEnter: "mouseenter",
-  onMouseLeave: "mouseleave",
-  onKeyDown: "keydown",
-  onKeyUp: "keyup",
-} as const satisfies Record<string, keyof HTMLElementEventMap>;
+  onClick: { name: "click", capture: false },
+  onClickCapture: { name: "click", capture: true },
+  onDoubleClick: { name: "dblclick", capture: false },
+  onContextMenu: { name: "contextmenu", capture: false },
+  onPointerDown: { name: "pointerdown", capture: false },
+  onPointerUp: { name: "pointerup", capture: false },
+  onMouseDown: { name: "mousedown", capture: false },
+  onMouseUp: { name: "mouseup", capture: false },
+  onMouseEnter: { name: "mouseenter", capture: false },
+  onMouseLeave: { name: "mouseleave", capture: false },
+  onKeyDown: { name: "keydown", capture: false },
+  onKeyUp: { name: "keyup", capture: false },
+} as const satisfies Record<
+  string,
+  { name: keyof HTMLElementEventMap; capture: boolean }
+>;
 
 type DelegatedEventMap = typeof DELEGATED_EVENTS;
 
@@ -42,7 +49,7 @@ type DelegatedEventMap = typeof DELEGATED_EVENTS;
  */
 export type HostHandlers = {
   [K in keyof DelegatedEventMap]?: (
-    ev: HTMLElementEventMap[DelegatedEventMap[K]],
+    ev: HTMLElementEventMap[DelegatedEventMap[K]["name"]],
   ) => void;
 };
 
@@ -68,6 +75,7 @@ export interface OutProps
 export const Out = ({
   itemKey,
   onClick,
+  onClickCapture,
   onDoubleClick,
   onContextMenu,
   onPointerDown,
@@ -84,6 +92,7 @@ export const Out = ({
   const host = useRef<HTMLDivElement>(null);
   const handlers = useSyncedRef<HostHandlers>({
     onClick,
+    onClickCapture,
     onDoubleClick,
     onContextMenu,
     onPointerDown,
@@ -98,15 +107,17 @@ export const Out = ({
   useLayoutEffect(() => {
     const hostEl = host.current;
     if (hostEl == null) return;
-    const bound = Object.entries(DELEGATED_EVENTS).map(([reactName, nativeName]) => {
-      const listener = (ev: Event): void =>
-        (
-          handlers.current[reactName as keyof HostHandlers] as
-            ((e: Event) => void) | undefined
-        )?.(ev);
-      hostEl.addEventListener(nativeName, listener);
-      return () => hostEl.removeEventListener(nativeName, listener);
-    });
+    const bound = Object.entries(DELEGATED_EVENTS).map(
+      ([reactName, { name, capture }]) => {
+        const listener = (ev: Event): void =>
+          (
+            handlers.current[reactName as keyof HostHandlers] as
+              ((e: Event) => void) | undefined
+          )?.(ev);
+        hostEl.addEventListener(name, listener, capture);
+        return () => hostEl.removeEventListener(name, listener, capture);
+      },
+    );
     return () => bound.forEach((unbind) => unbind());
   }, []);
   // Attachment is fully imperative: the hosted element never appears in JSX,

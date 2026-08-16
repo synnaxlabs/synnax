@@ -31,11 +31,19 @@ cc_library(
 cc_test(
     name = "control_test",
     srcs = ["control_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl/control",
+        "//arc/cpp/stl/testutil",
+        "//x/cpp/json",
+        "//x/cpp/mem",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

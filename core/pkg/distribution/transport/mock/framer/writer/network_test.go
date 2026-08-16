@@ -38,23 +38,26 @@ var _ = Describe("Transport", func() {
 		client = net.New(gateway, 1)
 	})
 
-	It("Should round-trip a request through the streaming transport", func(ctx SpecContext) {
-		server.Server().BindHandler(func(
-			_ context.Context,
-			srv freighter.ServerStream[distwriter.Request, distwriter.Response],
-		) error {
-			req, err := srv.Receive()
-			if err != nil {
-				return err
-			}
-			return srv.Send(distwriter.Response{SeqNum: req.SeqNum})
-		})
-		stream := MustSucceed(client.Client().Stream(ctx, leaseholder))
-		Expect(stream.Send(distwriter.Request{
-			SeqNum:  42,
-			Command: distwriter.CommandWrite,
-		})).To(Succeed())
-		Expect(MustSucceed(stream.Receive()).SeqNum).To(Equal(42))
-		Expect(stream.CloseSend()).To(Succeed())
-	})
+	It(
+		"Should round-trip a request through the streaming transport",
+		func(ctx SpecContext) {
+			server.Server().BindHandler(func(
+				_ context.Context,
+				srv freighter.ServerStream[distwriter.Request, distwriter.Response],
+			) error {
+				req, err := srv.Receive()
+				if err != nil {
+					return err
+				}
+				return srv.Send(distwriter.Response{SeqNum: req.SeqNum})
+			})
+			stream := MustSucceed(client.Client().Stream(ctx, leaseholder))
+			Expect(stream.Send(distwriter.Request{
+				SeqNum:  42,
+				Command: distwriter.CommandWrite,
+			})).To(Succeed())
+			Expect(MustSucceed(stream.Receive()).SeqNum).To(Equal(42))
+			Expect(stream.CloseSend()).To(Succeed())
+		},
+	)
 })

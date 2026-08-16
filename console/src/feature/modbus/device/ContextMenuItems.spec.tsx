@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,7 +21,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createTestStore, waitForPlacedLayout } from "@/testutil";
+import { createTestStore, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -40,26 +41,35 @@ const renderItems = async () => {
     />,
     { client },
   );
+  const proj = await client.projects.create({
+    name: uniqueName("proj"),
+    layout: {},
+  });
+  handle.store.dispatch(Session.Project.select(proj.key));
   return { ...handle, dev };
 };
 
 describe("Modbus.Device.ContextMenuItems", () => {
-  it("should place the write task layout carrying the device key", async () => {
+  it("should create a write task draft bound to the device", async () => {
     const { store, dev } = await renderItems();
     fireEvent.click(await screen.findByText("Create write task"));
-    const key = await waitForPlacedLayout(store, Modbus.Task.WRITE_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), key)).toEqual({
-      deviceKey: dev.key,
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(Modbus.Task.WRITE_TYPE);
+    expect(created.config).toMatchObject({ device: dev.key });
   });
 
-  it("should place the read task layout carrying the device key", async () => {
+  it("should create a read task draft bound to the device", async () => {
     const { store, dev } = await renderItems();
     fireEvent.click(await screen.findByText("Create read task"));
-    const key = await waitForPlacedLayout(store, Modbus.Task.READ_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), key)).toEqual({
-      deviceKey: dev.key,
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(Modbus.Task.READ_TYPE);
+    expect(created.config).toMatchObject({ device: dev.key });
   });
 
   it("should open the connect modal from the edit connection item", async () => {

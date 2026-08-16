@@ -9,7 +9,17 @@
 
 from importlib.metadata import version as _version
 
-from synnax import ethercat, http, labjack, modbus, ni, opcua, pagerduty, status
+from synnax import (
+    ethercat,
+    http,
+    labjack,
+    modbus,
+    ni,
+    node,
+    opcua,
+    pagerduty,
+    status,
+)
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -27,6 +37,7 @@ from synnax.channel import Channel
 from synnax.control import Controller
 from synnax.device import Device
 from synnax.exceptions import (
+    AccessDenied,
     AuthError,
     ConfigurationError,
     ControlError,
@@ -108,6 +119,7 @@ __all__ = [
     "Alignment",
     "Arc",
     "AUTO_SPAN",
+    "AccessDenied",
     "AuthError",
     "Authority",
     "Controller",
@@ -180,6 +192,7 @@ __all__ = [
     "labjack",
     "modbus",
     "ni",
+    "node",
     "opcua",
     "pagerduty",
     "ontology",

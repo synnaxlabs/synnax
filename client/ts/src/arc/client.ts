@@ -12,11 +12,24 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type Action, dispatchReqZ } from "@/arc/actions.gen";
-import { type Arc, arcZ, type Key, keyZ, type New } from "@/arc/types.gen";
+import { actions } from "@/actions";
+import { createOf, isUndoable, kindOf, reduceAll } from "@/arc/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+  scopedActionZ,
+} from "@/arc/actions.gen";
+import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
+import { NotFoundError } from "@/errors";
+import { ontology } from "@/ontology";
+import { query } from "@/query";
+import { rack } from "@/rack";
+import { type status } from "@/status";
+import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
@@ -29,7 +42,9 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
+const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -56,71 +71,420 @@ const nameRetrieveRequestZ = z
   })
   .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
 
-export const singleRetrieveArgsZ = z.union([keyRetrieveRequestZ, nameRetrieveRequestZ]);
+export const singleRetrieveParamsZ = z.union([
+  keyRetrieveRequestZ,
+  nameRetrieveRequestZ,
+]);
 
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
-export class Client {
-  private readonly client: UnaryClient;
-  private readonly streamClient: StreamClient;
+const singleQueryZ = z.union([
+  z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
+  z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
+  keyZ.transform((key) => ({ key })),
+]);
 
-  constructor(client: UnaryClient, streamClient: StreamClient) {
-    this.client = client;
-    this.streamClient = streamClient;
+const setRackReqZ = z.object({ key: keyZ, rack: rack.keyZ });
+const setRackResZ = z.object({ task: task.payloadZ().nullish() });
+
+/**
+ * Client-side matching for a request: key and name sets. Server-computed
+ * shapes (search, pagination) never reach this filter; they refetch instead.
+ */
+const requestFilter = (req: RetrieveRequest): ((a: Arc) => boolean) => {
+  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
+  return (a) => {
+    if (keySet != null && !keySet.has(a.key)) return false;
+    if (nameSet != null && !nameSet.has(a.name)) return false;
+    return true;
+  };
+};
+
+const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
+  ontology.matchRelationship(rel, {
+    from: ontologyID(arcKey),
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    to: { type: "task" },
+  });
+
+const taskStatusZ = z.object({ details: z.object({ task: task.keyZ }) });
+
+// Task statuses may arrive under any status key; the referenced task lives in
+// the details, with the "task:<key>" status key as a fallback.
+const affectedTaskKeys = (
+  event: query.TableEvent<status.Key, status.Status>,
+): task.Key[] | null => {
+  const keys: task.Key[] = [];
+  if (event.variant === "set") {
+    const parsed = taskStatusZ.safeParse(event.value);
+    if (parsed.success) keys.push(parsed.data.details.task);
+  }
+  const [type, key] = event.key.split(":");
+  if (type === "task" && primitive.isNonZero(key) && !keys.includes(key))
+    keys.push(key);
+  return keys.length === 0 ? null : keys;
+};
+
+export interface ClientConfig {
+  unary: UnaryClient;
+  stream: StreamClient;
+  ontology: ontology.Client;
+  tasks: task.Client;
+  cache: query.Cache;
+  statusStore: query.Table<status.Key, status.Status>;
+}
+
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  Arc,
+  Arc,
+  SingleRetrieveParams,
+  SingleRetrieveParams
+> {
+  private readonly cfg: ClientConfig;
+  private readonly dispatcher: actions.Controller<Key, Arc, Action>;
+  private readonly store: query.Table<Key, Arc>;
+  private readonly taskAnswers: query.Retrieves<Key, task.Task | null>;
+
+  constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
+    // Fetched copies never clobber a doc holding locally replayed edits: the
+    // table hydrates if-absent, and hydrate() decides when a fresh network
+    // doc replaces the cached one.
+    const store = cache.createTable<Key, Arc>({
+      name: "arcs",
+      hydrate: "if-absent",
+      fetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
+    });
+    const dispatcher = new actions.Controller<Key, Arc, Action>({
+      store,
+      onError: cache.onError,
+      reduce: reduceAll,
+      isUndoable,
+      kindOf,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
+    const single = cache.queries<SingleRetrieveParams, Arc, Key, Arc>({
+      name: "arc",
+      table: store,
+      fetch: async (q) => [(await this.fetchSingle(q)).key],
+      compose: (records) => records[0],
+      keyOf: (q) => ("key" in q ? q.key : null),
+      matches: (a, q) => ("key" in q ? a.key === q.key : a.name === q.name),
+      single: true,
+    });
+    super(cache, {
+      name: "arc",
+      table: store,
+      request: {
+        schema: retrieveMultiParamsZ,
+        fetch: async (req) =>
+          (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
+        matches: (a, req) => requestFilter(req)(a),
+      },
+      single: { schema: singleQueryZ, space: single },
+    });
+    this.cfg = cfg;
+    this.store = store;
+    this.dispatcher = dispatcher;
+    const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({
+      name: "arc.task.composed",
+      source: this.cfg.tasks.store,
+      compose: (record) => this.composeTask(record),
+      equal: (a, b) => deep.equal(a.payload, b.payload),
+      watch: [
+        query.deriveWatch(this.cfg.statusStore, (event) => affectedTaskKeys(event)),
+      ],
+    });
+    this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
+      name: "arc task",
+      table: composedTasks,
+      fetch: async (q) => {
+        const tsk = await this.fetchTask(q);
+        return tsk == null ? [] : [tsk.key];
+      },
+      compose: (records) => records[0] ?? null,
+      matches: (t, q) =>
+        this.cfg.ontology.cache.relationships.has(
+          ontology.relationshipToString({
+            from: ontologyID(q),
+            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+            to: task.ontologyID(t.key),
+          }),
+        ),
+      watch: [
+        query.watch(this.cfg.ontology.cache.relationships, (event, q: Key) => {
+          const rel =
+            event.variant === "set"
+              ? event.value
+              : ontology.relationshipZ.parse(event.key);
+          if (!isTaskChild(rel, q)) return null;
+          return [rel.to.key];
+        }),
+      ],
+    });
   }
 
-  async create(arc: New): Promise<Arc>;
-  async create(arcs: New[]): Promise<Arc[]>;
-  async create(arcs: New | New[]): Promise<Arc | Arc[]> {
+  async create(arc: New, opts?: query.WriteOptions<Arc[]>): Promise<Arc>;
+  async create(arcs: New[], opts?: query.WriteOptions<Arc[]>): Promise<Arc[]>;
+  async create(
+    arcs: New | New[],
+    opts: query.WriteOptions<Arc[]> = {},
+  ): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
-    const res = await this.client.send(
-      "/arc/create",
-      { arcs: array.toArray(arcs) },
-      createReqZ,
-      createResZ,
-    );
+    const optimistic = array.toArray(arcs).map((a) => arcZ.parse(a));
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/arc/create",
+          { arcs: optimistic },
+          createReqZ,
+          createResZ,
+        ),
+    });
+    this.store.set(res.arcs);
     return isMany ? res.arcs : res.arcs[0];
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Arc>;
-  async retrieve(args: RetrieveArgs): Promise<Arc[]>;
-  async retrieve(args: RetrieveArgs): Promise<Arc | Arc[]> {
-    const isSingle = "key" in args || "name" in args;
-    const res = await this.client.send(
-      "/arc/retrieve",
-      args,
-      retrieveArgsZ,
-      retrieveResZ,
+  /**
+   * Binds the arc to the given rack, creating its task there or moving the
+   * existing one. A zero rack unbinds the arc, deleting its task. Returns the
+   * task, or null after an unbind.
+   * @throws {ValidationError} when unbinding while the task is running.
+   */
+  async setRack(key: Key, rackKey: rack.Key): Promise<task.Task | null> {
+    if (rackKey === 0) {
+      await this.clearRack(key);
+      return null;
+    }
+    const res = await this.cfg.unary.send(
+      "/arc/set-rack",
+      { key, rack: rackKey },
+      setRackReqZ,
+      setRackResZ,
     );
-    checkForMultipleOrNoResults("Arc", args, res.arcs, isSingle);
-    return isSingle ? res.arcs[0] : res.arcs;
+    if (res.task == null) return null;
+    const tsk = this.cfg.tasks.sugar(res.task);
+    this.cfg.tasks.store.set(tsk);
+    return tsk;
   }
 
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/arc/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      emptyResZ,
+  // clearRack drops the deleted task from the cache so it is not served until
+  // the delete signal lands.
+  private async clearRack(key: Key): Promise<void> {
+    const tsk = await this.retrieveTask(key);
+    await this.cfg.unary.send(
+      "/arc/set-rack",
+      { key, rack: 0 },
+      setRackReqZ,
+      setRackResZ,
     );
+    if (tsk != null) this.cfg.tasks.dropCached(tsk.key);
+  }
+
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const tsk = await this.retrieveTask(key);
+    if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
+    const rename = () => query.partialUpdate(this.store, key, { name });
+    await query.optimistic({
+      rollbacks: [rename()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.sendDispatch(key, id.create(), [renameAction({ name })]),
+    });
+    rename();
+  }
+
+  private async retrieveTask(key: Key): Promise<task.Task | null> {
+    return await this.taskAnswers.retrieve(key);
+  }
+
+  /**
+   * Cached queries for the task deployed for an arc, keyed by the arc's key.
+   * Resolves null when the arc has no task.
+   */
+  get task(): query.Retrieves<Key, task.Task | null> {
+    return this.taskAnswers;
+  }
+
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const drop = () => this.store.delete(keysArr);
+    await query.optimistic({
+      rollbacks: [drop()],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/arc/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
+  }
+
+  /** Subscribes to every arc delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
-    return await this.streamClient.stream("/arc/lsp", lspMessageZ, lspMessageZ);
+    return await this.cfg.stream.stream("/arc/lsp", lspMessageZ, lspMessageZ);
   }
 
-  /** dispatch relays a sequence of collaborative-edit actions for the arc with the given
-   * key to the other clients editing it. */
-  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
-    await this.client.send(
+  /**
+   * Applies actions to the cached arc and sends them to the server,
+   * recording an undoable entry. Returns false without side effects when the
+   * arc isn't cached. Rolls back the local apply and rethrows on send
+   * failure.
+   */
+  async dispatch(
+    key: Key,
+    actions: Action | Action[],
+    opts: actions.Options<Arc, Action> = {},
+  ): Promise<boolean> {
+    return await this.dispatcher.dispatch(
+      key,
+      array.toArray(actions),
+      this.dispatchSender(key),
+      opts,
+    );
+  }
+
+  /**
+   * Reverts the arc's most recent undoable entry. Returns false when
+   * nothing is undoable.
+   */
+  async undo(key: Key): Promise<boolean> {
+    return await this.dispatcher.undo(key, this.dispatchSender(key));
+  }
+
+  /**
+   * Re-applies the arc's most recently undone entry. Returns false when
+   * nothing is redoable.
+   */
+  async redo(key: Key): Promise<boolean> {
+    return await this.dispatcher.redo(key, this.dispatchSender(key));
+  }
+
+  /** Whether the arc has a live undo entry. */
+  hasUndo(key: Key): boolean {
+    return this.dispatcher.hasUndo(key);
+  }
+
+  /** Whether the arc has a live redo entry. */
+  hasRedo(key: Key): boolean {
+    return this.dispatcher.hasRedo(key);
+  }
+
+  /**
+   * Subscribes to changes in the arc's undo/redo stacks. Returns a
+   * destructor that unsubscribes.
+   */
+  onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
+    return this.dispatcher.onUndoStateChange(callback, key);
+  }
+
+  /**
+   * Stages actions committed atomically as one undoable entry.
+   */
+  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
+  }
+
+  private dispatchSender(key: Key): actions.SendDispatch<Action> {
+    return async (actions, dispatchKey) =>
+      await this.sendDispatch(key, dispatchKey, actions);
+  }
+
+  private async sendDispatch(
+    key: Key,
+    dispatchKey: string,
+    actions: Action[],
+  ): Promise<void> {
+    await this.cfg.unary.send(
       "/arc/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
       emptyResZ,
     );
+  }
+
+  private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {
+    const res = await this.cfg.unary.send(
+      "/arc/retrieve",
+      params,
+      retrieveParamsZ,
+      retrieveResZ,
+    );
+    return res.arcs;
+  }
+
+  // Dispatch mutates documents server-side (including materialized text), so
+  // a cached copy is only as fresh as the streamer. Fetches always hit the
+  // network; only the server materializes text.
+  private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
+    const arcs = await this.execRetrieve(q);
+    checkForMultipleOrNoResults("Arc", q, arcs, true);
+    return this.hydrate(arcs[0]);
+  }
+
+  // Answers reuse the identical store doc so selector references stay
+  // stable; a fresher network doc replaces it and answers. While a locally
+  // replayed dispatch awaits its echo the replayed doc stays, but the
+  // network doc answers: it carries the server-materialized text.
+  private hydrate(a: Arc): Arc {
+    if (this.dispatcher.hasOutstanding(a.key) === true) {
+      this.store.ingest(a);
+      return a;
+    }
+    const prev = this.store.get(a.key);
+    if (prev != null && deep.equal(prev, a)) return prev;
+    this.store.set(a);
+    return a;
+  }
+
+  /**
+   * Rebuilds a cached task with its cached status attached. The status is
+   * parsed because the status table holds every domain's statuses generically.
+   */
+  private composeTask(cached: Omit<task.Task, "status">): task.Task {
+    const cachedStatus = this.cfg.statusStore.get(task.statusKey(cached.key));
+    const payload = cached.payload;
+    if (cachedStatus == null) return this.cfg.tasks.sugar(payload);
+    const parsed = task.statusZ().safeParse(cachedStatus);
+    if (!parsed.success) return this.cfg.tasks.sugar(payload);
+    return this.cfg.tasks.sugar({ ...payload, status: parsed.data });
+  }
+
+  private async fetchTask(arcKey: Key): Promise<task.Task | null> {
+    let children: ontology.Resource[];
+    try {
+      children = await this.cfg.ontology.children.retrieve({
+        ids: ontologyID(arcKey),
+        types: ["task"],
+      });
+    } catch (e) {
+      // An arc that does not exist cannot have a task.
+      if (NotFoundError.matches(e)) return null;
+      throw errors.fromUnknown(e);
+    }
+    const child = children[0];
+    if (child == null) return null;
+    return await this.cfg.tasks.retrieve(child.id.key);
   }
 }

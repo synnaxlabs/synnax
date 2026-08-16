@@ -10,31 +10,71 @@
 import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
-import { convertChannelTypeToPortType } from "@/feature/labjack/task/convertChannelTypeToPortType";
+import {
+  convertPortTypeToReadChannelType,
+  convertPortTypeToWriteChannelType,
+  convertReadChannelTypeToPortType,
+  convertWriteChannelTypeToPortType,
+} from "@/feature/labjack/task/convertChannelTypeToPortType";
 
-describe("convertChannelTypeToPortType", () => {
-  it(`should convert "AI" to ${LabJack.Device.AI_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType("AI");
-    expect(result).toBe(LabJack.Device.AI_PORT_TYPE);
+describe("convertReadChannelTypeToPortType", () => {
+  it(`should convert "analog" to ${LabJack.Device.AI_PORT_TYPE}`, () => {
+    expect(convertReadChannelTypeToPortType("analog")).toBe(
+      LabJack.Device.AI_PORT_TYPE,
+    );
   });
 
-  it(`should convert "AO" to ${LabJack.Device.AO_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType("AO");
-    expect(result).toBe(LabJack.Device.AO_PORT_TYPE);
+  it(`should convert "digital" to ${LabJack.Device.DI_PORT_TYPE}`, () => {
+    expect(convertReadChannelTypeToPortType("digital")).toBe(
+      LabJack.Device.DI_PORT_TYPE,
+    );
   });
 
-  it(`should convert "DI" to ${LabJack.Device.DI_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType("DI");
-    expect(result).toBe(LabJack.Device.DI_PORT_TYPE);
+  it(`should convert "thermocouple" to ${LabJack.Device.AI_PORT_TYPE}`, () => {
+    expect(convertReadChannelTypeToPortType("thermocouple")).toBe(
+      LabJack.Device.AI_PORT_TYPE,
+    );
+  });
+});
+
+describe("convertWriteChannelTypeToPortType", () => {
+  it(`should convert "analog" to ${LabJack.Device.AO_PORT_TYPE}`, () => {
+    expect(convertWriteChannelTypeToPortType("analog")).toBe(
+      LabJack.Device.AO_PORT_TYPE,
+    );
   });
 
-  it(`should convert "DO" to ${LabJack.Device.DO_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType("DO");
-    expect(result).toBe(LabJack.Device.DO_PORT_TYPE);
+  it(`should convert "digital" to ${LabJack.Device.DO_PORT_TYPE}`, () => {
+    expect(convertWriteChannelTypeToPortType("digital")).toBe(
+      LabJack.Device.DO_PORT_TYPE,
+    );
+  });
+});
+
+describe("convertPortTypeToReadChannelType", () => {
+  it(`should convert ${LabJack.Device.AI_PORT_TYPE} to "analog"`, () => {
+    expect(convertPortTypeToReadChannelType(LabJack.Device.AI_PORT_TYPE)).toBe(
+      "analog",
+    );
   });
 
-  it(`should convert "TC" to ${LabJack.Device.AI_PORT_TYPE}`, () => {
-    const result = convertChannelTypeToPortType("TC");
-    expect(result).toBe(LabJack.Device.AI_PORT_TYPE);
+  it(`should convert ${LabJack.Device.DI_PORT_TYPE} to "digital"`, () => {
+    expect(convertPortTypeToReadChannelType(LabJack.Device.DI_PORT_TYPE)).toBe(
+      "digital",
+    );
+  });
+});
+
+describe("convertPortTypeToWriteChannelType", () => {
+  it(`should convert ${LabJack.Device.AO_PORT_TYPE} to "analog"`, () => {
+    expect(convertPortTypeToWriteChannelType(LabJack.Device.AO_PORT_TYPE)).toBe(
+      "analog",
+    );
+  });
+
+  it(`should convert ${LabJack.Device.DO_PORT_TYPE} to "digital"`, () => {
+    expect(convertPortTypeToWriteChannelType(LabJack.Device.DO_PORT_TYPE)).toBe(
+      "digital",
+    );
   });
 });

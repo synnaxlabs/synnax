@@ -19,7 +19,7 @@ import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Symbol } from "@/schematic/node/vessels/tank/Symbol";
 import { type Theming } from "@/theming";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigTank => ({
+export const defaultConfig = (t: Theming.Theme): schematic.TankNodeConfig => ({
   variant: "tank",
   orientation: "left",
   color: color.ZERO,
@@ -29,7 +29,7 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigTank => ({
   borderRadius: Border.DEFAULT_RADIUS,
 });
 
-export const spec: Spec<"tank", schematic.NodeConfigTank> = {
+export const spec: Spec<"tank", schematic.TankNodeConfig> = {
   key: "tank",
   name: "Tank",
   Form: TankForm,

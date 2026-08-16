@@ -16,7 +16,6 @@ import (
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/telem"
@@ -51,7 +50,7 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[gotypes.Nil]((status.Status[gotypes.Nil])(*r.Status), nil)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -91,7 +90,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 		if err != nil {
 			return channel.Channel{}, err
 		}
-		r.Status = (*channel.Status)(&val)
+		r.Status = &val
 	}
 	return r, nil
 }

@@ -107,7 +107,11 @@ o:
 
 type MapTargetedSender[M freighter.Payload] map[address.Address]freighter.StreamSenderCloser[M]
 
-func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, msg M) error {
+func (s MapTargetedSender[M]) Send(
+	_ context.Context,
+	target address.Address,
+	msg M,
+) error {
 	sender, ok := s[target]
 	if !ok {
 		return address.NewTargetNotFoundError(target)
@@ -125,8 +129,8 @@ func (s MapTargetedSender[M]) Close() error {
 
 // BatchSwitchSender wraps a map of freighter.StreamSenderCloser to provide a confluence
 // compatible interface for sending messages over a network freighter. BatchSwitchSender
-// receives a batch of values, resolves their target addresses through a BatchSwitchFunc,
-// and sends them on their merry way.
+// receives a batch of values, resolves their target addresses through a
+// BatchSwitchFunc, and sends them on their merry way.
 type BatchSwitchSender[I, O freighter.Payload] struct {
 	Senders TargetedSender[O]
 	Switch  confluence.BatchSwitchFunc[I, O]
@@ -177,9 +181,10 @@ o:
 	return err
 }
 
-// MultiTransformSender wraps a slice of freighter.StreamSender(s) to provide a confluence
-// compatible interface for sending transformed messages over a network freighter.
-// MultiTransformSender transforms each input message and sends a copy to each sender.
+// MultiTransformSender wraps a slice of freighter.StreamSender(s) to provide a
+// confluence compatible interface for sending transformed messages over a network
+// freighter. MultiTransformSender transforms each input message and sends a copy to
+// each sender.
 type MultiTransformSender[I confluence.Value, M freighter.Payload] struct {
 	confluence.UnarySink[I]
 	Transform confluence.TransformFunc[I, M]

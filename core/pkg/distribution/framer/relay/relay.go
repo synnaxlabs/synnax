@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -44,7 +44,7 @@ type Config struct {
 	// HostResolver is used to retrieve information about the host node.
 	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostResolver cluster.HostResolver
 	// TS is the underlying time-series database engine that serves as one of the three
 	// main data sources for the relay.
 	//
@@ -103,8 +103,14 @@ func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
-	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
-	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
+	c.SlowConsumerTimeout = override.Numeric(
+		c.SlowConsumerTimeout,
+		other.SlowConsumerTimeout,
+	)
+	c.ResponseBufferSize = override.Numeric(
+		c.ResponseBufferSize,
+		other.ResponseBufferSize,
+	)
 	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
 	return c
 }
@@ -113,7 +119,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "transport", c.Transport)
-	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "free_writes", c.FreeWrites)
 	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
@@ -185,7 +191,9 @@ func (r *Relay) Close() error {
 	return err
 }
 
-func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {
+func (r *Relay) connectToDelta(
+	buf int,
+) (confluence.Outlet[Response], observe.Disconnect) {
 	var (
 		data = confluence.NewStream[Response](buf)
 		addr = address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String())

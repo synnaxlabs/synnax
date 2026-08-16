@@ -22,15 +22,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -45,12 +48,14 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	rbacSvc *rbac.Service
-	arcSvc  *arc.Service
-	apiSvc  *Service
-	author  user.User
+	db       *gorp.DB
+	otg      *ontology.Ontology
+	rbacSvc  *rbac.Service
+	arcSvc   *arc.Service
+	apiSvc   *Service
+	author   user.User
+	rackSvc  *rack.Service
+	testRack *rack.Rack
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -77,7 +82,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
 		Group:               groupSvc,
@@ -86,18 +91,24 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HealthCheckInterval: 10 * telem.Millisecond,
 		Search:              searchIdx,
 	}))
+	imexSvc := imex.NewService()
+	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		Search:   searchIdx,
+		DB:           db,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Rack:         rackSvc,
+		Status:       statusSvc,
+		Search:       searchIdx,
+		ImEx:         imexSvc,
+		Configs:      configs,
+		ImExExcluded: []string{arctask.Type},
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           db,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Status:       statusSvc,
@@ -108,7 +119,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Channel:  channelSvc,
 		Task:     taskSvc,
+		Status:   statusSvc,
 		Search:   searchIdx,
+		ImEx:     imexSvc,
 	}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
@@ -127,32 +140,53 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		User:     userSvc,
 	}))
 	apiSvc = &Service{internal: arcSvc, access: rbacSvc, status: statusSvc}
-	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
+	author = MustSucceed(
+		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+	)
+	testRack = &rack.Rack{Name: "API Test Rack"}
+	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 })
 
 // authedCtx returns a freighter.Context derived from ctx with the given user
 // installed as the request subject so auth.GetSubject succeeds.
 func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", user.OntologyID(u.Key))
+	fctx.Set("Subject", u.OntologyID())
 	return fctx
 }
 
-// grantUpdateOn creates a policy granting ActionUpdate on the given objects to
-// a fresh role and assigns the role to the given subject. Writes commit directly
-// to the database so the api.Service.Dispatch enforcer (which reads committed
-// state with no transaction) can observe them.
-func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+// grantOn creates a policy granting the given action on the given objects to a
+// fresh role and assigns the role to the given subject. Writes commit directly
+// to the database so the api enforcers (which read committed state with no
+// transaction) can observe them. The assignment is unassigned on spec cleanup so
+// a grant cannot leak into later randomized specs.
+func grantOn(
+	ctx SpecContext,
+	subject ontology.ID,
+	action access.Action,
+	objects ...ontology.ID,
+) {
+	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "update-" + uuid.New().String(), Description: "test"}
+	r := &role.Role{
+		Name:        string(action) + "-" + uuid.New().String(),
+		Description: "test",
+	}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
-		Name:    "update-policy-" + uuid.New().String(),
+		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
-		Actions: []access.Action{access.ActionUpdate},
+		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(roleWriter.UnassignRole(ctx, subject, r.Key)).To(Succeed())
+	})
+}
+
+func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }

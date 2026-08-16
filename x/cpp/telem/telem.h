@@ -619,6 +619,21 @@ public:
     static std::pair<TimeRange, x::errors::Error> from_proto(const pb::TimeRange &pb);
 };
 
+inline std::pair<pb::TimeRange, x::errors::Error> TimeRange::to_proto() const {
+    pb::TimeRange pb;
+    pb.set_start(this->start.to_proto());
+    pb.set_end(this->end.to_proto());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<TimeRange, x::errors::Error>
+TimeRange::from_proto(const pb::TimeRange &pb) {
+    TimeRange cpp;
+    cpp.start = TimeStamp::from_proto(pb.start());
+    cpp.end = TimeStamp::from_proto(pb.end());
+    return {cpp, x::errors::NIL};
+}
+
 /// @brief A stopwatch for measuring elapsed time using a monotonic clock.
 /// This class provides a simple interface for timing code execution and returns
 /// results as telem::TimeSpan for consistency with other time-related utilities.
@@ -714,6 +729,12 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const Rate &r) {
         os << r.value << " Hz";
         return os;
+    }
+
+    friend void to_json(x::json::json &j, const Rate &r) { j = r.value; }
+
+    friend void from_json(const x::json::json &j, Rate &r) {
+        r = Rate(j.get<double>());
     }
 };
 
@@ -915,6 +936,7 @@ const std::string UUID_T = "uuid";
 const std::string STRING_T = "string";
 const std::string JSON_T = "json";
 const std::string BYTES_T = "bytes";
+const std::string BOOL_T = "bool";
 const std::vector VARIABLE_TYPES = {JSON_T, STRING_T, BYTES_T};
 }
 
@@ -1041,6 +1063,21 @@ public:
         if (*this == details::UINT16_T) return telem::cast<uint16_t>(value);
         if (*this == details::UINT8_T) return telem::cast<uint8_t>(value);
         if (*this == details::TIMESTAMP_T) return telem::cast<TimeStamp>(value);
+        if (*this == details::BOOL_T) {
+            return std::visit(
+                []<typename IT>(IT &&arg) -> SampleValue {
+                    using T = std::decay_t<IT>;
+                    if constexpr (std::is_arithmetic_v<T>)
+                        return static_cast<uint8_t>(arg != 0 ? 1 : 0);
+                    else if constexpr (std::is_same_v<T, TimeStamp>)
+                        return static_cast<uint8_t>(arg.nanoseconds() != 0 ? 1 : 0);
+                    else if constexpr (std::is_same_v<T, std::string>)
+                        return static_cast<uint8_t>(!arg.empty() ? 1 : 0);
+                    return static_cast<uint8_t>(0);
+                },
+                value
+            );
+        }
         if (this->is_variable()) return telem::cast<std::string>(value);
         throw std::runtime_error(
             "cannot cast sample value to unknown data type " + this->value
@@ -1150,6 +1187,7 @@ private:
         {details::UUID_T, 16},
         {details::STRING_T, 0},
         {details::JSON_T, 0},
+        {details::BOOL_T, 1},
     };
 
     /// @brief stores a map of C++ type indexes to their corresponding synnax data
@@ -1179,6 +1217,7 @@ private:
         {std::type_index(typeid(std::uint64_t)), details::UINT64_T},
         {std::type_index(typeid(std::string)), details::STRING_T},
         {std::type_index(typeid(TimeStamp)), details::TIMESTAMP_T},
+        {std::type_index(typeid(bool)), details::BOOL_T},
     };
 };
 
@@ -1290,6 +1329,9 @@ const DataType JSON_T(details::JSON_T);
 /// in a Synnax cluster. Note that variable-length data types have reduced performance
 /// and restricted use within a Synnax cluster.
 const DataType BYTES_T(details::BYTES_T);
+/// @brief identifier for a boolean data type in a Synnax cluster. Samples are a
+/// single byte with canonical values 0x00 (false) and 0x01 (true).
+const DataType BOOL_T(details::BOOL_T);
 }
 
 template<>

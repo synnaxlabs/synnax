@@ -28,7 +28,7 @@ export const Symbol = ({
     dimensions,
     strokeWidth,
   },
-}: NodeProps<schematic.NodeConfigBox>): ReactElement => (
+}: NodeProps<schematic.BoxNodeConfig>): ReactElement => (
   <Grid.Grid
     allowCenter
     allowRotate={false}

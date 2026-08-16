@@ -25,21 +25,20 @@ Key: TypeAlias = UUID
 
 
 class Payload(BaseModel):
-    """Is a user-defined region of time in the Synnax cluster. Ranges act as a
-    method for labeling and categorizing telemetry data within specific time
-    periods.
+    """Is a user-defined region of time in the Synnax cluster. Ranges act as a method
+    for labeling and categorizing telemetry data within specific time periods.
 
     Attributes:
         key: Is the unique identifier for this range.
         name: Is a human-readable name for the range.
         time_range: Is the temporal extent of the range, defining its start and end
             timestamps.
-        color: Is an optional display color for visual identification of the range
-            in user interfaces.
-        labels: Contains optional labels attached to this range for categorization
-            and filtering.
-        parent: Is an optional parent range for hierarchical organization. Ranges
-            can be nested within other ranges.
+        color: Is an optional display color for visual identification of the range in
+            user interfaces.
+        labels: Contains optional labels attached to this range for categorization and
+            filtering.
+        parent: Is an optional parent range for hierarchical organization. Ranges can be
+            nested within other ranges.
     """
 
     key: Key

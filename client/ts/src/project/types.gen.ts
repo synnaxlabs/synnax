@@ -18,9 +18,9 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * Project is a named, persistable container that stores the layout and organization
- * of the Console application. Projects allow users to save and restore
- * custom arrangements of visualizations, tabs, and window configurations.
+ * Project is a named, persistable container that stores the layout and organization of
+ * the Console application. Projects allow users to save and restore custom arrangements
+ * of visualizations, tabs, and window configurations.
  */
 export const projectZ = z.object({
   /** key is the unique identifier for this project. */
@@ -28,9 +28,8 @@ export const projectZ = z.object({
   /** name is a human-readable name for the project. */
   name: z.string().min(1, "name is required"),
   /**
-   * layout is the mosaic tree structure that defines how visualizations are
-   * arranged. Contains tab layout, split configurations, and window
-   * positions.
+   * layout is the mosaic tree structure that defines how visualizations are arranged.
+   * Contains tab layout, split configurations, and window positions.
    */
   layout: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });

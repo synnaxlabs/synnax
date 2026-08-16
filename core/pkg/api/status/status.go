@@ -47,7 +47,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(statuses))
 	for _, s := range statuses {
-		ids = append(ids, status.OntologyID(s.Key))
+		ids = append(ids, s.OntologyID())
 		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
 	}
 	return ids
@@ -115,7 +115,10 @@ func (s *Service) SetByKeyOrName(
 	req SetByKeyOrNameRequest,
 ) (SetByKeyOrNameResponse, error) {
 	if !req.Variant.IsValid() {
-		return SetByKeyOrNameResponse{}, errors.Wrap(validate.ErrValidation, "invalid status variant")
+		return SetByKeyOrNameResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"invalid status variant",
+		)
 	}
 	matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
 	if err != nil {
@@ -129,7 +132,7 @@ func (s *Service) SetByKeyOrName(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
-		Objects: []ontology.ID{status.OntologyID(st.Key)},
+		Objects: []ontology.ID{st.OntologyID()},
 	}); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
@@ -197,7 +200,7 @@ func (s *Service) Retrieve(
 	ids := statusAccessOntologyIDs(res.Statuses)
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), nil)
+			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}

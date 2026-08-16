@@ -22,8 +22,8 @@ Key: TypeAlias = UUID
 
 
 class User(BaseModel):
-    """Is an account entity representing a person accessing the Synnax system.
-    Users can have roles assigned for permission management.
+    """Is an account entity representing a person accessing the Synnax system. Users can
+    have roles assigned for permission management.
 
     Attributes:
         key: Is the unique identifier for this user.

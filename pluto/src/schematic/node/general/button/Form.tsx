@@ -19,7 +19,7 @@ import { Tabs } from "@/tabs";
 import { Button as BaseButton } from "@/vis/button";
 
 type ButtonTelemFormT = Pick<
-  schematic.NodeConfigButton,
+  schematic.ButtonNodeConfig,
   "commandChannel" | "control" | "mode"
 >;
 
@@ -35,7 +35,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   return (
     <Form.Wrapper y empty>
       <Flex.Box x>
-        <Input.Item label="Output channel" grow padHelpText={false}>
+        <Input.Item label="Channel" grow padHelpText={false}>
           <Channel.SelectSingle
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}

@@ -17,21 +17,24 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
+import { Staleness } from "@/vis/staleness";
+
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
-    Base.useField<Pick<schematic.NodeConfigStateIndicator, "channel">>(path);
+    Base.useField<Pick<schematic.StateIndicatorNodeConfig, "channel">>(path);
 
   const handleSourceChange = (v: channel.Key | null): void =>
     onChange({ ...value, channel: v ?? undefined });
 
   return (
     <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle
           value={value.channel ?? 0}
           onChange={handleSourceChange}
         />
       </Input.Item>
+      <Staleness.Fields />
     </Form.Wrapper>
   );
 };

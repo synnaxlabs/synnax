@@ -13,8 +13,8 @@ package schematic
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -23,361 +23,492 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
-type Key = uuid.UUID
-
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
-type FlexAlignment string
-
-const (
-	FlexAlignmentStart   FlexAlignment = "start"
-	FlexAlignmentCenter  FlexAlignment = "center"
-	FlexAlignmentEnd     FlexAlignment = "end"
-	FlexAlignmentStretch FlexAlignment = "stretch"
-)
-
-// IsValid reports whether f is one of the defined FlexAlignment values.
-func (f FlexAlignment) IsValid() bool {
-	switch f {
-	case FlexAlignmentStart, FlexAlignmentCenter, FlexAlignmentEnd, FlexAlignmentStretch:
-		return true
-	default:
-		return false
-	}
-}
-
-// ComponentSize is a discrete size preset for interactive components.
-type ComponentSize string
-
-const (
-	ComponentSizeTiny   ComponentSize = "tiny"
-	ComponentSizeSmall  ComponentSize = "small"
-	ComponentSizeMedium ComponentSize = "medium"
-	ComponentSizeLarge  ComponentSize = "large"
-	ComponentSizeHuge   ComponentSize = "huge"
-)
-
-// IsValid reports whether c is one of the defined ComponentSize values.
-func (c ComponentSize) IsValid() bool {
-	switch c {
-	case ComponentSizeTiny, ComponentSizeSmall, ComponentSizeMedium, ComponentSizeLarge, ComponentSizeHuge:
-		return true
-	default:
-		return false
-	}
-}
-
-// ButtonMode is the actuation behavior of a button: fire writes once on click,
-// momentary writes on press and clears on release, and pulse writes a one-cycle pulse.
-type ButtonMode string
-
-const (
-	ButtonModeFire      ButtonMode = "fire"
-	ButtonModeMomentary ButtonMode = "momentary"
-	ButtonModePulse     ButtonMode = "pulse"
-)
-
-// IsValid reports whether b is one of the defined ButtonMode values.
-func (b ButtonMode) IsValid() bool {
-	switch b {
-	case ButtonModeFire, ButtonModeMomentary, ButtonModePulse:
-		return true
-	default:
-		return false
-	}
-}
+type Key = versions.Key
 
 // Node is a diagram node representing a symbol in the schematic.
-type Node struct {
-	// Key is the unique node identifier within the schematic.
-	Key string `json:"key" msgpack:"key"`
-	// Position is the top-left position of the node.
-	Position spatial.XY `json:"position" msgpack:"position"`
-	// ZIndex is the stacking order of the node within the schematic. Higher values render
-	// above lower values. Set by the user via send-to-back / bring-to-front actions.
-	ZIndex int16 `json:"z_index" msgpack:"z_index"`
-}
+type Node = versions.Node
 
 // Handle is a reference to a specific connection point on a specific node. For
 // schematics, param is the symbol handle key (e.g. inlet, outlet).
-type Handle struct {
-	// Node is the node identifier.
-	Node string `json:"node" msgpack:"node"`
-	// Param is the connection point identifier on the node.
-	Param string `json:"param" msgpack:"param"`
-}
+type Handle = versions.Handle
 
 // Edge is a connection between two nodes in the schematic.
-type Edge struct {
-	// Key is the unique edge identifier within the schematic.
-	Key string `json:"key" msgpack:"key"`
-	// Source is the source endpoint of the edge.
-	Source Handle `json:"source" msgpack:"source"`
-	// Target is the target endpoint of the edge.
-	Target Handle `json:"target" msgpack:"target"`
-}
+type Edge = versions.Edge
 
 // Segment is a single orthogonal run in an edge's connector path.
-type Segment struct {
-	// Direction is the axis along which the segment travels.
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Length is the signed length of the segment in pixels.
-	Length float64 `json:"length" msgpack:"length"`
-}
-
-func (s Segment) Validate() error {
-	v := validate.New("Segment")
-	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
-	return v.Error()
-}
+type Segment = versions.Segment
 
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
-type SegmentedEdgeConfig struct {
-	// Color is the stroke color of the edge.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Segments is the ordered list of orthogonal runs that trace the connector path from
-	// the source handle to the target handle.
-	Segments []Segment `json:"segments,omitzero" msgpack:"segments,omitzero"`
-}
+type SegmentedEdgeConfig = versions.SegmentedEdgeConfig
 
-func (s SegmentedEdgeConfig) Validate() error {
-	v := validate.New("SegmentedEdgeConfig")
-	for i := range s.Segments {
-		v.Exec(func() error { return validate.PathedError(s.Segments[i].Validate(), "segments", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
+// FlexAlignment is a cross-axis flex alignment for laid-out content.
+type FlexAlignment = versions.FlexAlignment
+
+const (
+	FlexAlignmentStart   FlexAlignment = versions.FlexAlignmentStart
+	FlexAlignmentCenter  FlexAlignment = versions.FlexAlignmentCenter
+	FlexAlignmentEnd     FlexAlignment = versions.FlexAlignmentEnd
+	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
+)
+
+// ComponentSize is a discrete size preset for interactive components.
+type ComponentSize = versions.ComponentSize
+
+const (
+	ComponentSizeTiny   ComponentSize = versions.ComponentSizeTiny
+	ComponentSizeSmall  ComponentSize = versions.ComponentSizeSmall
+	ComponentSizeMedium ComponentSize = versions.ComponentSizeMedium
+	ComponentSizeLarge  ComponentSize = versions.ComponentSizeLarge
+	ComponentSizeHuge   ComponentSize = versions.ComponentSizeHuge
+)
+
+// ButtonMode is the actuation behavior of a button: fire writes once on click,
+// momentary writes on press and clears on release, and pulse writes a one-cycle pulse.
+type ButtonMode = versions.ButtonMode
+
+const (
+	ButtonModeFire      ButtonMode = versions.ButtonModeFire
+	ButtonModeMomentary ButtonMode = versions.ButtonModeMomentary
+	ButtonModePulse     ButtonMode = versions.ButtonModePulse
+)
 
 // LabelConfig is the text label configuration shared by schematic symbols.
-type LabelConfig struct {
-	// Label is the text content of the label.
-	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
-	// Level is the typography level of the label text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// Orientation is the placement of the label relative to the symbol.
-	Orientation *spatial.Location `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
-	// Direction is the axis along which the label text flows.
-	Direction *spatial.Direction `json:"direction,omitempty" msgpack:"direction,omitempty"`
-	// MaxInlineSize is the maximum inline size of the label in pixels before wrapping.
-	MaxInlineSize *float64 `json:"max_inline_size,omitempty" msgpack:"max_inline_size,omitempty"`
-	// Align is the alignment of the label text within its box.
-	Align *FlexAlignment `json:"align,omitempty" msgpack:"align,omitempty"`
-}
+type LabelConfig = versions.LabelConfig
 
 // LabeledConfig is the base configuration for any symbol that carries a label.
-type LabeledConfig struct {
-	// Label is the symbol's label configuration.
-	Label *LabelConfig `json:"label,omitempty" msgpack:"label,omitempty"`
-	// Orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
-}
+type LabeledConfig = versions.LabeledConfig
 
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
-type ControlStateConfig struct {
-	// Authority is the control authority requested when the symbol acquires its command
-	// channel. Defaults to absolute authority when unset.
-	Authority *uint8 `json:"authority,omitempty" msgpack:"authority,omitempty"`
-	// Show indicates whether the control state widget is visible.
-	Show *bool `json:"show,omitempty" msgpack:"show,omitempty"`
-	// ShowChip indicates whether the authority chip is visible.
-	ShowChip *bool `json:"show_chip,omitempty" msgpack:"show_chip,omitempty"`
-	// ShowIndicator indicates whether the state indicator is visible.
-	ShowIndicator *bool `json:"show_indicator,omitempty" msgpack:"show_indicator,omitempty"`
-	// Orientation is the placement of the control state widget relative to the symbol.
-	Orientation *spatial.Location `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
-}
+type ControlStateConfig = versions.ControlStateConfig
 
 // ToggleConfig is the base configuration for symbols actuated through a boolean
 // telemetry pair.
-type ToggleConfig struct {
-	LabeledConfig
-	// StateChannel is the channel whose value drives the symbol's active state.
-	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
-	// CommandChannel is the channel actuation commands are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay *float64 `json:"on_click_delay,omitempty" msgpack:"on_click_delay,omitempty"`
-}
+type ToggleConfig = versions.ToggleConfig
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
-type StaticSymbolConfig struct {
-	LabeledConfig
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-}
+type StaticSymbolConfig = versions.StaticSymbolConfig
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
-type ToggleSymbolConfig struct {
-	ToggleConfig
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-}
+type ToggleSymbolConfig = versions.ToggleSymbolConfig
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
 // from local state without binding to telemetry.
-type DummyToggleSymbolConfig struct {
-	LabeledConfig
-	// Enabled indicates whether the symbol renders in its active state.
-	Enabled *bool `json:"enabled,omitempty" msgpack:"enabled,omitempty"`
-	// Clickable indicates whether clicking the symbol toggles its state.
-	Clickable *bool `json:"clickable,omitempty" msgpack:"clickable,omitempty"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-}
+type DummyToggleSymbolConfig = versions.DummyToggleSymbolConfig
 
 // StateMapping maps a numeric channel value to a named, colored state.
-type StateMapping struct {
-	// Key is the unique identifier for the mapping entry.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the display name for this state.
-	Name string `json:"name" msgpack:"name"`
-	// Value is the channel value this state corresponds to.
-	Value float64 `json:"value" msgpack:"value"`
-	// Color is the display color associated with this state.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-}
+type StateMapping = versions.StateMapping
 
 // Redline maps a numeric range to a color gradient for limit visualization.
-type Redline struct {
-	// Bounds is the numeric range mapped onto the gradient.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient,omitzero" msgpack:"gradient,omitzero"`
-}
+type Redline = versions.Redline
+
+// ElementConfig is the per-element configuration stored in the schematic configs map: a
+// node config or an edge config, discriminated by variant.
+type ElementConfig = versions.ElementConfig
+type ElementConfigVariant = versions.ElementConfigVariant
+type ElementConfigType = versions.ElementConfigType
+
+const (
+	CapElementConfigType                           ElementConfigType = versions.CapElementConfigType
+	FilterElementConfigType                        ElementConfigType = versions.FilterElementConfigType
+	FlowStraightenerElementConfigType              ElementConfigType = versions.FlowStraightenerElementConfigType
+	HeaterElementElementConfigType                 ElementConfigType = versions.HeaterElementElementConfigType
+	IsoCapElementConfigType                        ElementConfigType = versions.IsoCapElementConfigType
+	IsoFilterElementConfigType                     ElementConfigType = versions.IsoFilterElementConfigType
+	NozzleElementConfigType                        ElementConfigType = versions.NozzleElementConfigType
+	OrificeElementConfigType                       ElementConfigType = versions.OrificeElementConfigType
+	OrificePlateElementConfigType                  ElementConfigType = versions.OrificePlateElementConfigType
+	StrainerElementConfigType                      ElementConfigType = versions.StrainerElementConfigType
+	StrainerConeElementConfigType                  ElementConfigType = versions.StrainerConeElementConfigType
+	ThrusterElementConfigType                      ElementConfigType = versions.ThrusterElementConfigType
+	VentElementConfigType                          ElementConfigType = versions.VentElementConfigType
+	FlowmeterGeneralElementConfigType              ElementConfigType = versions.FlowmeterGeneralElementConfigType
+	FlowmeterElectromagneticElementConfigType      ElementConfigType = versions.FlowmeterElectromagneticElementConfigType
+	FlowmeterVariableAreaElementConfigType         ElementConfigType = versions.FlowmeterVariableAreaElementConfigType
+	FlowmeterCoriolisElementConfigType             ElementConfigType = versions.FlowmeterCoriolisElementConfigType
+	FlowmeterNozzleElementConfigType               ElementConfigType = versions.FlowmeterNozzleElementConfigType
+	FlowmeterVenturiElementConfigType              ElementConfigType = versions.FlowmeterVenturiElementConfigType
+	FlowmeterRingPistonElementConfigType           ElementConfigType = versions.FlowmeterRingPistonElementConfigType
+	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = versions.FlowmeterPositiveDisplacementElementConfigType
+	FlowmeterTurbineElementConfigType              ElementConfigType = versions.FlowmeterTurbineElementConfigType
+	FlowmeterPulseElementConfigType                ElementConfigType = versions.FlowmeterPulseElementConfigType
+	FlowmeterFloatSensorElementConfigType          ElementConfigType = versions.FlowmeterFloatSensorElementConfigType
+	FlowmeterOrificeElementConfigType              ElementConfigType = versions.FlowmeterOrificeElementConfigType
+	// BoxElementConfigType is the configuration for box annotation symbols.
+	BoxElementConfigType ElementConfigType = versions.BoxElementConfigType
+	// ButtonElementConfigType is the configuration for button symbols.
+	ButtonElementConfigType ElementConfigType = versions.ButtonElementConfigType
+	// CircleElementConfigType is the configuration for circle annotation symbols.
+	CircleElementConfigType ElementConfigType = versions.CircleElementConfigType
+	// GaugeElementConfigType is the configuration for gauge symbols.
+	GaugeElementConfigType ElementConfigType = versions.GaugeElementConfigType
+	// InputElementConfigType is the configuration for free-form input symbols.
+	InputElementConfigType ElementConfigType = versions.InputElementConfigType
+	// LightElementConfigType is the configuration for indicator light symbols.
+	LightElementConfigType ElementConfigType = versions.LightElementConfigType
+	// OffPageReferenceElementConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceElementConfigType ElementConfigType = versions.OffPageReferenceElementConfigType
+	// PolygonElementConfigType is the configuration for polygon annotation symbols.
+	PolygonElementConfigType ElementConfigType = versions.PolygonElementConfigType
+	// SelectElementConfigType is the configuration for select symbols.
+	SelectElementConfigType ElementConfigType = versions.SelectElementConfigType
+	// SetpointElementConfigType is the configuration for numeric setpoint symbols.
+	SetpointElementConfigType ElementConfigType = versions.SetpointElementConfigType
+	// StateIndicatorElementConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorElementConfigType ElementConfigType = versions.StateIndicatorElementConfigType
+	// StringDisplayElementConfigType is the configuration for live string display
+	// symbols.
+	StringDisplayElementConfigType ElementConfigType = versions.StringDisplayElementConfigType
+	SwitchElementConfigType        ElementConfigType = versions.SwitchElementConfigType
+	// TextBoxElementConfigType is the configuration for text box annotation symbols.
+	TextBoxElementConfigType ElementConfigType = versions.TextBoxElementConfigType
+	// ValueElementConfigType is the configuration for live telemetry value symbols.
+	ValueElementConfigType                          ElementConfigType = versions.ValueElementConfigType
+	AgitatorElementConfigType                       ElementConfigType = versions.AgitatorElementConfigType
+	CrossBeamAgitatorElementConfigType              ElementConfigType = versions.CrossBeamAgitatorElementConfigType
+	FlatBladeAgitatorElementConfigType              ElementConfigType = versions.FlatBladeAgitatorElementConfigType
+	HeatExchangerGeneralElementConfigType           ElementConfigType = versions.HeatExchangerGeneralElementConfigType
+	HeatExchangerMElementConfigType                 ElementConfigType = versions.HeatExchangerMElementConfigType
+	HeatExchangerStraightTubeElementConfigType      ElementConfigType = versions.HeatExchangerStraightTubeElementConfigType
+	HelicalAgitatorElementConfigType                ElementConfigType = versions.HelicalAgitatorElementConfigType
+	PaddleAgitatorElementConfigType                 ElementConfigType = versions.PaddleAgitatorElementConfigType
+	PropellerAgitatorElementConfigType              ElementConfigType = versions.PropellerAgitatorElementConfigType
+	RotaryMixerElementConfigType                    ElementConfigType = versions.RotaryMixerElementConfigType
+	StaticMixerElementConfigType                    ElementConfigType = versions.StaticMixerElementConfigType
+	CavityPumpElementConfigType                     ElementConfigType = versions.CavityPumpElementConfigType
+	CentrifugalCompressorElementConfigType          ElementConfigType = versions.CentrifugalCompressorElementConfigType
+	CompressorElementConfigType                     ElementConfigType = versions.CompressorElementConfigType
+	DiaphragmPumpElementConfigType                  ElementConfigType = versions.DiaphragmPumpElementConfigType
+	EjectionPumpElementConfigType                   ElementConfigType = versions.EjectionPumpElementConfigType
+	EjectorCompressorElementConfigType              ElementConfigType = versions.EjectorCompressorElementConfigType
+	LiquidRingCompressorElementConfigType           ElementConfigType = versions.LiquidRingCompressorElementConfigType
+	PistonPumpElementConfigType                     ElementConfigType = versions.PistonPumpElementConfigType
+	PumpElementConfigType                           ElementConfigType = versions.PumpElementConfigType
+	RollerVaneCompressorElementConfigType           ElementConfigType = versions.RollerVaneCompressorElementConfigType
+	ScrewPumpElementConfigType                      ElementConfigType = versions.ScrewPumpElementConfigType
+	TurboCompressorElementConfigType                ElementConfigType = versions.TurboCompressorElementConfigType
+	VacuumPumpElementConfigType                     ElementConfigType = versions.VacuumPumpElementConfigType
+	BurstDiscElementConfigType                      ElementConfigType = versions.BurstDiscElementConfigType
+	FlameArrestorElementConfigType                  ElementConfigType = versions.FlameArrestorElementConfigType
+	FlameArrestorDetonationElementConfigType        ElementConfigType = versions.FlameArrestorDetonationElementConfigType
+	FlameArrestorExplosionElementConfigType         ElementConfigType = versions.FlameArrestorExplosionElementConfigType
+	FlameArrestorFireResElementConfigType           ElementConfigType = versions.FlameArrestorFireResElementConfigType
+	FlameArrestorFireResDetonationElementConfigType ElementConfigType = versions.FlameArrestorFireResDetonationElementConfigType
+	IsoBurstDiscElementConfigType                   ElementConfigType = versions.IsoBurstDiscElementConfigType
+	AngledValveElementConfigType                    ElementConfigType = versions.AngledValveElementConfigType
+	AngledReliefValveElementConfigType              ElementConfigType = versions.AngledReliefValveElementConfigType
+	AngledSpringLoadedReliefValveElementConfigType  ElementConfigType = versions.AngledSpringLoadedReliefValveElementConfigType
+	BallValveElementConfigType                      ElementConfigType = versions.BallValveElementConfigType
+	BreatherValveElementConfigType                  ElementConfigType = versions.BreatherValveElementConfigType
+	ButterflyValveOneElementConfigType              ElementConfigType = versions.ButterflyValveOneElementConfigType
+	ButterflyValveTwoElementConfigType              ElementConfigType = versions.ButterflyValveTwoElementConfigType
+	CheckValveElementConfigType                     ElementConfigType = versions.CheckValveElementConfigType
+	CheckValveWithArrowElementConfigType            ElementConfigType = versions.CheckValveWithArrowElementConfigType
+	ElectricRegulatorElementConfigType              ElementConfigType = versions.ElectricRegulatorElementConfigType
+	ElectricRegulatorMotorizedElementConfigType     ElementConfigType = versions.ElectricRegulatorMotorizedElementConfigType
+	FourWayValveElementConfigType                   ElementConfigType = versions.FourWayValveElementConfigType
+	GateValveElementConfigType                      ElementConfigType = versions.GateValveElementConfigType
+	IsoCheckValveElementConfigType                  ElementConfigType = versions.IsoCheckValveElementConfigType
+	ManualValveElementConfigType                    ElementConfigType = versions.ManualValveElementConfigType
+	NeedleValveElementConfigType                    ElementConfigType = versions.NeedleValveElementConfigType
+	RegulatorElementConfigType                      ElementConfigType = versions.RegulatorElementConfigType
+	RegulatorManualElementConfigType                ElementConfigType = versions.RegulatorManualElementConfigType
+	ReliefValveElementConfigType                    ElementConfigType = versions.ReliefValveElementConfigType
+	// SolenoidValveElementConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveElementConfigType           ElementConfigType = versions.SolenoidValveElementConfigType
+	SpringLoadedReliefValveElementConfigType ElementConfigType = versions.SpringLoadedReliefValveElementConfigType
+	ThreeWayValveElementConfigType           ElementConfigType = versions.ThreeWayValveElementConfigType
+	ThreeWayBallValveElementConfigType       ElementConfigType = versions.ThreeWayBallValveElementConfigType
+	ValveElementConfigType                   ElementConfigType = versions.ValveElementConfigType
+	CrossJunctionElementConfigType           ElementConfigType = versions.CrossJunctionElementConfigType
+	// CylinderElementConfigType is the configuration for cylinder vessel symbols.
+	CylinderElementConfigType ElementConfigType = versions.CylinderElementConfigType
+	// TankElementConfigType is the configuration for tank vessel symbols.
+	TankElementConfigType      ElementConfigType = versions.TankElementConfigType
+	TJunctionElementConfigType ElementConfigType = versions.TJunctionElementConfigType
+	// CustomActuatorElementConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorElementConfigType ElementConfigType = versions.CustomActuatorElementConfigType
+	// CustomStaticElementConfigType is the configuration for user-defined static
+	// symbols.
+	CustomStaticElementConfigType ElementConfigType = versions.CustomStaticElementConfigType
+	PipeElementConfigType         ElementConfigType = versions.PipeElementConfigType
+	ElectricElementConfigType     ElementConfigType = versions.ElectricElementConfigType
+	SecondaryElementConfigType    ElementConfigType = versions.SecondaryElementConfigType
+	JacketedElementConfigType     ElementConfigType = versions.JacketedElementConfigType
+	HydraulicElementConfigType    ElementConfigType = versions.HydraulicElementConfigType
+	PneumaticElementConfigType    ElementConfigType = versions.PneumaticElementConfigType
+	DataElementConfigType         ElementConfigType = versions.DataElementConfigType
+)
+
+type CapElementConfig = versions.CapElementConfig
+type FilterElementConfig = versions.FilterElementConfig
+type FlowStraightenerElementConfig = versions.FlowStraightenerElementConfig
+type HeaterElementElementConfig = versions.HeaterElementElementConfig
+type IsoCapElementConfig = versions.IsoCapElementConfig
+type IsoFilterElementConfig = versions.IsoFilterElementConfig
+type NozzleElementConfig = versions.NozzleElementConfig
+type OrificeElementConfig = versions.OrificeElementConfig
+type OrificePlateElementConfig = versions.OrificePlateElementConfig
+type StrainerElementConfig = versions.StrainerElementConfig
+type StrainerConeElementConfig = versions.StrainerConeElementConfig
+type ThrusterElementConfig = versions.ThrusterElementConfig
+type VentElementConfig = versions.VentElementConfig
+type FlowmeterGeneralElementConfig = versions.FlowmeterGeneralElementConfig
+type FlowmeterElectromagneticElementConfig = versions.FlowmeterElectromagneticElementConfig
+type FlowmeterVariableAreaElementConfig = versions.FlowmeterVariableAreaElementConfig
+type FlowmeterCoriolisElementConfig = versions.FlowmeterCoriolisElementConfig
+type FlowmeterNozzleElementConfig = versions.FlowmeterNozzleElementConfig
+type FlowmeterVenturiElementConfig = versions.FlowmeterVenturiElementConfig
+type FlowmeterRingPistonElementConfig = versions.FlowmeterRingPistonElementConfig
+type FlowmeterPositiveDisplacementElementConfig = versions.FlowmeterPositiveDisplacementElementConfig
+type FlowmeterTurbineElementConfig = versions.FlowmeterTurbineElementConfig
+type FlowmeterPulseElementConfig = versions.FlowmeterPulseElementConfig
+type FlowmeterFloatSensorElementConfig = versions.FlowmeterFloatSensorElementConfig
+type FlowmeterOrificeElementConfig = versions.FlowmeterOrificeElementConfig
+
+// BoxElementConfig is the configuration for box annotation symbols.
+type BoxElementConfig = versions.BoxElementConfig
+
+// ButtonElementConfig is the configuration for button symbols.
+type ButtonElementConfig = versions.ButtonElementConfig
+
+// CircleElementConfig is the configuration for circle annotation symbols.
+type CircleElementConfig = versions.CircleElementConfig
+
+// GaugeElementConfig is the configuration for gauge symbols.
+type GaugeElementConfig = versions.GaugeElementConfig
+
+// InputElementConfig is the configuration for free-form input symbols.
+type InputElementConfig = versions.InputElementConfig
+
+// LightElementConfig is the configuration for indicator light symbols.
+type LightElementConfig = versions.LightElementConfig
+
+// OffPageReferenceElementConfig is the configuration for off-page reference symbols.
+type OffPageReferenceElementConfig = versions.OffPageReferenceElementConfig
+
+// PolygonElementConfig is the configuration for polygon annotation symbols.
+type PolygonElementConfig = versions.PolygonElementConfig
+
+// SelectElementConfig is the configuration for select symbols.
+type SelectElementConfig = versions.SelectElementConfig
+
+// SetpointElementConfig is the configuration for numeric setpoint symbols.
+type SetpointElementConfig = versions.SetpointElementConfig
+
+// StateIndicatorElementConfig is the configuration for multi-state indicator symbols.
+type StateIndicatorElementConfig = versions.StateIndicatorElementConfig
+
+// StringDisplayElementConfig is the configuration for live string display symbols.
+type StringDisplayElementConfig = versions.StringDisplayElementConfig
+type SwitchElementConfig = versions.SwitchElementConfig
+
+// TextBoxElementConfig is the configuration for text box annotation symbols.
+type TextBoxElementConfig = versions.TextBoxElementConfig
+
+// ValueElementConfig is the configuration for live telemetry value symbols.
+type ValueElementConfig = versions.ValueElementConfig
+type AgitatorElementConfig = versions.AgitatorElementConfig
+type CrossBeamAgitatorElementConfig = versions.CrossBeamAgitatorElementConfig
+type FlatBladeAgitatorElementConfig = versions.FlatBladeAgitatorElementConfig
+type HeatExchangerGeneralElementConfig = versions.HeatExchangerGeneralElementConfig
+type HeatExchangerMElementConfig = versions.HeatExchangerMElementConfig
+type HeatExchangerStraightTubeElementConfig = versions.HeatExchangerStraightTubeElementConfig
+type HelicalAgitatorElementConfig = versions.HelicalAgitatorElementConfig
+type PaddleAgitatorElementConfig = versions.PaddleAgitatorElementConfig
+type PropellerAgitatorElementConfig = versions.PropellerAgitatorElementConfig
+type RotaryMixerElementConfig = versions.RotaryMixerElementConfig
+type StaticMixerElementConfig = versions.StaticMixerElementConfig
+type CavityPumpElementConfig = versions.CavityPumpElementConfig
+type CentrifugalCompressorElementConfig = versions.CentrifugalCompressorElementConfig
+type CompressorElementConfig = versions.CompressorElementConfig
+type DiaphragmPumpElementConfig = versions.DiaphragmPumpElementConfig
+type EjectionPumpElementConfig = versions.EjectionPumpElementConfig
+type EjectorCompressorElementConfig = versions.EjectorCompressorElementConfig
+type LiquidRingCompressorElementConfig = versions.LiquidRingCompressorElementConfig
+type PistonPumpElementConfig = versions.PistonPumpElementConfig
+type PumpElementConfig = versions.PumpElementConfig
+type RollerVaneCompressorElementConfig = versions.RollerVaneCompressorElementConfig
+type ScrewPumpElementConfig = versions.ScrewPumpElementConfig
+type TurboCompressorElementConfig = versions.TurboCompressorElementConfig
+type VacuumPumpElementConfig = versions.VacuumPumpElementConfig
+type BurstDiscElementConfig = versions.BurstDiscElementConfig
+type FlameArrestorElementConfig = versions.FlameArrestorElementConfig
+type FlameArrestorDetonationElementConfig = versions.FlameArrestorDetonationElementConfig
+type FlameArrestorExplosionElementConfig = versions.FlameArrestorExplosionElementConfig
+type FlameArrestorFireResElementConfig = versions.FlameArrestorFireResElementConfig
+type FlameArrestorFireResDetonationElementConfig = versions.FlameArrestorFireResDetonationElementConfig
+type IsoBurstDiscElementConfig = versions.IsoBurstDiscElementConfig
+type AngledValveElementConfig = versions.AngledValveElementConfig
+type AngledReliefValveElementConfig = versions.AngledReliefValveElementConfig
+type AngledSpringLoadedReliefValveElementConfig = versions.AngledSpringLoadedReliefValveElementConfig
+type BallValveElementConfig = versions.BallValveElementConfig
+type BreatherValveElementConfig = versions.BreatherValveElementConfig
+type ButterflyValveOneElementConfig = versions.ButterflyValveOneElementConfig
+type ButterflyValveTwoElementConfig = versions.ButterflyValveTwoElementConfig
+type CheckValveElementConfig = versions.CheckValveElementConfig
+type CheckValveWithArrowElementConfig = versions.CheckValveWithArrowElementConfig
+type ElectricRegulatorElementConfig = versions.ElectricRegulatorElementConfig
+type ElectricRegulatorMotorizedElementConfig = versions.ElectricRegulatorMotorizedElementConfig
+type FourWayValveElementConfig = versions.FourWayValveElementConfig
+type GateValveElementConfig = versions.GateValveElementConfig
+type IsoCheckValveElementConfig = versions.IsoCheckValveElementConfig
+type ManualValveElementConfig = versions.ManualValveElementConfig
+type NeedleValveElementConfig = versions.NeedleValveElementConfig
+type RegulatorElementConfig = versions.RegulatorElementConfig
+type RegulatorManualElementConfig = versions.RegulatorManualElementConfig
+type ReliefValveElementConfig = versions.ReliefValveElementConfig
+
+// SolenoidValveElementConfig is the configuration for solenoid valve symbols.
+type SolenoidValveElementConfig = versions.SolenoidValveElementConfig
+type SpringLoadedReliefValveElementConfig = versions.SpringLoadedReliefValveElementConfig
+type ThreeWayValveElementConfig = versions.ThreeWayValveElementConfig
+type ThreeWayBallValveElementConfig = versions.ThreeWayBallValveElementConfig
+type ValveElementConfig = versions.ValveElementConfig
+type CrossJunctionElementConfig = versions.CrossJunctionElementConfig
+
+// CylinderElementConfig is the configuration for cylinder vessel symbols.
+type CylinderElementConfig = versions.CylinderElementConfig
+
+// TankElementConfig is the configuration for tank vessel symbols.
+type TankElementConfig = versions.TankElementConfig
+type TJunctionElementConfig = versions.TJunctionElementConfig
+
+// CustomActuatorElementConfig is the configuration for user-defined actuator symbols.
+type CustomActuatorElementConfig = versions.CustomActuatorElementConfig
+
+// CustomStaticElementConfig is the configuration for user-defined static symbols.
+type CustomStaticElementConfig = versions.CustomStaticElementConfig
+type PipeElementConfig = versions.PipeElementConfig
+type ElectricElementConfig = versions.ElectricElementConfig
+type SecondaryElementConfig = versions.SecondaryElementConfig
+type JacketedElementConfig = versions.JacketedElementConfig
+type HydraulicElementConfig = versions.HydraulicElementConfig
+type PneumaticElementConfig = versions.PneumaticElementConfig
+type DataElementConfig = versions.DataElementConfig
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
-type Schematic struct {
-	// Key is the unique identifier for this schematic.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the schematic.
-	Name string `json:"name" msgpack:"name"`
-	// Snapshot indicates whether this schematic represents a saved snapshot state.
-	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
-	// Nodes contains all diagram nodes in the schematic.
-	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
-	// Edges contains all connections between nodes.
-	Edges []Edge `json:"edges,omitzero" msgpack:"edges,omitzero"`
-	// Configs contains per-element configuration keyed by node or edge key. The variant of
-	// each value selects the symbol or edge style it configures.
-	Configs map[string]ElementConfig `json:"configs,omitzero" msgpack:"configs,omitzero"`
-}
-
-func (s Schematic) Validate() error {
-	v := validate.New("Schematic")
-	validate.NotEmptyString(v, "name", s.Name)
-	for key, value := range s.Configs {
-		v.Exec(func() error { return validate.PathedError(value.Validate(), "configs", key) })
-	}
-	return v.Error()
-}
+type Schematic = versions.Schematic
 
 type EdgeConfigType string
 
 const (
-	EdgeConfigTypePipe      EdgeConfigType = "pipe"
-	EdgeConfigTypeElectric  EdgeConfigType = "electric"
-	EdgeConfigTypeSecondary EdgeConfigType = "secondary"
-	EdgeConfigTypeJacketed  EdgeConfigType = "jacketed"
-	EdgeConfigTypeHydraulic EdgeConfigType = "hydraulic"
-	EdgeConfigTypePneumatic EdgeConfigType = "pneumatic"
-	EdgeConfigTypeData      EdgeConfigType = "data"
+	PipeEdgeConfigType      EdgeConfigType = "pipe"
+	ElectricEdgeConfigType  EdgeConfigType = "electric"
+	SecondaryEdgeConfigType EdgeConfigType = "secondary"
+	JacketedEdgeConfigType  EdgeConfigType = "jacketed"
+	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
+	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
+	DataEdgeConfigType      EdgeConfigType = "data"
 )
 
 type EdgeConfigVariant interface {
 	isEdgeConfigVariant()
 }
 
-type EdgeConfigPipe struct {
+type PipeEdgeConfig struct {
 	SegmentedEdgeConfig
 }
 
-func (EdgeConfigPipe) isEdgeConfigVariant() {}
+func (PipeEdgeConfig) isEdgeConfigVariant() {}
 
-func (e EdgeConfigPipe) Validate() error {
-	v := validate.New("EdgeConfigPipe")
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PipeEdgeConfig) Validate() error {
+	v := validate.New("PipeEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type ElectricEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (ElectricEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e ElectricEdgeConfig) Validate() error {
+	v := validate.New("ElectricEdgeConfig")
 	v.Exec(e.SegmentedEdgeConfig.Validate)
 	return v.Error()
 }
 
-type EdgeConfigElectric struct {
+type SecondaryEdgeConfig struct {
 	SegmentedEdgeConfig
 }
 
-func (EdgeConfigElectric) isEdgeConfigVariant() {}
+func (SecondaryEdgeConfig) isEdgeConfigVariant() {}
 
-func (e EdgeConfigElectric) Validate() error {
-	v := validate.New("EdgeConfigElectric")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SecondaryEdgeConfig) Validate() error {
+	v := validate.New("SecondaryEdgeConfig")
+	v.Exec(s.SegmentedEdgeConfig.Validate)
 	return v.Error()
 }
 
-type EdgeConfigSecondary struct {
+type JacketedEdgeConfig struct {
 	SegmentedEdgeConfig
 }
 
-func (EdgeConfigSecondary) isEdgeConfigVariant() {}
+func (JacketedEdgeConfig) isEdgeConfigVariant() {}
 
-func (e EdgeConfigSecondary) Validate() error {
-	v := validate.New("EdgeConfigSecondary")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (j JacketedEdgeConfig) Validate() error {
+	v := validate.New("JacketedEdgeConfig")
+	v.Exec(j.SegmentedEdgeConfig.Validate)
 	return v.Error()
 }
 
-type EdgeConfigJacketed struct {
+type HydraulicEdgeConfig struct {
 	SegmentedEdgeConfig
 }
 
-func (EdgeConfigJacketed) isEdgeConfigVariant() {}
+func (HydraulicEdgeConfig) isEdgeConfigVariant() {}
 
-func (e EdgeConfigJacketed) Validate() error {
-	v := validate.New("EdgeConfigJacketed")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h HydraulicEdgeConfig) Validate() error {
+	v := validate.New("HydraulicEdgeConfig")
+	v.Exec(h.SegmentedEdgeConfig.Validate)
 	return v.Error()
 }
 
-type EdgeConfigHydraulic struct {
+type PneumaticEdgeConfig struct {
 	SegmentedEdgeConfig
 }
 
-func (EdgeConfigHydraulic) isEdgeConfigVariant() {}
+func (PneumaticEdgeConfig) isEdgeConfigVariant() {}
 
-func (e EdgeConfigHydraulic) Validate() error {
-	v := validate.New("EdgeConfigHydraulic")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PneumaticEdgeConfig) Validate() error {
+	v := validate.New("PneumaticEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
 	return v.Error()
 }
 
-type EdgeConfigPneumatic struct {
+type DataEdgeConfig struct {
 	SegmentedEdgeConfig
 }
 
-func (EdgeConfigPneumatic) isEdgeConfigVariant() {}
+func (DataEdgeConfig) isEdgeConfigVariant() {}
 
-func (e EdgeConfigPneumatic) Validate() error {
-	v := validate.New("EdgeConfigPneumatic")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type EdgeConfigData struct {
-	SegmentedEdgeConfig
-}
-
-func (EdgeConfigData) isEdgeConfigVariant() {}
-
-func (e EdgeConfigData) Validate() error {
-	v := validate.New("EdgeConfigData")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DataEdgeConfig) Validate() error {
+	v := validate.New("DataEdgeConfig")
+	v.Exec(d.SegmentedEdgeConfig.Validate)
 	return v.Error()
 }
 
@@ -387,26 +518,27 @@ type EdgeConfig struct {
 	Variant EdgeConfigVariant
 }
 
+// MarshalJSON encodes the active variant with its "variant" tag injected.
 func (u EdgeConfig) MarshalJSON() ([]byte, error) {
 	if u.Variant == nil {
 		return []byte("null"), nil
 	}
 	var t EdgeConfigType
 	switch u.Variant.(type) {
-	case EdgeConfigPipe:
-		t = EdgeConfigTypePipe
-	case EdgeConfigElectric:
-		t = EdgeConfigTypeElectric
-	case EdgeConfigSecondary:
-		t = EdgeConfigTypeSecondary
-	case EdgeConfigJacketed:
-		t = EdgeConfigTypeJacketed
-	case EdgeConfigHydraulic:
-		t = EdgeConfigTypeHydraulic
-	case EdgeConfigPneumatic:
-		t = EdgeConfigTypePneumatic
-	case EdgeConfigData:
-		t = EdgeConfigTypeData
+	case PipeEdgeConfig:
+		t = PipeEdgeConfigType
+	case ElectricEdgeConfig:
+		t = ElectricEdgeConfigType
+	case SecondaryEdgeConfig:
+		t = SecondaryEdgeConfigType
+	case JacketedEdgeConfig:
+		t = JacketedEdgeConfigType
+	case HydraulicEdgeConfig:
+		t = HydraulicEdgeConfigType
+	case PneumaticEdgeConfig:
+		t = PneumaticEdgeConfigType
+	case DataEdgeConfig:
+		t = DataEdgeConfigType
 	default:
 		return nil, errors.Newf("EdgeConfig: nil or unknown variant %T", u.Variant)
 	}
@@ -426,6 +558,7 @@ func (u EdgeConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(fields)
 }
 
+// UnmarshalJSON decodes the variant selected by the "variant" field.
 func (u *EdgeConfig) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		u.Variant = nil
@@ -438,44 +571,44 @@ func (u *EdgeConfig) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case EdgeConfigTypePipe:
-		var v EdgeConfigPipe
+	case PipeEdgeConfigType:
+		var v PipeEdgeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case EdgeConfigTypeElectric:
-		var v EdgeConfigElectric
+	case ElectricEdgeConfigType:
+		var v ElectricEdgeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case EdgeConfigTypeSecondary:
-		var v EdgeConfigSecondary
+	case SecondaryEdgeConfigType:
+		var v SecondaryEdgeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case EdgeConfigTypeJacketed:
-		var v EdgeConfigJacketed
+	case JacketedEdgeConfigType:
+		var v JacketedEdgeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case EdgeConfigTypeHydraulic:
-		var v EdgeConfigHydraulic
+	case HydraulicEdgeConfigType:
+		var v HydraulicEdgeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case EdgeConfigTypePneumatic:
-		var v EdgeConfigPneumatic
+	case PneumaticEdgeConfigType:
+		var v PneumaticEdgeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case EdgeConfigTypeData:
-		var v EdgeConfigData
+	case DataEdgeConfigType:
+		var v DataEdgeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -486,21 +619,23 @@ func (u *EdgeConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
 func (u EdgeConfig) Validate() error {
 	switch variant := u.Variant.(type) {
-	case EdgeConfigPipe:
+	case PipeEdgeConfig:
 		return variant.Validate()
-	case EdgeConfigElectric:
+	case ElectricEdgeConfig:
 		return variant.Validate()
-	case EdgeConfigSecondary:
+	case SecondaryEdgeConfig:
 		return variant.Validate()
-	case EdgeConfigJacketed:
+	case JacketedEdgeConfig:
 		return variant.Validate()
-	case EdgeConfigHydraulic:
+	case HydraulicEdgeConfig:
 		return variant.Validate()
-	case EdgeConfigPneumatic:
+	case PneumaticEdgeConfig:
 		return variant.Validate()
-	case EdgeConfigData:
+	case DataEdgeConfig:
 		return variant.Validate()
 	}
 	return nil
@@ -509,264 +644,265 @@ func (u EdgeConfig) Validate() error {
 type NodeConfigType string
 
 const (
-	NodeConfigTypeCap                            NodeConfigType = "cap"
-	NodeConfigTypeFilter                         NodeConfigType = "filter"
-	NodeConfigTypeFlowStraightener               NodeConfigType = "flow_straightener"
-	NodeConfigTypeHeaterElement                  NodeConfigType = "heater_element"
-	NodeConfigTypeIsoCap                         NodeConfigType = "iso_cap"
-	NodeConfigTypeIsoFilter                      NodeConfigType = "iso_filter"
-	NodeConfigTypeNozzle                         NodeConfigType = "nozzle"
-	NodeConfigTypeOrifice                        NodeConfigType = "orifice"
-	NodeConfigTypeOrificePlate                   NodeConfigType = "orifice_plate"
-	NodeConfigTypeStrainer                       NodeConfigType = "strainer"
-	NodeConfigTypeStrainerCone                   NodeConfigType = "strainer_cone"
-	NodeConfigTypeThruster                       NodeConfigType = "thruster"
-	NodeConfigTypeVent                           NodeConfigType = "vent"
-	NodeConfigTypeFlowmeterGeneral               NodeConfigType = "flowmeter_general"
-	NodeConfigTypeFlowmeterElectromagnetic       NodeConfigType = "flowmeter_electromagnetic"
-	NodeConfigTypeFlowmeterVariableArea          NodeConfigType = "flowmeter_variable_area"
-	NodeConfigTypeFlowmeterCoriolis              NodeConfigType = "flowmeter_coriolis"
-	NodeConfigTypeFlowmeterNozzle                NodeConfigType = "flowmeter_nozzle"
-	NodeConfigTypeFlowmeterVenturi               NodeConfigType = "flowmeter_venturi"
-	NodeConfigTypeFlowmeterRingPiston            NodeConfigType = "flowmeter_ring_piston"
-	NodeConfigTypeFlowmeterPositiveDisplacement  NodeConfigType = "flowmeter_positive_displacement"
-	NodeConfigTypeFlowmeterTurbine               NodeConfigType = "flowmeter_turbine"
-	NodeConfigTypeFlowmeterPulse                 NodeConfigType = "flowmeter_pulse"
-	NodeConfigTypeFlowmeterFloatSensor           NodeConfigType = "flowmeter_float_sensor"
-	NodeConfigTypeFlowmeterOrifice               NodeConfigType = "flowmeter_orifice"
-	NodeConfigTypeBox                            NodeConfigType = "box"
-	NodeConfigTypeButton                         NodeConfigType = "button"
-	NodeConfigTypeCircle                         NodeConfigType = "circle"
-	NodeConfigTypeGauge                          NodeConfigType = "gauge"
-	NodeConfigTypeInput                          NodeConfigType = "input"
-	NodeConfigTypeLight                          NodeConfigType = "light"
-	NodeConfigTypeOffPageReference               NodeConfigType = "off_page_reference"
-	NodeConfigTypePolygon                        NodeConfigType = "polygon"
-	NodeConfigTypeSelect                         NodeConfigType = "select"
-	NodeConfigTypeSetpoint                       NodeConfigType = "setpoint"
-	NodeConfigTypeStateIndicator                 NodeConfigType = "state_indicator"
-	NodeConfigTypeSwitch                         NodeConfigType = "switch"
-	NodeConfigTypeTextBox                        NodeConfigType = "text_box"
-	NodeConfigTypeValue                          NodeConfigType = "value"
-	NodeConfigTypeAgitator                       NodeConfigType = "agitator"
-	NodeConfigTypeCrossBeamAgitator              NodeConfigType = "cross_beam_agitator"
-	NodeConfigTypeFlatBladeAgitator              NodeConfigType = "flat_blade_agitator"
-	NodeConfigTypeHeatExchangerGeneral           NodeConfigType = "heat_exchanger_general"
-	NodeConfigTypeHeatExchangerM                 NodeConfigType = "heat_exchanger_m"
-	NodeConfigTypeHeatExchangerStraightTube      NodeConfigType = "heat_exchanger_straight_tube"
-	NodeConfigTypeHelicalAgitator                NodeConfigType = "helical_agitator"
-	NodeConfigTypePaddleAgitator                 NodeConfigType = "paddle_agitator"
-	NodeConfigTypePropellerAgitator              NodeConfigType = "propeller_agitator"
-	NodeConfigTypeRotaryMixer                    NodeConfigType = "rotary_mixer"
-	NodeConfigTypeStaticMixer                    NodeConfigType = "static_mixer"
-	NodeConfigTypeCavityPump                     NodeConfigType = "cavity_pump"
-	NodeConfigTypeCentrifugalCompressor          NodeConfigType = "centrifugal_compressor"
-	NodeConfigTypeCompressor                     NodeConfigType = "compressor"
-	NodeConfigTypeDiaphragmPump                  NodeConfigType = "diaphragm_pump"
-	NodeConfigTypeEjectionPump                   NodeConfigType = "ejection_pump"
-	NodeConfigTypeEjectorCompressor              NodeConfigType = "ejector_compressor"
-	NodeConfigTypeLiquidRingCompressor           NodeConfigType = "liquid_ring_compressor"
-	NodeConfigTypePistonPump                     NodeConfigType = "piston_pump"
-	NodeConfigTypePump                           NodeConfigType = "pump"
-	NodeConfigTypeRollerVaneCompressor           NodeConfigType = "roller_vane_compressor"
-	NodeConfigTypeScrewPump                      NodeConfigType = "screw_pump"
-	NodeConfigTypeTurboCompressor                NodeConfigType = "turbo_compressor"
-	NodeConfigTypeVacuumPump                     NodeConfigType = "vacuum_pump"
-	NodeConfigTypeBurstDisc                      NodeConfigType = "burst_disc"
-	NodeConfigTypeFlameArrestor                  NodeConfigType = "flame_arrestor"
-	NodeConfigTypeFlameArrestorDetonation        NodeConfigType = "flame_arrestor_detonation"
-	NodeConfigTypeFlameArrestorExplosion         NodeConfigType = "flame_arrestor_explosion"
-	NodeConfigTypeFlameArrestorFireRes           NodeConfigType = "flame_arrestor_fire_res"
-	NodeConfigTypeFlameArrestorFireResDetonation NodeConfigType = "flame_arrestor_fire_res_detonation"
-	NodeConfigTypeIsoBurstDisc                   NodeConfigType = "iso_burst_disc"
-	NodeConfigTypeAngledValve                    NodeConfigType = "angled_valve"
-	NodeConfigTypeAngledReliefValve              NodeConfigType = "angled_relief_valve"
-	NodeConfigTypeAngledSpringLoadedReliefValve  NodeConfigType = "angled_spring_loaded_relief_valve"
-	NodeConfigTypeBallValve                      NodeConfigType = "ball_valve"
-	NodeConfigTypeBreatherValve                  NodeConfigType = "breather_valve"
-	NodeConfigTypeButterflyValveOne              NodeConfigType = "butterfly_valve_one"
-	NodeConfigTypeButterflyValveTwo              NodeConfigType = "butterfly_valve_two"
-	NodeConfigTypeCheckValve                     NodeConfigType = "check_valve"
-	NodeConfigTypeCheckValveWithArrow            NodeConfigType = "check_valve_with_arrow"
-	NodeConfigTypeElectricRegulator              NodeConfigType = "electric_regulator"
-	NodeConfigTypeElectricRegulatorMotorized     NodeConfigType = "electric_regulator_motorized"
-	NodeConfigTypeFourWayValve                   NodeConfigType = "four_way_valve"
-	NodeConfigTypeGateValve                      NodeConfigType = "gate_valve"
-	NodeConfigTypeIsoCheckValve                  NodeConfigType = "iso_check_valve"
-	NodeConfigTypeManualValve                    NodeConfigType = "manual_valve"
-	NodeConfigTypeNeedleValve                    NodeConfigType = "needle_valve"
-	NodeConfigTypeRegulator                      NodeConfigType = "regulator"
-	NodeConfigTypeRegulatorManual                NodeConfigType = "regulator_manual"
-	NodeConfigTypeReliefValve                    NodeConfigType = "relief_valve"
-	NodeConfigTypeSolenoidValve                  NodeConfigType = "solenoid_valve"
-	NodeConfigTypeSpringLoadedReliefValve        NodeConfigType = "spring_loaded_relief_valve"
-	NodeConfigTypeThreeWayValve                  NodeConfigType = "three_way_valve"
-	NodeConfigTypeThreeWayBallValve              NodeConfigType = "three_way_ball_valve"
-	NodeConfigTypeValve                          NodeConfigType = "valve"
-	NodeConfigTypeCrossJunction                  NodeConfigType = "cross_junction"
-	NodeConfigTypeCylinder                       NodeConfigType = "cylinder"
-	NodeConfigTypeTank                           NodeConfigType = "tank"
-	NodeConfigTypeTJunction                      NodeConfigType = "t_junction"
-	NodeConfigTypeCustomActuator                 NodeConfigType = "custom_actuator"
-	NodeConfigTypeCustomStatic                   NodeConfigType = "custom_static"
+	CapNodeConfigType                            NodeConfigType = "cap"
+	FilterNodeConfigType                         NodeConfigType = "filter"
+	FlowStraightenerNodeConfigType               NodeConfigType = "flow_straightener"
+	HeaterElementNodeConfigType                  NodeConfigType = "heater_element"
+	IsoCapNodeConfigType                         NodeConfigType = "iso_cap"
+	IsoFilterNodeConfigType                      NodeConfigType = "iso_filter"
+	NozzleNodeConfigType                         NodeConfigType = "nozzle"
+	OrificeNodeConfigType                        NodeConfigType = "orifice"
+	OrificePlateNodeConfigType                   NodeConfigType = "orifice_plate"
+	StrainerNodeConfigType                       NodeConfigType = "strainer"
+	StrainerConeNodeConfigType                   NodeConfigType = "strainer_cone"
+	ThrusterNodeConfigType                       NodeConfigType = "thruster"
+	VentNodeConfigType                           NodeConfigType = "vent"
+	FlowmeterGeneralNodeConfigType               NodeConfigType = "flowmeter_general"
+	FlowmeterElectromagneticNodeConfigType       NodeConfigType = "flowmeter_electromagnetic"
+	FlowmeterVariableAreaNodeConfigType          NodeConfigType = "flowmeter_variable_area"
+	FlowmeterCoriolisNodeConfigType              NodeConfigType = "flowmeter_coriolis"
+	FlowmeterNozzleNodeConfigType                NodeConfigType = "flowmeter_nozzle"
+	FlowmeterVenturiNodeConfigType               NodeConfigType = "flowmeter_venturi"
+	FlowmeterRingPistonNodeConfigType            NodeConfigType = "flowmeter_ring_piston"
+	FlowmeterPositiveDisplacementNodeConfigType  NodeConfigType = "flowmeter_positive_displacement"
+	FlowmeterTurbineNodeConfigType               NodeConfigType = "flowmeter_turbine"
+	FlowmeterPulseNodeConfigType                 NodeConfigType = "flowmeter_pulse"
+	FlowmeterFloatSensorNodeConfigType           NodeConfigType = "flowmeter_float_sensor"
+	FlowmeterOrificeNodeConfigType               NodeConfigType = "flowmeter_orifice"
+	BoxNodeConfigType                            NodeConfigType = "box"
+	ButtonNodeConfigType                         NodeConfigType = "button"
+	CircleNodeConfigType                         NodeConfigType = "circle"
+	GaugeNodeConfigType                          NodeConfigType = "gauge"
+	InputNodeConfigType                          NodeConfigType = "input"
+	LightNodeConfigType                          NodeConfigType = "light"
+	OffPageReferenceNodeConfigType               NodeConfigType = "off_page_reference"
+	PolygonNodeConfigType                        NodeConfigType = "polygon"
+	SelectNodeConfigType                         NodeConfigType = "select"
+	SetpointNodeConfigType                       NodeConfigType = "setpoint"
+	StateIndicatorNodeConfigType                 NodeConfigType = "state_indicator"
+	StringDisplayNodeConfigType                  NodeConfigType = "string_display"
+	SwitchNodeConfigType                         NodeConfigType = "switch"
+	TextBoxNodeConfigType                        NodeConfigType = "text_box"
+	ValueNodeConfigType                          NodeConfigType = "value"
+	AgitatorNodeConfigType                       NodeConfigType = "agitator"
+	CrossBeamAgitatorNodeConfigType              NodeConfigType = "cross_beam_agitator"
+	FlatBladeAgitatorNodeConfigType              NodeConfigType = "flat_blade_agitator"
+	HeatExchangerGeneralNodeConfigType           NodeConfigType = "heat_exchanger_general"
+	HeatExchangerMNodeConfigType                 NodeConfigType = "heat_exchanger_m"
+	HeatExchangerStraightTubeNodeConfigType      NodeConfigType = "heat_exchanger_straight_tube"
+	HelicalAgitatorNodeConfigType                NodeConfigType = "helical_agitator"
+	PaddleAgitatorNodeConfigType                 NodeConfigType = "paddle_agitator"
+	PropellerAgitatorNodeConfigType              NodeConfigType = "propeller_agitator"
+	RotaryMixerNodeConfigType                    NodeConfigType = "rotary_mixer"
+	StaticMixerNodeConfigType                    NodeConfigType = "static_mixer"
+	CavityPumpNodeConfigType                     NodeConfigType = "cavity_pump"
+	CentrifugalCompressorNodeConfigType          NodeConfigType = "centrifugal_compressor"
+	CompressorNodeConfigType                     NodeConfigType = "compressor"
+	DiaphragmPumpNodeConfigType                  NodeConfigType = "diaphragm_pump"
+	EjectionPumpNodeConfigType                   NodeConfigType = "ejection_pump"
+	EjectorCompressorNodeConfigType              NodeConfigType = "ejector_compressor"
+	LiquidRingCompressorNodeConfigType           NodeConfigType = "liquid_ring_compressor"
+	PistonPumpNodeConfigType                     NodeConfigType = "piston_pump"
+	PumpNodeConfigType                           NodeConfigType = "pump"
+	RollerVaneCompressorNodeConfigType           NodeConfigType = "roller_vane_compressor"
+	ScrewPumpNodeConfigType                      NodeConfigType = "screw_pump"
+	TurboCompressorNodeConfigType                NodeConfigType = "turbo_compressor"
+	VacuumPumpNodeConfigType                     NodeConfigType = "vacuum_pump"
+	BurstDiscNodeConfigType                      NodeConfigType = "burst_disc"
+	FlameArrestorNodeConfigType                  NodeConfigType = "flame_arrestor"
+	FlameArrestorDetonationNodeConfigType        NodeConfigType = "flame_arrestor_detonation"
+	FlameArrestorExplosionNodeConfigType         NodeConfigType = "flame_arrestor_explosion"
+	FlameArrestorFireResNodeConfigType           NodeConfigType = "flame_arrestor_fire_res"
+	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = "flame_arrestor_fire_res_detonation"
+	IsoBurstDiscNodeConfigType                   NodeConfigType = "iso_burst_disc"
+	AngledValveNodeConfigType                    NodeConfigType = "angled_valve"
+	AngledReliefValveNodeConfigType              NodeConfigType = "angled_relief_valve"
+	AngledSpringLoadedReliefValveNodeConfigType  NodeConfigType = "angled_spring_loaded_relief_valve"
+	BallValveNodeConfigType                      NodeConfigType = "ball_valve"
+	BreatherValveNodeConfigType                  NodeConfigType = "breather_valve"
+	ButterflyValveOneNodeConfigType              NodeConfigType = "butterfly_valve_one"
+	ButterflyValveTwoNodeConfigType              NodeConfigType = "butterfly_valve_two"
+	CheckValveNodeConfigType                     NodeConfigType = "check_valve"
+	CheckValveWithArrowNodeConfigType            NodeConfigType = "check_valve_with_arrow"
+	ElectricRegulatorNodeConfigType              NodeConfigType = "electric_regulator"
+	ElectricRegulatorMotorizedNodeConfigType     NodeConfigType = "electric_regulator_motorized"
+	FourWayValveNodeConfigType                   NodeConfigType = "four_way_valve"
+	GateValveNodeConfigType                      NodeConfigType = "gate_valve"
+	IsoCheckValveNodeConfigType                  NodeConfigType = "iso_check_valve"
+	ManualValveNodeConfigType                    NodeConfigType = "manual_valve"
+	NeedleValveNodeConfigType                    NodeConfigType = "needle_valve"
+	RegulatorNodeConfigType                      NodeConfigType = "regulator"
+	RegulatorManualNodeConfigType                NodeConfigType = "regulator_manual"
+	ReliefValveNodeConfigType                    NodeConfigType = "relief_valve"
+	SolenoidValveNodeConfigType                  NodeConfigType = "solenoid_valve"
+	SpringLoadedReliefValveNodeConfigType        NodeConfigType = "spring_loaded_relief_valve"
+	ThreeWayValveNodeConfigType                  NodeConfigType = "three_way_valve"
+	ThreeWayBallValveNodeConfigType              NodeConfigType = "three_way_ball_valve"
+	ValveNodeConfigType                          NodeConfigType = "valve"
+	CrossJunctionNodeConfigType                  NodeConfigType = "cross_junction"
+	CylinderNodeConfigType                       NodeConfigType = "cylinder"
+	TankNodeConfigType                           NodeConfigType = "tank"
+	TJunctionNodeConfigType                      NodeConfigType = "t_junction"
+	CustomActuatorNodeConfigType                 NodeConfigType = "custom_actuator"
+	CustomStaticNodeConfigType                   NodeConfigType = "custom_static"
 )
 
 type NodeConfigVariant interface {
 	isNodeConfigVariant()
 }
 
-type NodeConfigCap struct {
+type CapNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigCap) isNodeConfigVariant() {}
+func (CapNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFilter struct {
+type FilterNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFilter) isNodeConfigVariant() {}
+func (FilterNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowStraightener struct {
+type FlowStraightenerNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowStraightener) isNodeConfigVariant() {}
+func (FlowStraightenerNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigHeaterElement struct {
+type HeaterElementNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigHeaterElement) isNodeConfigVariant() {}
+func (HeaterElementNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigIsoCap struct {
+type IsoCapNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigIsoCap) isNodeConfigVariant() {}
+func (IsoCapNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigIsoFilter struct {
+type IsoFilterNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigIsoFilter) isNodeConfigVariant() {}
+func (IsoFilterNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigNozzle struct {
+type NozzleNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigNozzle) isNodeConfigVariant() {}
+func (NozzleNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigOrifice struct {
+type OrificeNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigOrifice) isNodeConfigVariant() {}
+func (OrificeNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigOrificePlate struct {
+type OrificePlateNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigOrificePlate) isNodeConfigVariant() {}
+func (OrificePlateNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigStrainer struct {
+type StrainerNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigStrainer) isNodeConfigVariant() {}
+func (StrainerNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigStrainerCone struct {
+type StrainerConeNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigStrainerCone) isNodeConfigVariant() {}
+func (StrainerConeNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigThruster struct {
+type ThrusterNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigThruster) isNodeConfigVariant() {}
+func (ThrusterNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigVent struct {
+type VentNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigVent) isNodeConfigVariant() {}
+func (VentNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterGeneral struct {
+type FlowmeterGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterGeneral) isNodeConfigVariant() {}
+func (FlowmeterGeneralNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterElectromagnetic struct {
+type FlowmeterElectromagneticNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterElectromagnetic) isNodeConfigVariant() {}
+func (FlowmeterElectromagneticNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterVariableArea struct {
+type FlowmeterVariableAreaNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterVariableArea) isNodeConfigVariant() {}
+func (FlowmeterVariableAreaNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterCoriolis struct {
+type FlowmeterCoriolisNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterCoriolis) isNodeConfigVariant() {}
+func (FlowmeterCoriolisNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterNozzle struct {
+type FlowmeterNozzleNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterNozzle) isNodeConfigVariant() {}
+func (FlowmeterNozzleNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterVenturi struct {
+type FlowmeterVenturiNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterVenturi) isNodeConfigVariant() {}
+func (FlowmeterVenturiNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterRingPiston struct {
+type FlowmeterRingPistonNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterRingPiston) isNodeConfigVariant() {}
+func (FlowmeterRingPistonNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterPositiveDisplacement struct {
+type FlowmeterPositiveDisplacementNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterPositiveDisplacement) isNodeConfigVariant() {}
+func (FlowmeterPositiveDisplacementNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterTurbine struct {
+type FlowmeterTurbineNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterTurbine) isNodeConfigVariant() {}
+func (FlowmeterTurbineNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterPulse struct {
+type FlowmeterPulseNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterPulse) isNodeConfigVariant() {}
+func (FlowmeterPulseNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterFloatSensor struct {
+type FlowmeterFloatSensorNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterFloatSensor) isNodeConfigVariant() {}
+func (FlowmeterFloatSensorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlowmeterOrifice struct {
+type FlowmeterOrificeNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlowmeterOrifice) isNodeConfigVariant() {}
+func (FlowmeterOrificeNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigBox is the configuration for box annotation symbols.
-type NodeConfigBox struct {
+// BoxNodeConfig is the configuration for box annotation symbols.
+type BoxNodeConfig struct {
 	// Label is the box's label configuration.
 	Label *LabelConfig `json:"label,omitempty" msgpack:"label,omitempty"`
 	// Orientation is the orientation of the box within the diagram.
@@ -783,10 +919,10 @@ type NodeConfigBox struct {
 	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
-func (NodeConfigBox) isNodeConfigVariant() {}
+func (BoxNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigButton is the configuration for button symbols.
-type NodeConfigButton struct {
+// ButtonNodeConfig is the configuration for button symbols.
+type ButtonNodeConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the button.
 	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
@@ -804,10 +940,10 @@ type NodeConfigButton struct {
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
-func (NodeConfigButton) isNodeConfigVariant() {}
+func (ButtonNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigCircle is the configuration for circle annotation symbols.
-type NodeConfigCircle struct {
+// CircleNodeConfig is the configuration for circle annotation symbols.
+type CircleNodeConfig struct {
 	LabeledConfig
 	// Radius is the radius of the circle in pixels.
 	Radius float64 `json:"radius" msgpack:"radius"`
@@ -819,10 +955,10 @@ type NodeConfigCircle struct {
 	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
-func (NodeConfigCircle) isNodeConfigVariant() {}
+func (CircleNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigGauge is the configuration for gauge symbols.
-type NodeConfigGauge struct {
+// GaugeNodeConfig is the configuration for gauge symbols.
+type GaugeNodeConfig struct {
 	LabeledConfig
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
@@ -850,20 +986,27 @@ type NodeConfigGauge struct {
 	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
-func (NodeConfigGauge) isNodeConfigVariant() {}
+func (GaugeNodeConfig) isNodeConfigVariant() {}
 
-func (n NodeConfigGauge) Validate() error {
-	v := validate.New("NodeConfigGauge")
-	if n.Location != nil {
-		v.Exec(func() error { return validate.PathedError(n.Location.Validate(), "location") })
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (g GaugeNodeConfig) Validate() error {
+	v := validate.New("GaugeNodeConfig")
+	if g.Location != nil {
+		v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	}
 	return v.Error()
 }
 
-// NodeConfigInput is the configuration for free-form input symbols.
-type NodeConfigInput struct {
+// InputNodeConfig is the configuration for free-form input symbols.
+type InputNodeConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the input.
 	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
@@ -879,10 +1022,10 @@ type NodeConfigInput struct {
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
-func (NodeConfigInput) isNodeConfigVariant() {}
+func (InputNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigLight is the configuration for indicator light symbols.
-type NodeConfigLight struct {
+// LightNodeConfig is the configuration for indicator light symbols.
+type LightNodeConfig struct {
 	LabeledConfig
 	// Channel is the channel whose value drives the light's on state.
 	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
@@ -890,12 +1033,17 @@ type NodeConfigLight struct {
 	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
 	// Color is the illuminated color of the light.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
-func (NodeConfigLight) isNodeConfigVariant() {}
+func (LightNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigOffPageReference is the configuration for off-page reference symbols.
-type NodeConfigOffPageReference struct {
+// OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
+type OffPageReferenceNodeConfig struct {
 	// Orientation is the direction the reference arrow points.
 	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
 	// Label is the label displayed inside the reference.
@@ -910,10 +1058,10 @@ type NodeConfigOffPageReference struct {
 	DblClickNav *bool `json:"dbl_click_nav,omitempty" msgpack:"dbl_click_nav,omitempty"`
 }
 
-func (NodeConfigOffPageReference) isNodeConfigVariant() {}
+func (OffPageReferenceNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigPolygon is the configuration for polygon annotation symbols.
-type NodeConfigPolygon struct {
+// PolygonNodeConfig is the configuration for polygon annotation symbols.
+type PolygonNodeConfig struct {
 	LabeledConfig
 	// NumSides is the number of sides of the polygon.
 	NumSides float64 `json:"num_sides" msgpack:"num_sides"`
@@ -931,10 +1079,10 @@ type NodeConfigPolygon struct {
 	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
-func (NodeConfigPolygon) isNodeConfigVariant() {}
+func (PolygonNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigSelect is the configuration for select symbols.
-type NodeConfigSelect struct {
+// SelectNodeConfig is the configuration for select symbols.
+type SelectNodeConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the select.
 	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
@@ -952,15 +1100,13 @@ type NodeConfigSelect struct {
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
-func (NodeConfigSelect) isNodeConfigVariant() {}
+func (SelectNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigSetpoint is the configuration for numeric setpoint symbols.
-type NodeConfigSetpoint struct {
+// SetpointNodeConfig is the configuration for numeric setpoint symbols.
+type SetpointNodeConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the setpoint.
 	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// StateChannel is the channel whose value displays as the current setpoint.
-	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
 	// CommandChannel is the channel submitted setpoints are written to.
 	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the setpoint in pixels.
@@ -975,10 +1121,10 @@ type NodeConfigSetpoint struct {
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
-func (NodeConfigSetpoint) isNodeConfigVariant() {}
+func (SetpointNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigStateIndicator is the configuration for multi-state indicator symbols.
-type NodeConfigStateIndicator struct {
+// StateIndicatorNodeConfig is the configuration for multi-state indicator symbols.
+type StateIndicatorNodeConfig struct {
 	LabeledConfig
 	// Channel is the channel whose value selects the displayed state.
 	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
@@ -988,18 +1134,47 @@ type NodeConfigStateIndicator struct {
 	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
-func (NodeConfigStateIndicator) isNodeConfigVariant() {}
+func (StateIndicatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigSwitch struct {
+// StringDisplayNodeConfig is the configuration for live string display symbols.
+type StringDisplayNodeConfig struct {
+	LabeledConfig
+	// Color is the background color of the display.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// TextColor is the color of the displayed text.
+	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
+	// Tooltip is the list of tooltip lines shown on hover.
+	Tooltip []string `json:"tooltip,omitzero" msgpack:"tooltip,omitzero"`
+	// InlineSize is the inline size of the display in pixels.
+	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
+	// Channel is the channel whose string value the symbol displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// Level is the typography level of the displayed text.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
+}
+
+func (StringDisplayNodeConfig) isNodeConfigVariant() {}
+
+type SwitchNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigSwitch) isNodeConfigVariant() {}
+func (SwitchNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigTextBox is the configuration for text box annotation symbols.
-type NodeConfigTextBox struct {
+// TextBoxNodeConfig is the configuration for text box annotation symbols.
+type TextBoxNodeConfig struct {
 	LabeledConfig
 	// Color is the text color.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
@@ -1015,10 +1190,10 @@ type NodeConfigTextBox struct {
 	Value *string `json:"value,omitempty" msgpack:"value,omitempty"`
 }
 
-func (NodeConfigTextBox) isNodeConfigVariant() {}
+func (TextBoxNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigValue is the configuration for live telemetry value symbols.
-type NodeConfigValue struct {
+// ValueNodeConfig is the configuration for live telemetry value symbols.
+type ValueNodeConfig struct {
 	LabeledConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
@@ -1062,357 +1237,359 @@ type NodeConfigValue struct {
 	ValueBackgroundOverScan *spatial.XY `json:"value_background_over_scan,omitempty" msgpack:"value_background_over_scan,omitempty"`
 }
 
-func (NodeConfigValue) isNodeConfigVariant() {}
+func (ValueNodeConfig) isNodeConfigVariant() {}
 
-func (n NodeConfigValue) Validate() error {
-	v := validate.New("NodeConfigValue")
-	if n.Location != nil {
-		v.Exec(func() error { return validate.PathedError(n.Location.Validate(), "location") })
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (va ValueNodeConfig) Validate() error {
+	v := validate.New("ValueNodeConfig")
+	if va.Location != nil {
+		v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	}
 	return v.Error()
 }
 
-type NodeConfigAgitator struct {
+type AgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigAgitator) isNodeConfigVariant() {}
+func (AgitatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigCrossBeamAgitator struct {
+type CrossBeamAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigCrossBeamAgitator) isNodeConfigVariant() {}
+func (CrossBeamAgitatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlatBladeAgitator struct {
+type FlatBladeAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigFlatBladeAgitator) isNodeConfigVariant() {}
+func (FlatBladeAgitatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigHeatExchangerGeneral struct {
+type HeatExchangerGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigHeatExchangerGeneral) isNodeConfigVariant() {}
+func (HeatExchangerGeneralNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigHeatExchangerM struct {
+type HeatExchangerMNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigHeatExchangerM) isNodeConfigVariant() {}
+func (HeatExchangerMNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigHeatExchangerStraightTube struct {
+type HeatExchangerStraightTubeNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigHeatExchangerStraightTube) isNodeConfigVariant() {}
+func (HeatExchangerStraightTubeNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigHelicalAgitator struct {
+type HelicalAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigHelicalAgitator) isNodeConfigVariant() {}
+func (HelicalAgitatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigPaddleAgitator struct {
+type PaddleAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigPaddleAgitator) isNodeConfigVariant() {}
+func (PaddleAgitatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigPropellerAgitator struct {
+type PropellerAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigPropellerAgitator) isNodeConfigVariant() {}
+func (PropellerAgitatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigRotaryMixer struct {
+type RotaryMixerNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigRotaryMixer) isNodeConfigVariant() {}
+func (RotaryMixerNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigStaticMixer struct {
+type StaticMixerNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigStaticMixer) isNodeConfigVariant() {}
+func (StaticMixerNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigCavityPump struct {
+type CavityPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigCavityPump) isNodeConfigVariant() {}
+func (CavityPumpNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigCentrifugalCompressor struct {
+type CentrifugalCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigCentrifugalCompressor) isNodeConfigVariant() {}
+func (CentrifugalCompressorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigCompressor struct {
+type CompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigCompressor) isNodeConfigVariant() {}
+func (CompressorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigDiaphragmPump struct {
+type DiaphragmPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigDiaphragmPump) isNodeConfigVariant() {}
+func (DiaphragmPumpNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigEjectionPump struct {
+type EjectionPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigEjectionPump) isNodeConfigVariant() {}
+func (EjectionPumpNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigEjectorCompressor struct {
+type EjectorCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigEjectorCompressor) isNodeConfigVariant() {}
+func (EjectorCompressorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigLiquidRingCompressor struct {
+type LiquidRingCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigLiquidRingCompressor) isNodeConfigVariant() {}
+func (LiquidRingCompressorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigPistonPump struct {
+type PistonPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigPistonPump) isNodeConfigVariant() {}
+func (PistonPumpNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigPump struct {
+type PumpNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigPump) isNodeConfigVariant() {}
+func (PumpNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigRollerVaneCompressor struct {
+type RollerVaneCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigRollerVaneCompressor) isNodeConfigVariant() {}
+func (RollerVaneCompressorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigScrewPump struct {
+type ScrewPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigScrewPump) isNodeConfigVariant() {}
+func (ScrewPumpNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigTurboCompressor struct {
+type TurboCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigTurboCompressor) isNodeConfigVariant() {}
+func (TurboCompressorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigVacuumPump struct {
+type VacuumPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigVacuumPump) isNodeConfigVariant() {}
+func (VacuumPumpNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigBurstDisc struct {
+type BurstDiscNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigBurstDisc) isNodeConfigVariant() {}
+func (BurstDiscNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlameArrestor struct {
+type FlameArrestorNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlameArrestor) isNodeConfigVariant() {}
+func (FlameArrestorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlameArrestorDetonation struct {
+type FlameArrestorDetonationNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlameArrestorDetonation) isNodeConfigVariant() {}
+func (FlameArrestorDetonationNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlameArrestorExplosion struct {
+type FlameArrestorExplosionNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlameArrestorExplosion) isNodeConfigVariant() {}
+func (FlameArrestorExplosionNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlameArrestorFireRes struct {
+type FlameArrestorFireResNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlameArrestorFireRes) isNodeConfigVariant() {}
+func (FlameArrestorFireResNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFlameArrestorFireResDetonation struct {
+type FlameArrestorFireResDetonationNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigFlameArrestorFireResDetonation) isNodeConfigVariant() {}
+func (FlameArrestorFireResDetonationNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigIsoBurstDisc struct {
+type IsoBurstDiscNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigIsoBurstDisc) isNodeConfigVariant() {}
+func (IsoBurstDiscNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigAngledValve struct {
+type AngledValveNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigAngledValve) isNodeConfigVariant() {}
+func (AngledValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigAngledReliefValve struct {
+type AngledReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
 
-func (NodeConfigAngledReliefValve) isNodeConfigVariant() {}
+func (AngledReliefValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigAngledSpringLoadedReliefValve struct {
+type AngledSpringLoadedReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
 
-func (NodeConfigAngledSpringLoadedReliefValve) isNodeConfigVariant() {}
+func (AngledSpringLoadedReliefValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigBallValve struct {
+type BallValveNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigBallValve) isNodeConfigVariant() {}
+func (BallValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigBreatherValve struct {
+type BreatherValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
 
-func (NodeConfigBreatherValve) isNodeConfigVariant() {}
+func (BreatherValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigButterflyValveOne struct {
+type ButterflyValveOneNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigButterflyValveOne) isNodeConfigVariant() {}
+func (ButterflyValveOneNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigButterflyValveTwo struct {
+type ButterflyValveTwoNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigButterflyValveTwo) isNodeConfigVariant() {}
+func (ButterflyValveTwoNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigCheckValve struct {
+type CheckValveNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigCheckValve) isNodeConfigVariant() {}
+func (CheckValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigCheckValveWithArrow struct {
+type CheckValveWithArrowNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigCheckValveWithArrow) isNodeConfigVariant() {}
+func (CheckValveWithArrowNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigElectricRegulator struct {
+type ElectricRegulatorNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigElectricRegulator) isNodeConfigVariant() {}
+func (ElectricRegulatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigElectricRegulatorMotorized struct {
+type ElectricRegulatorMotorizedNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigElectricRegulatorMotorized) isNodeConfigVariant() {}
+func (ElectricRegulatorMotorizedNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigFourWayValve struct {
+type FourWayValveNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigFourWayValve) isNodeConfigVariant() {}
+func (FourWayValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigGateValve struct {
+type GateValveNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigGateValve) isNodeConfigVariant() {}
+func (GateValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigIsoCheckValve struct {
+type IsoCheckValveNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigIsoCheckValve) isNodeConfigVariant() {}
+func (IsoCheckValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigManualValve struct {
+type ManualValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
 
-func (NodeConfigManualValve) isNodeConfigVariant() {}
+func (ManualValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigNeedleValve struct {
+type NeedleValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
 
-func (NodeConfigNeedleValve) isNodeConfigVariant() {}
+func (NeedleValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigRegulator struct {
+type RegulatorNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigRegulator) isNodeConfigVariant() {}
+func (RegulatorNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigRegulatorManual struct {
+type RegulatorManualNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigRegulatorManual) isNodeConfigVariant() {}
+func (RegulatorManualNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigReliefValve struct {
+type ReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
 
-func (NodeConfigReliefValve) isNodeConfigVariant() {}
+func (ReliefValveNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigSolenoidValve is the configuration for solenoid valve symbols.
-type NodeConfigSolenoidValve struct {
+// SolenoidValveNodeConfig is the configuration for solenoid valve symbols.
+type SolenoidValveNodeConfig struct {
 	ToggleSymbolConfig
 	// NormallyOpen indicates whether the valve is open when unpowered.
 	NormallyOpen *bool `json:"normally_open,omitempty" msgpack:"normally_open,omitempty"`
 }
 
-func (NodeConfigSolenoidValve) isNodeConfigVariant() {}
+func (SolenoidValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigSpringLoadedReliefValve struct {
+type SpringLoadedReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
 
-func (NodeConfigSpringLoadedReliefValve) isNodeConfigVariant() {}
+func (SpringLoadedReliefValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigThreeWayValve struct {
+type ThreeWayValveNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigThreeWayValve) isNodeConfigVariant() {}
+func (ThreeWayValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigThreeWayBallValve struct {
+type ThreeWayBallValveNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigThreeWayBallValve) isNodeConfigVariant() {}
+func (ThreeWayBallValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigValve struct {
+type ValveNodeConfig struct {
 	ToggleSymbolConfig
 }
 
-func (NodeConfigValve) isNodeConfigVariant() {}
+func (ValveNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigCrossJunction struct {
+type CrossJunctionNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigCrossJunction) isNodeConfigVariant() {}
+func (CrossJunctionNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigCylinder is the configuration for cylinder vessel symbols.
-type NodeConfigCylinder struct {
+// CylinderNodeConfig is the configuration for cylinder vessel symbols.
+type CylinderNodeConfig struct {
 	LabeledConfig
 	// Dimensions is the rendered size of the cylinder in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
@@ -1424,10 +1601,10 @@ type NodeConfigCylinder struct {
 	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
 }
 
-func (NodeConfigCylinder) isNodeConfigVariant() {}
+func (CylinderNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigTank is the configuration for tank vessel symbols.
-type NodeConfigTank struct {
+// TankNodeConfig is the configuration for tank vessel symbols.
+type TankNodeConfig struct {
 	LabeledConfig
 	// Color is the border color of the tank.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
@@ -1439,43 +1616,43 @@ type NodeConfigTank struct {
 	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
 }
 
-func (NodeConfigTank) isNodeConfigVariant() {}
+func (TankNodeConfig) isNodeConfigVariant() {}
 
-type NodeConfigTJunction struct {
+type TJunctionNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (NodeConfigTJunction) isNodeConfigVariant() {}
+func (TJunctionNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigCustomActuator is the configuration for user-defined actuator symbols.
-type NodeConfigCustomActuator struct {
+// CustomActuatorNodeConfig is the configuration for user-defined actuator symbols.
+type CustomActuatorNodeConfig struct {
 	ToggleConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-	// consistent with how the symbol service stores specs.
+	// entry mirrors the symbol service's State shape; the wire format stores it
+	// opaquely, consistent with how the symbol service stores specs.
 	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
-func (NodeConfigCustomActuator) isNodeConfigVariant() {}
+func (CustomActuatorNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfigCustomStatic is the configuration for user-defined static symbols.
-type NodeConfigCustomStatic struct {
+// CustomStaticNodeConfig is the configuration for user-defined static symbols.
+type CustomStaticNodeConfig struct {
 	LabeledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-	// consistent with how the symbol service stores specs.
+	// entry mirrors the symbol service's State shape; the wire format stores it
+	// opaquely, consistent with how the symbol service stores specs.
 	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
-func (NodeConfigCustomStatic) isNodeConfigVariant() {}
+func (CustomStaticNodeConfig) isNodeConfigVariant() {}
 
 // NodeConfig is the per-node configuration stored in the schematic configs map. The
 // variant selects the symbol rendered for the node and the fields that accompany it.
@@ -1483,212 +1660,215 @@ type NodeConfig struct {
 	Variant NodeConfigVariant
 }
 
+// MarshalJSON encodes the active variant with its "variant" tag injected.
 func (u NodeConfig) MarshalJSON() ([]byte, error) {
 	if u.Variant == nil {
 		return []byte("null"), nil
 	}
 	var t NodeConfigType
 	switch u.Variant.(type) {
-	case NodeConfigCap:
-		t = NodeConfigTypeCap
-	case NodeConfigFilter:
-		t = NodeConfigTypeFilter
-	case NodeConfigFlowStraightener:
-		t = NodeConfigTypeFlowStraightener
-	case NodeConfigHeaterElement:
-		t = NodeConfigTypeHeaterElement
-	case NodeConfigIsoCap:
-		t = NodeConfigTypeIsoCap
-	case NodeConfigIsoFilter:
-		t = NodeConfigTypeIsoFilter
-	case NodeConfigNozzle:
-		t = NodeConfigTypeNozzle
-	case NodeConfigOrifice:
-		t = NodeConfigTypeOrifice
-	case NodeConfigOrificePlate:
-		t = NodeConfigTypeOrificePlate
-	case NodeConfigStrainer:
-		t = NodeConfigTypeStrainer
-	case NodeConfigStrainerCone:
-		t = NodeConfigTypeStrainerCone
-	case NodeConfigThruster:
-		t = NodeConfigTypeThruster
-	case NodeConfigVent:
-		t = NodeConfigTypeVent
-	case NodeConfigFlowmeterGeneral:
-		t = NodeConfigTypeFlowmeterGeneral
-	case NodeConfigFlowmeterElectromagnetic:
-		t = NodeConfigTypeFlowmeterElectromagnetic
-	case NodeConfigFlowmeterVariableArea:
-		t = NodeConfigTypeFlowmeterVariableArea
-	case NodeConfigFlowmeterCoriolis:
-		t = NodeConfigTypeFlowmeterCoriolis
-	case NodeConfigFlowmeterNozzle:
-		t = NodeConfigTypeFlowmeterNozzle
-	case NodeConfigFlowmeterVenturi:
-		t = NodeConfigTypeFlowmeterVenturi
-	case NodeConfigFlowmeterRingPiston:
-		t = NodeConfigTypeFlowmeterRingPiston
-	case NodeConfigFlowmeterPositiveDisplacement:
-		t = NodeConfigTypeFlowmeterPositiveDisplacement
-	case NodeConfigFlowmeterTurbine:
-		t = NodeConfigTypeFlowmeterTurbine
-	case NodeConfigFlowmeterPulse:
-		t = NodeConfigTypeFlowmeterPulse
-	case NodeConfigFlowmeterFloatSensor:
-		t = NodeConfigTypeFlowmeterFloatSensor
-	case NodeConfigFlowmeterOrifice:
-		t = NodeConfigTypeFlowmeterOrifice
-	case NodeConfigBox:
-		t = NodeConfigTypeBox
-	case NodeConfigButton:
-		t = NodeConfigTypeButton
-	case NodeConfigCircle:
-		t = NodeConfigTypeCircle
-	case NodeConfigGauge:
-		t = NodeConfigTypeGauge
-	case NodeConfigInput:
-		t = NodeConfigTypeInput
-	case NodeConfigLight:
-		t = NodeConfigTypeLight
-	case NodeConfigOffPageReference:
-		t = NodeConfigTypeOffPageReference
-	case NodeConfigPolygon:
-		t = NodeConfigTypePolygon
-	case NodeConfigSelect:
-		t = NodeConfigTypeSelect
-	case NodeConfigSetpoint:
-		t = NodeConfigTypeSetpoint
-	case NodeConfigStateIndicator:
-		t = NodeConfigTypeStateIndicator
-	case NodeConfigSwitch:
-		t = NodeConfigTypeSwitch
-	case NodeConfigTextBox:
-		t = NodeConfigTypeTextBox
-	case NodeConfigValue:
-		t = NodeConfigTypeValue
-	case NodeConfigAgitator:
-		t = NodeConfigTypeAgitator
-	case NodeConfigCrossBeamAgitator:
-		t = NodeConfigTypeCrossBeamAgitator
-	case NodeConfigFlatBladeAgitator:
-		t = NodeConfigTypeFlatBladeAgitator
-	case NodeConfigHeatExchangerGeneral:
-		t = NodeConfigTypeHeatExchangerGeneral
-	case NodeConfigHeatExchangerM:
-		t = NodeConfigTypeHeatExchangerM
-	case NodeConfigHeatExchangerStraightTube:
-		t = NodeConfigTypeHeatExchangerStraightTube
-	case NodeConfigHelicalAgitator:
-		t = NodeConfigTypeHelicalAgitator
-	case NodeConfigPaddleAgitator:
-		t = NodeConfigTypePaddleAgitator
-	case NodeConfigPropellerAgitator:
-		t = NodeConfigTypePropellerAgitator
-	case NodeConfigRotaryMixer:
-		t = NodeConfigTypeRotaryMixer
-	case NodeConfigStaticMixer:
-		t = NodeConfigTypeStaticMixer
-	case NodeConfigCavityPump:
-		t = NodeConfigTypeCavityPump
-	case NodeConfigCentrifugalCompressor:
-		t = NodeConfigTypeCentrifugalCompressor
-	case NodeConfigCompressor:
-		t = NodeConfigTypeCompressor
-	case NodeConfigDiaphragmPump:
-		t = NodeConfigTypeDiaphragmPump
-	case NodeConfigEjectionPump:
-		t = NodeConfigTypeEjectionPump
-	case NodeConfigEjectorCompressor:
-		t = NodeConfigTypeEjectorCompressor
-	case NodeConfigLiquidRingCompressor:
-		t = NodeConfigTypeLiquidRingCompressor
-	case NodeConfigPistonPump:
-		t = NodeConfigTypePistonPump
-	case NodeConfigPump:
-		t = NodeConfigTypePump
-	case NodeConfigRollerVaneCompressor:
-		t = NodeConfigTypeRollerVaneCompressor
-	case NodeConfigScrewPump:
-		t = NodeConfigTypeScrewPump
-	case NodeConfigTurboCompressor:
-		t = NodeConfigTypeTurboCompressor
-	case NodeConfigVacuumPump:
-		t = NodeConfigTypeVacuumPump
-	case NodeConfigBurstDisc:
-		t = NodeConfigTypeBurstDisc
-	case NodeConfigFlameArrestor:
-		t = NodeConfigTypeFlameArrestor
-	case NodeConfigFlameArrestorDetonation:
-		t = NodeConfigTypeFlameArrestorDetonation
-	case NodeConfigFlameArrestorExplosion:
-		t = NodeConfigTypeFlameArrestorExplosion
-	case NodeConfigFlameArrestorFireRes:
-		t = NodeConfigTypeFlameArrestorFireRes
-	case NodeConfigFlameArrestorFireResDetonation:
-		t = NodeConfigTypeFlameArrestorFireResDetonation
-	case NodeConfigIsoBurstDisc:
-		t = NodeConfigTypeIsoBurstDisc
-	case NodeConfigAngledValve:
-		t = NodeConfigTypeAngledValve
-	case NodeConfigAngledReliefValve:
-		t = NodeConfigTypeAngledReliefValve
-	case NodeConfigAngledSpringLoadedReliefValve:
-		t = NodeConfigTypeAngledSpringLoadedReliefValve
-	case NodeConfigBallValve:
-		t = NodeConfigTypeBallValve
-	case NodeConfigBreatherValve:
-		t = NodeConfigTypeBreatherValve
-	case NodeConfigButterflyValveOne:
-		t = NodeConfigTypeButterflyValveOne
-	case NodeConfigButterflyValveTwo:
-		t = NodeConfigTypeButterflyValveTwo
-	case NodeConfigCheckValve:
-		t = NodeConfigTypeCheckValve
-	case NodeConfigCheckValveWithArrow:
-		t = NodeConfigTypeCheckValveWithArrow
-	case NodeConfigElectricRegulator:
-		t = NodeConfigTypeElectricRegulator
-	case NodeConfigElectricRegulatorMotorized:
-		t = NodeConfigTypeElectricRegulatorMotorized
-	case NodeConfigFourWayValve:
-		t = NodeConfigTypeFourWayValve
-	case NodeConfigGateValve:
-		t = NodeConfigTypeGateValve
-	case NodeConfigIsoCheckValve:
-		t = NodeConfigTypeIsoCheckValve
-	case NodeConfigManualValve:
-		t = NodeConfigTypeManualValve
-	case NodeConfigNeedleValve:
-		t = NodeConfigTypeNeedleValve
-	case NodeConfigRegulator:
-		t = NodeConfigTypeRegulator
-	case NodeConfigRegulatorManual:
-		t = NodeConfigTypeRegulatorManual
-	case NodeConfigReliefValve:
-		t = NodeConfigTypeReliefValve
-	case NodeConfigSolenoidValve:
-		t = NodeConfigTypeSolenoidValve
-	case NodeConfigSpringLoadedReliefValve:
-		t = NodeConfigTypeSpringLoadedReliefValve
-	case NodeConfigThreeWayValve:
-		t = NodeConfigTypeThreeWayValve
-	case NodeConfigThreeWayBallValve:
-		t = NodeConfigTypeThreeWayBallValve
-	case NodeConfigValve:
-		t = NodeConfigTypeValve
-	case NodeConfigCrossJunction:
-		t = NodeConfigTypeCrossJunction
-	case NodeConfigCylinder:
-		t = NodeConfigTypeCylinder
-	case NodeConfigTank:
-		t = NodeConfigTypeTank
-	case NodeConfigTJunction:
-		t = NodeConfigTypeTJunction
-	case NodeConfigCustomActuator:
-		t = NodeConfigTypeCustomActuator
-	case NodeConfigCustomStatic:
-		t = NodeConfigTypeCustomStatic
+	case CapNodeConfig:
+		t = CapNodeConfigType
+	case FilterNodeConfig:
+		t = FilterNodeConfigType
+	case FlowStraightenerNodeConfig:
+		t = FlowStraightenerNodeConfigType
+	case HeaterElementNodeConfig:
+		t = HeaterElementNodeConfigType
+	case IsoCapNodeConfig:
+		t = IsoCapNodeConfigType
+	case IsoFilterNodeConfig:
+		t = IsoFilterNodeConfigType
+	case NozzleNodeConfig:
+		t = NozzleNodeConfigType
+	case OrificeNodeConfig:
+		t = OrificeNodeConfigType
+	case OrificePlateNodeConfig:
+		t = OrificePlateNodeConfigType
+	case StrainerNodeConfig:
+		t = StrainerNodeConfigType
+	case StrainerConeNodeConfig:
+		t = StrainerConeNodeConfigType
+	case ThrusterNodeConfig:
+		t = ThrusterNodeConfigType
+	case VentNodeConfig:
+		t = VentNodeConfigType
+	case FlowmeterGeneralNodeConfig:
+		t = FlowmeterGeneralNodeConfigType
+	case FlowmeterElectromagneticNodeConfig:
+		t = FlowmeterElectromagneticNodeConfigType
+	case FlowmeterVariableAreaNodeConfig:
+		t = FlowmeterVariableAreaNodeConfigType
+	case FlowmeterCoriolisNodeConfig:
+		t = FlowmeterCoriolisNodeConfigType
+	case FlowmeterNozzleNodeConfig:
+		t = FlowmeterNozzleNodeConfigType
+	case FlowmeterVenturiNodeConfig:
+		t = FlowmeterVenturiNodeConfigType
+	case FlowmeterRingPistonNodeConfig:
+		t = FlowmeterRingPistonNodeConfigType
+	case FlowmeterPositiveDisplacementNodeConfig:
+		t = FlowmeterPositiveDisplacementNodeConfigType
+	case FlowmeterTurbineNodeConfig:
+		t = FlowmeterTurbineNodeConfigType
+	case FlowmeterPulseNodeConfig:
+		t = FlowmeterPulseNodeConfigType
+	case FlowmeterFloatSensorNodeConfig:
+		t = FlowmeterFloatSensorNodeConfigType
+	case FlowmeterOrificeNodeConfig:
+		t = FlowmeterOrificeNodeConfigType
+	case BoxNodeConfig:
+		t = BoxNodeConfigType
+	case ButtonNodeConfig:
+		t = ButtonNodeConfigType
+	case CircleNodeConfig:
+		t = CircleNodeConfigType
+	case GaugeNodeConfig:
+		t = GaugeNodeConfigType
+	case InputNodeConfig:
+		t = InputNodeConfigType
+	case LightNodeConfig:
+		t = LightNodeConfigType
+	case OffPageReferenceNodeConfig:
+		t = OffPageReferenceNodeConfigType
+	case PolygonNodeConfig:
+		t = PolygonNodeConfigType
+	case SelectNodeConfig:
+		t = SelectNodeConfigType
+	case SetpointNodeConfig:
+		t = SetpointNodeConfigType
+	case StateIndicatorNodeConfig:
+		t = StateIndicatorNodeConfigType
+	case StringDisplayNodeConfig:
+		t = StringDisplayNodeConfigType
+	case SwitchNodeConfig:
+		t = SwitchNodeConfigType
+	case TextBoxNodeConfig:
+		t = TextBoxNodeConfigType
+	case ValueNodeConfig:
+		t = ValueNodeConfigType
+	case AgitatorNodeConfig:
+		t = AgitatorNodeConfigType
+	case CrossBeamAgitatorNodeConfig:
+		t = CrossBeamAgitatorNodeConfigType
+	case FlatBladeAgitatorNodeConfig:
+		t = FlatBladeAgitatorNodeConfigType
+	case HeatExchangerGeneralNodeConfig:
+		t = HeatExchangerGeneralNodeConfigType
+	case HeatExchangerMNodeConfig:
+		t = HeatExchangerMNodeConfigType
+	case HeatExchangerStraightTubeNodeConfig:
+		t = HeatExchangerStraightTubeNodeConfigType
+	case HelicalAgitatorNodeConfig:
+		t = HelicalAgitatorNodeConfigType
+	case PaddleAgitatorNodeConfig:
+		t = PaddleAgitatorNodeConfigType
+	case PropellerAgitatorNodeConfig:
+		t = PropellerAgitatorNodeConfigType
+	case RotaryMixerNodeConfig:
+		t = RotaryMixerNodeConfigType
+	case StaticMixerNodeConfig:
+		t = StaticMixerNodeConfigType
+	case CavityPumpNodeConfig:
+		t = CavityPumpNodeConfigType
+	case CentrifugalCompressorNodeConfig:
+		t = CentrifugalCompressorNodeConfigType
+	case CompressorNodeConfig:
+		t = CompressorNodeConfigType
+	case DiaphragmPumpNodeConfig:
+		t = DiaphragmPumpNodeConfigType
+	case EjectionPumpNodeConfig:
+		t = EjectionPumpNodeConfigType
+	case EjectorCompressorNodeConfig:
+		t = EjectorCompressorNodeConfigType
+	case LiquidRingCompressorNodeConfig:
+		t = LiquidRingCompressorNodeConfigType
+	case PistonPumpNodeConfig:
+		t = PistonPumpNodeConfigType
+	case PumpNodeConfig:
+		t = PumpNodeConfigType
+	case RollerVaneCompressorNodeConfig:
+		t = RollerVaneCompressorNodeConfigType
+	case ScrewPumpNodeConfig:
+		t = ScrewPumpNodeConfigType
+	case TurboCompressorNodeConfig:
+		t = TurboCompressorNodeConfigType
+	case VacuumPumpNodeConfig:
+		t = VacuumPumpNodeConfigType
+	case BurstDiscNodeConfig:
+		t = BurstDiscNodeConfigType
+	case FlameArrestorNodeConfig:
+		t = FlameArrestorNodeConfigType
+	case FlameArrestorDetonationNodeConfig:
+		t = FlameArrestorDetonationNodeConfigType
+	case FlameArrestorExplosionNodeConfig:
+		t = FlameArrestorExplosionNodeConfigType
+	case FlameArrestorFireResNodeConfig:
+		t = FlameArrestorFireResNodeConfigType
+	case FlameArrestorFireResDetonationNodeConfig:
+		t = FlameArrestorFireResDetonationNodeConfigType
+	case IsoBurstDiscNodeConfig:
+		t = IsoBurstDiscNodeConfigType
+	case AngledValveNodeConfig:
+		t = AngledValveNodeConfigType
+	case AngledReliefValveNodeConfig:
+		t = AngledReliefValveNodeConfigType
+	case AngledSpringLoadedReliefValveNodeConfig:
+		t = AngledSpringLoadedReliefValveNodeConfigType
+	case BallValveNodeConfig:
+		t = BallValveNodeConfigType
+	case BreatherValveNodeConfig:
+		t = BreatherValveNodeConfigType
+	case ButterflyValveOneNodeConfig:
+		t = ButterflyValveOneNodeConfigType
+	case ButterflyValveTwoNodeConfig:
+		t = ButterflyValveTwoNodeConfigType
+	case CheckValveNodeConfig:
+		t = CheckValveNodeConfigType
+	case CheckValveWithArrowNodeConfig:
+		t = CheckValveWithArrowNodeConfigType
+	case ElectricRegulatorNodeConfig:
+		t = ElectricRegulatorNodeConfigType
+	case ElectricRegulatorMotorizedNodeConfig:
+		t = ElectricRegulatorMotorizedNodeConfigType
+	case FourWayValveNodeConfig:
+		t = FourWayValveNodeConfigType
+	case GateValveNodeConfig:
+		t = GateValveNodeConfigType
+	case IsoCheckValveNodeConfig:
+		t = IsoCheckValveNodeConfigType
+	case ManualValveNodeConfig:
+		t = ManualValveNodeConfigType
+	case NeedleValveNodeConfig:
+		t = NeedleValveNodeConfigType
+	case RegulatorNodeConfig:
+		t = RegulatorNodeConfigType
+	case RegulatorManualNodeConfig:
+		t = RegulatorManualNodeConfigType
+	case ReliefValveNodeConfig:
+		t = ReliefValveNodeConfigType
+	case SolenoidValveNodeConfig:
+		t = SolenoidValveNodeConfigType
+	case SpringLoadedReliefValveNodeConfig:
+		t = SpringLoadedReliefValveNodeConfigType
+	case ThreeWayValveNodeConfig:
+		t = ThreeWayValveNodeConfigType
+	case ThreeWayBallValveNodeConfig:
+		t = ThreeWayBallValveNodeConfigType
+	case ValveNodeConfig:
+		t = ValveNodeConfigType
+	case CrossJunctionNodeConfig:
+		t = CrossJunctionNodeConfigType
+	case CylinderNodeConfig:
+		t = CylinderNodeConfigType
+	case TankNodeConfig:
+		t = TankNodeConfigType
+	case TJunctionNodeConfig:
+		t = TJunctionNodeConfigType
+	case CustomActuatorNodeConfig:
+		t = CustomActuatorNodeConfigType
+	case CustomStaticNodeConfig:
+		t = CustomStaticNodeConfigType
 	default:
 		return nil, errors.Newf("NodeConfig: nil or unknown variant %T", u.Variant)
 	}
@@ -1708,6 +1888,7 @@ func (u NodeConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(fields)
 }
 
+// UnmarshalJSON decodes the variant selected by the "variant" field.
 func (u *NodeConfig) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		u.Variant = nil
@@ -1720,602 +1901,608 @@ func (u *NodeConfig) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case NodeConfigTypeCap:
-		var v NodeConfigCap
+	case CapNodeConfigType:
+		var v CapNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFilter:
-		var v NodeConfigFilter
+	case FilterNodeConfigType:
+		var v FilterNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowStraightener:
-		var v NodeConfigFlowStraightener
+	case FlowStraightenerNodeConfigType:
+		var v FlowStraightenerNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeHeaterElement:
-		var v NodeConfigHeaterElement
+	case HeaterElementNodeConfigType:
+		var v HeaterElementNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeIsoCap:
-		var v NodeConfigIsoCap
+	case IsoCapNodeConfigType:
+		var v IsoCapNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeIsoFilter:
-		var v NodeConfigIsoFilter
+	case IsoFilterNodeConfigType:
+		var v IsoFilterNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeNozzle:
-		var v NodeConfigNozzle
+	case NozzleNodeConfigType:
+		var v NozzleNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeOrifice:
-		var v NodeConfigOrifice
+	case OrificeNodeConfigType:
+		var v OrificeNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeOrificePlate:
-		var v NodeConfigOrificePlate
+	case OrificePlateNodeConfigType:
+		var v OrificePlateNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeStrainer:
-		var v NodeConfigStrainer
+	case StrainerNodeConfigType:
+		var v StrainerNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeStrainerCone:
-		var v NodeConfigStrainerCone
+	case StrainerConeNodeConfigType:
+		var v StrainerConeNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeThruster:
-		var v NodeConfigThruster
+	case ThrusterNodeConfigType:
+		var v ThrusterNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeVent:
-		var v NodeConfigVent
+	case VentNodeConfigType:
+		var v VentNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterGeneral:
-		var v NodeConfigFlowmeterGeneral
+	case FlowmeterGeneralNodeConfigType:
+		var v FlowmeterGeneralNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterElectromagnetic:
-		var v NodeConfigFlowmeterElectromagnetic
+	case FlowmeterElectromagneticNodeConfigType:
+		var v FlowmeterElectromagneticNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterVariableArea:
-		var v NodeConfigFlowmeterVariableArea
+	case FlowmeterVariableAreaNodeConfigType:
+		var v FlowmeterVariableAreaNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterCoriolis:
-		var v NodeConfigFlowmeterCoriolis
+	case FlowmeterCoriolisNodeConfigType:
+		var v FlowmeterCoriolisNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterNozzle:
-		var v NodeConfigFlowmeterNozzle
+	case FlowmeterNozzleNodeConfigType:
+		var v FlowmeterNozzleNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterVenturi:
-		var v NodeConfigFlowmeterVenturi
+	case FlowmeterVenturiNodeConfigType:
+		var v FlowmeterVenturiNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterRingPiston:
-		var v NodeConfigFlowmeterRingPiston
+	case FlowmeterRingPistonNodeConfigType:
+		var v FlowmeterRingPistonNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterPositiveDisplacement:
-		var v NodeConfigFlowmeterPositiveDisplacement
+	case FlowmeterPositiveDisplacementNodeConfigType:
+		var v FlowmeterPositiveDisplacementNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterTurbine:
-		var v NodeConfigFlowmeterTurbine
+	case FlowmeterTurbineNodeConfigType:
+		var v FlowmeterTurbineNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterPulse:
-		var v NodeConfigFlowmeterPulse
+	case FlowmeterPulseNodeConfigType:
+		var v FlowmeterPulseNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterFloatSensor:
-		var v NodeConfigFlowmeterFloatSensor
+	case FlowmeterFloatSensorNodeConfigType:
+		var v FlowmeterFloatSensorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlowmeterOrifice:
-		var v NodeConfigFlowmeterOrifice
+	case FlowmeterOrificeNodeConfigType:
+		var v FlowmeterOrificeNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeBox:
-		var v NodeConfigBox
+	case BoxNodeConfigType:
+		var v BoxNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeButton:
-		var v NodeConfigButton
+	case ButtonNodeConfigType:
+		var v ButtonNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCircle:
-		var v NodeConfigCircle
+	case CircleNodeConfigType:
+		var v CircleNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeGauge:
-		var v NodeConfigGauge
+	case GaugeNodeConfigType:
+		var v GaugeNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeInput:
-		var v NodeConfigInput
+	case InputNodeConfigType:
+		var v InputNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeLight:
-		var v NodeConfigLight
+	case LightNodeConfigType:
+		var v LightNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeOffPageReference:
-		var v NodeConfigOffPageReference
+	case OffPageReferenceNodeConfigType:
+		var v OffPageReferenceNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypePolygon:
-		var v NodeConfigPolygon
+	case PolygonNodeConfigType:
+		var v PolygonNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeSelect:
-		var v NodeConfigSelect
+	case SelectNodeConfigType:
+		var v SelectNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeSetpoint:
-		var v NodeConfigSetpoint
+	case SetpointNodeConfigType:
+		var v SetpointNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeStateIndicator:
-		var v NodeConfigStateIndicator
+	case StateIndicatorNodeConfigType:
+		var v StateIndicatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeSwitch:
-		var v NodeConfigSwitch
+	case StringDisplayNodeConfigType:
+		var v StringDisplayNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeTextBox:
-		var v NodeConfigTextBox
+	case SwitchNodeConfigType:
+		var v SwitchNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeValue:
-		var v NodeConfigValue
+	case TextBoxNodeConfigType:
+		var v TextBoxNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeAgitator:
-		var v NodeConfigAgitator
+	case ValueNodeConfigType:
+		var v ValueNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCrossBeamAgitator:
-		var v NodeConfigCrossBeamAgitator
+	case AgitatorNodeConfigType:
+		var v AgitatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlatBladeAgitator:
-		var v NodeConfigFlatBladeAgitator
+	case CrossBeamAgitatorNodeConfigType:
+		var v CrossBeamAgitatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeHeatExchangerGeneral:
-		var v NodeConfigHeatExchangerGeneral
+	case FlatBladeAgitatorNodeConfigType:
+		var v FlatBladeAgitatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeHeatExchangerM:
-		var v NodeConfigHeatExchangerM
+	case HeatExchangerGeneralNodeConfigType:
+		var v HeatExchangerGeneralNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeHeatExchangerStraightTube:
-		var v NodeConfigHeatExchangerStraightTube
+	case HeatExchangerMNodeConfigType:
+		var v HeatExchangerMNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeHelicalAgitator:
-		var v NodeConfigHelicalAgitator
+	case HeatExchangerStraightTubeNodeConfigType:
+		var v HeatExchangerStraightTubeNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypePaddleAgitator:
-		var v NodeConfigPaddleAgitator
+	case HelicalAgitatorNodeConfigType:
+		var v HelicalAgitatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypePropellerAgitator:
-		var v NodeConfigPropellerAgitator
+	case PaddleAgitatorNodeConfigType:
+		var v PaddleAgitatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeRotaryMixer:
-		var v NodeConfigRotaryMixer
+	case PropellerAgitatorNodeConfigType:
+		var v PropellerAgitatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeStaticMixer:
-		var v NodeConfigStaticMixer
+	case RotaryMixerNodeConfigType:
+		var v RotaryMixerNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCavityPump:
-		var v NodeConfigCavityPump
+	case StaticMixerNodeConfigType:
+		var v StaticMixerNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCentrifugalCompressor:
-		var v NodeConfigCentrifugalCompressor
+	case CavityPumpNodeConfigType:
+		var v CavityPumpNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCompressor:
-		var v NodeConfigCompressor
+	case CentrifugalCompressorNodeConfigType:
+		var v CentrifugalCompressorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeDiaphragmPump:
-		var v NodeConfigDiaphragmPump
+	case CompressorNodeConfigType:
+		var v CompressorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeEjectionPump:
-		var v NodeConfigEjectionPump
+	case DiaphragmPumpNodeConfigType:
+		var v DiaphragmPumpNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeEjectorCompressor:
-		var v NodeConfigEjectorCompressor
+	case EjectionPumpNodeConfigType:
+		var v EjectionPumpNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeLiquidRingCompressor:
-		var v NodeConfigLiquidRingCompressor
+	case EjectorCompressorNodeConfigType:
+		var v EjectorCompressorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypePistonPump:
-		var v NodeConfigPistonPump
+	case LiquidRingCompressorNodeConfigType:
+		var v LiquidRingCompressorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypePump:
-		var v NodeConfigPump
+	case PistonPumpNodeConfigType:
+		var v PistonPumpNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeRollerVaneCompressor:
-		var v NodeConfigRollerVaneCompressor
+	case PumpNodeConfigType:
+		var v PumpNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeScrewPump:
-		var v NodeConfigScrewPump
+	case RollerVaneCompressorNodeConfigType:
+		var v RollerVaneCompressorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeTurboCompressor:
-		var v NodeConfigTurboCompressor
+	case ScrewPumpNodeConfigType:
+		var v ScrewPumpNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeVacuumPump:
-		var v NodeConfigVacuumPump
+	case TurboCompressorNodeConfigType:
+		var v TurboCompressorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeBurstDisc:
-		var v NodeConfigBurstDisc
+	case VacuumPumpNodeConfigType:
+		var v VacuumPumpNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlameArrestor:
-		var v NodeConfigFlameArrestor
+	case BurstDiscNodeConfigType:
+		var v BurstDiscNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlameArrestorDetonation:
-		var v NodeConfigFlameArrestorDetonation
+	case FlameArrestorNodeConfigType:
+		var v FlameArrestorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlameArrestorExplosion:
-		var v NodeConfigFlameArrestorExplosion
+	case FlameArrestorDetonationNodeConfigType:
+		var v FlameArrestorDetonationNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlameArrestorFireRes:
-		var v NodeConfigFlameArrestorFireRes
+	case FlameArrestorExplosionNodeConfigType:
+		var v FlameArrestorExplosionNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFlameArrestorFireResDetonation:
-		var v NodeConfigFlameArrestorFireResDetonation
+	case FlameArrestorFireResNodeConfigType:
+		var v FlameArrestorFireResNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeIsoBurstDisc:
-		var v NodeConfigIsoBurstDisc
+	case FlameArrestorFireResDetonationNodeConfigType:
+		var v FlameArrestorFireResDetonationNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeAngledValve:
-		var v NodeConfigAngledValve
+	case IsoBurstDiscNodeConfigType:
+		var v IsoBurstDiscNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeAngledReliefValve:
-		var v NodeConfigAngledReliefValve
+	case AngledValveNodeConfigType:
+		var v AngledValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeAngledSpringLoadedReliefValve:
-		var v NodeConfigAngledSpringLoadedReliefValve
+	case AngledReliefValveNodeConfigType:
+		var v AngledReliefValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeBallValve:
-		var v NodeConfigBallValve
+	case AngledSpringLoadedReliefValveNodeConfigType:
+		var v AngledSpringLoadedReliefValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeBreatherValve:
-		var v NodeConfigBreatherValve
+	case BallValveNodeConfigType:
+		var v BallValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeButterflyValveOne:
-		var v NodeConfigButterflyValveOne
+	case BreatherValveNodeConfigType:
+		var v BreatherValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeButterflyValveTwo:
-		var v NodeConfigButterflyValveTwo
+	case ButterflyValveOneNodeConfigType:
+		var v ButterflyValveOneNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCheckValve:
-		var v NodeConfigCheckValve
+	case ButterflyValveTwoNodeConfigType:
+		var v ButterflyValveTwoNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCheckValveWithArrow:
-		var v NodeConfigCheckValveWithArrow
+	case CheckValveNodeConfigType:
+		var v CheckValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeElectricRegulator:
-		var v NodeConfigElectricRegulator
+	case CheckValveWithArrowNodeConfigType:
+		var v CheckValveWithArrowNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeElectricRegulatorMotorized:
-		var v NodeConfigElectricRegulatorMotorized
+	case ElectricRegulatorNodeConfigType:
+		var v ElectricRegulatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeFourWayValve:
-		var v NodeConfigFourWayValve
+	case ElectricRegulatorMotorizedNodeConfigType:
+		var v ElectricRegulatorMotorizedNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeGateValve:
-		var v NodeConfigGateValve
+	case FourWayValveNodeConfigType:
+		var v FourWayValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeIsoCheckValve:
-		var v NodeConfigIsoCheckValve
+	case GateValveNodeConfigType:
+		var v GateValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeManualValve:
-		var v NodeConfigManualValve
+	case IsoCheckValveNodeConfigType:
+		var v IsoCheckValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeNeedleValve:
-		var v NodeConfigNeedleValve
+	case ManualValveNodeConfigType:
+		var v ManualValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeRegulator:
-		var v NodeConfigRegulator
+	case NeedleValveNodeConfigType:
+		var v NeedleValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeRegulatorManual:
-		var v NodeConfigRegulatorManual
+	case RegulatorNodeConfigType:
+		var v RegulatorNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeReliefValve:
-		var v NodeConfigReliefValve
+	case RegulatorManualNodeConfigType:
+		var v RegulatorManualNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeSolenoidValve:
-		var v NodeConfigSolenoidValve
+	case ReliefValveNodeConfigType:
+		var v ReliefValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeSpringLoadedReliefValve:
-		var v NodeConfigSpringLoadedReliefValve
+	case SolenoidValveNodeConfigType:
+		var v SolenoidValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeThreeWayValve:
-		var v NodeConfigThreeWayValve
+	case SpringLoadedReliefValveNodeConfigType:
+		var v SpringLoadedReliefValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeThreeWayBallValve:
-		var v NodeConfigThreeWayBallValve
+	case ThreeWayValveNodeConfigType:
+		var v ThreeWayValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeValve:
-		var v NodeConfigValve
+	case ThreeWayBallValveNodeConfigType:
+		var v ThreeWayBallValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCrossJunction:
-		var v NodeConfigCrossJunction
+	case ValveNodeConfigType:
+		var v ValveNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCylinder:
-		var v NodeConfigCylinder
+	case CrossJunctionNodeConfigType:
+		var v CrossJunctionNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeTank:
-		var v NodeConfigTank
+	case CylinderNodeConfigType:
+		var v CylinderNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeTJunction:
-		var v NodeConfigTJunction
+	case TankNodeConfigType:
+		var v TankNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCustomActuator:
-		var v NodeConfigCustomActuator
+	case TJunctionNodeConfigType:
+		var v TJunctionNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Variant = v
-	case NodeConfigTypeCustomStatic:
-		var v NodeConfigCustomStatic
+	case CustomActuatorNodeConfigType:
+		var v CustomActuatorNodeConfig
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CustomStaticNodeConfigType:
+		var v CustomStaticNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -2326,2002 +2513,13 @@ func (u *NodeConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
 func (u NodeConfig) Validate() error {
 	switch variant := u.Variant.(type) {
-	case NodeConfigGauge:
+	case GaugeNodeConfig:
 		return variant.Validate()
-	case NodeConfigValue:
-		return variant.Validate()
-	}
-	return nil
-}
-
-type ElementConfigType string
-
-const (
-	ElementConfigTypeCap                            ElementConfigType = "cap"
-	ElementConfigTypeFilter                         ElementConfigType = "filter"
-	ElementConfigTypeFlowStraightener               ElementConfigType = "flow_straightener"
-	ElementConfigTypeHeaterElement                  ElementConfigType = "heater_element"
-	ElementConfigTypeIsoCap                         ElementConfigType = "iso_cap"
-	ElementConfigTypeIsoFilter                      ElementConfigType = "iso_filter"
-	ElementConfigTypeNozzle                         ElementConfigType = "nozzle"
-	ElementConfigTypeOrifice                        ElementConfigType = "orifice"
-	ElementConfigTypeOrificePlate                   ElementConfigType = "orifice_plate"
-	ElementConfigTypeStrainer                       ElementConfigType = "strainer"
-	ElementConfigTypeStrainerCone                   ElementConfigType = "strainer_cone"
-	ElementConfigTypeThruster                       ElementConfigType = "thruster"
-	ElementConfigTypeVent                           ElementConfigType = "vent"
-	ElementConfigTypeFlowmeterGeneral               ElementConfigType = "flowmeter_general"
-	ElementConfigTypeFlowmeterElectromagnetic       ElementConfigType = "flowmeter_electromagnetic"
-	ElementConfigTypeFlowmeterVariableArea          ElementConfigType = "flowmeter_variable_area"
-	ElementConfigTypeFlowmeterCoriolis              ElementConfigType = "flowmeter_coriolis"
-	ElementConfigTypeFlowmeterNozzle                ElementConfigType = "flowmeter_nozzle"
-	ElementConfigTypeFlowmeterVenturi               ElementConfigType = "flowmeter_venturi"
-	ElementConfigTypeFlowmeterRingPiston            ElementConfigType = "flowmeter_ring_piston"
-	ElementConfigTypeFlowmeterPositiveDisplacement  ElementConfigType = "flowmeter_positive_displacement"
-	ElementConfigTypeFlowmeterTurbine               ElementConfigType = "flowmeter_turbine"
-	ElementConfigTypeFlowmeterPulse                 ElementConfigType = "flowmeter_pulse"
-	ElementConfigTypeFlowmeterFloatSensor           ElementConfigType = "flowmeter_float_sensor"
-	ElementConfigTypeFlowmeterOrifice               ElementConfigType = "flowmeter_orifice"
-	ElementConfigTypeBox                            ElementConfigType = "box"
-	ElementConfigTypeButton                         ElementConfigType = "button"
-	ElementConfigTypeCircle                         ElementConfigType = "circle"
-	ElementConfigTypeGauge                          ElementConfigType = "gauge"
-	ElementConfigTypeInput                          ElementConfigType = "input"
-	ElementConfigTypeLight                          ElementConfigType = "light"
-	ElementConfigTypeOffPageReference               ElementConfigType = "off_page_reference"
-	ElementConfigTypePolygon                        ElementConfigType = "polygon"
-	ElementConfigTypeSelect                         ElementConfigType = "select"
-	ElementConfigTypeSetpoint                       ElementConfigType = "setpoint"
-	ElementConfigTypeStateIndicator                 ElementConfigType = "state_indicator"
-	ElementConfigTypeSwitch                         ElementConfigType = "switch"
-	ElementConfigTypeTextBox                        ElementConfigType = "text_box"
-	ElementConfigTypeValue                          ElementConfigType = "value"
-	ElementConfigTypeAgitator                       ElementConfigType = "agitator"
-	ElementConfigTypeCrossBeamAgitator              ElementConfigType = "cross_beam_agitator"
-	ElementConfigTypeFlatBladeAgitator              ElementConfigType = "flat_blade_agitator"
-	ElementConfigTypeHeatExchangerGeneral           ElementConfigType = "heat_exchanger_general"
-	ElementConfigTypeHeatExchangerM                 ElementConfigType = "heat_exchanger_m"
-	ElementConfigTypeHeatExchangerStraightTube      ElementConfigType = "heat_exchanger_straight_tube"
-	ElementConfigTypeHelicalAgitator                ElementConfigType = "helical_agitator"
-	ElementConfigTypePaddleAgitator                 ElementConfigType = "paddle_agitator"
-	ElementConfigTypePropellerAgitator              ElementConfigType = "propeller_agitator"
-	ElementConfigTypeRotaryMixer                    ElementConfigType = "rotary_mixer"
-	ElementConfigTypeStaticMixer                    ElementConfigType = "static_mixer"
-	ElementConfigTypeCavityPump                     ElementConfigType = "cavity_pump"
-	ElementConfigTypeCentrifugalCompressor          ElementConfigType = "centrifugal_compressor"
-	ElementConfigTypeCompressor                     ElementConfigType = "compressor"
-	ElementConfigTypeDiaphragmPump                  ElementConfigType = "diaphragm_pump"
-	ElementConfigTypeEjectionPump                   ElementConfigType = "ejection_pump"
-	ElementConfigTypeEjectorCompressor              ElementConfigType = "ejector_compressor"
-	ElementConfigTypeLiquidRingCompressor           ElementConfigType = "liquid_ring_compressor"
-	ElementConfigTypePistonPump                     ElementConfigType = "piston_pump"
-	ElementConfigTypePump                           ElementConfigType = "pump"
-	ElementConfigTypeRollerVaneCompressor           ElementConfigType = "roller_vane_compressor"
-	ElementConfigTypeScrewPump                      ElementConfigType = "screw_pump"
-	ElementConfigTypeTurboCompressor                ElementConfigType = "turbo_compressor"
-	ElementConfigTypeVacuumPump                     ElementConfigType = "vacuum_pump"
-	ElementConfigTypeBurstDisc                      ElementConfigType = "burst_disc"
-	ElementConfigTypeFlameArrestor                  ElementConfigType = "flame_arrestor"
-	ElementConfigTypeFlameArrestorDetonation        ElementConfigType = "flame_arrestor_detonation"
-	ElementConfigTypeFlameArrestorExplosion         ElementConfigType = "flame_arrestor_explosion"
-	ElementConfigTypeFlameArrestorFireRes           ElementConfigType = "flame_arrestor_fire_res"
-	ElementConfigTypeFlameArrestorFireResDetonation ElementConfigType = "flame_arrestor_fire_res_detonation"
-	ElementConfigTypeIsoBurstDisc                   ElementConfigType = "iso_burst_disc"
-	ElementConfigTypeAngledValve                    ElementConfigType = "angled_valve"
-	ElementConfigTypeAngledReliefValve              ElementConfigType = "angled_relief_valve"
-	ElementConfigTypeAngledSpringLoadedReliefValve  ElementConfigType = "angled_spring_loaded_relief_valve"
-	ElementConfigTypeBallValve                      ElementConfigType = "ball_valve"
-	ElementConfigTypeBreatherValve                  ElementConfigType = "breather_valve"
-	ElementConfigTypeButterflyValveOne              ElementConfigType = "butterfly_valve_one"
-	ElementConfigTypeButterflyValveTwo              ElementConfigType = "butterfly_valve_two"
-	ElementConfigTypeCheckValve                     ElementConfigType = "check_valve"
-	ElementConfigTypeCheckValveWithArrow            ElementConfigType = "check_valve_with_arrow"
-	ElementConfigTypeElectricRegulator              ElementConfigType = "electric_regulator"
-	ElementConfigTypeElectricRegulatorMotorized     ElementConfigType = "electric_regulator_motorized"
-	ElementConfigTypeFourWayValve                   ElementConfigType = "four_way_valve"
-	ElementConfigTypeGateValve                      ElementConfigType = "gate_valve"
-	ElementConfigTypeIsoCheckValve                  ElementConfigType = "iso_check_valve"
-	ElementConfigTypeManualValve                    ElementConfigType = "manual_valve"
-	ElementConfigTypeNeedleValve                    ElementConfigType = "needle_valve"
-	ElementConfigTypeRegulator                      ElementConfigType = "regulator"
-	ElementConfigTypeRegulatorManual                ElementConfigType = "regulator_manual"
-	ElementConfigTypeReliefValve                    ElementConfigType = "relief_valve"
-	ElementConfigTypeSolenoidValve                  ElementConfigType = "solenoid_valve"
-	ElementConfigTypeSpringLoadedReliefValve        ElementConfigType = "spring_loaded_relief_valve"
-	ElementConfigTypeThreeWayValve                  ElementConfigType = "three_way_valve"
-	ElementConfigTypeThreeWayBallValve              ElementConfigType = "three_way_ball_valve"
-	ElementConfigTypeValve                          ElementConfigType = "valve"
-	ElementConfigTypeCrossJunction                  ElementConfigType = "cross_junction"
-	ElementConfigTypeCylinder                       ElementConfigType = "cylinder"
-	ElementConfigTypeTank                           ElementConfigType = "tank"
-	ElementConfigTypeTJunction                      ElementConfigType = "t_junction"
-	ElementConfigTypeCustomActuator                 ElementConfigType = "custom_actuator"
-	ElementConfigTypeCustomStatic                   ElementConfigType = "custom_static"
-	ElementConfigTypePipe                           ElementConfigType = "pipe"
-	ElementConfigTypeElectric                       ElementConfigType = "electric"
-	ElementConfigTypeSecondary                      ElementConfigType = "secondary"
-	ElementConfigTypeJacketed                       ElementConfigType = "jacketed"
-	ElementConfigTypeHydraulic                      ElementConfigType = "hydraulic"
-	ElementConfigTypePneumatic                      ElementConfigType = "pneumatic"
-	ElementConfigTypeData                           ElementConfigType = "data"
-)
-
-type ElementConfigVariant interface {
-	isElementConfigVariant()
-}
-
-type ElementConfigCap struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigCap) isElementConfigVariant() {}
-
-type ElementConfigFilter struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFilter) isElementConfigVariant() {}
-
-type ElementConfigFlowStraightener struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowStraightener) isElementConfigVariant() {}
-
-type ElementConfigHeaterElement struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigHeaterElement) isElementConfigVariant() {}
-
-type ElementConfigIsoCap struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigIsoCap) isElementConfigVariant() {}
-
-type ElementConfigIsoFilter struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigIsoFilter) isElementConfigVariant() {}
-
-type ElementConfigNozzle struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigNozzle) isElementConfigVariant() {}
-
-type ElementConfigOrifice struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigOrifice) isElementConfigVariant() {}
-
-type ElementConfigOrificePlate struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigOrificePlate) isElementConfigVariant() {}
-
-type ElementConfigStrainer struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigStrainer) isElementConfigVariant() {}
-
-type ElementConfigStrainerCone struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigStrainerCone) isElementConfigVariant() {}
-
-type ElementConfigThruster struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigThruster) isElementConfigVariant() {}
-
-type ElementConfigVent struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigVent) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterGeneral struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterGeneral) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterElectromagnetic struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterElectromagnetic) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterVariableArea struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterVariableArea) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterCoriolis struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterCoriolis) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterNozzle struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterNozzle) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterVenturi struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterVenturi) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterRingPiston struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterRingPiston) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterPositiveDisplacement struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterPositiveDisplacement) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterTurbine struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterTurbine) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterPulse struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterPulse) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterFloatSensor struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterFloatSensor) isElementConfigVariant() {}
-
-type ElementConfigFlowmeterOrifice struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlowmeterOrifice) isElementConfigVariant() {}
-
-// ElementConfigBox is the configuration for box annotation symbols.
-type ElementConfigBox struct {
-	// Label is the box's label configuration.
-	Label *LabelConfig `json:"label,omitempty" msgpack:"label,omitempty"`
-	// Orientation is the orientation of the box within the diagram.
-	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
-	// Color is the border color of the box.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the box.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-	// Dimensions is the rendered size of the box in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// BorderRadius is the uniform corner radius of the box in pixels.
-	BorderRadius *float64 `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
-}
-
-func (ElementConfigBox) isElementConfigVariant() {}
-
-// ElementConfigButton is the configuration for button symbols.
-type ElementConfigButton struct {
-	LabeledConfig
-	// Size is the rendered size preset of the button.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// Level is the typography level of the button text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay *float64 `json:"on_click_delay,omitempty" msgpack:"on_click_delay,omitempty"`
-	// CommandChannel is the channel button presses are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Mode is the actuation behavior of the button.
-	Mode *ButtonMode `json:"mode,omitempty" msgpack:"mode,omitempty"`
-	// Color is the background color of the button.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-}
-
-func (ElementConfigButton) isElementConfigVariant() {}
-
-// ElementConfigCircle is the configuration for circle annotation symbols.
-type ElementConfigCircle struct {
-	LabeledConfig
-	// Radius is the radius of the circle in pixels.
-	Radius float64 `json:"radius" msgpack:"radius"`
-	// Color is the border color of the circle.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the circle.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
-}
-
-func (ElementConfigCircle) isElementConfigVariant() {}
-
-// ElementConfigGauge is the configuration for gauge symbols.
-type ElementConfigGauge struct {
-	LabeledConfig
-	// Position is the offset of the gauge contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
-	// Color is the accent color of the gauge arc.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Bounds is the numeric range displayed by the gauge.
-	Bounds *spatial.Bounds `json:"bounds,omitempty" msgpack:"bounds,omitempty"`
-	// BarWidth is the thickness of the gauge arc in pixels.
-	BarWidth *float64 `json:"bar_width,omitempty" msgpack:"bar_width,omitempty"`
-	// Channel is the channel whose value the gauge displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
-	// MinWidth is the minimum rendered width of the value in pixels.
-	MinWidth *float64 `json:"min_width,omitempty" msgpack:"min_width,omitempty"`
-	// Width is the rendered width of the gauge in pixels.
-	Width *float64 `json:"width,omitempty" msgpack:"width,omitempty"`
-	// Notation is the numeric notation used to format the value.
-	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
-	// Location is the anchor of the value within the gauge.
-	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
-	// Level is the typography level of the displayed value.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-}
-
-func (ElementConfigGauge) isElementConfigVariant() {}
-
-func (e ElementConfigGauge) Validate() error {
-	v := validate.New("ElementConfigGauge")
-	if e.Location != nil {
-		v.Exec(func() error { return validate.PathedError(e.Location.Validate(), "location") })
-	}
-	return v.Error()
-}
-
-// ElementConfigInput is the configuration for free-form input symbols.
-type ElementConfigInput struct {
-	LabeledConfig
-	// Size is the rendered size preset of the input.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// CommandChannel is the channel submitted values are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Dimensions is the rendered size of the input in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// Color is the accent color of the input.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Disabled indicates whether the input rejects interaction.
-	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-}
-
-func (ElementConfigInput) isElementConfigVariant() {}
-
-// ElementConfigLight is the configuration for indicator light symbols.
-type ElementConfigLight struct {
-	LabeledConfig
-	// Channel is the channel whose value drives the light's on state.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// Threshold is the value range within which the light is considered on.
-	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
-	// Color is the illuminated color of the light.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-}
-
-func (ElementConfigLight) isElementConfigVariant() {}
-
-// ElementConfigOffPageReference is the configuration for off-page reference symbols.
-type ElementConfigOffPageReference struct {
-	// Orientation is the direction the reference arrow points.
-	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
-	// Label is the label displayed inside the reference.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Level is the typography level of the reference text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// Color is the fill color of the reference.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Page is the key of the schematic this reference links to.
-	Page *string `json:"page,omitempty" msgpack:"page,omitempty"`
-	// DblClickNav indicates whether double-clicking navigates to the linked schematic.
-	DblClickNav *bool `json:"dbl_click_nav,omitempty" msgpack:"dbl_click_nav,omitempty"`
-}
-
-func (ElementConfigOffPageReference) isElementConfigVariant() {}
-
-// ElementConfigPolygon is the configuration for polygon annotation symbols.
-type ElementConfigPolygon struct {
-	LabeledConfig
-	// NumSides is the number of sides of the polygon.
-	NumSides float64 `json:"num_sides" msgpack:"num_sides"`
-	// SideLength is the length of each side in pixels.
-	SideLength float64 `json:"side_length" msgpack:"side_length"`
-	// Rotation is the rotation of the polygon in degrees.
-	Rotation *float64 `json:"rotation,omitempty" msgpack:"rotation,omitempty"`
-	// CornerRounding is the corner rounding radius in pixels.
-	CornerRounding *float64 `json:"corner_rounding,omitempty" msgpack:"corner_rounding,omitempty"`
-	// Color is the border color of the polygon.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the polygon.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
-}
-
-func (ElementConfigPolygon) isElementConfigVariant() {}
-
-// ElementConfigSelect is the configuration for select symbols.
-type ElementConfigSelect struct {
-	LabeledConfig
-	// Size is the rendered size preset of the select.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// CommandChannel is the channel the selected value is written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Color is the accent color of the select.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// InlineSize is the inline size of the select in pixels.
-	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
-	// Options is the set of selectable states.
-	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
-	// Disabled indicates whether the select rejects interaction.
-	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-}
-
-func (ElementConfigSelect) isElementConfigVariant() {}
-
-// ElementConfigSetpoint is the configuration for numeric setpoint symbols.
-type ElementConfigSetpoint struct {
-	LabeledConfig
-	// Size is the rendered size preset of the setpoint.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// StateChannel is the channel whose value displays as the current setpoint.
-	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
-	// CommandChannel is the channel submitted setpoints are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Dimensions is the rendered size of the setpoint in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// Color is the accent color of the setpoint.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
-	// Disabled indicates whether the setpoint rejects interaction.
-	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-}
-
-func (ElementConfigSetpoint) isElementConfigVariant() {}
-
-// ElementConfigStateIndicator is the configuration for multi-state indicator symbols.
-type ElementConfigStateIndicator struct {
-	LabeledConfig
-	// Channel is the channel whose value selects the displayed state.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// Color is the fallback color when no state matches.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// InlineSize is the inline size of the indicator in pixels.
-	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
-	// Options is the set of displayable states.
-	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
-}
-
-func (ElementConfigStateIndicator) isElementConfigVariant() {}
-
-type ElementConfigSwitch struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigSwitch) isElementConfigVariant() {}
-
-// ElementConfigTextBox is the configuration for text box annotation symbols.
-type ElementConfigTextBox struct {
-	LabeledConfig
-	// Color is the text color.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Width is the rendered width of the text box in pixels.
-	Width *float64 `json:"width,omitempty" msgpack:"width,omitempty"`
-	// Align is the alignment of the text within the box.
-	Align *FlexAlignment `json:"align,omitempty" msgpack:"align,omitempty"`
-	// AutoFit indicates whether the box resizes to fit its content.
-	AutoFit *bool `json:"auto_fit,omitempty" msgpack:"auto_fit,omitempty"`
-	// Level is the typography level of the text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// Value is the text content of the box.
-	Value *string `json:"value,omitempty" msgpack:"value,omitempty"`
-}
-
-func (ElementConfigTextBox) isElementConfigVariant() {}
-
-// ElementConfigValue is the configuration for live telemetry value symbols.
-type ElementConfigValue struct {
-	LabeledConfig
-	// Position is the offset of the value contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
-	// Color is the background color of the value.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
-	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip,omitzero" msgpack:"tooltip,omitzero"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
-	// InlineSize is the inline size of the value in pixels.
-	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
-	// Channel is the channel whose value the symbol displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
-	// Level is the typography level of the displayed value.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
-	// MinWidth is the minimum rendered width of the value in pixels.
-	MinWidth *float64 `json:"min_width,omitempty" msgpack:"min_width,omitempty"`
-	// Notation is the numeric notation used to format the value.
-	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
-	// Location is the anchor of the value within the symbol.
-	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
-	// UseWidthForBackground indicates whether the background spans the full configured
-	// width.
-	UseWidthForBackground *bool `json:"use_width_for_background,omitempty" msgpack:"use_width_for_background,omitempty"`
-	// ValueBackgroundShift is the offset applied to the value background.
-	ValueBackgroundShift *spatial.XY `json:"value_background_shift,omitempty" msgpack:"value_background_shift,omitempty"`
-	// ValueBackgroundOverScan is the extra padding applied around the value background.
-	ValueBackgroundOverScan *spatial.XY `json:"value_background_over_scan,omitempty" msgpack:"value_background_over_scan,omitempty"`
-}
-
-func (ElementConfigValue) isElementConfigVariant() {}
-
-func (e ElementConfigValue) Validate() error {
-	v := validate.New("ElementConfigValue")
-	if e.Location != nil {
-		v.Exec(func() error { return validate.PathedError(e.Location.Validate(), "location") })
-	}
-	return v.Error()
-}
-
-type ElementConfigAgitator struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigAgitator) isElementConfigVariant() {}
-
-type ElementConfigCrossBeamAgitator struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigCrossBeamAgitator) isElementConfigVariant() {}
-
-type ElementConfigFlatBladeAgitator struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigFlatBladeAgitator) isElementConfigVariant() {}
-
-type ElementConfigHeatExchangerGeneral struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigHeatExchangerGeneral) isElementConfigVariant() {}
-
-type ElementConfigHeatExchangerM struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigHeatExchangerM) isElementConfigVariant() {}
-
-type ElementConfigHeatExchangerStraightTube struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigHeatExchangerStraightTube) isElementConfigVariant() {}
-
-type ElementConfigHelicalAgitator struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigHelicalAgitator) isElementConfigVariant() {}
-
-type ElementConfigPaddleAgitator struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigPaddleAgitator) isElementConfigVariant() {}
-
-type ElementConfigPropellerAgitator struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigPropellerAgitator) isElementConfigVariant() {}
-
-type ElementConfigRotaryMixer struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigRotaryMixer) isElementConfigVariant() {}
-
-type ElementConfigStaticMixer struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigStaticMixer) isElementConfigVariant() {}
-
-type ElementConfigCavityPump struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigCavityPump) isElementConfigVariant() {}
-
-type ElementConfigCentrifugalCompressor struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigCentrifugalCompressor) isElementConfigVariant() {}
-
-type ElementConfigCompressor struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigCompressor) isElementConfigVariant() {}
-
-type ElementConfigDiaphragmPump struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigDiaphragmPump) isElementConfigVariant() {}
-
-type ElementConfigEjectionPump struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigEjectionPump) isElementConfigVariant() {}
-
-type ElementConfigEjectorCompressor struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigEjectorCompressor) isElementConfigVariant() {}
-
-type ElementConfigLiquidRingCompressor struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigLiquidRingCompressor) isElementConfigVariant() {}
-
-type ElementConfigPistonPump struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigPistonPump) isElementConfigVariant() {}
-
-type ElementConfigPump struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigPump) isElementConfigVariant() {}
-
-type ElementConfigRollerVaneCompressor struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigRollerVaneCompressor) isElementConfigVariant() {}
-
-type ElementConfigScrewPump struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigScrewPump) isElementConfigVariant() {}
-
-type ElementConfigTurboCompressor struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigTurboCompressor) isElementConfigVariant() {}
-
-type ElementConfigVacuumPump struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigVacuumPump) isElementConfigVariant() {}
-
-type ElementConfigBurstDisc struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigBurstDisc) isElementConfigVariant() {}
-
-type ElementConfigFlameArrestor struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlameArrestor) isElementConfigVariant() {}
-
-type ElementConfigFlameArrestorDetonation struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlameArrestorDetonation) isElementConfigVariant() {}
-
-type ElementConfigFlameArrestorExplosion struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlameArrestorExplosion) isElementConfigVariant() {}
-
-type ElementConfigFlameArrestorFireRes struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlameArrestorFireRes) isElementConfigVariant() {}
-
-type ElementConfigFlameArrestorFireResDetonation struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigFlameArrestorFireResDetonation) isElementConfigVariant() {}
-
-type ElementConfigIsoBurstDisc struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigIsoBurstDisc) isElementConfigVariant() {}
-
-type ElementConfigAngledValve struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigAngledValve) isElementConfigVariant() {}
-
-type ElementConfigAngledReliefValve struct {
-	DummyToggleSymbolConfig
-}
-
-func (ElementConfigAngledReliefValve) isElementConfigVariant() {}
-
-type ElementConfigAngledSpringLoadedReliefValve struct {
-	DummyToggleSymbolConfig
-}
-
-func (ElementConfigAngledSpringLoadedReliefValve) isElementConfigVariant() {}
-
-type ElementConfigBallValve struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigBallValve) isElementConfigVariant() {}
-
-type ElementConfigBreatherValve struct {
-	DummyToggleSymbolConfig
-}
-
-func (ElementConfigBreatherValve) isElementConfigVariant() {}
-
-type ElementConfigButterflyValveOne struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigButterflyValveOne) isElementConfigVariant() {}
-
-type ElementConfigButterflyValveTwo struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigButterflyValveTwo) isElementConfigVariant() {}
-
-type ElementConfigCheckValve struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigCheckValve) isElementConfigVariant() {}
-
-type ElementConfigCheckValveWithArrow struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigCheckValveWithArrow) isElementConfigVariant() {}
-
-type ElementConfigElectricRegulator struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigElectricRegulator) isElementConfigVariant() {}
-
-type ElementConfigElectricRegulatorMotorized struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigElectricRegulatorMotorized) isElementConfigVariant() {}
-
-type ElementConfigFourWayValve struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigFourWayValve) isElementConfigVariant() {}
-
-type ElementConfigGateValve struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigGateValve) isElementConfigVariant() {}
-
-type ElementConfigIsoCheckValve struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigIsoCheckValve) isElementConfigVariant() {}
-
-type ElementConfigManualValve struct {
-	DummyToggleSymbolConfig
-}
-
-func (ElementConfigManualValve) isElementConfigVariant() {}
-
-type ElementConfigNeedleValve struct {
-	DummyToggleSymbolConfig
-}
-
-func (ElementConfigNeedleValve) isElementConfigVariant() {}
-
-type ElementConfigRegulator struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigRegulator) isElementConfigVariant() {}
-
-type ElementConfigRegulatorManual struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigRegulatorManual) isElementConfigVariant() {}
-
-type ElementConfigReliefValve struct {
-	DummyToggleSymbolConfig
-}
-
-func (ElementConfigReliefValve) isElementConfigVariant() {}
-
-// ElementConfigSolenoidValve is the configuration for solenoid valve symbols.
-type ElementConfigSolenoidValve struct {
-	ToggleSymbolConfig
-	// NormallyOpen indicates whether the valve is open when unpowered.
-	NormallyOpen *bool `json:"normally_open,omitempty" msgpack:"normally_open,omitempty"`
-}
-
-func (ElementConfigSolenoidValve) isElementConfigVariant() {}
-
-type ElementConfigSpringLoadedReliefValve struct {
-	DummyToggleSymbolConfig
-}
-
-func (ElementConfigSpringLoadedReliefValve) isElementConfigVariant() {}
-
-type ElementConfigThreeWayValve struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigThreeWayValve) isElementConfigVariant() {}
-
-type ElementConfigThreeWayBallValve struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigThreeWayBallValve) isElementConfigVariant() {}
-
-type ElementConfigValve struct {
-	ToggleSymbolConfig
-}
-
-func (ElementConfigValve) isElementConfigVariant() {}
-
-type ElementConfigCrossJunction struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigCrossJunction) isElementConfigVariant() {}
-
-// ElementConfigCylinder is the configuration for cylinder vessel symbols.
-type ElementConfigCylinder struct {
-	LabeledConfig
-	// Dimensions is the rendered size of the cylinder in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// BorderRadius is the corner radius of the cylinder.
-	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
-	// Color is the border color of the cylinder.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the cylinder.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-}
-
-func (ElementConfigCylinder) isElementConfigVariant() {}
-
-// ElementConfigTank is the configuration for tank vessel symbols.
-type ElementConfigTank struct {
-	LabeledConfig
-	// Color is the border color of the tank.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the tank.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-	// Dimensions is the rendered size of the tank in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// BorderRadius is the corner radius of the tank.
-	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
-}
-
-func (ElementConfigTank) isElementConfigVariant() {}
-
-type ElementConfigTJunction struct {
-	StaticSymbolConfig
-}
-
-func (ElementConfigTJunction) isElementConfigVariant() {}
-
-// ElementConfigCustomActuator is the configuration for user-defined actuator symbols.
-type ElementConfigCustomActuator struct {
-	ToggleConfig
-	// SpecKey is the key of the custom symbol spec this instance renders.
-	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-	// consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
-}
-
-func (ElementConfigCustomActuator) isElementConfigVariant() {}
-
-// ElementConfigCustomStatic is the configuration for user-defined static symbols.
-type ElementConfigCustomStatic struct {
-	LabeledConfig
-	// SpecKey is the key of the custom symbol spec this instance renders.
-	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-	// consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
-}
-
-func (ElementConfigCustomStatic) isElementConfigVariant() {}
-
-type ElementConfigPipe struct {
-	SegmentedEdgeConfig
-}
-
-func (ElementConfigPipe) isElementConfigVariant() {}
-
-func (e ElementConfigPipe) Validate() error {
-	v := validate.New("ElementConfigPipe")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type ElementConfigElectric struct {
-	SegmentedEdgeConfig
-}
-
-func (ElementConfigElectric) isElementConfigVariant() {}
-
-func (e ElementConfigElectric) Validate() error {
-	v := validate.New("ElementConfigElectric")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type ElementConfigSecondary struct {
-	SegmentedEdgeConfig
-}
-
-func (ElementConfigSecondary) isElementConfigVariant() {}
-
-func (e ElementConfigSecondary) Validate() error {
-	v := validate.New("ElementConfigSecondary")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type ElementConfigJacketed struct {
-	SegmentedEdgeConfig
-}
-
-func (ElementConfigJacketed) isElementConfigVariant() {}
-
-func (e ElementConfigJacketed) Validate() error {
-	v := validate.New("ElementConfigJacketed")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type ElementConfigHydraulic struct {
-	SegmentedEdgeConfig
-}
-
-func (ElementConfigHydraulic) isElementConfigVariant() {}
-
-func (e ElementConfigHydraulic) Validate() error {
-	v := validate.New("ElementConfigHydraulic")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type ElementConfigPneumatic struct {
-	SegmentedEdgeConfig
-}
-
-func (ElementConfigPneumatic) isElementConfigVariant() {}
-
-func (e ElementConfigPneumatic) Validate() error {
-	v := validate.New("ElementConfigPneumatic")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type ElementConfigData struct {
-	SegmentedEdgeConfig
-}
-
-func (ElementConfigData) isElementConfigVariant() {}
-
-func (e ElementConfigData) Validate() error {
-	v := validate.New("ElementConfigData")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-// ElementConfig is the per-element configuration stored in the schematic configs map: a
-// node config or an edge config, discriminated by variant.
-type ElementConfig struct {
-	Variant ElementConfigVariant
-}
-
-func (u ElementConfig) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t ElementConfigType
-	switch u.Variant.(type) {
-	case ElementConfigCap:
-		t = ElementConfigTypeCap
-	case ElementConfigFilter:
-		t = ElementConfigTypeFilter
-	case ElementConfigFlowStraightener:
-		t = ElementConfigTypeFlowStraightener
-	case ElementConfigHeaterElement:
-		t = ElementConfigTypeHeaterElement
-	case ElementConfigIsoCap:
-		t = ElementConfigTypeIsoCap
-	case ElementConfigIsoFilter:
-		t = ElementConfigTypeIsoFilter
-	case ElementConfigNozzle:
-		t = ElementConfigTypeNozzle
-	case ElementConfigOrifice:
-		t = ElementConfigTypeOrifice
-	case ElementConfigOrificePlate:
-		t = ElementConfigTypeOrificePlate
-	case ElementConfigStrainer:
-		t = ElementConfigTypeStrainer
-	case ElementConfigStrainerCone:
-		t = ElementConfigTypeStrainerCone
-	case ElementConfigThruster:
-		t = ElementConfigTypeThruster
-	case ElementConfigVent:
-		t = ElementConfigTypeVent
-	case ElementConfigFlowmeterGeneral:
-		t = ElementConfigTypeFlowmeterGeneral
-	case ElementConfigFlowmeterElectromagnetic:
-		t = ElementConfigTypeFlowmeterElectromagnetic
-	case ElementConfigFlowmeterVariableArea:
-		t = ElementConfigTypeFlowmeterVariableArea
-	case ElementConfigFlowmeterCoriolis:
-		t = ElementConfigTypeFlowmeterCoriolis
-	case ElementConfigFlowmeterNozzle:
-		t = ElementConfigTypeFlowmeterNozzle
-	case ElementConfigFlowmeterVenturi:
-		t = ElementConfigTypeFlowmeterVenturi
-	case ElementConfigFlowmeterRingPiston:
-		t = ElementConfigTypeFlowmeterRingPiston
-	case ElementConfigFlowmeterPositiveDisplacement:
-		t = ElementConfigTypeFlowmeterPositiveDisplacement
-	case ElementConfigFlowmeterTurbine:
-		t = ElementConfigTypeFlowmeterTurbine
-	case ElementConfigFlowmeterPulse:
-		t = ElementConfigTypeFlowmeterPulse
-	case ElementConfigFlowmeterFloatSensor:
-		t = ElementConfigTypeFlowmeterFloatSensor
-	case ElementConfigFlowmeterOrifice:
-		t = ElementConfigTypeFlowmeterOrifice
-	case ElementConfigBox:
-		t = ElementConfigTypeBox
-	case ElementConfigButton:
-		t = ElementConfigTypeButton
-	case ElementConfigCircle:
-		t = ElementConfigTypeCircle
-	case ElementConfigGauge:
-		t = ElementConfigTypeGauge
-	case ElementConfigInput:
-		t = ElementConfigTypeInput
-	case ElementConfigLight:
-		t = ElementConfigTypeLight
-	case ElementConfigOffPageReference:
-		t = ElementConfigTypeOffPageReference
-	case ElementConfigPolygon:
-		t = ElementConfigTypePolygon
-	case ElementConfigSelect:
-		t = ElementConfigTypeSelect
-	case ElementConfigSetpoint:
-		t = ElementConfigTypeSetpoint
-	case ElementConfigStateIndicator:
-		t = ElementConfigTypeStateIndicator
-	case ElementConfigSwitch:
-		t = ElementConfigTypeSwitch
-	case ElementConfigTextBox:
-		t = ElementConfigTypeTextBox
-	case ElementConfigValue:
-		t = ElementConfigTypeValue
-	case ElementConfigAgitator:
-		t = ElementConfigTypeAgitator
-	case ElementConfigCrossBeamAgitator:
-		t = ElementConfigTypeCrossBeamAgitator
-	case ElementConfigFlatBladeAgitator:
-		t = ElementConfigTypeFlatBladeAgitator
-	case ElementConfigHeatExchangerGeneral:
-		t = ElementConfigTypeHeatExchangerGeneral
-	case ElementConfigHeatExchangerM:
-		t = ElementConfigTypeHeatExchangerM
-	case ElementConfigHeatExchangerStraightTube:
-		t = ElementConfigTypeHeatExchangerStraightTube
-	case ElementConfigHelicalAgitator:
-		t = ElementConfigTypeHelicalAgitator
-	case ElementConfigPaddleAgitator:
-		t = ElementConfigTypePaddleAgitator
-	case ElementConfigPropellerAgitator:
-		t = ElementConfigTypePropellerAgitator
-	case ElementConfigRotaryMixer:
-		t = ElementConfigTypeRotaryMixer
-	case ElementConfigStaticMixer:
-		t = ElementConfigTypeStaticMixer
-	case ElementConfigCavityPump:
-		t = ElementConfigTypeCavityPump
-	case ElementConfigCentrifugalCompressor:
-		t = ElementConfigTypeCentrifugalCompressor
-	case ElementConfigCompressor:
-		t = ElementConfigTypeCompressor
-	case ElementConfigDiaphragmPump:
-		t = ElementConfigTypeDiaphragmPump
-	case ElementConfigEjectionPump:
-		t = ElementConfigTypeEjectionPump
-	case ElementConfigEjectorCompressor:
-		t = ElementConfigTypeEjectorCompressor
-	case ElementConfigLiquidRingCompressor:
-		t = ElementConfigTypeLiquidRingCompressor
-	case ElementConfigPistonPump:
-		t = ElementConfigTypePistonPump
-	case ElementConfigPump:
-		t = ElementConfigTypePump
-	case ElementConfigRollerVaneCompressor:
-		t = ElementConfigTypeRollerVaneCompressor
-	case ElementConfigScrewPump:
-		t = ElementConfigTypeScrewPump
-	case ElementConfigTurboCompressor:
-		t = ElementConfigTypeTurboCompressor
-	case ElementConfigVacuumPump:
-		t = ElementConfigTypeVacuumPump
-	case ElementConfigBurstDisc:
-		t = ElementConfigTypeBurstDisc
-	case ElementConfigFlameArrestor:
-		t = ElementConfigTypeFlameArrestor
-	case ElementConfigFlameArrestorDetonation:
-		t = ElementConfigTypeFlameArrestorDetonation
-	case ElementConfigFlameArrestorExplosion:
-		t = ElementConfigTypeFlameArrestorExplosion
-	case ElementConfigFlameArrestorFireRes:
-		t = ElementConfigTypeFlameArrestorFireRes
-	case ElementConfigFlameArrestorFireResDetonation:
-		t = ElementConfigTypeFlameArrestorFireResDetonation
-	case ElementConfigIsoBurstDisc:
-		t = ElementConfigTypeIsoBurstDisc
-	case ElementConfigAngledValve:
-		t = ElementConfigTypeAngledValve
-	case ElementConfigAngledReliefValve:
-		t = ElementConfigTypeAngledReliefValve
-	case ElementConfigAngledSpringLoadedReliefValve:
-		t = ElementConfigTypeAngledSpringLoadedReliefValve
-	case ElementConfigBallValve:
-		t = ElementConfigTypeBallValve
-	case ElementConfigBreatherValve:
-		t = ElementConfigTypeBreatherValve
-	case ElementConfigButterflyValveOne:
-		t = ElementConfigTypeButterflyValveOne
-	case ElementConfigButterflyValveTwo:
-		t = ElementConfigTypeButterflyValveTwo
-	case ElementConfigCheckValve:
-		t = ElementConfigTypeCheckValve
-	case ElementConfigCheckValveWithArrow:
-		t = ElementConfigTypeCheckValveWithArrow
-	case ElementConfigElectricRegulator:
-		t = ElementConfigTypeElectricRegulator
-	case ElementConfigElectricRegulatorMotorized:
-		t = ElementConfigTypeElectricRegulatorMotorized
-	case ElementConfigFourWayValve:
-		t = ElementConfigTypeFourWayValve
-	case ElementConfigGateValve:
-		t = ElementConfigTypeGateValve
-	case ElementConfigIsoCheckValve:
-		t = ElementConfigTypeIsoCheckValve
-	case ElementConfigManualValve:
-		t = ElementConfigTypeManualValve
-	case ElementConfigNeedleValve:
-		t = ElementConfigTypeNeedleValve
-	case ElementConfigRegulator:
-		t = ElementConfigTypeRegulator
-	case ElementConfigRegulatorManual:
-		t = ElementConfigTypeRegulatorManual
-	case ElementConfigReliefValve:
-		t = ElementConfigTypeReliefValve
-	case ElementConfigSolenoidValve:
-		t = ElementConfigTypeSolenoidValve
-	case ElementConfigSpringLoadedReliefValve:
-		t = ElementConfigTypeSpringLoadedReliefValve
-	case ElementConfigThreeWayValve:
-		t = ElementConfigTypeThreeWayValve
-	case ElementConfigThreeWayBallValve:
-		t = ElementConfigTypeThreeWayBallValve
-	case ElementConfigValve:
-		t = ElementConfigTypeValve
-	case ElementConfigCrossJunction:
-		t = ElementConfigTypeCrossJunction
-	case ElementConfigCylinder:
-		t = ElementConfigTypeCylinder
-	case ElementConfigTank:
-		t = ElementConfigTypeTank
-	case ElementConfigTJunction:
-		t = ElementConfigTypeTJunction
-	case ElementConfigCustomActuator:
-		t = ElementConfigTypeCustomActuator
-	case ElementConfigCustomStatic:
-		t = ElementConfigTypeCustomStatic
-	case ElementConfigPipe:
-		t = ElementConfigTypePipe
-	case ElementConfigElectric:
-		t = ElementConfigTypeElectric
-	case ElementConfigSecondary:
-		t = ElementConfigTypeSecondary
-	case ElementConfigJacketed:
-		t = ElementConfigTypeJacketed
-	case ElementConfigHydraulic:
-		t = ElementConfigTypeHydraulic
-	case ElementConfigPneumatic:
-		t = ElementConfigTypePneumatic
-	case ElementConfigData:
-		t = ElementConfigTypeData
-	default:
-		return nil, errors.Newf("ElementConfig: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *ElementConfig) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type ElementConfigType `json:"variant"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case ElementConfigTypeCap:
-		var v ElementConfigCap
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFilter:
-		var v ElementConfigFilter
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowStraightener:
-		var v ElementConfigFlowStraightener
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeHeaterElement:
-		var v ElementConfigHeaterElement
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeIsoCap:
-		var v ElementConfigIsoCap
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeIsoFilter:
-		var v ElementConfigIsoFilter
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeNozzle:
-		var v ElementConfigNozzle
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeOrifice:
-		var v ElementConfigOrifice
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeOrificePlate:
-		var v ElementConfigOrificePlate
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeStrainer:
-		var v ElementConfigStrainer
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeStrainerCone:
-		var v ElementConfigStrainerCone
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeThruster:
-		var v ElementConfigThruster
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeVent:
-		var v ElementConfigVent
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterGeneral:
-		var v ElementConfigFlowmeterGeneral
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterElectromagnetic:
-		var v ElementConfigFlowmeterElectromagnetic
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterVariableArea:
-		var v ElementConfigFlowmeterVariableArea
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterCoriolis:
-		var v ElementConfigFlowmeterCoriolis
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterNozzle:
-		var v ElementConfigFlowmeterNozzle
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterVenturi:
-		var v ElementConfigFlowmeterVenturi
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterRingPiston:
-		var v ElementConfigFlowmeterRingPiston
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterPositiveDisplacement:
-		var v ElementConfigFlowmeterPositiveDisplacement
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterTurbine:
-		var v ElementConfigFlowmeterTurbine
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterPulse:
-		var v ElementConfigFlowmeterPulse
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterFloatSensor:
-		var v ElementConfigFlowmeterFloatSensor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlowmeterOrifice:
-		var v ElementConfigFlowmeterOrifice
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeBox:
-		var v ElementConfigBox
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeButton:
-		var v ElementConfigButton
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCircle:
-		var v ElementConfigCircle
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeGauge:
-		var v ElementConfigGauge
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeInput:
-		var v ElementConfigInput
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeLight:
-		var v ElementConfigLight
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeOffPageReference:
-		var v ElementConfigOffPageReference
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypePolygon:
-		var v ElementConfigPolygon
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeSelect:
-		var v ElementConfigSelect
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeSetpoint:
-		var v ElementConfigSetpoint
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeStateIndicator:
-		var v ElementConfigStateIndicator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeSwitch:
-		var v ElementConfigSwitch
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeTextBox:
-		var v ElementConfigTextBox
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeValue:
-		var v ElementConfigValue
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeAgitator:
-		var v ElementConfigAgitator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCrossBeamAgitator:
-		var v ElementConfigCrossBeamAgitator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlatBladeAgitator:
-		var v ElementConfigFlatBladeAgitator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeHeatExchangerGeneral:
-		var v ElementConfigHeatExchangerGeneral
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeHeatExchangerM:
-		var v ElementConfigHeatExchangerM
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeHeatExchangerStraightTube:
-		var v ElementConfigHeatExchangerStraightTube
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeHelicalAgitator:
-		var v ElementConfigHelicalAgitator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypePaddleAgitator:
-		var v ElementConfigPaddleAgitator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypePropellerAgitator:
-		var v ElementConfigPropellerAgitator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeRotaryMixer:
-		var v ElementConfigRotaryMixer
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeStaticMixer:
-		var v ElementConfigStaticMixer
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCavityPump:
-		var v ElementConfigCavityPump
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCentrifugalCompressor:
-		var v ElementConfigCentrifugalCompressor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCompressor:
-		var v ElementConfigCompressor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeDiaphragmPump:
-		var v ElementConfigDiaphragmPump
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeEjectionPump:
-		var v ElementConfigEjectionPump
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeEjectorCompressor:
-		var v ElementConfigEjectorCompressor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeLiquidRingCompressor:
-		var v ElementConfigLiquidRingCompressor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypePistonPump:
-		var v ElementConfigPistonPump
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypePump:
-		var v ElementConfigPump
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeRollerVaneCompressor:
-		var v ElementConfigRollerVaneCompressor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeScrewPump:
-		var v ElementConfigScrewPump
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeTurboCompressor:
-		var v ElementConfigTurboCompressor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeVacuumPump:
-		var v ElementConfigVacuumPump
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeBurstDisc:
-		var v ElementConfigBurstDisc
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlameArrestor:
-		var v ElementConfigFlameArrestor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlameArrestorDetonation:
-		var v ElementConfigFlameArrestorDetonation
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlameArrestorExplosion:
-		var v ElementConfigFlameArrestorExplosion
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlameArrestorFireRes:
-		var v ElementConfigFlameArrestorFireRes
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFlameArrestorFireResDetonation:
-		var v ElementConfigFlameArrestorFireResDetonation
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeIsoBurstDisc:
-		var v ElementConfigIsoBurstDisc
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeAngledValve:
-		var v ElementConfigAngledValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeAngledReliefValve:
-		var v ElementConfigAngledReliefValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeAngledSpringLoadedReliefValve:
-		var v ElementConfigAngledSpringLoadedReliefValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeBallValve:
-		var v ElementConfigBallValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeBreatherValve:
-		var v ElementConfigBreatherValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeButterflyValveOne:
-		var v ElementConfigButterflyValveOne
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeButterflyValveTwo:
-		var v ElementConfigButterflyValveTwo
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCheckValve:
-		var v ElementConfigCheckValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCheckValveWithArrow:
-		var v ElementConfigCheckValveWithArrow
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeElectricRegulator:
-		var v ElementConfigElectricRegulator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeElectricRegulatorMotorized:
-		var v ElementConfigElectricRegulatorMotorized
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeFourWayValve:
-		var v ElementConfigFourWayValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeGateValve:
-		var v ElementConfigGateValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeIsoCheckValve:
-		var v ElementConfigIsoCheckValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeManualValve:
-		var v ElementConfigManualValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeNeedleValve:
-		var v ElementConfigNeedleValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeRegulator:
-		var v ElementConfigRegulator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeRegulatorManual:
-		var v ElementConfigRegulatorManual
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeReliefValve:
-		var v ElementConfigReliefValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeSolenoidValve:
-		var v ElementConfigSolenoidValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeSpringLoadedReliefValve:
-		var v ElementConfigSpringLoadedReliefValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeThreeWayValve:
-		var v ElementConfigThreeWayValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeThreeWayBallValve:
-		var v ElementConfigThreeWayBallValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeValve:
-		var v ElementConfigValve
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCrossJunction:
-		var v ElementConfigCrossJunction
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCylinder:
-		var v ElementConfigCylinder
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeTank:
-		var v ElementConfigTank
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeTJunction:
-		var v ElementConfigTJunction
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCustomActuator:
-		var v ElementConfigCustomActuator
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeCustomStatic:
-		var v ElementConfigCustomStatic
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypePipe:
-		var v ElementConfigPipe
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeElectric:
-		var v ElementConfigElectric
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeSecondary:
-		var v ElementConfigSecondary
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeJacketed:
-		var v ElementConfigJacketed
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeHydraulic:
-		var v ElementConfigHydraulic
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypePneumatic:
-		var v ElementConfigPneumatic
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case ElementConfigTypeData:
-		var v ElementConfigData
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("ElementConfig: unknown variant %q", disc.Type)
-	}
-	return nil
-}
-
-func (u ElementConfig) Validate() error {
-	switch variant := u.Variant.(type) {
-	case ElementConfigGauge:
-		return variant.Validate()
-	case ElementConfigValue:
-		return variant.Validate()
-	case ElementConfigPipe:
-		return variant.Validate()
-	case ElementConfigElectric:
-		return variant.Validate()
-	case ElementConfigSecondary:
-		return variant.Validate()
-	case ElementConfigJacketed:
-		return variant.Validate()
-	case ElementConfigHydraulic:
-		return variant.Validate()
-	case ElementConfigPneumatic:
-		return variant.Validate()
-	case ElementConfigData:
+	case ValueNodeConfig:
 		return variant.Validate()
 	}
 	return nil

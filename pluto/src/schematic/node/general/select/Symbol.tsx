@@ -33,7 +33,7 @@ export const Symbol = ({
     disabled,
     inlineSize,
   },
-}: NodeProps<schematic.NodeConfigSelect>): ReactElement => {
+}: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
   const sink = useMemo(() => CommonTelem.numberSink(commandChannel), [commandChannel]);
   const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);

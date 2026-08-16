@@ -25,6 +25,7 @@ type ProvisionResult struct {
 	OwnerKey    role.Key
 	EngineerKey role.Key
 	OperatorKey role.Key
+	HostKey     role.Key
 	ViewerKey   role.Key
 }
 
@@ -38,16 +39,54 @@ func Provision(
 	roleSvc *role.Service,
 ) (result ProvisionResult, err error) {
 	err = db.WithTx(ctx, func(tx gorp.Tx) error {
-		if result.ViewerKey, err = provisionRole(ctx, viewerRole, []policy.Policy{viewerPolicy}, tx, policySvc, roleSvc); err != nil {
+		if result.ViewerKey, err = provisionRole(
+			ctx,
+			viewerRole,
+			[]policy.Policy{viewerPolicy},
+			tx,
+			policySvc,
+			roleSvc,
+		); err != nil {
 			return err
 		}
-		if result.OperatorKey, err = provisionRole(ctx, operatorRole, operatorPolicies, tx, policySvc, roleSvc); err != nil {
+		if result.HostKey, err = provisionRole(
+			ctx,
+			hostRole,
+			hostPolicies,
+			tx,
+			policySvc,
+			roleSvc,
+		); err != nil {
 			return err
 		}
-		if result.EngineerKey, err = provisionRole(ctx, engineerRole, engineerPolicies, tx, policySvc, roleSvc); err != nil {
+		if result.OperatorKey, err = provisionRole(
+			ctx,
+			operatorRole,
+			operatorPolicies,
+			tx,
+			policySvc,
+			roleSvc,
+		); err != nil {
 			return err
 		}
-		if result.OwnerKey, err = provisionRole(ctx, ownerRole, []policy.Policy{ownerPolicy}, tx, policySvc, roleSvc); err != nil {
+		if result.EngineerKey, err = provisionRole(
+			ctx,
+			engineerRole,
+			engineerPolicies,
+			tx,
+			policySvc,
+			roleSvc,
+		); err != nil {
+			return err
+		}
+		if result.OwnerKey, err = provisionRole(
+			ctx,
+			ownerRole,
+			[]policy.Policy{ownerPolicy},
+			tx,
+			policySvc,
+			roleSvc,
+		); err != nil {
 			return err
 		}
 		return nil
@@ -93,7 +132,8 @@ func provisionRole(
 			return uuid.Nil, err
 		}
 	}
-	if err := policySvc.NewWriter(tx, true).SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
+	if err := policySvc.NewWriter(tx, true).
+		SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
 		return uuid.Nil, err
 	}
 	return rol.Key, nil

@@ -11,17 +11,8 @@
 
 package kv
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/versions"
 
 // Pair is a key-value metadata pair associated with a specific range, enabling
 // arbitrary metadata storage on time ranges.
-type Pair struct {
-	// Range is the unique identifier of the range owning this key-value pair.
-	Range ranger.Key `json:"range" msgpack:"range"`
-	// Key is the metadata key name.
-	Key string `json:"key" msgpack:"key"`
-	// Value is the metadata value stored as a string for flexibility.
-	Value string `json:"value" msgpack:"value"`
-}
+type Pair = versions.Pair

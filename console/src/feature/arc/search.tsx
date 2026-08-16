@@ -7,22 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { Arc } from "@/platform/arc";
-import { Layout } from "@/platform/layout";
 import { Search } from "@/platform/search";
 
-const useOnSelect = () => {
-  const placeLayout = Layout.usePlacer();
-  return useCallback(
-    ({ id, name }: ontology.Resource) => placeLayout(Arc.create({ key: id.key, name })),
-    [placeLayout],
-  );
-};
-
-const SearchListItem = Search.createListItem({ icon: <Icon.Arc />, useOnSelect });
+const SearchListItem = Search.createListItem({ icon: <Icon.Arc /> });
 
 export const SEARCH_LIST_ITEMS: Search.ListItems = { arc: SearchListItem };

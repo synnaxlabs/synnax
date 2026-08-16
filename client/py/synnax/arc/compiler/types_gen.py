@@ -15,13 +15,13 @@ from pydantic import BaseModel, Field
 
 
 class Output(BaseModel):
-    """Is compiled output from the Arc compiler including WebAssembly bytecode
-    and memory layout.
+    """Is compiled output from the Arc compiler including WebAssembly bytecode and
+    memory layout.
 
     Attributes:
         WASM: Is compiled WebAssembly bytecode for sandboxed execution.
-        OutputMemoryBases: Contains memory base addresses for multi-output functions, mapping
-            function keys to their base addresses.
+        OutputMemoryBases: Contains memory base addresses for multi-output functions,
+            mapping function keys to their base addresses.
     """
 
     WASM: bytes

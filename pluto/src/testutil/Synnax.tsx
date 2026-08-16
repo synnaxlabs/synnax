@@ -7,20 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
-import { Flux } from "@/flux";
-import { flux } from "@/flux/aether";
-import { Pluto } from "@/pluto";
+import { Alamos } from "@/alamos";
+import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
+import { Telem } from "@/telem";
+import { telem } from "@/telem/aether";
+import { theming } from "@/theming/aether";
 import { canvasTest } from "@/vis/render/test";
+import { Staleness } from "@/vis/staleness";
+import { staleness } from "@/vis/staleness/aether";
 
 interface RenderContextSeedProps extends PropsWithChildren {
   context: canvasTest.Recorder;
@@ -38,46 +42,21 @@ const RenderContextSeed = ({
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
-const newWrapper = (
-  client: Client | null,
-  fluxClient: Flux.Client,
-  additionalRegistry?: aether.ComponentRegistry,
-  renderContext?: canvasTest.Recorder,
-) => {
-  const AetherProvider = aetherTest.createProvider({
-    ...synnax.REGISTRY,
-    ...status.REGISTRY,
-    ...flux.createRegistry({ storeConfig: {} }),
-    ...(renderContext != null
-      ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
-      : {}),
-    ...additionalRegistry,
+const TEST_THEME = theming.themeZ.parse(theming.SYNNAX_THEMES.synnaxLight);
+
+// Mounts the production aether theming provider without the React provider's
+// font loading, which jsdom cannot perform (no FontFace).
+const ThemingSeed = ({ children }: PropsWithChildren): ReactElement => {
+  const { path } = Aether.useLifecycle({
+    type: theming.Provider.TYPE,
+    schema: theming.Provider.z,
+    initialState: { theme: TEST_THEME, fontURLs: [] },
   });
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <AetherProvider>
-      <Status.Aggregator>
-        <Synnax.TestProvider client={client}>
-          <Flux.Provider client={fluxClient}>
-            {renderContext == null ? (
-              children
-            ) : (
-              <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
-            )}
-          </Flux.Provider>
-        </Synnax.TestProvider>
-      </Status.Aggregator>
-    </AetherProvider>
-  );
-  return Wrapper;
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
-export interface CreateSynnaxWrapperArgs {
+export interface CreateSynnaxWrapperParams {
   client: Client | null;
-  excludeFluxStores?: string[];
-  /** Overrides the flux error handler. Defaults to logging via console.error. */
-  handleError?: status.ErrorHandler;
-  /** Overrides the flux async error handler. Defaults to logging via console.error. */
-  handleAsyncError?: status.AsyncErrorHandler;
   /** Extra aether components merged into the test render registry. */
   additionalRegistry?: aether.ComponentRegistry;
   /**
@@ -86,40 +65,72 @@ export interface CreateSynnaxWrapperArgs {
    * with {@link canvasTest.record} and keep the reference for assertions.
    */
   renderContext?: canvasTest.Recorder;
+  /**
+   * When defined, mounts the telemetry provider stack so components that resolve
+   * telem sources (e.g. value cells) can mount. The factories are added to the
+   * production factory set; pass `[new telemTest.TestFactory()]` to resolve
+   * telemTest source and sink specs.
+   */
+  telemFactories?: telem.Factory[];
+  /** Connection status the Synnax context reports; defaults to disconnected. */
+  connectionStatus?: connection.Status;
 }
 
-const createFluxClient = (args: CreateSynnaxWrapperArgs): Flux.Client => {
-  const { client, excludeFluxStores, handleError, handleAsyncError } = args;
-  const storeConfig = { ...Pluto.FLUX_STORE_CONFIG };
-  if (excludeFluxStores)
-    excludeFluxStores.forEach((store) => delete storeConfig[store]);
-  return new Flux.Client({
-    client,
-    storeConfig,
-    handleError: handleError ?? status.createErrorHandler(console.error),
-    handleAsyncError: handleAsyncError ?? status.createAsyncErrorHandler(console.error),
+export const createSynnaxWrapper = ({
+  client,
+  additionalRegistry,
+  renderContext,
+  telemFactories,
+  connectionStatus,
+}: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
+  const AetherProvider = aetherTest.createProvider({
+    ...synnax.REGISTRY,
+    ...status.REGISTRY,
+    ...alamos.REGISTRY,
+    ...theming.REGISTRY,
+    ...staleness.REGISTRY,
+    ...(renderContext != null
+      ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
+      : {}),
+    ...(telemFactories != null
+      ? {
+          [telem.PROVIDER_TYPE]: telem.createProvider((c) =>
+            telem.createFactory(c, telemFactories),
+          ),
+        }
+      : {}),
+    ...additionalRegistry,
   });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
+    let inner =
+      renderContext == null ? (
+        children
+      ) : (
+        <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
+      );
+    inner = <Staleness.Provider>{inner}</Staleness.Provider>;
+    if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
+    return (
+      <AetherProvider>
+        <Status.Aggregator>
+          <Alamos.Provider>
+            <Synnax.TestProvider client={client} status={connectionStatus}>
+              <Suspense fallback={null}>
+                <ThemingSeed>{inner}</ThemingSeed>
+              </Suspense>
+            </Synnax.TestProvider>
+          </Alamos.Provider>
+        </Status.Aggregator>
+      </AetherProvider>
+    );
+  };
+  return Wrapper;
 };
 
-export const createSynnaxWrapper = (
-  args: CreateSynnaxWrapperArgs,
-): FC<PropsWithChildren> =>
-  newWrapper(
-    args.client,
-    createFluxClient(args),
-    args.additionalRegistry,
-    args.renderContext,
-  );
-
 export const createAsyncSynnaxWrapper = async (
-  args: CreateSynnaxWrapperArgs,
+  params: CreateSynnaxWrapperParams,
 ): Promise<FC<PropsWithChildren>> => {
-  const fluxClient = createFluxClient(args);
-  await fluxClient.awaitInitialized();
-  return newWrapper(
-    args.client,
-    fluxClient,
-    args.additionalRegistry,
-    args.renderContext,
-  );
+  const { client } = params;
+  if (client != null) await client.connect();
+  return createSynnaxWrapper(params);
 };

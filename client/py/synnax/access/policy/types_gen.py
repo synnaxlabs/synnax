@@ -24,9 +24,9 @@ Key: TypeAlias = UUID
 
 
 class Policy(BaseModel):
-    """Is an access control policy that defines which actions are permitted on
-    which resources. Policies are attached to roles, and roles are assigned
-    to users via ontology relationships.
+    """Is an access control policy that defines which actions are permitted on which
+    resources. Policies are attached to roles, and roles are assigned to users via
+    ontology relationships.
 
     Attributes:
         key: Is the unique identifier for this policy.

@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { arc, query } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
-import { type FluxSubStore, useDispatch } from "@/arc/queries";
-import { Flux } from "@/flux";
+import { useDispatch } from "@/arc/queries";
+import { Synnax } from "@/synnax";
 import { Diagram } from "@/vis/diagram";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
 const MIME = "web application/synnax-arc+json";
 
-export interface UseClipboardArgs {
+export interface UseClipboardParams {
   key: arc.Key;
   selected?: string[];
   onPaste?: (newKeys: string[]) => void;
@@ -28,18 +28,18 @@ export const useClipboard = ({
   key,
   selected,
   onPaste,
-}: UseClipboardArgs): Diagram.UseClipboardReturn => {
+}: UseClipboardParams): Diagram.UseClipboardReturn => {
   const { dispatch } = useDispatch();
-  const store = Flux.useStore<FluxSubStore>();
+  const client = Synnax.use();
   const adapter: Diagram.ClipboardAdapter<arc.graph.Node, arc.graph.Edge> = {
     mime: MIME,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
-      const a = store.arcs.get(key);
-      if (a == null) return null;
+      const cached = client?.arcs.getCached(key);
+      if (!query.isLive(cached)) return null;
       const {
         graph: { nodes, edges, inputs },
-      } = a;
+      } = cached;
       return { nodes, edges, configs: inputs };
     },
     apply: ({ nodes, edges, newKeys }) => {

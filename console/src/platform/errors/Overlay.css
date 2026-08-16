@@ -10,9 +10,17 @@
  */
 
 .console-error-overlay {
+    /* Anchors the absolutely-positioned island row. */
+    position: relative;
     height: 100vh;
-    & > .pluto-navbar.pluto--location-top {
-        padding-left: 2rem;
-        padding-right: 1rem;
+
+    /* Tauri drags only when the click target is the drag region itself, and the
+       fallback's wrapper covers the whole overlay. Passing it through makes the
+       background draggable; the card takes its own clicks back. */
+    & > .pluto-error-fallback__container {
+        pointer-events: none;
+    }
+    & .pluto-error-fallback__content {
+        pointer-events: auto;
     }
 }

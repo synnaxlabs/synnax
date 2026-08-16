@@ -19,25 +19,24 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps
-  extends Omit<schematic.NodeConfigSetpoint, "variant">, BaseInput.Control<number> {
+  extends
+    Omit<schematic.SetpointNodeConfig, "variant">,
+    Omit<BaseInput.Control<number>, "value"> {
   className?: string;
   style?: CSSProperties;
 }
-
-const SETPOINT_STYLE: CSSProperties = { zIndex: 5 };
 
 export const Setpoint = ({
   orientation = "left",
   className,
   style,
-  value,
   units,
   color,
   onChange,
   size = "small",
   disabled,
 }: RenderProps): ReactElement => {
-  const [currValue, setCurrValue] = useState(value);
+  const [currValue, setCurrValue] = useState(0);
   return (
     <Primitive.Div
       className={CSS(CSS.B("setpoint"), className)}
@@ -58,7 +57,6 @@ export const Setpoint = ({
           left={100}
           top={50}
           id="2"
-          style={SETPOINT_STYLE}
         />
         <Handle.Handle
           location="top"

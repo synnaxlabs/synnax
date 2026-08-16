@@ -83,11 +83,14 @@ var _ = Describe("Batch", func() {
 		Expect(b.Free).To(Equal([]entry{{id: 3, lease: node.KeyFree}}))
 	})
 
-	It("Should return empty buckets and an initialized peers map for no entries", func() {
-		b := factory.Batch(nil)
-		Expect(b.Gateway).To(BeEmpty())
-		Expect(b.Free).To(BeEmpty())
-		Expect(b.Peers).ToNot(BeNil())
-		Expect(b.Peers).To(BeEmpty())
-	})
+	It(
+		"Should return empty buckets and an initialized peers map for no entries",
+		func() {
+			b := factory.Batch(nil)
+			Expect(b.Gateway).To(BeEmpty())
+			Expect(b.Free).To(BeEmpty())
+			Expect(b.Peers).ToNot(BeNil())
+			Expect(b.Peers).To(BeEmpty())
+		},
+	)
 })

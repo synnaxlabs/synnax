@@ -14,20 +14,28 @@ import { Task } from "@/platform/task";
 
 describe("Hardware Task Types", () => {
   describe("Channel Validation", () => {
-    // Create schemas that use the validation functions, adapting them to work with refine
-    const channelsArrayZ = z.array(Task.channelZ).check(Task.validateChannels);
-    const readChannelsArrayZ = z
-      .array(Task.readChannelZ)
-      .check(Task.validateReadChannels);
+    const channelZ = z.object({ disabled: z.boolean(), key: z.string() });
+    const readChannelZ = channelZ.extend({ channel: z.number(), name: Task.nameZ });
+    const writeChannelZ = channelZ.extend({
+      cmdChannel: z.number(),
+      stateChannel: z.number(),
+      cmdChannelName: Task.nameZ,
+      stateChannelName: Task.nameZ,
+    });
+    const ZERO_CHANNEL = { disabled: false, key: "" };
+    const ZERO_READ_CHANNEL = { ...ZERO_CHANNEL, ...Task.READ_CHANNEL_OVERRIDE };
+    const ZERO_WRITE_CHANNEL = { ...ZERO_CHANNEL, ...Task.WRITE_CHANNEL_OVERRIDE };
+    const channelsArrayZ = z.array(channelZ).check(Task.validateChannels);
+    const readChannelsArrayZ = z.array(readChannelZ).check(Task.validateReadChannels);
     const writeChannelsArrayZ = z
-      .array(Task.writeChannelZ)
+      .array(writeChannelZ)
       .check(Task.validateWriteChannels);
 
     describe("validateChannels", () => {
       it("should report errors for duplicate channel keys", () => {
-        const channels: Task.Channel[] = [
-          { ...Task.ZERO_CHANNEL, enabled: true, key: "duplicate" },
-          { ...Task.ZERO_CHANNEL, enabled: true, key: "duplicate" },
+        const channels: z.infer<typeof channelZ>[] = [
+          { ...ZERO_CHANNEL, key: "duplicate" },
+          { ...ZERO_CHANNEL, key: "duplicate" },
         ];
 
         const result = channelsArrayZ.safeParse(channels);
@@ -45,9 +53,9 @@ describe("Hardware Task Types", () => {
       });
 
       it("should not report errors for valid channels", () => {
-        const channels: Task.Channel[] = [
-          { ...Task.ZERO_CHANNEL, enabled: true, key: "channel1" },
-          { ...Task.ZERO_CHANNEL, enabled: true, key: "channel2" },
+        const channels: z.infer<typeof channelZ>[] = [
+          { ...ZERO_CHANNEL, key: "channel1" },
+          { ...ZERO_CHANNEL, key: "channel2" },
         ];
 
         const result = channelsArrayZ.safeParse(channels);
@@ -58,9 +66,9 @@ describe("Hardware Task Types", () => {
 
     describe("validateReadChannels", () => {
       it("should report errors for duplicate channel values", () => {
-        const channels: Task.ReadChannel[] = [
-          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel1", channel: 1 },
-          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel2", channel: 1 },
+        const channels: z.infer<typeof readChannelZ>[] = [
+          { ...ZERO_READ_CHANNEL, key: "channel1", channel: 1 },
+          { ...ZERO_READ_CHANNEL, key: "channel2", channel: 1 },
         ];
 
         const result = readChannelsArrayZ.safeParse(channels);
@@ -79,9 +87,9 @@ describe("Hardware Task Types", () => {
       });
 
       it("should not report errors for valid read channels", () => {
-        const channels: Task.ReadChannel[] = [
-          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel1", channel: 1 },
-          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel2", channel: 2 },
+        const channels: z.infer<typeof readChannelZ>[] = [
+          { ...ZERO_READ_CHANNEL, key: "channel1", channel: 1 },
+          { ...ZERO_READ_CHANNEL, key: "channel2", channel: 2 },
         ];
 
         const result = readChannelsArrayZ.safeParse(channels);
@@ -90,9 +98,9 @@ describe("Hardware Task Types", () => {
       });
 
       it("should ignore channel value 0", () => {
-        const channels: Task.ReadChannel[] = [
-          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel1", channel: 0 },
-          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel2", channel: 0 },
+        const channels: z.infer<typeof readChannelZ>[] = [
+          { ...ZERO_READ_CHANNEL, key: "channel1", channel: 0 },
+          { ...ZERO_READ_CHANNEL, key: "channel2", channel: 0 },
         ];
 
         const result = readChannelsArrayZ.safeParse(channels);
@@ -101,17 +109,15 @@ describe("Hardware Task Types", () => {
       });
 
       it("should report errors for duplicate channel names", () => {
-        const channels: Task.ReadChannel[] = [
+        const channels: z.infer<typeof readChannelZ>[] = [
           {
-            ...Task.ZERO_READ_CHANNEL,
-            enabled: true,
+            ...ZERO_READ_CHANNEL,
             key: "channel1",
             channel: 1,
             name: "temp",
           },
           {
-            ...Task.ZERO_READ_CHANNEL,
-            enabled: true,
+            ...ZERO_READ_CHANNEL,
             key: "channel2",
             channel: 2,
             name: "temp",
@@ -130,17 +136,15 @@ describe("Hardware Task Types", () => {
       });
 
       it("should ignore empty channel names", () => {
-        const channels: Task.ReadChannel[] = [
+        const channels: z.infer<typeof readChannelZ>[] = [
           {
-            ...Task.ZERO_READ_CHANNEL,
-            enabled: true,
+            ...ZERO_READ_CHANNEL,
             key: "channel1",
             channel: 1,
             name: "",
           },
           {
-            ...Task.ZERO_READ_CHANNEL,
-            enabled: true,
+            ...ZERO_READ_CHANNEL,
             key: "channel2",
             channel: 1,
             name: "",
@@ -161,17 +165,15 @@ describe("Hardware Task Types", () => {
 
     describe("validateWriteChannels", () => {
       it("should report errors for duplicate cmd channels", () => {
-        const channels: Task.WriteChannel[] = [
+        const channels: z.infer<typeof writeChannelZ>[] = [
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel1",
             cmdChannel: 1,
             stateChannel: 2,
           },
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel2",
             cmdChannel: 1,
             stateChannel: 3,
@@ -194,17 +196,15 @@ describe("Hardware Task Types", () => {
       });
 
       it("should report errors for duplicate state channels", () => {
-        const channels: Task.WriteChannel[] = [
+        const channels: z.infer<typeof writeChannelZ>[] = [
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel1",
             cmdChannel: 1,
             stateChannel: 3,
           },
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel2",
             cmdChannel: 2,
             stateChannel: 3,
@@ -227,17 +227,15 @@ describe("Hardware Task Types", () => {
       });
 
       it("should not report errors for valid write channels", () => {
-        const channels: Task.WriteChannel[] = [
+        const channels: z.infer<typeof writeChannelZ>[] = [
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel1",
             cmdChannel: 1,
             stateChannel: 2,
           },
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel2",
             cmdChannel: 3,
             stateChannel: 4,
@@ -250,17 +248,15 @@ describe("Hardware Task Types", () => {
       });
 
       it("should ignore channel values of 0", () => {
-        const channels: Task.WriteChannel[] = [
+        const channels: z.infer<typeof writeChannelZ>[] = [
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel1",
             cmdChannel: 1,
             stateChannel: 0,
           },
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel2",
             cmdChannel: 0,
             stateChannel: 0,
@@ -273,18 +269,16 @@ describe("Hardware Task Types", () => {
       });
 
       it("should report errors for duplicate cmd channel names", () => {
-        const channels: Task.WriteChannel[] = [
+        const channels: z.infer<typeof writeChannelZ>[] = [
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel1",
             cmdChannel: 1,
             stateChannel: 2,
             cmdChannelName: "cmd",
           },
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel2",
             cmdChannel: 3,
             stateChannel: 4,
@@ -304,18 +298,16 @@ describe("Hardware Task Types", () => {
       });
 
       it("should report errors for duplicate state channel names", () => {
-        const channels: Task.WriteChannel[] = [
+        const channels: z.infer<typeof writeChannelZ>[] = [
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel1",
             cmdChannel: 1,
             stateChannel: 2,
             stateChannelName: "state",
           },
           {
-            ...Task.ZERO_WRITE_CHANNEL,
-            enabled: true,
+            ...ZERO_WRITE_CHANNEL,
             key: "channel2",
             cmdChannel: 3,
             stateChannel: 4,

@@ -10,24 +10,23 @@
 import "@/feature/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
-import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
+import { Flex, Icon, Log, Panel as PPanel, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/log/export";
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { Properties } from "@/feature/log/toolbar/Properties";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
+import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const Internal = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const selected = Session.Log.useSelectSelectedToolbarTab();
-  const name = Log.useSelectName();
+  const name = Log.useName();
   const key = Log.useKey();
-  const handleExport = useExport();
   const handleTabSelect = useCallback(
     (tab: string) =>
       dispatch(
@@ -43,38 +42,42 @@ const Internal = (): ReactElement => {
     <Base.Content className={CSS.B("log-toolbar")}>
       <Tabs.Frame value={selected} onChange={handleTabSelect} grow>
         <Base.Header>
-          <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
+          <Base.Title>
+            <Icon.Log />
+            {name}
+          </Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton getID={() => log.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}
               />
             </Flex.Box>
-            <Tabs.Selector className={CSS.BE("log-toolbar", "tabs")}>
+            <Tabs.Selector>
               <Tabs.Tab itemKey="channels">Channels</Tabs.Tab>
               <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
             </Tabs.Selector>
           </Flex.Box>
         </Base.Header>
-        <Tabs.Content itemKey="channels">
-          <Channels />
-        </Tabs.Content>
-        <Tabs.Content itemKey="properties">
-          <Properties />
-        </Tabs.Content>
+        <Base.Body>
+          <Tabs.Content itemKey="channels">
+            <Channels />
+          </Tabs.Content>
+          <Tabs.Content itemKey="properties">
+            <Properties />
+          </Tabs.Content>
+        </Base.Body>
       </Tabs.Frame>
     </Base.Content>
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Log.Suspended logKey={layoutKey}>
-    <Internal />
-  </Log.Suspended>
-);
+export const Toolbar: Panel.Toolbar = () => {
+  const { key } = PPanel.useTabResource();
+  return (
+    <Log.Suspended logKey={key}>
+      <Internal />
+    </Log.Suspended>
+  );
+};

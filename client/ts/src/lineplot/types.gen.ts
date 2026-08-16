@@ -46,7 +46,10 @@ export interface Title extends z.infer<typeof titleZ> {}
 
 /** Legend is the plot legend configuration. */
 export const legendZ = z.object({
-  /** hidden is whether the legend is hidden. When false (the default), the legend is shown. */
+  /**
+   * hidden is whether the legend is hidden. When false (the default), the legend is
+   * shown.
+   */
   hidden: z.boolean().default(false),
   /** position is the anchor position of the legend within the plot container. */
   position: spatial.stickyXYZ.prefault({
@@ -59,8 +62,8 @@ export const legendZ = z.object({
 export interface Legend extends z.infer<typeof legendZ> {}
 
 /**
- * Channels binds channel keys to each axis. x1 and x2 are single-channel; y1
- * through y4 carry zero or more channels each.
+ * Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
+ * carry zero or more channels each.
  */
 export const channelsZ = z.object({
   /** x1 is the channel rendered on the x1 axis. */
@@ -81,10 +84,9 @@ export interface Channels extends z.infer<typeof channelsZ> {}
 /** Ranges binds range keys to each x-axis. */
 export const rangesZ = z.object({
   /**
-   * x1 are the range keys plotted against the x1 axis. Range keys are
-   * opaque strings rather than UUIDs because the console layers
-   * synthetic rolling-window ranges (e.g. "recent", "rolling1m")
-   * alongside persisted ranges; the server stores whatever the
+   * x1 are the range keys plotted against the x1 axis. Range keys are opaque strings
+   * rather than UUIDs because the console layers synthetic rolling-window ranges (e.g.
+   * "recent", "rolling1m") alongside persisted ranges; the server stores whatever the
    * client sends.
    */
   x1: z
@@ -101,15 +103,18 @@ export interface Ranges extends z.infer<typeof rangesZ> {}
 
 /**
  * ManualBounds controls whether an axis uses a manually-set bound on each side
- * independently. When a side is false (the default), the corresponding
- * entry in Axis.bounds is recomputed locally from the rendered data
- * window and never broadcast to the server; when true, Axis.bounds holds
- * the user-set value.
+ * independently. When a side is false (the default), the corresponding entry in
+ * Axis.bounds is recomputed locally from the rendered data window and never broadcast
+ * to the server; when true, Axis.bounds holds the user-set value.
  */
 export const manualBoundsZ = z.object({
-  /** lower is whether the lower bound is set manually rather than computed from data. */
+  /**
+   * lower is whether the lower bound is set manually rather than computed from data.
+   */
   lower: z.boolean().default(false),
-  /** upper is whether the upper bound is set manually rather than computed from data. */
+  /**
+   * upper is whether the upper bound is set manually rather than computed from data.
+   */
   upper: z.boolean().default(false),
 });
 export interface ManualBounds extends z.infer<typeof manualBoundsZ> {}
@@ -117,26 +122,25 @@ export interface ManualBounds extends z.infer<typeof manualBoundsZ> {}
 /** Line is the per-line styling and downsampling configuration. */
 export const lineZ = z.object({
   /**
-   * key is the line identifier derived from its channel and range
-   * assignment. Format is internal to the client and stable across
-   * re-renders so styling overrides persist.
+   * key is the line identifier derived from its channel and range assignment. Format is
+   * internal to the client and stable across re-renders so styling overrides persist.
    */
   key: z.string(),
   /**
-   * label is the user-specified line label. Null means derive from the
-   * channel name at render time; non-null is an override.
+   * label is the user-specified line label. Null means derive from the channel name at
+   * render time; non-null is an override.
    */
   label: z.string().optional(),
   /**
-   * color is the line color. When null, the Console assigns one from the
-   * visualization palette at render time.
+   * color is the line color. When null, the Console assigns one from the visualization
+   * palette at render time.
    */
   color: color.colorZ.optional(),
   /** strokeWidth is the line stroke width in pixels. */
   strokeWidth: z.number().default(2),
   /**
-   * downsample is the downsample factor applied before rendering. 1 means render
-   * every sample; higher values render every Nth sample.
+   * downsample is the downsample factor applied before rendering. 1 means render every
+   * sample; higher values render every Nth sample.
    */
   downsample: z.uint32().default(1),
   /** downsampleMode selects how the downsample factor is applied. */
@@ -150,7 +154,10 @@ export const ruleZ = z.object({
   key: z.string(),
   /** label is the human-readable label rendered alongside the rule. */
   label: z.string(),
-  /** color is the display color of the rule. When null, the Console assigns a default at render time. */
+  /**
+   * color is the display color of the rule. When null, the Console assigns a default at
+   * render time.
+   */
   color: color.colorZ.optional(),
   /** axis is the axis the rule is anchored to. */
   axis: axisKeyZ,
@@ -180,8 +187,8 @@ export const axisZ = z.object({
   labelLevel: text.levelZ.default("small"),
   /**
    * bounds is the value-space window of the axis. When the matching entry in
-   * manual_bounds is false the field is overwritten locally on every
-   * render; otherwise it is the user-set fixed bound.
+   * manual_bounds is false the field is overwritten locally on every render; otherwise
+   * it is the user-set fixed bound.
    */
   bounds: spatial.boundsZ().prefault({ lower: 0, upper: 0 }),
   /** manualBounds controls per-edge manual bound override. */
@@ -189,8 +196,8 @@ export const axisZ = z.object({
   /** tickSpacing is the target pixel distance between adjacent tick marks. */
   tickSpacing: z.number().default(75),
   /**
-   * type selects the tick label style. Null means default (linear).
-   * X-axes typically carry "time" when bound to a timestamp channel.
+   * type selects the tick label style. Null means default (linear). X-axes typically
+   * carry "time" when bound to a timestamp channel.
    */
   type: tickTypeZ.optional(),
 });
@@ -214,9 +221,9 @@ export const axesZ = z.object({
 export interface Axes extends z.infer<typeof axesZ> {}
 
 /**
- * LinePlot is a time-series visualization component for plotting telemetry data.
- * Line plots support multiple channels, real-time streaming, and
- * historical data display with zoom and pan capabilities.
+ * LinePlot is a time-series visualization component for plotting telemetry data. Line
+ * plots support multiple channels, real-time streaming, and historical data display
+ * with zoom and pan capabilities.
  */
 export const linePlotZ = z.object({
   /** key is the unique identifier for this line plot. */
@@ -234,9 +241,8 @@ export const linePlotZ = z.object({
   /** axes bundles per-axis configuration. */
   axes: axesZ.prefault({}),
   /**
-   * lines holds per-line styling and downsampling configuration. Each entry
-   * corresponds to one channel and range combination produced by the
-   * channels and ranges bindings.
+   * lines holds per-line styling and downsampling configuration. Each entry corresponds
+   * to one channel and range combination produced by the channels and ranges bindings.
    */
   lines: lineZ.array().default(() => []),
   /** rules holds annotation rules drawn over the plot. */

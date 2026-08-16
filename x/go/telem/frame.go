@@ -47,8 +47,8 @@ type Frame[K types.SizedNumeric] struct {
 	}
 }
 
-// UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type. This
-// method performs no static type checking and is unsafe. Caveat emptor.
+// UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type.
+// This method performs no static type checking and is unsafe. Caveat emptor.
 func UnsafeReinterpretFrameKeysAs[I, O types.SizedNumeric](f Frame[I]) Frame[O] {
 	return Frame[O]{
 		keys:   unsafe.ReinterpretSlice[I, O](f.keys),
@@ -276,7 +276,7 @@ var (
 // serializableFrame is a helper type for serializing the Frame to encoded
 // representations.
 type serializableFrame[K comparable] struct {
-	Keys   []K      `json:"keys" msgpack:"keys"`
+	Keys   []K      `json:"keys"   msgpack:"keys"`
 	Series []Series `json:"series" msgpack:"series"`
 }
 

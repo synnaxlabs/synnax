@@ -41,7 +41,7 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineResources(ctx, OntologyID(p.Key))
+	return w.otg.DefineResources(ctx, p.OntologyID())
 }
 
 // CreateMany creates the given policies. If policies with the same key already exist,

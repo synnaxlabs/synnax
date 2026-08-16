@@ -27,7 +27,7 @@ export const Symbol = ({
     dimensions,
     borderRadius,
   },
-}: NodeProps<schematic.NodeConfigCylinder>): ReactElement => (
+}: NodeProps<schematic.CylinderNodeConfig>): ReactElement => (
   <Grid.Grid
     editable={selected}
     nodeKey={nodeKey}

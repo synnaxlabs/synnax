@@ -22,16 +22,15 @@ Key: TypeAlias = UUID
 
 
 class Project(BaseModel):
-    """Is a named, persistable container that stores the layout and organization
-    of the Console application. Projects allow users to save and restore
-    custom arrangements of visualizations, tabs, and window configurations.
+    """Is a named, persistable container that stores the layout and organization of the
+    Console application. Projects allow users to save and restore custom arrangements of
+    visualizations, tabs, and window configurations.
 
     Attributes:
         key: Is the unique identifier for this project.
         name: Is a human-readable name for the project.
         layout: Is the mosaic tree structure that defines how visualizations are
-            arranged. Contains tab layout, split configurations, and window
-            positions.
+            arranged. Contains tab layout, split configurations, and window positions.
     """
 
     key: Key = Field(default_factory=uuid4)

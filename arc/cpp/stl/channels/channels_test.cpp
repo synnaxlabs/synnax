@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/mem/local_shared.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
@@ -1158,6 +1159,162 @@ TEST(ChannelWriteConstructionTest, ErrorsWhenInputMissing) {
         module.create(runtime::node::Config(ir, ir.nodes[0], std::move(state_node))),
         x::errors::NOT_FOUND
     );
+}
+
+TEST(ChannelModuleTest, ErrorsWhenSinkHasNeitherChannelKeyNorBindingEdge) {
+    ir::Node n;
+    n.key = "sink";
+    n.type = "write";
+    ir::IR ir;
+    ir.nodes.push_back(n);
+    runtime::state::State state(
+        runtime::state::Config{.ir = ir, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    auto state_node = ASSERT_NIL_P(state.node("sink"));
+    channels::Module module(nullptr, nullptr);
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(ir, ir.nodes[0], std::move(state_node))),
+        x::errors::VALIDATION
+    );
+}
+
+/// @brief owns an IR and the state built from it, plus a source node whose channel
+/// input is fed by the "bind" variable. Both outlive the node, so it must stay put
+/// for the test's duration.
+class SourceRebind {
+    ir::IR prog;
+    runtime::state::State state;
+
+public:
+    std::unique_ptr<runtime::node::Node> source;
+
+    SourceRebind():
+        prog(build_ir()),
+        state(
+            runtime::state::Config{
+                .ir = prog,
+                .channels =
+                    {{10, ::x::telem::FLOAT32_T, 0}, {20, ::x::telem::FLOAT32_T, 0}}
+            },
+            runtime::errors::noop_handler
+        ) {
+        channels::Module module(nullptr, nullptr);
+        auto state_node = ASSERT_NIL_P(this->state.node("source"));
+        this->source = ASSERT_NIL_P(module.create(
+            runtime::node::Config(
+                this->prog,
+                this->prog.nodes[1],
+                std::move(state_node)
+            )
+        ));
+    }
+
+    SourceRebind(const SourceRebind &) = delete;
+    SourceRebind &operator=(const SourceRebind &) = delete;
+
+    runtime::state::Node node(const std::string &key) {
+        return ASSERT_NIL_P(this->state.node(key));
+    }
+
+    void ingest(const types::ChannelKey key, const uint32_t offset, const float v) {
+        auto d = ::x::telem::Series(std::vector<float>{v});
+        d.alignment = ::x::telem::Alignment(1, offset);
+        ::x::telem::Frame frame(1);
+        frame.emplace(key, std::move(d));
+        this->state.ingest(frame);
+    }
+
+    /// @brief drops every read series but the latest on each channel.
+    void clear_reads() {
+        ::x::telem::Frame out;
+        this->state.flush_into(out);
+    }
+
+private:
+    static ir::IR build_ir() {
+        types::Param f0;
+        f0.name = "f0";
+        f0.type = types::Type{.kind = types::Kind::U32};
+        f0.value = static_cast<uint32_t>(10);
+        types::Param bind_out;
+        bind_out.name = ir::default_output_param;
+        bind_out.type = types::Type{
+            .kind = types::Kind::Chan,
+            .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::F32})
+        };
+        ir::Node bind;
+        bind.key = "bind";
+        bind.type = "variable";
+        bind.inputs.push_back(f0);
+        bind.outputs.push_back(bind_out);
+
+        types::Param channel;
+        channel.name = "channel";
+        channel.type = types::Type{
+            .kind = types::Kind::Chan,
+            .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::F32})
+        };
+        channel.value = static_cast<uint32_t>(10);
+        types::Param source_out;
+        source_out.name = ir::default_output_param;
+        source_out.type = types::Type{.kind = types::Kind::F32};
+        ir::Node source;
+        source.key = "source";
+        source.type = "on";
+        source.inputs.push_back(channel);
+        source.outputs.push_back(source_out);
+
+        ir::IR ir;
+        ir.nodes.push_back(bind);
+        ir.nodes.push_back(source);
+        ir.edges.emplace_back(
+            ir::Handle("bind", ir::default_output_param),
+            ir::Handle("source", "channel"),
+            ir::EdgeKind::Continuous
+        );
+        return ir;
+    }
+};
+
+TEST(SourceRebindTest, RePointsAtTheKeyOnTheBindingEdgeAndSkipsBufferedData) {
+    SourceRebind t;
+    t.ingest(10, 0, 1.5f);
+    bool changed = false;
+    auto ctx = make_context(&changed);
+    ASSERT_NIL(t.source->next(ctx));
+    EXPECT_TRUE(changed);
+
+    *t.node("bind").output(0) = ::x::telem::Series(static_cast<uint32_t>(20));
+    t.clear_reads();
+    t.ingest(20, 0, 9.9f);
+    changed = false;
+    ASSERT_NIL(t.source->next(ctx));
+    EXPECT_FALSE(changed) << "data buffered before the rebind must not fire";
+
+    t.clear_reads();
+    t.ingest(20, 1, 7.7f);
+    changed = false;
+    ASSERT_NIL(t.source->next(ctx));
+    EXPECT_TRUE(changed);
+    const auto out = t.node("source").output(0);
+    EXPECT_FLOAT_EQ(out->at<float>(-1), 7.7f);
+}
+
+TEST(SourceRebindTest, RebindsOnResetAndAbsorbsDataBufferedOnTheNewChannel) {
+    SourceRebind t;
+    *t.node("bind").output(0) = ::x::telem::Series(static_cast<uint32_t>(20));
+    t.ingest(20, 0, 9.9f);
+    t.source->reset();
+    bool changed = false;
+    auto ctx = make_context(&changed);
+    ASSERT_NIL(t.source->next(ctx));
+    EXPECT_FALSE(changed) << "pre-rebind data must be absorbed by Reset";
+
+    t.clear_reads();
+    t.ingest(20, 1, 7.7f);
+    ASSERT_NIL(t.source->next(ctx));
+    EXPECT_TRUE(changed);
 }
 
 }

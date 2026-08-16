@@ -16,11 +16,15 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
-  { itemKey: "modbus.readTask", label: "Create read task", layout: Task.READ_LAYOUT },
+  {
+    itemKey: "modbus.readTask",
+    label: "Create read task",
+    useCreate: Task.useCreateRead,
+  },
   {
     itemKey: "modbus.writeTask",
     label: "Create write task",
-    layout: Task.WRITE_LAYOUT,
+    useCreate: Task.useCreateWrite,
   },
 ];
 

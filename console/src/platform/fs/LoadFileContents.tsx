@@ -43,7 +43,7 @@ export const InputFilePath = ({
       onChange(path);
     }, "Failed to open file");
   return (
-    <Flex.Box pack className={CSS.B("input-file-path")} borderColor={5} {...rest}>
+    <Flex.Box pack className={CSS.B("input-file-path")} borderColor={6} {...rest}>
       <Button.Button
         level="small"
         className={CSS.B("path")}
@@ -51,12 +51,12 @@ export const InputFilePath = ({
         grow
         onClick={handleClick}
         size="medium"
-        textColor={8}
+        textColor={9}
         weight={450}
       >
         {primitive.isNonZero(path) ? (
           <>
-            <Icon.Attachment style={{ color: "var(--pluto-gray-l8)" }} />
+            <Icon.Attachment className={CSS.BE("input-file-path", "icon")} />
             {path}
           </>
         ) : (

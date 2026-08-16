@@ -45,7 +45,6 @@ class SetOutput(ConsoleCase):
     """
 
     def run(self) -> None:
-
         console = self.console
         client = self.client
         CHANNEL_NAME = f"command_channel_{random_name()}"

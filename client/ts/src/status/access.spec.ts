@@ -10,7 +10,7 @@
 import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { status } from "@/status";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -31,9 +31,9 @@ describe("status", () => {
         message: "test",
         time: TimeStamp.now(),
       });
-      await expect(
-        userClient.statuses.retrieve({ key: randomStatus.key }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.statuses.retrieve(randomStatus.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
 
     it("should allow the caller to retrieve statuses with the correct policy", async () => {
@@ -49,9 +49,7 @@ describe("status", () => {
         message: "test",
         time: TimeStamp.now(),
       });
-      const retrieved = await userClient.statuses.retrieve({
-        key: randomStatus.key,
-      });
+      const retrieved = await userClient.statuses.retrieve(randomStatus.key);
       expect(retrieved.key).toBe(randomStatus.key);
       expect(retrieved.name).toBe(randomStatus.name);
     });
@@ -85,7 +83,7 @@ describe("status", () => {
           message: "test",
           time: TimeStamp.now(),
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete statuses with the correct policy", async () => {
@@ -102,9 +100,9 @@ describe("status", () => {
         time: TimeStamp.now(),
       });
       await userClient.statuses.delete(randomStatus.key);
-      await expect(
-        userClient.statuses.retrieve({ key: randomStatus.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(userClient.statuses.retrieve(randomStatus.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should deny access when no delete policy exists", async () => {
@@ -120,8 +118,8 @@ describe("status", () => {
         message: "test",
         time: TimeStamp.now(),
       });
-      await expect(userClient.statuses.delete(randomStatus.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.statuses.delete(randomStatus.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

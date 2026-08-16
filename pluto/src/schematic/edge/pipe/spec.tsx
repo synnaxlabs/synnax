@@ -14,7 +14,7 @@ import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { type Spec } from "@/schematic/edge/spec";
 
-export const spec: Spec<"pipe", schematic.EdgeConfigPipe> = Segmented.createSpec(
+export const spec: Spec<"pipe", schematic.PipeEdgeConfig> = Segmented.createSpec(
   "pipe",
   "Pipe",
   ({ points, crossings, color }) => (

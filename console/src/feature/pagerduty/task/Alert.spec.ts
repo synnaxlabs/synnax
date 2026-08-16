@@ -7,26 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { pagerduty, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
-import { type Task } from "@/platform/task";
 import {
-  awaitTaskKey,
-  clickConfigure,
-  renderTaskFormLayout,
+  deployAndAwaitTask,
+  renderTaskFormTab,
+  type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-const renderAlert = async (
-  options: { client?: Synnax | null; args?: Task.FormLayoutArgs } = {},
-) =>
-  await renderTaskFormLayout(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
+const renderAlert = async (options: RenderTaskFormTabOptions = {}) =>
+  await renderTaskFormTab(PagerDuty.Task.Alert, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
+
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<PagerDuty.Task.AlertSchemas> = {
+  name: "PagerDuty Alert Task",
+  type: PagerDuty.Task.ALERT_TYPE,
+  config: PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
+};
 
 const addAlert = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an alert"));
@@ -36,11 +43,9 @@ const addAlert = async (): Promise<void> => {
 const createAlertConfig = (
   overrides: Partial<PagerDuty.Task.AlertTaskConfig> = {},
 ): PagerDuty.Task.AlertTaskConfig => ({
-  ...PagerDuty.Task.ZERO_ALERT_TASK_CONFIG,
+  ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
   routingKey: "R".repeat(32),
-  alerts: [
-    { ...PagerDuty.Task.ZERO_ALERT_CONFIG, key: "a1", status: uniqueName("status") },
-  ],
+  alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: uniqueName("status") }],
   ...overrides,
 });
 
@@ -82,41 +87,49 @@ describe("PagerDuty Alert form", () => {
     expect(screen.getByText("No alert selected.")).toBeTruthy();
   });
 
-  it("should seed the form from a valid config passed through layout args", async () => {
+  it("should seed the form from the task row's config", async () => {
+    const client = createTestClient();
     const config = createAlertConfig();
-    await renderAlert({ args: { config } });
+    const draft = await client.tasks.create(
+      { ...ZERO_DRAFT, config },
+      PagerDuty.Task.ALERT_SCHEMAS,
+    );
+    await renderAlert({ client, taskKey: draft.key });
     await screen.findByDisplayValue("R".repeat(32));
     await screen.findByText("New alert");
   });
 
-  it("should fall back to the zero config when the layout args config is invalid", async () => {
+  it("should load a routing key the deploy schema would reject", async () => {
+    const client = createTestClient();
     const config = createAlertConfig({ routingKey: "too_short" });
-    await renderAlert({ args: { config } });
+    const draft = await client.tasks.create({ ...ZERO_DRAFT, config });
+    await renderAlert({ client, taskKey: draft.key });
     const input = await screen.findByPlaceholderText<HTMLInputElement>(
       ROUTING_KEY_PLACEHOLDER,
     );
-    expect(input.value).toBe("");
-    expect(screen.queryByText("New alert")).toBeNull();
+    expect(input.value).toBe("too_short");
+    expect(screen.queryByText("No alerts.")).toBeNull();
   });
 
-  describe("onConfigure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     const client = createTestClient();
 
-    it("should create the alert task on the rack from the layout args", async () => {
+    it("should start the alert task on the rack stored on its row", async () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const config = createAlertConfig();
-      const { store, layoutKey } = await renderAlert({
+      const draft = await client.tasks.create(
+        { ...ZERO_DRAFT, config, rack: rack.key },
+        PagerDuty.Task.ALERT_SCHEMAS,
+      );
+      const { container } = await renderAlert({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(
         client,
-        args: { rackKey: rack.key, config },
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: PagerDuty.Task.ALERT_SCHEMAS,
-      });
+        container,
+        draft.key,
+        PagerDuty.Task.ALERT_SCHEMAS,
+      );
       expect(created.type).toBe(PagerDuty.Task.ALERT_TYPE);
-      expect(task.rackKey(created.key)).toBe(rack.key);
+      expect(created.rack).toBe(rack.key);
       expect(created.config.routingKey).toBe(config.routingKey);
       expect(created.config.alerts).toHaveLength(1);
       expect(created.config.alerts[0].status).toBe(config.alerts[0].status);

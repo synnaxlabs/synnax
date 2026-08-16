@@ -76,7 +76,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Search:       searchIdx,
@@ -390,7 +390,9 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 			env := newBenchEnv(b)
 			defer env.close(b)
 
-			base := []channel.Channel{{Name: "base", DataType: telem.Int64T, Virtual: true}}
+			base := []channel.Channel{
+				{Name: "base", DataType: telem.Int64T, Virtual: true},
+			}
 
 			var group calculator.Group
 			prevName := "base"
@@ -415,7 +417,10 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 				}
 			}()
 
-			inputFrame := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
+			inputFrame := frame.NewUnary(
+				base[0].Key(),
+				telem.NewSeriesV[int64](10, 20, 30),
+			)
 
 			b.ReportAllocs()
 			b.ResetTimer()

@@ -34,10 +34,8 @@ export const CopyLinkToolbarButton = ({
   return (
     <Button.Button
       tooltip="Copy link"
-      sharp
       size="medium"
       variant="text"
-      style={{ height: "100%", width: "var(--pluto-height-medium)" }}
       onClick={handleClick}
       {...rest}
     >

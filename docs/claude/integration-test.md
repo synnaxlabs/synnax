@@ -51,6 +51,11 @@ step).
 - **First truthy transition wins.** When several `=>` transitions can be truthy in one
   cycle, the first in line order fires. Keep transitions mutually exclusive or split
   across stages.
+- **Variable kinds.** _literal_ (`:=` / `$=`, a stateful value cell), _channel read_
+  (read-only stream over channels), and _channel read/write_ (aliases a channel it reads
+  and writes). A `:=` literal re-seeds to its declared value on every scope entry; `$=`
+  persists. Top-level variables are immutable; declare mutable variables in a sequence
+  or stage.
 
 ## No Timing Hacks
 
@@ -66,4 +71,4 @@ step).
   assumptions about the runtime.
 - Each vector gets its own input (prefer the shared start trigger) and output so a
   failure points at exactly one line.
-- Cover the axes that matter: scope, source kind, sink kind, data type.
+- Cover the axes that matter: scope, variable kind, source kind, sink kind, data type.

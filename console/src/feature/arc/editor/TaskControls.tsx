@@ -9,70 +9,50 @@
 
 import "@/feature/arc/editor/TaskControls.css";
 
-import { type rack, task } from "@synnaxlabs/client";
+import { type rack } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
-import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };
+const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 
 export const TaskControls = () => {
   const key = Arc.useKey();
-  const name = Arc.useSelectName();
-  const { running, onStartStop, taskStatus, taskKey } = PlatformArc.useTask(key, name);
-  const taskKeyDefined = primitive.isNonZero(taskKey);
-  const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
-  const [expanded, setExpanded] = useState(false);
+  const name = Arc.useName();
+  const { running, taskRack, taskStatus, onStart, onStop } = Arc.useTaskControls(
+    key,
+    name,
+  );
+  const drifted = Arc.useDrifted({ arcKey: key });
+  const { update: setRack } = Arc.useSetRack();
 
-  useEffect(() => {
-    if (taskKeyDefined) setSelectedRack(task.rackKey(taskKey));
-  }, [taskKey, taskKeyDefined]);
-  const { update } = Arc.useCreate();
-  const { data: remote } = Arc.useRetrieve({ key }, { addStatusOnFailure: false });
-
-  const handleConfigure = useCallback(() => {
-    if (remote == null) return;
-    update({ ...remote, name, key, rack: selectedRack });
-  }, [key, update, name, selectedRack, remote]);
-
-  const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
-  const handleContract = useCallback(() => setExpanded(false), []);
+  const handleRackChange = useCallback(
+    (rackKey: rack.Key | undefined) => setRack({ key, rack: rackKey ?? 0 }),
+    [setRack, key],
+  );
 
   return (
-    <Task.Controls.Frame
+    <Task.Controls.Bar
       className={CSS.BE("arc-editor", "controls")}
-      expanded={expanded}
-      onContract={handleContract}
-    >
-      <Task.Controls.Status
-        status={taskStatus}
-        expanded={expanded}
-        onToggle={handleToggle}
-        fallbackMessage="Not deployed"
-      />
-      <Task.Controls.Actions>
+      status={taskStatus}
+      running={running}
+      drifted={drifted}
+      disabled={!primitive.isNonZero(taskRack)}
+      onDeploy={onStart}
+      onStop={onStop}
+      extraActions={
         <Rack.SelectSingle
           className={CSS.B("rack-select")}
-          value={selectedRack}
-          onChange={setSelectedRack}
-          allowNone
+          value={primitive.isNonZero(taskRack) ? taskRack : undefined}
+          onChange={handleRackChange}
+          allowNone={!running}
           location="top"
           initialQuery={INITIAL_RACK_QUERY}
         />
-        <Task.Controls.ConfigureButton
-          onClick={handleConfigure}
-          disabled={selectedRack === undefined}
-        />
-        <Task.Controls.StartStopButton
-          running={running}
-          onClick={onStartStop}
-          disabled={selectedRack === undefined}
-        />
-      </Task.Controls.Actions>
-    </Task.Controls.Frame>
+      }
+    />
   );
 };

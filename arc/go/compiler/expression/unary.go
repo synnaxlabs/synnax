@@ -17,14 +17,21 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Type, error) {
+func compileUnary(
+	ctx context.Context[parser.IUnaryExpressionContext],
+) (types.Type, error) {
 	if ctx.AST.MINUS() != nil {
 		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err
 		}
 		switch innerType.Kind {
-		case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+		case types.KindI8,
+			types.KindI16,
+			types.KindI32,
+			types.KindU8,
+			types.KindU16,
+			types.KindU32:
 			ctx.Writer.WriteI32Const(-1)
 			ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
 		case types.KindI64, types.KindU64:
@@ -39,7 +46,10 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 			if elemType.IsSigned() {
 				ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType)
 			} else {
-				return types.Type{}, errors.Newf("cannot negate series of unsigned type %s", elemType)
+				return types.Type{}, errors.Newf(
+					"cannot negate series of unsigned type %s",
+					elemType,
+				)
 			}
 		default:
 			return types.Type{}, errors.Newf("cannot negate type %s", innerType)

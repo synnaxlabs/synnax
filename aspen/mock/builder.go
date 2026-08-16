@@ -61,7 +61,12 @@ func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, err
 		opts = append(opts, aspen.Bootstrap())
 	}
 	addr := b.addressFactory().Next()
-	db, err := aspen.Open(ctx, dir, addr, b.peerAddresses, append(b.DefaultOptions, opts...)...)
+	db, err := aspen.Open(
+		ctx,
+		dir,
+		addr,
+		b.peerAddresses,
+		append(b.DefaultOptions, opts...)...)
 	if err != nil {
 		return nil, err
 	}

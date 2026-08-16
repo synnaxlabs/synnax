@@ -37,14 +37,17 @@ func immediatelyReturnNil(context.Context) error { return nil }
 var _ = Describe("Signal", func() {
 	Describe("Coordination", func() {
 		Describe("CancelOnFail", func() {
-			It("Should cancel the context when the first routine exits with an error", func() {
-				ctx, cancel := signal.Isolated()
-				ctx.Go(immediatelyReturnNil, signal.CancelOnFail())
-				ctx.Go(immediatelyReturnError, signal.CancelOnFail())
-				cancel()
-				Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
-				Eventually(ctx.Stopped()).Should(BeClosed())
-			})
+			It(
+				"Should cancel the context when the first routine exits with an error",
+				func() {
+					ctx, cancel := signal.Isolated()
+					ctx.Go(immediatelyReturnNil, signal.CancelOnFail())
+					ctx.Go(immediatelyReturnError, signal.CancelOnFail())
+					cancel()
+					Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
+					Eventually(ctx.Stopped()).Should(BeClosed())
+				},
+			)
 		})
 
 		Context("Context already cancelled", func() {
@@ -59,7 +62,6 @@ var _ = Describe("Signal", func() {
 				Expect(ctx.Wait()).To(Succeed())
 				Expect(c).To(Equal(0))
 			})
-
 		})
 
 		// Regression: when a routine fails with a genuine (non-context) error and
@@ -68,53 +70,56 @@ var _ = Describe("Signal", func() {
 		// context.Canceled can win the race and mask the real failure. Wait must still
 		// surface the genuine failure rather than the incidental cancellation.
 		Describe("Genuine failure masked by sibling cancellation", func() {
-			It("Should report the genuine failure when a sibling's context.Canceled is recorded first", func() {
-				ctx, cancel := signal.Isolated()
-				release := make(chan struct{})
-				siblingReturned := make(chan struct{})
-				ctx.Go(func(ctx context.Context) error {
-					<-ctx.Done()
-					close(siblingReturned)
-					return ctx.Err()
-				})
-				ctx.Go(func(context.Context) error {
-					<-release
-					return errRoutineFailed
-				})
-				cancel()
-				Eventually(siblingReturned).Should(BeClosed())
-				close(release)
-				Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
-			})
-
-			It("Should let NewHardShutdown surface the genuine failure instead of skipping it as a cancellation", func() {
-				ctx, cancel := signal.Isolated()
-				release := make(chan struct{})
-				siblingReturned := make(chan struct{})
-				ctx.Go(func(ctx context.Context) error {
-					<-ctx.Done()
-					close(siblingReturned)
-					return ctx.Err()
-				})
-				ctx.Go(func(context.Context) error {
-					<-release
-					return errRoutineFailed
-				})
-				go func() {
-					<-siblingReturned
+			It(
+				"Should report the genuine failure when a sibling's context.Canceled is recorded first",
+				func() {
+					ctx, cancel := signal.Isolated()
+					release := make(chan struct{})
+					siblingReturned := make(chan struct{})
+					ctx.Go(func(ctx context.Context) error {
+						<-ctx.Done()
+						close(siblingReturned)
+						return ctx.Err()
+					})
+					ctx.Go(func(context.Context) error {
+						<-release
+						return errRoutineFailed
+					})
+					cancel()
+					Eventually(siblingReturned).Should(BeClosed())
 					close(release)
-				}()
-				closer := signal.NewHardShutdown(ctx, cancel)
-				Expect(closer.Close()).To(MatchError(errRoutineFailed))
-			})
-		})
+					Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
+				},
+			)
 
+			It(
+				"Should let NewHardShutdown surface the genuine failure instead of skipping it as a cancellation",
+				func() {
+					ctx, cancel := signal.Isolated()
+					release := make(chan struct{})
+					siblingReturned := make(chan struct{})
+					ctx.Go(func(ctx context.Context) error {
+						<-ctx.Done()
+						close(siblingReturned)
+						return ctx.Err()
+					})
+					ctx.Go(func(context.Context) error {
+						<-release
+						return errRoutineFailed
+					})
+					go func() {
+						<-siblingReturned
+						close(release)
+					}()
+					closer := signal.NewHardShutdown(ctx, cancel)
+					Expect(closer.Close()).To(MatchError(errRoutineFailed))
+				},
+			)
+		})
 	})
 
 	Describe("Go Utilities", func() {
-
 		Describe("GoRange", func() {
-
 			It("Should range over a channel until the context is cancelled", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
@@ -167,7 +172,6 @@ var _ = Describe("Signal", func() {
 				Expect(ctx.Wait()).To(MatchError(err))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
-
 		})
 
 		Describe("GoTick", func() {
@@ -175,21 +179,25 @@ var _ = Describe("Signal", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
 				var c atomic.Int32
-				signal.GoTick(ctx, 500*time.Microsecond, func(ctx context.Context, t time.Time) error {
-					c.Add(1)
-					return nil
-				})
-				Eventually(func() int32 { return c.Load() }).Should(BeNumerically(">", int32(3)))
+				signal.GoTick(
+					ctx,
+					500*time.Microsecond,
+					func(ctx context.Context, t time.Time) error {
+						c.Add(1)
+						return nil
+					},
+				)
+				Eventually(
+					func() int32 { return c.Load() },
+				).Should(BeNumerically(">", int32(3)))
 				cancel()
 				Expect(ctx.Wait()).To(MatchError(context.Canceled))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 		})
-
 	})
 
 	Describe("GoOptions", func() {
-
 		Describe("Defer", func() {
 			It("Should defer a function until the routine exit", func() {
 				ctx, cancel := signal.Isolated()
@@ -203,11 +211,9 @@ var _ = Describe("Signal", func() {
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 		})
-
 	})
 
 	Describe("Profiler Labels", func() {
-
 		It("Should add a profiler label with the routine key", func() {
 			ctx, cancel := signal.Isolated()
 			defer cancel()
@@ -220,11 +226,9 @@ var _ = Describe("Signal", func() {
 			}, signal.WithKey("routine-1"))
 			Expect(ctx.Wait()).To(Succeed())
 		})
-
 	})
 
 	Describe("Census", func() {
-
 		It("Should return the routines running under the context", func() {
 			ctx, cancel := signal.Isolated()
 			defer cancel()
@@ -232,29 +236,28 @@ var _ = Describe("Signal", func() {
 			Expect(ctx.Wait()).ToNot(HaveOccurred())
 			Expect(ctx.Routines()).To(HaveLen(1))
 		})
-
 	})
 
 	Describe("SendUnderContext", func() {
-
 		It("Should send a value to the channel", func() {
 			v := make(chan int, 1)
 			_ = signal.SendUnderContext(context.Background(), v, 1)
 			Expect(<-v).To(Equal(1))
 		})
 
-		It("Should not send a value to the channel if the context is cancelled", func(specCtx SpecContext) {
-			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
-			v := make(chan int)
-			_ = signal.SendUnderContext(ctx, v, 1)
-			cancel()
-			Expect(v).ToNot(Receive())
-		})
-
+		It(
+			"Should not send a value to the channel if the context is cancelled",
+			func(specCtx SpecContext) {
+				ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
+				v := make(chan int)
+				_ = signal.SendUnderContext(ctx, v, 1)
+				cancel()
+				Expect(v).ToNot(Receive())
+			},
+		)
 	})
 
 	Describe("RecvUnderContext", func() {
-
 		It("Should receive a value from the channel", func() {
 			v := make(chan int, 1)
 			v <- 1
@@ -262,42 +265,49 @@ var _ = Describe("Signal", func() {
 			Expect(val).To(Equal(1))
 		})
 
-		It("Should return context error if context is cancelled before receive", func(specCtx SpecContext) {
-			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
-			v := make(chan int)
-			cancel()
-			val, err := signal.RecvUnderContext(ctx, v)
-			Expect(err).To(MatchError(context.Canceled))
-			Expect(val).To(Equal(0))
-		})
+		It(
+			"Should return context error if context is cancelled before receive",
+			func(specCtx SpecContext) {
+				ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
+				v := make(chan int)
+				cancel()
+				val, err := signal.RecvUnderContext(ctx, v)
+				Expect(err).To(MatchError(context.Canceled))
+				Expect(val).To(Equal(0))
+			},
+		)
 
-		It("Should receive value even if context is cancelled after value is available", func(specCtx SpecContext) {
-			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
-			v := make(chan int, 1)
-			v <- 1
-			val := MustSucceed(signal.RecvUnderContext(ctx, v))
-			cancel()
-			Expect(val).To(Equal(1))
-		})
-
+		It(
+			"Should receive value even if context is cancelled after value is available",
+			func(specCtx SpecContext) {
+				ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
+				v := make(chan int, 1)
+				v <- 1
+				val := MustSucceed(signal.RecvUnderContext(ctx, v))
+				cancel()
+				Expect(val).To(Equal(1))
+			},
+		)
 	})
 
 	Describe("Panic recovery", func() {
-
 		// We cannot test with a test case that a goroutine indeed panics when it is
 		// instructed to propagate its panic since there is no way to capture a panic
 		// in another goroutine. However, we have manually tested that it indeed
 		// panics the whole program.
 		// We can test all other cases where panics are recovered.
 
-		It("Should still propagate the panic error when there is no breaker even if the context is cancelled", func() {
-			ctx, cancel := signal.Isolated()
-			ctx.Go(func(ctx context.Context) error {
-				panic("important error")
-			}, signal.RecoverWithErrOnPanic())
-			cancel()
-			Expect(ctx.Wait()).To(MatchError(ContainSubstring("important error")))
-		})
+		It(
+			"Should still propagate the panic error when there is no breaker even if the context is cancelled",
+			func() {
+				ctx, cancel := signal.Isolated()
+				ctx.Go(func(ctx context.Context) error {
+					panic("important error")
+				}, signal.RecoverWithErrOnPanic())
+				cancel()
+				Expect(ctx.Wait()).To(MatchError(ContainSubstring("important error")))
+			},
+		)
 
 		It("Should error a panic when instructed", func() {
 			ctx, _ := signal.Isolated()
@@ -340,27 +350,50 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(inc1, signal.WithBreaker(breaker.Config{MaxRetries: 100, BaseInterval: 1 * time.Millisecond, Scale: 1.01}), signal.RecoverWithErrOnPanic())
+			ctx.Go(
+				inc1,
+				signal.WithBreaker(
+					breaker.Config{
+						MaxRetries:   100,
+						BaseInterval: 1 * time.Millisecond,
+						Scale:        1.01,
+					},
+				),
+				signal.RecoverWithErrOnPanic(),
+			)
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
 			Expect(counter).To(Equal(101))
 		})
 
-		It("Should try to restart when instructed to and follow the panic policy", func() {
-			var (
-				counter = 0
-				inc1    = func(context.Context) error {
-					counter += 1
-					panic("panicking once")
-				}
-			)
+		It(
+			"Should try to restart when instructed to and follow the panic policy",
+			func() {
+				var (
+					counter = 0
+					inc1    = func(context.Context) error {
+						counter += 1
+						panic("panicking once")
+					}
+				)
 
-			ctx, _ := signal.Isolated()
-			ctx.Go(inc1, signal.WithBreaker(breaker.Config{MaxRetries: 100, BaseInterval: 1 * time.Millisecond, Scale: 1.01}), signal.RecoverWithoutErrOnPanic())
+				ctx, _ := signal.Isolated()
+				ctx.Go(
+					inc1,
+					signal.WithBreaker(
+						breaker.Config{
+							MaxRetries:   100,
+							BaseInterval: 1 * time.Millisecond,
+							Scale:        1.01,
+						},
+					),
+					signal.RecoverWithoutErrOnPanic(),
+				)
 
-			Expect(ctx.Wait()).ToNot(HaveOccurred())
-			Expect(counter).To(Equal(101))
-		})
+				Expect(ctx.Wait()).ToNot(HaveOccurred())
+				Expect(counter).To(Equal(101))
+			},
+		)
 
 		It("Should indefinitely restart", func() {
 			var (
@@ -377,7 +410,16 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, cancel := signal.Isolated()
-			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
+			ctx.Go(
+				f,
+				signal.WithBreaker(
+					breaker.Config{
+						MaxRetries:   breaker.InfiniteRetries,
+						BaseInterval: 1 * time.Millisecond,
+						Scale:        1.01,
+					},
+				),
+			)
 
 			wg.Go(func() {
 				defer GinkgoRecover()
@@ -406,7 +448,13 @@ var _ = Describe("Signal", func() {
 			start := time.Now()
 			ctx.Go(
 				succeedInTen,
-				signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 2}),
+				signal.WithBreaker(
+					breaker.Config{
+						MaxRetries:   breaker.InfiniteRetries,
+						BaseInterval: 1 * time.Millisecond,
+						Scale:        2,
+					},
+				),
 				signal.RecoverWithErrOnPanic(),
 			)
 
@@ -417,9 +465,10 @@ var _ = Describe("Signal", func() {
 			}()
 
 			Eventually(done).Should(BeClosed())
-			Expect(time.Since(start)).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
+			Expect(
+				time.Since(start),
+			).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
 		})
-
 	})
 
 	Describe("Regression", func() {
@@ -455,40 +504,45 @@ var _ = Describe("Signal", func() {
 	})
 
 	Describe("Shutdown Closers", func() {
-		It("NewHardShutdown should cancel context and wait for routines, skipping context.Canceled error", func() {
-			ctx, cancel := signal.Isolated()
-			done := make(chan struct{})
-			ctx.Go(func(ctx context.Context) error {
-				<-ctx.Done()
-				close(done)
-				return ctx.Err()
-			})
-			closer := signal.NewHardShutdown(ctx, cancel)
-			// context.Canceled should be skipped
-			Expect(closer.Close()).To(Succeed())
-			Eventually(done).Should(BeClosed())
-			Eventually(ctx.Stopped()).Should(BeClosed())
-		})
+		It(
+			"NewHardShutdown should cancel context and wait for routines, skipping context.Canceled error",
+			func() {
+				ctx, cancel := signal.Isolated()
+				done := make(chan struct{})
+				ctx.Go(func(ctx context.Context) error {
+					<-ctx.Done()
+					close(done)
+					return ctx.Err()
+				})
+				closer := signal.NewHardShutdown(ctx, cancel)
+				// context.Canceled should be skipped
+				Expect(closer.Close()).To(Succeed())
+				Eventually(done).Should(BeClosed())
+				Eventually(ctx.Stopped()).Should(BeClosed())
+			},
+		)
 
-		It("NewGracefulShutdown should wait for routines and then cancel context", func() {
-			ctx, cancel := signal.Isolated()
-			release := make(chan struct{})
-			exit := make(chan struct{})
-			ctx.Go(func(ctx context.Context) error {
-				select {
-				case <-release:
-					close(exit)
-					return nil
-				case <-ctx.Done():
-				}
-				return ctx.Err()
-			})
-			closer := signal.NewGracefulShutdown(ctx, cancel)
-			close(release)
-			Expect(closer.Close()).To(Succeed())
-			Eventually(exit).Should(BeClosed())
-			Eventually(ctx.Stopped()).Should(BeClosed())
-		})
+		It(
+			"NewGracefulShutdown should wait for routines and then cancel context",
+			func() {
+				ctx, cancel := signal.Isolated()
+				release := make(chan struct{})
+				exit := make(chan struct{})
+				ctx.Go(func(ctx context.Context) error {
+					select {
+					case <-release:
+						close(exit)
+						return nil
+					case <-ctx.Done():
+					}
+					return ctx.Err()
+				})
+				closer := signal.NewGracefulShutdown(ctx, cancel)
+				close(release)
+				Expect(closer.Close()).To(Succeed())
+				Eventually(exit).Should(BeClosed())
+				Eventually(ctx.Stopped()).Should(BeClosed())
+			},
+		)
 	})
-
 })

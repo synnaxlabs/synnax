@@ -27,9 +27,10 @@ Color struct {
         @doc value "is the alpha component (0-1)."
     }
 
-    @doc value "is an RGBA color with RGB as 0-255 and alpha as 0-1."
-    @ts omit
-    @py omit
+    @go version 0
+    @doc value  "is an RGBA color with RGB as 0-255 and alpha as 0-1."
+    @ts hand
+    @py hand
 }
 
 Stop struct {
@@ -46,7 +47,8 @@ Stop struct {
         @doc value "indicates whether the stop's color has been switched by the user."
     }
 
-    @doc value "is a single color stop in a gradient."
-    @ts omit
+    @go version 0
+    @doc value  "is a single color stop in a gradient."
+    @ts hand
     @py omit
 }

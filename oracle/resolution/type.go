@@ -229,6 +229,20 @@ func (r TypeRef) MustResolve(table *Table) Type {
 	return table.MustGet(r.Name)
 }
 
+// IsDistinct reports whether ref resolves to a distinct type. Primitives and
+// references the table cannot resolve are not distinct.
+func IsDistinct(ref TypeRef, table *Table) bool {
+	if IsPrimitive(ref.Name) {
+		return false
+	}
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return false
+	}
+	_, isDistinct := resolved.Form.(DistinctForm)
+	return isDistinct
+}
+
 // RefersTo reports whether ref directly or transitively references a type
 // identified by targetQualifiedName. The search follows type arguments, struct
 // field types and extends bases, union bases and variant payloads, alias
@@ -243,7 +257,12 @@ func RefersTo(ref TypeRef, targetQualifiedName string, table *Table) bool {
 	return refersTo(ref, targetQualifiedName, table, set.New[string]())
 }
 
-func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string]) bool {
+func refersTo(
+	ref TypeRef,
+	targetQN string,
+	table *Table,
+	visited set.Set[string],
+) bool {
 	if ref.Name == targetQN {
 		return true
 	}
@@ -292,11 +311,12 @@ func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string
 }
 
 // PrimitiveBase follows ref through distinct-type and alias chains to the underlying
-// primitive type name (e.g. a distinct Key over uint32 resolves to "uint32"). It returns
-// the primitive name when ref bottoms out at a primitive, or "" when it does not (a
-// struct, union, builtin container, or unresolved reference). A reference whose surface
-// name is already a primitive is returned directly. Used to classify named numeric and
-// string types for validation, where the constraint applies to the underlying primitive.
+// primitive type name (e.g. a distinct Key over uint32 resolves to "uint32"). It
+// returns the primitive name when ref bottoms out at a primitive, or "" when it does
+// not (a struct, union, builtin container, or unresolved reference). A reference whose
+// surface name is already a primitive is returned directly. Used to classify named
+// numeric and string types for validation, where the constraint applies to the
+// underlying primitive.
 func PrimitiveBase(ref TypeRef, table *Table) string {
 	return primitiveBase(ref, table, set.New[string]())
 }
@@ -378,10 +398,10 @@ type TypeParam struct {
 	Optional   bool
 }
 
-// HasDefault returns true if the type parameter has a default value.
-// For languages that don't support literal type narrowing or advanced generics (Go, Python,
-// C++, Proto), type parameters with defaults should be skipped and substituted with
-// their default value instead.
+// HasDefault returns true if the type parameter has a default value. For languages that
+// don't support literal type narrowing or advanced generics (Go, Python, C++, Proto),
+// type parameters with defaults should be skipped and substituted with their default
+// value instead.
 func (tp TypeParam) HasDefault() bool {
 	return tp.Default != nil
 }

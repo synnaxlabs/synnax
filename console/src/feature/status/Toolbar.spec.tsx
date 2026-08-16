@@ -11,14 +11,30 @@ import { status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Status } from "@/feature/status";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  resolveFocusedTab,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+
+beforeAll(async () => {
+  await client.connect();
+});
+
+// Favorite eviction lives in the status synchronizer, mounted app-wide in
+// production; the toolbar only renders what survives.
+const Synchronizers = (): null => {
+  Session.Synchronizer.use(Session.Status.SYNCHRONIZERS);
+  return null;
+};
 
 const renderToolbar = async (favorites: status.Key[] = []): Promise<TestStore> => {
   const { wrapper, store } = await createConsoleWrapper({
@@ -29,6 +45,7 @@ const renderToolbar = async (favorites: status.Key[] = []): Promise<TestStore> =
   });
   render(
     <>
+      <Synchronizers />
       {Status.TOOLBAR.content}
       <Modals.Stack />
     </>,
@@ -44,13 +61,16 @@ const createStatus = async (message = "") =>
 
 describe("status toolbar", () => {
   it("should open the explorer from the empty state action", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const store = await renderToolbar();
+    store.dispatch(Session.Project.select(proj.key));
     fireEvent.click(await screen.findByText("Open Status Explorer"));
-    await waitFor(() =>
-      expect(
-        Session.Layout.select(store.getState(), Status.EXPLORER_LAYOUT_TYPE)?.type,
-      ).toBe(Status.EXPLORER_LAYOUT_TYPE),
-    );
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(Status.Explorer.TAB_TYPE);
   });
 
   it("should render favorited statuses with their message", async () => {

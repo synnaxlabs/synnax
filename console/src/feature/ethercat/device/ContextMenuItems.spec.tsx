@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -24,7 +24,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName, waitForPlacedLayout } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -32,9 +32,8 @@ interface SlaveLoaderProps {
   deviceKey: device.Key;
 }
 
-const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement | null => {
-  const { data } = EtherCAT.Device.useRetrieveSlave({ key: deviceKey });
-  if (data == null) return null;
+const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement => {
+  EtherCAT.Device.useSlave({ key: deviceKey });
   return <span>{`loaded:${deviceKey}`}</span>;
 };
 
@@ -45,6 +44,11 @@ const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement | null => {
  */
 const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const proj = await client.projects.create({
+    name: uniqueName("proj"),
+    layout: {},
+  });
+  store.dispatch(Session.Project.select(proj.key));
   const keys = devices.map((d) => d.key);
   const loaders = keys.map((k) => <SlaveLoader key={k} deviceKey={k} />);
   const result = render(<div>{loaders}</div>, { wrapper });
@@ -57,14 +61,18 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
     selection: createSelection({ ids: resources.map((r) => r.id) }),
     state: createState(resources),
   };
-  result.rerender(
-    <>
-      {loaders}
-      <PMenu.Menu>
-        <EtherCAT.Device.ContextMenuItems {...props} />
-      </PMenu.Menu>
-    </>,
-  );
+  // The menu suspends on the slaves fetch; a tree that suspends inside a sync
+  // act never commits, so the mount needs an async act (see renderHookSuspended).
+  await act(async () => {
+    result.rerender(
+      <>
+        {loaders}
+        <PMenu.Menu>
+          <EtherCAT.Device.ContextMenuItems {...props} />
+        </PMenu.Menu>
+      </>,
+    );
+  });
   return { store };
 };
 
@@ -100,19 +108,24 @@ describe("EtherCAT device ContextMenuItems", () => {
     expect(screen.getByText("Disable")).toBeTruthy();
   });
 
-  it("should place the vendor task layouts carrying the device key", async () => {
+  it("should create the vendor task drafts and open their resource tabs", async () => {
     const slave = await createSlave(true);
     const { store } = await renderContextMenu([slave]);
     fireEvent.click(await screen.findByText("Create read task"));
-    const readKey = await waitForPlacedLayout(store, EtherCAT.Task.READ_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), readKey)).toEqual({
-      deviceKey: slave.key,
-    });
+    const readTab = await resolveFocusedTab(store, client);
+    if (readTab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(readTab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const read = await client.tasks.retrieve({ key: readTab.resource.key });
+    expect(read.type).toBe(EtherCAT.Task.READ_TYPE);
     fireEvent.click(screen.getByText("Create write task"));
-    const writeKey = await waitForPlacedLayout(store, EtherCAT.Task.WRITE_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), writeKey)).toEqual({
-      deviceKey: slave.key,
-    });
+    const writeTab = await resolveFocusedTab(
+      store,
+      client,
+      (t) => t.variant === "resource" && t.resource.key !== readTab.resource.key,
+    );
+    if (writeTab.variant !== "resource") throw new Error("expected a resource tab");
+    const write = await client.tasks.retrieve({ key: writeTab.resource.key });
+    expect(write.type).toBe(EtherCAT.Task.WRITE_TYPE);
   });
 
   it("should disable every selected slave on the cluster when Disable is clicked", async () => {

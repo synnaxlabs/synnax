@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { User } from "@/feature/user";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
-import { assertDefined, uniqueName } from "@/testutil";
+import { assertDefined, clickAndSettle, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -65,7 +65,7 @@ describe("user ontology service", () => {
   it("should open the assign role modal for the selected user", async () => {
     const u = await createUser();
     await renderMenu([userResource(u.key, u.username)]);
-    fireEvent.click(await screen.findByText("Change role"));
+    await clickAndSettle("Change role");
     expect(await screen.findByText(u.username)).toBeTruthy();
     expect(findModalButton("Assign")).toBeTruthy();
   });
@@ -77,7 +77,7 @@ describe("user ontology service", () => {
     await screen.findByText(`Are you sure you want to delete ${u.username}?`);
     fireEvent.click(findModalButton("Delete"));
     await waitFor(async () => {
-      await expect(client.users.retrieve({ key: u.key })).rejects.toSatisfy((e) =>
+      await expect(client.users.retrieve(u.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });

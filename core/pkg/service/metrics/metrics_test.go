@@ -11,10 +11,12 @@ package metrics_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -88,16 +90,18 @@ var _ = Describe("Metrics", func() {
 		// context.Background() is used because svc is stored in a shared var
 		// used by It blocks, so the context must outlive JustBeforeEach.
 		JustBeforeEach(func() {
-			svc = MustSucceed(metrics.OpenService(context.Background(), metrics.ServiceConfig{
-				Channel:            channelSvc,
-				Group:              groupSvc,
-				Ontology:           otg,
-				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
-				DB:                 dist.DB,
-				Storage:            dist.Storage,
-				CollectionInterval: 100 * time.Millisecond,
-			}))
+			svc = MustSucceed(
+				metrics.OpenService(context.Background(), metrics.ServiceConfig{
+					Channel:            channelSvc,
+					Group:              groupSvc,
+					Ontology:           otg,
+					Framer:             framerSvc,
+					HostProvider:       dist.Cluster,
+					DB:                 dist.DB,
+					Storage:            dist.Storage,
+					CollectionInterval: 100 * time.Millisecond,
+				}),
+			)
 			names = getNames(dist.Cluster.HostKey())
 		})
 		JustAfterEach(func(ctx SpecContext) {
@@ -139,18 +143,21 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.LocalIndex).ToNot(BeZero())
 		})
-		It("Should create total disk size metric channel as calculated", func(ctx SpecContext) {
-			expectedName := names[3]
-			var ch channel.Channel
-			Expect(channelSvc.NewRetrieve().
-				Where(channel.MatchNames(expectedName)).
-				Entry(&ch).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(ch.Name).To(Equal(expectedName))
-			Expect(ch.DataType).To(Equal(telem.Float32T))
-			Expect(ch.IsCalculated()).To(BeTrue())
-		})
+		It(
+			"Should create total disk size metric channel as calculated",
+			func(ctx SpecContext) {
+				expectedName := names[3]
+				var ch channel.Channel
+				Expect(channelSvc.NewRetrieve().
+					Where(channel.MatchNames(expectedName)).
+					Entry(&ch).
+					Exec(ctx, nil),
+				).To(Succeed())
+				Expect(ch.Name).To(Equal(expectedName))
+				Expect(ch.DataType).To(Equal(telem.Float32T))
+				Expect(ch.IsCalculated()).To(BeTrue())
+			},
+		)
 		It("Should create ts size metric channel", func(ctx SpecContext) {
 			expectedName := names[4]
 			var ch channel.Channel
@@ -198,9 +205,161 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 	Describe("Group Relationship Persistence", func() {
-		It("Should not re-attach a channel to the metrics group if it was moved to a different group", func(ctx SpecContext) {
-			names := getNames(dist.Cluster.HostKey())
-			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+		It(
+			"Should not re-attach a channel to the metrics group if it was moved to a different group",
+			func(ctx SpecContext) {
+				names := getNames(dist.Cluster.HostKey())
+				svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+					Channel:            channelSvc,
+					Group:              groupSvc,
+					Ontology:           otg,
+					Framer:             framerSvc,
+					HostProvider:       dist.Cluster,
+					DB:                 dist.DB,
+					Storage:            dist.Storage,
+					CollectionInterval: 100 * time.Millisecond,
+				}))
+
+				var cpuChannel channel.Channel
+				Expect(channelSvc.NewRetrieve().
+					Where(channel.MatchNames(names[1])).
+					Entry(&cpuChannel).
+					Exec(ctx, nil),
+				).To(Succeed())
+
+				newGroup := MustSucceed(groupSvc.CreateOrRetrieve(
+					ctx, "Custom Metrics Group", channelSvc.Group().OntologyID(),
+				))
+
+				metricsGroup := MustSucceed(groupSvc.CreateOrRetrieve(
+					ctx, "Metrics", channelSvc.Group().OntologyID(),
+				))
+				otgWriter := otg.NewWriter(nil)
+				Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+					From: metricsGroup.OntologyID(),
+					Type: ontology.RelationshipTypeParentOf,
+					To:   cpuChannel.OntologyID(),
+				})).To(Succeed())
+
+				Expect(otgWriter.DefineRelationships(
+					ctx,
+					newGroup.OntologyID(),
+					ontology.RelationshipTypeParentOf,
+					cpuChannel.OntologyID(),
+				)).To(Succeed())
+
+				var parents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(cpuChannel.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					WhereTypes(ontology.ResourceTypeGroup).
+					Entries(&parents).
+					Exec(ctx, nil),
+				).To(Succeed())
+				Expect(parents).To(HaveLen(1))
+				Expect(parents[0].ID).To(Equal(newGroup.OntologyID()))
+
+				Expect(svc.Close()).To(Succeed())
+
+				svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+					Channel:            channelSvc,
+					Group:              groupSvc,
+					Ontology:           otg,
+					Framer:             framerSvc,
+					HostProvider:       dist.Cluster,
+					DB:                 dist.DB,
+					Storage:            dist.Storage,
+					CollectionInterval: 100 * time.Millisecond,
+				}))
+
+				var parentsAfterReopen []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(cpuChannel.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					WhereTypes(ontology.ResourceTypeGroup).
+					Entries(&parentsAfterReopen).
+					Exec(ctx, nil),
+				).To(Succeed())
+				Expect(parentsAfterReopen).To(HaveLen(1))
+				Expect(parentsAfterReopen[0].ID).To(Equal(newGroup.OntologyID()))
+
+				Expect(svc.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should attach channels to the metrics group if they have no group relationship",
+			func(ctx SpecContext) {
+				names := getNames(dist.Cluster.HostKey())
+				svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+					Channel:            channelSvc,
+					Group:              groupSvc,
+					Ontology:           otg,
+					Framer:             framerSvc,
+					HostProvider:       dist.Cluster,
+					DB:                 dist.DB,
+					Storage:            dist.Storage,
+					CollectionInterval: 100 * time.Millisecond,
+				}))
+
+				var memChannel channel.Channel
+				Expect(channelSvc.NewRetrieve().
+					Where(channel.MatchNames(names[2])).
+					Entry(&memChannel).
+					Exec(ctx, nil),
+				).To(Succeed())
+
+				metricsGroup := MustSucceed(groupSvc.CreateOrRetrieve(
+					ctx, "Metrics", channelSvc.Group().OntologyID(),
+				))
+
+				otgWriter := otg.NewWriter(nil)
+				Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+					From: metricsGroup.OntologyID(),
+					Type: ontology.RelationshipTypeParentOf,
+					To:   memChannel.OntologyID(),
+				})).To(Succeed())
+
+				var parentsBefore []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(memChannel.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					WhereTypes(ontology.ResourceTypeGroup).
+					Entries(&parentsBefore).
+					Exec(ctx, nil),
+				).To(Succeed())
+				Expect(parentsBefore).To(BeEmpty())
+
+				Expect(svc.Close()).To(Succeed())
+
+				svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+					Channel:            channelSvc,
+					Group:              groupSvc,
+					Ontology:           otg,
+					Framer:             framerSvc,
+					HostProvider:       dist.Cluster,
+					DB:                 dist.DB,
+					Storage:            dist.Storage,
+					CollectionInterval: 100 * time.Millisecond,
+				}))
+
+				var parentsAfterReopen []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(memChannel.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					WhereTypes(ontology.ResourceTypeGroup).
+					Entries(&parentsAfterReopen).
+					Exec(ctx, nil),
+				).To(Succeed())
+				Expect(parentsAfterReopen).To(HaveLen(1))
+				Expect(parentsAfterReopen[0].ID).To(Equal(metricsGroup.OntologyID()))
+
+				Expect(svc.Close()).To(Succeed())
+			},
+		)
+	})
+	Describe("Writer Control Subject", func() {
+		It("Should name the writer after the host node", func(ctx SpecContext) {
+			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Ontology:           otg,
@@ -210,138 +369,36 @@ var _ = Describe("Metrics", func() {
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
 			}))
-
-			var cpuChannel channel.Channel
+			var controlCh channel.Channel
 			Expect(channelSvc.NewRetrieve().
-				Where(channel.MatchNames(names[1])).
-				Entry(&cpuChannel).
+				Where(channel.MatchNames(fmt.Sprintf(
+					"sy_node_%v_control", dist.Cluster.HostKey(),
+				))).
+				Entry(&controlCh).
 				Exec(ctx, nil),
 			).To(Succeed())
-
-			newGroup := MustSucceed(groupSvc.CreateOrRetrieve(
-				ctx, "Custom Metrics Group", channelSvc.Group().OntologyID(),
-			))
-
-			metricsGroup := MustSucceed(groupSvc.CreateOrRetrieve(
-				ctx, "Metrics", channelSvc.Group().OntologyID(),
-			))
-			otgWriter := otg.NewWriter(nil)
-			Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-				From: metricsGroup.OntologyID(),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   cpuChannel.OntologyID(),
-			})).To(Succeed())
-
-			Expect(otgWriter.DefineRelationships(
-				ctx,
-				newGroup.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				cpuChannel.OntologyID(),
-			)).To(Succeed())
-
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(cpuChannel.OntologyID()).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.ResourceTypeGroup).
-				Entries(&parents).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(parents).To(HaveLen(1))
-			Expect(parents[0].ID).To(Equal(newGroup.OntologyID()))
-
-			Expect(svc.Close()).To(Succeed())
-
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            channelSvc,
-				Group:              groupSvc,
-				Ontology:           otg,
-				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
-				DB:                 dist.DB,
-				Storage:            dist.Storage,
-				CollectionInterval: 100 * time.Millisecond,
+			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
+				Keys: []channel.Key{controlCh.Key()},
 			}))
-
-			var parentsAfterReopen []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(cpuChannel.OntologyID()).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.ResourceTypeGroup).
-				Entries(&parentsAfterReopen).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(parentsAfterReopen).To(HaveLen(1))
-			Expect(parentsAfterReopen[0].ID).To(Equal(newGroup.OntologyID()))
-
-			Expect(svc.Close()).To(Succeed())
-		})
-		It("Should attach channels to the metrics group if they have no group relationship", func(ctx SpecContext) {
-			names := getNames(dist.Cluster.HostKey())
-			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            channelSvc,
-				Group:              groupSvc,
-				Ontology:           otg,
-				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
-				DB:                 dist.DB,
-				Storage:            dist.Storage,
-				CollectionInterval: 100 * time.Millisecond,
-			}))
-
-			var memChannel channel.Channel
-			Expect(channelSvc.NewRetrieve().
-				Where(channel.MatchNames(names[2])).
-				Entry(&memChannel).
-				Exec(ctx, nil),
-			).To(Succeed())
-
-			metricsGroup := MustSucceed(groupSvc.CreateOrRetrieve(
-				ctx, "Metrics", channelSvc.Group().OntologyID(),
-			))
-
-			otgWriter := otg.NewWriter(nil)
-			Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
-				From: metricsGroup.OntologyID(),
-				Type: ontology.RelationshipTypeParentOf,
-				To:   memChannel.OntologyID(),
-			})).To(Succeed())
-
-			var parentsBefore []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(memChannel.OntologyID()).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.ResourceTypeGroup).
-				Entries(&parentsBefore).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(parentsBefore).To(BeEmpty())
-
-			Expect(svc.Close()).To(Succeed())
-
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            channelSvc,
-				Group:              groupSvc,
-				Ontology:           otg,
-				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
-				DB:                 dist.DB,
-				Storage:            dist.Storage,
-				CollectionInterval: 100 * time.Millisecond,
-			}))
-
-			var parentsAfterReopen []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(memChannel.OntologyID()).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.ResourceTypeGroup).
-				Entries(&parentsAfterReopen).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(parentsAfterReopen).To(HaveLen(1))
-			Expect(parentsAfterReopen[0].ID).To(Equal(metricsGroup.OntologyID()))
-
-			Expect(svc.Close()).To(Succeed())
+			sCtx := signal.Wrap(ctx)
+			requests, responses := confluence.Attach(streamer, 2)
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			DeferCleanup(func() {
+				requests.Close()
+				Eventually(responses.Outlet()).Should(BeClosed())
+			})
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			update := MustSucceed(cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)))
+			holders := make([]string, 0, len(update.Transfers))
+			for _, t := range update.Transfers {
+				if t.To != nil {
+					holders = append(holders, t.To.Subject.Name)
+				}
+			}
+			Expect(holders).To(ContainElement(fmt.Sprintf(
+				"Node %v Metrics Writer", dist.Cluster.HostKey(),
+			)))
 		})
 	})
 	Describe("Metric Collection", func() {

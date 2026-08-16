@@ -18,15 +18,18 @@ class MockIntersectionObserver {
   unobserve = vi.fn();
 }
 
+// Installed at module scope: an async describe body can open a socket at
+// collection time, before any beforeAll runs.
+installTestWebSocket();
+
 beforeAll(() => {
-  installTestWebSocket();
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
-  // jsdom does not implement the pointer capture APIs that Cursor.useDrag relies on.
   HTMLElement.prototype.setPointerCapture = () => {};
   HTMLElement.prototype.releasePointerCapture = () => {};
   HTMLElement.prototype.hasPointerCapture = () => false;
+  Element.prototype.scrollIntoView = () => {};
 });
 
 afterAll(() => {

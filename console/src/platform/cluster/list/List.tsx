@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { checkConnection } from "@synnaxlabs/client";
+import "@/platform/cluster/list/List.css";
+
+import { connection } from "@synnaxlabs/client";
 import {
-  Button,
   Flex,
   Header,
   Icon,
@@ -21,11 +22,12 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
+import { Button } from "@/platform/button";
 import { Item } from "@/platform/cluster/list/Item";
 import { useConnectModal } from "@/platform/cluster/useConnectModal";
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
@@ -77,26 +79,29 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     handleError(async () => {
       try {
         setTesting(key);
-        const state = await checkConnection({
+        const status = await connection.check({
           host: cluster.host,
           port: cluster.port,
           secure: cluster.secure,
           name: cluster.name,
         });
-        if (state.status === "connected") {
+        if (status.variant === "success") {
           addStatus({
             variant: "success",
             message: `Connected to ${cluster.name}`,
           });
-          if (state.clusterKey && state.clusterKey !== key)
+          if (status.details.clusterKey && status.details.clusterKey !== key)
             dispatch(
-              Session.Cluster.changeKey({ oldKey: key, newKey: state.clusterKey }),
+              Session.Cluster.changeKey({
+                oldKey: key,
+                newKey: status.details.clusterKey,
+              }),
             );
         } else
           addStatus({
             variant: "error",
             message: `Failed to connect to ${cluster.name}`,
-            description: state.message,
+            description: status.message,
           });
       } finally {
         setTesting(null);
@@ -110,7 +115,12 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
 
   const contextMenu = useCallback(
     ({ keys: [key] }: Menu.ContextMenuMenuProps): ReactElement => {
-      if (key == null) return <Layout.DefaultContextMenu />;
+      if (key == null)
+        return (
+          <ContextMenu.Menu>
+            <ContextMenu.ReloadConsoleItem />
+          </ContextMenu.Menu>
+        );
 
       return (
         <ContextMenu.Menu>
@@ -125,10 +135,6 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             Refresh connection
           </Menu.Item>
           <Menu.Divider />
-          <Menu.Item itemKey="remove" onClick={() => handleRemove(key)}>
-            <Icon.Delete />
-            Remove
-          </Menu.Item>
           <Link.CopyContextMenuItem
             onClick={() => {
               const name = allClusters.find((c) => c.key === key)?.name;
@@ -136,6 +142,11 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
               handleLink({ clusterKey: key, name });
             }}
           />
+          <Menu.Divider />
+          <Menu.Item itemKey="remove" onClick={() => handleRemove(key)}>
+            <Icon.Delete />
+            Remove
+          </Menu.Item>
           <Menu.Divider />
           <ContextMenu.ReloadConsoleItem />
         </ContextMenu.Menu>
@@ -148,16 +159,18 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     <Select.Frame data={keys} value={value} onChange={onChange} itemHeight={54}>
       <Flex.Box y bordered grow empty {...rest}>
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
-        <Header.Header gap="small" x style={{ padding: "0.666rem" }}>
+        <Header.Header gap="small" x className={CSS.BE("cluster-list", "header")}>
           <Header.Title level="h4" color={11}>
             <Icon.Cluster />
             Cores
           </Header.Title>
-          <Button.Button onClick={() => openConnect()} variant="filled">
-            <Icon.Add />
-          </Button.Button>
         </Header.Header>
-        <Flex.Box empty onContextMenu={menuProps.open} grow>
+        <Flex.Box
+          empty
+          onContextMenu={menuProps.open}
+          grow
+          className={CSS.BE("cluster-list", "items")}
+        >
           {keys.length === 0 ? (
             <Empty.Action
               message="No Cores added."
@@ -176,6 +189,9 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             ))
           )}
         </Flex.Box>
+        <Button.CreateListItem size="large" onClick={() => openConnect()}>
+          Add a Core
+        </Button.CreateListItem>
       </Flex.Box>
     </Select.Frame>
   );

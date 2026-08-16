@@ -56,25 +56,47 @@ var _ = Describe("Config", func() {
 		It("Should fail if the initial configuration is invalid", func() {
 			Expect(config.New(errorConfig)).Error().To(MatchError(errTest))
 		})
-		It("Should succeed if the initial configuration is valid and the override is valid", func() {
-			Expect(config.New(defaultConfig, successConfig)).To(Equal(successConfig))
-		})
-		It("Should fail if the initial configuration is valid and the override is invalid", func() {
-			Expect(config.New(defaultConfig, errorConfig)).Error().To(MatchError(errTest))
-		})
-		It("Should succeed if the initial configuration is invalid and the override is valid", func() {
-			Expect(config.New(errorConfig, successConfig)).To(Equal(successConfig))
-		})
-		It("Should fail if the initial configuration is invalid and the override is invalid", func() {
-			Expect(config.New(errorConfig, errorConfig)).Error().To(MatchError(errTest))
-		})
+		It(
+			"Should succeed if the initial configuration is valid and the override is valid",
+			func() {
+				Expect(
+					config.New(defaultConfig, successConfig),
+				).To(Equal(successConfig))
+			},
+		)
+		It(
+			"Should fail if the initial configuration is valid and the override is invalid",
+			func() {
+				Expect(
+					config.New(defaultConfig, errorConfig),
+				).Error().
+					To(MatchError(errTest))
+			},
+		)
+		It(
+			"Should succeed if the initial configuration is invalid and the override is valid",
+			func() {
+				Expect(config.New(errorConfig, successConfig)).To(Equal(successConfig))
+			},
+		)
+		It(
+			"Should fail if the initial configuration is invalid and the override is invalid",
+			func() {
+				Expect(
+					config.New(errorConfig, errorConfig),
+				).Error().
+					To(MatchError(errTest))
+			},
+		)
 		It("Should succeed with multiple overrides", func() {
 			c := MustSucceed(config.New(defaultConfig, secondaryConfig, successConfig))
 			Expect(c.name).To(Equal(successConfig.name))
 			Expect(c.secondaryField).To(BeTrue())
 		})
 		It("Should succeed with multiple overrides even if one is invalid", func() {
-			Expect(config.New(defaultConfig, errorConfig, successConfig)).To(Equal(successConfig))
+			Expect(
+				config.New(defaultConfig, errorConfig, successConfig),
+			).To(Equal(successConfig))
 		})
 	})
 })

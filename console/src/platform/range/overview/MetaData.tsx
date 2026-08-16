@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import "@/platform/range/overview/MetaData.css";
+
+import { type query, type ranger } from "@synnaxlabs/client";
 import {
   Button,
   CSS as PCSS,
@@ -34,10 +36,7 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   return (
     <Input.Text
       value={value}
-      style={{
-        width: "unset",
-        flexGrow: 2,
-      }}
+      className={CSS.BE("range-metadata", "value-input")}
       selectOnFocus
       variant="shadow"
       resetOnBlurIfEmpty
@@ -85,7 +84,7 @@ const MetaDataListItem = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const { update: handleDelete } = Ranger.useDeleteKV();
   const { form, save } = Ranger.useKVPairForm({
-    query: { rangeKey },
+    query: null,
     autoSave: !isCreate,
     initialValues: initialValues ?? {
       key: "",
@@ -96,11 +95,7 @@ const MetaDataListItem = ({
     afterSave: useCallback(
       ({
         reset,
-      }: Flux.AfterSaveParams<
-        Flux.Query,
-        typeof Ranger.kvPairFormSchema,
-        Ranger.FluxSubStore
-      >) => {
+      }: Flux.AfterSaveParams<query.Params, typeof Ranger.kvPairFormSchema>) => {
         onClose?.();
         if (isCreate) reset({ key: "", value: "", range: rangeKey });
       },
@@ -124,7 +119,7 @@ const MetaDataListItem = ({
       <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>
         {isCreate ? (
           <Form.TextField
-            style={{ flexBasis: "30%", width: 250 }}
+            className={CSS.BE("range-metadata", "key-cell")}
             path="key"
             inputProps={{
               ref: inputRef,
@@ -140,13 +135,13 @@ const MetaDataListItem = ({
             hideIfNull
           />
         ) : (
-          <Text.Text style={{ flexBasis: "30%", width: 250 }}>
+          <Text.Text className={CSS.BE("range-metadata", "key-cell")}>
             {initialValues?.key}
           </Text.Text>
         )}
         <Divider.Divider y />
         <Form.Field<string> path="value" showLabel={false} hideIfNull>
-          {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
+          {(p) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (
           <Flex.Box pack>
@@ -166,7 +161,7 @@ const MetaDataListItem = ({
           <Button.Button
             className={CSS.BE("metadata", "delete")}
             size="small"
-            variant="shadow"
+            variant="text"
             onClick={() => handleDelete({ key: itemKey, rangeKey })}
           >
             <Icon.Delete color={10} />
@@ -193,7 +188,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   if (status.variant === "error") return null;
   return (
     <Flex.Box y empty className={CSS.BE("range", "metadata")}>
-      <Header.Header level="h4" borderColor={5}>
+      <Header.Header level="h4" borderColor={6}>
         <Header.Title>Metadata</Header.Title>
         <Header.Actions>
           <Button.Button variant="text" onClick={() => setNewFormVisible(true)}>

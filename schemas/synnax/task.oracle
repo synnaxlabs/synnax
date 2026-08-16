@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/device"
+import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/telem"
 
 @ts output  "client/ts/src/task"
 @py output  "client/py/synnax/task"
@@ -15,36 +18,42 @@ import "schemas/synnax/status"
 @cpp output "client/cpp/task"
 @pb
 
-Key uint64 {
-    @doc value    """
-        is a composite identifier for a task. The high 32 bits contain the rack
-        key, and the low 32 bits contain the local task key within that rack.
-    """
-    @ts type      string
-    @ts to_string
-    @go marshal   flex
+Key = uuid {
+    @go version 2
+    @doc value  "is a unique identifier for a task."
 }
 
 StatusDetails struct<Data? = record> {
-    task    Key = 0 {
+    task        Key      {
         @doc value "is the key of the task this status pertains to."
     }
-    running bool   {
+    running     bool     {
         @doc value "is true if the task is currently executing."
     }
-    cmd     string = "" {
+    cmd         string = "" {
         @doc value "is the last command executed on this task."
     }
-    data    Data?  {
+    config_hash string = "" {
+        @doc value """
+            is the hash of the config the running task instance was built from.
+            Empty when no instance exists.
+        """
+    }
+    rack        rack.Key = 0 {
+        @doc value "is the key of the rack running the task instance."
+    }
+    data        Data?    {
         @doc value "contains task-specific status data."
     }
 
+    @go version        2
     @doc value         "contains task-specific status details including execution state."
     @ts concrete_types
 }
 
 Status<Data? = record> = status.Status<StatusDetails<Data>> {
-    @doc value """
+    @go version 2
+    @doc value  """
         is task-specific status information including execution state and task-specific data.
     """
 }
@@ -54,40 +63,54 @@ Task struct<
     Config extends record = record,
     StatusData? = record
 > {
-    key      Key = 0 {
-        @doc value "is the composite identifier for this task."
+    key         Key = create {
+        @doc value "is the unique identifier for this task."
         @key
     }
-    name     string              {
+    rack        rack.Key = 0 {
+        @doc value """
+            is the key of the rack this task deploys to. Zero for a draft that
+            has not been assigned a rack; required to start.
+        """
+        @filter
+    }
+    name        string              {
         @doc value "is a human-readable name for the task."
         @filter
     }
-    type     Type                {
+    type        Type                {
         @doc value """
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
         @filter
     }
-    config   Config              {
+    config      Config              {
         @doc value """
             is task-specific configuration stored as JSON. Structure varies by
             task type.
         """
     }
-    internal bool = false {
+    config_hash string = "" {
+        @doc value """
+            is the Core-assigned hash of config, rewritten on every write and ignored on
+            writes from clients. Compare against a status's config_hash to detect drift.
+        """
+    }
+    internal    bool = false {
         @doc value "is true if this is an internal system task."
         @filter
     }
-    snapshot bool = false {
+    snapshot    bool = false {
         @doc value "indicates whether to persist this task's configuration."
         @filter
     }
-    status   Status<StatusData>? {
+    status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
     }
 
+    @go version    2
     @doc value     """
         is an executable unit of work in the Driver system. Tasks represent
         specific hardware operations such as reading sensor data, writing
@@ -99,7 +122,6 @@ Task struct<
         coalesce_type_params
     }
     @ontology type "task"
-    @retrieve
     @search
     @go marshal
     @go migrate
@@ -108,19 +130,120 @@ Task struct<
 }
 
 Command struct {
-    task Key    {
+    task        Key    {
         @doc value "is the key of the target task."
     }
-    type string {
+    type        string {
         @doc value "is the command type (e.g., 'start', 'stop', 'configure')."
     }
-    key  string {
+    key         string {
         @doc value "is a unique identifier for this command instance."
     }
-    args record = {} {
+    config_hash string = "" {
+        @doc value """
+            is the config hash the sender wants running. Empty when the sender does not
+            know it. The Driver reuses its live instance when the hash matches and
+            redeploys when it differs.
+        """
+    }
+    args        record = {} {
         @doc value        "contains optional arguments for the command."
         @ts preserve_case
     }
 
     @doc value "is a command to execute on a task in the Driver system."
+}
+
+KeyedConfig struct {
+    key uuid = create {
+        @key
+        @doc value "is the unique identifier for the stored configuration record."
+    }
+
+    @doc value  "is the base for every stored task configuration record."
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "Keyed"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "Keyed"
+    @pb omit
+}
+
+BaseStartConfig struct extends KeyedConfig {
+    auto_start bool = false {
+        @doc value "is true when the task should start as soon as it is configured."
+    }
+
+    @doc value  "carries the configuration fields shared by every task."
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseStart"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseStart"
+    @pb omit
+}
+
+BasePersistConfig struct extends BaseStartConfig {
+    data_saving_disabled bool = false {
+        @doc value "is true when task telemetry is not persisted to disk."
+    }
+
+    @doc value  "carries the configuration fields shared by tasks that write telemetry."
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BasePersist"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BasePersist"
+    @pb omit
+}
+
+BaseReadConfig struct extends BasePersistConfig {
+    sample_rate telem.Rate = 10 {
+        @doc value "is the per-channel hardware sample rate, in hertz."
+        @ts type   "number"
+    }
+    stream_rate telem.Rate = 5 {
+        @doc value "is the rate at which samples are streamed to Synnax, in hertz."
+        @ts type   "number"
+    }
+
+    @doc value  "carries the configuration fields shared by hardware acquisition tasks."
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseRead"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseRead"
+    @pb omit
+}
+
+BaseWriteConfig struct extends BasePersistConfig {
+    device device.Key = "" {
+        @doc value "is the key of the device the task writes to."
+    }
+
+    @doc value  "carries the configuration fields shared by hardware control tasks."
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseWrite"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseWrite"
+    @pb omit
+}
+
+BaseScanConfig struct extends KeyedConfig {
+    rate     telem.Rate = 0.2 {
+        @doc value "is the rate at which the scan runs, in hertz."
+        @ts type   "number"
+    }
+    disabled bool = false {
+        @doc value "is true when scanning is paused."
+    }
+
+    @doc value  "carries the fields shared by every scan task configuration."
+    @go version 0
+    @go output  "core/pkg/service/task/config"
+    @go name    "BaseScan"
+    @cpp output "client/cpp/task/config"
+    @cpp name   "BaseScan"
+    @pb omit
 }

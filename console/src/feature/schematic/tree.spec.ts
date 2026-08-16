@@ -35,6 +35,7 @@ import {
   commitTextEdit,
   createTestStore,
   renderHookWithConsole,
+  resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
 
@@ -54,7 +55,7 @@ describe("Schematic.TREE_ITEMS", () => {
   });
 
   describe("onSelect", () => {
-    it("places a schematic layout when a tree row is double-clicked", async () => {
+    it("retrieves the schematic and opens it as a tab when double-clicked", async () => {
       const s = await createSchematic();
       const { store } = await renderOntologyTree({
         client,
@@ -62,9 +63,9 @@ describe("Schematic.TREE_ITEMS", () => {
         items: Schematic.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(s.name));
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), s.key)?.name).toBe(s.name),
-      );
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.key).toBe(s.key);
     });
   });
 });
@@ -136,9 +137,9 @@ describe("Schematic.useRangeSnapshot", () => {
       state: createState([createResource(id, s.name)]),
     });
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(
-        ranger.ontologyID(rng.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: ranger.ontologyID(rng.key),
+      });
       expect(children.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
     });
     await waitFor(() =>
@@ -160,7 +161,7 @@ describe("Schematic TreeContextMenu", () => {
     await screen.findByText(`Are you sure you want to delete ${s.name}?`);
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => {
-      await expect(client.schematics.retrieve({ key: s.key })).rejects.toSatisfy((e) =>
+      await expect(client.schematics.retrieve(s.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });
@@ -175,7 +176,7 @@ describe("Schematic TreeContextMenu", () => {
     const next = uniqueName("renamed");
     commitTextEdit(editable, next);
     await waitFor(async () => {
-      const retrieved = await client.schematics.retrieve({ key: s.key });
+      const retrieved = await client.schematics.retrieve(s.key);
       expect(retrieved.name).toBe(next);
     });
     result.unmount();
@@ -187,7 +188,7 @@ describe("Schematic TreeContextMenu", () => {
     fireEvent.click(await screen.findByText("Copy"));
     let copyKey = "";
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(rootID);
+      const children = await client.ontology.children.retrieve({ ids: rootID });
       const copy = children.find((c) => c.name === `${s.name} (copy)`);
       if (copy == null) throw new Error("copy not created yet");
       copyKey = copy.id.key;
@@ -196,7 +197,7 @@ describe("Schematic TreeContextMenu", () => {
     const renamed = uniqueName("copy_renamed");
     commitTextEdit(editable, renamed);
     await waitFor(async () => {
-      const retrieved = await client.schematics.retrieve({ key: copyKey });
+      const retrieved = await client.schematics.retrieve(copyKey);
       expect(retrieved.name).toBe(renamed);
     });
     result.unmount();

@@ -12,7 +12,6 @@ import {
   DataType,
   errors,
   id,
-  Rate,
   Series,
   sleep,
   TimeSpan,
@@ -21,14 +20,17 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
+import { AccessDeniedError, ExpiredTokenError } from "@/errors";
 import { Frame } from "@/framer/frame";
+import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
+import { type Streamer, streamerConfigZ } from "@/framer/streamer";
 import {
-  HardenedStreamer,
-  ObservableStreamer,
-  type Streamer,
-  streamerConfigZ,
-} from "@/framer/streamer";
-import { createTestClient, newVirtualChannel } from "@/testutil";
+  createTestClient,
+  newIndexedPair,
+  newVirtualBoolChannel,
+  newVirtualChannel,
+  secondsLinspace,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -48,6 +50,26 @@ describe("Streamer", () => {
       }
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+    });
+
+    test("bool stream round-trip", async () => {
+      const ch = await newVirtualBoolChannel(client);
+      const streamer = await client.openStreamer(ch.key);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: ch.key,
+      });
+      const samples = [true, false, true, true, false, false, false, true, true];
+      try {
+        await writer.write(
+          ch.key,
+          new Series({ data: samples, dataType: DataType.BOOLEAN }),
+        );
+      } finally {
+        await writer.close();
+      }
+      const d = await streamer.read();
+      expect(Array.from(d.get(ch.key))).toEqual(samples);
     });
     test("should preserve non-zero time ranges through codec round-trip", async () => {
       const ch = await newVirtualChannel(client);
@@ -79,6 +101,28 @@ describe("Streamer", () => {
       expect(series.timeRange?.start.valueOf()).toEqual(start.valueOf());
       expect(series.timeRange?.end.valueOf()).toEqual(end.valueOf());
     });
+    test("should deliver series stamped with the index's time range", async () => {
+      const channels = await newIndexedPair(client);
+      const [index, data] = channels;
+      const streamer = await client.openStreamer(channels.map((c) => c.key));
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 3),
+          [data.key]: new Float64Array([1, 2, 3]),
+        });
+      } finally {
+        await writer.close();
+      }
+      const fr = await streamer.read();
+      const expected = TimeStamp.seconds(1).range(
+        TimeStamp.seconds(3).add(TimeSpan.nanoseconds(1)),
+      );
+      expect(fr.get(index.key).series[0].timeRange?.equals(expected)).toBe(true);
+      expect(fr.get(data.key).series[0].timeRange?.equals(expected)).toBe(true);
+      streamer.close();
+    });
+
     test("open with config", async () => {
       const ch = await newVirtualChannel(client);
       await expect(client.openStreamer({ channels: ch.key })).resolves.not.toThrow();
@@ -586,12 +630,7 @@ describe("Streamer", () => {
         { channels: [1, 2, 3] },
       );
       expect(hardened.keys).toEqual([1, 2, 3]);
-      expect(openMock).toHaveBeenCalledWith({
-        ...config,
-        downsampleFactor: 1,
-        excludeGroups: [],
-        throttleRate: new Rate(0),
-      });
+      expect(openMock).toHaveBeenCalledWith(config);
       await hardened.update([1, 2, 3]);
       expect(streamer.updateMock).toHaveBeenCalledWith([1, 2, 3]);
       const fr2 = await hardened.read();
@@ -601,7 +640,7 @@ describe("Streamer", () => {
       expect(streamer.closeMock).toHaveBeenCalled();
     });
 
-    it("should correctly iterate over the streamer", async () => {
+    it("should correctly iterate over the streamer and end after close", async () => {
       const streamer = new MockStreamer();
       const fr = new Frame({ 1: new Series([1]) });
       const fr2 = new Frame({ 1: new Series([2]) });
@@ -616,9 +655,145 @@ describe("Streamer", () => {
       expect(first.value).toEqual(fr);
       const second = await hardened.next();
       expect(second.value).toEqual(fr2);
+      hardened.close();
       const third = await hardened.next();
       expect(third.done).toBe(true);
-      expect(streamer.readMock).toHaveBeenCalledTimes(3);
+      expect(streamer.readMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("should reconnect when the server ends the stream unexpectedly", async () => {
+      const streamer1 = new MockStreamer();
+      const streamer2 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr2 = new Frame({ 1: new Series([2]) });
+      // streamer1 EOFs after one frame without the client asking for it
+      streamer1.responses = [[fr1, null]];
+      streamer2.responses = [[fr2, null]];
+      const onDrop = vi.fn();
+      let count = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          count++;
+          if (count === 1) return streamer1;
+          return streamer2;
+        },
+        { channels: [1] },
+        undefined,
+        undefined,
+        onDrop,
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      expect(await hardened.read()).toEqual(fr2);
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      expect(count).toBe(2);
+    });
+
+    it("should back off when reopened streams die immediately", async () => {
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          // no responses: every stream EOFs on its first read
+          return new MockStreamer();
+        },
+        { channels: [1] },
+        { baseInterval: TimeSpan.milliseconds(30), jitter: 0 },
+      );
+      const pending = hardened.read().catch((e: unknown) => e);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      // a hot loop would dial hundreds of times in this window
+      expect(opens).toBeLessThan(6);
+      hardened.close();
+      expect(EOF.matches(await pending)).toBe(true);
+    });
+
+    it("should interrupt a pending reconnect backoff on close", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          throw new Unreachable({ message: "still down" });
+        },
+        { channels: [1] },
+        { baseInterval: TimeSpan.seconds(60) },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      // drops, fails one reopen, then sleeps out the 60s backoff
+      const pending = hardened.read().catch((e: unknown) => e);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const start = performance.now();
+      hardened.close();
+      expect(EOF.matches(await pending)).toBe(true);
+      expect(performance.now() - start).toBeLessThan(1000);
+      const settled = opens;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(opens).toBe(settled);
+    });
+
+    it("should not report a failed reconnect when closed during the backoff", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          throw new Unreachable({ message: "still down" });
+        },
+        { channels: [1] },
+        { baseInterval: TimeSpan.seconds(60), maxInterval: TimeSpan.milliseconds(5) },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      // maxInterval also sets stableAfter, so a stream older than it counts as
+      // healthy: the drop skips the pre-loop backoff and reaches the retry
+      // loop's own, which still sleeps the full baseInterval on its first wait.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const pending = hardened.read().catch((e: unknown) => e);
+        await expect.poll(() => opens).toBe(2);
+        hardened.close();
+        expect(EOF.matches(await pending)).toBe(true);
+        expect(consoleError).not.toHaveBeenCalled();
+      } finally {
+        consoleError.mockRestore();
+      }
+    });
+
+    it("should not throw when closed while reconnecting", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          throw new Unreachable({ message: "still down" });
+        },
+        { channels: [1] },
+        { baseInterval: TimeSpan.seconds(60) },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      const pending = hardened.read().catch((e: unknown) => e);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(() => hardened.close()).not.toThrow();
+      expect(() => hardened.close()).not.toThrow();
+      expect(EOF.matches(await pending)).toBe(true);
     });
 
     it("should try to re-open the streamer when read fails", async () => {
@@ -700,6 +875,69 @@ describe("Streamer", () => {
       ).rejects.toThrow("very unreachable");
     });
 
+    it("should retry an open the auth middleware could not refresh", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new ExpiredTokenError("token expired");
+          },
+          { channels: [1] },
+          { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
+        ),
+      ).rejects.toThrow(ExpiredTokenError);
+      expect(openerMock.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    it("should give up on the first denial instead of retrying", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new AccessDeniedError("no permission to stream");
+          },
+          { channels: [1] },
+          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+        ),
+      ).rejects.toThrow(AccessDeniedError);
+      expect(openerMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("should fire onDrop when the stream fails and onReopen after recovery", async () => {
+      const streamer1 = new MockStreamer();
+      const streamer2 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr2 = new Frame({ 1: new Series([2]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr2, new Unreachable({ message: "cat" })],
+      ];
+      streamer2.responses = [[fr2, null]];
+      const onDrop = vi.fn();
+      const onReopen = vi.fn();
+      let count = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          count++;
+          if (count === 1) return streamer1;
+          return streamer2;
+        },
+        { channels: [1] },
+        undefined,
+        onReopen,
+        onDrop,
+      );
+      expect(onDrop).not.toHaveBeenCalled();
+      expect(onReopen).not.toHaveBeenCalled();
+      await hardened.read();
+      await hardened.read();
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      expect(onDrop.mock.calls[0][0]).toBeInstanceOf(Error);
+      expect(onReopen).toHaveBeenCalledTimes(1);
+    });
+
     it("should retry update when the underlying streamer fails", async () => {
       const streamer1 = new MockStreamer();
       streamer1.updateErrors = [null, new Unreachable({ message: "cat" })];
@@ -725,6 +963,77 @@ describe("Streamer", () => {
 
       await hardened.update([2, 3]);
       expect(openerMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not leak a stream when an update races a reconnect", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      const streamer2 = new MockStreamer();
+      streamer2.read = async () => await new Promise<never>(() => {});
+      const pendingOpens: ((s: Streamer) => void)[] = [];
+      let opens = 0;
+      const onDrop = vi.fn();
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          return await new Promise<Streamer>((resolve) => pendingOpens.push(resolve));
+        },
+        { channels: [1] },
+        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+        undefined,
+        onDrop,
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      // Age the stream past stableAfter so the reconnect skips the backoff sleep.
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      void hardened.read().catch(() => {});
+      await expect.poll(() => opens).toBe(2);
+      const updateP = hardened.update([1, 2]);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(opens).toBe(2);
+      pendingOpens[0](streamer2);
+      await updateP;
+      expect(streamer2.updateMock).toHaveBeenCalledWith([1, 2]);
+      expect(opens).toBe(2);
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      hardened.close();
+      expect(streamer1.closeMock).toHaveBeenCalled();
+      expect(streamer2.closeMock).toHaveBeenCalled();
+    });
+
+    it("should reject every joiner when a shared reconnect fails", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      const pendingOpens: ((e: Error) => void)[] = [];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          return await new Promise<Streamer>((_, reject) => pendingOpens.push(reject));
+        },
+        { channels: [1] },
+        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      const readP = hardened.read().catch((e: unknown) => e);
+      await expect.poll(() => opens).toBe(2);
+      const updateP = hardened.update([1, 2]).catch((e: unknown) => e);
+      const denied = new AccessDeniedError("no permission to stream");
+      pendingOpens[0](denied);
+      expect(await readP).toBe(denied);
+      expect(await updateP).toBe(denied);
+      hardened.close();
     });
   });
 
@@ -865,6 +1174,28 @@ describe("Streamer", () => {
       await observable.close();
 
       expect(mockStreamer.closeMock).toHaveBeenCalled();
+    });
+
+    test("should report the failure that ended the stream", async () => {
+      const mockStreamer = new MockStreamer();
+      mockStreamer.responses = [[new Frame(), new AccessDeniedError("access revoked")]];
+      const onDead = vi.fn();
+      const observable = new ObservableStreamer(mockStreamer, undefined, onDead);
+
+      await expect.poll(() => onDead.mock.calls.length).toBe(1);
+      expect(AccessDeniedError.matches(onDead.mock.calls[0][0])).toBe(true);
+
+      await observable.close();
+    });
+
+    test("should not report a stream the caller closed", async () => {
+      const mockStreamer = new MockStreamer();
+      const onDead = vi.fn();
+      const observable = new ObservableStreamer(mockStreamer, undefined, onDead);
+
+      await observable.close();
+
+      expect(onDead).not.toHaveBeenCalled();
     });
   });
 });

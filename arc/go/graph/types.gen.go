@@ -11,48 +11,24 @@
 
 package graph
 
-import (
-	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/spatial"
-)
-
-// Nodes is a collection of visual nodes in an Arc graph.
-type Nodes []Node
-
-// Edges is a collection of graph edges in an Arc graph.
-type Edges []Edge
+import "github.com/synnaxlabs/arc/graph/versions"
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
 // with position data. The function type and input parameter values are stored in the
 // graph's inputs map, keyed by the node key.
-type Node struct {
-	// Key is the unique identifier for this node instance.
-	Key string `json:"key" msgpack:"key"`
-	// Position is the canvas position (x, y) for visual layout.
-	Position spatial.XY `json:"position" msgpack:"position"`
-}
+type Node = versions.Node
+
+// Nodes is a collection of visual nodes in an Arc graph.
+type Nodes = versions.Nodes
 
 // Edge is a dataflow connection between node parameters carrying a stable identifier.
 // The key persists across endpoint edits, distinguishing the editable graph edge from
 // the keyless ir.Edge consumed by the compiler.
-type Edge struct {
-	ir.Edge
-	// Key is the stable identifier for this edge within the graph.
-	Key string `json:"key" msgpack:"key"`
-}
+type Edge = versions.Edge
+
+// Edges is a collection of graph edges in an Arc graph.
+type Edges = versions.Edges
 
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
-type Graph struct {
-	// Functions contains function definitions available in this graph.
-	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
-	// Edges contains dataflow connections between node parameters.
-	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
-	// Nodes contains visual nodes with canvas positions.
-	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
-	// Inputs contains per-node inputs keyed by node key. Each value is a JSON object
-	// holding the node's function type under "type" plus its input parameter values. The
-	// wire format stores it as an opaque record; the client types it per function.
-	Inputs map[string]msgpack.EncodedJSON `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
-}
+type Graph = versions.Graph

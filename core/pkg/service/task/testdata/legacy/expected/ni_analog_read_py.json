@@ -1,0 +1,98 @@
+{
+  "auto_start": false,
+  "channels": [
+    {
+      "channel": 3010,
+      "custom_scale": {
+        "type": "none"
+      },
+      "device": "fixture-ni-py-dev",
+      "disabled": false,
+      "key": "ch-py-ai-charge",
+      "max_val": 0.000001,
+      "min_val": -0.000001,
+      "name": "",
+      "port": 0,
+      "terminal_config": "Diff",
+      "type": "ai_charge",
+      "units": "PicoCoulombs"
+    },
+    {
+      "channel": 3020,
+      "custom_scale": {
+        "type": "none"
+      },
+      "device": "fixture-ni-py-dev",
+      "disabled": false,
+      "hysteresis": 0.125,
+      "key": "ch-py-ai-freq-voltage",
+      "max_val": 65.5,
+      "min_val": 45.5,
+      "name": "",
+      "port": 1,
+      "threshold_level": 0.5,
+      "type": "ai_freq_voltage",
+      "units": "Hz"
+    },
+    {
+      "a": 0.001129241,
+      "b": 0.000234126,
+      "c": 8.76741e-8,
+      "channel": 3030,
+      "current_excit_source": "Internal",
+      "current_excit_val": 0.00015,
+      "device": "fixture-ni-py-dev",
+      "disabled": true,
+      "key": "ch-py-ai-thermistor-iex",
+      "max_val": 150.5,
+      "min_val": -40.5,
+      "name": "",
+      "port": 2,
+      "resistance_config": "4Wire",
+      "type": "ai_thermistor_iex",
+      "units": "DegC"
+    },
+    {
+      "a": 0.001028444,
+      "b": 0.000239243,
+      "c": 1.561926e-7,
+      "channel": 3040,
+      "device": "fixture-ni-py-dev",
+      "disabled": false,
+      "key": "ch-py-ai-thermistor-vex",
+      "max_val": 423.5,
+      "min_val": 233.5,
+      "name": "",
+      "port": 3,
+      "r1": 0,
+      "resistance_config": "2Wire",
+      "type": "ai_thermistor_vex",
+      "units": "Kelvins",
+      "voltage_excit_source": "External",
+      "voltage_excit_val": 2.5
+    },
+    {
+      "channel": 3050,
+      "custom_scale": {
+        "pre_scaled_units": "Volts",
+        "scaled_units": "vrms-custom",
+        "slope": 1.5,
+        "type": "linear",
+        "y_intercept": -0.25
+      },
+      "device": "fixture-ni-py-dev",
+      "disabled": false,
+      "key": "ch-py-ai-voltage-rms",
+      "max_val": 7.5,
+      "min_val": -7.5,
+      "name": "",
+      "port": 4,
+      "terminal_config": "RSE",
+      "type": "ai_voltage_rms",
+      "units": "Volts"
+    }
+  ],
+  "data_saving_disabled": false,
+  "sample_rate": 1000,
+  "stream_rate": 50
+}

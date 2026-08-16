@@ -23,6 +23,7 @@ Handle struct {
         @doc value "is the parameter name (input or output)."
     }
 
+    @go version  1
     @doc value   "is a reference to a specific parameter on a specific node in the dataflow graph."
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Handle& h)"
 }
@@ -32,7 +33,8 @@ EdgeKind enum {
     continuous  = 1
     conditional = 2
 
-    @doc value "defines execution semantics for dataflow edges between nodes."
+    @go version 1
+    @doc value  "defines execution semantics for dataflow edges between nodes."
 }
 
 Edge struct {
@@ -46,6 +48,7 @@ Edge struct {
         @doc value "defines execution semantics for this connection."
     }
 
+    @go version  1
     @doc value   "is a dataflow connection between node parameters in the Arc graph."
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Edge& e)"
 }
@@ -124,8 +127,10 @@ Scope struct {
     }
     strata      Members[]    {
         @doc value """
-            contains stratified execution layers for parallel scopes. Empty
-            for sequential scopes. Stratum N depends only on strata 0 to N-1.
+            contains stratified execution layers for parallel scopes. On
+            sequential scopes, strata hold variable nodes that run every
+            pass alongside the active step. Stratum N depends only on
+            strata 0 to N-1.
         """
     }
     steps       Members      {
@@ -149,6 +154,7 @@ Body struct {
         @doc value "is the raw source code text."
     }
 
+    @go version 1
     @doc value  "is raw function body source code with optional parsed AST."
     @go fields  "AST antlr.ParserRuleContext `json:\"-\"`"
     @go imports "github.com/antlr4-go/antlr/v4"
@@ -171,6 +177,7 @@ Function struct {
         @doc value "contains channel read/write declarations."
     }
 
+    @go version  1
     @doc value   """
         is a function template definition with typed parameters, serving as a
         blueprint for node instantiation.
@@ -179,7 +186,8 @@ Function struct {
 }
 
 Functions Function[] {
-    @doc value "is a collection of function definitions in an Arc module."
+    @go version 1
+    @doc value  "is a collection of function definitions in an Arc module."
 }
 
 Node struct {

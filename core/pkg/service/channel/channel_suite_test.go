@@ -66,7 +66,7 @@ func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
 	return channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Search:       searchIdx,

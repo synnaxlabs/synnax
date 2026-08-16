@@ -10,11 +10,13 @@
 package types
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -75,6 +77,11 @@ type unionVariantData struct {
 	// so they take no Validate path segment.
 	DefaultRecurse  []recurseStepData
 	ValidateRecurse []recurseStepData
+	// DefaultFills, EnumChecks, and ConstraintChecks are the variant's own inline
+	// fields' fills and assertions, mirroring the struct-level equivalents.
+	DefaultFills     []defaultFillData
+	EnumChecks       []enumCheckData
+	ConstraintChecks []constraintCheckData
 	// NeedsApplyDefaults and NeedsValidate report whether the variant emits the
 	// respective method.
 	NeedsApplyDefaults bool
@@ -101,48 +108,99 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		DiscJSONName:  casing.FieldSnake(form.Discriminator),
 	}
 
-	var baseEmbeds []variantEmbed
+	var baseEmbeds []embeddedType
 	for _, ext := range form.Extends {
 		parent, ok := ext.Resolve(data.table)
 		if !ok {
 			continue
 		}
-		baseEmbeds = append(baseEmbeds, variantEmbed{ref: ext, rendered: resolveExtendsType(ext, parent, data)})
+		baseEmbeds = append(
+			baseEmbeds,
+			embeddedType{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
+		)
 	}
 
 	for _, v := range form.Variants {
 		vd := unionVariantData{
 			TypeName:  casing.VariantTypeName(name, v.Name),
-			ConstName: ud.DiscType + casing.PascalAcronym(v.Name),
+			ConstName: casing.VariantConstName(name, v.Name),
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
-		vd.Receiver = strings.ToLower(vd.TypeName[:1])
-		embeds := append([]variantEmbed{}, baseEmbeds...)
+		vd.Receiver = receiverName(vd.TypeName)
+		embeds := append([]embeddedType{}, baseEmbeds...)
 		var inlineFields []resolution.Field
 		if v.Inline {
 			if payload, ok := v.Type.Resolve(data.table); ok {
 				pform := payload.Form.(resolution.StructForm)
 				for _, ext := range pform.Extends {
 					if parent, ok := ext.Resolve(data.table); ok {
-						embeds = append(embeds, variantEmbed{ref: ext, rendered: resolveExtendsType(ext, parent, data)})
+						embeds = append(
+							embeds,
+							embeddedType{
+								ref:      ext,
+								rendered: resolveExtendsType(ext, parent, data),
+							},
+						)
 					}
 				}
 				inlineFields = pform.Fields
+				// A field that only restates an inherited default keeps the
+				// embedded parent's declaration and contributes a fill alone.
+				inherited := append(
+					slices.Clone(form.Extends), pform.Extends...,
+				)
+				defaultOnly := resolver.DefaultOnlyOverrides(
+					inherited, pform.Fields, data.table,
+				)
 				for _, f := range pform.Fields {
-					vd.Fields = append(vd.Fields, processField(f, data))
+					if !defaultOnly.Contains(f.Name) {
+						vd.Fields = append(vd.Fields, processField(f, data))
+					}
+					vd.DefaultFills = append(
+						vd.DefaultFills,
+						goDefaultFills(f, data)...)
+					if validateSkip(f, data) {
+						continue
+					}
+					if chk, ok := goEnumCheck(f, data); ok {
+						vd.EnumChecks = append(vd.EnumChecks, chk)
+					}
+					vd.ConstraintChecks = append(
+						vd.ConstraintChecks,
+						goConstraintChecks(f, data)...)
 				}
 			}
 		} else {
-			embeds = append(embeds, variantEmbed{ref: v.Type, rendered: data.resolver.ResolveTypeRef(v.Type, data.ctx)})
+			embeds = append(
+				embeds,
+				embeddedType{
+					ref:      v.Type,
+					rendered: data.resolver.ResolveTypeRef(v.Type, data.ctx),
+				},
+			)
 		}
 		for _, e := range embeds {
 			vd.Embeds = append(vd.Embeds, e.rendered)
 		}
-		vd.DefaultRecurse = variantRecurseSteps(embeds, inlineFields, data, defaultsHasOwn, neverSkip)
-		vd.ValidateRecurse = variantRecurseSteps(embeds, inlineFields, data, validateHasOwn, validateSkip)
-		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0
-		vd.NeedsValidate = len(vd.ValidateRecurse) > 0
+		vd.DefaultRecurse = embedRecurseSteps(
+			embeds,
+			inlineFields,
+			data,
+			defaultsHasOwn,
+			neverSkip,
+		)
+		vd.ValidateRecurse = embedRecurseSteps(
+			embeds,
+			inlineFields,
+			data,
+			validateHasOwn,
+			validateSkip,
+		)
+		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0 ||
+			len(vd.DefaultFills) > 0
+		vd.NeedsValidate = len(vd.ValidateRecurse) > 0 ||
+			len(vd.EnumChecks) > 0 || len(vd.ConstraintChecks) > 0
 		if vd.NeedsApplyDefaults {
 			ud.NeedsApplyDefaults = true
 		}
@@ -160,20 +218,20 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	return ud
 }
 
-// variantEmbed pairs a variant's embedded type reference with its rendered Go type, so
-// the recursion predicate can inspect the type while the field selector is derived from
+// embeddedType pairs an embedded type reference with its rendered Go type, so the
+// recursion predicate can inspect the type while the field selector is derived from
 // the rendered name.
-type variantEmbed struct {
+type embeddedType struct {
 	ref      resolution.TypeRef
 	rendered string
 }
 
-// variantRecurseSteps returns the nested-method steps for a union variant: a value step
-// per embedded type that (transitively) needs the method, followed by the steps for any
-// inline fields. Embed steps carry no JSONName, since an embedded type's fields are
-// promoted to the variant's level and take no Validate path segment.
-func variantRecurseSteps(
-	embeds []variantEmbed,
+// embedRecurseSteps returns the nested-method steps for a type that embeds others: a
+// value step per embedded type that (transitively) needs the method, followed by the
+// steps for any direct fields. Embed steps carry no JSONName, since an embedded type's
+// fields are promoted to the embedder's level and take no Validate path segment.
+func embedRecurseSteps(
+	embeds []embeddedType,
 	inlineFields []resolution.Field,
 	data *templateData,
 	hasOwn fieldHasOwn,
@@ -183,7 +241,10 @@ func variantRecurseSteps(
 	for _, e := range embeds {
 		if resolvesToMethodType(e.ref, data) &&
 			typeNeedsMethod(e.ref, data, set.New[string](), hasOwn, skip) {
-			steps = append(steps, recurseStepData{GoName: embedFieldName(e.rendered), Kind: recurseValue})
+			steps = append(
+				steps,
+				recurseStepData{GoName: embedFieldName(e.rendered), Kind: recurseValue},
+			)
 		}
 	}
 	for _, f := range inlineFields {

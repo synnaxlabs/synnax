@@ -7,17 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
+import "@/feature/ni/task/AIChannelForm.css";
+
+import { Divider, Flex, Form, Icon, type Select as PSelect } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { PortField } from "@/feature/ni/device/PortField";
 import { Select } from "@/feature/ni/device/Select";
+import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import {
   type AccelSensitivityUnits,
+  type AccelUnits,
   type AIChannelType,
+  type ChargeUnits,
+  type CJC,
+  type CJCType,
   type ElectricalUnits,
   type ForceUnits,
   type PressureUnits,
@@ -27,6 +34,7 @@ import {
   type VelocitySensitivityUnits,
   type VelocityUnits,
 } from "@/feature/ni/task/types";
+import { CSS } from "@/platform/css";
 
 interface FormProps {
   prefix: string;
@@ -43,6 +51,22 @@ const TerminalConfigField = Form.buildSelectField<string, record.KeyedNamed>({
       { key: "Diff", name: "Differential" },
       { key: "PseudoDiff", name: "Pseudo-Differential" },
       { key: "Cfg_Default", name: "Default" },
+    ],
+  },
+});
+
+const AccelUnitsField = Form.buildSelectField<
+  AccelUnits,
+  record.KeyedNamed<AccelUnits>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Acceleration Units" },
+  inputProps: {
+    resourceName: "acceleration units",
+    data: [
+      { key: "g", name: "g" },
+      { key: "MetersPerSecondSquared", name: "m/s²" },
+      { key: "InchesPerSecondSquared", name: "in/s²" },
     ],
   },
 });
@@ -171,6 +195,21 @@ const ElectricalUnitsField = Form.buildSelectField<
   },
 });
 
+const ChargeUnitsField = Form.buildSelectField<
+  ChargeUnits,
+  record.KeyedNamed<ChargeUnits>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Charge Units" },
+  inputProps: {
+    resourceName: "charge units",
+    data: [
+      { key: "Coulombs", name: "Coulombs" },
+      { key: "PicoCoulombs", name: "Picocoulombs" },
+    ],
+  },
+});
+
 const PressureUnitsField = Form.buildSelectField<
   PressureUnits,
   record.KeyedNamed<PressureUnits>
@@ -237,12 +276,105 @@ const TorqueUnitsField = Form.buildSelectField<
   },
 });
 
+const ForceSensitivityUnitsField = Form.buildSelectField({
+  fieldKey: "sensitivityUnits",
+  fieldProps: { label: "Sensitivity Units" },
+  inputProps: {
+    resourceName: "sensitivity units",
+    data: [
+      { key: "mVoltsPerNewton", name: "mV/N" },
+      { key: "mVoltsPerPound", name: "mV/lb" },
+    ],
+  },
+});
+
+const SoundPressureUnitsField = Form.buildSelectField({
+  fieldKey: "units",
+  fieldProps: { label: "Sound Pressure Units" },
+  inputProps: {
+    resourceName: "sound pressure units",
+    data: [{ key: "Pascals", name: "Pascals" }],
+  },
+});
+
+const RTDTypeField = Form.buildSelectField({
+  fieldKey: "rtdType",
+  fieldProps: { label: "RTD Type" },
+  inputProps: {
+    resourceName: "RTD type",
+    data: [
+      { key: "Pt3750", name: "Pt3750" },
+      { key: "Pt3851", name: "Pt3851" },
+      { key: "Pt3911", name: "Pt3911" },
+      { key: "Pt3916", name: "Pt3916" },
+      { key: "Pt3920", name: "Pt3920" },
+      { key: "Pt3928", name: "Pt3928" },
+    ],
+  },
+});
+
+const ZERO_CJCS: Record<CJCType, CJC> = {
+  built_in: { source: "built_in" },
+  const_val: { source: "const_val", val: 0 },
+  chan: { source: "chan", port: 0 },
+};
+
+const CJCSourceField = Form.buildSelectField<CJCType, PSelect.StaticEntry<CJCType>>({
+  fieldKey: "cjc.source",
+  fieldProps: {
+    label: "CJC Source",
+    onChange: (value, { get, set, path }) => {
+      if (get<CJCType>(path).value === value) return;
+      set(path.slice(0, path.lastIndexOf(".")), ZERO_CJCS[value]);
+    },
+  },
+  inputProps: {
+    resourceName: "CJC source",
+    data: [
+      { key: "built_in", name: "Built In", icon: <Icon.Device /> },
+      { key: "const_val", name: "Constant Value", icon: <Icon.Constant /> },
+      { key: "chan", name: "Channel", icon: <Icon.Channel /> },
+    ],
+  },
+});
+
+const VelocityUnitsField = Form.buildSelectField<
+  VelocityUnits,
+  record.KeyedNamed<VelocityUnits>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Velocity Units" },
+  inputProps: {
+    resourceName: "velocity units",
+    data: [
+      { key: "MetersPerSecond", name: "m/s" },
+      { key: "InchesPerSecond", name: "in/s" },
+    ],
+  },
+});
+
+const VelocitySensitivityUnitsField = Form.buildSelectField<
+  VelocitySensitivityUnits,
+  record.KeyedNamed<VelocitySensitivityUnits>
+>({
+  fieldKey: "sensitivityUnits",
+  fieldProps: { label: "Sensitivity Units" },
+  inputProps: {
+    resourceName: "sensitivity units",
+    data: [
+      { key: "MillivoltsPerMillimeterPerSecond", name: "mV/mm/s" },
+      { key: "MilliVoltsPerInchPerSecond", name: "mV/in/s" },
+    ],
+  },
+});
+
 const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
       <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
+      <AccelUnitsField path={prefix} />
       <Divider.Divider x padded="bottom" />
       <SensitivityField
         path={prefix}
@@ -271,6 +403,73 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           label="Current Excitation Value"
         />
       </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_accel_4_wire_dc_voltage: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <AccelUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <SensitivityField
+        path={prefix}
+        inputProps={{
+          showDragHandle: false,
+          children: (
+            <AccelSensitivityUnitsField
+              path={prefix}
+              grow
+              showLabel={false}
+              showHelpText={false}
+            />
+          ),
+        }}
+      />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Flex.Box>
+      <Form.SwitchField
+        path={`${prefix}.useExcitForScaling`}
+        label="Use Excitation for Scaling"
+      />
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_accel_charge: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <AccelUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <SensitivityField
+        path={prefix}
+        inputProps={{
+          showDragHandle: false,
+          children: (
+            <AccelSensitivityUnitsField
+              path={prefix}
+              grow
+              showLabel={false}
+              showHelpText={false}
+            />
+          ),
+        }}
+      />
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -304,6 +503,16 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
+  ai_charge: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <ChargeUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
   ai_current: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
@@ -318,6 +527,71 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           grow
         />
       </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_current_rms: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ShuntResistorLocField path={prefix} grow />
+        <Form.NumericField
+          path={`${prefix}.extShuntResistorVal`}
+          label="Shunt Resistance"
+          grow
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_force_bridge_polynomial: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <ForceUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <BridgeConfigField path={prefix} grow />
+        <Form.NumericField
+          path={`${prefix}.nominalBridgeResistance`}
+          label="Nominal Bridge Resistance"
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ForceUnitsField
+          path={prefix}
+          fieldKey="physicalUnits"
+          label="Physical Units"
+          grow
+        />
+        <ElectricalUnitsField path={prefix} grow />
+      </Flex.Box>
+      <CoefficientsField
+        path={`${prefix}.forwardCoeffs`}
+        label="Forward Coefficients"
+      />
+      <CoefficientsField
+        path={`${prefix}.reverseCoeffs`}
+        label="Reverse Coefficients"
+      />
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -427,103 +701,147 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  ai_force_iepe: ({ prefix }) => {
-    const SensitivityUnits = Form.buildSelectField({
-      fieldKey: "sensitivityUnits",
-      fieldProps: { label: "Sensitivity Units" },
-      inputProps: {
-        resourceName: "sensitivity units",
-        data: [
-          { key: "mVoltsPerNewton", name: "mV/N" },
-          { key: "mVoltsPerPound", name: "mV/lb" },
-        ],
-      },
-    });
-    return (
-      <>
-        <TerminalConfigField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Divider.Divider x padded="bottom" />
-        <ForceUnitsField
+  ai_force_iepe: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <ForceUnitsField
+        path={prefix}
+        inputProps={{
+          filter: ({ key }) => key !== "KilogramForce",
+          resourceName: "force units",
+        }}
+      />
+      <SensitivityField
+        path={prefix}
+        inputProps={{
+          children: (
+            <ForceSensitivityUnitsField
+              path={prefix}
+              showLabel={false}
+              showHelpText={false}
+            />
+          ),
+        }}
+      />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ExcitSourceField
           path={prefix}
-          inputProps={{
-            filter: ({ key }) => key !== "KilogramForce",
-            resourceName: "force units",
-          }}
+          fieldKey="currentExcitSource"
+          label="Current Excitation Source"
+          grow
         />
-        <SensitivityField
-          path={prefix}
-          inputProps={{
-            children: (
-              <SensitivityUnits path={prefix} showLabel={false} showHelpText={false} />
-            ),
-          }}
+        <Form.NumericField
+          path={`${prefix}.currentExcitVal`}
+          label="Current Excitation Value"
+          grow
         />
-        <Divider.Divider x padded="bottom" />
-        <Flex.Box x>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="currentExcitSource"
-            label="Current Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.currentExcitVal`}
-            label="Current Excitation Value"
-            grow
-          />
-        </Flex.Box>
-        <Divider.Divider x padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
 
-  ai_microphone: ({ prefix }) => {
-    const UnitsField = Form.buildSelectField({
-      fieldKey: "units",
-      fieldProps: { label: "Sound Pressure Units" },
-      inputProps: {
-        resourceName: "sound pressure units",
-        data: [{ key: "Pascals", name: "Pascals" }],
-      },
-    });
-    return (
-      <>
-        <TerminalConfigField path={prefix} />
-        <UnitsField path={prefix} />
-        <Divider.Divider x padded="bottom" />
-        <Flex.Box x>
-          <Form.NumericField
-            path={`${prefix}.micSensitivity`}
-            label="Microphone Sensitivity"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.maxSndPressLevel`}
-            label="Max Sound Pressure Level"
-            grow
-          />
-        </Flex.Box>
-        <Divider.Divider x padded="bottom" />
-        <Flex.Box x>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="currentExcitSource"
-            label="Current Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.currentExcitVal`}
-            label="Current Excitation Value"
-            grow
-          />
-        </Flex.Box>
-        <Divider.Divider x padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+  ai_freq_voltage: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <Form.NumericField
+          path={`${prefix}.thresholdLevel`}
+          label="Threshold Level"
+          grow
+        />
+        <Form.NumericField path={`${prefix}.hysteresis`} label="Hysteresis" grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_microphone: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <SoundPressureUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <Form.NumericField
+          path={`${prefix}.micSensitivity`}
+          label="Microphone Sensitivity"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.maxSndPressLevel`}
+          label="Max Sound Pressure Level"
+          grow
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="currentExcitSource"
+          label="Current Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.currentExcitVal`}
+          label="Current Excitation Value"
+          grow
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_pressure_bridge_polynomial: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <PressureUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <BridgeConfigField path={prefix} grow />
+        <Form.NumericField
+          path={`${prefix}.nominalBridgeResistance`}
+          label="Nominal Bridge Resistance"
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <PressureUnitsField
+          path={prefix}
+          fieldKey="physicalUnits"
+          label="Physical Units"
+          grow
+        />
+        <ElectricalUnitsField path={prefix} grow />
+      </Flex.Box>
+      <CoefficientsField
+        path={`${prefix}.forwardCoeffs`}
+        label="Forward Coefficients"
+      />
+      <CoefficientsField
+        path={`${prefix}.reverseCoeffs`}
+        label="Reverse Coefficients"
+      />
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
   ai_pressure_bridge_table: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
@@ -583,7 +901,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.voltageExcitVal`}
           label="Voltage Excitation Value"
           grow
-          style={{ maxWidth: 200 }}
+          className={CSS.BM("ni-field", "narrow")}
         />
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
@@ -593,21 +911,25 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           fieldKey="physicalUnits"
           label="Physical Units"
           grow
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
         />
-        <ElectricalUnitsField path={prefix} grow style={{ width: "50%" }} />
+        <ElectricalUnitsField
+          path={prefix}
+          grow
+          className={CSS.BM("ni-field", "half")}
+        />
       </Flex.Box>
       <Flex.Box x>
         <Form.NumericField
           path={`${prefix}.firstPhysicalVal`}
           label="Physical Value One"
           grow
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
         />
         <Form.NumericField
           path={`${prefix}.secondPhysicalVal`}
           label="Physical Value Two"
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
           grow
         />
       </Flex.Box>
@@ -615,13 +937,13 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         <Form.NumericField
           path={`${prefix}.firstElectricalVal`}
           label="Electrical Value One"
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
           grow
         />
         <Form.NumericField
           path={`${prefix}.secondElectricalVal`}
           label="Electrical Value Two"
-          style={{ width: "50%" }}
+          className={CSS.BM("ni-field", "half")}
           grow
         />
       </Flex.Box>
@@ -651,49 +973,32 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  ai_rtd: ({ prefix }) => {
-    const RTDTypeField = Form.buildSelectField({
-      fieldKey: "rtdType",
-      fieldProps: { label: "RTD Type" },
-      inputProps: {
-        resourceName: "RTD type",
-        data: [
-          { key: "Pt3750", name: "Pt3750" },
-          { key: "Pt3851", name: "Pt3851" },
-          { key: "Pt3911", name: "Pt3911" },
-          { key: "Pt3916", name: "Pt3916" },
-          { key: "Pt3920", name: "Pt3920" },
-          { key: "Pt3928", name: "Pt3928" },
-        ],
-      },
-    });
-    return (
-      <>
-        <MinMaxValueFields path={prefix} />
-        <Divider.Divider x padded="bottom" />
-        <Flex.Box x>
-          <TemperatureUnitsField path={prefix} grow />
-          <RTDTypeField path={prefix} grow />
-        </Flex.Box>
-        <ResistanceConfigField path={prefix} />
-        <Divider.Divider x padded="bottom" />
-        <Flex.Box x>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="currentExcitSource"
-            label="Current Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.currentExcitVal`}
-            label="Current Excitation Value"
-            grow
-          />
-        </Flex.Box>
-        <Form.NumericField path={`${prefix}.r0`} label="R0 Resistance" grow />
-      </>
-    );
-  },
+  ai_rtd: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <TemperatureUnitsField path={prefix} grow />
+        <RTDTypeField path={prefix} grow />
+      </Flex.Box>
+      <ResistanceConfigField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="currentExcitSource"
+          label="Current Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.currentExcitVal`}
+          label="Current Excitation Value"
+          grow
+        />
+      </Flex.Box>
+      <Form.NumericField path={`${prefix}.r0`} label="R0 Resistance" grow />
+    </>
+  ),
   ai_strain_gauge: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
@@ -740,26 +1045,61 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     </>
   ),
   ai_temp_builtin: ({ prefix }) => <TemperatureUnitsField path={prefix} />,
+  ai_thermistor_iex: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <TemperatureUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <ResistanceConfigField path={prefix} />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="currentExcitSource"
+          label="Current Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.currentExcitVal`}
+          label="Current Excitation Value"
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <Form.NumericField path={`${prefix}.a`} label="Steinhart-Hart A" grow />
+        <Form.NumericField path={`${prefix}.b`} label="Steinhart-Hart B" grow />
+        <Form.NumericField path={`${prefix}.c`} label="Steinhart-Hart C" grow />
+      </Flex.Box>
+    </>
+  ),
+  ai_thermistor_vex: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <TemperatureUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <ResistanceConfigField path={prefix} />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <Form.NumericField path={`${prefix}.a`} label="Steinhart-Hart A" grow />
+        <Form.NumericField path={`${prefix}.b`} label="Steinhart-Hart B" grow />
+        <Form.NumericField path={`${prefix}.c`} label="Steinhart-Hart C" grow />
+      </Flex.Box>
+      <Form.NumericField path={`${prefix}.r1`} label="Reference Resistor" />
+    </>
+  ),
   ai_thermocouple: ({ prefix }) => {
-    const CJCSourceField = Form.buildSelectField({
-      fieldKey: "cjcSource",
-      fieldProps: {
-        label: "CJC Source",
-        onChange: (value, { set }) => {
-          if (value === "ConstVal") set(`${prefix}.cjcVal`, 0);
-          else if (value === "Chan") set(`${prefix}.cjcPort`, 0);
-        },
-      },
-      inputProps: {
-        resourceName: "CJC source",
-        data: [
-          { key: "BuiltIn", name: "Built In", icon: <Icon.Device /> },
-          { key: "ConstVal", name: "Constant Value", icon: <Icon.Constant /> },
-          { key: "Chan", name: "Channel", icon: <Icon.Channel /> },
-        ],
-      },
-    });
-    const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, {
+    const cjcSource = Form.useFieldValue<CJCType>(`${prefix}.cjc.source`, {
       optional: true,
     });
     return (
@@ -771,16 +1111,63 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         </Flex.Box>
         <Flex.Box x>
           <CJCSourceField path={prefix} grow />
-          {cjcSource === "ConstVal" && (
-            <Form.NumericField path={`${prefix}.cjcVal`} label="CJC Value" grow />
+          {cjcSource === "const_val" && (
+            <Form.NumericField path={`${prefix}.cjc.val`} label="CJC Value" grow />
           )}
-          {cjcSource === "Chan" && (
-            <Form.NumericField path={`${prefix}.cjcPort`} label="CJC Port" grow />
+          {cjcSource === "chan" && (
+            <Form.NumericField path={`${prefix}.cjc.port`} label="CJC Port" grow />
           )}
         </Flex.Box>
       </>
     );
   },
+  ai_torque_bridge_polynomial: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <TorqueUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <BridgeConfigField path={prefix} grow />
+        <Form.NumericField
+          path={`${prefix}.nominalBridgeResistance`}
+          label="Nominal Bridge Resistance"
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <TorqueUnitsField
+          path={prefix}
+          fieldKey="physicalUnits"
+          label="Physical Units"
+          grow
+        />
+        <ElectricalUnitsField path={prefix} grow />
+      </Flex.Box>
+      <CoefficientsField
+        path={`${prefix}.forwardCoeffs`}
+        label="Forward Coefficients"
+      />
+      <CoefficientsField
+        path={`${prefix}.reverseCoeffs`}
+        label="Reverse Coefficients"
+      />
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
   ai_torque_bridge_table: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
@@ -883,78 +1270,82 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  ai_velocity_iepe: ({ prefix }) => {
-    const VelocityUnits = Form.buildSelectField<
-      VelocityUnits,
-      record.KeyedNamed<VelocityUnits>
-    >({
-      fieldKey: "units",
-      fieldProps: { label: "Velocity Units" },
-      inputProps: {
-        resourceName: "velocity units",
-        data: [
-          { key: "MetersPerSecond", name: "m/s" },
-          { key: "InchesPerSecond", name: "in/s" },
-        ],
-      },
-    });
-    const SensitivityUnits = Form.buildSelectField<
-      VelocitySensitivityUnits,
-      record.KeyedNamed<VelocitySensitivityUnits>
-    >({
-      fieldKey: "sensitivityUnits",
-      fieldProps: { label: "Sensitivity Units" },
-      inputProps: {
-        resourceName: "sensitivity units",
-        data: [
-          { key: "MillivoltsPerMillimeterPerSecond", name: "mV/mm/s" },
-          { key: "MilliVoltsPerInchPerSecond", name: "mV/in/s" },
-        ],
-      },
-    });
-    return (
-      <>
-        <TerminalConfigField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <VelocityUnits path={prefix} />
-        <Form.NumericField
-          path={`${prefix}.sensitivity`}
-          label="Sensitivity"
-          inputProps={{
-            children: (
-              <SensitivityUnits
-                path={prefix}
-                showLabel={false}
-                showHelpText={false}
-                inputProps={{
-                  triggerProps: {
-                    style: { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
-                  },
-                }}
-              />
-            ),
-          }}
+  ai_velocity_iepe: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <MinMaxValueFields path={prefix} />
+      <VelocityUnitsField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.sensitivity`}
+        label="Sensitivity"
+        inputProps={{
+          children: (
+            <VelocitySensitivityUnitsField
+              path={prefix}
+              showLabel={false}
+              showHelpText={false}
+              inputProps={{
+                triggerProps: {
+                  style: { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
+                },
+              }}
+            />
+          ),
+        }}
+      />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="currentExcitSource"
+          label="Current Excitation Source"
+          grow
         />
-        <Flex.Box x>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="currentExcitSource"
-            label="Current Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.currentExcitVal`}
-            label="Current Excitation Value"
-          />
-        </Flex.Box>
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+        <Form.NumericField
+          path={`${prefix}.currentExcitVal`}
+          label="Current Excitation Value"
+        />
+      </Flex.Box>
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
   ai_voltage: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
       <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_voltage_rms: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_voltage_with_excit: ({ prefix }) => (
+    <>
+      <TerminalConfigField path={prefix} />
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <BridgeConfigField path={prefix} />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Flex.Box>
+      <Form.SwitchField
+        path={`${prefix}.useExcitForScaling`}
+        label="Use Excitation for Scaling"
+      />
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>

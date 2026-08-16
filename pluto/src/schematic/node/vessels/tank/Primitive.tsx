@@ -19,7 +19,7 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface RenderProps extends Omit<schematic.NodeConfigTank, "variant"> {
+interface RenderProps extends Omit<schematic.TankNodeConfig, "variant"> {
   className?: string;
   boxBorderRadius?: number;
   strokeWidth?: number;

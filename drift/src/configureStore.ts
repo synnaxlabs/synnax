@@ -23,6 +23,7 @@ import { type Runtime } from "@/runtime";
 import {
   type Action,
   closeWindow,
+  ensureOrdinals,
   internalSetInitial,
   setWindowStage,
   SLICE_NAME,
@@ -31,7 +32,7 @@ import {
 import { sugar } from "@/sugar";
 import { syncInitial } from "@/sync";
 import { validateAction } from "@/validate";
-import { MAIN_WINDOW, type WindowProps } from "@/window";
+import { MAIN_WINDOW, resetTransientState, type WindowProps } from "@/window";
 
 export type Enhancers = readonly StoreEnhancer[];
 
@@ -202,13 +203,12 @@ export const resetInitialState = <S extends StoreState>(
     Object.entries(drift.windows)
       .filter(([, window]) => window.reserved)
       .map(([key, window]) => {
+        const next = resetTransientState(window);
         if (defaultWindowProps?.visible != null)
-          window.visible = defaultWindowProps.visible;
-        window.focusCount = 0;
-        window.centerCount = 0;
-        window.processCount = 0;
-        return [key, window];
+          next.visible = defaultWindowProps.visible;
+        return [key, next];
       }),
   );
+  ensureOrdinals(drift);
   return state;
 };

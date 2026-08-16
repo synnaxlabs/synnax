@@ -65,8 +65,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type DeleteRequest struct {
-	Keys   channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
-	Names  []string        `json:"names" msgpack:"names" validate:"names"`
+	Keys   channel.Keys    `json:"keys"   msgpack:"keys"   validate:"required"`
+	Names  []string        `json:"names"  msgpack:"names"  validate:"names"`
 	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
 }
 
@@ -273,14 +273,10 @@ func (s *Service) openStreamer(
 	}); err != nil {
 		return nil, err
 	}
-	streamer, err := s.internal.NewStreamer(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if err := stream.Send(StreamerResponse{}); err != nil {
-		return nil, err
-	}
-	return streamer, nil
+	// The ack fires only after the relay applies this streamer's demands, so a write
+	// issued after the client sees it is guaranteed to be delivered.
+	req.SendOpenAck = true
+	return s.internal.NewStreamer(ctx, req)
 }
 
 type WriterCommand = framer.WriterCommand
@@ -342,15 +338,15 @@ type WriterConfig struct {
 
 // WriterRequest represents a request to write telemetry data for a set of channels.
 type WriterRequest struct {
-	Config  WriterConfig  `json:"config" msgpack:"config"`
-	Frame   Frame         `json:"frame" msgpack:"frame"`
+	Config  WriterConfig  `json:"config"  msgpack:"config"`
+	Frame   Frame         `json:"frame"   msgpack:"frame"`
 	Command WriterCommand `json:"command" msgpack:"command"`
 }
 
 type WriterResponse struct {
-	Err        errors.Payload  `json:"err" msgpack:"err"`
-	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Command    WriterCommand   `json:"command" msgpack:"command"`
+	Err        errors.Payload  `json:"err"        msgpack:"err"`
+	End        telem.TimeStamp `json:"end"        msgpack:"end"`
+	Command    WriterCommand   `json:"command"    msgpack:"command"`
 	Authorized bool            `json:"authorized" msgpack:"authorized"`
 }
 
@@ -406,8 +402,8 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 		) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
 			if r.Command == framer.WriterCommandSetAuthority {
-				// We decode like this because msgpack has a tough time decoding slices
-				// of uint8.
+				// We decode like this because MessagePack has a tough time decoding
+				// slices of uint8.
 				r.Config.Authorities = make(
 					[]control.Authority, len(req.Config.Authorities),
 				)

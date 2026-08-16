@@ -20,7 +20,7 @@ import { type Theming } from "@/theming";
 
 const NAME = "Box";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigBox => ({
+export const defaultConfig = (t: Theming.Theme): schematic.BoxNodeConfig => ({
   variant: "box",
   orientation: "left",
   color: color.ZERO,
@@ -31,7 +31,7 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigBox => ({
   strokeWidth: 2,
 });
 
-export const spec: Spec<"box", schematic.NodeConfigBox> = {
+export const spec: Spec<"box", schematic.BoxNodeConfig> = {
   key: "box",
   name: NAME,
   Form: () => <TankForm showBorderRadius showStrokeWidth />,

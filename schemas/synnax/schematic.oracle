@@ -16,10 +16,10 @@ import "schemas/x/text"
 
 @ts output "client/ts/src/schematic"
 @go output "core/pkg/service/schematic"
-@pb
 
 Key = uuid {
-    @doc value "is a unique identifier for a schematic, represented as a UUID."
+    @go version 7
+    @doc value  "is a unique identifier for a schematic, represented as a UUID."
 }
 
 Node struct {
@@ -37,7 +37,8 @@ Node struct {
         """
     }
 
-    @doc value "is a diagram node representing a symbol in the schematic."
+    @go version 7
+    @doc value  "is a diagram node representing a symbol in the schematic."
 }
 
 Handle struct {
@@ -48,7 +49,8 @@ Handle struct {
         @doc value "is the connection point identifier on the node."
     }
 
-    @doc value """
+    @go version 7
+    @doc value  """
         is a reference to a specific connection point on a specific node.
         For schematics, param is the symbol handle key (e.g. inlet, outlet).
     """
@@ -65,7 +67,8 @@ Edge struct {
         @doc value "is the target endpoint of the edge."
     }
 
-    @doc value "is a connection between two nodes in the schematic."
+    @go version 7
+    @doc value  "is a connection between two nodes in the schematic."
 }
 
 Segment struct {
@@ -76,7 +79,8 @@ Segment struct {
         @doc value "is the signed length of the segment in pixels."
     }
 
-    @doc value "is a single orthogonal run in an edge's connector path."
+    @go version 7
+    @doc value  "is a single orthogonal run in an edge's connector path."
 }
 
 SegmentedEdgeConfig struct {
@@ -90,7 +94,8 @@ SegmentedEdgeConfig struct {
         """
     }
 
-    @doc value "is the configuration shared by every segmented edge variant."
+    @go version 7
+    @doc value  "is the configuration shared by every segmented edge variant."
 }
 
 EdgeConfig union on variant {
@@ -114,7 +119,8 @@ FlexAlignment enum {
     end     = "end"
     stretch = "stretch"
 
-    @doc value "is a cross-axis flex alignment for laid-out content."
+    @go version 7
+    @doc value  "is a cross-axis flex alignment for laid-out content."
 }
 
 ComponentSize enum {
@@ -124,7 +130,8 @@ ComponentSize enum {
     large  = "large"
     huge   = "huge"
 
-    @doc value "is a discrete size preset for interactive components."
+    @go version 7
+    @doc value  "is a discrete size preset for interactive components."
 }
 
 ButtonMode enum {
@@ -132,7 +139,8 @@ ButtonMode enum {
     momentary = "momentary"
     pulse     = "pulse"
 
-    @doc value """
+    @go version 7
+    @doc value  """
         is the actuation behavior of a button: fire writes once on click,
         momentary writes on press and clears on release, and pulse writes a
         one-cycle pulse.
@@ -159,7 +167,8 @@ LabelConfig struct {
         @doc value "is the alignment of the label text within its box."
     }
 
-    @doc value "is the text label configuration shared by schematic symbols."
+    @go version 7
+    @doc value  "is the text label configuration shared by schematic symbols."
 }
 
 LabeledConfig struct {
@@ -173,7 +182,8 @@ LabeledConfig struct {
         @doc value "is the rendered scale multiplier of the symbol."
     }
 
-    @doc value "is the base configuration for any symbol that carries a label."
+    @go version 7
+    @doc value  "is the base configuration for any symbol that carries a label."
 }
 
 ControlStateConfig struct {
@@ -196,24 +206,32 @@ ControlStateConfig struct {
         @doc value "is the placement of the control state widget relative to the symbol."
     }
 
-    @doc value "is the control authority and state display configuration for actuated symbols."
+    @go version 7
+    @doc value  "is the control authority and state display configuration for actuated symbols."
 }
 
 ToggleConfig struct extends LabeledConfig {
-    state_channel   channel.Key?        {
+    state_channel     channel.Key?        {
         @doc value "is the channel whose value drives the symbol's active state."
     }
-    command_channel channel.Key?        {
+    command_channel   channel.Key?        {
         @doc value "is the channel actuation commands are written to."
     }
-    control         ControlStateConfig? {
+    control           ControlStateConfig? {
         @doc value "is the control state display configuration."
     }
-    on_click_delay  float64?            {
+    on_click_delay    float64?            {
         @doc value "is the debounce delay applied to clicks, in milliseconds."
     }
+    staleness_timeout float64?            {
+        @doc value "is the duration in seconds after which the state is considered stale."
+    }
+    staleness_color   color.Color?        {
+        @doc value "is the color applied when the state is stale."
+    }
 
-    @doc value "is the base configuration for symbols actuated through a boolean telemetry pair."
+    @go version 7
+    @doc value  "is the base configuration for symbols actuated through a boolean telemetry pair."
 }
 
 StaticSymbolConfig struct extends LabeledConfig {
@@ -221,7 +239,8 @@ StaticSymbolConfig struct extends LabeledConfig {
         @doc value "is the stroke color of the symbol."
     }
 
-    @doc value "is the configuration for non-interactive labeled symbols."
+    @go version 7
+    @doc value  "is the configuration for non-interactive labeled symbols."
 }
 
 ToggleSymbolConfig struct extends ToggleConfig {
@@ -229,7 +248,8 @@ ToggleSymbolConfig struct extends ToggleConfig {
         @doc value "is the stroke color of the symbol."
     }
 
-    @doc value "is the configuration for telemetry-actuated toggle symbols."
+    @go version 7
+    @doc value  "is the configuration for telemetry-actuated toggle symbols."
 }
 
 DummyToggleSymbolConfig struct extends LabeledConfig {
@@ -243,7 +263,8 @@ DummyToggleSymbolConfig struct extends LabeledConfig {
         @doc value "is the stroke color of the symbol."
     }
 
-    @doc value """
+    @go version 7
+    @doc value  """
         is the configuration for symbols that toggle their appearance from
         local state without binding to telemetry.
     """
@@ -263,7 +284,8 @@ StateMapping struct {
         @doc value "is the display color associated with this state."
     }
 
-    @doc value "maps a numeric channel value to a named, colored state."
+    @go version 7
+    @doc value  "maps a numeric channel value to a named, colored state."
 }
 
 Redline struct {
@@ -274,7 +296,8 @@ Redline struct {
         @doc value "is the color gradient applied across the bounds."
     }
 
-    @doc value "maps a numeric range to a color gradient for limit visualization."
+    @go version 7
+    @doc value  "maps a numeric range to a color gradient for limit visualization."
 }
 
 NodeConfig union on variant {
@@ -370,44 +393,50 @@ NodeConfig union on variant {
         @doc value "is the configuration for circle annotation symbols."
     }
     gauge extends LabeledConfig {
-        position        spatial.XY?         {
+        position          spatial.XY?         {
             @doc value "is the offset of the gauge contents within the symbol."
         }
-        color           color.Color?        {
+        color             color.Color?        {
             @doc value "is the accent color of the gauge arc."
         }
-        bounds          spatial.Bounds?     {
+        bounds            spatial.Bounds?     {
             @doc value "is the numeric range displayed by the gauge."
         }
-        bar_width       float64?            {
+        bar_width         float64?            {
             @doc value "is the thickness of the gauge arc in pixels."
         }
-        channel         channel.Key?        {
+        channel           channel.Key?        {
             @doc value "is the channel whose value the gauge displays."
         }
-        rolling_average int32?              {
+        rolling_average   int32?              {
             @doc value "is the sample window for rolling-average smoothing."
         }
-        precision       float64?            {
+        precision         float64?            {
             @doc value "is the number of decimal places shown."
         }
-        min_width       float64?            {
+        min_width         float64?            {
             @doc value "is the minimum rendered width of the value in pixels."
         }
-        width           float64?            {
+        width             float64?            {
             @doc value "is the rendered width of the gauge in pixels."
         }
-        notation        notation.Notation?  {
+        notation          notation.Notation?  {
             @doc value "is the numeric notation used to format the value."
         }
-        location        spatial.LocationXY? {
+        location          spatial.LocationXY? {
             @doc value "is the anchor of the value within the gauge."
         }
-        units           string?             {
+        units             string?             {
             @doc value "is the unit suffix displayed after the value."
         }
-        level           text.Level?         {
+        level             text.Level?         {
             @doc value "is the typography level of the displayed value."
+        }
+        staleness_timeout float64?            {
+            @doc value "is the duration in seconds after which the value is considered stale."
+        }
+        staleness_color   color.Color?        {
+            @doc value "is the color applied when the value is stale."
         }
 
         @doc value "is the configuration for gauge symbols."
@@ -435,14 +464,20 @@ NodeConfig union on variant {
         @doc value "is the configuration for free-form input symbols."
     }
     light extends LabeledConfig {
-        channel   channel.Key?    {
+        channel           channel.Key?    {
             @doc value "is the channel whose value drives the light's on state."
         }
-        threshold spatial.Bounds? {
+        threshold         spatial.Bounds? {
             @doc value "is the value range within which the light is considered on."
         }
-        color     color.Color?    {
+        color             color.Color?    {
             @doc value "is the illuminated color of the light."
+        }
+        staleness_timeout float64?        {
+            @doc value "is the duration in seconds after which the value is considered stale."
+        }
+        staleness_color   color.Color?    {
+            @doc value "is the color applied when the value is stale."
         }
 
         @doc value "is the configuration for indicator light symbols."
@@ -523,9 +558,6 @@ NodeConfig union on variant {
         size            ComponentSize?      {
             @doc value "is the rendered size preset of the setpoint."
         }
-        state_channel   channel.Key?        {
-            @doc value "is the channel whose value displays as the current setpoint."
-        }
         command_channel channel.Key?        {
             @doc value "is the channel submitted setpoints are written to."
         }
@@ -548,20 +580,54 @@ NodeConfig union on variant {
         @doc value "is the configuration for numeric setpoint symbols."
     }
     state_indicator extends LabeledConfig {
-        channel     channel.Key?   {
+        channel           channel.Key?   {
             @doc value "is the channel whose value selects the displayed state."
         }
-        color       color.Color?   {
+        color             color.Color?   {
             @doc value "is the fallback color when no state matches."
         }
-        inline_size float64?       {
+        inline_size       float64?       {
             @doc value "is the inline size of the indicator in pixels."
         }
-        options     StateMapping[] {
+        options           StateMapping[] {
             @doc value "is the set of displayable states."
+        }
+        staleness_timeout float64?       {
+            @doc value "is the duration in seconds after which the value is considered stale."
+        }
+        staleness_color   color.Color?   {
+            @doc value "is the color applied when the value is stale."
         }
 
         @doc value "is the configuration for multi-state indicator symbols."
+    }
+    string_display extends LabeledConfig {
+        color             color.Color? {
+            @doc value "is the background color of the display."
+        }
+        text_color        color.Color? {
+            @doc value "is the color of the displayed text."
+        }
+        tooltip           string[]?    {
+            @doc value "is the list of tooltip lines shown on hover."
+        }
+        inline_size       float64?     {
+            @doc value "is the inline size of the display in pixels."
+        }
+        channel           channel.Key? {
+            @doc value "is the channel whose string value the symbol displays."
+        }
+        level             text.Level?  {
+            @doc value "is the typography level of the displayed text."
+        }
+        staleness_timeout float64?     {
+            @doc value "is the duration in seconds after which the value is considered stale."
+        }
+        staleness_color   color.Color? {
+            @doc value "is the color applied when the value is stale."
+        }
+
+        @doc value "is the configuration for live string display symbols."
     }
     switch                             ToggleSymbolConfig
     text_box extends LabeledConfig {
@@ -789,7 +855,8 @@ NodeConfig union on variant {
 }
 
 ElementConfig union on variant extends NodeConfig, EdgeConfig {
-    @doc value """
+    @go version 7
+    @doc value  """
         is the per-element configuration stored in the schematic configs map:
         a node config or an edge config, discriminated by variant.
     """
@@ -822,6 +889,15 @@ Schematic struct {
             configures.
         """
         @ts preserve_keys
+    }
+
+    action Create {
+        schematic Schematic
+
+        @doc value """
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
+        """
     }
 
     action Rename {
@@ -887,6 +963,7 @@ Schematic struct {
         """
     }
 
+    @go version    7
     @doc value     """
         is a visual diagram editor component for drawing system schematics,
         control flows, and process diagrams. Schematics support interactive
@@ -897,4 +974,5 @@ Schematic struct {
     @create
     @go marshal
     @go migrate
+    @go imex
 }

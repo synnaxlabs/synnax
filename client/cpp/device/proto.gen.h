@@ -15,8 +15,7 @@
 
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/json.gen.h"
-#include "client/cpp/ontology/proto.gen.h"
+#include "client/cpp/ontology/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -53,7 +52,11 @@ Device::to_proto() const {
     pb.set_model(this->model);
     pb.set_name(this->name);
     pb.set_configured(this->configured);
-    *pb.mutable_properties() = x::json::to_struct(this->properties).first;
+    {
+        auto [v, err] = x::json::to_struct(this->properties);
+        if (err) return {{}, err};
+        *pb.mutable_properties() = v;
+    }
     if (this->status.has_value()) {
         auto [v, err] = this->status->to_proto();
         if (err) return {{}, err};

@@ -18,24 +18,37 @@ import { Tree } from "@/platform/tree";
 import { User as PlatformUser } from "@/platform/user";
 
 const Content = (): ReactElement => {
-  const { data: groupID } = User.useRetrieveGroupID({});
   const openRegister = PlatformUser.useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
+      <Toolbar.Header>
+        <Toolbar.Title>
+          <Icon.User />
+          Users
+        </Toolbar.Title>
         {hasCreatePermission && (
           <Toolbar.Actions>
-            <Toolbar.Action onClick={() => openRegister()} tooltip="Create user">
+            <Toolbar.Action
+              onClick={() => openRegister()}
+              tooltip="Create user"
+              variant="filled"
+            >
               <Icon.Add />
             </Toolbar.Action>
           </Toolbar.Actions>
         )}
       </Toolbar.Header>
-      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      <Toolbar.Body>
+        <Body />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
+};
+
+const Body = (): ReactElement => {
+  const groupID = User.useGroupID({});
+  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = (): ReactElement => {

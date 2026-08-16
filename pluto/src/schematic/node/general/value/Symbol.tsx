@@ -43,7 +43,7 @@ export const Symbol = ({
     stalenessTimeout,
     redline,
   },
-}: NodeProps<schematic.NodeConfigValue>): ReactElement => {
+}: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
   const t = useMemo(

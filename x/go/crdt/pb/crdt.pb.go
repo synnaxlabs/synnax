@@ -38,8 +38,8 @@ const (
 // the identifier globally unique without coordination.
 type ID struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// replica is the replica that created the character. A zero replica marks the document
-	// root sentinel.
+	// replica is the replica that created the character. A zero replica marks the
+	// document root sentinel.
 	Replica uint32 `protobuf:"varint,1,opt,name=replica,proto3" json:"replica,omitempty"`
 	// counter is the per-replica counter, incremented for every character the replica
 	// inserts.

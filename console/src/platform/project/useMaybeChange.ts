@@ -7,29 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
-import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
 
-export const useMaybeChange = (): ((key: string) => Promise<void>) => {
+/**
+ * useMaybeChange returns a callback that switches the active project to the given
+ * key when it is not already active. Panels are per-project documents fetched from
+ * the core, so switching only updates the selection; the panel selector reconciles
+ * the window's selected panel against the new project's panels.
+ */
+export const useMaybeChange = (): ((key: string) => void) => {
   const dispatch = useDispatch();
   // Optional: the active project vanishes transiently when it is deleted, and this
   // hook's consumers stay subscribed until the Guard unmounts them.
   const selected = Session.Project.useSelectOptionalSelected();
-  const client = Synnax.use();
   return useCallback(
-    async (key) => {
+    (key) => {
       if (selected === key) return;
-      if (client == null) throw new DisconnectedError();
-      const { layout } = await client.projects.retrieve(key);
       dispatch(Session.Project.select(key));
-      dispatch(
-        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(layout) }),
-      );
     },
-    [dispatch, selected, client],
+    [dispatch, selected],
   );
 };

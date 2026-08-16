@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/spatial"
-import "schemas/synnax/status"
-import "schemas/x/crdt"
 import "schemas/arc/graph"
-import "schemas/arc/text"
 import "schemas/arc/ir"
-import "schemas/arc/compiler"
 import "schemas/arc/program"
+import "schemas/arc/text"
+import "schemas/synnax/status"
+import "schemas/synnax/task"
+import "schemas/x/crdt"
+import "schemas/x/spatial"
 
 @ts output  "client/ts/src/arc"
 @py output  "client/py/synnax/arc"
@@ -22,29 +22,33 @@ import "schemas/arc/program"
 @cpp output "client/cpp/arc"
 @pb
 
-StatusDetails struct {
-    running bool {
-        @doc value "indicates whether the Arc module is currently executing."
-    }
-
-    @doc value "contains Arc-specific status details for execution state."
-}
-
-Status = status.Status<StatusDetails> {
-    @doc value "is the status of an Arc module including execution state."
-}
-
 Key = uuid {
-    @doc value "is a unique identifier for an Arc module."
+    @go version 3
+    @doc value  "is a unique identifier for an Arc module."
 }
 
 Mode enum {
     text  = "text"
     graph = "graph"
 
-    @doc value """
+    @go version 3
+    @doc value  """
         specifies whether an Arc module uses text-based or graph-based representation.
     """
+}
+
+StatusDetails struct {
+    running bool {
+        @doc value "indicates whether the Arc module is currently executing."
+    }
+
+    @go version 3
+    @doc value  "contains Arc-specific status details for execution state."
+}
+
+Status = status.Status<StatusDetails> {
+    @go version 3
+    @doc value  "is the status of an Arc module including execution state."
 }
 
 Arc struct {
@@ -78,6 +82,15 @@ Arc struct {
     status  Status?          {
         @doc value  "is the current execution status of the module."
         @go marshal omit
+    }
+
+    action Create {
+        arc Arc
+
+        @doc value """
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
+        """
     }
 
     action Rename {
@@ -184,6 +197,7 @@ Arc struct {
         """
     }
 
+    @go version    3
     @doc value     """
         is an Arc module combining visual graph representation and text-based
         source code for reactive control systems. Compiles to WebAssembly for
@@ -192,8 +206,52 @@ Arc struct {
     @ontology type "arc"
     @go marshal
     @go migrate
+    @go imex
     @py name       "Payload"
     @retrieve
     @search
     @create
+}
+
+ExecutionMode enum {
+    auto         = "AUTO"
+    busy_wait    = "BUSY_WAIT"
+    high_rate    = "HIGH_RATE"
+    rt_event     = "RT_EVENT"
+    hybrid       = "HYBRID"
+    event_driven = "EVENT_DRIVEN"
+
+    @doc value  "selects how the Arc runtime loop schedules execution."
+    @go version 1
+    @go output  "core/pkg/service/arc/task"
+    @pb omit
+}
+
+TaskConfig struct extends task.BasePersistConfig {
+    arc_key        Key           {
+        @doc value "is the key of the Arc module the task executes."
+    }
+    hash           string = "" {
+        @doc value "is the semantic hash of the Arc module at deploy time."
+    }
+    execution_mode ExecutionMode = auto {
+        @doc value "overrides the runtime's automatic loop mode selection."
+    }
+    rt_priority    int32 = 47 {
+        @doc value "is the thread priority used by real-time loop modes."
+    }
+    cpu_affinity   int32 = -1 {
+        @doc value "pins the loop to a CPU core. -1 selects automatically."
+    }
+    lock_memory    bool = false {
+        @doc value "locks the runtime's memory to prevent paging."
+    }
+
+    @doc value  "configures an Arc task, which runs a compiled Arc module."
+    @go version 1
+    @go marshal
+    @go migrate
+    @go output  "core/pkg/service/arc/task"
+    @go name    "Config"
+    @pb omit
 }

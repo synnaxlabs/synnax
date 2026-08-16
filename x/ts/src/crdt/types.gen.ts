@@ -15,8 +15,8 @@ import { spatial } from "@/spatial";
 
 /**
  * ID uniquely identifies a character within a replicated text document. It pairs the
- * replica that created the character with that replica's per-character counter,
- * making the identifier globally unique without coordination.
+ * replica that created the character with that replica's per-character counter, making
+ * the identifier globally unique without coordination.
  */
 export const idZ = z.object({
   /**
@@ -53,8 +53,8 @@ export interface Insert extends z.infer<typeof insertZ> {}
 
 /**
  * Delete tombstones the character with the given id. It carries only the id because
- * removal needs no position; the character remains in the document tree as a
- * tombstone so concurrently-inserted neighbors can still anchor to it.
+ * removal needs no position; the character remains in the document tree as a tombstone
+ * so concurrently-inserted neighbors can still anchor to it.
  */
 export const deleteZ = z.object({
   /** id is the identity of the character to tombstone. */

@@ -41,12 +41,13 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   getItem,
   retrieve,
   subscribe,
+  answered,
 }: FormProps<K, E, Q>): ReactElement | null => {
   const { staticViews, getInitialView } = useContext("View.Form");
   const { fetchMore, search } = List.usePager({
     // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
     // typing issues.
-    retrieve: retrieve as List.UsePagerArgs["retrieve"],
+    retrieve: retrieve as List.UsePagerParams["retrieve"],
     pageSize: 50,
   });
   const updateQuery = useCallback(
@@ -56,17 +57,13 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     [retrieve],
   );
   const { form } = PView.useForm({
-    query: {},
+    query: null,
     initialValues: getInitialView(),
     autoSave: true,
     beforeSave: useCallback(
       async ({
         value,
-      }: Flux.FormBeforeSaveParams<
-        PView.FormQuery,
-        typeof PView.formSchema,
-        PView.FluxSubStore
-      >) => {
+      }: Flux.FormBeforeSaveParams<PView.FormQuery, typeof PView.formSchema>) => {
         const { key, query } = value();
         // if this is a static view we need to handle it here. Otherwise, the
         // useSetSynchronizer will handle it as it also needs to handle remote updates.
@@ -86,7 +83,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   );
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);
-  const contextValue = useMemo(() => ({ search }), [search]);
+  const contextValue = useMemo(() => ({ search, answered }), [search, answered]);
   return (
     <PForm.Form<typeof PView.formSchema> {...form}>
       <Select.Frame

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type ranger } from "@synnaxlabs/client";
+import { NotFoundError, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -16,7 +16,6 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { Range as CommonRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
@@ -24,11 +23,21 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
+  openContextMenu,
+  resolveFocusedTab,
+  selectTestProject,
   type TestStore,
-  waitForPlacedLayout,
 } from "@/testutil";
 
 const client = createTestClient();
+
+const expectFocusedRange = async (store: TestStore, key: string): Promise<void> => {
+  const tab = await resolveFocusedTab(store, client);
+  if (tab.variant !== "resource")
+    throw new Error("focused tab is not a range resource");
+  expect(tab.resource.type).toBe(ranger.TYPE_ONTOLOGY_ID.type);
+  expect(tab.resource.key).toBe(key);
+};
 
 const createLocalRangeState = (name: string): Session.Range.StaticState => {
   const start = TimeStamp.now();
@@ -54,6 +63,7 @@ const renderToolbar = async ({
   active,
 }: RenderToolbarOptions = {}): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  await selectTestProject(store, client);
   render(
     <>
       {Range.TOOLBAR.content}
@@ -67,16 +77,15 @@ const renderToolbar = async ({
   return { store };
 };
 
-const openContextMenu = async (name: string): Promise<void> => {
-  fireEvent.contextMenu(await screen.findByText(name));
-};
-
 describe("range/Toolbar", () => {
   it("shows the empty state and opens the Range Explorer from it", async () => {
     const { store } = await renderToolbar();
     expect(await screen.findByText("No favorited ranges.")).toBeTruthy();
     fireEvent.click(await screen.findByText("Open Range Explorer"));
-    await waitForPlacedLayout(store, Range.EXPLORER_LAYOUT_TYPE);
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "view")
+      throw new Error("focused tab is not the range explorer view");
+    expect(tab.type).toBe(Range.Explorer.TAB_TYPE);
   });
 
   it("renders favorited ranges and marks local ones with the L badge", async () => {
@@ -91,7 +100,10 @@ describe("range/Toolbar", () => {
   it("sets the clicked range as active", async () => {
     const rng = toState(await createTestRange(client));
     const { store } = await renderToolbar({ ranges: [rng] });
-    fireEvent.click(await screen.findByText(rng.name));
+    await screen.findByText(rng.name);
+    // Re-query synchronously: async permission resolution can replace the text node,
+    // detaching a match held across an await before the click lands.
+    fireEvent.click(screen.getByText(rng.name));
     await waitFor(() =>
       expect(Session.Range.selectSelectedKey(store.getState())).toBe(rng.key),
     );
@@ -118,13 +130,12 @@ describe("range/Toolbar", () => {
       );
     });
 
-    it("places the overview layout from View details", async () => {
+    it("opens the overview tab from View details", async () => {
       const rng = toState(await createTestRange(client));
       const { store } = await renderToolbar({ ranges: [rng] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("View details"));
-      const key = await waitForPlacedLayout(store, CommonRange.OVERVIEW_LAYOUT_TYPE);
-      expect(key).toBe(rng.key);
+      await expectFocusedRange(store, rng.key);
     });
 
     it("removes the range from favorites without deleting it on the server", async () => {
@@ -196,7 +207,7 @@ describe("range/Toolbar", () => {
       await renderToolbar({ ranges: [rng] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Create child range"));
-      expect(await screen.findByText("Save Locally")).toBeTruthy();
+      expect(await screen.findByText("Save locally")).toBeTruthy();
     });
   });
 
@@ -204,7 +215,7 @@ describe("range/Toolbar", () => {
     await renderToolbar();
     const action = await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(action);
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 });
 

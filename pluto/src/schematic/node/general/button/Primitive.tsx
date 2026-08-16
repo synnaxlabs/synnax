@@ -24,7 +24,7 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface ButtonProps extends Omit<schematic.NodeConfigButton, "variant" | "color"> {
+interface ButtonProps extends Omit<schematic.ButtonNodeConfig, "variant" | "color"> {
   color?: color.Crude;
   className?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;

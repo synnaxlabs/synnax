@@ -14,6 +14,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Policy } from "@/access/policy";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -138,7 +139,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a single policy by key", async () => {
       const testPolicy = await client.access.policies.create({
         name: "singlePolicy",
@@ -146,14 +147,17 @@ describe("queries", () => {
         actions: ["create", "retrieve", "update"],
       });
 
-      const { result } = renderHook(() => Policy.useRetrieve({ key: testPolicy.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Policy.use({ key: testPolicy.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data?.key).toEqual(testPolicy.key);
-      expect(result.current.data?.name).toEqual("singlePolicy");
-      expect(result.current.data?.actions).toContain("create");
+      expect(result.current?.key).toEqual(testPolicy.key);
+      expect(result.current?.name).toEqual("singlePolicy");
+      expect(result.current?.actions).toContain("create");
     });
 
     it("should handle retrieve with valid policy key", async () => {
@@ -163,13 +167,16 @@ describe("queries", () => {
         actions: ["delete"],
       });
 
-      const { result } = renderHook(() => Policy.useRetrieve({ key: policy.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Policy.use({ key: policy.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data).toBeDefined();
-      expect(result.current.data?.key).toEqual(policy.key);
+      expect(result.current).not.toBeNull();
+      expect(result.current?.key).toEqual(policy.key);
     });
   });
 
@@ -181,9 +188,9 @@ describe("queries", () => {
         actions: ["create"],
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Policy.useRetrieve({ key: policy.key }),
+          retrieve: Policy.use({ key: policy.key }),
           rename: Policy.useRename(),
         }),
         { wrapper },
@@ -191,9 +198,7 @@ describe("queries", () => {
       act(() => {
         result.current.rename.update({ key: policy.key, name: "newName" });
       });
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("newName"),
-      );
+      await waitFor(() => expect(result.current.retrieve?.name).toEqual("newName"));
     });
   });
 
@@ -210,9 +215,9 @@ describe("queries", () => {
         await result.current.updateAsync(policy.key);
       });
       await waitFor(async () => {
-        await expect(
-          client.access.policies.retrieve({ key: policy.key }),
-        ).rejects.toThrow(NotFoundError);
+        await expect(client.access.policies.retrieve(policy.key)).rejects.toThrow(
+          NotFoundError,
+        );
       });
     });
 
@@ -233,19 +238,19 @@ describe("queries", () => {
         await result.current.updateAsync([policy1.key, policy2.key]);
       });
       await waitFor(async () => {
-        await expect(
-          client.access.policies.retrieve({ key: policy1.key }),
-        ).rejects.toThrow(NotFoundError);
-        await expect(
-          client.access.policies.retrieve({ key: policy2.key }),
-        ).rejects.toThrow(NotFoundError);
+        await expect(client.access.policies.retrieve(policy1.key)).rejects.toThrow(
+          NotFoundError,
+        );
+        await expect(client.access.policies.retrieve(policy2.key)).rejects.toThrow(
+          NotFoundError,
+        );
       });
     });
   });
 
   describe("useForm", () => {
     it("should create a new policy", async () => {
-      const { result } = renderHook(() => Policy.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Policy.useForm({ query: null }), { wrapper });
 
       await act(async () => {
         result.current.form.set("name", "formPolicy");
@@ -263,7 +268,7 @@ describe("queries", () => {
       });
 
       const createdKey = result.current.form.get<string>("key").value;
-      const retrieved = await client.access.policies.retrieve({ key: createdKey });
+      const retrieved = await client.access.policies.retrieve(createdKey);
       expect(retrieved.name).toEqual("formPolicy");
     });
 
@@ -274,7 +279,7 @@ describe("queries", () => {
         actions: ["delete", "update"],
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Policy.useForm({ query: { key: existingPolicy.key } }),
         {
           wrapper,

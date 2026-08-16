@@ -18,6 +18,7 @@ import React, {
   type ReactNode,
   type RefObject,
   useCallback,
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -25,6 +26,7 @@ import React, {
 import { z } from "zod";
 
 import { context } from "@/context";
+import { useSyncedRef } from "@/hooks/ref";
 import { type state } from "@/state";
 
 /** Zod schema for a draggable/droppable {@link Item}. */
@@ -65,7 +67,7 @@ export const ZERO_ITEM: Item = { key: "", type: "" };
 export const ZERO_DRAGGING_STATE: DraggingState = { source: ZERO_ITEM, items: [] };
 
 /** The drop target and the items that landed on it. */
-interface DropProps {
+export interface DropProps {
   target: Item;
   dropped: Item[];
 }
@@ -91,6 +93,14 @@ interface DragEndInterceptor {
 }
 
 /**
+ * Called once per drag when it resolves. `landed` reports whether the items reached a
+ * drop target, whether an ordinary one or an interceptor's.
+ */
+export interface OnResolve {
+  (landed: boolean): void;
+}
+
+/**
  * Haul drag-and-drop controls: the imperative drag/drop callbacks plus a live-state
  * ref. Its identity is stable across drags, so subscribing to it does not re-render
  * on drag-state changes. Read the live dragging state via {@link useDraggingState}
@@ -109,6 +119,11 @@ export interface ContextValue {
   drop: (props: DropProps) => void;
   /** Registers an interceptor `end` consults to resolve drops outside a drop target. */
   bind: (interceptor: DragEndInterceptor) => destructor.Destructor;
+  /**
+   * Registers a watcher run once per drag when it resolves. A watcher cannot claim a
+   * drop, so every watcher runs whatever an interceptor did and in any order.
+   */
+  watch: (onResolve: OnResolve) => destructor.Destructor;
   // claimDragEvent atomically claims a native drag event (dragover or drop) for a
   // single drop target, returning false if another target already claimed it. Drag
   // events bubble, so the innermost accepting target claims first and nested
@@ -157,6 +172,7 @@ export const Provider = memo(
     const [state, setState] = useState(ZERO_DRAGGING_STATE);
     const ref = useRef<ProviderRef>(HAUL_REF);
     const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
+    const watchers = useRef<Set<OnResolve>>(new Set());
     const handledEvents = useRef<WeakSet<Event>>(new WeakSet());
 
     const claimDragEvent: ContextValue["claimDragEvent"] = useCallback((event) => {
@@ -173,28 +189,38 @@ export const Provider = memo(
       [setState],
     );
 
+    const resolve = useCallback(
+      (landed: boolean) => watchers.current.forEach((watcher) => watcher(landed)),
+      [],
+    );
+
     const drop: ContextValue["drop"] = useCallback(
       ({ target, dropped }) => {
         const hauled = ref.current.items;
         ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
         ref.current = HAUL_REF;
         setState(ZERO_DRAGGING_STATE);
+        resolve(true);
       },
-      [setState],
+      [setState, resolve],
     );
 
     const end: ContextValue["end"] = useCallback(
       (cursor: xy.XY) => {
+        // A drag already finalized by a drop leaves nothing to resolve: dragend still
+        // fires after it, and the drag must be reported exactly once.
+        const active = ref.current.items.length > 0;
         let dropped: DropProps | null = null;
         interceptors.current.forEach((interceptor) => {
           if (dropped != null) return;
           dropped = interceptor(ref.current, cursor);
         });
-        if (dropped != null) drop(dropped);
+        if (dropped != null) return drop(dropped);
         ref.current = HAUL_REF;
         setState(ZERO_DRAGGING_STATE);
+        if (active) resolve(false);
       },
-      [setState],
+      [setState, drop, resolve],
     );
 
     const bind: ContextValue["bind"] = useCallback((interceptor) => {
@@ -202,9 +228,14 @@ export const Provider = memo(
       return () => interceptors.current.delete(interceptor);
     }, []);
 
+    const watch: ContextValue["watch"] = useCallback((onResolve) => {
+      watchers.current.add(onResolve);
+      return () => watchers.current.delete(onResolve);
+    }, []);
+
     const controls = useMemo<ContextValue>(
-      () => ({ start, end, drop, bind, claimDragEvent, stateRef: ref }),
-      [start, end, drop, bind, claimDragEvent],
+      () => ({ start, end, drop, bind, watch, claimDragEvent, stateRef: ref }),
+      [start, end, drop, bind, watch, claimDragEvent],
     );
     // A nested Provider reuses the outer one's contexts, which are already in scope,
     // so it renders children without re-providing.
@@ -227,6 +258,18 @@ export const useDraggingRef = (): RefObject<DraggingState> => {
 
 /** Returns the current {@link DraggingState}, re-rendering on change. */
 export const useDraggingState = (): DraggingState => useStateContext();
+
+/**
+ * useOnResolve runs `onResolve` once per drag when it resolves, told whether the drag
+ * landed on a drop target. Prefer it to watching {@link useDraggingState} clear: that
+ * looks identical for a drop and for a cancelled drag, and it re-renders on every drag
+ * in the window. `onResolve` need not be stable; the latest one always runs.
+ */
+export const useOnResolve = (onResolve: OnResolve): void => {
+  const ctx = useContext();
+  const ref = useSyncedRef(onResolve);
+  useEffect(() => ctx?.watch((landed) => ref.current(landed)), [ctx, ref]);
+};
 
 /** Passed to a drag's `onSuccessfulDrop` callback once a drop completes. */
 export interface OnSuccessfulDropProps {

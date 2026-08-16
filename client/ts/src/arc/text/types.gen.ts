@@ -13,8 +13,8 @@ import { crdt } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
- * Document is the conflict-free replicated representation of the text: the operations that
- * reconstruct it when applied to an empty replica. It is the durable source of
+ * Document is the conflict-free replicated representation of the text: the operations
+ * that reconstruct it when applied to an empty replica. It is the durable source of
  * truth from which raw is materialized.
  */
 export const documentZ = z.object({

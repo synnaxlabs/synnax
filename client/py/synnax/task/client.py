@@ -10,25 +10,23 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from typing import Annotated, Any, overload
+from typing import Any, overload
 from typing import Protocol as BaseProtocol
-from uuid import uuid4
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
-from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
-from synnax.task.types_gen import Payload, Status, ontology_id
+from synnax.task.types_gen import Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from x.lists import check_for_none, normalize, override
 
@@ -41,11 +39,11 @@ _CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[int]
+    keys: list[Key]
 
 
 class _CopyRequest(BaseModel):
-    key: int
+    key: Key
     name: str
     snapshot: bool
 
@@ -56,7 +54,7 @@ class _CopyResponse(BaseModel):
 
 class _RetrieveRequest(BaseModel):
     rack: int | None = None
-    keys: list[int] | None = None
+    keys: list[Key] | None = None
     names: list[str] | None = None
     types: list[str] | None = None
     include_status: bool = False
@@ -77,66 +75,28 @@ _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
-class BaseConfig(BaseModel):
+class _Keyed(BaseProtocol):
+    key: str
+
+
+def assign_keys(records: Iterable[_Keyed]) -> None:
+    """Assigns a fresh UUID key to every record whose key is empty.
+
+    :param records: Task config records (e.g. channels, endpoints) with a string
+        key field.
     """
-    Base configuration shared by all hardware task types.
-
-    This base class provides common fields that all hardware integration tasks need:
-    auto-start behavior.
-    """
-
-    auto_start: bool = False
-
-
-class BaseReadConfig(BaseConfig):
-    """
-    Base configuration for hardware read/acquisition tasks.
-
-    Extends BaseTaskConfig with sample rate and stream rate fields common to
-    all data acquisition tasks (LabJack, NI, Modbus, OPC UA read tasks).
-
-    Default rate limits are set to 50 kHz based on NI hardware constraints,
-    which are the most restrictive across supported hardware platforms.
-    Hardware-specific configs can override these limits for devices that
-    support higher rates.
-    """
-
-    data_saving: bool = True
-    "Whether to persist acquired data to disk (True) or only stream it (False)."
-    sample_rate: Annotated[int, Field(ge=0, le=50000)]
-    "The rate at which to sample data from the hardware device (Hz)."
-    stream_rate: Annotated[int, Field(ge=0, le=50000)]
-    "The rate at which acquired data will be streamed to the Synnax cluster (Hz)."
-
-    @field_validator("stream_rate")
-    def validate_stream_rate(cls, v: int, info: Any) -> int:
-        """Validate that stream_rate is less than or equal to sample_rate."""
-        if "sample_rate" in info.data and v > info.data["sample_rate"]:
-            raise ValueError(
-                "Stream rate must be less than or equal to the sample rate"
-            )
-        return v
-
-
-class BaseWriteConfig(BaseConfig):
-    """
-    Base configuration for hardware write/control tasks.
-
-    Provides common fields (device, auto_start) for all hardware write tasks.
-    Note that state_rate and data_saving are NOT included in this base class as they
-    are hardware-specific - only write tasks with state feedback (NI, LabJack) use
-    these fields. Tasks without state feedback (Modbus, OPC UA) do not need them.
-    """
-
-    device: str = Field(min_length=1)
-    "The key of the Synnax device this task will communicate with."
+    for record in records:
+        if not record.key:
+            record.key = str(uuid4())
 
 
 class Task:
-    key: int = 0
+    key: Key
+    rack: int = 0
     name: str = ""
     type: str = ""
     config: dict[str, Any] = {}
+    config_hash: str = ""
     snapshot: bool = False
     status: Status | None = None
     _cached_frame_client: FrameClient | None = None
@@ -144,22 +104,27 @@ class Task:
     def __init__(
         self,
         *,
-        key: int = 0,
+        key: Key | str | None = None,
         rack: int = 0,
         name: str = "",
         type: str = "",
         config: dict[str, Any] | None = None,
+        config_hash: str = "",
         snapshot: bool = False,
         status: Status | None = None,
         internal: bool = False,
         _frame_client: FrameClient | None = None,
     ):
-        if key == 0:
-            key = (rack << 32) + 0
+        if key is None:
+            key = uuid4()
+        elif isinstance(key, str):
+            key = UUID(key)
         self.key = key
+        self.rack = rack
         self.name = name
         self.type = type
         self.config = config if config is not None else {}
+        self.config_hash = config_hash
         self.internal = internal
         self.snapshot = snapshot
         self.status = status
@@ -176,6 +141,7 @@ class Task:
     def to_payload(self) -> Payload:
         return Payload(
             key=self.key,
+            rack=self.rack,
             name=self.name,
             type=self.type,
             config=self.config,
@@ -183,9 +149,11 @@ class Task:
 
     def set_internal(self, task: Task) -> None:
         self.key = task.key
+        self.rack = task.rack
         self.name = task.name
         self.type = task.type
         self.config = task.config
+        self.config_hash = task.config_hash
         self.snapshot = task.snapshot
         self._cached_frame_client = task._cached_frame_client
 
@@ -217,7 +185,15 @@ class Task:
         key = str(uuid4())
         w.write(
             _TASK_CMD_CHANNEL,
-            [{"task": self.key, "type": type_, "key": key, "args": args}],
+            [
+                {
+                    "task": str(self.key),
+                    "type": type_,
+                    "key": key,
+                    "config_hash": self.config_hash,
+                    "args": args,
+                }
+            ],
         )
         w.close()
         return str(key)
@@ -247,24 +223,27 @@ class Task:
                 elif _TASK_STATE_CHANNEL not in frame:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                try:
-                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                # A frame can carry several statuses, and only some of them answer
+                # this command.
+                for sample in frame[_TASK_STATE_CHANNEL]:
+                    try:
+                        status = Status.model_validate(sample)
+                    except ValidationError:
+                        # The status channel carries statuses for all tasks and
+                        # racks. Rack statuses have a different schema, so
+                        # validation failures are expected and should be skipped.
+                        continue
                     if (
                         status.details is not None
                         and status.details.cmd is not None
                         and status.details.cmd == key
                     ):
                         return status
-                except ValidationError:
-                    # The status channel carries statuses for all tasks and
-                    # racks. Rack statuses have a different schema, so
-                    # validation failures are expected and should be skipped.
-                    continue
 
 
 class Protocol(BaseProtocol):
     @property
-    def key(self) -> int: ...
+    def key(self) -> Key: ...
 
     def to_payload(self) -> Payload: ...
 
@@ -331,14 +310,14 @@ class JSONConfigMixin(Protocol):
         return self._internal.name
 
     @property
-    def key(self) -> int:
+    def key(self) -> Key:
         """Implements TaskProtocol protocol"""
         return self._internal.key
 
     def to_payload(self) -> Payload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
-        pld.config = self.config.model_dump()
+        pld.config = self.config.model_dump(by_alias=True, exclude_none=True)
         return pld
 
     def set_internal(self, task: Task) -> None:
@@ -373,7 +352,7 @@ class Client:
     def create(
         self,
         *,
-        key: int = 0,
+        key: Key | str | None = None,
         name: str = "",
         type: str = "",
         config: dict[str, Any] | BaseModel | None = None,
@@ -390,7 +369,7 @@ class Client:
         self,
         tasks: Task | list[Task] | None = None,
         *,
-        key: int = 0,
+        key: Key | str | None = None,
         name: str = "",
         type: str = "",
         config: dict[str, Any] | BaseModel | None = None,
@@ -400,9 +379,15 @@ class Client:
         if config is None:
             config = dict()
         elif isinstance(config, BaseModel):
-            config = config.model_dump()
+            config = config.model_dump(by_alias=True, exclude_none=True)
         if tasks is None:
-            payloads = [Payload(key=key, name=name, type=type, config=config or {})]
+            if key is None:
+                key = uuid4()
+            elif isinstance(key, str):
+                key = UUID(key)
+            payloads = [
+                Payload(key=key, rack=rack, name=name, type=type, config=config or {})
+            ]
         elif isinstance(tasks, Task):
             payloads = [tasks.to_payload()]
         else:
@@ -420,61 +405,40 @@ class Client:
         return res.tasks
 
     def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Payload:
-        if self._default_rack is None:
-            # Hardcoded as this value for now. Will be changed once we have multi-rack
-            # systems
-            self._default_rack = self._racks.retrieve_embedded_rack()
-        if pld is not None and pld.key == 0:
-            if rack == 0:
-                rack = self._default_rack.key
-            pld.key = (rack << 32) + 0
+        if pld is None or pld.rack != 0:
+            return pld
+        if rack == 0:
+            if self._default_rack is None:
+                self._default_rack = self._racks.retrieve_embedded_rack()
+            rack = self._default_rack.key
+        pld.rack = rack
         return pld
 
     def configure(self, task: Protocol, timeout: float = 5) -> Protocol:
+        """Saves the task's configuration to the cluster. The config is deployed
+        to the driver on the next start command.
+
+        :param task: The task to save.
+        :param timeout: Unused. Retained for backwards compatibility.
+        :returns: The saved task with its key and rack populated.
+        """
         # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
         if self._device_client is not None:
             task.update_device_properties(self._device_client)
-
-        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
-            pld = self.maybe_assign_def_rack(task.to_payload())
-            req = _CreateRequest(tasks=[pld])
-            tasks = self._exec_create(req)
-            task.set_internal(self.sugar(tasks)[0])
-            while True:
-                frame = streamer.read(timeout)
-                if frame is None:
-                    raise TimeoutError(
-                        "task - timeout waiting for driver to acknowledge configuration"
-                    )
-                elif (
-                    _TASK_STATE_CHANNEL not in frame
-                    or len(frame[_TASK_STATE_CHANNEL]) == 0
-                ):
-                    warnings.warn("task - unexpected missing state in frame")
-                    continue
-                try:
-                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                except ValidationError:
-                    # The status channel carries statuses for all tasks and
-                    # racks. Rack statuses have a different schema, so
-                    # validation failures are expected and should be skipped.
-                    continue
-                if status.details is None or status.details.task != task.key:
-                    continue
-                if status.variant == VARIANT_SUCCESS:
-                    break
-                if status.variant == VARIANT_ERROR:
-                    raise ConfigurationError(status.message)
+        pld = self.maybe_assign_def_rack(task.to_payload())
+        req = _CreateRequest(tasks=[pld])
+        tasks = self._exec_create(req)
+        task.set_internal(self.sugar(tasks)[0])
         return task
 
-    def delete(self, keys: int | list[int]) -> None:
+    def delete(self, keys: Key | str | list[Key | str]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/task/delete", req, Empty)
 
     @overload
     def retrieve(
         self,
-        key: int | None = None,
+        key: Key | str | None = None,
         name: str | None = None,
         type: str | None = None,
     ) -> Task: ...
@@ -486,17 +450,17 @@ class Client:
         name: None = None,
         type: None = None,
         names: list[str] | None = None,
-        keys: list[int] | None = None,
+        keys: list[Key | str] | None = None,
         types: list[str] | None = None,
     ) -> list[Task]: ...
 
     def retrieve(
         self,
-        key: int | None = None,
+        key: Key | str | None = None,
         name: str | None = None,
         type: str | None = None,
         names: list[str] | None = None,
-        keys: list[int] | None = None,
+        keys: list[Key | str] | None = None,
         types: list[str] | None = None,
     ) -> list[Task] | Task:
         is_single = check_for_none(names, keys, types)
@@ -547,7 +511,7 @@ class Client:
 
     def copy(
         self,
-        key: int,
+        key: Key | str,
         name: str,
     ) -> Task:
         """Copies an existing task with a new name.

@@ -26,7 +26,11 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot) error {
+func (w Writer) Create(
+	ctx context.Context,
+	projectKey project.Key,
+	lp *LinePlot,
+) error {
 	var (
 		exists bool
 		err    error
@@ -34,7 +38,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	if lp.Key == uuid.Nil {
 		lp.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -49,22 +55,27 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if exists {
-		return nil
+	if !exists {
+		otgID := lp.OntologyID()
+		if err := w.otg.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err := w.otg.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
 	}
-	otgID := OntologyID(lp.Key)
-	if err := w.otg.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if projectKey == uuid.Nil {
-		return nil
-	}
-	return w.otg.DefineRelationships(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, lp.Key, "", []Action{NewCreateAction(CreatePayload{LinePlot: *lp})},
 	)
+	return nil
 }
 
 // CreateMany creates the given line plots within the project provided. If line plots

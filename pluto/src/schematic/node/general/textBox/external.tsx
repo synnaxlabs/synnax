@@ -17,7 +17,7 @@ import { TextBox } from "@/schematic/node/general/textBox/Primitive";
 import { Symbol } from "@/schematic/node/general/textBox/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-export const defaultConfig = (): schematic.NodeConfigTextBox => ({
+export const defaultConfig = (): schematic.TextBoxNodeConfig => ({
   variant: "text_box",
   orientation: "left",
   color: color.ZERO,
@@ -29,11 +29,11 @@ export const defaultConfig = (): schematic.NodeConfigTextBox => ({
   width: 75,
 });
 
-const Preview = (props: schematic.NodeConfigTextBox): ReactElement => (
+const Preview = (props: schematic.TextBoxNodeConfig): ReactElement => (
   <TextBox {...props} autoFit value="Text Box" />
 );
 
-export const spec: Spec<"text_box", schematic.NodeConfigTextBox> = {
+export const spec: Spec<"text_box", schematic.TextBoxNodeConfig> = {
   key: "text_box",
   name: "Text Box",
   Form: TextBoxForm,

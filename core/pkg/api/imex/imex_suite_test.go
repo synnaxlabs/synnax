@@ -56,12 +56,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:              db,
-		Ontology:        otg,
-		Group:           groupSvc,
-		Search:          searchIdx,
-		Auth:            authSvc,
-		RootCredentials: auth.Credentials{Username: "api-imex-suite-root", Password: "p"},
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+		Auth:     authSvc,
+		RootCredentials: auth.Credentials{
+			Username: "api-imex-suite-root",
+			Password: "p",
+		},
 	}))
 	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
@@ -72,7 +75,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	imexSvc = imex.NewService()
 	importer = &recordingImporter{}
-	imexSvc.RegisterImporter(string(importer.Type()), importer)
+	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())
 	apiSvc = MustSucceed(apiimex.NewService(apicfg.LayerConfig{
 		Distribution: &distribution.Layer{DB: db},
 		Service: &service.Layer{
@@ -90,6 +93,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // passes.
 func rootCtx(ctx SpecContext) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", user.OntologyID(root.Key))
+	fctx.Set("Subject", root.OntologyID())
 	return fctx
 }

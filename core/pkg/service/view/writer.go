@@ -44,7 +44,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(view.Key)
+	otgID := view.OntologyID()
 	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

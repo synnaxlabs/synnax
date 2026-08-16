@@ -13,13 +13,11 @@ import { Access, LinePlot } from "@synnaxlabs/pluto";
 import { Command } from "@/platform/command";
 import { LinePlot as PlatformLinePlot } from "@/platform/lineplot";
 
-const useCreate = () => PlatformLinePlot.useCreate({});
-
 const CreateCommand = Command.create({
   key: "create_line_plot",
   name: "Create a line plot",
   icon: <LinePlot.CreateIcon />,
-  useOnSelect: useCreate,
+  useOnSelect: PlatformLinePlot.useCreate,
   useVisible: () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID),
 });
 

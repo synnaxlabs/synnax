@@ -13,10 +13,15 @@ import (
 	"encoding/json"
 	"maps"
 
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 )
+
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Schematic) (Schematic, error) {
+	return p.Schematic, nil
+}
 
 // Handle replaces the schematic's name.
 func (p RenamePayload) Handle(state Schematic) (Schematic, error) {
@@ -51,7 +56,7 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 		state.Nodes = append(state.Nodes, p.Node)
 	}
 	if p.Config != nil {
-		cfg, err := decodeElementConfig(normalizeConfigKeys(p.Config))
+		cfg, err := versions.DecodeElementConfig(versions.NormalizeConfigKeys(p.Config))
 		if err != nil {
 			return state, err
 		}
@@ -61,35 +66,6 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 		state.Configs[p.Node.Key] = cfg
 	}
 	return state, nil
-}
-
-// decodeElementConfig validates an opaque config payload against the element
-// config union. It returns a validate-style error when the payload's variant
-// is unknown or its fields do not conform to the variant's shape.
-func decodeElementConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
-	b, err := json.Marshal(raw)
-	if err != nil {
-		return ElementConfig{}, err
-	}
-	var cfg ElementConfig
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		return ElementConfig{}, errors.Wrap(err, "invalid element config")
-	}
-	return cfg, nil
-}
-
-// elementConfigFields returns a config's wire fields as an opaque map for
-// partial merging.
-func elementConfigFields(cfg ElementConfig) (msgpack.EncodedJSON, error) {
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, err
-	}
-	var m msgpack.EncodedJSON
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 // Handle removes the node with the matching key and discards any config entry
@@ -137,19 +113,19 @@ func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 // overrides whatever color (if any) was in the payload.
 func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 	if existing, ok := state.Configs[p.Key]; ok {
-		fields, err := elementConfigFields(existing)
+		fields, err := versions.ElementConfigFields(existing)
 		if err != nil {
 			return state, err
 		}
-		maps.Copy(fields, normalizeConfigKeys(p.Config))
-		merged, err := decodeElementConfig(fields)
+		maps.Copy(fields, versions.NormalizeConfigKeys(p.Config))
+		merged, err := versions.DecodeElementConfig(fields)
 		if err != nil {
 			return state, err
 		}
 		state.Configs[p.Key] = merged
 		return state, nil
 	}
-	raw := normalizeConfigKeys(p.Config)
+	raw := versions.NormalizeConfigKeys(p.Config)
 	for _, e := range state.Edges {
 		if e.Key != p.Key {
 			continue
@@ -158,7 +134,7 @@ func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 		if !ok {
 			break
 		}
-		srcFields, err := elementConfigFields(srcCfg)
+		srcFields, err := versions.ElementConfigFields(srcCfg)
 		if err != nil {
 			return state, err
 		}
@@ -178,7 +154,7 @@ func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 		raw = next
 		break
 	}
-	cfg, err := decodeElementConfig(raw)
+	cfg, err := versions.DecodeElementConfig(raw)
 	if err != nil {
 		return state, err
 	}

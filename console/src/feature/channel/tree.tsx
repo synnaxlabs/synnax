@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/channel/tree.css";
+
 import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
 import {
   Access,
@@ -18,67 +20,22 @@ import {
   Menu,
   Schematic as PSchematic,
   Status,
-  Synnax,
   Text,
   Tooltip,
   Tree as PTree,
 } from "@synnaxlabs/pluto";
-import { id, primitive } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
+import { useOpen } from "@/feature/channel/useOpen";
 import { Channel } from "@/platform/channel";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
-import { Layout } from "@/platform/layout";
-import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
-
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.use();
-  const store = Session.useStore();
-  const placeLayout = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      const state = store.getState();
-      const layout = Session.Layout.selectActiveMosaicLayout(state);
-      const nonVirtualSelection = [resource]
-        .filter((s) => s.data?.virtual !== true || s.data.expression != "")
-        .map((s) => Number(s.id.key));
-
-      if (nonVirtualSelection.length === 0) return;
-
-      switch (layout?.type) {
-        case LinePlot.LAYOUT_TYPE: {
-          handleError(
-            () =>
-              LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
-            "Failed to add channels to plot",
-          );
-          break;
-        }
-        default: {
-          const project = Session.Project.selectSelected(state);
-          const activeRange =
-            Session.Range.selectSelectedKey(state) ?? Session.Range.RECENT_KEY;
-          handleError(async () => {
-            const { key, name } = await client.lineplots.create(project, {
-              name: "Line Plot",
-              channels: { y1: nonVirtualSelection },
-              ranges: { x1: [activeRange] },
-            });
-            placeLayout(LinePlot.create({ key, name }));
-          }, "Failed to create plot");
-        }
-      }
-    },
-    [client, store, placeLayout, handleError],
-  );
-};
 
 const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
   const nodeConfig: PSchematic.Node.ConfigOf<"value"> = {
@@ -174,11 +131,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
-  const channels = PChannel.useRetrieveMultiple({
+  const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,
   });
-  const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
+  const showDeleteAlias = channels.some((c) => c.alias != null);
   const first = resources[0];
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
@@ -205,6 +162,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
   return (
     <ContextMenu.Menu>
+      {isCalc && hasUpdatePermission && (
+        <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
+          <Icon.Edit />
+          Edit calculation
+        </Menu.Item>
+      )}
+      <Menu.Divider />
       {singleResource && hasUpdatePermission && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
@@ -216,21 +180,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           onClick={() => groupFromSelection(props)}
         />
       )}
-      {isCalc && hasUpdatePermission && (
-        <>
-          <Menu.Divider />
-          <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
-            <Icon.Edit />
-            Edit calculation
-          </Menu.Item>
-        </>
-      )}
+      <Menu.Divider />
       {activeRange != null &&
         activeRange.persisted &&
         (singleResource || showDeleteAlias) &&
         (hasAliasCreatePermission || hasAliasDeletePermission) && (
           <>
-            <Menu.Divider />
             {singleResource && hasAliasCreatePermission && (
               <Menu.Item itemKey="alias" onClick={handleSetAlias}>
                 <Icon.Rename />
@@ -243,15 +198,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
                 Remove alias under {activeRange.name}
               </Menu.Item>
             )}
-            <Menu.Divider />
           </>
         )}
-      {hasDeletePermission && (
-        <>
-          <ContextMenu.DeleteItem onClick={handleDelete} />
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
@@ -261,6 +210,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
@@ -268,15 +219,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const activeRange = Session.Range.useSelectState();
-  const res = PChannel.useRetrieve({
-    key: Number(resource.id.key),
-    rangeKey: activeRange?.key,
-  }).data;
-  let name = resource.name;
-  if (primitive.isNonZero(res?.alias)) name = res?.alias;
+  const query = { key: Number(resource.id.key), rangeKey: activeRange?.key };
+  const { data: alias } = PChannel.useResultAlias(query);
+  const { data: chStatus } = PChannel.useResultStatus(query);
+  const name = alias ?? resource.name;
   const data = resource.data as channel.Payload;
   const DataTypeIcon = PChannel.resolveIcon(data);
-  const statusVariant = status.keepVariants(res?.status?.variant, ["error", "warning"]);
+  const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
   return (
     <PTree.Item {...rest}>
       <DataTypeIcon color={10} />
@@ -284,8 +233,8 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         id={List.itemNameID(ontology.idToString(resource.id))}
         allowDoubleClick={false}
         value={name}
-        overflow="ellipsis"
-        style={{ width: 0 }}
+        overflow="fade"
+        className={CSS.BE("channel-tree-item", "name")}
         grow
         disabled={!allowRename(resource)}
         onChange
@@ -293,12 +242,12 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
       {statusVariant != null && (
         <Tooltip.Dialog location="right">
           <Status.Summary variant={statusVariant} hideIcon level="small" weight={450}>
-            {res?.status?.message ?? ""}
+            {chStatus?.message ?? ""}
           </Status.Summary>
           <Status.Indicator variant={statusVariant} />
         </Tooltip.Dialog>
       )}
-      {data.virtual && <Icon.Virtual color={8} />}
+      {data.virtual && <Icon.Virtual color={9} />}
     </PTree.Item>
   );
 };
@@ -307,7 +256,7 @@ const TreeItem = Tree.createItem({
   type: "channel",
   icon: <Icon.Channel />,
   hasChildren: false,
-  useOnSelect,
+  useOnSelect: useOpen,
   haulItems,
   Content,
   ContextMenu: TreeContextMenu,

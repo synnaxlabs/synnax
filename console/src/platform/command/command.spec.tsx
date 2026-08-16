@@ -8,19 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/pluto";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Command } from "@/platform/command";
-import { Session } from "@/session";
 import { createConsoleWrapper } from "@/testutil";
-
-const layoutFor = (key: string): Session.Layout.BaseState => ({
-  key,
-  type: "cat",
-  name: `Layout ${key}`,
-  location: "mosaic",
-});
 
 describe("Command.create", () => {
   it("should invoke the hook-produced callback when the command is selected", async () => {
@@ -51,24 +43,5 @@ describe("Command.create", () => {
     render(<Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />, { wrapper });
     fireEvent.click(screen.getByText("Hook Command"), { detail: 1 });
     expect(onSelect).not.toHaveBeenCalled();
-  });
-
-  it("should place the configured layout when a placer command is selected", async () => {
-    const Cmd = Command.create({
-      key: "sc",
-      name: "Placer Command",
-      icon: <Icon.Close />,
-      useOnSelect: Command.createPlacerUseOnSelect(layoutFor("sc")),
-    });
-    const { wrapper, store } = await createConsoleWrapper({ client: null });
-    render(<Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />, { wrapper });
-    await act(async () => {
-      fireEvent.click(screen.getByText("Placer Command"), { detail: 0 });
-    });
-    await waitFor(() => {
-      const placed = Session.Layout.select(store.getState(), "sc");
-      expect(placed?.type).toBe("cat");
-      expect(placed?.location).toBe("mosaic");
-    });
   });
 });

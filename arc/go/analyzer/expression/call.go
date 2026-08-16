@@ -43,8 +43,12 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 			continue
 		}
 		if supplied.Contains(param.Name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(arg.AST,
-				"duplicate argument for parameter '%s' of func '%s'", param.Name, fnName).
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				arg.AST,
+				"duplicate argument for parameter '%s' of func '%s'",
+				param.Name,
+				fnName,
+			).
 				WithNote("signature: " + signature))
 			continue
 		}
@@ -53,9 +57,14 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	}
 	satisfied := set.New(externallySatisfied...)
 	for _, param := range fnType.Inputs {
-		if param.Value == nil && !supplied.Contains(param.Name) && !satisfied.Contains(param.Name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(site,
-				"missing required argument for parameter '%s' of func '%s'", param.Name, fnName).
+		if param.Value == nil && !supplied.Contains(param.Name) &&
+			!satisfied.Contains(param.Name) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				site,
+				"missing required argument for parameter '%s' of func '%s'",
+				param.Name,
+				fnName,
+			).
 				WithCode(codes.FuncArgCount).WithNote("signature: " + signature))
 		}
 	}

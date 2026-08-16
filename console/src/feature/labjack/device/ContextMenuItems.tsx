@@ -19,12 +19,12 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[]
   {
     itemKey: "labjack.readTask",
     label: "Create read task",
-    layout: Task.READ_LAYOUT,
+    useCreate: Task.useCreateRead,
   },
   {
     itemKey: "labjack.writeTask",
     label: "Create write task",
-    layout: Task.WRITE_LAYOUT,
+    useCreate: Task.useCreateWrite,
   },
 ];
 

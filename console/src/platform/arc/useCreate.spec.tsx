@@ -13,8 +13,8 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
-import { renderArc } from "@/platform/arc/testutil";
-import { Session } from "@/session";
+import { client, renderArc } from "@/platform/arc/testutil";
+import { selectTestProject } from "@/testutil";
 
 const Harness = (): ReactElement => {
   const create = Arc.useCreate();
@@ -22,43 +22,35 @@ const Harness = (): ReactElement => {
 };
 Harness.displayName = "Harness";
 
-const findArcLayout = (store: Session.Store, name: string) =>
-  Object.values(store.getState()[Session.Layout.SLICE_NAME].layouts).find(
-    (l) => l.type === Arc.LAYOUT_TYPE && l.name === name,
-  );
-
 describe("arc useCreate", () => {
-  it("should open the create modal with a disabled Create button", async () => {
+  it("should reject an empty name with a validation error", async () => {
     await renderArc(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Automation Name")).toBeTruthy(),
     );
-    const create = screen.getByRole("button", { name: "Create" });
-    expect(create.className).toContain("pluto--disabled");
+    const create = await screen.findByRole("button", { name: "Create" });
+    await act(async () => {
+      fireEvent.click(create);
+    });
+    await waitFor(() => expect(screen.getByText("Name is required")).toBeTruthy());
   });
 
-  it("should create the arc and place its layout after the modal is completed", async () => {
+  it("should create the arc on the server after the modal completes", async () => {
     const name = id.create();
     const { store } = await renderArc(<Harness />);
+    await selectTestProject(store, client);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
 
     const input = await screen.findByPlaceholderText("Automation Name");
     fireEvent.change(input, { target: { value: name } });
 
-    const create = screen.getByRole("button", { name: "Create" });
-    await waitFor(() => expect(create.className).not.toContain("pluto--disabled"));
+    const create = await screen.findByRole("button", { name: "Create" });
     await act(async () => {
       fireEvent.click(create);
     });
 
-    const layout = await waitFor(() => {
-      const placed = findArcLayout(store, name);
-      if (placed == null) throw new Error(`no arc layout named ${name}`);
-      return placed;
-    });
-    expect(
-      Session.Arc.selectState({ state: store.getState(), key: layout.key }),
-    ).toEqual(Session.Arc.ZERO_STATE);
+    const retrieved = await waitFor(async () => await client.arcs.retrieve({ name }));
+    expect(retrieved.name).toBe(name);
   });
 });

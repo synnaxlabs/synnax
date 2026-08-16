@@ -7,34 +7,59 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, type query } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive } from "@synnaxlabs/x";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { array, primitive, verbs } from "@synnaxlabs/x";
+import { useMemo } from "react";
 
-import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
+import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
-export const {
-  useRetrieve: useRetrieveSlave,
-  useRetrieveObservable,
-  useRetrieveStateful: useRetrieveSlaveStateful,
-} = Device.createRetrieve(SLAVE_SCHEMAS);
+export const { use: useSlave, useResult: useResultSlave } =
+  Device.createRetrieve(SLAVE_SCHEMAS);
+
+const { use: useSlaves } = Flux.createRetrieve<{ keys: device.Key[] }, SlaveDevice[]>({
+  name: "EtherCAT slaves",
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.devices.retrieve({ keys, schemas: SLAVE_SCHEMAS }),
+  onChange: ({ client, query }, handler) =>
+    client.devices.onChange(
+      query,
+      handler as unknown as query.ChangeHandler<device.Device[]>,
+    ),
+  getCached: ({ client, query }) =>
+    client.devices.getCached(query) as query.Cached<SlaveDevice[]> | undefined,
+});
+
+export interface EnabledState {
+  allEnabled: boolean;
+  allDisabled: boolean;
+}
+
+export interface EnabledStateParams {
+  keys: device.Key[];
+}
+
+export const useEnabledState = ({ keys }: EnabledStateParams): EnabledState => {
+  const slaves = useSlaves({ keys });
+  return useMemo(() => {
+    const disabledCount = slaves.filter((d) => !d.properties?.enabled).length;
+    return {
+      allDisabled: disabledCount === slaves.length,
+      allEnabled: disabledCount === 0,
+    };
+  }, [slaves]);
+};
 
 export const useCommonNetwork = (channels: Channel[]) => {
   const firstDeviceKey = useMemo(() => {
     const keys = channels.map((ch) => ch.device).filter((c) => c != null);
     return keys.length > 0 ? keys[0] : "";
   }, [channels]);
-  const [network, setNetwork] = useState<string>("");
-  const { retrieve } = useRetrieveObservable({
-    onChange: useCallback((res) => setNetwork(res.data?.properties?.network ?? ""), []),
-  });
-  useEffect(() => {
-    if (primitive.isZero(firstDeviceKey)) return;
-    retrieve({ key: firstDeviceKey });
-  }, [firstDeviceKey, retrieve]);
-  return network;
+  const { data: slave } = useResultSlave(
+    primitive.isZero(firstDeviceKey) ? null : { key: firstDeviceKey },
+  );
+  return slave?.properties?.network ?? "";
 };
 
 export interface ToggleEnabledParams {
@@ -42,20 +67,15 @@ export interface ToggleEnabledParams {
   enabled?: boolean;
 }
 
-export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
-  ToggleEnabledParams,
-  Device.FluxSubStore,
-  ToggleEnabledParams
->({
+export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
   name: "Toggle Enabled",
-  verbs: Flux.UPDATE_VERBS,
-  update: async ({ data, client, store, rollbacks }) => {
+  verbs: verbs.UPDATE,
+  update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
 
-    const devices = await Device.retrieveMultiple({
-      client,
-      store,
-      query: { keys },
+    const devices = await client.devices.retrieve({
+      keys,
+      includeStatus: true,
       schemas: SLAVE_SCHEMAS,
     });
 
@@ -65,8 +85,6 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
       ...dev,
       properties: { ...dev.properties, enabled: enabledValue },
     }));
-
-    rollbacks.push(store.devices.set(updated));
 
     await client.devices.create(updated);
 

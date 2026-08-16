@@ -10,7 +10,7 @@
 #include <chrono>
 #include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>

@@ -34,30 +34,33 @@ var _ = Describe("Authority", func() {
 	// has the configured value, and (3) the buffered change targets the
 	// right channel key. A regression in any of these would silently break
 	// authority semantics downstream.
-	It("set_authority{value,channel} buffers a change with the configured value and target", func(ctx SpecContext) {
-		resolver := channelSymbols(map[string]channelDef{
-			"trigger_cmd": {types.U8(), 100},
-			"valve_cmd":   {types.U8(), 101},
-		})
-		h := newRuntimeHarness(ctx, `
+	It(
+		"set_authority{value,channel} buffers a change with the configured value and target",
+		func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trigger_cmd": {types.U8(), 100},
+				"valve_cmd":   {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
 			trigger_cmd -> set_authority{value=200, channel=valve_cmd}`, resolver,
-			channels.Digest{Key: 100, DataType: telem.Uint8T},
-			channels.Digest{Key: 101, DataType: telem.Uint8T},
-		)
-		defer h.Close(ctx)
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
 
-		h.Ingest(100, telem.NewSeriesV[uint8](1))
-		h.Tick(ctx, telem.Millisecond)
-		h.channelState.ClearReads()
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
 
-		changes := h.FlushAuthority()
-		Expect(changes).To(HaveLen(1),
-			"set_authority should buffer exactly one authority change per activation")
-		Expect(changes[0].Authority).To(Equal(uint8(200)),
-			"buffered change should carry the value from the input block")
-		Expect(changes[0].Channel).ToNot(BeNil(),
-			"channel=valve_cmd was configured, so Channel must not be nil (nil means global)")
-		Expect(*changes[0].Channel).To(Equal(uint32(101)),
-			"buffered Channel should be valve_cmd's resolved key (101)")
-	})
+			changes := h.FlushAuthority()
+			Expect(changes).To(HaveLen(1),
+				"set_authority should buffer exactly one authority change per activation")
+			Expect(changes[0].Authority).To(Equal(uint8(200)),
+				"buffered change should carry the value from the input block")
+			Expect(changes[0].Channel).ToNot(BeNil(),
+				"channel=valve_cmd was configured, so Channel must not be nil (nil means global)")
+			Expect(*changes[0].Channel).To(Equal(uint32(101)),
+				"buffered Channel should be valve_cmd's resolved key (101)")
+		},
+	)
 })

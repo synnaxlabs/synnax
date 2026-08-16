@@ -26,7 +26,7 @@ export const Symbol = ({
     page,
     dblClickNav,
   },
-}: NodeProps<schematic.NodeConfigOffPageReference>): ReactElement => (
+}: NodeProps<schematic.OffPageReferenceNodeConfig>): ReactElement => (
   <OffPageReference
     className={Grid.DRAG_HANDLE_CLASS}
     onLabelChange={(label) => onConfigChange({ label: { label, level } })}

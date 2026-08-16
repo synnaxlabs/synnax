@@ -113,7 +113,7 @@ class Plot(ConsolePage):
         download = download_info.value
         save_path = resolve_results_path(f"{self.page_name}.csv")
         download.save_as(save_path)
-        with open(save_path, "r") as f:
+        with open(save_path, "r", encoding="utf-8") as f:
             return f.read()
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:

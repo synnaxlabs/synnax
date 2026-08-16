@@ -9,12 +9,13 @@
 
 import "@/feature/lineplot/LinePlot.css";
 
-import { lineplot, type ranger } from "@synnaxlabs/client";
+import { lineplot, ranger } from "@synnaxlabs/client";
 import {
   Access,
   Icon,
   LinePlot as Base,
   Menu,
+  Panel as PlutoPanel,
   Ranger,
   Status,
   useDebouncedCallback,
@@ -44,9 +45,10 @@ import {
   type DownloadLine,
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
+import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
@@ -66,23 +68,24 @@ const RangeAnnotationContextMenu = ({
     downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
   const addRangeToNewPlot = Range.useAddToNewPlot();
   const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const handleViewDetails = () => {
-    placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
+    openTab({ variant: "resource", resource: ranger.ontologyID(range.key) });
   };
   return (
     <ContextMenu.Menu>
-      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
-        <Icon.CSV />
-        Download as CSV
+      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
+        <Icon.Annotate />
+        View details
       </Menu.Item>
       <Menu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
         Open in new plot
       </Menu.Item>
-      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
-        <Icon.Annotate />
-        View details
+      <Menu.Divider />
+      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+        <Icon.CSV />
+        Download as CSV
       </Menu.Item>
     </ContextMenu.Menu>
   );
@@ -97,7 +100,7 @@ const ContextMenuContent = ({
   csvLines,
   linePlotRef,
 }: ContextMenuContentProps): ReactElement => {
-  const name = Base.useSelectName({});
+  const name = Base.useName({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
   const openCreateRange = Range.useCreateModal();
   const handleError = Status.useErrorHandler();
@@ -167,13 +170,13 @@ const ContextMenuContent = ({
   );
 };
 
-const Internal: Layout.Renderer = ({ focused, visible }) => {
+const Internal = (): ReactElement => {
   const key = Base.useKey();
+  const visible = Session.Panel.useSelectIsTabVisible();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
-  const store = Session.useStore();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
-  const ranges = Base.useSelectRanges();
+  const ranges = Base.useRanges();
   const rangeKeys = useMemo(
     () => unique.unique([...ranges.x1, ...ranges.x2]),
     [ranges.x1, ranges.x2],
@@ -199,7 +202,7 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
     [dispatch, key],
   );
 
-  const derived = Base.useSelectLines();
+  const derived = Base.useLines();
   const csvLines = useMemo<DownloadLine[]>(
     () =>
       derived.map((d) => ({
@@ -220,13 +223,7 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
     [vis.viewport.renderTrigger],
   );
 
-  const modals = Session.Modals.useStore("LinePlot");
-  const enableTriggers = useCallback(
-    () =>
-      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
-        key && hasUpdatePermission,
-    [store, key, hasUpdatePermission, modals],
-  );
+  useTriggerHold({ key, enabled: hasUpdatePermission });
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
@@ -290,9 +287,8 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
           ref={linePlotRef}
           aetherKey={key}
           editable={hasUpdatePermission}
-          enableTriggers={enableTriggers}
+          enableTriggers={hasUpdatePermission}
           resolvedRanges={resolvedRanges}
-          legendVariant={focused ? "fixed" : "floating"}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           measureMode={vis.measure.mode}
@@ -311,20 +307,18 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
         >
-          {!focused && <Controls hasAnnotations={hasAnnotations} />}
+          <Controls hasAnnotations={hasAnnotations} />
         </Base.LinePlot>
       </Menu.ContextMenu>
-      {focused && <Controls hasAnnotations={hasAnnotations} />}
     </div>
   );
 };
 
-export const LinePlot: Layout.Renderer = (props) => (
-  <Base.Suspended linePlotKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-LinePlot.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);
+export const LinePlot: Panel.Content = () => {
+  const { key } = PlutoPanel.useTabResource();
+  return (
+    <Base.Suspended linePlotKey={key}>
+      <Internal />
+    </Base.Suspended>
+  );
+};

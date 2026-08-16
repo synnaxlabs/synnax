@@ -12,7 +12,7 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #include <windows.h>
 
 #include "x/cpp/thread/rt/rt.h"

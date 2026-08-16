@@ -34,7 +34,6 @@ class DriverNIDigitalWrite(Latency):
         super().setup()
 
     def run(self) -> None:
-
         client = self.client
 
         time_index: deque[sy.TimeStamp] = deque()
@@ -86,7 +85,7 @@ class DriverNIDigitalWrite(Latency):
             state_rate=sy.Rate.HZ * 2000,
             data_saving=True,
             channels=[
-                sy.ni.DOChan(
+                sy.ni.DOChannel(
                     cmd_channel=do_1_cmd.key,
                     state_channel=do_1_state.key,
                     port=0,
@@ -280,7 +279,6 @@ class DriverNIDigitalWrite(Latency):
     def check_results(
         self, stats_driver: dict[str, float], stats_loop: dict[str, float]
     ) -> None:
-
         assert stats_driver["mean"] <= 5, "Driver mean latency is greater than 5 ms"
         assert stats_loop["mean"] <= 5, "Loop mean latency is greater than 5 ms"
 

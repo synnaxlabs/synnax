@@ -65,7 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Search:       searchIdx,
@@ -75,7 +75,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:       node.Framer,
 		Channel:      channelSvc,
 		Status:       statusSvc,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 	}))
 	sigs = MustSucceed(signals.New(signals.Config{
 		Channel: channelSvc,
@@ -87,6 +87,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // types under test. Its shape mirrors the per-service Action union (a
 // discriminator plus a payload) without depending on any concrete service.
 type testAction struct {
-	Type    string `json:"type" msgpack:"type"`
+	Type    string `json:"type"    msgpack:"type"`
 	Payload string `json:"payload" msgpack:"payload"`
 }

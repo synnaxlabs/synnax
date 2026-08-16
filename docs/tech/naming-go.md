@@ -1,6 +1,6 @@
-# Go Naming Conventions
+# Go naming conventions
 
-## Constructors
+## 0 Constructors
 
 <table>
 

@@ -8,43 +8,58 @@
 // included in the file licenses/APL.txt.
 
 import { Triggers } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
 import { fireEvent, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { LinePlot } from "@/feature/lineplot";
-import { createPreloadedState } from "@/feature/lineplot/testutil";
+import { client, project } from "@/feature/lineplot/testutil";
+import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
-const renderTriggerHold = async (key: string) => {
-  const { wrapper: Console, store } = await createConsoleWrapper({
-    client: null,
-    preloadedState: createPreloadedState(key, "Test Plot"),
+const renderTriggerHold = async (enabled: boolean) => {
+  const plot = await client.lineplots.create(await project(), {
+    name: uniqueName("plot"),
   });
+  const { wrapper: Console, store } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <Triggers.Provider>{children}</Triggers.Provider>
     </Console>
   );
-  renderHook(() => LinePlot.useTriggerHold(), { wrapper: Wrapper });
-  return store;
+  renderHook(() => useTriggerHold({ key: plot.key, enabled: () => enabled }), {
+    wrapper: Wrapper,
+  });
+  return { store, key: plot.key };
+};
+
+const pressHold = () => {
+  fireEvent.keyDown(window, { code: "KeyH", key: "h" });
+  fireEvent.keyUp(window, { code: "KeyH", key: "h" });
 };
 
 describe("lineplot useTriggerHold", () => {
-  it("toggles the active plot's hold when H is pressed", async () => {
-    const key = uuid.create();
-    const store = await renderTriggerHold(key);
+  it("should toggle the plot's hold when enabled", async () => {
+    const { store, key } = await renderTriggerHold(true);
     expect(
       Session.LinePlot.selectControlState({ state: store.getState(), key }).hold,
     ).toBe(false);
-    fireEvent.keyDown(window, { code: "KeyH", key: "h" });
+    pressHold();
     await waitFor(() =>
       expect(
         Session.LinePlot.selectControlState({ state: store.getState(), key }).hold,
       ).toBe(true),
     );
-    fireEvent.keyUp(window, { code: "KeyH", key: "h" });
+  });
+
+  it("should leave the plot's hold alone when not enabled", async () => {
+    const { store, key } = await renderTriggerHold(false);
+    pressHold();
+    await expect
+      .poll(
+        () =>
+          Session.LinePlot.selectControlState({ state: store.getState(), key }).hold,
+      )
+      .toBe(false);
   });
 });

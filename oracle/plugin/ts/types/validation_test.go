@@ -27,8 +27,10 @@ var _ = Describe("Validation Rules", func() {
 		p = types.New(types.DefaultOptions())
 	})
 
-	It("Should emit regex with custom message when pattern provides one", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should emit regex with custom message when pattern provides one",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Item struct {
@@ -37,10 +39,11 @@ var _ = Describe("Validation Rules", func() {
 				}
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.regex(/^[a-z]+$/, "must be lowercase letters")`)
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(`.regex(/^[a-z]+$/, "must be lowercase letters")`)
+		},
+	)
 
 	It("Should emit regex without message for pattern only", func(ctx SpecContext) {
 		source := `
@@ -100,19 +103,22 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default("untitled")`)
 	})
 
-	It("Should emit supplementary-plane characters as surrogate pairs, not \\U", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should emit supplementary-plane characters as surrogate pairs, not \\U",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Item struct {
 				name string = "a😀b"
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring("\\uD83D\\uDE00"))
-		Expect(content).ToNot(ContainSubstring("\\U"))
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(content).To(ContainSubstring("\\uD83D\\uDE00"))
+			Expect(content).ToNot(ContainSubstring("\\U"))
+		},
+	)
 
 	It("Should emit int default", func(ctx SpecContext) {
 		source := `
@@ -153,59 +159,75 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(false)`)
 	})
 
-	It("Should emit id.create() default for string keys with create ident", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should emit id.create() default for string keys with create ident",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Item struct {
 				key string = create
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default(id.create)`)
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(`.default(id.create)`)
+		},
+	)
 
-	It("Should emit uuid.create() default for uuid keys with create ident", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should emit uuid.create() default for uuid keys with create ident",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Item struct {
 				key uuid = create
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default(uuid.create)`)
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(`.default(uuid.create)`)
+		},
+	)
 
-	It("Should default an empty array default to (() => []), not a misplaced element default", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should default an empty array default to (() => []), not a misplaced element default",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Item struct {
 				vals float64[] = []
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`vals: z.number().array().default(() => []),`))
-		Expect(content).ToNot(ContainSubstring(`z.number().default`))
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(
+				content,
+			).To(ContainSubstring(`vals: z.number().array().default(() => []),`))
+			Expect(content).ToNot(ContainSubstring(`z.number().default`))
+		},
+	)
 
-	It("Should apply a populated array default to the wrapped array, not the element", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should apply a populated array default to the wrapped array, not the element",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Item struct {
 				vals float64[] = [1.5, 2.5]
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`vals: z.number().array().default([1.500000, 2.500000]),`))
-		Expect(content).ToNot(ContainSubstring(`z.number().default`))
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(
+				content,
+			).To(ContainSubstring(`vals: z.number().array().default([1.500000, 2.500000]),`))
+			Expect(content).ToNot(ContainSubstring(`z.number().default`))
+		},
+	)
 
 	It("Should emit a struct default as a typed object literal", func(ctx SpecContext) {
 		source := `
@@ -228,11 +250,15 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`p: pointZ.prefault({ x: 1, y: 2, level: "high" }),`))
+		Expect(
+			content,
+		).To(ContainSubstring(`p: pointZ.prefault({ x: 1, y: 2, level: "high" }),`))
 	})
 
-	It("Should emit nested struct and array values in a struct default", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should emit nested struct and array values in a struct default",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Inner struct {
@@ -247,13 +273,18 @@ var _ = Describe("Validation Rules", func() {
 				m Mid = { inner = { tags = ["a", "b"] } }
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`m: midZ.prefault({ inner: { tags: ["a", "b"] } }),`))
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(
+				content,
+			).To(ContainSubstring(`m: midZ.prefault({ inner: { tags: ["a", "b"] } }),`))
+		},
+	)
 
-	It("Should emit .prefault() for a struct override in an extending input struct, not .partial()", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should emit .prefault() for a struct override in an extending input struct, not .partial()",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			Title struct {
@@ -271,14 +302,19 @@ var _ = Describe("Validation Rules", func() {
 				@ts use_input
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`titleZ.prefault({ level: 1, visible: false })`))
-		Expect(content).ToNot(ContainSubstring(`.partial({ title: true })`))
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(
+				content,
+			).To(ContainSubstring(`titleZ.prefault({ level: 1, visible: false })`))
+			Expect(content).ToNot(ContainSubstring(`.partial({ title: true })`))
+		},
+	)
 
-	It("Should resolve enum-extends variants and generics in a nested struct default via typeless override", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should resolve enum-extends variants and generics in a nested struct default via typeless override",
+		func(ctx SpecContext) {
+			source := `
 			@ts output "out"
 
 			XAxisKey enum {
@@ -320,10 +356,13 @@ var _ = Describe("Validation Rules", func() {
 				@ts use_input
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`axesZ.prefault({ x1: { key: "x1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 }, y1: { key: "y1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 } })`))
-	})
+			resp := MustGenerate(ctx, source, "item", loader, p)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(
+				content,
+			).To(ContainSubstring(`axesZ.prefault({ x1: { key: "x1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 }, y1: { key: "y1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 } })`))
+		},
+	)
 
 	It("Should emit min/max length for string fields", func(ctx SpecContext) {
 		source := `

@@ -7,22 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Layout } from "@/platform/layout";
 import { Search } from "@/platform/search";
-import { Table } from "@/platform/table";
 
-const useOpen = () => {
-  const placeLayout = Layout.usePlacer();
-  return ({ id, name }: ontology.Resource) =>
-    placeLayout(Table.create({ key: id.key, name }));
-};
-
-const SearchListItem = Search.createListItem({
-  icon: <Icon.Table />,
-  useOnSelect: useOpen,
-});
+const SearchListItem = Search.createListItem({ icon: <Icon.Table /> });
 
 export const SEARCH_LIST_ITEMS: Search.ListItems = { table: SearchListItem };

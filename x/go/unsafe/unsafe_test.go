@@ -236,7 +236,9 @@ var _ = Describe("Unsafe", func() {
 		It("should convert map keys from one type to another", func() {
 			in := map[uint32]string{1: "one", 2: "two", 3: "three"}
 			out := unsafe.ReinterpretMapKeys[uint32, myCustomUint32](in)
-			Expect(out).To(Equal(map[myCustomUint32]string{1: "one", 2: "two", 3: "three"}))
+			Expect(
+				out,
+			).To(Equal(map[myCustomUint32]string{1: "one", 2: "two", 3: "three"}))
 		})
 
 		It("should return nil for empty maps", func() {
@@ -297,5 +299,4 @@ var _ = Describe("Unsafe", func() {
 			Expect(out[3]).To(Equal(myVal(100)))
 		})
 	})
-
 })

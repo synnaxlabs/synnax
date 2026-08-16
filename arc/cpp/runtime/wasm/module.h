@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "wasmtime.hh"
+
 #include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/program/program.h"
@@ -20,7 +22,6 @@
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
-#include "wasmtime.hh"
 
 namespace arc::runtime::wasm {
 
@@ -317,6 +318,12 @@ public:
             // An input with a nil value is edge-fed and streams in call(); a literal
             // input is set once here.
             for (size_t i = 0; i < inputs.size(); i++) {
+                // A var input re-reads its variable each pass; never bake its
+                // declared initial.
+                if (inputs[i].type.kind == types::Kind::VarRef) {
+                    this->streamed[i] = true;
+                    continue;
+                }
                 if (inputs[i].value.is_null()) {
                     this->streamed[i] = true;
                     continue;

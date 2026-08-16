@@ -25,6 +25,92 @@ or generator logic and schemas disagree.
 - Confirm with the user before `oracle migrate` / `oracle snapshot`
   (schema-version-affecting).
 
+## Versioning Rules
+
+- **Version a schema (`@go version`) iff its data is gorp-persisted** — directly, via
+  ImEx, or by being embedded in a versioned schema. Nothing else needs migrations: wire
+  peers are never version-skewed, and there are no unvalidated caches.
+- **Never version derived artifacts** (compiled output like arc `Program`). On mismatch
+  they are recomputed from their versioned sources, not migrated.
+- `@go version` is type-granular and must be declared per type; the analyzer rejects
+  file-level declarations. Declare it struct-level on persisted types (channel-style).
+  Unversioned siblings are transient — they generate real declarations at the package
+  root (merged into `types.gen.go` beside the version aliases) instead of riding the
+  versions/vN layout, and their shape changes never force a version bump.
+- Two classes must stay versioned despite being unpersisted: types referenced by a
+  versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave the
+  package without an import cycle; the persistence gate exempts these automatically),
+  and types whose hand-written Go methods entangle with versioned siblings (telem's
+  Size/Rate). Mark the latter `@go version N pinned` — the gate skips pinned types and
+  warns if a pinned type is actually persisted; the analyzer rejects any other version
+  argument.
+- `oracle check` runs a non-blocking persistence gate warning on versioned types outside
+  the persisted closure and on persisted types missing @go version at a versioned path.
+  Use `--verbose` to see warnings on passing gates.
+- Migrate wrapper visibility follows consumption (see `plugin/go/migrate`): exported
+  when another versioned schema embeds the type; unexported when only the package's own
+  gorp wiring or auto-copies call it.
+- `@go imex` (bare marker, requires `@go version`) on an imex-registered resource's root
+  struct emits `imex.gen.go` files across the versions tree: a `Version imex.Version`
+  constant in every `versions/vK` package the Core has exported (from the earliest
+  snapshot carrying the marker up to the current version), plus `Latest` and an
+  `autoDecodeEnvelope` ladder in the versions root that lifts server-era envelopes
+  through the per-bump `Migrate<Type>` steps. Earlier version packages predate Core
+  export and get no constant. The envelope version and migration chain are never
+  hand-maintained; hand `versions/imex.go` files route `> legacy.LastVersion` envelopes
+  to the ladder and keep only frozen Console-era decoding.
+
+## Field Optionality
+
+Four states. Pick by asking whether the field always means something, and when it does
+not, whether the schema itself can tell.
+
+- **`X = value`**: always meaningful, and absence is harmless, because absence and the
+  default were always the same value. Most fields.
+- **`X`** (bare, no `?`, no default): always meaningful, but no value is a safe guess.
+  Required everywhere: TS parse fails, C++ raises "this field is required", and Python
+  raises. Use for values only the author knows, such as a timestamp encoding.
+- **Union variants**: the field applies only in some cases, and the deciding fact is in
+  the same message. Split the type so the field exists only where it applies, then apply
+  the two rules above inside each variant. Restructuring beats a validation rule. A new
+  client forgets a rule, but cannot forget a shape.
+- **`X?`**: the field applies only in some cases, and the deciding fact is outside the
+  message, such as a channel data type. No schema can settle it, so absence is the
+  honest encoding.
+
+Never fake absence with a value. No `none` enum member, no empty string meaning "not
+applicable". A sentinel claims the question was answered when it was not, and it makes
+the "did you forget" check impossible to write.
+
+`?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
+
+## Contextual Validation
+
+A rule that needs facts outside the config, such as the data type of a referenced
+channel, belongs in the Core service, on the write path only.
+
+- The Core is the one layer every client passes through, so Python and TypeScript
+  inherit the rule without writing any validation of their own.
+- Never validate on read. Stored records predate the rule and must stay readable.
+- The Driver keeps its own check as a second line, because channels drift between config
+  time and deploy.
+- The Console duplicates a rule only for better messages, never as the guarantee.
+
+## Tag Minimization
+
+Prefer the tagging that minimizes total tag count. When only a few types in a file need
+a domain (@pb on control.Subject), tag those types and omit the file-level declaration;
+when most types need it, declare it file-level and omit the exceptions.
+
+## Omit vs Hand
+
+- `@<lang> omit`: the type does not exist in that language. References to it from
+  generating types are analyzer errors; a language output whose types are all omitted is
+  an analyzer error (remove the output).
+- `@<lang> hand`: the type exists, hand-written at the declared output path. No
+  declaration is generated, but references resolve to it, pb translators generate
+  against it, and it anchors the language output.
+
 ## Rules
 
 - Never hand-edit generated output — edit the schema, then sync (see Sync Workflow).

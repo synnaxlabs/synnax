@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import {
   tickFactoryProps,
-  type TickFactoryRenderArgs,
+  type TickFactoryRenderParams,
   tickType,
 } from "@/vis/axis/ticks";
 
@@ -32,7 +32,7 @@ export const axisStateZ = tickFactoryProps.extend({
 export type AxisState = z.input<typeof axisStateZ>;
 export type ParsedAxisState = z.infer<typeof axisStateZ>;
 
-export interface AxisProps extends Omit<TickFactoryRenderArgs, "size"> {
+export interface AxisProps extends Omit<TickFactoryRenderParams, "size"> {
   plot: box.Box;
   position: xy.XY;
   size: number;

@@ -385,7 +385,7 @@ const formatContextLine = (
   return fmt.stringify(context, options);
 };
 
-interface FormatArgs {
+interface FormatParams {
   issues: ReadonlyArray<z.core.$ZodIssue>;
   input: unknown;
   label: string;
@@ -399,7 +399,7 @@ const format = ({
   label,
   context,
   formatOptions,
-}: FormatArgs): string => {
+}: FormatParams): string => {
   const opts = formatOptions ?? {};
   const flat = expandUnrecognizedKeys(flattenIssues(issues));
   const count = flat.length === 1 ? "1 issue" : `${flat.length} issues`;
@@ -410,7 +410,7 @@ const format = ({
   return parts.join("\n\n");
 };
 
-export interface ParseErrorArgs {
+export interface ParseErrorParams {
   issues: ReadonlyArray<z.core.$ZodIssue>;
   input: unknown;
   label: string;
@@ -439,7 +439,14 @@ export class ParseError extends errors.createTyped(PARSE_ERROR_TYPE) {
   readonly label: string;
   readonly context?: Record<string, unknown>;
 
-  constructor({ issues, input, label, context, cause, formatOptions }: ParseErrorArgs) {
+  constructor({
+    issues,
+    input,
+    label,
+    context,
+    cause,
+    formatOptions,
+  }: ParseErrorParams) {
     super(format({ issues, input, label, context, formatOptions }), { cause });
     this.issues = issues;
     this.input = input;

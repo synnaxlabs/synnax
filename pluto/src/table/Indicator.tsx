@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/table/Table.css";
+
 import { type table } from "@synnaxlabs/client";
 import { box, direction } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
@@ -19,6 +21,9 @@ import { Text } from "@/text";
 import { stopPropagation } from "@/util/event";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/** Pixel size of an indicator strip, mirroring --pluto-table-indicator-size. */
+export const INDICATOR_SIZE = 4.5 * 6;
 
 // getCellColumn maps a 0-based column index to a spreadsheet-style letter
 // ("A", "B", "C", ...). Defined here so consumers building UI chrome (e.g.,
@@ -121,6 +126,7 @@ export const Indicator = ({
       [onChange, index, dir],
     ),
   });
+  const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
   return (
     <td
       id={`resizer-${dir}-${index}`}
@@ -131,7 +137,7 @@ export const Indicator = ({
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
       )}
-      style={{ [direction.dimension(dir)]: value }}
+      style={style}
       onClick={(e) => onSelect(index, e)}
       onContextMenu={(e) => onSelect(index, e)}
     >
@@ -140,6 +146,8 @@ export const Indicator = ({
       </Text.Text>
       {editable && (
         <button
+          aria-label={dir === "x" ? "Resize column" : "Resize row"}
+          tabIndex={-1}
           className={Cursor.DRAG_CLASS}
           onClick={stopPropagation}
           onPointerDown={onDragStart}

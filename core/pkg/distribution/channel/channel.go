@@ -28,7 +28,7 @@ import (
 type LocalKey types.Uint20
 
 // Key is a unique identifier for a channel in the Synnax database. Composed of a
-// cluster node key (first 12 bits) and a local key (last 20 bits), enabling distributed
+// node key (first 12 bits) and a local key (last 20 bits), enabling distributed
 // assignment while maintaining global uniqueness.
 type Key uint32
 
@@ -97,8 +97,8 @@ func (k Keys) Unique() Keys { return lo.Uniq(k) }
 type Channel struct {
 	// Name is the human-readable channel name.
 	Name string
-	// Leaseholder is the cluster node that holds the lease for this channel and is
-	// authorized to accept writes.
+	// Leaseholder is the node that holds the lease for this channel and is authorized
+	// to accept writes.
 	Leaseholder node.Key
 	// DataType is the data type of samples stored in this channel.
 	DataType telem.DataType

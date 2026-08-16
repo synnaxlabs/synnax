@@ -13,12 +13,12 @@ import { describe, expect, it } from "vitest";
 
 import { Scope } from "@/scope";
 
-interface SelectArgs {
+interface SelectParams {
   key: string;
   suffix?: string;
 }
 
-const select = ({ key, suffix = "" }: SelectArgs): string => `${key}${suffix}`;
+const select = ({ key, suffix = "" }: SelectParams): string => `${key}${suffix}`;
 
 describe("Scope", () => {
   describe("use", () => {
@@ -60,6 +60,18 @@ describe("Scope", () => {
     });
   });
 
+  describe("require", () => {
+    it("should return the key when present", () => {
+      const s = Scope.create<string>("Test");
+      expect(s.require("key")).toEqual("key");
+    });
+
+    it("should throw when the key is nullish", () => {
+      const s = Scope.create<string>("Test");
+      expect(() => s.require(undefined)).toThrow("Test scope requires a key");
+    });
+  });
+
   describe("bindHook", () => {
     it("should source the key from the provider", () => {
       const s = Scope.create<string>("Test");
@@ -89,6 +101,12 @@ describe("Scope", () => {
       );
       const { result } = renderHook(() => useSelect({ key: "explicit" }), { wrapper });
       expect(result.current).toEqual("explicit");
+    });
+
+    it("should throw when no key or provider is present", () => {
+      const s = Scope.create<string>("Test");
+      const useSelect = s.bindHook(select);
+      expect(() => renderHook(() => useSelect())).toThrow("Test scope requires a key");
     });
   });
 });

@@ -29,7 +29,7 @@ func globOracleSchemas(repoRoot string) ([]string, error) {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == ".snapshots" {
+			if d.Name() == "snapshots" && filepath.Dir(path) == root {
 				return filepath.SkipDir
 			}
 			return nil

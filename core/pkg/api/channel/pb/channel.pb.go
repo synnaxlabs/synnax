@@ -44,8 +44,8 @@ type Channel struct {
 	Key uint32 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is the human-readable channel name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// leaseholder is the cluster node that holds the lease for this channel. Mostly for
-	// internal use.
+	// leaseholder is the node that holds the lease for this channel. Mostly for internal
+	// use.
 	Leaseholder uint32 `protobuf:"varint,3,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
 	// data_type is the data type of samples stored in this channel (e.g., Float64, Int32,
 	// TimeStamp).
@@ -54,13 +54,13 @@ type Channel struct {
 	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
 	// nanosecond timestamps.
 	IsIndex bool `protobuf:"varint,5,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
-	// index is the channel used to index this channel's values, associating each value with
-	// a timestamp.
+	// index is the channel used to index this channel's values, associating each value
+	// with a timestamp.
 	Index uint32 `protobuf:"varint,6,opt,name=index,proto3" json:"index,omitempty"`
 	// alias is an optional alternate name for the channel within a specific context.
 	Alias *string `protobuf:"bytes,7,opt,name=alias,proto3,oneof" json:"alias,omitempty"`
-	// virtual is true if this channel does not store data in the database but can still be
-	// used for streaming purposes.
+	// virtual is true if this channel does not store data in the database but can still
+	// be used for streaming purposes.
 	Virtual bool `protobuf:"varint,8,opt,name=virtual,proto3" json:"virtual,omitempty"`
 	// internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`
@@ -70,8 +70,8 @@ type Channel struct {
 	// operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
 	Operations []*pb.Operation `protobuf:"bytes,11,rep,name=operations,proto3" json:"operations,omitempty"`
-	// concurrency sets the policy for concurrent writes to the channel's data. Only virtual
-	// channels can have a policy of shared concurrency.
+	// concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
 	Concurrency pb1.Concurrency `protobuf:"varint,12,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
 	// status is the current operational status of the channel.
 	Status        *pb2.Status `protobuf:"bytes,13,opt,name=status,proto3,oneof" json:"status,omitempty"`

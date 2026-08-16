@@ -96,7 +96,8 @@ type Context[AST antlr.ParserRuleContext] struct {
 	Constraints *constraints.System
 	// TypeMap caches resolved types for AST nodes.
 	TypeMap map[antlr.ParserRuleContext]types.Type
-	// CallEdges tracks function call relationships for post-analysis channel propagation.
+	// CallEdges tracks function call relationships for post-analysis channel
+	// propagation.
 	CallEdges *[]CallEdge
 	// AST is the current AST node being analyzed.
 	AST AST
@@ -116,6 +117,20 @@ type Context[AST antlr.ParserRuleContext] struct {
 func (c Context[AST]) WithScope(scope *symbol.Symbol) Context[AST] {
 	c.Scope = scope
 	return c
+}
+
+// IdentifierAST is a declaration with an optional IDENTIFIER (nil when anonymous).
+type IdentifierAST interface {
+	antlr.ParserRuleContext
+	IDENTIFIER() antlr.TerminalNode
+}
+
+// ResolveOwnScope returns the scope owned by the given declaration.
+func ResolveOwnScope[T IdentifierAST](ctx Context[T]) (*symbol.Symbol, error) {
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		return ctx.Scope.Resolve(ctx, id.GetText())
+	}
+	return ctx.Scope.GetChildByParserRule(ctx.AST)
 }
 
 // WithTypeHint returns a new context with an updated type hint. The original context

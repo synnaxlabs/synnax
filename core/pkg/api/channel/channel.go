@@ -97,7 +97,7 @@ func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
 // CreateRequest is a request to create a Channel in the cluster.
 type CreateRequest struct {
 	// Channels is a template for the Channels to create.
-	Channels             []Channel `json:"channels" msgpack:"channels"`
+	Channels             []Channel `json:"channels"                msgpack:"channels"`
 	RetrieveIfNameExists bool      `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
 }
 
@@ -131,7 +131,8 @@ func (s *Service) Create(
 	if req.RetrieveIfNameExists {
 		opts = append(opts, channel.RetrieveIfNameExists())
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, &translated, opts...); err != nil {
+	if err := s.internal.NewWriter(tx).
+		CreateMany(ctx, &translated, opts...); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
@@ -201,7 +202,10 @@ func (s *Service) Retrieve(
 
 	var resRng ranger.Range
 	if req.RangeKey != uuid.Nil {
-		err := s.ranger.NewRetrieve().Where(ranger.MatchKeys(req.RangeKey)).Entry(&resRng).Exec(ctx, nil)
+		err := s.ranger.NewRetrieve().
+			Where(ranger.MatchKeys(req.RangeKey)).
+			Entry(&resRng).
+			Exec(ctx, nil)
 		isNotFound := errors.Is(err, query.ErrNotFound)
 		if err != nil && !isNotFound {
 			return RetrieveResponse{}, err
@@ -214,7 +218,10 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			aliasChannels = make([]channel.Channel, 0, len(keys))
-			if err := s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, nil); err != nil {
+			if err := s.internal.NewRetrieve().
+				Where(channel.MatchKeys(keys...)).
+				Entries(&aliasChannels).
+				Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
@@ -351,7 +358,7 @@ func translateChannelsBackward(
 }
 
 type DeleteRequest struct {
-	Keys  channel.Keys `json:"keys" msgpack:"keys" validate:"required"`
+	Keys  channel.Keys `json:"keys"  msgpack:"keys"  validate:"required"`
 	Names []string     `json:"names" msgpack:"names" validate:"required"`
 }
 
@@ -394,7 +401,7 @@ func (s *Service) Delete(
 }
 
 type RenameRequest struct {
-	Keys  channel.Keys `json:"keys" msgpack:"keys" validate:"required"`
+	Keys  channel.Keys `json:"keys"  msgpack:"keys"  validate:"required"`
 	Names []string     `json:"names" msgpack:"names" validate:"required"`
 }
 

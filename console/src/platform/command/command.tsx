@@ -10,9 +10,7 @@
 import { Flex, type Icon, type List, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, useCallback } from "react";
 
-import { Layout } from "@/platform/layout";
 import { Palette } from "@/platform/palette";
-import { type Session } from "@/session";
 
 export interface CommandProps extends List.ItemProps<string> {}
 
@@ -39,7 +37,6 @@ export const ListItem = ({
   ...props
 }: ListItemProps): ReactElement => (
   <Palette.ListItem
-    highlightHovered
     justify="between"
     align="center"
     onSelect={onSelect}
@@ -47,7 +44,7 @@ export const ListItem = ({
     data-command-key={itemKey}
     {...props}
   >
-    <Text.Text weight={400} gap="medium">
+    <Text.Text gap="medium">
       {icon}
       {name}
     </Text.Text>
@@ -63,12 +60,6 @@ export interface CreateParams {
   useVisible?: () => boolean;
   sortOrder?: number;
 }
-
-// NOTE: deprecated, and will be replaced when panel mechanics arrive.
-export const createPlacerUseOnSelect = (layout: Session.Layout.BaseState) => () => {
-  const place = Layout.usePlacer();
-  return useCallback(() => place(layout), [place]);
-};
 
 export const create = ({
   key,

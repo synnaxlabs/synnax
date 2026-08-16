@@ -56,27 +56,36 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if exists {
-		return nil
+	if !exists {
+		otgID := l.OntologyID()
+		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err = w.otgWriter.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
 	}
-	otgID := OntologyID(l.Key)
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if projectKey == uuid.Nil {
-		return nil
-	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, l.Key, "", []Action{NewCreateAction(CreatePayload{Log: *l})},
 	)
+	return nil
 }
 
 // CreateMany creates the given logs within the project provided. If logs with the
 // same key already exist, they will be overwritten.
-func (w Writer) CreateMany(ctx context.Context, projectKey project.Key, logs *[]Log) error {
+func (w Writer) CreateMany(
+	ctx context.Context,
+	projectKey project.Key,
+	logs *[]Log,
+) error {
 	for i := range *logs {
 		if err := w.Create(ctx, projectKey, &(*logs)[i]); err != nil {
 			return err

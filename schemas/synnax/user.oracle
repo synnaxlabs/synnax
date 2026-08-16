@@ -12,7 +12,8 @@
 @go output "core/pkg/service/user"
 
 Key = uuid {
-    @doc value "is a unique identifier for a user, represented as a UUID."
+    @go version 0
+    @doc value  "is a unique identifier for a user, represented as a UUID."
 }
 
 User struct {
@@ -40,6 +41,7 @@ User struct {
         @filter
     }
 
+    @go version    0
     @doc value     """
         is an account entity representing a person accessing the Synnax system.
         Users can have roles assigned for permission management.
@@ -48,7 +50,6 @@ User struct {
     @retrieve
     @go marshal
     @go migrate
-    @pb
 }
 
 New struct extends User {

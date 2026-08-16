@@ -7,195 +7,268 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type ontology, panel } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import {
+  NotFoundError,
+  type ontology,
+  panel,
+  project,
+  query,
+  UnexpectedError,
+} from "@synnaxlabs/client";
+import { array, compare, deep, type optional, type record, verbs } from "@synnaxlabs/x";
+import { useCallback, useMemo } from "react";
+import { type z } from "zod";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
+import { Scope, TabScope } from "@/panel/scope";
+import { Synnax } from "@/synnax";
 
-export const FLUX_STORE_KEY = "panels";
 const RESOURCE_NAME = "panel";
 const PLURAL_RESOURCE_NAME = "panels";
 
-export interface FluxStore extends Flux.UndoableUnaryStore<
-  panel.Key,
-  panel.Panel,
-  panel.Action
-> {}
-
-export interface FluxSubStore extends Flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-}
-
-const kindOfTransaction = (actions: panel.Action[]): string => {
-  if (actions.length === 0) return "default";
-  // Drag-resize streams ResizeSplit; coalesce them into a single undoable per
-  // gesture so one ⌘Z reverses the entire drag.
-  if (actions.every((a) => a.type === "resize_split")) return "resize";
-  // Same for cross-leaf drags that produce a stream of MoveTab.
-  if (actions.every((a) => a.type === "move_tab")) return "move";
-  if (actions.length === 1) return actions[0].type;
-  return "transaction";
-};
-
-const undoableStoreConfig = Flux.createUndoableStore<
-  panel.Key,
-  panel.Panel,
-  panel.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  reduce: panel.reduceAll,
-  channel: panel.SET_CHANNEL_NAME,
-  schema: panel.scopedActionZ,
-  kindOf: kindOfTransaction,
-});
-
-const DELETE_PANEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof panel.keyZ> = {
-  channel: panel.DELETE_CHANNEL_NAME,
-  schema: panel.keyZ,
-  onChange: ({ store, changed }) => store.panels.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  ...undoableStoreConfig,
-  listeners: [...undoableStoreConfig.listeners, DELETE_PANEL_LISTENER],
-};
-
 export type RetrieveQuery = { key: panel.Key };
 
-const retrieveSingle = async ({
-  client,
-  query: { key },
-  store,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const cached = store.panels.get(key);
-  if (cached != null) return cached;
-  const p = await client.panels.retrieve(key);
-  store.panels.set(p.key, p);
-  return p;
-};
+export const { use, useEnsure, useInvalidate, useResult, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, panel.Panel>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.panels.retrieve(query),
+    onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
+    getCached: ({ client, query }) => client.panels.getCached(query),
+    awaitCreation: true,
+  });
 
-export const { useRetrieve, useEnsureRetrieved } = Flux.createRetrieve<
-  RetrieveQuery,
-  panel.Panel,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
-    store.panels.onSet(onChange, key),
-  ],
+export type RetrieveKeysByProjectQuery = { project: project.Key };
+
+const childrenOf = (projectKey: project.Key): panel.RetrieveRequest => ({
+  parent: project.ontologyID(projectKey),
 });
 
-export interface TabContent {
-  resource?: ontology.ID;
-  view?: panel.TabView;
-}
+const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => key);
 
-// tabContent flattens a tab's variant into the optional content pair consumed by
-// render props, so consumers can read resource/view without switching on variant.
-export const tabContent = (tab: panel.Tab): TabContent => {
-  switch (tab.variant) {
-    case "resource":
-      return { resource: tab.resource };
-    case "view":
-      return { view: tab };
-    case "empty":
-      return {};
-  }
-};
-
-export interface SelectKeyArgs {
-  key: panel.Key;
-}
-
-const requirePanel = (store: FluxSubStore, key: panel.Key): panel.Panel => {
-  const p = store.panels.get(key);
-  if (p == null) throw new NotFoundError(`Panel with key ${key} not found`);
-  return p;
-};
-
-// useSelectRoot selects the panel's stored tree root. The reference only
-// changes when the document changes, so consumers can memoize derivations on
-// it directly.
-export const useSelectRoot = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  panel.Node
+// A panel's parent lives in the ontology graph and is absent from the panel record, so
+// membership is resolved through the project's children. The answer carries keys alone:
+// consumers read each panel's own fields, so a rename must not re-answer the query.
+export const { use: useKeysByProject } = Flux.createRetrieve<
+  RetrieveKeysByProjectQuery,
+  panel.Key[]
 >({
-  subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-  select: (store, { key }) => requirePanel(store, key).root,
-});
-
-export interface SelectTabContentArgs {
-  key: panel.Key;
-  tabKey: string;
-}
-
-export const useSelectTab = Flux.createSelector<
-  FluxSubStore,
-  SelectTabContentArgs,
-  panel.Tab
->({
-  subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-  select: (store, { key, tabKey }) => {
-    const tab = panel.findTab(requirePanel(store, key).root, tabKey);
-    if (tab == null)
-      throw new NotFoundError(`Tab with key ${tabKey} not found in panel ${key}`);
-    return tab;
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { project: projectKey } }) =>
+    keysOf(await client.panels.retrieve(childrenOf(projectKey))),
+  onChange: ({ client, query: { project: projectKey } }, handler) =>
+    client.panels.onChange(childrenOf(projectKey), (result) =>
+      handler(query.isLive(result) ? keysOf(result) : undefined),
+    ),
+  getCached: ({ client, query: { project: projectKey } }) => {
+    const cached = client.panels.getCached(childrenOf(projectKey));
+    return query.isLive(cached) ? keysOf(cached) : undefined;
   },
+  equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
 });
+
+export interface KeyParams {
+  key: panel.Key;
+}
+
+export interface TabContentParams {
+  key: panel.Key;
+  tabKey: panel.TabKey;
+}
+
+const requireTab = (root: panel.Node, { key, tabKey }: TabContentParams) => {
+  const tab = panel.findTab(root, tabKey);
+  if (tab == null)
+    throw new NotFoundError(`Tab with key ${tabKey} not found in panel ${key}`);
+  return tab;
+};
+
+// bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys are
+// sourced from the surrounding Panel and Tab scopes; either may be overridden explicitly.
+// The two-level analogue of scope.bindHook.
+type BoundTabHook<Args extends TabContentParams, R> = optional.Arg<
+  optional.Optional<Args, "key" | "tabKey">,
+  R
+>;
+
+const bindTabHook =
+  <Args extends TabContentParams, R>(hook: (args: Args) => R): BoundTabHook<Args, R> =>
+  (args?: optional.Optional<Args, "key" | "tabKey">): R => {
+    const key = Scope.use(args?.key);
+    const tabKey = TabScope.use(args?.tabKey);
+    return hook({ ...args, key, tabKey } as Args);
+  };
+
+export interface NodeParams extends KeyParams {
+  nodeKey: number;
+}
+
+const requireNode = (root: panel.Node, nodeKey: number): panel.Node => {
+  const node = panel.findNode(root, nodeKey);
+  if (node == null) throw new NotFoundError(`Node at path ${nodeKey} not found`);
+  return node;
+};
+
+// useNodeVariant selects only the variant of the node at the given path, so a
+// component that branches on split-vs-leaf does not re-render on structure changes
+// within the same variant.
+export const useNodeVariant = Scope.bindHook(
+  createSelector<panel.Node["variant"], NodeParams>(
+    ({ root }, { nodeKey }) => requireNode(root, nodeKey).variant,
+  ),
+);
+
+// useLeafNode selects the leaf node at the given path, including its tab keys.
+export const useLeafNode = Scope.bindHook(
+  createSelector<Omit<panel.LeafNode, "tabs"> & { tabs: panel.TabKey[] }, NodeParams>(
+    ({ root }, { nodeKey }) => {
+      const node = requireNode(root, nodeKey);
+      if (node.variant !== "leaf") throw new UnexpectedError("node is not a leaf");
+      return { ...node, tabs: node.tabs.map((t) => t.key) };
+    },
+    deep.equal,
+  ),
+);
+
+// useSplitNode selects the split node at the given path, including its direction
+// and size.
+export const useSplitNode = Scope.bindHook(
+  createSelector<panel.SplitNode, NodeParams>(({ root }, { nodeKey }) => {
+    const node = requireNode(root, nodeKey);
+    if (node.variant !== "split") throw new UnexpectedError("node is not a split");
+    return node;
+  }, deep.equal),
+);
+
+const tabKeysOf = (root: panel.Node): string[] => {
+  const tabKeys: string[] = [];
+  const visit = (node: panel.Node | undefined) => {
+    if (node == null) return;
+    if (node.variant === "split") {
+      visit(node.first);
+      visit(node.last);
+    } else tabKeys.push(...node.tabs.flatMap((t) => t.key));
+  };
+  visit(root);
+  return tabKeys.sort();
+};
+
+// useTabKeys selects every leaf's tab keys, array-equal compared so the mosaic
+// root re-renders only when tab membership changes, not on a resize or a content
+// change.
+export const useTabKeys = Scope.bindHook(
+  createSelector<string[]>(
+    ({ root }) => tabKeysOf(root),
+    (a, b) => compare.arraysEqual(a, b),
+  ),
+);
+
+// useRoot selects the panel's raw stored tree root.
+export const useRoot = Scope.bindHook(createSelector(({ root }) => root));
+
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
+
+export const useTab = bindTabHook(
+  createSelector<panel.Tab, TabContentParams>(({ root }, params) =>
+    requireTab(root, params),
+  ),
+);
+
+// useTabLeaf selects the leaf node holding the active tab. The leaf is a live
+// reference into the stored tree, so immer's structural sharing gives it stable
+// identity across dispatches that don't touch it.
+export const useTabLeaf = bindTabHook(
+  createSelector<panel.LeafNode, TabContentParams>(({ root }, { key, tabKey }) => {
+    const leaf = panel.findTabLeaf(root, tabKey);
+    if (leaf == null)
+      throw new NotFoundError(`Leaf holding tab ${tabKey} not found in panel ${key}`);
+    return leaf;
+  }),
+);
+
+// useTabVariant selects only the content variant of the active tab, so a
+// component that branches on resource-vs-view does not re-render on content edits
+// within the same variant.
+export const useTabVariant = bindTabHook(
+  createSelector<panel.TabType, TabContentParams>(
+    ({ root }, params) => requireTab(root, params).variant,
+  ),
+);
+
+// useTabType selects the renderer type of the active tab: the resource's
+// ontology type for resource tabs, the view type for view tabs. Components that
+// render by type do not re-render when a view's args change.
+export const useTabType = bindTabHook(
+  createSelector<string, TabContentParams>(({ root }, params) => {
+    const tab = requireTab(root, params);
+    return tab.variant === "resource" ? tab.resource.type : tab.type;
+  }),
+);
+
+// useTabResource selects the ontology ID displayed by the active resource tab.
+// Resource renderers call this to learn their own document key. Throws
+// UnexpectedError when the active tab is not a resource tab: only renderers mounted
+// for a resource tab may call this, so a wrong-variant read is a programmer bug.
+export const useTabResource = bindTabHook(
+  createSelector<ontology.ID, TabContentParams>(({ root }, params) => {
+    const tab = requireTab(root, params);
+    if (tab.variant !== "resource")
+      throw new UnexpectedError(`attempted to select resource on view tab ${tab.key}`);
+    return tab.resource;
+  }, deep.equal),
+);
+
+// useTabArgs selects only the opaque args of the active view tab, deep-equal
+// compared so it re-renders only when the args contents actually change. Throws
+// UnexpectedError when the active tab is not a view tab (see useTabResource).
+export const useTabArgs = bindTabHook(
+  createSelector<record.Unknown, TabContentParams>(({ root }, params) => {
+    const tab = requireTab(root, params);
+    if (tab.variant !== "view")
+      throw new UnexpectedError(`attempted to select args on resource tab ${tab.key}`);
+    return tab.args;
+  }, deep.equal),
+);
+
+// createSelectTabArgs builds a tab-scoped hook that selects the active view tab's
+// args and parses them with the given schema, for a typed view of a known content
+// kind. Returns null when the active tab is not a view tab.
+export const createSelectTabArgs =
+  <Z extends z.ZodType>(schema: Z): (() => z.output<Z>) =>
+  () => {
+    const args = useTabArgs({});
+    return useMemo(() => schema.parse(args), [args, schema]);
+  };
 
 export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}
 
-export const useList = Flux.createList<
-  ListParams,
-  panel.Key,
-  panel.Panel,
-  FluxSubStore
->({
+export const useList = Flux.createList<ListParams, panel.Key, panel.Panel>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store }) => store.panels.list(),
   retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-  retrieveByKey: async ({ key, ...rest }) =>
-    await retrieveSingle({ ...rest, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.panels.onSet(onChange),
-    store.panels.onDelete(onDelete),
-  ],
+  retrieveByKey: async ({ client, key }) => await client.panels.retrieve(key),
+  onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.panels.onChange(key, handler),
+  getCached: ({ client, query }) => client.panels.getCached(query),
 });
 
 export interface CreateParams extends panel.New {}
 
-export const { useUpdate: useCreate } = Flux.createUpdate<
-  CreateParams,
-  FluxSubStore,
-  panel.Panel
->({
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, panel.Panel>({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    const optimistic = panel.panelZ.parse(data);
-    rollbacks.push(store.panels.set(optimistic));
-    const created = await client.panels.create(optimistic);
-    store.panels.set(created);
-    return created;
-  },
+  verbs: verbs.CREATE,
+  update: async ({ client, data, onOptimisticComplete }) =>
+    await client.panels.create(data, {
+      onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
+    }),
 });
 
 export interface RenameParams extends Pick<panel.Panel, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  verbs: verbs.RENAME,
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    rollbacks.push(Flux.partialUpdate(store.panels, key, { name }));
-    rollbacks.push(Ontology.renameFluxResource(store, panel.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.panels.rename(key, name);
     return data;
   },
@@ -203,29 +276,119 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 export type DeleteParams = panel.Key | panel.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    const keys = array.toArray(data);
-    const ids = panel.ontologyID(keys);
-    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.push(store.relationships.delete(relFilter));
-    rollbacks.push(store.resources.delete(keys));
-    rollbacks.push(store.panels.delete(keys));
-    await client.panels.delete(keys);
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.panels.delete(array.toArray(data), {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
 
-export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
-  panel.Key,
-  panel.Panel,
-  panel.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  send: ({ client, key, actions, dispatchKey }) =>
-    client.panels.dispatch(key, dispatchKey, actions),
+export const {
+  useDispatch,
+  useSingleDispatch: useSingleDispatchBase,
+  useUndo: useUndoBase,
+  useRedo: useRedoBase,
+} = Flux.createDispatch<panel.Key, panel.Panel, panel.Action>({
+  domain: (client) => client.panels,
 });
+
+export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
+export const useUndo = Scope.bindHook(useUndoBase);
+export const useRedo = Scope.bindHook(useRedoBase);
+
+// useCloseResourceTabs returns a callback closing every tab that displays one of
+// the given resources, across every cached panel. Delete flows call it so the
+// deleting console closes its own tabs while remote consoles tombstone theirs.
+// removeTab on an absent tab is a no-op, so redundant calls are harmless.
+export const useCloseResourceTabs = (): ((
+  ids: ontology.ID | ontology.ID[],
+) => void) => {
+  const client = Synnax.use();
+  const { dispatch } = useDispatch();
+  return useCallback(
+    (ids: ontology.ID | ontology.ID[]) =>
+      client?.panels.listCached().forEach((p) => {
+        const actions = array
+          .toArray(ids)
+          .map((id) => panel.findTabByResource(p.root, id))
+          .filter((tab) => tab != null)
+          .map((tab) => panel.removeTab({ key: tab.key }));
+        if (actions.length > 0) dispatch({ key: p.key, actions });
+      }),
+    [client, dispatch],
+  );
+};
+
+export interface MoveTabToPanelParams extends Pick<
+  panel.InsertTabsPayload,
+  "targetLeaf" | "index" | "location"
+> {
+  /** Panel currently holding the tab. */
+  source: panel.Key;
+  /** Panel the tab moves into. Must differ from source. */
+  destination: panel.Key;
+  tab: panel.Tab;
+}
+
+// Inserting a resource tab whose resource already backs a tab in the destination is a
+// no-op, so the tab that landed can be the one that was already there.
+const landedTabKey = (root: panel.Node, tab: panel.Tab): panel.TabKey | undefined => {
+  if (panel.findTab(root, tab.key) != null) return tab.key;
+  if (tab.variant !== "resource") return undefined;
+  return panel.findTabByResource(root, tab.resource)?.key;
+};
+
+/**
+ * useMoveTabToPanel moves a tab between two panels. The panels are separate documents,
+ * so the move is two dispatches: the insert lands first and the source only gives the
+ * tab up once it has, leaving the tab where it was if the destination rejects it.
+ * @returns a callback resolving with the tab's key in the destination, or undefined
+ * when the tab is not there.
+ */
+export const useMoveTabToPanel = (): ((
+  params: MoveTabToPanelParams,
+) => Promise<panel.TabKey | undefined>) => {
+  const { dispatchAsync } = useDispatch();
+  const client = Synnax.use();
+  return useCallback(
+    async ({ source, destination, tab, targetLeaf, index, location }) => {
+      const inserted = await dispatchAsync({
+        key: destination,
+        actions: panel.insertTabs({ tabs: [tab], targetLeaf, index, location }),
+      });
+      if (!inserted) return undefined;
+      await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
+      const cached = client?.panels.getCached(destination);
+      return query.isLive(cached) ? landedTabKey(cached.root, tab) : undefined;
+    },
+    [dispatchAsync, client],
+  );
+};
+
+// useSetCurrentTabResource swaps the current tab's content to the given resource,
+// clearing any view. The selector flow uses this to fill the tab in place once the
+// user picks a visualization.
+export const useSetCurrentTabResource = (): ((resource: ontology.ID) => void) => {
+  const dispatch = useSingleDispatch();
+  const tabKey = TabScope.use();
+  return useCallback(
+    (resource: ontology.ID) =>
+      dispatch(panel.setTabResource({ key: tabKey, resource })),
+    [dispatch, tabKey],
+  );
+};
+
+// useSetCurrentTabView swaps the current tab's content to the given inline view,
+// clearing any resource.
+export const useSetCurrentTabView = (): ((view: panel.View) => void) => {
+  const dispatch = useSingleDispatch();
+  const tabKey = TabScope.use();
+  return useCallback(
+    (view: panel.View) => dispatch(panel.setTabView({ key: tabKey, view })),
+    [dispatch, tabKey],
+  );
+};

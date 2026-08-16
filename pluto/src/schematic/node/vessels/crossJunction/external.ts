@@ -16,18 +16,18 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { CrossJunction } from "@/schematic/node/vessels/crossJunction/Primitive";
 
-export const defaultConfig = (): schematic.NodeConfigCrossJunction => ({
+export const defaultConfig = (): schematic.CrossJunctionNodeConfig => ({
   variant: "cross_junction",
   color: color.ZERO,
   label: Label.defaultConfig(""),
   ...Primitive.ZERO_PROPS,
 });
 
-export const spec: Spec<"cross_junction", schematic.NodeConfigCrossJunction> = {
+export const spec: Spec<"cross_junction", schematic.CrossJunctionNodeConfig> = {
   key: "cross_junction",
   name: "Cross Junction",
   Form: Form.StyleForm,
-  Node: Label.createLabeled<schematic.NodeConfigCrossJunction>(CrossJunction),
+  Node: Label.createLabeled<schematic.CrossJunctionNodeConfig>(CrossJunction),
   Preview: CrossJunction,
   defaultConfig,
   zIndex: 24,

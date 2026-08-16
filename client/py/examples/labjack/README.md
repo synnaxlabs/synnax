@@ -137,28 +137,28 @@ Connect to a network-connected LabJack.
 
 ### Read Channels
 
-- **AIChan**: Analog input (voltage)
+- **InputChannelAI** (type="AI"): Analog input (voltage)
   - Configurable range (±0.01V to ±10V)
   - Single-ended or differential
   - Use for general voltage measurements
 
-- **ThermocoupleChan**: Thermocouple input
+- **InputChannelTc** (type="TC"): Thermocouple input
   - Supports types: B, E, J, K, N, R, S, T, C
   - Cold junction compensation (CJC)
   - Temperature units: Kelvin, Celsius, Fahrenheit
   - Use for temperature measurements
 
-- **DIChan**: Digital input
+- **InputChannelDI** (type="DI"): Digital input
   - Binary state (0 or 1)
   - Use for switches, sensors, etc.
 
 ### Write Channels
 
-- **OutputChan** (type="AO"): Analog output
+- **OutputChannelAO** (type="AO"): Analog output
   - Voltage control (typically 0-5V on DAC0/DAC1)
   - Use for analog control signals
 
-- **OutputChan** (type="DO"): Digital output
+- **OutputChannelDO** (type="DO"): Digital output
   - Binary control (0 or 1)
   - Use for relays, LEDs, digital control
 

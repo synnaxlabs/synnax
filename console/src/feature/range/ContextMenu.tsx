@@ -9,26 +9,16 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { lineplot, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Access,
-  type Flux,
-  Icon,
-  Menu,
-  Ranger,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Access, type Flux, Icon, Menu, Ranger, Synnax, Text } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
-import { Layout } from "@/platform/layout";
-import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
+import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const fetchIfNotInState = async (
@@ -57,34 +47,15 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
   topRight: Icon.Add,
 });
 
-const useViewDetails = (): ((key: string) => void) => {
-  const addStatus = Status.useAdder();
-  const placeLayout = Layout.usePlacer();
-  const { retrieve } = Ranger.useRetrieveObservable({
-    onChange: useCallback(
-      ({ data, variant, status }) => {
-        if (variant !== "success") {
-          if (variant === "error") addStatus(status);
-          return;
-        }
-        placeLayout({ ...Range.OVERVIEW_LAYOUT, name: data.name, key: data.key });
-      },
-      [placeLayout],
-    ),
-  });
-  return useCallback((key: string) => retrieve({ key }), [retrieve]);
-};
-
 const useDelete = () => {
   const dispatch = Session.useDispatch();
-  const remover = Layout.useRemover();
   const ranges = Session.Range.useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
     dispatch(Session.Range.remove({ keys }));
   };
-  const confirm = Tree.useConfirmDelete({
+  const confirm = Modals.useConfirmDelete({
     type: "Range",
-    description: "Deleting this range will also delete all child ranges.",
+    description: "Deleting a range also deletes its child ranges.",
   });
   const { update } = Ranger.useDelete({
     beforeUpdate: useCallback(
@@ -93,10 +64,9 @@ const useDelete = () => {
         const rng = ranges.filter((r) => keys.includes(r.key));
         if (!(await confirm(rng))) return false;
         handleRemove(keys);
-        remover(...keys);
         return true;
       },
-      [],
+      [confirm, ranges],
     ),
   });
   return update;
@@ -137,7 +107,8 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   };
 
   const rng = ranges.find((r) => r.key === key);
-  const activeLayout = Session.Layout.useSelectActiveMosaicLayout();
+  const linePlotFocused = Session.Panel.useSelectFocusedTab();
+  const openTab = Panel.useOpenTab();
   const addToActivePlot = Range.useAddToActivePlot();
   const addToNewPlot = Range.useAddToNewPlot();
   const activeRange = Session.Range.useSelectState();
@@ -148,7 +119,6 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const handleClearActive = () => {
     dispatch(Session.Range.clearSelected());
   };
-  const handleViewDetails = useViewDetails();
   const handleAddChildRange = () => {
     openCreate({ parent: key });
   };
@@ -174,16 +144,19 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             </Menu.Item>
           )}
           {rng.persisted && (
-            <Menu.Item itemKey="details" onClick={() => handleViewDetails(rng.key)}>
+            <Menu.Item
+              itemKey="details"
+              onClick={() =>
+                openTab({ variant: "resource", resource: ranger.ontologyID(rng.key) })
+              }
+            >
               <Icon.Details />
               View details
             </Menu.Item>
           )}
+          <Menu.Divider />
           {hasUpdatePermission && (
-            <>
-              <Menu.Divider />
-              <Base.RenameItem onClick={() => Text.edit(`text-${key}`)} />
-            </>
+            <Base.RenameItem onClick={() => Text.edit(`text-${key}`)} />
           )}
           {hasCreatePermission && rng.persisted && (
             <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
@@ -192,48 +165,39 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             </Menu.Item>
           )}
           <Menu.Divider />
-          {activeLayout?.type === LinePlot.LAYOUT_TYPE &&
-            hasLinePlotUpdatePermission && (
-              <Menu.Item
-                itemKey="addToActivePlot"
-                onClick={() => addToActivePlot([key])}
-              >
-                <AddToActivePlotIcon key="plot" />
-                Add to active plot
-              </Menu.Item>
-            )}
+          {linePlotFocused && hasLinePlotUpdatePermission && (
+            <Menu.Item itemKey="addToActivePlot" onClick={() => addToActivePlot([key])}>
+              <AddToActivePlotIcon key="plot" />
+              Add to active plot
+            </Menu.Item>
+          )}
           {hasLinePlotCreatePermission && (
             <Menu.Item itemKey="addToNewPlot" onClick={() => addToNewPlot([key])}>
               <AddToNewPlotIcon key="plot" />
               Add to new plot
             </Menu.Item>
           )}
+          {!rng.persisted && hasCreatePermission && client != null && (
+            <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
+              <Icon.Save />
+              Save to Synnax
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {rng.persisted && (
+            <Link.CopyContextMenuItem
+              onClick={() =>
+                handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
+              }
+            />
+          )}
           <Menu.Divider />
           <Menu.Item itemKey="remove" onClick={() => handleRemove([rng.key])}>
             <Icon.Close />
             Unfavorite
           </Menu.Item>
-          {rng.persisted ? (
-            <>
-              {hasDeletePermission && <Base.DeleteItem onClick={() => del(rng.key)} />}
-              <Menu.Divider />
-              <Link.CopyContextMenuItem
-                onClick={() =>
-                  handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
-                }
-              />
-            </>
-          ) : (
-            hasCreatePermission &&
-            client != null && (
-              <>
-                <Menu.Divider />
-                <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
-                  <Icon.Save />
-                  Save to Synnax
-                </Menu.Item>
-              </>
-            )
+          {rng.persisted && hasDeletePermission && (
+            <Base.DeleteItem onClick={() => del(rng.key)} />
           )}
         </>
       )}

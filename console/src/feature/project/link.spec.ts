@@ -17,7 +17,7 @@ import { renderLinkHook } from "@/testutil";
 const client = createTestClient();
 
 describe("Project.useLink", () => {
-  it("should load the project layout and set it active", async () => {
+  it("should set the linked project active", async () => {
     const project = await client.projects.create({
       name: "Engine Project",
       layout: {},

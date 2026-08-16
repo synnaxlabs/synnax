@@ -29,14 +29,19 @@ const nodeKeyDefaultLeaseholder node.Key = 0
 
 type leaseAllocator struct{ Config }
 
-func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation, error) {
+func (la *leaseAllocator) allocate(
+	ctx context.Context,
+	op Operation,
+) (Operation, error) {
 	lh, err := la.getLease(ctx, op.Key)
 	// If we get a nil error, that means this key has been set before.
 	if err == nil {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {
 			op.Leaseholder = lh
 			if lh == nodeKeyDefaultLeaseholder {
-				la.L.DPanic("Lease allocator returned unexpected node key 0 for leaseholder")
+				la.L.DPanic(
+					"Lease allocator returned unexpected node key 0 for leaseholder",
+				)
 			}
 		} else if lh != op.Leaseholder {
 			// If the Leaseholder doesn't match the previous Leaseholder,
@@ -45,8 +50,8 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 		}
 	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantSet {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {
-			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
-			// we assign the leaseAlloc to the cluster host.
+			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder
+			// assigned, we assign the leaseAlloc to the cluster host.
 			op.Leaseholder = la.Cluster.HostKey()
 		}
 		// If we can't find the Leaseholder, and the op has a Leaseholder assigned,
@@ -77,7 +82,7 @@ type leaseProxy struct {
 	Config
 }
 
-func newLeaseProxy(cfg Config, localTo address.Address, remoteTo address.Address) segment {
+func newLeaseProxy(cfg Config, localTo, remoteTo address.Address) segment {
 	lp := &leaseProxy{Config: cfg, localTo: localTo, remoteTo: remoteTo}
 	lp.Switch.Switch = lp._switch
 	return lp

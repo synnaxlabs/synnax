@@ -27,11 +27,12 @@ Radius struct {
         @doc value "is the bottom-right corner radius."
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         is a per-corner border radius with independent x and y components,
         expressed as percentages of the element's dimensions. The wire format
         also accepts shorthand forms: a bare number, a single { x, y } pair,
         or per-corner numbers, each of which expands to this canonical shape.
     """
-    @ts omit
+    @ts hand
 }

@@ -52,7 +52,7 @@ describe("Imex", () => {
       const ontologyID = await client.imex.import(toBlob(logEnvelope(name)), {
         encoding: "JSON",
         fileName: `${name}.json`,
-        project: projectKey,
+        parent: project.ontologyID(projectKey),
       });
       expect(ontologyID.type).toEqual("log");
       expect(ontologyID.key).not.toHaveLength(0);
@@ -64,7 +64,7 @@ describe("Imex", () => {
         client.imex.import(toBlob(envelope), {
           encoding: "JSON",
           fileName: "invalid.json",
-          project: projectKey,
+          parent: project.ontologyID(projectKey),
         }),
       ).rejects.toThrow("failed to decode");
     });
@@ -75,7 +75,7 @@ describe("Imex", () => {
       const oid = await client.imex.import(toBlob(nameless), {
         encoding: "JSON",
         fileName: `${fileName}.json`,
-        project: projectKey,
+        parent: project.ontologyID(projectKey),
       });
       const stream = await client.imex.export(oid, { encoding: "JSON" });
       const parsed = await new Response(stream).json();
@@ -87,7 +87,7 @@ describe("Imex", () => {
       const oid = await client.imex.import(toBlob(logEnvelope(name)), {
         encoding: "JSON",
         fileName: "Some Other Name.json",
-        project: projectKey,
+        parent: project.ontologyID(projectKey),
       });
       const stream = await client.imex.export(oid, { encoding: "JSON" });
       const parsed = await new Response(stream).json();
@@ -100,20 +100,20 @@ describe("Imex", () => {
         client.imex.import(toBlob(nameless), {
           encoding: "JSON",
           fileName: "",
-          project: projectKey,
+          parent: project.ontologyID(projectKey),
         }),
       ).rejects.toSatisfy(zod.ParseError.matches);
     });
 
-    it("should reject a non-UUID project key before the request is sent", async () => {
+    it("should reject a parent that is not a project before the core stores anything", async () => {
       const name = `imex-${id.create()}`;
       await expect(
         client.imex.import(toBlob(logEnvelope(name)), {
           encoding: "JSON",
           fileName: `${name}.json`,
-          project: "not-a-uuid",
+          parent: { type: "group", key: uuid.create() },
         }),
-      ).rejects.toSatisfy(zod.ParseError.matches);
+      ).rejects.toThrow("parent: must be a project");
     });
 
     it("should parent the imported resource under the given parent", async () => {
@@ -125,11 +125,11 @@ describe("Imex", () => {
       const oid = await client.imex.import(toBlob(logEnvelope(name)), {
         encoding: "JSON",
         fileName: `${name}.json`,
-        project: proj.key,
+        parent: project.ontologyID(proj.key),
       });
-      const children = await client.ontology.retrieveChildren(
-        project.ontologyID(proj.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: project.ontologyID(proj.key),
+      });
       expect(children.map((child) => child.id.key)).toContain(oid.key);
     });
 
@@ -139,7 +139,7 @@ describe("Imex", () => {
         client.imex.import(toBlob(logEnvelope(name)), {
           encoding: "JSON",
           fileName: `${name}.json`,
-          project: uuid.create(),
+          parent: project.ontologyID(uuid.create()),
         }),
       ).rejects.toThrow("not found");
     });
@@ -151,7 +151,7 @@ describe("Imex", () => {
       const oid = await client.imex.import(toBlob(logEnvelope(name)), {
         encoding: "JSON",
         fileName: `${name}.json`,
-        project: projectKey,
+        parent: project.ontologyID(projectKey),
       });
       const stream = await client.imex.export(oid, { encoding: "JSON" });
       const parsed = await new Response(stream).json();

@@ -18,7 +18,7 @@ import { type Theming } from "@/theming";
 
 const NAME = "Button";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigButton => ({
+export const defaultConfig = (t: Theming.Theme): schematic.ButtonNodeConfig => ({
   variant: "button",
   orientation: "left",
   color: t.colors.primary.z,
@@ -28,7 +28,7 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigButton => (
   onClickDelay: 0,
 });
 
-export const spec: Spec<"button", schematic.NodeConfigButton> = {
+export const spec: Spec<"button", schematic.ButtonNodeConfig> = {
   key: "button",
   name: NAME,
   Form: ButtonForm,

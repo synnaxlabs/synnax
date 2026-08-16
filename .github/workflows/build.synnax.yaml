@@ -521,7 +521,7 @@ jobs:
 
       - name: Set up Node.js
         if: inputs.console
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
 
@@ -559,7 +559,7 @@ jobs:
 
       - name: Set up Go
         if: inputs.core
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: core/go.mod
           # Don't use github cache. Local cache is faster.
@@ -838,7 +838,7 @@ jobs:
         uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           cache: pnpm

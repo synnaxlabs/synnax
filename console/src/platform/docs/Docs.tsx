@@ -9,13 +9,11 @@
 
 import "@/platform/docs/Docs.css";
 
-import { Logo } from "@synnaxlabs/media";
-import { Button, Icon, Theming, Triggers } from "@synnaxlabs/pluto";
+import { Status, Theming, Triggers } from "@synnaxlabs/pluto";
 import { url } from "@synnaxlabs/x";
 import { memo, type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 const HOST = new url.URL({
@@ -23,17 +21,10 @@ const HOST = new url.URL({
   port: 443,
   protocol: "https",
 });
-export const LAYOUT_TYPE = "docs";
 
-export const LAYOUT: Session.Layout.BaseState = {
-  key: LAYOUT_TYPE,
-  type: LAYOUT_TYPE,
-  location: "mosaic",
-  name: "Documentation",
-  tab: { editable: false },
-};
+export const TAB_TYPE = "docs";
 
-export const Docs = memo(() => {
+export const Docs = memo((): ReactElement | null => {
   // Iframes prevent drop interactions on the mosaic, so we need to listen for
   // the mouse being held down and add a class the docs that adds a mask over the frame
   // to allow for drop interactions.
@@ -78,28 +69,13 @@ export const Docs = memo(() => {
 
   return (
     <div className={CSS(CSS.B("docs"), hover.held && CSS.M("hover"))}>
-      {!loaded && <Logo.Watermark variant="loader" />}
+      {!loaded && (
+        <Status.Loading className={CSS.BE("docs", "loading")}>
+          <Status.Orbital />
+        </Status.Loading>
+      )}
       <iframe src={frameURL.toString()} onLoad={() => setLoaded(true)} />
     </div>
   );
 });
-Docs.displayName = "DocsLayoutRenderer";
-
-export const OpenButton = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
-  const handleDocs = (): void => {
-    placeLayout(LAYOUT);
-  };
-  return (
-    <Button.Button
-      size="small"
-      variant="text"
-      onClick={handleDocs}
-      contrast={2}
-      className={CSS.BE("docs", "open-button")}
-      tooltip="Open Documentation"
-    >
-      <Icon.QuestionMark />
-    </Button.Button>
-  );
-};
+Docs.displayName = "Docs";

@@ -17,7 +17,7 @@ import { Theming } from "@/theming";
 
 export const DEFAULT_POLYGON_SIDE_LENGTH = 20;
 
-interface RenderProps extends Omit<schematic.NodeConfigPolygon, "variant"> {
+interface RenderProps extends Omit<schematic.PolygonNodeConfig, "variant"> {
   className?: string;
 }
 

@@ -44,18 +44,27 @@ const allowedVariantsList = "success, info, warning, error, loading, disabled"
 // memberDoc is the LSP hover body for status.set. The renderer prepends the
 // title from the symbol name and kind, so it is omitted here.
 var memberDoc = doc.New(
-	doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
+	doc.Paragraph(
+		"Sets a status notification on the cluster. Used to report alarms, warnings, or operational state.",
+	),
 	doc.Divider(),
-	doc.Code("arc", "status_key := sensor -> status.set{key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
+	doc.Code(
+		"arc",
+		"status_key := sensor -> status.set{key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}",
+	),
 	doc.Divider(),
-	doc.Paragraph("Accepted variants: success, info, warning, error, loading, disabled."),
+	doc.Paragraph(
+		"Accepted variants: success, info, warning, error, loading, disabled.",
+	),
 	doc.Divider(),
 	doc.Paragraph("Outputs the resolved status key as a string."),
 )
 
 // moduleDoc is the LSP hover body for the status module itself.
 var moduleDoc = doc.New(
-	doc.Paragraph("Publishes status notifications (alarms, warnings, operational state) to the cluster."),
+	doc.Paragraph(
+		"Publishes status notifications (alarms, warnings, operational state) to the cluster.",
+	),
 )
 
 // newSetSymbolType returns a fresh function type for status.set per call so
@@ -128,7 +137,9 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 					"status.set: invalid string handle from WASM runtime")
 				return 0
 			}
-			return strings.Create(dispatchSet(ctx, m.stat, m.report, keyOrName, msg, variant))
+			return strings.Create(
+				dispatchSet(ctx, m.stat, m.report, keyOrName, msg, variant),
+			)
 		}).Export(setMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -141,30 +152,16 @@ func (m *module) ModuleName() string { return moduleName }
 func (m *module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
-		var sc setConfig
-		if err := setConfigSchema.Parse(cfg.Node.Inputs.ValueMap(), &sc); err != nil {
-			return nil, errors.Wrap(err, "status.set config")
+		if err := setSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
+			return nil, errors.Wrap(err, "status.set inputs")
 		}
-		return &setNode{
-			State:     cfg.State,
-			stat:      m.stat,
-			report:    m.report,
-			keyOrName: sc.KeyOrName,
-			message:   sc.Message,
-			variant:   sc.Variant,
-		}, nil
+		return &setNode{State: cfg.State, stat: m.stat, report: m.report}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
 }
 
-type setConfig struct {
-	KeyOrName string `json:"key_or_name"`
-	Message   string `json:"message"`
-	Variant   string `json:"variant"`
-}
-
-var setConfigSchema = zyn.Object(map[string]zyn.Schema{
+var setSchema = zyn.Object(map[string]zyn.Schema{
 	"key_or_name": zyn.String(),
 	"message":     zyn.String(),
 	"variant":     zyn.String(),
@@ -172,15 +169,14 @@ var setConfigSchema = zyn.Object(map[string]zyn.Schema{
 
 type setNode struct {
 	*node.State
-	stat      *status.Service
-	report    taskreporter.Reporter
-	keyOrName string
-	message   string
-	variant   string
+	stat   *status.Service
+	report taskreporter.Reporter
 }
 
 func (s *setNode) Next(ctx node.Context) {
-	key := dispatchSet(ctx, s.stat, s.report, s.keyOrName, s.message, s.variant)
+	key := dispatchSet(ctx, s.stat, s.report,
+		s.StringInput("key_or_name"), s.StringInput("message"),
+		s.StringInput("variant"))
 	*s.Output(0) = telem.NewSeriesV[string](key)
 	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
@@ -221,7 +217,10 @@ func analyzeStatusSetArguments(diags *diagnostics.Diagnostics, args []symbol.Arg
 	}
 }
 
-func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionContext) {
+func checkVariantLiteral(
+	diags *diagnostics.Diagnostics,
+	expr parser.IExpressionContext,
+) {
 	lit := parser.GetLiteral(expr)
 	if lit == nil {
 		return

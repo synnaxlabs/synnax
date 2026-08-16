@@ -31,9 +31,7 @@ func OntologyID(key Key) ontology.ID {
 
 // OntologyIDsFromDevices returns the ontology IDs for the given devices.
 func OntologyIDsFromDevices(devices []Device) []ontology.ID {
-	return lo.Map(devices, func(d Device, _ int) ontology.ID {
-		return OntologyID(d.Key)
-	})
+	return lo.Map(devices, func(d Device, _ int) ontology.ID { return d.OntologyID() })
 }
 
 // OntologyIDs returns the ontology IDs for the given keys.
@@ -57,7 +55,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(d Device) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
+	return ontology.NewResource(schema, d.OntologyID(), d.Name, d)
 }
 
 var (
@@ -83,7 +81,10 @@ func (s *Service) RetrieveResource(
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
 	var d Device
-	if err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&d).Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&d).
+		Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(d), nil
@@ -99,7 +100,9 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements determines what should happen in the ontology when a change is
 // made to a device.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Device]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -108,7 +111,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 
 // OpenNexter opens a nexter type that allows for iterating over all devices in the
 // ontology.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

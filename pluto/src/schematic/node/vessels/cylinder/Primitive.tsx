@@ -16,7 +16,7 @@ import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-interface RenderProps extends Omit<schematic.NodeConfigCylinder, "variant"> {
+interface RenderProps extends Omit<schematic.CylinderNodeConfig, "variant"> {
   className?: string;
   scale?: number;
 }

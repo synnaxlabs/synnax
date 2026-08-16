@@ -37,7 +37,6 @@ import {
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { Tree } from "@/platform/tree";
 import {
   Context,
   type StaticView,
@@ -78,7 +77,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   const staticViewKeys = useMemo(() => staticViews.map((v) => v.key), [staticViews]);
   const [selected, setSelected] = useState(staticViews[0].key);
   const hasUpdatePermission = Access.useUpdateGranted(view.ontologyID(selected));
-  const [editable, setEditable] = useState(hasUpdatePermission);
+  const [editable, setEditable] = useState(false);
   const getInitialView = useCallback(() => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
@@ -242,10 +241,10 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const views = getItem(keys);
   const filteredViews = views.filter((v) => v.static !== true);
-  const confirm = Tree.useConfirmDelete({
+  const confirm = Modals.useConfirmDelete({
     icon: "View",
-    type: caseconv.capitalize(plural(resourceType)),
-    description: "Deletion will permanently remove the view(s).",
+    type: caseconv.capitalize(resourceType),
+    description: "Deletion permanently removes the views.",
   });
   const { update: del } = PView.useDelete({
     beforeUpdate: useCallback(
@@ -297,7 +296,7 @@ const Item = ({ itemKey }: List.ItemProps<view.Key>): ReactElement | null => {
           id={List.itemNameID(itemKey)}
           value={name}
           allowDoubleClick={false}
-          color={7}
+          color={9}
           onChange={handleRename}
           className={CSS.BE("view", "view-item")}
         />

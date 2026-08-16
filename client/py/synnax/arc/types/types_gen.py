@@ -40,12 +40,14 @@ class Kind(IntEnum):
     function = 21
     sequence = 22
     stage = 23
+    var_ref = 24
 
 
 class ChanDirection(IntEnum):
     none = 0
     read = 1
     write = 2
+    read_write = 3
 
 
 class Channels(BaseModel):
@@ -61,7 +63,8 @@ class Channels(BaseModel):
 
 
 class Dimensions(BaseModel):
-    """Contains physical dimension exponents for dimensional analysis (SI base quantities).
+    """Contains physical dimension exponents for dimensional analysis (SI base
+    quantities).
 
     Attributes:
         length: Is the length dimension exponent (meters).
@@ -111,8 +114,8 @@ class FunctionProperties(BaseModel):
 
 
 class Type(FunctionProperties):
-    """Is a type in Arc's type system with optional element type for compounds,
-    physical units, and constraints.
+    """Is a type in Arc's type system with optional element type for compounds, physical
+    units, and constraints.
 
     Attributes:
         kind: Is the type category (primitive, compound, or meta-type).

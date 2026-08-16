@@ -27,7 +27,12 @@ var _ = Describe("Import Pass", func() {
 	var root *symbol.Symbol
 	BeforeEach(func() {
 		dynChannels := StaticResolver{
-			{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10},
+			{
+				Name: "ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   10,
+			},
 		}
 		timeModule := &symbol.Symbol{Name: "time", Kind: symbol.KindModule}
 		timeModule.AddChild(&symbol.Symbol{
@@ -42,16 +47,19 @@ var _ = Describe("Import Pass", func() {
 	})
 
 	Describe("collectImports", func() {
-		It("Should install a KindModuleAlias child on the root scope", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`import time`))
-			ctx := context.NewRoot(bCtx, prog, root)
-			analyzer.AnalyzeProgram(ctx)
-			alias := ctx.Scope.FindChild("time")
-			Expect(alias).ToNot(BeNil())
-			Expect(alias.Kind).To(Equal(symbol.KindModuleAlias))
-			Expect(alias.Target).ToNot(BeNil())
-			Expect(alias.Target.Name).To(Equal("time"))
-		})
+		It(
+			"Should install a KindModuleAlias child on the root scope",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`import time`))
+				ctx := context.NewRoot(bCtx, prog, root)
+				analyzer.AnalyzeProgram(ctx)
+				alias := ctx.Scope.FindChild("time")
+				Expect(alias).ToNot(BeNil())
+				Expect(alias.Kind).To(Equal(symbol.KindModuleAlias))
+				Expect(alias.Target).ToNot(BeNil())
+				Expect(alias.Target.Name).To(Equal("time"))
+			},
+		)
 
 		It("Should diagnose a duplicate import", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import ( time time )`))
@@ -65,15 +73,22 @@ var _ = Describe("Import Pass", func() {
 			prog := MustSucceed(parser.Parse(`import banana`))
 			ctx := context.NewRoot(bCtx, prog, root)
 			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.String()).To(ContainSubstring(`unknown module "banana"`))
+			Expect(
+				ctx.Diagnostics.String(),
+			).To(ContainSubstring(`unknown module "banana"`))
 		})
 
-		It("Should not double-report an unknown module as unused", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`import banana`))
-			ctx := context.NewRoot(bCtx, prog, root)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring(`imported module "banana" is unused`))
-		})
+		It(
+			"Should not double-report an unknown module as unused",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`import banana`))
+				ctx := context.NewRoot(bCtx, prog, root)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(
+					ctx.Diagnostics.String(),
+				).ToNot(ContainSubstring(`imported module "banana" is unused`))
+			},
+		)
 
 		It("Should accept an import with no entries", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import ()`))
@@ -82,12 +97,17 @@ var _ = Describe("Import Pass", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should leave Children empty when there are no imports or declarations", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`func f() {}`))
-			ctx := context.NewRoot(bCtx, prog, root)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Scope.FilterChildrenByKind(symbol.KindModuleAlias)).To(BeEmpty())
-		})
+		It(
+			"Should leave Children empty when there are no imports or declarations",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`func f() {}`))
+				ctx := context.NewRoot(bCtx, prog, root)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(
+					ctx.Scope.FilterChildrenByKind(symbol.KindModuleAlias),
+				).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("reportUnusedImports", func() {
@@ -98,7 +118,9 @@ var _ = Describe("Import Pass", func() {
 			`))
 			ctx := context.NewRoot(bCtx, prog, root)
 			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.String()).To(ContainSubstring(`imported module "time" is unused`))
+			Expect(
+				ctx.Diagnostics.String(),
+			).To(ContainSubstring(`imported module "time" is unused`))
 		})
 
 		It("Should not flag a used import", func(bCtx SpecContext) {

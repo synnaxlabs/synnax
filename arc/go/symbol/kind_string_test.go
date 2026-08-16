@@ -16,12 +16,17 @@ import (
 )
 
 var _ = Describe("Kind.String", func() {
-	DescribeTable("Should return the canonical name for each Kind",
+	DescribeTable(
+		"Should return the canonical name for each Kind",
 		func(kind symbol.Kind, expected string) {
 			Expect(kind.String()).To(Equal(expected))
 		},
 		Entry("KindVariable", symbol.KindVariable, "KindVariable"),
-		Entry("KindStatefulVariable", symbol.KindStatefulVariable, "KindStatefulVariable"),
+		Entry(
+			"KindStatefulVariable",
+			symbol.KindStatefulVariable,
+			"KindStatefulVariable",
+		),
 		Entry("KindChannel", symbol.KindChannel, "KindChannel"),
 		Entry("KindFunction", symbol.KindFunction, "KindFunction"),
 		Entry("KindBlock", symbol.KindBlock, "KindBlock"),
@@ -30,7 +35,6 @@ var _ = Describe("Kind.String", func() {
 		Entry("KindSequence", symbol.KindSequence, "KindSequence"),
 		Entry("KindStage", symbol.KindStage, "KindStage"),
 		Entry("KindConstant", symbol.KindConstant, "KindConstant"),
-		Entry("KindGlobalConstant", symbol.KindGlobalConstant, "KindGlobalConstant"),
 		Entry("KindLoop", symbol.KindLoop, "KindLoop"),
 		Entry("KindLoopVariable", symbol.KindLoopVariable, "KindLoopVariable"),
 		Entry("KindModule", symbol.KindModule, "KindModule"),

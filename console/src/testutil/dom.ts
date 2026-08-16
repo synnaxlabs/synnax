@@ -7,7 +7,46 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach } from "vitest";
+
+/**
+ * Adds the #root element index.html carries and the notification feed portals into,
+ * removing it after each test. Call it inside the describe block that needs it.
+ */
+export const installPortalRoot = (): void => {
+  beforeEach(() => {
+    const root = document.createElement("div");
+    root.id = "root";
+    document.body.appendChild(root);
+  });
+  afterEach(() => document.getElementById("root")?.remove());
+};
+
+/**
+ * Right-clicks the element with the given text and waits for the context menu to
+ * open. Retries with a fresh query: async flux resolutions (permissions, labels) can
+ * replace the target node between lookup and dispatch, detaching the first match.
+ */
+export const openContextMenu = async (text: string): Promise<void> => {
+  await waitFor(() => {
+    fireEvent.contextMenu(screen.getByText(text));
+    if (document.querySelector(".pluto-menu-context") == null)
+      throw new Error(`context menu did not open for ${text}`);
+  });
+};
+
+/**
+ * Clicks the element with the given text inside an awaited act. Content that suspends
+ * inside a synchronous act scope is discarded, so a click that mounts a suspending
+ * subtree (a modal, a tab) needs this instead of a bare fireEvent.
+ */
+export const clickAndSettle = async (text: string): Promise<void> => {
+  const el = await screen.findByText(text);
+  await act(async () => {
+    fireEvent.click(el);
+  });
+};
 
 /** Queries container for a rendered pluto icon by its name, or null. */
 export const queryIcon = (container: ParentNode, icon: string): Element | null =>
@@ -40,6 +79,21 @@ export const getIconButton = (
   if (button == null) throw new Error(`no button wrapping icon ${icon}`);
   return button;
 };
+
+/**
+ * Returns the pluto toggle button in container. Toggles carry no accessible name, and
+ * their icon is decoration that changes with the design, so the toggle class is the
+ * only stable handle.
+ */
+export const getToggleButton = (container: ParentNode): HTMLButtonElement => {
+  const button = container.querySelector<HTMLButtonElement>("button.pluto-btn-toggle");
+  if (button == null) throw new Error("no toggle button");
+  return button;
+};
+
+/** Reports whether a pluto toggle button is in its on state. */
+export const isToggled = (button: Element): boolean =>
+  button.classList.contains("pluto--selected");
 
 /**
  * Finds the text input whose pluto node placeholder (a rendered sibling element, not

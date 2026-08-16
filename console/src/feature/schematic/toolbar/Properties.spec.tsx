@@ -30,7 +30,7 @@ const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
 const createValveConfig = (): Record<string, unknown> =>
   PSchematic.Node.resolveSpec("valve").defaultConfig(theme);
 
-interface RenderPropertiesArgs {
+interface RenderPropertiesParams {
   nodeKeys: string[];
   sessionState?: Partial<Session.Schematic.State>;
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
@@ -42,12 +42,12 @@ const renderProperties = async ({
   sessionState,
   onStatuses = () => {},
   createConfig = createValveConfig,
-}: RenderPropertiesArgs) => {
+}: RenderPropertiesParams) => {
   const configs: Record<string, unknown> = {};
   nodeKeys.forEach((key) => (configs[key] = createConfig()));
-  const Harness = ({ layoutKey }: { layoutKey: string }): ReactElement => (
+  const Harness = (): ReactElement => (
     <>
-      <Schematic.Toolbar layoutKey={layoutKey} />
+      <Schematic.Toolbar />
       <CaptureStatuses onStatuses={onStatuses} />
     </>
   );
@@ -69,7 +69,7 @@ const retrieveConfig = async (
   key: string,
   nodeKey: string,
 ): Promise<Record<string, unknown>> => {
-  const retrieved = await client.schematics.retrieve({ key });
+  const retrieved = await client.schematics.retrieve(key);
   return retrieved.configs[nodeKey];
 };
 
@@ -117,7 +117,7 @@ describe("Schematic toolbar Properties", () => {
         ),
       ).toBeDefined();
       expect(screen.getByText("Or create a new symbol in:")).toBeDefined();
-      expect(isPlutoDisabled(findButton("Create New Symbol"))).toBe(true);
+      expect(isPlutoDisabled(findButton("Create symbol"))).toBe(true);
     });
   });
 

@@ -21,7 +21,7 @@ export const Symbol = ({
   onConfigChange,
   selected,
   config,
-}: NodeProps<schematic.NodeConfigPolygon>): ReactElement => {
+}: NodeProps<schematic.PolygonNodeConfig>): ReactElement => {
   const { label, orientation = "left", ...rest } = config;
   return (
     <Grid.Grid

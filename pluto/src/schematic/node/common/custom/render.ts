@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { deep, dimensions, direction, type location } from "@synnaxlabs/x";
+import { color, deep, dimensions, direction, type location } from "@synnaxlabs/x";
 import { type RefCallback, useCallback, useRef } from "react";
 
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
@@ -59,13 +59,13 @@ const applyState = (
 
     const { strokeColor, fillColor } = region;
 
-    if (strokeColor != null) el.setAttribute("stroke", strokeColor);
+    if (strokeColor != null) el.setAttribute("stroke", color.hex(strokeColor));
     else {
       const originalStroke = el.getAttribute(ORIGINAL_STROKE_ATTRIBUTE);
       if (originalStroke != null) el.setAttribute("stroke", originalStroke);
     }
 
-    if (fillColor != null) el.setAttribute("fill", fillColor);
+    if (fillColor != null) el.setAttribute("fill", color.hex(fillColor));
     else {
       const originalFill = el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
       if (originalFill != null) el.setAttribute("fill", originalFill);
@@ -73,7 +73,7 @@ const applyState = (
   });
 };
 
-export interface UseRenderArgs {
+export interface UseRenderParams {
   orientation: location.Outer;
   activeState: string;
   externalScale: number;
@@ -182,9 +182,13 @@ const applyScaleStroke = (state: RenderState, scaleStroke: boolean) => {
   else pathElements.forEach((el) => el.removeAttribute("vector-effect"));
 };
 
-const runRender = (container: HTMLElement, args: UseRenderArgs, state: RenderState) => {
+const runRender = (
+  container: HTMLElement,
+  params: UseRenderParams,
+  state: RenderState,
+) => {
   const { orientation, activeState, externalScale, spec, onMount, stateOverrides } =
-    args;
+    params;
   if (spec == null || spec.svg.length === 0) return;
 
   // useRender has two callers with opposite mutation models: the schematic node
@@ -245,15 +249,15 @@ const runRender = (container: HTMLElement, args: UseRenderArgs, state: RenderSta
 /// container element attaches, the SVG is built and inserted; when it detaches, the
 /// SVG is removed and internal diff state is cleared so the next attach re-creates
 /// the SVG cleanly (including after a Missing→Resolved→Missing→Resolved cycle and
-/// under StrictMode's simulated remount). Subsequent args changes against an
+/// under StrictMode's simulated remount). Subsequent params changes against an
 /// already-attached container are picked up via a render-phase pass.
-export const useRender = (args: UseRenderArgs): RefCallback<HTMLElement> => {
+export const useRender = (params: UseRenderParams): RefCallback<HTMLElement> => {
   const containerRef = useRef<HTMLElement | null>(null);
-  const argsRef = useSyncedRef(args);
+  const paramsRef = useSyncedRef(params);
   const stateRef = useInitializerRef<RenderState>(createRenderState);
 
   if (containerRef.current != null)
-    runRender(containerRef.current, args, stateRef.current);
+    runRender(containerRef.current, params, stateRef.current);
 
   return useCallback<RefCallback<HTMLElement>>((el) => {
     if (el == null) {
@@ -264,6 +268,6 @@ export const useRender = (args: UseRenderArgs): RefCallback<HTMLElement> => {
       return;
     }
     containerRef.current = el;
-    runRender(el, argsRef.current, stateRef.current);
+    runRender(el, paramsRef.current, stateRef.current);
   }, []);
 };

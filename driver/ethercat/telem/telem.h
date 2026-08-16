@@ -15,7 +15,7 @@
 #include <sstream>
 #include <string>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"

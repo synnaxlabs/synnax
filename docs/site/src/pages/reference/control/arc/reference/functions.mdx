@@ -11,6 +11,7 @@ nextURL: "/reference/control/arc/reference/statements"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -46,9 +47,9 @@ func add(x f64, y f64) f64 {
 
 A function with no return value:
 
-```arc
+```arc channels="debug_channel"
 func log_value(value f64) {
-    debug_channel = value
+    debug_channel = str(value)
 }
 ```
 
@@ -73,7 +74,7 @@ Here `threshold` is set in the braces and `value` is the trigger.
 
 Input parameters can be literals or channel references:
 
-```arc
+```arc channels="temp, cmd, setpoint_input, value"
 func controller{
     setpoint f64,      // literal or channel
     sensor chan f64,   // channel reference
@@ -85,8 +86,10 @@ func controller{
     }
     return value
 }
+
 // Static setpoint
 sensor -> controller{setpoint=100.0, sensor=temp, output=cmd}
+
 // Setpoint driven by a channel
 sensor -> controller{setpoint=setpoint_input, sensor=temp, output=cmd}
 ```
@@ -135,7 +138,7 @@ routed to its own destination at the call site. Use
 [routing tables](/reference/control/arc/reference/flow#output-routing) to connect
 multiple outputs:
 
-```arc
+```arc channels="sensor"
 func split(value f64) (high f64, low f64) {
     if value > 50.0 {
         high = value
@@ -154,29 +157,34 @@ sensor -> split{} -> {
 
 ## Calling Functions
 
-Arc has two calling conventions depending on context.
+Arc has two calling conventions depending on context: parentheses inside function
+bodies, and braces to instantiate a function in a flow statement.
 
-### In Function Bodies
+<Arc.Tabs client:load>
 
-Inside function bodies, call functions with parentheses:
+<Fragment slot="flow">
 
-```arc
-func outer(x f64) f64 {
-    y := inner(x) // function call
-    z := clamp(y, 0.0, 100.0)
-    return z
+```arc channels="sensor, output"
+stage main {
+    // sensor value feeds the trigger
+    sensor -> filter{threshold=50.0} -> output
 }
 ```
 
-### In Flows
+</Fragment>
 
-In flow statements, instantiate functions with braces:
+<Fragment slot="function">
 
 ```arc
-sensor -> filter{threshold=50.0} -> output
+func outer(x f64) f64 {
+    y := inner(x, 0.0, 100.0) // function call
+    return y
+}
 ```
 
-The incoming sensor value feeds the function's trigger.
+</Fragment>
+
+</Arc.Tabs>
 
 <Divider.Divider x />
 
@@ -194,11 +202,9 @@ func counter() i64 {
 
 Each function instantiation has its own state:
 
-```arc
+```arc channels="count1, count2"
 // Two separate counters with independent state
-time.interval {
-    100ms
-} -> counter{} -> count1
+time.interval{100ms} -> counter{} -> count1
 time.interval{200ms} -> counter{} -> count2
 ```
 
@@ -208,7 +214,7 @@ time.interval{200ms} -> counter{} -> count2
 
 Functions can read from and write to channels:
 
-```arc
+```arc channels="value"
 func controller{input chan f64, output chan f64, threshold f64} () {
     value := input // read (non-blocking)
     if value > threshold {
@@ -219,7 +225,7 @@ func controller{input chan f64, output chan f64, threshold f64} () {
 
 Functions can also reference global channels by name:
 
-```arc
+```arc channels="ox_pt_1, alarm_status"
 func monitor() {
     if ox_pt_1 > 500 {
         alarm_status = 1
@@ -239,7 +245,7 @@ func monitor() {
 Use [routing tables](/reference/control/arc/reference/flow#input-routing) to map
 multiple sources to input parameters:
 
-```arc
+```arc channels="sensor1, sensor2, avg_output"
 func average(a f64, b f64) f64 {
     return (a + b) / 2.0
 }

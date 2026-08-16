@@ -9,15 +9,26 @@
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
 
+import { Granted } from "@/access/granted";
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
+import { type ontology } from "@/ontology";
+import { type query } from "@/query";
+
+export interface ClientConfig {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
 
 export class Client {
   readonly policies: policy.Client;
   readonly roles: role.Client;
+  readonly granted: Granted;
 
-  constructor(client: UnaryClient) {
-    this.policies = new policy.Client(client);
-    this.roles = new role.Client(client);
+  constructor(cfg: ClientConfig) {
+    this.policies = new policy.Client(cfg);
+    this.roles = new role.Client(cfg);
+    this.granted = new Granted({ policies: this.policies });
   }
 }

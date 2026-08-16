@@ -16,18 +16,18 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import { Switch } from "@/schematic/node/general/switch/Primitive";
 import { type Spec } from "@/schematic/node/spec";
 
-export const defaultConfig = (): schematic.NodeConfigSwitch => ({
+export const defaultConfig = (): schematic.SwitchNodeConfig => ({
   variant: "switch",
   label: Label.defaultConfig("Switch"),
   ...Primitive.ZERO_PROPS,
   ...Toggle.ZERO_TOGGLE_DEFAULTS,
 });
 
-export const spec: Spec<"switch", schematic.NodeConfigSwitch> = {
+export const spec: Spec<"switch", schematic.SwitchNodeConfig> = {
   key: "switch",
   name: "Switch",
   Form: () => <Form.ToggleForm hideInnerOrientation omit={["onClickDelay"]} />,
-  Node: Toggle.createToggle<schematic.NodeConfigSwitch>(Switch),
+  Node: Toggle.createToggle<schematic.SwitchNodeConfig>(Switch),
   Preview: Switch,
   defaultConfig,
   zIndex: 4,

@@ -15,6 +15,9 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/channels/state.h"
+#include "arc/cpp/stl/series/state.h"
+#include "arc/cpp/stl/stateful/state.h"
+#include "arc/cpp/stl/strings/state.h"
 
 namespace arc::runtime::state {
 
@@ -980,6 +983,674 @@ TEST(StateTest, ResolveInput_ByNameAndMissing) {
     const auto idx_b = ASSERT_NIL_P(consumer.resolve_input("b"));
     EXPECT_EQ(idx_b, 1u);
     ASSERT_OCCURRED_AS_P(consumer.resolve_input("missing"), x::errors::NOT_FOUND);
+}
+
+/// @brief builds a value param with the given name, kind, and configured value.
+types::Param
+value_param(std::string name, const types::Kind kind, x::json::json value = nullptr) {
+    types::Param p;
+    p.name = std::move(name);
+    p.type = types::Type{.kind = kind};
+    p.value = std::move(value);
+    return p;
+}
+
+/// @brief builds a channel-typed reference param over elem.
+types::Param
+chan_param(std::string name, const types::Kind elem, x::json::json value = nullptr) {
+    types::Param p;
+    p.name = std::move(name);
+    p.type = types::Type{
+        .kind = types::Kind::Chan,
+        .elem = x::mem::indirect<types::Type>(types::Type{.kind = elem})
+    };
+    p.value = std::move(value);
+    return p;
+}
+
+/// @brief builds a param bound to variable node var, carrying its declared initial.
+types::Param var_param(
+    std::string name,
+    const types::Kind elem,
+    const std::string &var,
+    x::json::json initial
+) {
+    types::Param p;
+    p.name = std::move(name);
+    p.type = types::Type{
+        .kind = types::Kind::VarRef,
+        .name = var,
+        .elem = x::mem::indirect<types::Type>(types::Type{.kind = elem})
+    };
+    p.value = std::move(initial);
+    return p;
+}
+
+/// @brief builds an IR node with the given key, type, inputs, and outputs.
+ir::Node make_node(
+    std::string key,
+    std::string type,
+    const std::vector<types::Param> &inputs = {},
+    const std::vector<types::Param> &outputs = {}
+) {
+    ir::Node n;
+    n.key = std::move(key);
+    n.type = std::move(type);
+    for (const auto &p: inputs)
+        n.inputs.push_back(p);
+    for (const auto &p: outputs)
+        n.outputs.push_back(p);
+    return n;
+}
+
+/// @brief writes value as the node's sole output sample, timestamped at seconds.
+template<typename T>
+void emit(const Node &n, const T value, const int64_t seconds) {
+    *n.output(0) = x::telem::Series(std::vector<T>{value});
+    *n.output_time(0) = x::telem::Series(
+        x::telem::TimeStamp(seconds * x::telem::SECOND)
+    );
+}
+
+/// @brief new_linked_state builds src (i32 output) -> dst (i32 input) and returns the
+/// state.
+std::shared_ptr<State> new_linked_state() {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "src",
+        "src",
+        {},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "dst",
+        "dst",
+        {value_param(ir::default_input_param, types::Kind::I32)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("src", ir::default_output_param),
+        ir::Handle("dst", ir::default_input_param)
+    );
+    return std::make_shared<State>(Config{.ir = prog});
+}
+
+/// @brief new_pair_state builds a and b (i32 outputs) -> target (two i32 inputs).
+std::shared_ptr<State> new_pair_state() {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "a",
+        "a",
+        {},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "b",
+        "b",
+        {},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "target",
+        "target",
+        {value_param(ir::lhs_input_param, types::Kind::I32),
+         value_param(ir::rhs_input_param, types::Kind::I32)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("a", ir::default_output_param),
+        ir::Handle("target", ir::lhs_input_param)
+    );
+    prog.edges.emplace_back(
+        ir::Handle("b", ir::default_output_param),
+        ir::Handle("target", ir::rhs_input_param)
+    );
+    return std::make_shared<State>(Config{.ir = prog});
+}
+
+/// @brief new_ref_state builds reader with a chan-typed reference input edge-fed from
+/// reg's chan-typed output.
+std::shared_ptr<State> new_ref_state() {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "reg",
+        "reg",
+        {},
+        {chan_param(ir::default_output_param, types::Kind::F32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "reader",
+        "reader",
+        {chan_param("channel", types::Kind::F32),
+         value_param("data", types::Kind::F32, 0.0f)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("reg", ir::default_output_param),
+        ir::Handle("reader", "channel")
+    );
+    return std::make_shared<State>(Config{.ir = prog});
+}
+
+/// @brief reset() should not re-arm a consumed variable register read.
+TEST(StateTest, Reset_DoesNotRearmAConsumedVariableRegisterRead) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "v",
+        "variable",
+        {},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "reader",
+        "dst",
+        {value_param(ir::default_input_param, types::Kind::I32)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("v", ir::default_output_param),
+        ir::Handle("reader", ir::default_input_param)
+    );
+    State s(Config{.ir = prog});
+    const auto v = ASSERT_NIL_P(s.node("v"));
+    auto reader = ASSERT_NIL_P(s.node("reader"));
+    emit<int32_t>(v, 1, 10);
+    ASSERT_TRUE(reader.refresh_inputs());
+    reader.reset();
+    ASSERT_FALSE(reader.refresh_inputs());
+    emit<int32_t>(v, 2, 20);
+    ASSERT_TRUE(reader.refresh_inputs());
+}
+
+/// @brief reset() should re-arm a self-write feeder only on Reset.
+TEST(StateTest, Reset_RearmsASelfWriteFeederOnlyOnReset) {
+    // A reader writing back into its source variable is a cycle the analyzer
+    // rejects, so build the IR directly.
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "v",
+        "variable",
+        {value_param(ir::default_input_param, types::Kind::I32)},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "reader",
+        "f",
+        {value_param(ir::default_input_param, types::Kind::I32)},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("v", ir::default_output_param),
+        ir::Handle("reader", ir::default_input_param)
+    );
+    prog.edges.emplace_back(
+        ir::Handle("reader", ir::default_output_param),
+        ir::Handle("v", ir::default_input_param)
+    );
+    State s(Config{.ir = prog});
+    const auto v = ASSERT_NIL_P(s.node("v"));
+    auto reader = ASSERT_NIL_P(s.node("reader"));
+    emit<int32_t>(v, 1, 10);
+    ASSERT_TRUE(reader.refresh_inputs());
+    emit<int32_t>(v, 2, 20);
+    ASSERT_FALSE(reader.refresh_inputs());
+    reader.reset();
+    ASSERT_TRUE(reader.refresh_inputs());
+}
+
+/// @brief reset() should absorb a derived variable's pending data so only later
+/// values fire.
+TEST(StateTest, Reset_AbsorbsADerivedVariablesPendingData) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "feeder",
+        "feeder",
+        {},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "v",
+        "variable",
+        {value_param(ir::default_input_param, types::Kind::I32)},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "reader",
+        "dst",
+        {value_param(ir::default_input_param, types::Kind::I32)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("feeder", ir::default_output_param),
+        ir::Handle("v", ir::default_input_param)
+    );
+    prog.edges.emplace_back(
+        ir::Handle("v", ir::default_output_param),
+        ir::Handle("reader", ir::default_input_param)
+    );
+    State s(Config{.ir = prog});
+    const auto v = ASSERT_NIL_P(s.node("v"));
+    auto reader = ASSERT_NIL_P(s.node("reader"));
+    emit<int32_t>(v, 1, 10);
+    reader.reset();
+    ASSERT_FALSE(reader.refresh_inputs());
+    emit<int32_t>(v, 2, 20);
+    ASSERT_TRUE(reader.refresh_inputs());
+}
+
+/// @brief State construction should initialize output storage with the declared data
+/// types.
+TEST(StateTest, New_InitializesOutputStorageWithTheDeclaredDataTypes) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    EXPECT_EQ(src.output(0)->data_type(), x::telem::INT32_T);
+    EXPECT_EQ(src.output(0)->size(), 0u);
+    EXPECT_EQ(src.output_time(0)->data_type(), x::telem::TIMESTAMP_T);
+}
+
+/// @brief input and input_time should expose the aligned data and time after a
+/// refresh.
+TEST(StateTest, Input_ExposesTheAlignedDataAndTimeAfterARefresh) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 3, 10);
+    ASSERT_TRUE(dst.refresh_inputs());
+    EXPECT_EQ(dst.input(0)->at<int32_t>(0), 3);
+    EXPECT_EQ(
+        dst.input_time(0)->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(10 * x::telem::SECOND)
+    );
+}
+
+/// @brief init_input should ignore an out-of-range index.
+TEST(StateTest, InitInput_IgnoresAnOutOfRangeIndex) {
+    const auto s = new_linked_state();
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    EXPECT_NO_THROW(dst.init_input(
+        9,
+        x::mem::make_local_shared<x::telem::Series>(static_cast<int32_t>(7)),
+        x::mem::make_local_shared<x::telem::Series>(
+            x::telem::TimeStamp(5 * x::telem::SECOND)
+        )
+    ));
+}
+
+/// @brief ref_sourced should report an edge-fed reference input as sourced.
+TEST(RefInputTest, ReportsAnEdgeFedReferenceInputAsSourced) {
+    const auto s = new_ref_state();
+    const auto reader = ASSERT_NIL_P(s->node("reader"));
+    EXPECT_TRUE(reader.ref_sourced(0));
+}
+
+/// @brief ref_input should return the source series for an edge-fed reference input.
+TEST(RefInputTest, ReturnsTheSourceSeriesForAnEdgeFedReferenceInput) {
+    const auto s = new_ref_state();
+    const auto reg = ASSERT_NIL_P(s->node("reg"));
+    const auto reader = ASSERT_NIL_P(s->node("reader"));
+    *reg.output(0) = x::telem::Series(std::vector<uint32_t>{7});
+    EXPECT_EQ(reader.ref_input(0)->at<uint32_t>(0), 7u);
+}
+
+/// @brief ref_sourced should report an unedged reference input as unsourced.
+TEST(RefInputTest, ReportsAnUnedgedReferenceInputAsUnsourced) {
+    ir::IR prog;
+    prog.nodes.push_back(
+        make_node("reader", "reader", {chan_param("channel", types::Kind::F32)})
+    );
+    State s(Config{.ir = prog});
+    const auto reader = ASSERT_NIL_P(s.node("reader"));
+    EXPECT_FALSE(reader.ref_sourced(0));
+    EXPECT_TRUE(reader.ref_input(0) == nullptr);
+}
+
+/// @brief ref_sourced and ref_input should report false for data inputs and
+/// out-of-range indexes.
+TEST(RefInputTest, ReportsFalseForDataInputsAndOutOfRangeIndexes) {
+    const auto s = new_ref_state();
+    const auto reader = ASSERT_NIL_P(s->node("reader"));
+    EXPECT_FALSE(reader.ref_sourced(1));
+    EXPECT_FALSE(reader.ref_sourced(static_cast<size_t>(-1)));
+    EXPECT_FALSE(reader.ref_sourced(9));
+    EXPECT_TRUE(reader.ref_input(1) == nullptr);
+    EXPECT_TRUE(reader.ref_input(9) == nullptr);
+}
+
+/// @brief absorb_inputs should mark inputs consumed at the current source timestamp.
+TEST(AbsorbInputsTest, MarksInputsConsumedAtTheCurrentSourceTimestamp) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 1, 10);
+    dst.absorb_inputs();
+    ASSERT_FALSE(dst.refresh_inputs());
+    emit<int32_t>(src, 2, 20);
+    ASSERT_TRUE(dst.refresh_inputs());
+    EXPECT_EQ(dst.input(0)->at<int32_t>(0), 2);
+}
+
+/// @brief absorb_inputs should still fire for data arriving after an empty absorb.
+TEST(AbsorbInputsTest, StillFiresForDataArrivingAfterAnEmptyAbsorb) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    dst.absorb_inputs();
+    emit<int32_t>(src, 1, 10);
+    ASSERT_TRUE(dst.refresh_inputs());
+}
+
+/// @brief absorb_inputs should mark every data input consumed.
+TEST(AbsorbInputsTest, MarksEveryDataInputConsumed) {
+    const auto s = new_pair_state();
+    const auto a = ASSERT_NIL_P(s->node("a"));
+    const auto b = ASSERT_NIL_P(s->node("b"));
+    auto target = ASSERT_NIL_P(s->node("target"));
+    emit<int32_t>(a, 1, 10);
+    emit<int32_t>(b, 2, 20);
+    target.absorb_inputs();
+    ASSERT_FALSE(target.refresh_inputs());
+    emit<int32_t>(a, 3, 30);
+    ASSERT_TRUE(target.refresh_inputs());
+}
+
+/// @brief consume_input should return unconsumed data and mark it consumed.
+TEST(ConsumeInputTest, ReturnsUnconsumedDataAndMarksItConsumed) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 1, 10);
+    const auto [first, first_ok] = dst.consume_input(0);
+    ASSERT_TRUE(first_ok);
+    EXPECT_EQ(first->at<int32_t>(0), 1);
+    EXPECT_FALSE(dst.consume_input(0).second);
+    emit<int32_t>(src, 2, 20);
+    const auto [second, second_ok] = dst.consume_input(0);
+    ASSERT_TRUE(second_ok);
+    EXPECT_EQ(second->at<int32_t>(0), 2);
+}
+
+/// @brief consume_input should leave nothing for refresh_inputs after consuming.
+TEST(ConsumeInputTest, LeavesNothingForRefreshInputsAfterConsuming) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 1, 10);
+    const auto [data, ok] = dst.consume_input(0);
+    ASSERT_TRUE(ok);
+    EXPECT_EQ(data->at<int32_t>(0), 1);
+    ASSERT_FALSE(dst.refresh_inputs());
+}
+
+/// @brief consume_input should return false when the input has no data.
+TEST(ConsumeInputTest, ReturnsFalseWhenTheInputHasNoData) {
+    const auto s = new_linked_state();
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    EXPECT_FALSE(dst.consume_input(0).second);
+}
+
+/// @brief consume_input should return false for an out-of-range index.
+TEST(ConsumeInputTest, ReturnsFalseForAnOutOfRangeIndex) {
+    const auto s = new_linked_state();
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    EXPECT_FALSE(dst.consume_input(static_cast<size_t>(-1)).second);
+    EXPECT_FALSE(dst.consume_input(9).second);
+}
+
+/// @brief consume_input should return false for a reference input.
+TEST(ConsumeInputTest, ReturnsFalseForAReferenceInput) {
+    const auto s = new_ref_state();
+    const auto reg = ASSERT_NIL_P(s->node("reg"));
+    auto reader = ASSERT_NIL_P(s->node("reader"));
+    *reg.output(0) = x::telem::Series(std::vector<uint32_t>{7});
+    EXPECT_FALSE(reader.consume_input(0).second);
+}
+
+/// @brief last_changed should return the most recently changed input and consume it.
+TEST(LastChangedTest, ReturnsTheMostRecentlyChangedInputAndConsumesIt) {
+    const auto s = new_pair_state();
+    const auto a = ASSERT_NIL_P(s->node("a"));
+    const auto b = ASSERT_NIL_P(s->node("b"));
+    auto target = ASSERT_NIL_P(s->node("target"));
+    emit<int32_t>(a, 1, 10);
+    emit<int32_t>(b, 2, 20);
+    const auto [newest, newest_ok] = target.last_changed();
+    ASSERT_TRUE(newest_ok);
+    EXPECT_EQ(newest->at<int32_t>(0), 2);
+    const auto [older, older_ok] = target.last_changed();
+    ASSERT_TRUE(older_ok);
+    EXPECT_EQ(older->at<int32_t>(0), 1);
+    EXPECT_FALSE(target.last_changed().second);
+}
+
+/// @brief last_changed should return false when no input has data.
+TEST(LastChangedTest, ReturnsFalseWhenNoInputHasData) {
+    const auto s = new_pair_state();
+    auto target = ASSERT_NIL_P(s->node("target"));
+    EXPECT_FALSE(target.last_changed().second);
+}
+
+/// @brief last_changed should skip reference inputs.
+TEST(LastChangedTest, SkipsReferenceInputs) {
+    const auto s = new_ref_state();
+    const auto reg = ASSERT_NIL_P(s->node("reg"));
+    auto reader = ASSERT_NIL_P(s->node("reader"));
+    *reg.output(0) = x::telem::Series(std::vector<uint32_t>{7});
+    *reg.output_time(0) = x::telem::Series(x::telem::TimeStamp(10 * x::telem::SECOND));
+    // Only the defaulted data input is eligible; the reference never is.
+    const auto [defaulted, ok] = reader.last_changed();
+    ASSERT_TRUE(ok);
+    EXPECT_EQ(defaulted->at<float>(0), 0.0f);
+    EXPECT_FALSE(reader.last_changed().second);
+}
+
+/// @brief new_string_input_state wires consumer c with a var-bound "tag" (variable
+/// node v) and a literal "plain".
+std::shared_ptr<State> new_string_input_state() {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "v",
+        "variable",
+        {},
+        {value_param(ir::default_output_param, types::Kind::String)}
+    ));
+    prog.nodes.push_back(make_node(
+        "c",
+        "consumer",
+        {var_param("tag", types::Kind::String, "v", "init"),
+         value_param("plain", types::Kind::String, "cfg")}
+    ));
+    return std::make_shared<State>(Config{.ir = prog});
+}
+
+/// @brief string_input should return the referenced variable's latest value.
+TEST(StringInputTest, ReturnsTheReferencedVariablesLatestValue) {
+    const auto s = new_string_input_state();
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<std::string>{"first", "live"});
+    EXPECT_EQ(c.string_input("tag"), "live");
+}
+
+/// @brief string_input should read the declared initial before any write.
+TEST(StringInputTest, ReadsTheDeclaredInitialBeforeAnyWrite) {
+    const auto s = new_string_input_state();
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    EXPECT_EQ(c.string_input("tag"), "init");
+}
+
+/// @brief string_input should return a literal param's configured value.
+TEST(StringInputTest, ReturnsALiteralParamsConfiguredValue) {
+    const auto s = new_string_input_state();
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    EXPECT_EQ(c.string_input("plain"), "cfg");
+}
+
+/// @brief string_input should return empty for an unknown input.
+TEST(StringInputTest, ReturnsEmptyForAnUnknownInput) {
+    const auto s = new_string_input_state();
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    EXPECT_TRUE(c.string_input("nope").empty());
+}
+
+/// @brief new_numeric_input_state wires consumer c with a var-bound "gain" (variable
+/// node v) and a literal "offset".
+std::shared_ptr<State> new_numeric_input_state() {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "v",
+        "variable",
+        {},
+        {value_param(ir::default_output_param, types::Kind::U8)}
+    ));
+    prog.nodes.push_back(make_node(
+        "c",
+        "consumer",
+        {var_param("gain", types::Kind::U8, "v", 5),
+         value_param("offset", types::Kind::U8, 9)}
+    ));
+    return std::make_shared<State>(Config{.ir = prog});
+}
+
+/// @brief numeric_input should return the referenced variable's latest value.
+TEST(NumericInputTest, ReturnsTheReferencedVariablesLatestValue) {
+    const auto s = new_numeric_input_state();
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<uint8_t>{3, 7});
+    EXPECT_EQ(c.numeric_input<uint8_t>("gain"), 7);
+}
+
+/// @brief numeric_input should read the declared initial before any write.
+TEST(NumericInputTest, ReadsTheDeclaredInitialBeforeAnyWrite) {
+    const auto s = new_numeric_input_state();
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    EXPECT_EQ(c.numeric_input<uint8_t>("gain"), 5);
+}
+
+/// @brief numeric_input should return a literal param's configured value.
+TEST(NumericInputTest, ReturnsALiteralParamsConfiguredValue) {
+    const auto s = new_numeric_input_state();
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    EXPECT_EQ(c.numeric_input<uint8_t>("offset"), 9);
+}
+
+/// @brief numeric_input should return zero for an unknown input.
+TEST(NumericInputTest, ReturnsZeroForAnUnknownInput) {
+    const auto s = new_numeric_input_state();
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    EXPECT_EQ(c.numeric_input<uint8_t>("nope"), 0);
+}
+
+/// @brief refresh_inputs should gate a value-fed node on an edge into an undeclared
+/// param.
+TEST(GatingTest, GatesAValueFedNodeOnAnEdgeIntoAnUndeclaredParam) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "trigger",
+        "trigger",
+        {},
+        {value_param(ir::default_output_param, types::Kind::U8)}
+    ));
+    prog.nodes.push_back(make_node(
+        "target",
+        "target",
+        {value_param("value", types::Kind::I64, 5)},
+        {value_param(ir::default_output_param, types::Kind::I64)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("trigger", ir::default_output_param),
+        ir::Handle("target", ir::default_input_param)
+    );
+    State s(Config{.ir = prog});
+    auto target = ASSERT_NIL_P(s.node("target"));
+    ASSERT_FALSE(target.refresh_inputs())
+        << "the gate has no data yet, so the node must not fire";
+    const auto trigger = ASSERT_NIL_P(s.node("trigger"));
+    emit<uint8_t>(trigger, 1, 100);
+    ASSERT_TRUE(target.refresh_inputs());
+    ASSERT_FALSE(target.refresh_inputs());
+}
+
+/// @brief absorb_inputs should skip reference and unsourced inputs when absorbing.
+TEST(GatingTest, SkipsReferenceAndUnsourcedInputsWhenAbsorbing) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "bind",
+        "variable",
+        {value_param("f0", types::Kind::U32, 7)},
+        {chan_param(ir::default_output_param, types::Kind::F32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "reader",
+        "on",
+        {chan_param("channel", types::Kind::F32, 7)},
+        {value_param(ir::default_output_param, types::Kind::F32)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("bind", ir::default_output_param),
+        ir::Handle("reader", "channel")
+    );
+    prog.edges.emplace_back(
+        ir::Handle("ghost", ir::default_output_param),
+        ir::Handle("reader", "gate")
+    );
+    State s(Config{.ir = prog});
+    const auto bind = ASSERT_NIL_P(s.node("bind"));
+    auto reader = ASSERT_NIL_P(s.node("reader"));
+    *bind.output(0) = x::telem::Series(std::vector<uint32_t>{9});
+    reader.absorb_inputs();
+    EXPECT_TRUE(reader.ref_sourced(0));
+    EXPECT_EQ(reader.ref_input(0)->at<uint32_t>(-1), 9u);
+}
+
+/// @brief Builds a State over the given stateful variable store so tests can
+/// observe what State's node-scoped operations do to it.
+State create_state_with_vars(const std::shared_ptr<stl::stateful::Variables> &vars) {
+    arc::ir::Node ir_node;
+    ir_node.key = "test";
+    ir_node.type = "test";
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+
+    const Config cfg{.ir = ir, .channels = {}};
+    return State(
+        cfg,
+        std::make_shared<stl::channels::State>(),
+        std::make_shared<stl::strings::State>(),
+        std::make_shared<stl::series::State>(),
+        vars,
+        arc::runtime::errors::noop_handler
+    );
+}
+
+TEST(StateTest, ClearNodeDiscardsStatefulVariablesForThatNode) {
+    auto vars = std::make_shared<stl::stateful::Variables>();
+    State s = create_state_with_vars(vars);
+
+    vars->set_current_node_key("node_a");
+    vars->store_i32(0, 100);
+    vars->set_current_node_key("node_b");
+    vars->store_i32(0, 200);
+
+    s.clear_node("node_a");
+
+    vars->set_current_node_key("node_a");
+    EXPECT_EQ(vars->load_i32(0, 0), 0);
+    vars->set_current_node_key("node_b");
+    EXPECT_EQ(vars->load_i32(0, 0), 200);
+}
+
+TEST(StateTest, NodeClearNodeDiscardsStatefulVariablesForThatNode) {
+    auto vars = std::make_shared<stl::stateful::Variables>();
+    State s = create_state_with_vars(vars);
+    auto node = ASSERT_NIL_P(s.node("test"));
+
+    vars->set_current_node_key("test");
+    vars->store_f64(0, 3.5);
+    EXPECT_DOUBLE_EQ(vars->load_f64(0, 0.0), 3.5);
+
+    node.clear_node("test");
+    EXPECT_DOUBLE_EQ(vars->load_f64(0, 9.5), 9.5);
 }
 
 }

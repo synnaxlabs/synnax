@@ -27,16 +27,14 @@ export const Symbol = ({
     orientation = "left",
     control,
     units,
-    stateChannel,
     commandChannel,
     color,
     size,
     disabled,
   },
-}: NodeProps<schematic.NodeConfigSetpoint>): ReactElement => {
-  const source = useMemo(() => CommonTelem.numberSource(stateChannel), [stateChannel]);
+}: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
   const sink = useMemo(() => CommonTelem.numberSink(commandChannel), [commandChannel]);
-  const { value, set } = BaseSetpoint.use({ aetherKey: nodeKey, source, sink });
+  const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
       <Control.State
@@ -46,7 +44,6 @@ export const Symbol = ({
       />
       <Label.Label config={label} onChange={onConfigChange} />
       <Setpoint
-        value={value}
         onChange={set}
         units={units}
         color={color}

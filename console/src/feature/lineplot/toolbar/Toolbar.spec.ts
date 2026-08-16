@@ -24,7 +24,7 @@ const renderToolbar = async (name = uniqueName("plot")) => ({
   name,
   ...(await renderLinePlot(LinePlot.Toolbar, {
     linePlot: { name },
-    preloadedState: (key) => createPreloadedState(key, name),
+    preloadedState: (key) => createPreloadedState(key),
   })),
 });
 
@@ -57,18 +57,15 @@ describe("lineplot/toolbar/Toolbar", () => {
   });
 
   it("renames the plot from the properties tab", async () => {
-    const { key, store } = await renderToolbar();
+    const { key, name } = await renderToolbar();
     fireEvent.click(await screen.findByText("Properties"));
     await screen.findByText("Show Title");
     const newName = uniqueName("renamed");
-    const input = screen.getByDisplayValue(
-      Session.Layout.select(store.getState(), key)?.name ?? "",
-    );
+    const input = await waitFor(() => screen.getByDisplayValue(name));
     fireEvent.change(input, { target: { value: newName } });
-    expect(Session.Layout.select(store.getState(), key)?.name).toBe(newName);
     expect(await screen.findByText(newName)).toBeDefined();
     await waitFor(async () => {
-      const remote = await client.lineplots.retrieve({ key });
+      const remote = await client.lineplots.retrieve(key);
       expect(remote.name).toBe(newName);
     });
   });
@@ -81,7 +78,7 @@ describe("lineplot/toolbar/Toolbar", () => {
     expect(titleSwitch.checked).toBe(false);
     fireEvent.click(titleSwitch);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.title.visible).toBe(true);
     });
     expect(titleSwitch.checked).toBe(true);
@@ -95,7 +92,7 @@ describe("lineplot/toolbar/Toolbar", () => {
     expect(legendSwitch.checked).toBe(true);
     fireEvent.click(legendSwitch);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.legend.hidden).toBe(true);
     });
   });

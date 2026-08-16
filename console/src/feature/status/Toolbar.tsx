@@ -23,26 +23,25 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { EXPLORER_LAYOUT } from "@/feature/status/Explorer";
+import { Explorer } from "@/feature/status/explorer";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Status as PlatformStatus } from "@/platform/status";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const NoStatuses = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
+  const openExplorer = Explorer.useOpenTab();
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
       message="No favorited statuses."
       action={hasRetrievePermission ? "Open Status Explorer" : undefined}
-      onClick={() => placeLayout(EXPLORER_LAYOUT)}
+      onClick={openExplorer}
     />
   );
 };
@@ -72,13 +71,7 @@ const List = (): ReactElement => {
 
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
-  const q = Status.useRetrieve({ key: itemKey });
-  const dispatch = Session.useDispatch();
-  useEffect(() => {
-    if (q.variant === "error") dispatch(Session.Status.removeFavorites([itemKey]));
-  }, [q.variant, dispatch, itemKey]);
-  if (q.variant !== "success") return null;
-  const item = q.data;
+  const { data: item } = Status.useResult({ key: itemKey });
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
   return (
@@ -105,12 +98,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
         </Text.Text>
       )}
       {labels != null && labels.length > 0 && (
-        <Flex.Box
-          x
-          gap="small"
-          wrap
-          style={{ overflowX: "auto", height: "fit-content" }}
-        >
+        <Flex.Box x gap="small" wrap className={CSS.B("status-list-item-labels")}>
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="tiny" color={l.color}>
               {l.name}
@@ -126,34 +114,39 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => (
   <Toolbar.Content>
-    <Toolbar.Header padded>
-      <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Status />
+        Statuses
+      </Toolbar.Title>
       <Actions />
     </Toolbar.Header>
-    <List />
+    <Toolbar.Body>
+      <List />
+    </Toolbar.Body>
   </Toolbar.Content>
 );
 
 const Actions = (): ReactElement | null => {
-  const placeLayout = Layout.usePlacer();
+  const openExplorer = Explorer.useOpenTab();
   const openCreate = PlatformStatus.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
-      {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create status" onClick={() => openCreate()}>
-          <Icon.Add />
+      {hasRetrievePermission && (
+        <Toolbar.Action tooltip="Open Status Explorer" onClick={openExplorer}>
+          <Icon.Explore />
         </Toolbar.Action>
       )}
-      {hasRetrievePermission && (
+      {hasCreatePermission && (
         <Toolbar.Action
-          tooltip="Open Status Explorer"
-          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          tooltip="Create status"
+          onClick={() => openCreate()}
           variant="filled"
         >
-          <Icon.Explore />
+          <Icon.Add />
         </Toolbar.Action>
       )}
     </Toolbar.Actions>

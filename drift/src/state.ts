@@ -16,6 +16,7 @@ import {
   INITIAL_WINDOW_STATE,
   MAIN_WINDOW,
   PRERENDER_WINDOW,
+  resetTransientState,
   type WindowProps,
   type WindowStage,
   type WindowState,
@@ -28,6 +29,8 @@ export interface SliceState {
   windows: Record<string, WindowState>;
   labelKeys: Record<string, string>;
   keyLabels: Record<string, string>;
+  /** The ordinal the next reserved window receives. Only ever increments. */
+  nextOrdinal: number;
 }
 
 export interface Config {
@@ -142,6 +145,7 @@ export const ZERO_SLICE_STATE: SliceState = {
       ...INITIAL_WINDOW_STATE,
       key: MAIN_WINDOW,
       reserved: true,
+      ordinal: 1,
     },
   },
   labelKeys: {
@@ -150,6 +154,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   keyLabels: {
     main: MAIN_WINDOW,
   },
+  nextOrdinal: 2,
 };
 
 export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
@@ -157,9 +162,12 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
   s: SliceState,
 ): PayloadAction<T & LabelPayload> => {
   if (a.type === createWindow.type) {
-    if (s.label !== MAIN_WINDOW) return a as PayloadAction<T & LabelPayload>;
-    (a.payload as CreateWindowPayload).label = id.create();
-    (a.payload as CreateWindowPayload).prerenderLabel = id.create();
+    // The dispatching window mints the labels, whichever window that is. Every other
+    // window reads them off the emitted payload, so an assignment there would hand the
+    // same window two identities.
+    const payload = a.payload as CreateWindowPayload;
+    payload.label ??= id.create();
+    payload.prerenderLabel ??= id.create();
     return a as PayloadAction<T & LabelPayload>;
   }
   if ("label" in a.payload) return a as PayloadAction<T & LabelPayload>;
@@ -220,10 +228,17 @@ const maybePositionInCenter = (
   position?: xy.XY,
   size?: dimensions.Dimensions,
 ): xy.XY | undefined => {
-  if (mainWin.position != null && mainWin.size != null && position == null)
+  // Without the new window's size there is nothing to center, so leave placement to
+  // the runtime.
+  if (
+    mainWin.position != null &&
+    mainWin.size != null &&
+    position == null &&
+    size != null
+  )
     return box.topLeft(
       box.positionInCenter(
-        box.construct(xy.ZERO, size ?? xy.ZERO),
+        box.construct(xy.ZERO, size),
         box.construct(mainWin.position, mainWin.size),
       ),
     );
@@ -242,7 +257,11 @@ const reduceCreateWindow = (
   group(s.config.debug, "reducer create window");
 
   const mainWin = s.windows.main;
-  payload.position = maybePositionInCenter(mainWin, payload.position, payload.size);
+  payload.position = maybePositionInCenter(
+    mainWin,
+    payload.position,
+    payload.size ?? s.config.defaultWindowProps.size,
+  );
 
   // If the window already exists, un-minimize and focus it
   if (key in s.keyLabels) {
@@ -260,6 +279,9 @@ const reduceCreateWindow = (
     ([, w]) => !w.reserved,
   ) ?? [null, null];
 
+  const ordinal = s.nextOrdinal;
+  s.nextOrdinal += 1;
+
   // If we have an available pre-rendered window, use it.
   if (availableLabel != null) {
     log(s.config.debug, "using available pre-rendered window");
@@ -270,6 +292,7 @@ const reduceCreateWindow = (
       focusCount: 1,
       focus: true,
       ...payload,
+      ordinal,
     };
     s.labelKeys[availableLabel] = payload.key;
     s.keyLabels[payload.key] = availableLabel;
@@ -281,6 +304,7 @@ const reduceCreateWindow = (
       ...INITIAL_WINDOW_STATE,
       ...payload,
       reserved: true,
+      ordinal,
     };
     s.labelKeys[label] = key;
     s.keyLabels[key] = label;
@@ -393,6 +417,9 @@ const reduceSetWindowProps = (
   a: PayloadAction<RuntimeSetWindowProsPayload>,
 ): void => {
   const prev = s.windows[a.payload.label];
+  // An unreserved pre-render stays untouched: being claimed is the only way it
+  // gains props, and the only way it may ever become visible.
+  if (prev == null || !prev.reserved) return;
   const deepPartialEqual = deep.partialEqual(prev, a.payload);
   if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
 };
@@ -403,8 +430,13 @@ export const reduceInternalSetInitial = (
   s: SliceState,
   a: PayloadAction<InternalSetInitialPayload>,
 ): void => {
-  s.config = { ...s.config, ...a.payload };
-  s.label = a.payload.label;
+  // configureStore passes every config key, so an option the caller omitted arrives
+  // as an explicit undefined that a spread would write over the default.
+  const { label, enablePrerender, defaultWindowProps, debug } = a.payload;
+  if (enablePrerender != null) s.config.enablePrerender = enablePrerender;
+  if (defaultWindowProps != null) s.config.defaultWindowProps = defaultWindowProps;
+  if (debug != null) s.config.debug = debug;
+  s.label = label;
   if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
     const prerenderLabel = id.create();
     s.windows[prerenderLabel] = {
@@ -483,6 +515,62 @@ export const {
 } = slice;
 
 export const reducer: Reducer<SliceState, Action> = slice.reducer;
+
+/**
+ * Merges persisted window state into the live slice. The current window's label, the
+ * runtime config, the main window, and unused pre-rendered windows describe the running
+ * process rather than the session, and are kept as they are; the stored secondary
+ * windows replace the live ones. The middleware syncs the difference to the runtime, so
+ * windows open and close to match.
+ * @param current - The live slice.
+ * @param stored - The persisted slice to restore.
+ */
+export const restoreWindows = (current: SliceState, stored: SliceState): SliceState => {
+  const windows: Record<string, WindowState> = {};
+  Object.entries(current.windows).forEach(([label, win]) => {
+    if (label === MAIN_WINDOW || !win.reserved) windows[label] = win;
+  });
+  Object.entries(stored.windows).forEach(([label, win]) => {
+    if (label === MAIN_WINDOW || !win.reserved) return;
+    windows[label] = resetTransientState(win);
+  });
+  const labelKeys: Record<string, string> = {};
+  const keyLabels: Record<string, string> = {};
+  // Pre-rendered windows share the prerender key, so they never enter the maps.
+  Object.entries(windows).forEach(([label, win]) => {
+    if (!win.reserved) return;
+    labelKeys[label] = win.key;
+    keyLabels[win.key] = label;
+  });
+  const next: SliceState = {
+    ...current,
+    windows,
+    labelKeys,
+    keyLabels,
+    nextOrdinal: Math.max(current.nextOrdinal, stored.nextOrdinal ?? 0),
+  };
+  ensureOrdinals(next);
+  return next;
+};
+
+/**
+ * Raises nextOrdinal past every assigned ordinal so new windows never collide,
+ * and gives reserved windows missing one (state persisted before ordinals
+ * existed) the next available number. Replaces entries in s.windows; never
+ * mutates the window objects themselves.
+ */
+export const ensureOrdinals = (s: SliceState): void => {
+  let next = s.nextOrdinal ?? 1;
+  Object.values(s.windows).forEach(({ ordinal }) => {
+    if (ordinal != null && ordinal >= next) next = ordinal + 1;
+  });
+  Object.entries(s.windows).forEach(([label, win]) => {
+    if (!win.reserved || win.ordinal != null) return;
+    s.windows[label] = { ...win, ordinal: next };
+    next += 1;
+  });
+  s.nextOrdinal = next;
+};
 
 /**
  * @returns true if the given action type is a drift action.

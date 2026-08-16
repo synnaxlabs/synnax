@@ -82,3 +82,8 @@
     .wrapper {
     filter: brightness(1.2);
 }
+
+.pluto-off-page-reference__goo-defs {
+    visibility: hidden;
+    position: absolute;
+}

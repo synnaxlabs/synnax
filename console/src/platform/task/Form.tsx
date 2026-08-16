@@ -9,28 +9,33 @@
 
 import "@/platform/task/Form.css";
 
-import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import {
-  Device,
+  type device,
+  DisconnectedError,
+  type rack,
+  type status,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
+import {
   Flex,
-  type Flux,
   Form as PForm,
   Input,
+  Status,
+  Synnax as PSynnax,
   Task as PTask,
 } from "@synnaxlabs/pluto";
-import { id, primitive, TimeStamp } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
-import { type Layout } from "@/platform/layout";
-import { Modals } from "@/platform/modals";
+import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
 import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
-import { Session } from "@/session";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
@@ -40,36 +45,33 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
 
-export interface FormLayoutArgs {
-  deviceKey?: device.Key;
-  taskKey?: task.Key;
-  rackKey?: rack.Key;
-  config?: unknown;
-}
-
-export interface getInitialValuesArgs {
+export interface getInitialValuesParams {
   deviceKey?: device.Key;
   config?: unknown;
 }
 
 export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
-  (args: getInitialValuesArgs): PTask.InitialValues<S>;
+  (params: getInitialValuesParams): PTask.InitialValues<S>;
 }
 
-export interface FormProps<
-  S extends task.Schemas = task.Schemas,
-> extends PForm.UseReturn<PTask.FormSchema<S>> {
-  layoutKey: string;
-  status: Flux.Result<undefined>["status"];
-  onConfigure: () => void;
+export interface FormTabProps {
+  taskKey: task.Key;
 }
 
-export interface WrapFormArgs<S extends task.Schemas = task.Schemas> {
+export interface Forms extends Record<string, FC<FormTabProps>> {}
+
+export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
-  Form: FC<FormProps<S>>;
+  Form: FC<{}>;
   type: z.infer<S["type"]>;
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
+  /**
+   * Validates the config when the user deploys. Failures render as field
+   * errors and block the start command; warning-variant issues render but
+   * don't block. Shape schemas stay lax so drafts persist through autosave.
+   */
+  deployConfigZ: z.ZodType;
   getInitialValues: GetInitialValues<S>;
   showHeader?: boolean;
   showControls?: boolean;
@@ -77,20 +79,11 @@ export interface WrapFormArgs<S extends task.Schemas = task.Schemas> {
 
 export const useIsRunning = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx)?.details.running ?? false;
+) => useStatus(ctx).details.running;
 
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
-
-export interface Layout extends Session.Layout.BaseState<FormLayoutArgs> {}
-
-export const LAYOUT: Omit<Layout, "type"> = {
-  name: "Configure",
-  icon: "Task",
-  location: "mosaic",
-  args: {},
-};
 
 interface HeaderProps {
   isSnapshot: boolean;
@@ -111,80 +104,65 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   </>
 );
 
+// The deploy pipeline saves once at the end; notifying would fire autosave first.
+const SKIP_AUTOSAVE: PForm.SetOptions = { notifyOnChange: false };
+
+const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
+  issue.code === "custom" && issue.params != null && "variant" in issue.params
+    ? (issue.params.variant as status.Variant)
+    : "error";
+
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
   schemas,
   type,
+  deployConfigZ,
   getInitialValues,
   onConfigure,
   showHeader = true,
   showControls = true,
-}: WrapFormArgs<S>): Layout.Renderer => {
-  const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const store = Session.useStore();
-    const { deviceKey, taskKey, rackKey, config } =
-      Session.Layout.selectArgs<FormLayoutArgs>(store.getState(), layoutKey);
-    const dispatch = Session.useDispatch();
-    const handleUnsavedChanges = useCallback(
-      (unsavedChanges: boolean) =>
-        dispatch(Session.Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),
-      [dispatch, layoutKey],
-    );
-    const initialValues = {
-      ...getInitialValues({ deviceKey, config }),
-      key: taskKey,
-      rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
-    };
-    const confirm = Modals.useConfirm();
-    const { form, status, save } = PTask.createForm({ schemas, initialValues })({
+}: WrapFormParams<S>): FC<FormTabProps> => {
+  const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
+  const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
+    const client = PSynnax.use();
+    const handleError = Status.useErrorHandler();
+    const { form, saveAsync } = useForm({
       query: { key: taskKey },
-      onHasTouched: handleUnsavedChanges,
-      beforeSave: async ({ client, ...form }) => {
-        const { name, config } = form.value();
-        const [newConfig, rackKey] = await onConfigure(client, config, name);
-        const nonZeroRackKey = primitive.isNonZero(rackKey);
-        if (
-          nonZeroRackKey &&
-          primitive.isNonZero(taskKey) &&
-          rackKey != task.rackKey(taskKey)
-        ) {
-          const confirmed = await confirm({
-            message: "Device has been moved to different driver.",
-            description:
-              "This means that the task will need to be deleted and recreated on the new driver. Do you want to continue?",
-            confirm: { label: "Confirm", variant: "error" },
-            cancel: { label: "Cancel" },
+      autoSave: true,
+    });
+
+    // Deploy pipeline: resolve channels and rack through onConfigure, persist
+    // the row, then issue the start command so the driver picks it up.
+    const handleDeploy = useCallback(() => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const { config, name } = form.value();
+        const result = deployConfigZ.safeParse(config);
+        if (!result.success) {
+          let blocked = false;
+          result.error.issues.forEach((issue) => {
+            const variant = issueVariant(issue);
+            if (variant !== "warning") blocked = true;
+            const path = ["config", ...issue.path].join(".");
+            form.setStatus(path, { key: path, variant, message: issue.message });
           });
-          if (!confirmed) return false;
-          await client.tasks.delete(taskKey);
+          if (blocked) return;
         }
-        if (nonZeroRackKey) form.set("rackKey", rackKey);
-        form.set("config", newConfig);
-        const status: task.New<S>["status"] = {
-          key: id.create(),
-          name,
-          description: "",
-          time: TimeStamp.now(),
-          variant: "loading",
-          message: "Configuring task",
-          details: { running: true, cmd: "", data: null },
-        };
-        form.set("status", status);
-        return true;
-      },
-      afterSave: ({ client, ...form }) => {
-        const { key, name } = form.value();
-        if (key == null) return;
-        dispatch(Session.Layout.rename({ key: layoutKey, name }));
-        dispatch(Session.Layout.setArgs({ key: layoutKey, args: { taskKey: key } }));
-        dispatch(Session.Layout.setAltKey({ key: layoutKey, altKey: key }));
-      },
-    });
-    Device.useRetrieveEffect({
-      onChange: (d) => form.set("rackKey", d.data?.rack),
-      query: deviceKey == null ? undefined : { key: deviceKey },
-    });
+        const [newConfig, newRack] = await onConfigure(client, config, name);
+        form.set("config", newConfig, SKIP_AUTOSAVE);
+        if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
+        if (!(await saveAsync())) return;
+        await client.tasks.executeCommand({ task: taskKey, type: "start" });
+      }, "Failed to start task");
+    }, [client, form, saveAsync, taskKey, handleError]);
+
+    const handleStop = useCallback(() => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        await client.tasks.executeCommand({ task: taskKey, type: "stop" });
+      }, "Failed to stop task");
+    }, [client, taskKey, handleError]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     return (
@@ -209,53 +187,21 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               x
               className={CSS.B("task-channel-form-container")}
               bordered
-              rounded
               grow
               empty
             >
-              <Form
-                layoutKey={layoutKey}
-                status={status}
-                onConfigure={save}
-                {...form}
-              />
+              <Errors.SuspenseBoundary>
+                <Form />
+              </Errors.SuspenseBoundary>
             </Flex.Box>
             {showControls && (
-              <Controls.Controls
-                layoutKey={layoutKey}
-                formStatus={status}
-                onConfigure={save}
-              />
+              <Controls.Controls onDeploy={handleDeploy} onStop={handleStop} />
             )}
           </PForm.Form>
         </Flex.Box>
       </Flex.Box>
     );
   };
-  Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
-  Wrapper.useName = useName;
-  return Wrapper;
-};
-
-const useName: Layout.UseName = (layoutKey, onChange) => {
-  const args = Session.Layout.useSelectArgs<FormLayoutArgs>(layoutKey);
-  const taskKey = args?.taskKey;
-  const isPersisted = taskKey != null;
-  const { retrieve: baseRetrieve } = PTask.useRetrieveObservableName({
-    onChange,
-    addStatusOnFailure: false,
-  });
-  const { update } = PTask.useRename({
-    beforeUpdate: useCallback(() => isPersisted, [isPersisted]),
-  });
-  const onRename = useCallback(
-    (name: string) => {
-      if (taskKey != null) update({ key: taskKey, name });
-    },
-    [taskKey, update],
-  );
-  const retrieve = useCallback(() => {
-    if (taskKey != null) baseRetrieve({ key: taskKey });
-  }, [taskKey, baseRetrieve]);
-  return { retrieve, onRename };
+  Wrapped.displayName = `Form(${Form.displayName ?? Form.name})`;
+  return Wrapped;
 };

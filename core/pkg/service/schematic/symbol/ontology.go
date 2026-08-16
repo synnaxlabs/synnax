@@ -44,15 +44,13 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 
 // OntologyIDsFromSymbols returns the ontology IDs of the symbols.
 func OntologyIDsFromSymbols(symbols []Symbol) []ontology.ID {
-	return lo.Map(symbols, func(s Symbol, _ int) ontology.ID {
-		return OntologyID(s.Key)
-	})
+	return lo.Map(symbols, func(s Symbol, _ int) ontology.ID { return s.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(s Symbol) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, s.OntologyID(), s.Name, s)
 }
 
 type change = xchange.Change[Key, Symbol]
@@ -62,16 +60,26 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeSchematicSymbol }
+// Type implements ontology.Service.
+func (s *Service) Type() ontology.ResourceType {
+	return ontology.ResourceTypeSchematicSymbol
+}
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
 	k, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
 	var symbol Symbol
-	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&symbol).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().
+		Where(MatchKeys(k)).
+		Entry(&symbol).
+		Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(symbol), nil
@@ -86,7 +94,9 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Symbol]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -94,7 +104,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

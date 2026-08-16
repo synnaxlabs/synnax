@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type state } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
-
-import { type state } from "@/state";
 
 /**
  * Parameters for pagination functionality.
@@ -41,7 +40,7 @@ interface RetrieveOptions {
 /**
  * Arguments for the usePager hook.
  */
-export interface UsePagerArgs {
+export interface UsePagerParams {
   /** Function to retrieve data */
   retrieve: (
     setter: state.SetArg<PagerParams, Partial<PagerParams>>,
@@ -102,7 +101,7 @@ export const search = (
 export const usePager = ({
   retrieve,
   pageSize = DEFAULT_PAGE_SIZE,
-}: UsePagerArgs): UsePagerReturn => {
+}: UsePagerParams): UsePagerReturn => {
   /**
    * Fetches the next page of results by incrementing the offset.
    */

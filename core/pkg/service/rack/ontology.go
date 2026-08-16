@@ -25,16 +25,12 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRack, Key: k.String()}
-}
-
 func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+	return lo.Map(keys, func(key Key, _ int) ontology.ID { return key.OntologyID() })
 }
 
 func OntologyIDsFromRacks(racks []Rack) []ontology.ID {
-	return lo.Map(racks, func(r Rack, _ int) ontology.ID { return OntologyID(r.Key) })
+	return lo.Map(racks, func(r Rack, _ int) ontology.ID { return r.OntologyID() })
 }
 
 func KeyFromOntologyID(id ontology.ID) (Key, error) {
@@ -57,7 +53,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(r Rack) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
+	return ontology.NewResource(schema, r.OntologyID(), r.Name, r)
 }
 
 type change = xchange.Change[Key, Rack]
@@ -70,13 +66,20 @@ var (
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRack }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
 	k, err := strconv.Atoi(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
 	var r Rack
-	if err = s.NewRetrieve().Where(MatchKeys(Key(k))).Entry(&r).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().
+		Where(MatchKeys(Key(k))).
+		Entry(&r).
+		Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(r), nil
@@ -85,13 +88,15 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     c.Key.OntologyID().String(),
 		Value:   newResource(c.Value),
 	}
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Rack]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -99,7 +104,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

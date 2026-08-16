@@ -62,11 +62,11 @@ TEST(RackTests, testCreateTaskOnCreatedRack) {
     ASSERT_NIL(client.racks.create(r));
     task::Task t{
         .name = "cat",
-        .type = "dog",
+        .type = "pagerduty_alert",
         .internal = false,
     };
     ASSERT_NIL(r.tasks.create(t));
-    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(t.rack, r.key);
 }
 
 TEST(RackTests, testCreateTaskOnRetrieveRack) {
@@ -76,12 +76,12 @@ TEST(RackTests, testCreateTaskOnRetrieveRack) {
     auto retrieved = ASSERT_NIL_P(client.racks.retrieve(r.key));
     task::Task t{
         .name = "cat",
-        .type = "dog",
+        .type = "pagerduty_alert",
         .internal = false,
     };
     ASSERT_NIL(retrieved.tasks.create(t));
-    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
-    ASSERT_EQ(task::rack_key_from_task_key(t.key), retrieved.key);
+    ASSERT_EQ(t.rack, r.key);
+    ASSERT_EQ(t.rack, retrieved.key);
 }
 
 /// @brief retrieving a rack without include_status should not populate the

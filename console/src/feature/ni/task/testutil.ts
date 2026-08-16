@@ -10,17 +10,18 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { type FC } from "react";
 import { expect } from "vitest";
 
 import * as Device from "@/feature/ni/device/types";
-import { type Layout } from "@/platform/layout";
+import { type Task } from "@/platform/task";
 import {
-  renderTaskFormLayout,
-  type RenderTaskFormLayoutOptions,
-  type RenderTaskFormLayoutResult,
+  renderTaskFormTab,
+  type RenderTaskFormTabOptions,
+  type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { assertDefined, getIconButton, uniqueName } from "@/testutil";
 
 export interface CreateNIDeviceOptions extends Partial<Omit<Device.New, "properties">> {
   properties?: Partial<Device.Properties>;
@@ -57,31 +58,56 @@ export const createNIDevice = async (
   return dev;
 };
 
-export interface RenderNITaskFormResult extends RenderTaskFormLayoutResult {
+export interface RenderNITaskFormResult extends RenderTaskFormTabResult {
   /** Live view of the status notifications raised while the form is mounted. */
   statuses: Status.NotificationSpec[];
 }
 
 /**
- * Renders a wrapped NI task form the way the mosaic does (via renderTaskFormLayout)
+ * Renders a wrapped NI task form the way the task panel does (via renderTaskFormTab)
  * with a status capture mounted alongside it, so specs can assert on notifications
- * raised by the configure flow.
+ * raised by the deploy flow.
  */
 export const renderNITaskForm = async (
-  Renderer: Layout.Renderer,
-  type: string,
-  options: Omit<RenderTaskFormLayoutOptions, "onStatuses"> = {},
+  Form: FC<Task.FormTabProps>,
+  options: Omit<RenderTaskFormTabOptions, "onStatuses"> = {},
 ): Promise<RenderNITaskFormResult> => {
   const statuses: Status.NotificationSpec[] = [];
-  const result = await renderTaskFormLayout(Renderer, type, {
+  const result = await renderTaskFormTab(Form, {
     ...options,
-    onStatuses: (next) => {
+    onStatuses: (next: Status.NotificationSpec[]) => {
       statuses.length = 0;
       statuses.push(...next);
     },
   });
   return { ...result, statuses };
 };
+
+export interface CoefficientsField {
+  /** The button that appends a coefficient. */
+  add: HTMLButtonElement;
+  /** The coefficient rows, lowest order first. */
+  rows: HTMLElement[];
+}
+
+/**
+ * Returns the add button and rows of the coefficients field under the given heading.
+ * Rows carry no accessible handle of their own, so the structural class selector lives
+ * here.
+ * @throws if no coefficients field renders under the heading.
+ */
+export const getCoefficientsField = (label: string): CoefficientsField => {
+  const field = screen.getByText(label).closest(".console-coefficients");
+  assertDefined(field, `no coefficients field for "${label}"`);
+  return {
+    add: getIconButton(field, "add"),
+    rows: Array.from(field.querySelectorAll<HTMLElement>(".console-coefficient-row")),
+  };
+};
+
+/** Returns the numeric input of a coefficient row returned by getCoefficientsField. */
+export const getCoefficientInput = (row: HTMLElement): HTMLInputElement =>
+  within(row).getByRole("textbox");
 
 /**
  * Polls the captured statuses until one's message or description matches. Uses

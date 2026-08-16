@@ -14,10 +14,10 @@
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "wasmtime.hh"
 
 #include "arc/cpp/stl/series/series.h"
 #include "arc/cpp/stl/series/state.h"
-#include "wasmtime.hh"
 
 namespace arc::stl::series {
 

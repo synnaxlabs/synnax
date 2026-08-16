@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
@@ -15,14 +15,8 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import {
-  awaitTaskKey,
-  clickConfigure,
-  commitFieldInput,
-} from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -33,52 +27,68 @@ const createChannel = (
   line: number,
   overrides: CreateChannelOverrides = {},
 ): NI.Task.DOChannel => ({
-  ...NI.Task.ZERO_DO_CHANNEL,
+  ...NI.Task.createDOChannel(),
   key: id.create(),
   port,
   line,
   ...overrides,
 });
 
-const renderDigitalWrite = async (args = {}) =>
-  await renderNITaskForm(NI.Task.DigitalWrite, NI.Task.DIGITAL_WRITE_TYPE, {
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<NI.Task.DigitalWriteSchemas> = {
+  name: "NI Digital Write Task",
+  type: NI.Task.DIGITAL_WRITE_TYPE,
+  config: NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}),
+};
+
+const createDraft = async (
+  config: task.Payload<NI.Task.DigitalWriteSchemas>["config"],
+) =>
+  await client.tasks.create({ ...ZERO_DRAFT, config }, NI.Task.DIGITAL_WRITE_SCHEMAS);
+
+const renderDigitalWrite = async (
+  config: task.Payload<NI.Task.DigitalWriteSchemas>["config"],
+) => {
+  const draft = await createDraft(config);
+  const rendered = await renderNITaskForm(NI.Task.DigitalWrite, {
     client,
-    args,
+    taskKey: draft.key,
   });
+  return { ...rendered, draft };
+};
 
 const createConfig = (
   channels: NI.Task.DOChannel[],
   device = "placeholder_device",
-) => ({ ...NI.Task.ZERO_DIGITAL_WRITE_PAYLOAD.config, device, channels });
+) => ({ ...NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}), device, channels });
 
 describe("DigitalWrite", () => {
   it("should write edits to a channel's line number back into the form", async () => {
-    await renderDigitalWrite({
-      config: createConfig([
+    await renderDigitalWrite(
+      createConfig([
         createChannel(0, 0, { cmdChannelName: "cmd_a", stateChannelName: "state_a" }),
         createChannel(0, 1, { cmdChannelName: "cmd_b", stateChannelName: "state_b" }),
       ]),
-    });
+    );
     await waitFor(() => expect(screen.getByText("cmd_b")).toBeTruthy());
     commitFieldInput(screen.getByDisplayValue("1"), "5");
     await waitFor(() => expect(screen.getByDisplayValue("5")).toBeTruthy());
     expect(screen.queryByDisplayValue("1")).toBeNull();
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create per-line command and state channels keyed by port and line", async () => {
       const dev = await createNIDevice(client);
-      const { store, layoutKey } = await renderDigitalWrite({
-        config: createConfig([createChannel(0, 0), createChannel(0, 1)], dev.key),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const rendered = await renderDigitalWrite(
+        createConfig([createChannel(0, 0), createChannel(0, 1)], dev.key),
+      );
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: rendered.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
       });
       expect(created.type).toBe(NI.Task.DIGITAL_WRITE_TYPE);
-      expect(task.rackKey(created.key)).toBe(dev.rack);
+      expect(created.rack).toBe(dev.rack);
       const [c0, c1] = created.config.channels;
       expect(c0.cmdChannel).not.toBe(0);
       expect(c1.stateChannel).not.toBe(0);
@@ -112,8 +122,8 @@ describe("DigitalWrite", () => {
       const dev = await createNIDevice(client);
       const cmdName = uniqueName("do_cmd");
       const stateName = uniqueName("do_state");
-      const { store, layoutKey } = await renderDigitalWrite({
-        config: createConfig(
+      const rendered = await renderDigitalWrite(
+        createConfig(
           [
             createChannel(0, 0, {
               cmdChannelName: cmdName,
@@ -122,11 +132,10 @@ describe("DigitalWrite", () => {
           ],
           dev.key,
         ),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      );
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: rendered.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
       });
       const [c0] = created.config.channels;
@@ -138,25 +147,25 @@ describe("DigitalWrite", () => {
       expect(cmdIndex.name).toBe(`${cmdName}_time`);
     });
 
-    it("should reuse existing channels when reconfigured", async () => {
+    it("should reuse existing channels when redeployed", async () => {
       const dev = await createNIDevice(client);
-      const { store, layoutKey } = await renderDigitalWrite({
-        config: createConfig([createChannel(0, 0)], dev.key),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
-      const first = await client.tasks.retrieve({
-        key: taskKey,
+      const config = createConfig([createChannel(0, 0)], dev.key);
+      const first = await renderDigitalWrite(config);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
       });
-      await clickConfigure();
+      first.unmount();
+      const second = await renderDigitalWrite(config);
+      await deployAndAwaitTask(client, second.container, second.draft.key);
       await waitFor(async () => {
         const again = await client.tasks.retrieve({
-          key: taskKey,
+          key: second.draft.key,
           schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
         });
         expect(again.config.channels[0].cmdChannel).toBe(
-          first.config.channels[0].cmdChannel,
+          firstTask.config.channels[0].cmdChannel,
         );
       });
     });

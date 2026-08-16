@@ -28,56 +28,124 @@ var _ = Describe("Type Definition Generation", func() {
 	})
 
 	Describe("Distinct types with validation", func() {
-		It("Should apply min_length validation to a distinct string type", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should apply min_length validation to a distinct string type",
+			func(ctx SpecContext) {
+				source := `
 				@ts output "out"
 
 				Slug string {
 					@validate { min_length 3 }
 				}
 			`
-			resp := MustGenerate(ctx, source, "slug", loader, p)
-			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring(".min(3)"))
-		})
+				resp := MustGenerate(ctx, source, "slug", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring(".min(3)"))
+			},
+		)
 
-		It("Should emit ts to_number wrapper on a distinct numeric type", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should emit ts to_number wrapper on a distinct numeric type",
+			func(ctx SpecContext) {
+				source := `
 				@ts output "out"
 
 				Count uint32 {
 					@ts to_number
 				}
 			`
-			resp := MustGenerate(ctx, source, "count", loader, p)
-			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("countZ"))
-		})
+				resp := MustGenerate(ctx, source, "count", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring("countZ"))
+			},
+		)
 
-		It("Should emit ts to_string wrapper on a distinct numeric type", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should emit ts to_string wrapper on a distinct numeric type",
+			func(ctx SpecContext) {
+				source := `
 				@ts output "out"
 
 				ID uint64 {
 					@ts to_string
 				}
 			`
-			resp := MustGenerate(ctx, source, "id", loader, p)
-			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("ID"))
-		})
+				resp := MustGenerate(ctx, source, "id", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring("ID"))
+			},
+		)
+	})
+
+	Describe("Union field defaults", func() {
+		It(
+			"Should prefault a union-typed field with its variant discriminator",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				CJC union on source {
+					built_in {}
+					const_val {
+						val float64 = 0
+					}
+				}
+
+				Item struct {
+					cjc CJC = const_val
+				}
+			`
+				resp := MustGenerate(ctx, source, "cjc", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring(
+					`prefault({ source: "const_val" })`,
+				))
+			},
+		)
 	})
 
 	Describe("Aliased array types", func() {
-		It("Should render an array alias as a defaulted z.array", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should render an array alias as a defaulted z.array",
+			func(ctx SpecContext) {
+				source := `
 				@ts output "out"
 
 				Tags = string[]
 			`
-			resp := MustGenerate(ctx, source, "tags", loader, p)
-			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("z.string().array().default(() => [])"))
-		})
+				resp := MustGenerate(ctx, source, "tags", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(
+					content,
+				).To(ContainSubstring("z.string().array().default(() => [])"))
+			},
+		)
+	})
+
+	Describe("Alias schema type annotations", func() {
+		It(
+			"Should annotate an alias-typed field with typeof on the alias schema",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Inner struct {
+					value string
+				}
+
+				Aliased = Inner
+
+				Details struct<Data? = record> {
+					thing Aliased
+					data  Data?
+
+					@ts concrete_types
+				}
+			`
+				resp := MustGenerate(ctx, source, "details", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring("thing: typeof aliasedZ;"))
+			},
+		)
 	})
 })

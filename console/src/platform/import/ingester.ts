@@ -9,10 +9,6 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type project, type Synnax } from "@synnaxlabs/client";
-import { type Pluto } from "@synnaxlabs/pluto";
-
-import { type Layout } from "@/platform/layout";
-import { type Session } from "@/session";
 
 export interface File {
   data: unknown;
@@ -20,19 +16,19 @@ export interface File {
 }
 
 export interface FileIngesterContext {
-  layout: Partial<Session.Layout.State>;
-  placeLayout: Layout.Placer;
-  store: Pluto.FluxStore;
   client: Synnax | null;
   projectKey: project.Key;
   /**
-   * The name of the file the data was read from, extension included. Server-side
-   * ingesters forward it so the Core can name the resource after the file when the
-   * file's contents carry no name.
+   * The name of the file the data was read from, extension included. The Core names
+   * the resource after the file when the file's contents carry no name.
    */
   fileName: string;
 }
 
+/**
+ * Creates the resource the data describes and returns its ID. Opening a tab for it
+ * belongs to the caller, which decides where it lands.
+ */
 export interface FileIngester {
   (
     data: unknown,
@@ -40,14 +36,9 @@ export interface FileIngester {
   ): void | ontology.ID | Promise<void | ontology.ID>;
 }
 
-export interface FileIngesters extends Record<string, FileIngester> {}
-
 interface DirectoryIngesterContext {
   client: Synnax | null;
-  fileIngesters: FileIngesters;
-  placeLayout: Layout.Placer;
   store: Store;
-  fluxStore: Pluto.FluxStore;
 }
 
 export interface DirectoryIngester {

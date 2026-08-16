@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ranger"
 import "schemas/synnax/channel"
+import "schemas/synnax/ranger"
 
 @go output "core/pkg/service/ranger/alias"
 @ts output "client/ts/src/range/alias"
-@pb
 
 Alias struct {
     range   ranger.Key  {
@@ -25,9 +24,12 @@ Alias struct {
         @doc value "is the human-readable name for the channel within this range context."
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
         associates a human-readable string alias with a channel within the 
         context of a specific range. Enables semantic naming of channels that varies by 
         range context.
     """
+    @go marshal
+    @go migrate
 }

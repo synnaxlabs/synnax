@@ -16,7 +16,7 @@ export const ReadCommand = Command.create({
   key: "read_the_docs",
   name: "Read the documentation",
   icon: <Icon.QuestionMark />,
-  useOnSelect: Command.createPlacerUseOnSelect(Docs.LAYOUT),
+  useOnSelect: Docs.useOpenTab,
 });
 
 export const COMMANDS = [ReadCommand];

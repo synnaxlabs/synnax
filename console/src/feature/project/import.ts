@@ -8,113 +8,183 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, project, type Synnax } from "@synnaxlabs/client";
-import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
-import { deep, uuid } from "@synnaxlabs/x";
+import {
+  arc,
+  DisconnectedError,
+  lineplot,
+  log,
+  type ontology,
+  panel,
+  project,
+  schematic,
+  type Synnax,
+  table,
+} from "@synnaxlabs/client";
+import { Access, type Status } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { LAYOUT_FILE_NAME } from "@/feature/project/export";
-import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/layout";
+import { PANELS_FILE_NAME } from "@/feature/project/export";
+import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-// Rewrites every reference to an imported component's original key with the key of the
-// resource actually created for it. Without it the original-key tabs resolve to nothing
-// and the ingesters' new-key tabs pile up as duplicates.
-const remapLayoutKeys = (
-  slice: Session.Layout.SliceState,
-  remap: Map<string, string>,
-): Session.Layout.SliceState => {
-  if (remap.size === 0) return slice;
-  const next = deep.copy(slice);
-  next.layouts = Object.fromEntries(
-    Object.entries(next.layouts).map(([key, layout]) => {
-      const newKey = remap.get(key) ?? key;
-      return [newKey, { ...layout, key: newKey }];
-    }),
-  );
-  Object.values(next.mosaics).forEach((mosaic) => {
-    Session.Layout.Mosaic.forEachNode(mosaic.root, (node) => {
-      node.tabs?.forEach((tab) => {
-        const newKey = remap.get(tab.tabKey);
-        if (newKey != null) tab.tabKey = newKey;
-      });
-      if (node.selected != null)
-        node.selected = remap.get(node.selected) ?? node.selected;
-    });
-    if (mosaic.activeTab != null)
-      mosaic.activeTab = remap.get(mosaic.activeTab) ?? mosaic.activeTab;
-    if (mosaic.focused != null)
-      mosaic.focused = remap.get(mosaic.focused) ?? mosaic.focused;
-  });
-  return next;
+/** The tiling file inside a legacy (layout-slice era) project export directory. */
+export const LAYOUT_FILE_NAME = "LAYOUT.json";
+
+const legacyLayoutZ = z.object({
+  key: z.string(),
+  type: z.string(),
+  name: z.string(),
+});
+
+// Legacy console-state exports carried the full layout slice; only the layout
+// records are needed to locate and type each component file.
+const legacySliceZ = z.object({
+  layouts: z.record(z.string(), legacyLayoutZ),
+});
+
+// Rewrites every panel-tab reference to an imported component's original key with
+// the ontology ID of the resource actually created for it. Without it the imported
+// panels' tabs resolve to resources that only exist in the source cluster.
+const remapNode = (node: panel.Node, remap: Map<string, ontology.ID>): panel.Node => {
+  if (node.variant === "leaf")
+    return {
+      ...node,
+      tabs: node.tabs.map((tab) => {
+        if (tab.variant !== "resource") return tab;
+        const next = remap.get(tab.resource.key);
+        return next == null ? tab : { ...tab, resource: next };
+      }),
+    };
+  return {
+    ...node,
+    first: remapNode(node.first, remap),
+    last: remapNode(node.last, remap),
+  };
+};
+
+type ComponentContext = Omit<Import.FileIngesterContext, "fileName">;
+
+const ingestComponents = async (
+  files: Import.File[],
+  ctx: ComponentContext,
+): Promise<Map<string, ontology.ID>> => {
+  const remap = new Map<string, ontology.ID>();
+  for (const file of files) {
+    const { data } = file;
+    if (typeof data !== "object" || data == null || !("type" in data)) continue;
+    if (typeof data.type !== "string") continue;
+    // TEMPORARY: a type the Core cannot import fails the whole directory, where it was
+    // skipped before. Server-side project import replaces this loop before release.
+    const id = await Import.ingestServer(data, { ...ctx, fileName: file.name });
+    if (id != null && "key" in data && typeof data.key === "string")
+      remap.set(data.key, id);
+  }
+  return remap;
+};
+
+// Visualization layout types found in legacy (layout-slice era) project exports. Their
+// component files are typeless legacy Console states, importable only through the
+// server. Frozen — legacy exports are no longer produced.
+const LEGACY_COMPONENT_TYPES = new Set<string>([
+  arc.TYPE_ONTOLOGY_ID.type,
+  lineplot.TYPE_ONTOLOGY_ID.type,
+  log.TYPE_ONTOLOGY_ID.type,
+  schematic.TYPE_ONTOLOGY_ID.type,
+  table.TYPE_ONTOLOGY_ID.type,
+]);
+
+// Task layout types found in legacy project exports. Their component files are typed
+// legacy task configs the Core migrates on import. Frozen for the same reason.
+const LEGACY_TASK_TYPES = new Set<string>([
+  "ethercat_read",
+  "ethercat_write",
+  "http_read",
+  "http_write",
+  "labjack_read",
+  "labjack_write",
+  "modbus_read",
+  "modbus_write",
+  "ni_analog_read",
+  "ni_analog_write",
+  "ni_counter_read",
+  "ni_digital_read",
+  "ni_digital_write",
+  "opc_read",
+  "opc_write",
+  "pagerduty_alert",
+]);
+
+const ingestLegacy = async (
+  legacyData: unknown,
+  files: Import.File[],
+  ctx: ComponentContext,
+): Promise<void> => {
+  const { layouts } = legacySliceZ.parse(legacyData);
+  for (const [key, layout] of Object.entries(layouts)) {
+    if (!LEGACY_COMPONENT_TYPES.has(layout.type) && !LEGACY_TASK_TYPES.has(layout.type))
+      continue;
+    const file = files.find(
+      (file) =>
+        file.name === `${layout.name}.json` ||
+        file.name === `${key}.json` ||
+        (typeof file.data === "object" &&
+          file.data != null &&
+          (("key" in file.data && file.data.key === key) ||
+            ("name" in file.data && file.data.name === layout.name))),
+    );
+    if (file == null) throw new Error(`Data for ${key} not found`);
+    await Import.ingestServer(file.data, { ...ctx, fileName: file.name });
+  }
+  // TODO(SY-4370): legacy exports carried a mosaic tiling for these layouts;
+  // reconstructing it as panel documents is dropped, so a legacy import only
+  // recreates the visualization documents.
 };
 
 export const ingest: Import.DirectoryIngester = async (
   name,
   files,
-  { client, fileIngesters, placeLayout, store, fluxStore },
+  { client, store },
 ) => {
-  if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, store: fluxStore, client }))
+  if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import projects");
   if (client == null) throw new DisconnectedError();
-  const layoutData = files.find((file) => file.name === LAYOUT_FILE_NAME);
-  if (layoutData == null) throw new Error(`${LAYOUT_FILE_NAME} not found`);
-  const layout = Session.Layout.migrateLayout(layoutData.data);
+  const panelsFile = files.find((file) => file.name === PANELS_FILE_NAME);
+  const legacyFile = files.find((file) => file.name === LAYOUT_FILE_NAME);
+  if (panelsFile == null && legacyFile == null)
+    throw new Error(`${PANELS_FILE_NAME} not found`);
   const projectKey = uuid.create();
-  const proj: project.Project = { key: projectKey, name, layout };
-  // Create the project first so imported components can be parented to it; its layout
-  // is rewritten and installed below once their real keys are known.
-  await client.projects.create(proj);
-
-  const remap = new Map<string, string>();
-  for (const [key, childLayout] of Object.entries(layout.layouts)) {
-    const ingest = fileIngesters[childLayout.type];
-    if (ingest == null) continue;
-    const file = files.find(
-      (file) =>
-        file.name === `${childLayout.name}.json` ||
-        file.name === `${key}.json` ||
-        (typeof file.data === "object" &&
-          file.data != null &&
-          (("key" in file.data && file.data.key === key) ||
-            ("name" in file.data && file.data.name === childLayout.name))),
+  // Create the project first so imported components can be parented to it; its
+  // panels are created below once the components' real keys are known.
+  await client.projects.create({ key: projectKey, name, layout: {} });
+  const ctx: ComponentContext = { client, projectKey };
+  if (panelsFile != null) {
+    const panels = panel.panelZ.array().parse(panelsFile.data);
+    const remap = await ingestComponents(
+      files.filter((file) => file.name !== PANELS_FILE_NAME),
+      ctx,
     );
-    if (file == null) throw new Error(`Data for ${key} not found`);
-    const id = await ingest(file.data, {
-      layout: childLayout,
-      placeLayout,
-      store: fluxStore,
-      client,
-      projectKey,
-      fileName: file.name,
-    });
-    if (id != null && id.key !== key) remap.set(key, id.key);
-  }
-
-  const remappedLayout = remapLayoutKeys(layout, remap);
-  store.dispatch(Session.Project.select(proj.key));
-  store.dispatch(Session.Layout.setProject({ slice: remappedLayout }));
-  if (remap.size > 0) await client.projects.setLayout(projectKey, remappedLayout);
+    if (panels.length > 0)
+      await client.panels.create(
+        panels.map((p) => ({
+          ...p,
+          key: uuid.create(),
+          root: remapNode(p.root, remap),
+          parent: project.ontologyID(projectKey),
+        })),
+      );
+  } else if (legacyFile != null) await ingestLegacy(legacyFile.data, files, ctx);
+  store.dispatch(Session.Project.select(projectKey));
 };
 
 export interface IngestContext {
   handleError: Status.ErrorHandler;
   client: Synnax | null;
-  fileIngesters: Import.FileIngesters;
-  placeLayout: Layout.Placer;
   store: Store;
-  fluxStore: Pluto.FluxStore;
 }
 
-export const import_ = ({
-  handleError,
-  client,
-  fileIngesters,
-  placeLayout,
-  store,
-  fluxStore,
-}: IngestContext) => {
+export const import_ = ({ handleError, client, store }: IngestContext) => {
   let name: string | undefined = "project";
   handleError(async () => {
     const directory = await Runtime.pickDirectory({ title: "Import a Project" });
@@ -126,12 +196,6 @@ export const import_ = ({
         data: JSON.parse(await file.read()),
       })),
     );
-    await ingest(name, fileData, {
-      client,
-      fileIngesters,
-      placeLayout,
-      store,
-      fluxStore,
-    });
+    await ingest(name, fileData, { client, store });
   }, `Failed to import ${name}`);
 };

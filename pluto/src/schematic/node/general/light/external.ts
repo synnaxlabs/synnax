@@ -15,16 +15,19 @@ import { LightForm } from "@/schematic/node/general/light/Form";
 import { Light } from "@/schematic/node/general/light/Primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
 import { type Spec } from "@/schematic/node/spec";
+import { type Theming } from "@/theming";
 
-export const defaultConfig = (): schematic.NodeConfigLight => ({
+export const defaultConfig = (t: Theming.Theme): schematic.LightNodeConfig => ({
   variant: "light",
   orientation: "left",
   scale: 1,
   color: color.ZERO,
   label: Label.defaultConfig("Light"),
+  stalenessTimeout: 5,
+  stalenessColor: t.colors.warning.m1,
 });
 
-export const spec: Spec<"light", schematic.NodeConfigLight> = {
+export const spec: Spec<"light", schematic.LightNodeConfig> = {
   key: "light",
   name: "Light",
   Form: LightForm,

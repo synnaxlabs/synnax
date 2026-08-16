@@ -18,7 +18,7 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   config: { color, width, align, autoFit, level, value, orientation },
-}: NodeProps<schematic.NodeConfigTextBox>): ReactElement => (
+}: NodeProps<schematic.TextBoxNodeConfig>): ReactElement => (
   <TextBox
     className={Grid.DRAG_HANDLE_CLASS}
     onChange={(value) => onConfigChange({ value })}

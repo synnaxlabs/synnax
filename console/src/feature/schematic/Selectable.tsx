@@ -9,24 +9,14 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Schematic } from "@/platform/schematic";
 import { Selector } from "@/platform/selector";
 
-export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
-  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
-  const create = Schematic.useCreate({});
-  const handleClick = useCallback(() => create({ key }), [create, key]);
-  if (!hasCreatePermission) return null;
-  return (
-    <Selector.Item
-      key={Schematic.LAYOUT_TYPE}
-      title="Schematic"
-      icon={<Icon.Schematic />}
-      onClick={handleClick}
-    />
-  );
-};
-Selectable.type = Schematic.LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
+export const Selectable = Selector.createSelectable({
+  type: schematic.TYPE_ONTOLOGY_ID.type,
+  title: "Schematic",
+  icon: <Icon.Schematic />,
+  useOnSelect: Schematic.useCreate,
+  useVisible: () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID),
+});

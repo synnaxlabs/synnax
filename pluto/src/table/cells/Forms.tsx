@@ -27,10 +27,8 @@ export interface FormProps {
   onVariantChange: (variant: Variant) => void;
 }
 
-const valueFormStyle = { padding: "2rem" };
-
 const ValueFormWrapper = (props: PropsWithChildren) => (
-  <Flex.Box {...props} style={valueFormStyle} y />
+  <Flex.Box {...props} className={CSS.B("table-cell-value-form")} y />
 );
 
 export const ValueForm = ({ onVariantChange }: FormProps) => (
@@ -53,10 +51,9 @@ export const ValueForm = ({ onVariantChange }: FormProps) => (
             padHelpText={false}
             path="color"
           >
-            {({ value, onChange, variant: _, ...rest }) => (
+            {({ value, ...rest }) => (
               <Color.Swatch
                 value={value ?? color.setAlpha(color.ZERO, 1)}
-                onChange={onChange}
                 {...rest}
                 bordered
               />
@@ -68,9 +65,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => (
             hideIfNull
             padHelpText={false}
           >
-            {({ value, onChange, variant: _, ...rest }) => (
-              <Select.Text.Level value={value} onChange={onChange} {...rest} />
-            )}
+            {(p) => <Select.Text.Level {...p} />}
           </Form.Field>
         </Flex.Box>
       </ValueFormWrapper>
@@ -88,28 +83,20 @@ export const ValueForm = ({ onVariantChange }: FormProps) => (
   </Tabs.Frame>
 );
 
-const textFormStyle = { padding: "2rem" };
-
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Flex.Box x grow style={textFormStyle}>
+  <Flex.Box x grow className={CSS.B("table-cell-text-form")}>
     <Input.Item label="Variant" padHelpText={false}>
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>
     <Form.TextField path="value" label="Text" />
     <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
-      {({ value, onChange, variant: _, ...rest }) => (
-        <Select.Text.Level value={value} onChange={onChange} {...rest} />
-      )}
+      {(p) => <Select.Text.Level {...p} />}
     </Form.Field>
     <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
-      {({ value, onChange, variant: _, ...rest }) => (
-        <Select.Text.Weight value={value} onChange={onChange} {...rest} />
-      )}
+      {(p) => <Select.Text.Weight {...p} />}
     </Form.Field>
     <Form.Field<Flex.Alignment> path="align" label="Alignment" hideIfNull>
-      {({ value, onChange, variant: _, ...rest }) => (
-        <Select.Flex.Alignment value={value} onChange={onChange} {...rest} />
-      )}
+      {(p) => <Select.Flex.Alignment {...p} />}
     </Form.Field>
     <Form.Field<color.Crude>
       path="backgroundColor"

@@ -10,7 +10,7 @@
 import "@/color/GradientPicker.css";
 
 import { bounds, box, color, id, scale } from "@synnaxlabs/x";
-import { type ReactElement, useRef } from "react";
+import { type ReactElement, useMemo, useRef } from "react";
 
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
@@ -61,6 +61,10 @@ export const GradientPicker = ({
 }: GradientProps): ReactElement => {
   const sortedStops = switchStops(value.sort((a, b) => a.position - b.position));
   const grad = buildGradient(sortedStops);
+  const barStyle = useMemo(
+    () => ({ background: `linear-gradient(to right, ${grad})` }),
+    [grad],
+  );
   const prevValue = useSyncedRef(value);
   const handleChange = (stop: color.Stop) => {
     onChange(prevValue.current.map((s) => (s.key === stop.key ? stop : s)));
@@ -72,7 +76,7 @@ export const GradientPicker = ({
     <div className={CSS(PICKER_CLS)}>
       <div
         className={CSS(CSS.BE("gradient-picker", "bar"))}
-        style={{ background: `linear-gradient(to right, ${grad})` }}
+        style={barStyle}
         onClick={(e) => {
           const x = stopPosition(e);
           if (x == null) return;
@@ -151,16 +155,20 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
       onDelete(stop.key);
     },
   });
+  const stopStyle = useMemo(
+    () => ({
+      left: `${stop.position * 100}%`,
+      width: `${(nextStop?.position ?? 1) * 100 - stop.position * 100}%`,
+    }),
+    [stop.position, nextStop?.position],
+  );
 
   return (
     <Flex.Box
       ref={stopElRef}
       className={CSS(CSS.BE("gradient-picker", "stop"), switched && CSS.M("switched"))}
       y
-      style={{
-        left: `${stop.position * 100}%`,
-        width: `${(nextStop?.position ?? 1) * 100 - stop.position * 100}%`,
-      }}
+      style={stopStyle}
       empty
       onClick={stopPropagation}
     >

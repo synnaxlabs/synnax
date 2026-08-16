@@ -36,9 +36,8 @@ export const channelEntryZ = z.object({
   /** notation is the numeric notation used to render samples. */
   notation: notation.notationZ.default("standard"),
   /**
-   * precision is the number of decimal digits to display. -1 means "use the
-   * log-level precision"; 17 is the maximum significant digits for a
-   * float64.
+   * precision is the number of decimal digits to display. -1 means "use the log-level
+   * precision"; 17 is the maximum significant digits for a float64.
    */
   precision: z.int32().min(-1).max(17).default(-1),
   /** alias is a human-readable alias displayed in place of the channel name. */
@@ -49,9 +48,9 @@ export const channelEntryZ = z.object({
 export interface ChannelEntry extends z.infer<typeof channelEntryZ> {}
 
 /**
- * Log is a timestamped event and message logging component. Logs display
- * chronological records of events, system messages, and audit trails with
- * filtering and formatting capabilities.
+ * Log is a timestamped event and message logging component. Logs display chronological
+ * records of events, system messages, and audit trails with filtering and formatting
+ * capabilities.
  */
 export const logZ = z.object({
   /** key is the unique identifier for this log. */
@@ -62,9 +61,15 @@ export const logZ = z.object({
   channels: channelEntryZ.array().default(() => []),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */
   timestampPrecision: z.int32().min(0).max(3).default(0),
-  /** hideChannelNames controls whether channel names are hidden. When false (the default), names are displayed. */
+  /**
+   * hideChannelNames controls whether channel names are hidden. When false (the
+   * default), names are displayed.
+   */
   hideChannelNames: z.boolean().default(false),
-  /** hideReceiptTimestamp controls whether the receipt timestamp column is hidden. When false (the default), it is displayed. */
+  /**
+   * hideReceiptTimestamp controls whether the receipt timestamp column is hidden. When
+   * false (the default), it is displayed.
+   */
   hideReceiptTimestamp: z.boolean().default(false),
 });
 export interface Log extends z.infer<typeof logZ> {}

@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { label } from "@/label";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -27,9 +27,9 @@ describe("label", () => {
         name: "test",
         color: "#E774D0",
       });
-      await expect(
-        userClient.labels.retrieve({ key: randomLabel.key }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.labels.retrieve(randomLabel.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
 
     it("should allow the caller to retrieve labels with the correct policy", async () => {
@@ -42,7 +42,7 @@ describe("label", () => {
         name: "test",
         color: "#E774D0",
       });
-      const retrieved = await userClient.labels.retrieve({ key: randomLabel.key });
+      const retrieved = await userClient.labels.retrieve(randomLabel.key);
       expect(retrieved.key).toBe(randomLabel.key);
       expect(retrieved.name).toBe(randomLabel.name);
       expect(retrieved.color).toEqual(randomLabel.color);
@@ -71,7 +71,7 @@ describe("label", () => {
           name: "test",
           color: "#E774D0",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete labels with the correct policy", async () => {
@@ -85,9 +85,9 @@ describe("label", () => {
         color: "#E774D0",
       });
       await userClient.labels.delete(randomLabel.key);
-      await expect(
-        userClient.labels.retrieve({ key: randomLabel.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(userClient.labels.retrieve(randomLabel.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should deny access when no delete policy exists", async () => {
@@ -100,8 +100,8 @@ describe("label", () => {
         name: "test",
         color: "#E774D0",
       });
-      await expect(userClient.labels.delete(randomLabel.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.labels.delete(randomLabel.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

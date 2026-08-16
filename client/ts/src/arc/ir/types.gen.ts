@@ -35,7 +35,10 @@ export enum Liveness {
 }
 export const livenessZ = z.enum(Liveness);
 
-/** Handle is a reference to a specific parameter on a specific node in the dataflow graph. */
+/**
+ * Handle is a reference to a specific parameter on a specific node in the dataflow
+ * graph.
+ */
 export const handleZ = z.object({
   /** node is the node identifier. */
   node: z.string(),
@@ -91,8 +94,8 @@ export const transitionZ = z.object({
   /** on is the dataflow handle whose truthy value fires this transition. */
   on: handleZ,
   /**
-   * targetKey is the sibling step key to activate. Null when the transition
-   * exits the scope, yielding to the parent.
+   * targetKey is the sibling step key to activate. Null when the transition exits the
+   * scope, yielding to the parent.
    */
   targetKey: z.string().optional(),
 });
@@ -126,10 +129,9 @@ export const functionsZ = functionZ.array().default(() => []);
 export type Functions = z.infer<typeof functionsZ>;
 
 /**
- * Member is a tagged union representing a single child of a Scope. Exactly one
- * of nodeKey or scope is set. The member's lookup key (used as the
- * target of `=> name` transitions) is derived from the set variant via
- * Member.key().
+ * Member is a tagged union representing a single child of a Scope. Exactly one of
+ * nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
+ * transitions) is derived from the set variant via Member.key().
  */
 export interface Member {
   nodeKey?: string;
@@ -137,8 +139,8 @@ export interface Member {
 }
 export const memberZ: z.ZodType<Member> = z.object({
   /**
-   * nodeKey is the key of the referenced node in IR.nodes. Null when this
-   * member is a nested scope.
+   * nodeKey is the key of the referenced node in IR.nodes. Null when this member is a
+   * nested scope.
    */
   nodeKey: z.string().optional(),
   /** scope is set when this member is a nested scope. */
@@ -148,10 +150,9 @@ export const memberZ: z.ZodType<Member> = z.object({
 });
 
 /**
- * Scope is the unified Layer 2 execution primitive. Parameterized by mode
- * (parallel or sequential) and liveness (always-live or gated). Parallel
- * scopes organize members into strata; sequential scopes run one step
- * at a time and advance via transitions.
+ * Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
+ * sequential) and liveness (always-live or gated). Parallel scopes organize members
+ * into strata; sequential scopes run one step at a time and advance via transitions.
  */
 export interface Scope {
   key: string;
@@ -167,13 +168,19 @@ export const scopeZ: z.ZodType<Scope> = z.object({
   key: z.string(),
   /** mode defines whether this scope runs steps in parallel or sequentially. */
   mode: scopeModeZ,
-  /** liveness defines whether this scope is continuously active or must be activated. */
+  /**
+   * liveness defines whether this scope is continuously active or must be activated.
+   */
   liveness: livenessZ,
-  /** activation is the handle whose truthy value activates a gated scope. Unset for always-live scopes. */
+  /**
+   * activation is the handle whose truthy value activates a gated scope. Unset for
+   * always-live scopes.
+   */
   activation: handleZ.optional(),
   /**
-   * strata contains stratified execution layers for parallel scopes. Empty
-   * for sequential scopes. Stratum N depends only on strata 0 to N-1.
+   * strata contains stratified execution layers for parallel scopes. On sequential
+   * scopes, strata hold variable nodes that run every pass alongside the active step.
+   * Stratum N depends only on strata 0 to N-1.
    */
   get strata() {
     return membersZ.array().default(() => []);
@@ -182,14 +189,16 @@ export const scopeZ: z.ZodType<Scope> = z.object({
   get steps() {
     return membersZ;
   },
-  /** transitions contains state-transition rules for sequential scopes. Empty for parallel scopes. */
+  /**
+   * transitions contains state-transition rules for sequential scopes. Empty for
+   * parallel scopes.
+   */
   transitions: transitionZ.array().default(() => []),
 });
 
 /**
- * IR is the intermediate representation of an Arc program as a dataflow graph
- * with stratified execution, bridging semantic analysis and WebAssembly
- * compilation.
+ * IR is the intermediate representation of an Arc program as a dataflow graph with
+ * stratified execution, bridging semantic analysis and WebAssembly compilation.
  */
 export const irZ = z.object({
   /** functions contains function template definitions. */
@@ -201,9 +210,8 @@ export const irZ = z.object({
   /** authorities contains the static authority declarations for this program. */
   authorities: authoritiesZ,
   /**
-   * root is the top-level execution context. The root is always a
-   * parallel, always-live Scope whose strata mix module-scope
-   * reactive flow with top-level gated scopes.
+   * root is the top-level execution context. The root is always a parallel, always-live
+   * Scope whose strata mix module-scope reactive flow with top-level gated scopes.
    */
   root: scopeZ,
 });

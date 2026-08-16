@@ -35,7 +35,7 @@ const DataSymbol = ({ position }: SymbolProps): ReactElement => (
   />
 );
 
-export const spec: Spec<"data", schematic.EdgeConfigData> = Segmented.createSpec(
+export const spec: Spec<"data", schematic.DataEdgeConfig> = Segmented.createSpec(
   "data",
   "Data",
   ({ points, crossings, color: colorVal }) => (

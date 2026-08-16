@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/labjack/device/SelectPort.css";
+
 import { Component, Dialog, Flex, List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";
 
@@ -16,6 +18,7 @@ import {
   PORTS,
   type PortType,
 } from "@/feature/labjack/device/types";
+import { CSS } from "@/platform/css";
 
 export interface SelectPortProps
   extends
@@ -23,7 +26,7 @@ export interface SelectPortProps
       Select.SingleProps<string, Port | undefined>,
       "resourceName" | "data" | "children"
     >,
-    Omit<List.UseStaticDataArgs<string, Port>, "data"> {
+    Omit<List.UseStaticDataParams<string, Port>, "data"> {
   model: Model;
   portType: PortType;
   children?: ReactNode;
@@ -35,7 +38,9 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { alias, key } = port;
   return (
     <Select.ListItem {...props} align="center">
-      <Text.Text style={{ width: 50 }}>{alias ?? key}</Text.Text>
+      <Text.Text className={CSS.BE("labjack-port-item", "label")}>
+        {alias ?? key}
+      </Text.Text>
       {alias != null && (
         <Text.Text level="small" color={10}>
           {key}
@@ -55,6 +60,7 @@ export const SelectPort = ({
   filter,
   triggerProps,
   variant,
+  preview,
   dialogProps,
   ...rest
 }: SelectPortProps) => {
@@ -63,10 +69,8 @@ export const SelectPort = ({
     filter,
   });
   const selected = getItem(value ?? "");
-  const dialogVariant = variant === "preview" ? "connected" : variant;
-  const triggerVariant = variant === "preview" ? "preview" : undefined;
   return (
-    <Dialog.Frame variant={dialogVariant} {...rest}>
+    <Dialog.Frame variant={variant} {...rest}>
       <Select.Frame
         data={data}
         getItem={getItem}
@@ -75,7 +79,7 @@ export const SelectPort = ({
         closeDialogOnSelect
       >
         <Flex.Box pack x>
-          <Dialog.Trigger variant={triggerVariant} {...triggerProps}>
+          <Dialog.Trigger preview={preview} {...triggerProps}>
             {selected?.alias ?? selected?.key}
           </Dialog.Trigger>
           {children}

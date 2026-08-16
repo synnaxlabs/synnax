@@ -7,42 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
 
 export const useAddToNewPlot = (): ((keys: string[]) => void) => {
-  const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const store = Session.useStore();
-  const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
-  const { retrieve } = Ranger.useRetrieveObservableMultiple({
-    onChange: useCallback(
-      ({ data, variant, status }) => {
-        if (variant !== "success") {
-          if (variant === "error") addStatus(status);
-          return;
-        }
-        if (client == null) return;
-        store.dispatch(Session.Range.add(Session.Range.fromClient(data)));
-        const names = data.map(({ name }) => name);
-        const keys = data.map(({ key }) => key);
-        const project = Session.Project.selectSelected(store.getState());
-        handleError(async () => {
-          const { key, name } = await client.lineplots.create(project, {
-            name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
-            ranges: { x1: keys, x2: [] },
-          });
-          placeLayout(LinePlot.create({ key, name }));
-        }, "Failed to create plot");
-      },
-      [store, client, addStatus, handleError, placeLayout],
-    ),
-  });
-  return useCallback((keys: string[]) => retrieve({ keys }), [retrieve]);
+  const create = LinePlot.useCreate();
+  const dispatch = Session.useDispatch();
+  return useCallback(
+    (keys: string[]) => {
+      if (client == null) return;
+      handleError(async () => {
+        const ranges = await client.ranges.retrieve({ keys });
+        dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
+        const names = ranges.map(({ name }) => name);
+        create({
+          name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
+          ranges: { x1: ranges.map(({ key }) => key), x2: [] },
+        });
+      }, "Failed to add ranges to plot");
+    },
+    [client, dispatch, create, handleError],
+  );
 };

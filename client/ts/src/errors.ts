@@ -63,6 +63,7 @@ export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 
 export class ExpiredTokenError extends AuthError.sub("expired_token") {}
 
+/** Raised when the caller's policies do not permit the action. */
 export class AccessDeniedError extends AuthError.sub("access_denied") {}
 
 /**
@@ -112,6 +113,13 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 }
 
 /**
+ * Whether the error means the Core could not be reached: a request that failed on
+ * the wire, or one short-circuited while the connection is known unreachable.
+ */
+export const isConnectionError = (err: unknown): boolean =>
+  Unreachable.matches(err) || DisconnectedError.matches(err);
+
+/**
  * Raised when time-series data is not contiguous.
  */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
@@ -128,6 +136,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))
       return new ExpiredTokenError(payload.data);
+    if (payload.type.startsWith(AccessDeniedError.TYPE))
+      return new AccessDeniedError(payload.data);
     return new AuthError(payload.data);
   }
 

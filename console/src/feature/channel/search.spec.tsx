@@ -7,19 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel as channelClient, DataType, type ontology } from "@synnaxlabs/client";
+import {
+  channel as channelClient,
+  DataType,
+  lineplot,
+  log,
+  type ontology,
+  project,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Select } from "@synnaxlabs/pluto";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { uuid } from "@synnaxlabs/x";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { placeLayout } from "@/platform/layout/testutil";
-import { LinePlot } from "@/platform/lineplot";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -55,7 +61,7 @@ const renderSearchItem = async (resource: ontology.Resource) => {
 };
 
 describe("channel/search", () => {
-  it("creates a line plot for the selection when no plot is active", async () => {
+  it("creates a line plot for the selection when no plot is focused", async () => {
     const ch = await createChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
@@ -66,14 +72,15 @@ describe("channel/search", () => {
     );
     store.dispatch(Session.Project.select(proj.key));
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
-    await waitFor(() => {
-      const active = Session.Layout.selectActiveMosaicLayout(store.getState());
-      expect(active?.type).toBe(LinePlot.LAYOUT_TYPE);
-      expect(active?.name).toBe("Line Plot");
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe("lineplot");
+    const plot = await client.lineplots.retrieve(tab.resource.key);
+    expect(plot.name).toBe("Line Plot");
+    expect(plot.channels.y1).toContain(ch.key);
   });
 
-  it("adds the selection to the active line plot", async () => {
+  it("adds the selection to the focused line plot", async () => {
     const ch = await createChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
@@ -83,25 +90,111 @@ describe("channel/search", () => {
     const store = await renderSearchItem(
       createResource(channelClient.ontologyID(ch.key), ch.name),
     );
-    placeLayout(store, plot.key, { type: LinePlot.LAYOUT_TYPE });
+    const tabKey = uuid.create();
+    const pan = await client.panels.create({
+      name: uniqueName("panel"),
+      parent: project.ontologyID(proj.key),
+      root: {
+        variant: "leaf",
+        tabs: [
+          { variant: "resource", key: tabKey, resource: lineplot.ontologyID(plot.key) },
+        ],
+      },
+    });
+    store.dispatch(Session.Project.select(proj.key));
+    store.dispatch(Session.Panel.select({ key: pan.key }));
+    store.dispatch(
+      Session.Panel.internalSelectTab({
+        key: pan.key,
+        tabKey,
+        otherTabKeys: [tabKey],
+      }),
+    );
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
     await waitFor(async () => {
-      const { channels } = await client.lineplots.retrieve({ key: plot.key });
+      const { channels } = await client.lineplots.retrieve(plot.key);
       expect(channels.y1).toContain(ch.key);
     });
   });
 
-  it("does not create a plot for a virtual channel without an expression", async () => {
+  it("creates a log for a virtual channel without an expression", async () => {
     const ch = await createChannel({ isIndex: false, virtual: true });
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const store = await renderSearchItem(
       createResource(channelClient.ontologyID(ch.key), ch.name, {
         virtual: true,
         expression: "",
       }),
     );
-    await act(async () => {
-      fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
+    store.dispatch(Session.Project.select(proj.key));
+    fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe("log");
+    const opened = await client.logs.retrieve(tab.resource.key);
+    expect(opened.name).toBe("Log");
+    expect(opened.channels.map((e) => e.channel)).toContain(ch.key);
+  });
+
+  it("adds a virtual channel to the focused log", async () => {
+    const ch = await createChannel({ isIndex: false, virtual: true });
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
     });
-    expect(Session.Layout.selectActiveMosaicLayout(store.getState())).toBeUndefined();
+    const doc = await client.logs.create(proj.key, { name: uniqueName("log") });
+    const store = await renderSearchItem(
+      createResource(channelClient.ontologyID(ch.key), ch.name, {
+        virtual: true,
+        expression: "",
+      }),
+    );
+    const tabKey = uuid.create();
+    const pan = await client.panels.create({
+      name: uniqueName("panel"),
+      parent: project.ontologyID(proj.key),
+      root: {
+        variant: "leaf",
+        tabs: [{ variant: "resource", key: tabKey, resource: log.ontologyID(doc.key) }],
+      },
+    });
+    store.dispatch(Session.Project.select(proj.key));
+    store.dispatch(Session.Panel.select({ key: pan.key }));
+    store.dispatch(
+      Session.Panel.internalSelectTab({
+        key: pan.key,
+        tabKey,
+        otherTabKeys: [tabKey],
+      }),
+    );
+    fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
+    await waitFor(async () => {
+      const { channels } = await client.logs.retrieve(doc.key);
+      expect(channels.map((e) => e.channel)).toContain(ch.key);
+    });
+  });
+
+  it("creates a line plot for a calculated channel", async () => {
+    const ch = await createChannel();
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
+    const store = await renderSearchItem(
+      createResource(channelClient.ontologyID(ch.key), ch.name, {
+        virtual: true,
+        expression: "return 1",
+      }),
+    );
+    store.dispatch(Session.Project.select(proj.key));
+    fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe("lineplot");
+    const plot = await client.lineplots.retrieve(tab.resource.key);
+    expect(plot.channels.y1).toContain(ch.key);
   });
 });

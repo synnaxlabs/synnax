@@ -12,7 +12,17 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { cellTemplateZ, cellZ, keyZ, type Table } from "@/table/types.gen";
+import { cellTemplateZ, cellZ, keyZ, type Table, tableZ } from "@/table/types.gen";
+
+/**
+ * Create replaces the document with the given created state. Emitted by the Core on
+ * create so remote caches ingest new documents; clients never dispatch it.
+ */
+export const createPayloadZ = z.object({
+  table: tableZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
 
 /** Rename renames the table. */
 export const renamePayloadZ = z.object({
@@ -24,19 +34,15 @@ export type RenamePayload = z.infer<typeof renamePayloadZ>;
 /**
  * AddRow inserts a row at the given index. Three flows:
  *
- * 1. User gesture with cell_template against a non-empty table:
- *    replicate the template once per existing column.
- * 2. User gesture with cell_template against a fully-empty table:
- *    seed a 1x1 grid (one template replica plus one default-sized
- *    column).
- * 3. Undo replay of RemoveRow (cell_template is null, cells is
- *    non-empty): use cells as-is. If the original RemoveRow had
- *    stripped the table down to no columns, the explicit cells
- *    trigger the same column-bootstrap as flow 2.
+ * 1. User gesture with cell_template against a non-empty table: replicate the template
+ * once per existing column. 2. User gesture with cell_template against a fully-empty
+ * table: seed a 1x1 grid (one template replica plus one default-sized column). 3. Undo
+ * replay of RemoveRow (cell_template is null, cells is non-empty): use cells as-is. If
+ * the original RemoveRow had stripped the table down to no columns, the explicit cells
+ * trigger the same column-bootstrap as flow 2.
  *
- * Derived replica keys come from the template's key with the last
- * four hex digits replaced by the column index. Out-of-range
- * indices clamp to the end.
+ * Derived replica keys come from the template's key with the last four hex digits
+ * replaced by the column index. Out-of-range indices clamp to the end.
  */
 export const addRowPayloadZ = z.object({
   index: z.uint32(),
@@ -48,9 +54,8 @@ export const addRowPayloadZ = z.object({
 export type AddRowPayload = z.infer<typeof addRowPayloadZ>;
 
 /**
- * RemoveRow removes the row at the given index. All cells referenced by the
- * removed row are also dropped from the cells map. No-op if the
- * index is out of range.
+ * RemoveRow removes the row at the given index. All cells referenced by the removed row
+ * are also dropped from the cells map. No-op if the index is out of range.
  */
 export const removeRowPayloadZ = z.object({
   index: z.uint32(),
@@ -61,20 +66,16 @@ export type RemoveRowPayload = z.infer<typeof removeRowPayloadZ>;
 /**
  * AddCol inserts a column at the given index. Three flows:
  *
- * 1. User gesture with cell_template against a non-empty table:
- *    replicate the template once per existing row.
- * 2. User gesture with cell_template against a fully-empty table:
- *    seed a 1x1 grid (one template replica plus one default-sized
- *    row).
- * 3. Undo replay of RemoveCol (cell_template is null, cells is
- *    non-empty): use cells as-is. If the original RemoveCol had
- *    stripped the table down to no rows, the explicit cells
- *    trigger the same row-bootstrap as flow 2.
+ * 1. User gesture with cell_template against a non-empty table: replicate the template
+ * once per existing row. 2. User gesture with cell_template against a fully-empty
+ * table: seed a 1x1 grid (one template replica plus one default-sized row). 3. Undo
+ * replay of RemoveCol (cell_template is null, cells is non-empty): use cells as-is. If
+ * the original RemoveCol had stripped the table down to no rows, the explicit cells
+ * trigger the same row-bootstrap as flow 2.
  *
- * Derived replica keys come from the template's key with the last
- * four hex digits replaced by the row index. Cells whose row
- * index exceeds the row count are added to the cells map but not
- * referenced by any row. Out-of-range indices clamp to the end of
+ * Derived replica keys come from the template's key with the last four hex digits
+ * replaced by the row index. Cells whose row index exceeds the row count are added to
+ * the cells map but not referenced by any row. Out-of-range indices clamp to the end of
  * every row's cells list.
  */
 export const addColPayloadZ = z.object({
@@ -87,9 +88,8 @@ export const addColPayloadZ = z.object({
 export type AddColPayload = z.infer<typeof addColPayloadZ>;
 
 /**
- * RemoveCol removes the column at the given index. All cells in that column
- * (across every row) are dropped from the cells map. No-op if the
- * index is out of range.
+ * RemoveCol removes the column at the given index. All cells in that column (across
+ * every row) are dropped from the cells map. No-op if the index is out of range.
  */
 export const removeColPayloadZ = z.object({
   index: z.uint32(),
@@ -105,7 +105,9 @@ export const resizeRowPayloadZ = z.object({
 
 export type ResizeRowPayload = z.infer<typeof resizeRowPayloadZ>;
 
-/** ResizeCol resizes the column at the given index. No-op if the index is out of range. */
+/**
+ * ResizeCol resizes the column at the given index. No-op if the index is out of range.
+ */
 export const resizeColPayloadZ = z.object({
   index: z.uint32(),
   size: z.number(),
@@ -114,8 +116,8 @@ export const resizeColPayloadZ = z.object({
 export type ResizeColPayload = z.infer<typeof resizeColPayloadZ>;
 
 /**
- * SetCell replaces the cell at cell.key with the provided value. No-op if
- * no cell with that key exists in the table.
+ * SetCell replaces the cell at cell.key with the provided value. No-op if no cell with
+ * that key exists in the table.
  */
 export const setCellPayloadZ = z.object({
   cell: cellZ,
@@ -124,12 +126,11 @@ export const setCellPayloadZ = z.object({
 export type SetCellPayload = z.infer<typeof setCellPayloadZ>;
 
 /**
- * EraseCells erases the cells whose keys are in cells. Any row whose every
- * cell is in the selection is removed entirely; same for columns.
- * Cells that survive that row/column removal have their variant
- * and props replaced with the template's, keeping their original
- * keys. Cells in the selection whose keys are not in the table's
- * cells map are silently skipped.
+ * EraseCells erases the cells whose keys are in cells. Any row whose every cell is in
+ * the selection is removed entirely; same for columns. Cells that survive that
+ * row/column removal have their variant and props replaced with the template's, keeping
+ * their original keys. Cells in the selection whose keys are not in the table's cells
+ * map are silently skipped.
  */
 export const eraseCellsPayloadZ = z.object({
   cells: z
@@ -142,6 +143,7 @@ export const eraseCellsPayloadZ = z.object({
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("add_row"), addRow: addRowPayloadZ }),
   z.object({ type: z.literal("remove_row"), removeRow: removeRowPayloadZ }),
@@ -154,6 +156,11 @@ export const actionZ = z.discriminatedUnion("type", [
 ]);
 
 export type Action = z.infer<typeof actionZ>;
+
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: createPayloadZ.parse(payload),
+});
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
@@ -205,6 +212,7 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<Table, Action>;
 
 export interface Handlers {
+  create: (state: Draft<Table>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Table>, payload: RenamePayload) => HandlerResult;
   addRow: (state: Draft<Table>, payload: AddRowPayload) => HandlerResult;
   removeRow: (state: Draft<Table>, payload: RemoveRowPayload) => HandlerResult;
@@ -219,6 +227,8 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Table, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
       case "add_row":

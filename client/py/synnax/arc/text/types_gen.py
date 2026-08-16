@@ -18,8 +18,8 @@ from x import crdt
 
 class Document(BaseModel):
     """Is the conflict-free replicated representation of the text: the operations that
-    reconstruct it when applied to an empty replica. It is the durable source of
-    truth from which raw is materialized.
+    reconstruct it when applied to an empty replica. It is the durable source of truth
+    from which raw is materialized.
 
     Attributes:
         inserts: Are the operations that reconstruct the document's characters.
@@ -34,8 +34,8 @@ class Text(BaseModel):
     """Is text-based Arc source code with optional parsed AST for compilation.
 
     Attributes:
-        doc: Is the replicated source of truth for the text. It defaults to empty on create,
-            in which case the server seeds it from raw.
+        doc: Is the replicated source of truth for the text. It defaults to empty on
+            create, in which case the server seeds it from raw.
         raw: Is the materialized Arc source code, derived from doc and not persisted.
     """
 

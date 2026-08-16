@@ -22,12 +22,14 @@ interface HarnessProps {
 const Harness = ({ keys, host, onClick }: HarnessProps): ReactElement => (
   <Portal.Context>
     {keys.map((key) => (
-      <Portal.In key={key} itemKey={key} onClick={onClick}>
+      <Portal.In key={key} itemKey={key}>
         <p>content-{key}</p>
       </Portal.In>
     ))}
     <section aria-label="host">
-      {host !== undefined && <Portal.Out itemKey={host} />}
+      {host !== undefined && (
+        <Portal.Out itemKey={host} onClick={onClick && (() => onClick(host ?? ""))} />
+      )}
     </section>
   </Portal.Context>
 );
@@ -203,12 +205,11 @@ describe("Portal", () => {
   });
 
   describe("onClick", () => {
-    it("should invoke onClick with the key when the hosted content is clicked", () => {
+    it("should invoke the Out onClick when the hosted content is clicked", () => {
       const onClick = vi.fn();
       render(<Harness keys={["a"]} host="a" onClick={onClick} />);
       fireEvent.click(screen.getByText("content-a"));
       expect(onClick).toHaveBeenCalledTimes(1);
-      expect(onClick).toHaveBeenCalledWith("a");
     });
 
     it("should invoke the latest onClick handler after re-renders", () => {
@@ -218,7 +219,22 @@ describe("Portal", () => {
       rerender(<Harness keys={["a"]} host="a" onClick={second} />);
       fireEvent.click(screen.getByText("content-a"));
       expect(first).not.toHaveBeenCalled();
-      expect(second).toHaveBeenCalledWith("a");
+      expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it("should fire onClickCapture before an inner click handler so the host acts first", () => {
+      const order: string[] = [];
+      const Inner = (): ReactElement => (
+        <Portal.Context>
+          <Portal.In itemKey="a">
+            <button onClick={() => order.push("navigate")}>go</button>
+          </Portal.In>
+          <Portal.Out itemKey="a" onClickCapture={() => order.push("select")} />
+        </Portal.Context>
+      );
+      render(<Inner />);
+      fireEvent.click(screen.getByRole("button", { name: "go" }));
+      expect(order).toEqual(["select", "navigate"]);
     });
   });
 });

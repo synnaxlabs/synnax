@@ -29,7 +29,7 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/mem",
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )
 
@@ -41,6 +41,9 @@ cc_test(
     deps = [
         ":state",
         "//arc/cpp/stl/channels:state",
+        "//arc/cpp/stl/series:state",
+        "//arc/cpp/stl/stateful:state",
+        "//arc/cpp/stl/strings:state",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

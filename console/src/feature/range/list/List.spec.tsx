@@ -9,8 +9,9 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Ranger, state } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Ranger } from "@synnaxlabs/pluto";
+import { state } from "@synnaxlabs/x";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -22,22 +23,21 @@ import {
   createConsoleWrapper,
   getIconButton,
   getInputByNodePlaceholder,
-  stubGeometry,
+  renderSuspended,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
 
-stubGeometry();
-
 const Harness = (): ReactElement => {
-  const { data, getItem, subscribe, retrieve } = Ranger.useList({});
+  const { data, getItem, subscribe, retrieve, answered } = Ranger.useList({});
   return (
     <Range.List.List
       data={data}
       getItem={getItem}
       subscribe={subscribe}
       retrieve={retrieve}
+      answered={answered}
       enableSearch
       enableFilters
       enableAddButton
@@ -47,7 +47,7 @@ const Harness = (): ReactElement => {
 
 const renderList = async (): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  render(
+  await renderSuspended(
     <>
       <Harness />
       <Modals.Stack />
@@ -73,7 +73,7 @@ describe("range/list/List", () => {
     await renderList();
     await waitFor(() => getInputByNodePlaceholder(document.body, "Search Ranges..."));
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 });
 
@@ -85,7 +85,7 @@ describe("range/list/SelectFilters", () => {
     });
     const onRequestChange = vi.fn();
     const { wrapper } = await createConsoleWrapper({ client });
-    render(
+    await renderSuspended(
       <Range.List.SelectFilters
         request={{ offset: 25, limit: 25 }}
         onRequestChange={onRequestChange}
@@ -110,7 +110,7 @@ describe("range/list/SelectFilters", () => {
       color: "#E774D0",
     });
     const { wrapper } = await createConsoleWrapper({ client });
-    render(
+    await renderSuspended(
       <Range.List.Filters
         request={{ hasLabels: [label.key] }}
         onRequestChange={vi.fn()}

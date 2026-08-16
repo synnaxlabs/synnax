@@ -7,29 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, task } from "@synnaxlabs/client";
+import { type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createAutoOutputChannel,
+  createAutoWriteChannel,
   createIdentifier,
-  createManualOutputChannel,
+  createManualWriteChannel,
   createPDOs,
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
 import {
-  awaitTaskKey,
-  clickConfigure,
-  renderTaskFormLayout,
+  clickDeploy,
+  deployAndAwaitTask,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 let testRack: rack.Rack;
 
@@ -37,11 +36,43 @@ beforeAll(async () => {
   testRack = await client.racks.create({ name: uniqueName("ecat_rack") });
 });
 
-const renderWrite = async (config?: unknown) =>
-  await renderTaskFormLayout(EtherCAT.Task.Write, EtherCAT.Task.WRITE_TYPE, {
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<EtherCAT.Task.WriteSchemas> = {
+  name: "EtherCAT Write Task",
+  type: EtherCAT.Task.WRITE_TYPE,
+  config: EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+};
+
+const createDraft = async (
+  client: Synnax,
+  config: EtherCAT.Task.WritePayload["config"],
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.WRITE_SCHEMAS);
+
+const renderWrite = async (config: EtherCAT.Task.WritePayload["config"]) => {
+  const draft = await createDraft(client, config);
+  const statuses: Status.NotificationSpec[] = [];
+  const rendered = await renderTaskFormTab(EtherCAT.Task.Write, {
     client,
-    args: config == null ? {} : { config },
+    taskKey: draft.key,
+    onStatuses: (next) => {
+      statuses.length = 0;
+      statuses.push(...next);
+    },
   });
+  return { ...rendered, draft, statuses };
+};
+
+const awaitStatus = async (
+  statuses: Status.NotificationSpec[],
+  pattern: RegExp,
+): Promise<void> => {
+  await waitFor(() => {
+    const matched = statuses.some(
+      (s) => pattern.test(s.description ?? "") || pattern.test(s.message),
+    );
+    expect(matched).toBe(true);
+  });
+};
 
 describe("EtherCAT Write", () => {
   it("should render output channels with their port labels", async () => {
@@ -51,13 +82,15 @@ describe("EtherCAT Write", () => {
       pdos: createPDOs(),
     });
     await renderWrite({
-      ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createAutoOutputChannel(slave.key, "Control"),
-        createManualOutputChannel(slave.key, 0x7000, 3),
+        createAutoWriteChannel(slave.key, "Control"),
+        createManualWriteChannel(slave.key, 0x7000, 3),
       ],
     });
-    await waitFor(() => expect(screen.getByText("Control")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("Control").length).toBeGreaterThan(0),
+    );
     expect(screen.getByText("0x7000:3")).toBeTruthy();
   });
 
@@ -67,8 +100,8 @@ describe("EtherCAT Write", () => {
       network: "eth0",
     });
     await renderWrite({
-      ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
-      channels: [createManualOutputChannel(slave.key, 0x7000, 4)],
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createManualWriteChannel(slave.key, 0x7000, 4)],
     });
     fireEvent.click(await screen.findByText("0x7000:4"));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
@@ -76,7 +109,7 @@ describe("EtherCAT Write", () => {
     expect(screen.getByDisplayValue("4")).toBeTruthy();
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create command and state channels, update the slave, and save the task", async () => {
       const identifier = createIdentifier();
       const slave = await createSlaveDevice(client, testRack.key, {
@@ -84,18 +117,18 @@ describe("EtherCAT Write", () => {
         network: "eth0",
         pdos: createPDOs(),
       });
-      const { store, layoutKey } = await renderWrite({
-        ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
-        channels: [createAutoOutputChannel(slave.key, "Control")],
+      const { container, draft } = await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [createAutoWriteChannel(slave.key, "Control")],
       });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: EtherCAT.Task.WRITE_SCHEMAS,
-      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.WRITE_SCHEMAS,
+      );
       expect(created.type).toBe(EtherCAT.Task.WRITE_TYPE);
-      expect(task.rackKey(created.key)).toBe(testRack.key);
+      expect(created.rack).toBe(testRack.key);
       const [ch] = created.config.channels;
       expect(ch.cmdChannel).not.toBe(0);
       expect(ch.stateChannel).not.toBe(0);
@@ -135,21 +168,21 @@ describe("EtherCAT Write", () => {
       });
       const cmdName = uniqueName("ecat_cmd");
       const stateName = uniqueName("ecat_state");
-      const { store, layoutKey } = await renderWrite({
-        ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
+      const { container, draft } = await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
         channels: [
-          createAutoOutputChannel(slave.key, "Control", {
+          createAutoWriteChannel(slave.key, "Control", {
             cmdChannelName: cmdName,
             stateChannelName: stateName,
           }),
         ],
       });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: EtherCAT.Task.WRITE_SCHEMAS,
-      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.WRITE_SCHEMAS,
+      );
       const [ch] = created.config.channels;
       const cmd = await client.channels.retrieve(ch.cmdChannel);
       expect(cmd.name).toBe(cmdName);
@@ -168,18 +201,16 @@ describe("EtherCAT Write", () => {
         network: "eth1",
         pdos: createPDOs(),
       });
-      await renderWrite({
-        ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
+      const { container, statuses } = await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
         channels: [
-          createAutoOutputChannel(slaveA.key, "Control"),
-          createAutoOutputChannel(slaveB.key, "Control"),
+          createAutoWriteChannel(slaveA.key, "Control"),
+          createAutoWriteChannel(slaveB.key, "Control"),
         ],
       });
-      await clickConfigure();
-      fireEvent.click(await screen.findByText(/Failed to/));
-      await waitFor(() =>
-        expect(screen.getByText(/All slaves must be on the same network/)).toBeTruthy(),
-      );
+      await clickDeploy(container);
+      await awaitStatus(statuses, /Failed to/);
+      await awaitStatus(statuses, /All slaves must be on the same network/);
     });
 
     it("should surface an error when no slave has a valid network", async () => {
@@ -188,15 +219,13 @@ describe("EtherCAT Write", () => {
         network: "",
         pdos: createPDOs(),
       });
-      await renderWrite({
-        ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
-        channels: [createAutoOutputChannel(slave.key, "Control")],
+      const { container, statuses } = await renderWrite({
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [createAutoWriteChannel(slave.key, "Control")],
       });
-      await clickConfigure();
-      fireEvent.click(await screen.findByText(/Failed to/));
-      await waitFor(() =>
-        expect(screen.getByText(/No valid network found/)).toBeTruthy(),
-      );
+      await clickDeploy(container);
+      await awaitStatus(statuses, /Failed to/);
+      await awaitStatus(statuses, /No valid network found/);
     });
   });
 });

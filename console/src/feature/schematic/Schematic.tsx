@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Control, Diagram, Menu, Schematic as Base, Viewport } from "@synnaxlabs/pluto";
+import {
+  Control,
+  Diagram,
+  Menu,
+  Panel as PlutoPanel,
+  Schematic as Base,
+  Viewport,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Controller } from "@/feature/schematic/Controller";
@@ -15,16 +22,36 @@ import { Controls } from "@/feature/schematic/Controls";
 import { Legend } from "@/feature/schematic/Legend";
 import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
-import { Layout } from "@/platform/layout";
+import { Empty } from "@/platform/empty";
+import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
-const Internal: Layout.Renderer = ({ visible }) => {
+const EmptyContent = (): ReactElement => {
   const key = Base.useKey();
-  const isSnapshot = Base.useSelectSnapshot();
+  const dispatch = Session.useDispatch();
+  const { canEdit } = Session.Schematic.useSelectEditable();
+  const handleStartEditing = useCallback(() => {
+    dispatch(Session.Schematic.setEditable({ key, editable: true }));
+    dispatch(Session.Schematic.selectToolbarTab({ key, tab: "symbols" }));
+    dispatch(Session.Nav.showBottom({}));
+  }, [dispatch, key]);
+  return (
+    <Empty.Action
+      message="No symbols in this schematic."
+      action={canEdit ? "Start editing" : ""}
+      onClick={handleStartEditing}
+    />
+  );
+};
+
+const Internal = (): ReactElement => {
+  const key = Base.useKey();
+  const isSnapshot = Base.useIsSnapshot();
   const dispatch = Session.useDispatch();
   const viewport = Session.Schematic.useSelectViewport();
   const selected = Session.Schematic.useSelectSelected();
   const fitViewOnResize = Session.Schematic.useSelectFitViewOnResize();
+  const visible = Session.Panel.useSelectIsTabVisible();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
 
   const handleSelectionChange = useCallback(
@@ -76,16 +103,6 @@ const Internal: Layout.Renderer = ({ visible }) => {
     [handleNodeClickAction],
   );
 
-  const store = Session.useStore();
-  const modals = Session.Modals.useStore("Schematic");
-
-  const enableTriggers = useCallback(
-    () =>
-      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
-        key && isCurrentlyEditable,
-    [store, key, isCurrentlyEditable, modals],
-  );
-
   const renderExtraMenuItems = useCallback(
     (): ReactElement => (
       <>
@@ -101,7 +118,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
   return (
     <Controller>
       <Base.Schematic
-        enableTriggers={enableTriggers}
+        enableTriggers={isCurrentlyEditable}
         extraMenuItems={renderExtraMenuItems}
         selected={selected}
         onSelectionChange={handleSelectionChange}
@@ -118,6 +135,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         visible={visible}
+        emptyContent={isCurrentlyEditable ? undefined : <EmptyContent />}
       >
         {isCurrentlyEditable && <Diagram.Background />}
         <Controls />
@@ -127,12 +145,11 @@ const Internal: Layout.Renderer = ({ visible }) => {
   );
 };
 
-export const Schematic: Layout.Renderer = (props) => (
-  <Base.Suspended schematicKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-Schematic.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);
+export const Schematic: Panel.Content = () => {
+  const { key } = PlutoPanel.useTabResource();
+  return (
+    <Base.Suspended schematicKey={key}>
+      <Internal />
+    </Base.Suspended>
+  );
+};

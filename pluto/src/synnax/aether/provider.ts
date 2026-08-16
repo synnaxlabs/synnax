@@ -12,11 +12,9 @@ import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { useErrorHandler } from "@/status/aether/aggregator";
 
-const stateZ = z.object({
-  props: synnaxParamsZ.nullable(),
-  state: Synnax.connectivity.connectionStateZ.nullable(),
-});
+const stateZ = z.object({ props: synnaxParamsZ.nullable() });
 
 export interface ContextValue {
   client: Synnax | null;
@@ -47,7 +45,10 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
       return;
 
     this.closeClient();
-    this.internal.client = new Synnax(this.state.props);
+    this.internal.client = new Synnax({
+      ...this.state.props,
+      onInternalError: useErrorHandler(ctx),
+    });
     set(ctx, this.internal);
   }
 
@@ -57,7 +58,11 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
 
   private closeClient(): void {
     if (this.internal.client == null) return;
-    this.internal.client.close();
+    // The aether lifecycle is synchronous, so the close failure is logged
+    // rather than awaited or surfaced to the user.
+    this.internal.client
+      .close()
+      .catch((e: unknown) => console.error("failed to close client", e));
     this.internal.client = null;
   }
 }

@@ -9,7 +9,12 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  channel,
+  http,
+  NotFoundError,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -32,37 +37,21 @@ import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
+import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
+  deployReadConfigZ,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadEndpoint,
   type ReadField,
   type ReadMethod,
-  type ReadPayload,
   type ReadSchemas,
-  type TimeFormat,
-  ZERO_READ_ENDPOINT,
-  ZERO_READ_FIELD,
-  ZERO_READ_PAYLOAD,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
-  type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.HTTP",
-};
-
-export const ReadSelectable = Selector.createSimpleItem({
-  title: "HTTP Read Task",
-  icon: <Icon.Logo.HTTP />,
-  layout: READ_LAYOUT,
-});
 
 const RATE_INPUT_PROPS = {
   endContent: "Hz",
@@ -91,7 +80,7 @@ const ReadEndpointListItem = (props: List.ItemProps<string>) => {
     <EndpointListItem
       {...props}
       extra={
-        <Text.Text level="small" color={7}>
+        <Text.Text level="small" color={9}>
           {fields.length}
         </Text.Text>
       }
@@ -100,14 +89,6 @@ const ReadEndpointListItem = (props: List.ItemProps<string>) => {
 };
 
 const readEndpointListItem = Component.renderProp(ReadEndpointListItem);
-
-const TIME_FORMAT_DATA: Select.StaticEntry<TimeFormat>[] = [
-  { key: "iso8601", name: "ISO 8601" },
-  { key: "unix_sec", name: "Unix (s)" },
-  { key: "unix_ms", name: "Unix (ms)" },
-  { key: "unix_us", name: "Unix (μs)" },
-  { key: "unix_ns", name: "Unix (ns)" },
-];
 
 const isTimingField = (f: ReadField): boolean => f.timestampFormat != null;
 
@@ -146,7 +127,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
         </PForm.Field>
       )}
       {enumCountText !== "" && (
-        <Text.Text level="small" color={7}>
+        <Text.Text level="small" color={9}>
           {enumCountText}
         </Text.Text>
       )}
@@ -156,7 +137,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -224,7 +205,9 @@ const FieldList = ({ epKey }: FieldListProps) => {
     const nonIndex = fields.filter((f) => !isTimingField(f));
     const last = nonIndex[nonIndex.length - 1];
     const field: ReadField = {
-      ...(last != null ? { ...last, ...Task.READ_CHANNEL_OVERRIDE } : ZERO_READ_FIELD),
+      ...(last != null
+        ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
+        : http.readFieldZ.parse({})),
       key: id.create(),
     };
     push(field);
@@ -275,11 +258,9 @@ const FieldList = ({ epKey }: FieldListProps) => {
               <Header.Actions empty align="end">
                 <Button.Button
                   onClick={handleAdd}
-                  variant="text"
-                  contrast={2}
+                  variant="filled"
                   tooltip="Add field"
                   size="small"
-                  sharp
                 >
                   <Icon.Add />
                 </Button.Button>
@@ -332,7 +313,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
     (mode: TimingMode) => {
       if (mode === "value" && !isValueTiming) {
         const indexF: ReadField = {
-          ...ZERO_READ_FIELD,
+          ...http.readFieldZ.parse({}),
           key: id.create(),
           timestampFormat: "unix_sec",
         };
@@ -343,7 +324,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           `${path}.fields`,
           fields.filter((f) => !isTimingField(f)),
         );
-        set(`${path}.index`, null);
+        set(`${path}.index`, "");
       }
     },
     [fields, isValueTiming, path, set],
@@ -369,13 +350,10 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
             grow
           />
-          <PForm.Field<TimeFormat>
+          <TimeFormatField
             path={`${path}.fields.${indexField.key}.timestampFormat`}
             label="Format"
-            className={CSS.B("timestamp-format")}
-          >
-            {renderSelectTimeFormat}
-          </PForm.Field>
+          />
         </>
       )}
     </Flex.Box>
@@ -383,21 +361,6 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
 };
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
-
-const renderSelectTimeFormat = Component.renderProp(
-  (
-    p: Omit<
-      Select.StaticProps<TimeFormat, Select.StaticEntry<TimeFormat>>,
-      "data" | "resourceName"
-    >,
-  ) => (
-    <Select.Static<TimeFormat, Select.StaticEntry<TimeFormat>>
-      {...p}
-      data={TIME_FORMAT_DATA}
-      resourceName="time format"
-    />
-  ),
-);
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
@@ -454,7 +417,7 @@ const PATH_INPUT_PROPS = { placeholder: "/api/data" } as const;
 
 const REQUEST_BODY_INPUT_PROPS = { placeholder: '{"query": "latest"}' } as const;
 
-const Form: FC<Task.FormProps<ReadSchemas>> = () => {
+const Form: FC = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
     "config.endpoints",
@@ -463,7 +426,7 @@ const Form: FC<Task.FormProps<ReadSchemas>> = () => {
   const isSnapshot = Task.useIsSnapshot();
 
   const handleAddEndpoint = useCallback(() => {
-    const ep: ReadEndpoint = { ...ZERO_READ_ENDPOINT, key: id.create() };
+    const ep: ReadEndpoint = { ...http.readEndpointZ.parse({}), key: id.create() };
     push(ep);
     setSelectedEndpoints([ep.key]);
   }, [push]);
@@ -520,10 +483,9 @@ const Form: FC<Task.FormProps<ReadSchemas>> = () => {
             <Header.Actions>
               <Button.Button
                 onClick={handleAddEndpoint}
-                variant="text"
-                contrast={2}
+                variant="filled"
                 tooltip="Add endpoint"
-                sharp
+                size="small"
               >
                 <Icon.Add />
               </Button.Button>
@@ -559,7 +521,7 @@ const Form: FC<Task.FormProps<ReadSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>
-        <Task.Layouts.DetailsHeader
+        <Task.Views.DetailsHeader
           path={
             selectedEndpoints.length > 0
               ? `config.endpoints.${selectedEndpoints[0]}`
@@ -583,17 +545,9 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
-  if (config != null) {
-    const pld: ReadPayload = {
-      ...ZERO_READ_PAYLOAD,
-      config: READ_SCHEMAS.config.parse(config),
-    };
-    if (deviceKey != null) pld.config.device = deviceKey;
-    return pld;
-  }
-  const pld: ReadPayload = { ...ZERO_READ_PAYLOAD };
-  if (deviceKey != null) pld.config = { ...pld.config, device: deviceKey };
-  return pld;
+  const cfg = READ_SCHEMAS.config.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "HTTP Read Task", type: READ_TYPE, config: cfg };
 };
 
 const retrieveChannel = async (
@@ -703,7 +657,19 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "http_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "HTTP Read Task",
+  icon: <Icon.Logo.HTTP />,
+  useOnSelect: useCreateRead,
 });

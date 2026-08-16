@@ -60,9 +60,7 @@ class TaskPage(ConsolePage):
                 - msg: The status message (e.g., "Task has not been configured")
                 - level: The alert level (e.g., "disabled", "info", "success", "error")
         """
-        status_element = self.page.locator(
-            ".console-task-state p.pluto-status__text, .console-task-state p.pluto-text"
-        ).first
+        status_element = self.page.locator(".console-task-status__message-text").first
 
         # Parse status level from CSS class
         class_attr = status_element.get_attribute("class") or ""

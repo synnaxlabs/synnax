@@ -14,7 +14,7 @@ import { useCallback } from "react";
 
 import { type ContextMenuProps } from "@/platform/tree/types";
 
-export interface CreateUseRenameArgs<K extends record.Key> {
+export interface CreateUseRenameParams<K extends record.Key> {
   query: Flux.UseUpdate<record.KeyedNamed<K>>;
   ontologyID: (key: K) => ontology.ID;
   convertKey: (key: string) => K;
@@ -30,7 +30,7 @@ export const createUseRename =
     ontologyID,
     convertKey,
     beforeUpdate,
-  }: CreateUseRenameArgs<K>): ((props: ContextMenuProps) => () => void) =>
+  }: CreateUseRenameParams<K>): ((props: ContextMenuProps) => () => void) =>
   (props: ContextMenuProps) => {
     const {
       selection: {

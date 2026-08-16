@@ -23,7 +23,7 @@ import {
   useState,
 } from "react";
 
-import { type EditorExtension } from "@/code/language";
+import { BASE_THEMES, type EditorExtension } from "@/code/language";
 import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
 import { diff, utf16Offset } from "@/code/text";
 import { CSS } from "@/css";
@@ -32,9 +32,11 @@ import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
+import { Status } from "@/status/base";
 import { Theming } from "@/theming";
-import { type Triggers } from "@/triggers";
+import { Triggers } from "@/triggers";
 
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const PASTE_TRIGGER: Triggers.Trigger = ["Control", "V"];
@@ -149,12 +151,65 @@ interface UseProps {
   scrollBeyondLastLine?: boolean;
   openContextMenu?: Menu.ContextMenuProps["open"];
   extensions?: EditorExtension[];
+  /** placeholder is ghost text shown on the first line while the document is empty. It
+   * is injected, so it never enters the model or the user's selection. Read when the
+   * editor is created. */
+  placeholder?: string;
+  /** autoFocus places the cursor in the editor once it is created. Read when the editor
+   * is created. */
+  autoFocus?: boolean;
 }
+
+const PLACEHOLDER_RANGE: Monaco.IRange = {
+  startLineNumber: 1,
+  startColumn: 1,
+  endLineNumber: 1,
+  endColumn: 1,
+};
+
+// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing
+// without it.
+const renderPlaceholder =
+  (content: string): EditorExtension =>
+  (editor) => {
+    const model = editor.getModel();
+    if (model == null) return { dispose: () => {} };
+    const decorations = editor.createDecorationsCollection();
+    const decoration: Monaco.editor.IModelDeltaDecoration = {
+      range: PLACEHOLDER_RANGE,
+      options: {
+        showIfCollapsed: true,
+        after: { content, inlineClassName: CSS.BE("editor", "placeholder") },
+      },
+    };
+    let shown = false;
+    const render = () => {
+      const show = model.getValueLength() === 0;
+      if (show === shown) return;
+      shown = show;
+      decorations.set(show ? [decoration] : []);
+    };
+    render();
+    const contentDispose = editor.onDidChangeModelContent(render);
+    return {
+      dispose: () => {
+        contentDispose.dispose();
+        decorations.clear();
+      },
+    };
+  };
+
+// A frame's delay: whatever opened the editor tears its own DOM down after the editor
+// mounts, and that teardown drops focus back onto the body.
+const focusNextFrame: EditorExtension = (editor) => {
+  const frame = requestAnimationFrame(() => editor.focus());
+  return { dispose: () => cancelAnimationFrame(frame) };
+};
 
 const useTheme = (hasCustomTheme: boolean) => {
   const theme = Theming.use();
   const prefersDark = theme.key.includes("Dark");
-  if (hasCustomTheme) return prefersDark ? "Default Dark+" : "Default Light+";
+  if (hasCustomTheme) return prefersDark ? BASE_THEMES.dark : BASE_THEMES.light;
   return prefersDark ? "vs-dark" : "vs";
 };
 
@@ -250,7 +305,7 @@ const useRenameAvailable = (
           if (!ctrl.signal.aborted) void exec(svc);
         });
     };
-    const debounced = debounce(run, RENAME_CHECK_DEBOUNCE);
+    const debounced = debounce.debounce(run, RENAME_CHECK_DEBOUNCE);
     const cursorDispose = editor.onDidChangeCursorPosition(debounced);
     run();
     return () => {
@@ -271,9 +326,13 @@ const use = ({
   scrollBeyondLastLine = false,
   openContextMenu,
   extensions,
+  placeholder,
+  autoFocus = false,
 }: UseProps): UseReturn => {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const autoFocusRef = useSyncedRef(autoFocus);
+  const placeholderRef = useSyncedRef(placeholder);
   const openContextMenuRef = useSyncedRef(openContextMenu);
   const onValueChangeRef = useSyncedRef(onValueChange);
   const onEditRef = useSyncedRef(onEdit);
@@ -335,7 +394,13 @@ const use = ({
       }),
     );
 
-    const extensionDisposables = resolvedExtensions?.map((ext) => ext(editor)) ?? [];
+    const builtins: EditorExtension[] = [];
+    if (placeholderRef.current != null)
+      builtins.push(renderPlaceholder(placeholderRef.current));
+    if (autoFocusRef.current) builtins.push(focusNextFrame);
+    const extensionDisposables = [...(resolvedExtensions ?? []), ...builtins].map(
+      (ext) => ext(editor),
+    );
 
     return () => {
       contentDispose.dispose();
@@ -351,6 +416,19 @@ const use = ({
   useEffect(() => {
     monaco.editor.setTheme(theme);
   }, [monaco, theme]);
+
+  // A first Escape steps out of the editor, a second reaches whatever encloses it. The
+  // priority sits above Dialog.Frame's so the blur happens before a modal would close.
+  Triggers.use({
+    triggers: ESCAPE_TRIGGERS,
+    priority: 120,
+    double: true,
+    callback: useCallback(({ stage, target, stopPropagation }: Triggers.UseEvent) => {
+      if (stage !== "start" || containerRef.current?.contains(target) !== true) return;
+      target.blur();
+      stopPropagation();
+    }, []),
+  });
 
   const handle = useMemo<EditorHandle>(
     () => ({
@@ -394,6 +472,9 @@ const EditorInternal = ({
   isBlock,
   scrollBeyondLastLine,
   extensions,
+  placeholder,
+  autoFocus,
+  background = 1,
   ...rest
 }: Omit<EditorProps, "loading">) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
@@ -406,6 +487,8 @@ const EditorInternal = ({
     scrollBeyondLastLine,
     openContextMenu: menuProps.open,
     extensions,
+    placeholder,
+    autoFocus,
   });
   useImperativeHandle(ref, () => handle, [handle]);
 
@@ -489,7 +572,13 @@ const EditorInternal = ({
   }, [createMenuAction, cursorRenameable]);
 
   return (
-    <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
+    <Flex.Box
+      y
+      grow
+      background={background}
+      {...rest}
+      className={CSS(className, CSS.B("editor"))}
+    >
       <Menu.ContextMenu
         className={CSS(CSS.BE("editor", "context-menu"), className)}
         menu={menuContent}
@@ -501,10 +590,18 @@ const EditorInternal = ({
   );
 };
 
+// An editor always occupies a region with room for the orbital, and the Monaco
+// runtime is a heavy first load.
+const LOADING = (
+  <Status.Loading>
+    <Status.Orbital />
+  </Status.Loading>
+);
+
 /** Editor is a Monaco-backed code editor. It suspends while the Monaco runtime
  * initializes on first use, rendering `loading` until ready, and surfaces an
  * initialization failure to the boundary it provides. */
-export const Editor = ({ loading, ...props }: EditorProps) => (
+export const Editor = ({ loading = LOADING, ...props }: EditorProps) => (
   <Errors.SuspenseBoundary loading={loading}>
     <EditorInternal {...props} />
   </Errors.SuspenseBoundary>

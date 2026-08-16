@@ -35,7 +35,9 @@ type Writer struct {
 // and [auth.ErrRepeatedUsername] if a user with u.Username already exists.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
-		return User{}, errors.New("cannot create a root user; root users are provisioned at startup")
+		return User{}, errors.New(
+			"cannot create a root user; root users are provisioned at startup",
+		)
 	}
 	return w.create(ctx, u)
 }
@@ -58,7 +60,7 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
 		return User{}, err
 	}
-	if err := w.otg.DefineResources(ctx, OntologyID(u.Key)); err != nil {
+	if err := w.otg.DefineResources(ctx, u.OntologyID()); err != nil {
 		return User{}, err
 	}
 	return u, nil

@@ -12,7 +12,9 @@
 #include <shared_mutex>
 #include <unordered_map>
 
-#include "client/cpp/synnax.h"
+#include "absl/log/log.h"
+
+#include "client/cpp/channel/channel.h"
 #include "x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 

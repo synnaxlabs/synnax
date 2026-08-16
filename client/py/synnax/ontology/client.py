@@ -74,7 +74,6 @@ class Client:
         )
 
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
-
         self._client.send(
             "/ontology/move-children",
             MoveChildrenReq.model_validate(

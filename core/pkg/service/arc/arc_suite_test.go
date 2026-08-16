@@ -16,14 +16,17 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -44,7 +47,10 @@ var (
 	channelSvc *channel.Service
 	tx         gorp.Tx
 	taskSvc    *task.Service
+	statusSvc  *status.Service
+	rackSvc    *rack.Service
 	testRack   *rack.Rack
+	imexSvc    *imex.Service
 	arcClock   = telem.Now
 )
 
@@ -66,7 +72,7 @@ var (
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -76,13 +82,13 @@ var (
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           node.DB,
-			HostResolver: node.Cluster,
+			HostProvider: node.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
 			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               groupSvc,
@@ -91,13 +97,21 @@ var (
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
+		imexSvc = imex.NewService()
+		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+			DB: db,
+		}))
+		configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Rack:     rackSvc,
-			Status:   statusSvc,
-			Search:   searchIdx,
+			DB:           db,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Rack:         rackSvc,
+			Status:       statusSvc,
+			Search:       searchIdx,
+			ImEx:         imexSvc,
+			Configs:      configs,
+			ImExExcluded: []string{arctask.Type},
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
@@ -106,7 +120,9 @@ var (
 			Ontology:            otg,
 			Channel:             channelSvc,
 			Task:                taskSvc,
+			Status:              statusSvc,
 			Search:              searchIdx,
+			ImEx:                imexSvc,
 			TextSweepQuiescence: 5 * telem.Second,
 			TextSweepThreshold:  1,
 			Now:                 func() telem.TimeStamp { return arcClock() },

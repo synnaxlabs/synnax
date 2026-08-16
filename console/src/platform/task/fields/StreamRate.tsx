@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/task/fields/StreamRate.css";
+
+import { CSS } from "@/platform/css";
 import { Rate } from "@/platform/task/fields/Rate";
 
 export const StreamRate = () => (
   <Rate
     label="Stream Rate"
     path="config.streamRate"
-    style={{ width: 115, flexShrink: 0 }}
+    className={CSS.B("task-rate-field")}
   />
 );

@@ -9,13 +9,15 @@
 
 import platform
 import random
+import uuid
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.task.analog_read import AnalogRead
+from framework.hardware_case import HardwareCase
 
 
-class NoDevice(ConsoleCase):
+class NoDevice(HardwareCase, ConsoleCase):
     """
     Verify status message/level when attempting to
     configure and run a task with selected devices
@@ -49,12 +51,11 @@ class NoDevice(ConsoleCase):
     def create_rack(self, rack_name: str, dev_name: str) -> None:
         self.log(f"Creating {rack_name} and devices")
 
-        client = self.client
-        rack = client.racks.create(name=rack_name)
-        client.devices.create(
+        rack = self.create_test_rack(rack_name)
+        self.create_test_devices(
             [
                 sy.ni.Device(
-                    key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
+                    key=str(uuid.uuid5(uuid.NAMESPACE_DNS, dev_name)),
                     rack=rack.key,
                     name=dev_name,
                     model=dev_name,

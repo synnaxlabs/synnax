@@ -15,8 +15,9 @@ import { GaugeForm } from "@/schematic/node/general/gauge/Form";
 import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import { Symbol } from "@/schematic/node/general/gauge/Symbol";
 import { type Spec } from "@/schematic/node/spec";
+import { type Theming } from "@/theming";
 
-export const defaultConfig = (): schematic.NodeConfigGauge => ({
+export const defaultConfig = (t: Theming.Theme): schematic.GaugeNodeConfig => ({
   variant: "gauge",
   orientation: "left",
   color: color.ZERO,
@@ -25,9 +26,11 @@ export const defaultConfig = (): schematic.NodeConfigGauge => ({
   bounds: bounds.construct(0, 100),
   barWidth: 10,
   label: Label.defaultConfig("Gauge"),
+  stalenessTimeout: 5,
+  stalenessColor: t.colors.warning.m1,
 });
 
-export const spec: Spec<"gauge", schematic.NodeConfigGauge> = {
+export const spec: Spec<"gauge", schematic.GaugeNodeConfig> = {
   key: "gauge",
   name: "Gauge",
   Form: GaugeForm,

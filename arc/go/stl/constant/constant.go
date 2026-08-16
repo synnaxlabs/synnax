@@ -80,7 +80,20 @@ func (c *constant) Next(ctx node.Context) {
 		c.initialized = true
 	}
 	d := c.Output(0)
-	*d = telem.NewSeriesFromAny(c.value, d.DataType)
+	// A var-bound value input emits the referenced variable's latest value;
+	// otherwise the configured value is emitted.
+	if s := c.RefInput(0); c.RefSourced(0) && s.Len() > 0 {
+		if s.DataType.IsVariable() {
+			*d = telem.NewSeriesFromAny(string(s.At(-1)), s.DataType)
+		} else {
+			*d = telem.Series{
+				DataType: s.DataType,
+				Data:     append([]byte(nil), s.At(-1)...),
+			}
+		}
+	} else {
+		*d = telem.NewSeriesFromAny(c.value, d.DataType)
+	}
 	t := c.OutputTime(0)
 	*t = telem.NewSeriesV[telem.TimeStamp](c.clock.Now())
 	ctx.MarkChanged(0)

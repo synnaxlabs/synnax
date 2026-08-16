@@ -11,8 +11,8 @@
 
 .console-modbus-connect {
     position: relative;
-    height: 100%;
-    width: 100%;
+    width: 155rem;
+    height: 100rem;
 
     .console-content {
         width: 100%;
@@ -25,7 +25,7 @@
         max-width: 450px;
         padding: 4rem;
         & *:not(button) > p {
-            font-size: 2.4rem;
+            font-size: var(--pluto-h5-size);
             line-height: 150%;
         }
     }

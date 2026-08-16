@@ -20,17 +20,15 @@ import {
   Schematic,
   Text,
 } from "@synnaxlabs/pluto";
-import React, { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Edit } from "@/feature/schematic/symbol/edit";
 import { CSS } from "@/platform/css";
 
-const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
-
 export const MissingForm = (): ReactElement => {
   const form = Form.useContext();
   const openEditModal = Edit.useModal();
-  const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
+  const symbolGroup = Schematic.Symbol.useGroup({});
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,
   );
@@ -68,22 +66,20 @@ export const MissingForm = (): ReactElement => {
           Or create a new symbol in:
         </Text.Text>
         <Flex.Box x>
-          {symbolGroup.data != null && (
-            <Group.SelectSingle
-              value={createGroupKey}
-              onChange={setCreateGroupKey}
-              initialQuery={{ parent: group.ontologyID(symbolGroup.data.key) }}
-              style={SELECT_GROUP_STYLE}
-              grow
-            />
-          )}
+          <Group.SelectSingle
+            value={createGroupKey}
+            onChange={setCreateGroupKey}
+            initialQuery={{ parent: group.ontologyID(symbolGroup.key) }}
+            className={CSS.B("schematic-missing-symbol-select-group")}
+            grow
+          />
           <Button.Button
-            variant="outlined"
+            variant="filled"
             onClick={handleCreate}
             disabled={createGroupKey == null}
           >
             <Icon.Add />
-            Create New Symbol
+            Create symbol
           </Button.Button>
         </Flex.Box>
       </Flex.Box>

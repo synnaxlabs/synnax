@@ -12,7 +12,8 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Cluster } from "@/platform/cluster";
-import { createClusterState, renderClusterUI } from "@/platform/cluster/testutil";
+import { renderClusterUI } from "@/platform/cluster/testutil";
+import { createClusterState } from "@/session/cluster/testutil";
 import { stubClipboardWriteText } from "@/testutil";
 
 describe("CopyLinkToolbarButton", () => {

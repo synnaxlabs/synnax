@@ -26,7 +26,9 @@ import (
 var _ = Describe("Recovery Interceptors", func() {
 	Describe("Unary", func() {
 		It("should recover a panic and return a codes.Internal status", func() {
-			interceptor := fgrpc.RecoveryUnaryServerInterceptor(alamos.Instrumentation{})
+			interceptor := fgrpc.RecoveryUnaryServerInterceptor(
+				alamos.Instrumentation{},
+			)
 			info := &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}
 			_, err := interceptor(context.Background(), nil, info,
 				func(context.Context, any) (any, error) { panic("boom") },
@@ -36,7 +38,9 @@ var _ = Describe("Recovery Interceptors", func() {
 		})
 
 		It("should pass through a non-panicking handler", func() {
-			interceptor := fgrpc.RecoveryUnaryServerInterceptor(alamos.Instrumentation{})
+			interceptor := fgrpc.RecoveryUnaryServerInterceptor(
+				alamos.Instrumentation{},
+			)
 			info := &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}
 			resp := MustSucceed(interceptor(context.Background(), "req", info,
 				func(_ context.Context, req any) (any, error) { return req, nil },
@@ -47,7 +51,9 @@ var _ = Describe("Recovery Interceptors", func() {
 
 	Describe("Stream", func() {
 		It("should recover a panic and return a codes.Internal status", func() {
-			interceptor := fgrpc.RecoveryStreamServerInterceptor(alamos.Instrumentation{})
+			interceptor := fgrpc.RecoveryStreamServerInterceptor(
+				alamos.Instrumentation{},
+			)
 			info := &grpc.StreamServerInfo{FullMethod: "/test.Service/Stream"}
 			err := interceptor(nil, nil, info,
 				func(any, grpc.ServerStream) error { panic("boom") },

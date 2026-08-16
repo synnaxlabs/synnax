@@ -1,54 +1,69 @@
-# The Synnax Front End Build System - pnpm and Turbo Repo
+# The Synnax front end build system - pnpm and Turborepo
 
-## How the Build System Works
+## 0 How the build system works
 
-Synnax is organized as a monorepo. Our front end software consists of five different
+Synnax is organized as a monorepo. Our front end software consists of eight different
 libraries:
 
-- `@synnaxlabs/x` - path `x/ts` - Common utilities and types used by all other packages.
-- `@synnaxlabs/media` - path `x/media` - Synnax specific media, including logos and
-  icons - smallest library.
-- `@synnaxlabs/freighter` - path `freighter/ts` - A transport adapter protocol for
-  communicating with Synnax server.
-- `@synnaxlabs/client` - path `client/ts` - The client library for communicating with a
-  Synnax cluster.
-- `@synnaxlabs/pluto` - path `pluto` - The Synnax component library.
-- `@synnaxlabs/drift` - path `drift` - A cross window state synchronization library for
+- `@synnaxlabs/x` (`x/ts`): Common utilities and types used by all other packages.
+- `@synnaxlabs/media` (`x/media`): Synnax specific media, including logos and icons. The
+  smallest library.
+- `@synnaxlabs/alamos` (`alamos/ts`): Distributed instrumentation - logs, traces, and
+  metrics.
+- `@synnaxlabs/arc` (`arc/ts`): TypeScript utilities for the Arc language.
+- `@synnaxlabs/freighter` (`freighter/ts`): A transport adapter protocol for
+  communicating with a Core.
+- `@synnaxlabs/client` (`client/ts`): The client library for communicating with a Synnax
+  cluster.
+- `@synnaxlabs/pluto` (`pluto`): The Synnax component library.
+- `@synnaxlabs/drift` (`drift`): A cross window state synchronization library for
   [Tauri](https://tauri.studio/).
 
 We have two main applications:
 
-- `@synnaxlabs/console` - path `console` - The exploratory data analysis, cluster
-  management, and control application.
-- `@synnaxlabs/docs` - path `docs/site` - The Synnax documentation website.
+- `@synnaxlabs/console` (`console`): The exploratory data analysis, cluster management,
+  and control application.
+- `@synnaxlabs/docs` (`docs/site`): The Synnax documentation website.
 
 There are also a few packages that are specifically for defining configurations for
 various build/developments tools:
 
-- `@synnaxlabs/eslint-config` - path `configs/eslint` - The ESLint configuration for
-  Synnax TypeScript software.
-- `@synnaxlabs/stylelint-config` - path `configs/stylelint` - The Stylelint
-  configuration for Synnax TypeScript software.
-- `@synnaxlabs/tsconfig` - path `configs/ts` - The TypeScript configuration for Synnax
+- `@synnaxlabs/eslint-config` (`configs/eslint`): The ESLint configuration for Synnax
   TypeScript software.
-- `@synnaxlabs/vite-plugin` - path `configs/vite` - A custom plugin for building
-  TypeScript applications using [Vite](https://vitejs.dev/). We'll discuss Vite in more
-  detail later.
+- `@synnaxlabs/stylelint-config` (`configs/stylelint`): The Stylelint configuration for
+  Synnax TypeScript software.
+- `@synnaxlabs/tsconfig` (`configs/ts`): The TypeScript configuration for Synnax
+  TypeScript software.
+- `@synnaxlabs/vite-plugin` (`configs/vite`): A custom plugin for building TypeScript
+  applications using [Vite](https://vitejs.dev/). We'll discuss Vite in more detail
+  later.
 
 Each of these packages are developed and built independently. Note that the
 configuration packages above are marked private and are not published to npm — they are
-only used within this monorepo. The current dependency hierarchy for these packages is
-as follows:
+only used within this monorepo.
 
-<p align="middle">
-    <img src="./img/build/deps.png" width="500px">
-    <h6 align="Middle">Synnax Front End Dependency Graph</h6>
-</p>
+The dependency hierarchy between these packages is as follows. An arrow points from a
+package to the packages it depends on. Turbo follows the arrows transitively, so
+`console` also depends on `x` through `pluto`.
 
-**Understanding/referencing this dependency graph is critical when developing Synnax
-front end software.** We'll revisit this graph in a moment.
+```mermaid
+graph TD
+    console --> pluto
+    console --> drift
+    docs --> pluto
+    pluto --> client
+    pluto --> arc
+    pluto --> media
+    client --> freighter
+    freighter --> alamos
+    alamos --> x
+    drift --> x
+```
 
-## pnpm
+**Understanding this hierarchy is critical when developing Synnax front end software.**
+We'll revisit it in a moment.
+
+## 1 pnpm
 
 We use [pnpm](https://pnpm.js.org/) to manage all of our front end dependencies. This
 includes both internal dependencies and those from external sources (e.g. npm).
@@ -65,28 +80,28 @@ team and handled with care.
 As we'll see in a moment, we also use `pnpm` to run the commands that build packages,
 run tests, and start development servers.
 
-## Turbo Repo
+## 2 Turborepo
 
-If we refer back to the dependency graph above, we can see that `@synnaxlabs/console`
-depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on `@synnaxlabs/x` and
-`@synnaxlabs/client`. This has two implications:
+If we refer back to the dependency hierarchy above, we can see that
+`@synnaxlabs/console` depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on
+`@synnaxlabs/x` and `@synnaxlabs/client`. This has two implications:
 
 1. If we make a change to `x` that we want reflected in `console`, we'd need to rebuild
-   `x` and all of it's downstream dependencies (`pluto` and `console`).
+   `x` and all of its downstream dependencies (`pluto` and `console`).
 2. We need to have built versions of all upstream dependencies before we can build the
    downstream dependency.
 
 Luckily, we don't need to worry about which dependencies need to be built and in what
-order. Instead, we use a tool called [turbo repo](https://turbo.fyi/). Turbo repo (or
-just "turbo") is a tool designed to build monorepos. When we edit a file in an upstream
-dependency, then build a downstream dependency, turbo will automatically detect that the
+order. Instead, we use a tool called [Turborepo](https://turbo.fyi/). Turborepo (or just
+"Turbo") is a tool designed to build monorepos. When we edit a file in an upstream
+dependency, then build a downstream dependency, Turbo will automatically detect that the
 upstream dependency has changed and rebuild it before building the downstream
 dependency. This is a huge time saver.
 
-Turbo is configured in the [`turbo.json`](../../turbo.json) file in the root directory
-of the repository.
+Turbo is configured in the [`turbo.json`](../../../turbo.json) file in the root
+directory of the repository.
 
-## Building Packages
+## 3 Building packages
 
 Building a package is as simple as running
 
@@ -102,20 +117,25 @@ pnpm build:pluto
 ```
 
 This will build `pluto` and all of its dependencies. If we want to build all packages,
+we run
+
+```bash
+pnpm build
+```
 
 Generally speaking, you'll be building `pluto` and `x` most often. We almost never build
 `console` or `docs` locally, and instead rely on the CI/CD pipeline to build and publish
 these applications for us.
 
-## Important Caveats - Running Tests and Development Servers
+## 4 Important caveats - running tests and development servers
 
-While turbo is great for managing all of our build tooling, it's not designed for
+While Turbo is great for managing all of our build tooling, it's not designed for
 running tests or development servers. In those situations, we need to make sure we
 manually build dependencies whose changes we want reflected in our tests or development
 servers.
 
 The most common case here is when we're developing `pluto` and want to see our changes
-reflected in `console`. To start the console dev server, we run:
+reflected in `console`. To start the Console dev server, we run:
 
 ```bash
 pnpm dev:console
@@ -133,14 +153,14 @@ that there's no need to refresh the page.
 The same principle applies to running tests. We need to make sure we build any upstream
 dependencies whose changes we want reflected in our tests.
 
-## Vite
+## 5 Vite
 
 There's one more very important, yet less seen and/or modified tool we use to build
-Synnax front end software: [vite](https://vitejs.dev/). Vite is the underlying engine
-that turbo uses to build our packages. You'll never need to run vite directly, but it's
+Synnax front end software: [Vite](https://vitejs.dev/). Vite is the underlying engine
+that Turbo uses to build our packages. You'll never need to run Vite directly, but it's
 important to know that it's there.
 
-## Generating Libraries with Multiple Entrypoints
+## 6 Generating libraries with multiple entrypoints
 
 Make sure your `tsconfig.json` has 'composite' set to true. This is necessary for
 building libraries with multiple entrypoints.

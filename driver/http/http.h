@@ -34,10 +34,12 @@ public:
     /// @brief configures a task from a Synnax task definition.
     /// @param ctx the task context providing access to the Synnax client.
     /// @param task the Synnax task definition to configure.
+    /// @param cmd_key the start command driving the deploy, empty at boot.
     /// @returns the configured task and whether this factory handled the type.
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override;
 
     /// @brief configures tasks that should start automatically on rack boot.

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -16,26 +15,10 @@ import { renderLog } from "@/feature/log/toolbar/testutil";
 import { Session } from "@/session";
 import { type ConsolePreloadedState } from "@/testutil";
 
-const layoutState = (key: string, name: string): Session.Layout.State => ({
-  key,
-  windowKey: MAIN_WINDOW,
-  type: "log",
-  name,
-  location: "mosaic",
-});
-
 const preloadedState = (
   key: string,
-  name: string,
   logState: Partial<Session.Log.State> = {},
 ): ConsolePreloadedState => ({
-  [Session.Layout.SLICE_NAME]: {
-    ...Session.Layout.ZERO_SLICE_STATE,
-    layouts: {
-      ...Session.Layout.ZERO_SLICE_STATE.layouts,
-      [key]: layoutState(key, name),
-    },
-  },
   [Session.Log.SLICE_NAME]: {
     ...Session.Log.ZERO_SLICE_STATE,
     logs: { [key]: { ...Session.Log.ZERO_STATE, ...logState } },
@@ -45,7 +28,7 @@ const preloadedState = (
 const renderToolbar = (name = "Test Log") =>
   renderLog(Log.Toolbar, {
     log: { name },
-    preloadedState: (key) => preloadedState(key, name),
+    preloadedState: (key) => preloadedState(key),
   });
 
 describe("log/toolbar/Toolbar", () => {

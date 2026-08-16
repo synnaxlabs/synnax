@@ -18,7 +18,7 @@ import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigInput => ({
+export const defaultConfig = (t: Theming.Theme): schematic.InputNodeConfig => ({
   variant: "input",
   orientation: "left",
   color: t.colors.gray.l11,
@@ -27,7 +27,7 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigInput => ({
   control: { show: true },
 });
 
-const Preview = ({ color }: schematic.NodeConfigInput): ReactElement => (
+const Preview = ({ color }: schematic.InputNodeConfig): ReactElement => (
   <Input
     initialValue="send message"
     color={color}
@@ -36,7 +36,7 @@ const Preview = ({ color }: schematic.NodeConfigInput): ReactElement => (
   />
 );
 
-export const spec: Spec<"input", schematic.NodeConfigInput> = {
+export const spec: Spec<"input", schematic.InputNodeConfig> = {
   key: "input",
   name: "Input",
   Form: InputForm,

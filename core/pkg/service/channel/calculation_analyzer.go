@@ -126,7 +126,7 @@ func (a *CalculationAnalyzer) Analyze(
 			deps = append(deps, Key(k))
 		}
 	}
-	inferredDataType := types.ToTelem(dataType)
+	inferredDataType := dataType.ToTelem()
 	if len(ch.Operations) > 0 &&
 		ch.Operations[len(ch.Operations)-1].Type == OperationTypeDerivative {
 		inferredDataType = telem.Float64T

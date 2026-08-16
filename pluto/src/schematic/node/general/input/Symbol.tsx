@@ -23,7 +23,7 @@ export const Symbol = ({
   onConfigChange,
   selected,
   config: { label, control, commandChannel, ...rest },
-}: NodeProps<schematic.NodeConfigInput>): ReactElement => {
+}: NodeProps<schematic.InputNodeConfig>): ReactElement => {
   const sink = useMemo(() => CommonTelem.stringSink(commandChannel), [commandChannel]);
   const { set } = InputTelem.use({ aetherKey: nodeKey, sink });
   return (

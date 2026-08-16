@@ -9,24 +9,14 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { LinePlot } from "@/platform/lineplot";
 import { Selector } from "@/platform/selector";
 
-export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
-  const hasCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
-  const create = LinePlot.useCreate({});
-  const handleClick = useCallback(() => create({ key }), [create, key]);
-  if (!hasCreatePermission) return null;
-  return (
-    <Selector.Item
-      key={LinePlot.LAYOUT_TYPE}
-      title="Line Plot"
-      icon={<Icon.LinePlot />}
-      onClick={handleClick}
-    />
-  );
-};
-Selectable.type = LinePlot.LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
+export const Selectable = Selector.createSelectable({
+  type: lineplot.TYPE_ONTOLOGY_ID.type,
+  title: "Line Plot",
+  icon: <Icon.LinePlot />,
+  useOnSelect: LinePlot.useCreate,
+  useVisible: () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID),
+});

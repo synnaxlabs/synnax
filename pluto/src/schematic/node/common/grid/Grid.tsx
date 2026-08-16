@@ -264,6 +264,10 @@ export const Grid: FC<GridProps> = ({
     prevEditable.current = editable;
   }
   const [resizeCursor, setResizeCursor] = useState<string | null>(null);
+  const resizeOverlayStyle = useMemo<CSSProperties>(
+    () => ({ cursor: resizeCursor ?? undefined }),
+    [resizeCursor],
+  );
   const { items, body } = splitChildren(children);
   const handleRotate = () =>
     onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
@@ -322,7 +326,7 @@ export const Grid: FC<GridProps> = ({
       {resizeControls}
       {resizeCursor != null &&
         createPortal(
-          <div className={RESIZE_OVERLAY_CLASS} style={{ cursor: resizeCursor }} />,
+          <div className={RESIZE_OVERLAY_CLASS} style={resizeOverlayStyle} />,
           document.body,
         )}
       <div className={DRAG_HANDLE_CLASS}>{body}</div>

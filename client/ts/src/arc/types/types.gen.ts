@@ -35,6 +35,7 @@ export enum Kind {
   function = 21,
   sequence = 22,
   stage = 23,
+  var_ref = 24,
 }
 export const kindZ = z.enum(Kind);
 
@@ -42,10 +43,14 @@ export enum ChanDirection {
   none = 0,
   read = 1,
   write = 2,
+  read_write = 3,
 }
 export const chanDirectionZ = z.enum(ChanDirection);
 
-/** Channels contains channel declarations for reading from and writing to Synnax channels. */
+/**
+ * Channels contains channel declarations for reading from and writing to Synnax
+ * channels.
+ */
 export const channelsZ = z.object({
   /** read contains readable channel indices mapped to parameter names. */
   read: z.record(z.uint32(), z.string()).default(() => ({})),
@@ -54,7 +59,10 @@ export const channelsZ = z.object({
 });
 export interface Channels extends z.infer<typeof channelsZ> {}
 
-/** Dimensions contains physical dimension exponents for dimensional analysis (SI base quantities). */
+/**
+ * Dimensions contains physical dimension exponents for dimensional analysis (SI base
+ * quantities).
+ */
 export const dimensionsZ = z.object({
   /** length is the length dimension exponent (meters). */
   length: zod.int8,
@@ -75,7 +83,9 @@ export const dimensionsZ = z.object({
 });
 export interface Dimensions extends z.infer<typeof dimensionsZ> {}
 
-/** Unit is a physical unit with dimensions and scale factor for unit-aware computation. */
+/**
+ * Unit is a physical unit with dimensions and scale factor for unit-aware computation.
+ */
 export const unitZ = z.object({
   /** dimensions contains physical dimension exponents. */
   dimensions: dimensionsZ,

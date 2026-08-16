@@ -20,32 +20,19 @@ import {
 } from "@/feature/ethercat/task/configure";
 import {
   channelMapKey,
-  createOutputChannel,
+  createWriteChannel,
+  deployWriteConfigZ,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
-  type OutputChannel,
   resolvePDODataType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
+  type WriteChannel,
   type WriteSchemas,
-  ZERO_WRITE_PAYLOAD,
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
-  type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.EtherCAT",
-};
-
-export const WriteSelectable = Selector.createSimpleItem({
-  title: "EtherCAT Write Task",
-  icon: <Icon.Logo.EtherCAT />,
-  layout: WRITE_LAYOUT,
-});
 
 const Properties = () => (
   <Flex.Box x grow>
@@ -55,6 +42,7 @@ const Properties = () => (
       inputProps={EXECUTION_RATE_INPUT_PROPS}
     />
     <Task.Fields.StateUpdateRate />
+    <Task.Fields.DataSaving />
     <Task.Fields.AutoStart />
   </Flex.Box>
 );
@@ -64,9 +52,9 @@ const EXECUTION_RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<OutputChannel>(path);
+  const ch = PForm.useFieldValue<WriteChannel>(path);
   return (
-    <Task.Layouts.ListAndDetailsChannelItem
+    <Task.Views.ListAndDetailsChannelItem
       {...props}
       port={getPortLabel(ch)}
       path={path}
@@ -84,20 +72,20 @@ const channelDetails = Component.renderProp(WriteChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<WriteSchemas>> = () => (
-  <Task.Layouts.ListAndDetails<OutputChannel>
+const Form: FC = () => (
+  <Task.Views.ListAndDetails<WriteChannel>
     listItem={listItem}
     details={channelDetails}
-    createChannel={createOutputChannel}
+    createChannel={createWriteChannel}
     contextMenuItems={Task.writeChannelContextMenuItems}
   />
 );
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => {
-  if (config != null)
-    return { ...ZERO_WRITE_PAYLOAD, config: WRITE_SCHEMAS.config.parse(config) };
-  return { ...ZERO_WRITE_PAYLOAD };
-};
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
+  name: "EtherCAT Write Task",
+  type: WRITE_TYPE,
+  config: WRITE_SCHEMAS.config.parse(config ?? {}),
+});
 
 const WRITE_INDEX_OPTIONS = {
   indexProperty: "writeStateIndex" as const,
@@ -110,7 +98,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   config,
 ) => {
   const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<OutputChannel>(client, config.channels);
+    await retrieveAndValidateSlaves<WriteChannel>(client, config.channels);
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
@@ -190,7 +178,19 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "ethercat_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "EtherCAT Write Task",
+  icon: <Icon.Logo.EtherCAT />,
+  useOnSelect: useCreateWrite,
 });

@@ -12,22 +12,27 @@ import "@/platform/user/Badge.css";
 import { Button, Dialog, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 export const Badge = (): ReactElement | null => {
-  const { data: u } = User.useRetrieve({}, { addStatusOnFailure: false });
+  const { data: remoteUsername } = User.useResultUsername({});
+  const { data: firstName } = User.useResultFirstName({});
   const cluster = Session.Cluster.useSelectState();
   const handleLogout = Session.useLogout();
-  const username = u?.username ?? cluster?.username ?? "";
-  const displayName =
-    u?.firstName != null && u?.firstName != "" ? u.firstName : username;
+  const username = remoteUsername ?? cluster?.username ?? "";
+  const displayName = firstName != null && firstName != "" ? firstName : username;
   return (
     <Dialog.Frame>
-      <Dialog.Trigger contrast={2} hideCaret textColor={10} gap="small" weight={400}>
+      <Dialog.Trigger hideCaret textColor={10} gap="small">
         <Icon.User />
         {displayName}
       </Dialog.Trigger>
-      <Dialog.Dialog bordered borderColor={6} style={{ padding: "1rem", width: 200 }}>
+      <Dialog.Dialog
+        bordered
+        borderColor={7}
+        className={CSS.BE("user-badge", "dialog")}
+      >
         <Button.Button onClick={handleLogout} variant="text" full="x">
           <Icon.Logout />
           Log out

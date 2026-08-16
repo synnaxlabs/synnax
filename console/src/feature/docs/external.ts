@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Docs } from "@/platform/docs";
-import { type Layout } from "@/platform/layout";
-
 export * from "@/feature/docs/commands";
 export * from "@/platform/docs/external";
 export * from "@/session/docs/selectors";
 export * from "@/session/docs/slice";
-
-export const LAYOUTS: Layout.Renderers = {
-  [Docs.LAYOUT_TYPE]: Docs.Docs,
-};

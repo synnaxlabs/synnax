@@ -39,13 +39,13 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 // OntologyIDsFromLogs returns the ontology IDs of the logs.
 func OntologyIDsFromLogs(logs []Log) []ontology.ID {
-	return lo.Map(logs, func(l Log, _ int) ontology.ID { return OntologyID(l.Key) })
+	return lo.Map(logs, func(l Log, _ int) ontology.ID { return l.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(l Log) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
+	return ontology.NewResource(schema, l.OntologyID(), l.Name, l)
 }
 
 type change = xchange.Change[Key, Log]
@@ -58,7 +58,11 @@ var (
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeLog }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
 	k, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err
@@ -79,7 +83,9 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Log]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -87,7 +93,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

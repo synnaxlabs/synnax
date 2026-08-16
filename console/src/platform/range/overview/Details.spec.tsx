@@ -7,17 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { panel, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Modals } from "@/platform/modals";
+import { createActiveState } from "@/platform/project/testutil";
 import { Range } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, stubClipboardWriteText } from "@/testutil";
+import { createCluster } from "@/session/cluster/testutil";
+import {
+  createConsoleWrapper,
+  renderSuspended,
+  stubClipboardWriteText,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -33,7 +40,7 @@ const buttonWithIcon = (label: string): HTMLElement => {
 
 const renderDetails = async (rangeKey: string) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const result = render(
+  const result = await renderSuspended(
     <>
       <Range.Details rangeKey={rangeKey} />
       <Modals.Stack />
@@ -57,18 +64,36 @@ describe("Range.Details", () => {
     });
   });
 
-  it("should place the parent range's overview layout when its button is clicked", async () => {
+  it("should open the parent range as a tab when its button is clicked", async () => {
     const parent = await createRange();
     const child = await client.ranges.create({
       name: uniqueRangeName("child"),
       timeRange: new TimeRange(1, 2),
       parent,
     });
-    const { store } = await renderDetails(child.key);
-    fireEvent.click(await screen.findByText(parent.name, {}));
-    await waitFor(() =>
-      expect(Session.Layout.select(store.getState(), parent.key)).toBeDefined(),
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
+    const { wrapper, store } = await createConsoleWrapper({
+      client,
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
+    });
+    await renderSuspended(
+      <>
+        <Range.Details rangeKey={child.key} />
+        <Modals.Stack />
+      </>,
+      { wrapper },
     );
+    fireEvent.click(await screen.findByText(parent.name, {}));
+    await waitFor(async () => {
+      const panelKey = Session.Panel.selectSelected(store.getState());
+      expect(panelKey).toBeDefined();
+      const doc = await client.panels.retrieve(panelKey as string);
+      const tab = panel.findTabByResource(doc.root, ranger.ontologyID(parent.key));
+      expect(tab).not.toBeNull();
+    });
   });
 
   it("should open the CSV download modal scoped to the range", async () => {
@@ -91,20 +116,12 @@ describe("Range.Details", () => {
           version: 0,
           selected: "local",
           clusters: {
-            local: {
-              key: "local",
-              name: "Local",
-              host: "localhost",
-              port: 9090,
-              username: "synnax",
-              password: "seldon",
-              secure: false,
-            },
+            local: createCluster("local", { name: "Local" }),
           },
         },
       },
     });
-    render(<Range.Details rangeKey={range.key} />, { wrapper });
+    await renderSuspended(<Range.Details rangeKey={range.key} />, { wrapper });
     await screen.findByDisplayValue(range.name, {});
     fireEvent.click(buttonWithIcon("link"));
     await waitFor(() => expect(writeText).toHaveBeenCalled());

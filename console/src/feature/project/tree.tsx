@@ -54,7 +54,7 @@ const useDelete = Tree.createUseDelete({
     const active = array.toArray(data).find((k) => k === activeKey);
     if (active == null) return;
     store.dispatch(Session.Project.clearSelected());
-    store.dispatch(Session.Layout.clearProject());
+    store.dispatch(Session.Panel.reset());
   },
 });
 
@@ -97,22 +97,18 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   );
   return (
     <ContextMenu.Menu>
-      {hasUpdatePermission && singleResource && (
+      {hasUpdatePermission && (
         <>
-          <ContextMenu.RenameItem onClick={handleRename} />
-          <Menu.Divider />
+          {singleResource && <ContextMenu.RenameItem onClick={handleRename} />}
+          <Group.ContextMenuItem
+            ids={ids}
+            shape={shape}
+            rootID={rootID}
+            onClick={() => group(props)}
+          />
         </>
       )}
-      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
-      {hasUpdatePermission && (
-        <Group.ContextMenuItem
-          ids={ids}
-          shape={shape}
-          rootID={rootID}
-          onClick={() => group(props)}
-        />
-      )}
-      {hasUpdatePermission || (hasDeletePermission && <Menu.Divider />)}
+      <Menu.Divider />
       {singleResource && (
         <>
           {hasLinePlotCreatePermission && (
@@ -152,9 +148,11 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
             onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
@@ -170,11 +168,6 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
       handleError(async () => {
         const proj = await client.projects.retrieve(resource.id.key);
         store.dispatch(Session.Project.select(proj.key));
-        store.dispatch(
-          Session.Layout.setProject({
-            slice: Session.Layout.migrateLayout(proj.layout),
-          }),
-        );
       }, `Failed to select ${resource.name}`);
     },
     [client, store, handleError],

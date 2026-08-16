@@ -10,7 +10,7 @@
 import "@/schematic/node/general/select/select.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -19,14 +19,12 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Select as BaseSelect } from "@/select";
 
-interface RenderProps extends Omit<schematic.NodeConfigSelect, "sink" | "variant"> {
+interface RenderProps extends Omit<schematic.SelectNodeConfig, "sink" | "variant"> {
   className?: string;
   value?: string;
   onChange: (key: string | null) => void;
   onSend?: (value: number) => void;
 }
-
-const RIGHT_HANDLE_STYLE: CSSProperties = { zIndex: 5 };
 
 export const Select = ({
   className,
@@ -45,6 +43,7 @@ export const Select = ({
     [options],
   );
   const matched = options.find((o) => o.key === value);
+  const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
   return (
     <Primitive.Div
       orientation={orientation}
@@ -64,7 +63,6 @@ export const Select = ({
           left={100}
           top={50}
           id="2"
-          style={RIGHT_HANDLE_STYLE}
         />
         <Handle.Handle
           location="top"
@@ -89,7 +87,7 @@ export const Select = ({
           disabled={disabled}
           resourceName="option"
           triggerProps={{ color, size }}
-          style={{ minWidth: inlineSize }}
+          style={triggerStyle}
         />
         {onSend != null && (
           <BaseButton.Button

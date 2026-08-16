@@ -22,7 +22,8 @@ cc_library(
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl/time",
         "//x/cpp/errors",
-        "@glog",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:check",
     ],
 )
 
@@ -34,6 +35,7 @@ cc_binary(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/node",
+        "//x/cpp/bench",
         "//x/cpp/errors",
         "//x/cpp/telem",
         "@google_benchmark//:benchmark_main",

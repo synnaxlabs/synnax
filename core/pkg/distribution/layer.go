@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -49,7 +49,8 @@ type LayerConfig struct {
 	// GorpCodec sets the codec used to encode/decode data structures within the cluster
 	// metadata DB.
 	//
-	// [OPTIONAL] - Defaults to orc.NewCodec(msgpack.Codec)
+	// [OPTIONAL] - Defaults to encoding.NewDecodeFallbackCodec(orc.Codec,
+	// msgpack.Codec)
 	GorpCodec encoding.Codec
 	// AspenTransport is the network transport used for key-value gossip and cluster
 	// topology information.
@@ -121,7 +122,7 @@ type Layer struct {
 	DB *gorp.DB
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses,
 	// states, etc.
-	Cluster node.Cluster
+	Cluster cluster.Cluster
 	// Channel is the distribution-layer channel allocator: it assigns local keys and
 	// creates, renames, and deletes storage channels across the cluster.
 	Channel *channel.Service
@@ -140,7 +141,9 @@ type Layer struct {
 // None of the services in the Layer should be used after Close is called. It is the
 // caller's responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(LayerConfig{GorpCodec: orc.NewCodec(msgpack.Codec)}, cfgs...)
+	cfg, err := config.New(LayerConfig{
+		GorpCodec: encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+	}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

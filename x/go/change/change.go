@@ -18,20 +18,20 @@ const (
 )
 
 // Change is a mutation to a generic key-value pair. This change can either be a 'Label'
-// or a 'DeleteChannel'. In the case of a 'Label', the Value field will be populated with the
-// new value. In the case of a 'DeleteChannel', the Value field will be the zero value of the
-// type of the Value field.
+// or a 'DeleteChannel'. In the case of a 'Label', the Value field will be populated
+// with the new value. In the case of a 'DeleteChannel', the Value field will be the
+// zero value of the type of the Value field.
 type Change[K, V any] struct {
 	// Key is the key of the key-value pair.
 	Key K
-	// Value is the value of the key-value pair. On a 'DeleteChannel' change, this will be the
-	// zero value of the Value field.
+	// Value is the value of the key-value pair. On a 'DeleteChannel' change, this will
+	// be the zero value of the Value field.
 	Value V
 	// Variant is the type of change.
 	Variant Variant
 }
 
-func Map[K comparable, V comparable](
+func Map[K, V comparable](
 	prev,
 	next map[K]V,
 	equal func(prev, next V) bool,
@@ -43,12 +43,18 @@ func Map[K comparable, V comparable](
 	for k, v := range prev {
 		next, ok := next[k]
 		if !ok || !equal(v, next) {
-			changes = append(changes, Change[K, V]{Key: k, Value: v, Variant: VariantDelete})
+			changes = append(
+				changes,
+				Change[K, V]{Key: k, Value: v, Variant: VariantDelete},
+			)
 		}
 	}
 	for k := range next {
 		if _, ok := prev[k]; !ok {
-			changes = append(changes, Change[K, V]{Key: k, Value: next[k], Variant: VariantSet})
+			changes = append(
+				changes,
+				Change[K, V]{Key: k, Value: next[k], Variant: VariantSet},
+			)
 		}
 	}
 	return changes

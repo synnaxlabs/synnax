@@ -20,7 +20,7 @@ import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
-export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigValue => ({
+export const defaultConfig = (t: Theming.Theme): schematic.ValueNodeConfig => ({
   variant: "value",
   orientation: "left",
   color: color.ZERO,
@@ -35,13 +35,13 @@ export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigValue => ({
 
 const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
 
-const Preview = ({ color }: schematic.NodeConfigValue): ReactElement => (
+const Preview = ({ color }: schematic.ValueNodeConfig): ReactElement => (
   <Value color={color} dimensions={PREVIEW_DIMENSIONS} units="psi">
     <Text.Text>50.00</Text.Text>
   </Value>
 );
 
-export const spec: Spec<"value", schematic.NodeConfigValue> = {
+export const spec: Spec<"value", schematic.ValueNodeConfig> = {
   key: "value",
   name: "Value",
   Form: ValueForm,

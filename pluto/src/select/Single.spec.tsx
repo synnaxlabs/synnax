@@ -213,4 +213,21 @@ describe("Select.Single", () => {
     expect(c.getByText("Second Item")).toBeTruthy();
     expect(c.queryByText("Select a Test Item")).toBeNull();
   });
+
+  describe("preview", () => {
+    it("should mark the trigger as a preview", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle preview />);
+      expect(c.getByText("Select a Test Item").closest("button")?.classList).toContain(
+        "pluto-btn--preview",
+      );
+    });
+
+    it("should not open the dialog while previewing", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle preview />);
+      fireEvent.click(c.getByText("Select a Test Item"));
+      expect(c.queryByText("First Item Option")).toBeNull();
+    });
+  });
 });

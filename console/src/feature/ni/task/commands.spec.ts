@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -14,9 +15,7 @@ import { describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { NI } from "@/feature/ni";
 import { Session } from "@/session";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
+import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -37,20 +36,22 @@ describe("NI.Task Commands", () => {
       await waitFor(() => expect(document.body.textContent).toContain(name));
   });
 
-  it("should place the analog read layout when its command is selected", async () => {
+  it("should create a draft task and open its resource tab when its command is selected", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: NI.Task.COMMANDS,
       client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Analog Read");
     await selectCommand("Create an NI Analog Read Task");
-    await waitFor(() => {
-      const placed = Session.Layout.selectByFilter(
-        store.getState(),
-        (l) => l.type === NI.Task.ANALOG_READ_TYPE,
-      );
-      if (placed == null) throw new Error("analog read layout not placed");
-      expect(placed.name).toBe(NI.Task.ZERO_ANALOG_READ_PAYLOAD.name);
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
   });
 });

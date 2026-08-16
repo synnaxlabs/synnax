@@ -84,14 +84,14 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Embedded      *bool      `json:"embedded" msgpack:"embedded"`
-		HostIsNode    *bool      `json:"host_is_node" msgpack:"host_is_node"`
-		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
-		Keys          []rack.Key `json:"keys" msgpack:"keys"`
-		Names         []string   `json:"names" msgpack:"names"`
-		Integration   string     `json:"integration" msgpack:"integration"`
-		Limit         int        `json:"limit" msgpack:"limit"`
-		Offset        int        `json:"offset" msgpack:"offset"`
+		Embedded      *bool      `json:"embedded"       msgpack:"embedded"`
+		HostIsNode    *bool      `json:"host_is_node"   msgpack:"host_is_node"`
+		SearchTerm    string     `json:"search_term"    msgpack:"search_term"`
+		Keys          []rack.Key `json:"keys"           msgpack:"keys"`
+		Names         []string   `json:"names"          msgpack:"names"`
+		Integration   string     `json:"integration"    msgpack:"integration"`
+		Limit         int        `json:"limit"          msgpack:"limit"`
+		Offset        int        `json:"offset"         msgpack:"offset"`
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
@@ -187,7 +187,9 @@ func (s *Service) Delete(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	exists, err := s.device.NewRetrieve().Where(device.MatchRacks(req.Keys...)).Exists(ctx, tx)
+	exists, err := s.device.NewRetrieve().
+		Where(device.MatchRacks(req.Keys...)).
+		Exists(ctx, tx)
 	if err != nil {
 		return types.Nil{}, err
 	}
@@ -214,6 +216,11 @@ func (s *Service) Delete(
 		if err := w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
 			return types.Nil{}, err
 		}
+	}
+	// Only internal tasks are left: the check above rejects the delete while the user
+	// still has tasks of their own on the rack.
+	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
+		return types.Nil{}, err
 	}
 	return types.Nil{}, nil
 }

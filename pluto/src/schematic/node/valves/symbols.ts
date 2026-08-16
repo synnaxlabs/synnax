@@ -158,7 +158,7 @@ const relief = createDummyToggle({
   label: "Relief Valve",
   Primitive: Relief,
 });
-type SolenoidConfig = schematic.NodeConfigSolenoidValve;
+type SolenoidConfig = schematic.SolenoidValveNodeConfig;
 // Solenoid is the one valve whose config carries an extra `normallyOpen` field, so it
 // is built directly rather than through defineToggle. The spec is given an explicit
 // Spec annotation (not `satisfies`) to widen Form to FC<FormProps> — otherwise the

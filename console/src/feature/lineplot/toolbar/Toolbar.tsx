@@ -10,10 +10,17 @@
 import "@/feature/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Button,
+  Flex,
+  Icon,
+  LinePlot,
+  Panel as PlutoPanel,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { useExport } from "@/feature/lineplot/export";
 import { Annotations } from "@/feature/lineplot/toolbar/Annotations";
 import { Axes } from "@/feature/lineplot/toolbar/Axes";
 import { Data } from "@/feature/lineplot/toolbar/Data";
@@ -28,9 +35,8 @@ import { Session } from "@/session";
 
 const Internal = (): ReactElement => {
   const key = LinePlot.useKey();
-  const name = LinePlot.useSelectName();
+  const name = LinePlot.useName();
   const dispatch = Session.useDispatch();
-  const handleExport = useExport();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const handleTabSelect = useCallback(
@@ -49,26 +55,28 @@ const Internal = (): ReactElement => {
     <Base.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>
         <Base.Header>
-          <Base.Title icon={<Icon.LinePlot />}>{name}</Base.Title>
+          <Base.Title>
+            <Icon.LinePlot />
+            {name}
+          </Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("line-plot", "toolbar", "actions")}>
               <Button.Button
                 tooltip="Download as CSV"
-                sharp
                 size="medium"
                 variant="text"
                 onClick={downloadAsCSV}
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton getID={() => lineplot.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}
               />
             </Flex.Box>
             {hasUpdatePermission && (
-              <Tabs.Selector className={CSS.BE("line-plot", "toolbar", "selector")}>
+              <Tabs.Selector>
                 <Tabs.Tab itemKey="data">Data</Tabs.Tab>
                 <Tabs.Tab itemKey="lines">Lines</Tabs.Tab>
                 <Tabs.Tab itemKey="axes">Axes</Tabs.Tab>
@@ -98,12 +106,11 @@ const Internal = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <LinePlot.Suspended linePlotKey={layoutKey}>
-    <Internal />
-  </LinePlot.Suspended>
-);
+export const Toolbar = (): ReactElement => {
+  const { key } = PlutoPanel.useTabResource();
+  return (
+    <LinePlot.Suspended linePlotKey={key}>
+      <Internal />
+    </LinePlot.Suspended>
+  );
+};

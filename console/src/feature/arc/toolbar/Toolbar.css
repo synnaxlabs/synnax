@@ -29,3 +29,8 @@
         }
     }
 }
+
+.console-arc-list-item__status {
+    font-size: 2rem;
+    min-width: 2rem;
+}

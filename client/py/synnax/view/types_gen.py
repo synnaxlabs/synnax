@@ -22,16 +22,15 @@ Key: TypeAlias = UUID
 
 
 class View(BaseModel):
-    """Is a persisted view configuration storing visualization settings and
-    query parameters for line plots, tables, schematics, and other view
-    types.
+    """Is a persisted view configuration storing visualization settings and query
+    parameters for line plots, tables, schematics, and other view types.
 
     Attributes:
         key: Is the unique identifier for this view.
         name: Is a human-readable name for the view.
         type: Is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
-        query: Is a type-agnostic JSON object containing view-specific configuration
-            and query parameters.
+        query: Is a type-agnostic JSON object containing view-specific configuration and
+            query parameters.
     """
 
     key: Key = Field(default_factory=uuid4)

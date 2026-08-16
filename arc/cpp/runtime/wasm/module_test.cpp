@@ -11,12 +11,14 @@
 #include <string>
 
 #include "gtest/gtest.h"
+#include "wasmtime.hh"
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
 
+#include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/module.h"
 
 namespace arc::runtime::wasm {
@@ -27,23 +29,6 @@ std::mt19937 gen_rand = random_generator("Module Tests");
 std::string random_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);
     return prefix + "_" + std::to_string(dis(gen_rand));
-}
-
-/// @brief Compiles an Arc program via the Synnax client.
-program::Program compile_arc(const synnax::Synnax &client, const std::string &source) {
-    synnax::arc::Arc arc{
-        .name = random_name("test_arc"),
-        .mode = synnax::arc::MODE_TEXT,
-        .text = text::Text{.raw = source}
-    };
-    if (const auto create_err = client.arcs.create(arc))
-        throw std::runtime_error("Failed to create arc: " + create_err.message());
-
-    auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, {.compile = true});
-    if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    if (!compiled.program.has_value())
-        throw std::runtime_error("Compiled arc has no program");
-    return *compiled.program;
 }
 }
 
@@ -80,7 +65,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    const auto mod = compile_arc(client, source);
+    const auto mod = testutil::compile_text(client, source);
     ASSERT_FALSE(mod.wasm.empty());
 
     const ModuleConfig cfg{.program = mod};
@@ -101,7 +86,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    const auto prog = compile_arc(client, source);
+    const auto prog = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = prog};
     auto module = ASSERT_NIL_P(Module::open(cfg));
 
@@ -122,7 +107,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    const auto program = compile_arc(client, source);
+    const auto program = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = program};
     const auto mod = ASSERT_NIL_P(Module::open(cfg));
     ASSERT_NIL_P(mod->func("double"));
@@ -141,7 +126,7 @@ func double(val f32) f32 {
 }
 )" + ch.name + " -> double{}";
 
-    const auto program = compile_arc(client, source);
+    const auto program = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = program};
     auto module = ASSERT_NIL_P(Module::open(cfg));
     auto func = ASSERT_NIL_P(module->func("double"));

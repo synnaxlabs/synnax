@@ -18,9 +18,11 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
+import { paramsZ } from "@/channel/payload";
+import { keyZ, nameZ } from "@/channel/types.gen";
 import { SynnaxError } from "@/errors";
-import { WriteAdapter } from "@/framer/adapter";
+import { type ChannelRetriever, WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
 import { WriterCommand } from "@/framer/types.gen";
@@ -96,18 +98,18 @@ const baseWriterConfigZ = z.object({
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
-  keys: channel.keyZ.array().optional(),
+  keys: keyZ.array().optional(),
 });
 
 export type NetWriterConfig = z.input<typeof netWriterConfigZ>;
 
 // Intermediate utility type to allow for the use of paramsZ in the writer config.
 const intermediateWriterConfigZ = baseWriterConfigZ.extend({
-  channels: channel.paramsZ,
+  channels: paramsZ,
 });
 
 export const writerConfigZ = intermediateWriterConfigZ.or(
-  channel.paramsZ.transform((channels) =>
+  paramsZ.transform((channels) =>
     intermediateWriterConfigZ.parse({ channels, start: TimeStamp.now() }),
   ),
 );
@@ -129,11 +131,11 @@ const resZ = z.object({
   err: errors.payloadZ.optional(),
 });
 
-const authorityArgsZ = z
+const authorityParamsZ = z
   .tuple([
     z.union([
-      z.record(channel.keyZ.or(channel.nameZ), control.authorityZ),
-      channel.keyZ.or(channel.nameZ),
+      z.record(keyZ.or(nameZ), control.authorityZ),
+      keyZ.or(nameZ),
       control.authorityZ,
     ]),
     control.authorityZ.optional(),
@@ -141,7 +143,7 @@ const authorityArgsZ = z
   .transform(([value, authority]) => {
     if (control.authorityZ.safeParse(value).success)
       return { keys: [], authorities: [value as control.Authority] };
-    if (channel.keyZ.or(channel.nameZ).safeParse(value).success) {
+    if (keyZ.or(nameZ).safeParse(value).success) {
       if (authority == null)
         throw new Error(
           "authority is required when setting authority for a single channel",
@@ -155,7 +157,7 @@ const authorityArgsZ = z
     return { keys: Object.keys(oValue), authorities: Object.values(oValue) };
   });
 
-export type AuthorityArgs = z.input<typeof authorityArgsZ>;
+export type AuthorityParams = z.input<typeof authorityParamsZ>;
 
 interface Response extends z.infer<typeof resZ> {}
 
@@ -210,12 +212,12 @@ export class Writer {
   }
 
   static async _open(
-    retriever: channel.Retriever,
+    retrieveChannels: ChannelRetriever,
     client: WebSocketClient,
     config: WriterConfig,
   ): Promise<Writer> {
     const cfg = zod.parse(writerConfigZ, config);
-    const adapter = await WriteAdapter.open(retriever, cfg.channels);
+    const adapter = await WriteAdapter.open(retrieveChannels, cfg.channels);
     client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream("/frame/write", reqZ, resZ);
     const writer = new Writer(stream, adapter);
@@ -271,11 +273,11 @@ export class Writer {
   }
 
   async setAuthority(
-    value: AuthorityArgs[0],
-    authority?: AuthorityArgs[1],
+    value: AuthorityParams[0],
+    authority?: AuthorityParams[1],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
-    const parsed = authorityArgsZ.parse([value, authority]);
+    const parsed = authorityParamsZ.parse([value, authority]);
     const config = {
       keys: await this.adapter.adaptParams(parsed.keys),
       authorities: parsed.authorities,

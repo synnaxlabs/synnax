@@ -175,30 +175,10 @@ area := distance ^ 2 // f64 m^2 (literal exponent required)
 
 ## Variables
 
-### Constants
-
-Top-level declarations using `:=` are compile-time constants. Values are inlined at each
-reference site with no runtime overhead.
-
-```
-GlobalConstant ::= Identifier ':=' Literal
-                 | Identifier Type ':=' Literal
-```
-
-Only literal values are allowed (no expressions). Constants can be used in expressions
-and as function input values.
-
-```arc
-MAX_PRESSURE := 500.0 // f64 constant
-SAMPLE_COUNT := 100 // i64 constant
-TIMEOUT := 30s // with unit suffix
-SCALE f32 := 2.5 // explicit type
-
-pressure > MAX_PRESSURE -> alarm{}
-sensor -> scale{gain=SCALE} -> output
-```
-
-### Declaration and Assignment
+A variable names a value. `:=` declares a variable; `$=` declares a stateful variable.
+Variables are valid at the top level and inside functions, sequences, and stages. A
+top-level variable is immutable: it cannot be reassigned, rebound, or written by a flow,
+and cannot be stateful.
 
 ```
 LocalVariable ::= Identifier ':=' Expression
@@ -210,8 +190,18 @@ StatefulVariable ::= Identifier '$=' Expression
 Assignment ::= Identifier '=' Expression
 ```
 
-**Local variables** (`:=`) inside functions reset on each invocation. **Stateful
-variables** (`$=`) persist across function invocations.
+A variable's kind is inferred from its initializer:
+
+- **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
+  into its declaring scope. `$=` makes a literal stateful, keeping its value across
+  entries; only literals can be stateful.
+- **Channel read**: a read-only expression over one or more channels
+  (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
+  the variable updates and every flow that reads it re-runs with the new value. A flow
+  write is rejected; reassigning with `=` rebinds the expression rather than replacing a
+  value.
+- **Channel read/write**: a bare channel reference (`c := valve_cmd`). Reads and writes
+  the channel; `=` rebinds it to another channel of the same type.
 
 ```arc
 count := 0 // local
@@ -229,8 +219,10 @@ ratio /= 4 // ratio = ratio / 4
 remainder %= 3 // remainder = remainder % 3
 ```
 
-**Rules**: Variables are function-scoped. No shadowing of global names. Declaration once
-per scope. Type inference from initial value.
+**Rules**: Variables are scoped to the block that declares them (a function, sequence,
+stage, or the top level) and are usable only after their declaration. No shadowing of
+names in an enclosing scope. Declaration once per scope. Type inference from the
+initializer.
 
 ## Operators
 
@@ -418,6 +410,8 @@ func counter() i64 {
 }
 ```
 
+A `$=` initializer must be a literal value; only literal variables can be stateful.
+
 ### Channel Operations in Functions
 
 Functions can read from and write to channels:
@@ -441,10 +435,11 @@ Functions can also reference global channels directly by name.
 IfStatement ::= 'if' Expression Block ElseIfClause* ElseClause?
 ElseIfClause ::= 'else' 'if' Expression Block
 ElseClause ::= 'else' Block
+ForStatement ::= 'for' ForClause? Block
+ForClause ::= Identifier (',' Identifier)? ':=' Expression | Expression
 ```
 
-Only conditional statements supported. No loops (reactive model handles iteration via
-events + stateful variables).
+`for` iterates a series or `range()`, tests a condition, or is empty to loop forever.
 
 ```arc
 if pressure > 100 {
@@ -493,7 +488,7 @@ RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
 RoutingEntry ::= Identifier ':' FlowNode ('->' FlowNode)* (':' Identifier)?
 
-FlowNode ::= Identifier           // channel, stage, or sequence name
+FlowNode ::= Identifier           // channel, variable, stage, or sequence name
            | FunctionInvocation   // func{...}
            | Expression           // inline computation
            | 'next'               // next stage (sequences only)
@@ -541,8 +536,9 @@ Map multiple sources to named input parameters:
 
 ### Expressions in Flows
 
-Inline expressions act as implicit functions. Expressions can reference global-scope
-identifiers (channels), literals, and function calls—but not function-local variables.
+Inline expressions act as implicit functions. Expressions can reference identifiers in
+scope (channels, variables), literals, and function calls, but not function-local
+variables.
 
 ```arc
 temperature > 100 -> alarm{} // comparison
@@ -565,8 +561,8 @@ test sequences, state machines, and ordered procedures.
 
 ### Core Concepts
 
-**Sequence**: A state machine containing ordered stages. Only one stage is active at a
-time per sequence.
+**Sequence**: An ordered list of steps: flow statements, stages, and nested sequences.
+Only one step is active at a time.
 
 **Stage**: A state within a sequence. When active, its reactive flows execute; when
 inactive, they don't.
@@ -579,11 +575,15 @@ inactive, they don't.
 ### Sequence Syntax
 
 ```
-SequenceDeclaration ::= 'sequence' Identifier '{' StageDeclaration+ '}'
+SequenceDeclaration ::= 'sequence' Identifier? '{' SequenceItem* '}'
 
-StageDeclaration ::= 'stage' Identifier '{' StageItem* '}'
+SequenceItem ::= FlowStatement | Assignment | SingleInvocation
+              | VariableDeclaration | StageDeclaration | SequenceDeclaration
 
-StageItem ::= FlowStatement
+StageDeclaration ::= 'stage' Identifier? '{' StageItem* '}'
+
+StageItem ::= FlowStatement | Assignment | SingleInvocation
+            | VariableDeclaration | SequenceDeclaration
 ```
 
 ### Example
@@ -640,6 +640,19 @@ stage step3 {} // terminal (no outgoing transitions)
 - `=> stage_name` — Jump to any stage in the same sequence
 - `=> sequence_name` — Jump to a different sequence (starts at its first stage)
 
+### Step Completion
+
+A sequence runs its steps in order. When a step completes, the sequence advances; when
+its last step completes, the sequence exits. A completed gated sequence can be triggered
+again.
+
+A nested sequence is one step of its parent: when it completes, the parent advances or
+exits in turn. A sequence declared inside a stage does not advance anything when it
+completes. The stage leaves only through its own `=>` transition.
+
+A flow step completes when its final node fires. Stages do not complete; they leave only
+through an explicit `=>` transition.
+
 ### Reactive vs One-Shot Semantics
 
 **Reactive flows (`->`)**: Execute every time the source produces a value while the
@@ -648,14 +661,15 @@ stage is active.
 **Conditional transitions (`=>`)**: Propagate only when the condition is truthy
 (non-zero). A transition to an already-active stage is a no-op, preventing re-entry.
 
-### Stage Entry Semantics
+### Scope Entry Semantics
 
-When entering a stage:
+When entering a stage or a sequence:
 
-1. All stateful nodes in the stage are reset
-2. Reactive flows start fresh
+1. Local variables (`:=`) reset to their initial values; stateful variables (`$=`) keep
+   their state
+2. Reactive flows start fresh; a sequence restarts at its first step
 
-Stages are stateless between entries—no implicit memory of previous time in the stage.
+Aside from stateful variables (`$=`), a scope keeps no memory between entries.
 
 ### Cross-Sequence Transitions
 
@@ -664,6 +678,9 @@ When transitioning to another sequence (e.g., `=> abort`):
 1. Source sequence's active stage is deactivated
 2. Target sequence starts at its first defined stage
 3. This is one-way—no built-in "return" mechanism
+4. The source's enclosing sequences do not resume; their remaining steps never run
+
+Activations are independent: several top-level scopes can run at the same time.
 
 ### Top-Level Entry Points
 
@@ -698,7 +715,6 @@ These simplify implementation while maintaining expressiveness:
    or channel IDs may be supplied in the `{}` block
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
-8. **No loops**: Use reactive patterns with stateful variables instead
 
 ## Error Handling
 
@@ -742,7 +758,7 @@ Generated module contains:
 
 - **Imports**: Host functions for channel ops, series ops, state persistence, builtins
 - **Exports**: One exported WASM function per Arc function
-- **Memory**: Optional linear memory for multi-output functions (1 page = 64KB)
+- **Memory**: Optional linear memory for multi-output functions (1 page = 64 kB)
 
 Example imports:
 
