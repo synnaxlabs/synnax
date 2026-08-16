@@ -61,6 +61,10 @@
     "vitest": "catalog:"
   },
   "type": "module",
+  "files": [
+    "dist",
+    "!dist/**/*.map"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

@@ -39,6 +39,10 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
+  "files": [
+    "dist",
+    "!dist/**/*.map"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

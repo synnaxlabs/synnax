@@ -28,7 +28,9 @@ export const lib = ({ name }: Options): Plugin[] => {
         return {
           resolve: { tsconfigPaths: true },
           build: {
-            sourcemap: !prod,
+            // Always emit source maps. The Console build chains them into its own map
+            // so the crash screen can resolve frames back to library TS sources.
+            sourcemap: true,
             minify: prod,
             lib: {
               name,

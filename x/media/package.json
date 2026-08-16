@@ -41,7 +41,8 @@
     "vite": "catalog:"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map"
   ],
   "exports": {
     ".": {
