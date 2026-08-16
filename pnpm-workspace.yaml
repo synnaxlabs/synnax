@@ -45,6 +45,7 @@ catalog:
   compromise: ^14.16.0
   compromise-dates: ^3.8.1
   eslint: ^10.8.0
+  fflate: ^0.8.2
   immer: ^11.1.15
   jsdom: ^30.0.1
   madge: ^8.0.0

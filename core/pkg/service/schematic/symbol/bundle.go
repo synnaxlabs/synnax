@@ -11,23 +11,30 @@ package symbol
 
 import (
 	"context"
+	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
 const (
-	manifestVersion = 2
-	manifestType    = "symbol_group"
+	manifestVersion       = 2
+	legacyManifestVersion = 1
+	manifestType          = "symbol_group"
 	// manifestBaseName is the manifest's file name without an extension. The codec
 	// supplies the extension, so every serialization has one recognition point.
 	manifestBaseName = "manifest"
+	// layoutFileName is reserved for legacy project bundles and is never a member.
+	layoutFileName = "LAYOUT.json"
 )
 
 // GroupManifest is the body of manifest.json in a symbol group bundle. Membership is
@@ -114,4 +121,207 @@ func (s *Service) ExportGroup(
 	}
 	files[manifestFileName] = manifest
 	return files, members, nil
+}
+
+// legacyGroupManifest is the version 1 manifest body the Console wrote before group
+// export moved server-side. Its symbols list declares membership; version 2 infers
+// membership from the files beside the manifest instead.
+type legacyGroupManifest struct {
+	Symbols []struct {
+		File string `json:"file"`
+	} `json:"symbols"`
+}
+
+// ImportGroup imports a symbol group bundle on tx: it creates a fresh group named by
+// the manifest under the permanent symbol group, then imports every member into it
+// through the leaf importer. The codec decides the serialization, the manifest's file
+// name, and which files are members: a version 1 manifest declares members in its
+// symbols list, version 2 infers them from the files beside the manifest. It returns
+// an error naming the offending file when the manifest is missing, malformed, of
+// another bundle kind, or of an unsupported version, when two member names compare
+// equal case-folded, or when a member is not a schematic symbol.
+func (s *Service) ImportGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	files zip.Files,
+	codec encoding.FileDecoder,
+) (group.Group, error) {
+	manifestFileName := manifestBaseName + codec.Extension()
+	manifestData, ok := files[manifestFileName]
+	if !ok {
+		return group.Group{}, errors.Wrapf(
+			validate.ErrValidation, "bundle holds no %s", manifestFileName,
+		)
+	}
+	var manifest GroupManifest
+	if err := codec.Decode(ctx, manifestData, &manifest); err != nil {
+		return group.Group{}, errors.Wrap(err, manifestFileName)
+	}
+	if manifest.Type != manifestType {
+		return group.Group{}, errors.Wrapf(
+			validate.ErrValidation,
+			"bundle is a %q, not a %s", manifest.Type, manifestType,
+		)
+	}
+	if manifest.Version > manifestVersion {
+		return group.Group{}, imex.NewErrUnsupportedVersion(
+			manifestType, imex.Version(manifest.Version), manifestVersion,
+		)
+	}
+	if manifest.Name == "" {
+		return group.Group{}, errors.Wrapf(
+			validate.ErrValidation, "%s names no group", manifestFileName,
+		)
+	}
+	var (
+		members []string
+		err     error
+	)
+	switch manifest.Version {
+	case legacyManifestVersion:
+		members, err = declaredMembers(
+			ctx,
+			codec,
+			manifestData,
+			files,
+			manifestFileName,
+		)
+	case manifestVersion:
+		members = inferredMembers(files, manifestFileName, codec.Extension())
+	default:
+		err = errors.Wrapf(
+			validate.ErrValidation, "unsupported manifest version %d", manifest.Version,
+		)
+	}
+	if err != nil {
+		return group.Group{}, err
+	}
+	if err = validateMemberNames(members); err != nil {
+		return group.Group{}, err
+	}
+	g, err := s.cfg.Group.NewWriter(tx).Create(ctx, manifest.Name, s.group.OntologyID())
+	if err != nil {
+		return group.Group{}, err
+	}
+	for _, name := range members {
+		if err = s.importMember(
+			ctx,
+			tx,
+			codec,
+			name,
+			files[name],
+			g.OntologyID(),
+		); err != nil {
+			return group.Group{}, err
+		}
+	}
+	return g, nil
+}
+
+// declaredMembers reads a version 1 manifest's membership from its symbols list,
+// validating that every listed file is in the bundle and none names the manifest.
+func declaredMembers(
+	ctx context.Context,
+	codec encoding.FileDecoder,
+	manifestData []byte,
+	files zip.Files,
+	manifestFileName string,
+) ([]string, error) {
+	var legacy legacyGroupManifest
+	if err := codec.Decode(ctx, manifestData, &legacy); err != nil {
+		return nil, errors.Wrap(err, manifestFileName)
+	}
+	foldedManifest := filename.Fold(manifestFileName)
+	members := make([]string, 0, len(legacy.Symbols))
+	for _, sym := range legacy.Symbols {
+		if filename.Fold(sym.File) == foldedManifest {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"manifest lists itself, %q, as a member",
+				sym.File,
+			)
+		}
+		if _, ok := files[sym.File]; !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"manifest lists %q, which the bundle does not hold", sym.File,
+			)
+		}
+		members = append(members, sym.File)
+	}
+	return members, nil
+}
+
+// inferredMembers reads a version 2 bundle's membership from the directory: every file
+// in the codec's extension beside the manifest, minus the reserved names.
+func inferredMembers(files zip.Files, manifestFileName, ext string) []string {
+	var (
+		foldedManifest = filename.Fold(manifestFileName)
+		foldedLayout   = filename.Fold(layoutFileName)
+		foldedExt      = filename.Fold(ext)
+		members        = make([]string, 0, len(files))
+	)
+	for name := range files {
+		folded := filename.Fold(name)
+		if folded == foldedManifest || folded == foldedLayout ||
+			!strings.HasSuffix(folded, foldedExt) {
+			continue
+		}
+		members = append(members, name)
+	}
+	slices.Sort(members)
+	return members
+}
+
+// validateMemberNames rejects two member names that compare equal case-folded: the
+// Console extracts bundles onto case-insensitive filesystems, where the pair collides.
+func validateMemberNames(members []string) error {
+	claimed := make(map[string]string, len(members))
+	for _, name := range members {
+		folded := filename.Fold(name)
+		if prev, ok := claimed[folded]; ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"members %q and %q have the same file name; rename one and import again",
+				prev,
+				name,
+			)
+		}
+		claimed[folded] = name
+	}
+	return nil
+}
+
+// importMember decodes one member file and imports it under parent through the leaf
+// registry. Every error names the member's file.
+func (s *Service) importMember(
+	ctx context.Context,
+	tx gorp.Tx,
+	codec encoding.FileDecoder,
+	name string,
+	data []byte,
+	parent ontology.ID,
+) error {
+	var env imex.Envelope
+	if err := codec.Decode(ctx, data, &env); err != nil {
+		return errors.Wrap(err, name)
+	}
+	typ, err := s.cfg.ImEx.ResolveType(env)
+	if err != nil {
+		return errors.Wrap(err, name)
+	}
+	if typ != string(ontology.ResourceTypeSchematicSymbol) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"member %q is a %q, not a schematic symbol", name, typ,
+		)
+	}
+	env.Type = typ
+	if _, err = s.cfg.ImEx.Import(ctx, tx, env, imex.ImportOptions{
+		FileName: name,
+		Parent:   parent,
+	}); err != nil {
+		return errors.Wrap(err, name)
+	}
+	return nil
 }

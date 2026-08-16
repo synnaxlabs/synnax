@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"io"
 	"maps"
+	"os"
 	"slices"
 	"strings"
 
@@ -219,5 +220,234 @@ var _ = Describe("ExportGroup", func() {
 		createSymbol(ctx, g, "Inlet")
 		Expect(svc.ExportGroup(ctx, g.Key, failEncoder{onManifest: true})).Error().
 			To(MatchError(errEncode))
+	})
+})
+
+// Imports run on the per-spec tx so created rows roll back and the shared DB's counts
+// stay intact for the other specs.
+var _ = Describe("ImportGroup", func() {
+	manifest := func(version int, name string) []byte {
+		GinkgoHelper()
+		return MustSucceed(json.Marshal(map[string]any{
+			"version": version, "type": "symbol_group", "name": name,
+		}))
+	}
+	member := func(name string) []byte {
+		GinkgoHelper()
+		return MustSucceed(json.Marshal(map[string]any{
+			"version": 2,
+			"type":    "schematic_symbol",
+			"name":    name,
+			"data":    map[string]any{"svg": "<svg/>", "variant": "valve"},
+		}))
+	}
+	importGroup := func(ctx SpecContext, files zip.Files) group.Group {
+		GinkgoHelper()
+		return MustSucceed(svc.ImportGroup(ctx, tx, files, xjson.Codec))
+	}
+	childrenOf := func(ctx SpecContext, id ontology.ID) []ontology.Resource {
+		GinkgoHelper()
+		var children []ontology.Resource
+		Expect(otg.NewRetrieve().
+			WhereIDs(id).
+			TraverseTo(ontology.ChildrenTraverser).
+			Entries(&children).
+			Exec(ctx, tx)).To(Succeed())
+		return children
+	}
+	childNames := func(ctx SpecContext, g group.Group) []string {
+		GinkgoHelper()
+		children := childrenOf(ctx, g.OntologyID())
+		names := make([]string, len(children))
+		for i, child := range children {
+			Expect(child.ID.Type).To(Equal(ontology.ResourceTypeSchematicSymbol))
+			names[i] = child.Name
+		}
+		return names
+	}
+
+	It("Should create a group named by the manifest under the permanent group", func(
+		ctx SpecContext,
+	) {
+		g := importGroup(ctx, zip.Files{"manifest.json": manifest(2, "Valves")})
+		Expect(g.Name).To(Equal("Valves"))
+		Expect(childrenOf(ctx, svc.Group().OntologyID())).
+			To(ContainElement(HaveField("ID", g.OntologyID())))
+	})
+	It("Should import every member into the created group", func(ctx SpecContext) {
+		g := importGroup(ctx, zip.Files{
+			"manifest.json": manifest(2, "Valves"),
+			"Inlet.json":    member("Inlet"),
+			"Outlet.json":   member("Outlet"),
+		})
+		Expect(childNames(ctx, g)).To(ConsistOf("Inlet", "Outlet"))
+	})
+	It("Should import an exported bundle back as an equal group", func(
+		ctx SpecContext,
+	) {
+		src := MustSucceed(
+			groupSvc.NewWriter(nil).Create(ctx, "Valves", proj.OntologyID()),
+		)
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(groupSvc.NewWriter(nil).Delete(ctx, src.Key)).To(Succeed())
+		})
+		sym := symbol.Symbol{
+			Name: "Inlet",
+			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+		}
+		Expect(svc.NewWriter(nil).Create(ctx, &sym, src.OntologyID())).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+		})
+		files, _ := MustSucceed2(svc.ExportGroup(ctx, src.Key, xjson.Codec))
+		g := importGroup(ctx, files)
+		Expect(g.Key).ToNot(Equal(src.Key))
+		Expect(g.Name).To(Equal("Valves"))
+		Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
+	})
+	It("Should name a nameless member after its file", func(ctx SpecContext) {
+		nameless := MustSucceed(json.Marshal(map[string]any{
+			"version": 2,
+			"type":    "schematic_symbol",
+			"data":    map[string]any{"svg": "<svg/>", "variant": "valve"},
+		}))
+		g := importGroup(ctx, zip.Files{
+			"manifest.json":         manifest(2, "Valves"),
+			"Standalone Valve.json": nameless,
+		})
+		Expect(childNames(ctx, g)).To(ConsistOf("Standalone Valve"))
+	})
+	It("Should import a legacy Console symbol file", func(ctx SpecContext) {
+		legacy := MustSucceed(os.ReadFile("versions/testdata/import_console.json"))
+		g := importGroup(ctx, zip.Files{
+			"manifest.json": manifest(2, "Valves"),
+			"Console.json":  legacy,
+		})
+		Expect(childNames(ctx, g)).To(ConsistOf("Console Symbol"))
+	})
+	It("Should ignore files that are not members", func(ctx SpecContext) {
+		g := importGroup(ctx, zip.Files{
+			"manifest.json": manifest(2, "Valves"),
+			"Inlet.json":    member("Inlet"),
+			"README.md":     []byte("# Valves"),
+			".gitignore":    []byte("*.tmp"),
+			"LAYOUT.json":   []byte("{}"),
+		})
+		Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
+	})
+	It("Should import a manifest alone as an empty group", func(ctx SpecContext) {
+		g := importGroup(ctx, zip.Files{"manifest.json": manifest(2, "Empty")})
+		Expect(childrenOf(ctx, g.OntologyID())).To(BeEmpty())
+	})
+
+	Describe("Legacy version 1 manifests", func() {
+		v1Manifest := func(name string, memberFiles ...string) []byte {
+			GinkgoHelper()
+			symbols := make([]map[string]any, len(memberFiles))
+			for i, file := range memberFiles {
+				symbols[i] = map[string]any{
+					"file": file, "key": uuid.NewString(), "name": file,
+				}
+			}
+			return MustSucceed(json.Marshal(map[string]any{
+				"version": 1, "type": "symbol_group", "name": name,
+				"symbols": symbols,
+			}))
+		}
+
+		It("Should read membership from the manifest's symbols list", func(
+			ctx SpecContext,
+		) {
+			g := importGroup(ctx, zip.Files{
+				"manifest.json": v1Manifest("Valves", "Inlet.json"),
+				"Inlet.json":    member("Inlet"),
+				"Stray.json":    member("Stray"),
+			})
+			Expect(g.Name).To(Equal("Valves"))
+			Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
+		})
+		It("Should reject a listed file the bundle does not hold", func(
+			ctx SpecContext,
+		) {
+			files := zip.Files{"manifest.json": v1Manifest("Valves", "Missing.json")}
+			Expect(svc.ImportGroup(ctx, tx, files, xjson.Codec)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("Missing.json")),
+			))
+		})
+		It("Should reject a manifest that lists itself", func(ctx SpecContext) {
+			files := zip.Files{"manifest.json": v1Manifest("Valves", "manifest.json")}
+			Expect(svc.ImportGroup(ctx, tx, files, xjson.Codec)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("lists itself")),
+			))
+		})
+	})
+
+	DescribeTable("Should reject an invalid bundle",
+		func(ctx SpecContext, files zip.Files, reason string) {
+			Expect(svc.ImportGroup(ctx, tx, files, xjson.Codec)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(reason)),
+			))
+		},
+		Entry("no manifest",
+			zip.Files{"Inlet.json": []byte("{}")}, "bundle holds no manifest.json"),
+		Entry("another bundle kind",
+			zip.Files{"manifest.json": []byte(
+				`{"version":1,"type":"project","name":"Valves"}`,
+			)}, `bundle is a "project"`),
+		Entry("a version older than supported",
+			zip.Files{"manifest.json": []byte(
+				`{"version":0,"type":"symbol_group","name":"Valves"}`,
+			)}, "unsupported manifest version 0"),
+		Entry("a nameless manifest",
+			zip.Files{"manifest.json": []byte(
+				`{"version":2,"type":"symbol_group","name":""}`,
+			)}, "manifest.json names no group"),
+	)
+	It("Should reject a manifest version newer than supported", func(ctx SpecContext) {
+		files := zip.Files{"manifest.json": []byte(
+			`{"version":3,"type":"symbol_group","name":"Valves"}`,
+		)}
+		Expect(svc.ImportGroup(ctx, tx, files, xjson.Codec)).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("symbol_group version 3")),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		))
+	})
+	It("Should reject two members whose names compare equal case-folded", func(
+		ctx SpecContext,
+	) {
+		files := zip.Files{
+			"manifest.json": manifest(2, "Valves"),
+			"Inlet.json":    member("Inlet"),
+			"inlet.json":    member("inlet"),
+		}
+		Expect(svc.ImportGroup(ctx, tx, files, xjson.Codec)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("have the same file name")),
+		))
+	})
+	It("Should reject a member that is not a schematic symbol", func(ctx SpecContext) {
+		files := zip.Files{
+			"manifest.json": manifest(2, "Valves"),
+			"Plot.json": []byte(
+				`{"version":1,"type":"lineplot","name":"Plot"}`,
+			),
+		}
+		Expect(svc.ImportGroup(ctx, tx, files, xjson.Codec)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("not a schematic symbol")),
+		))
+	})
+	It("Should reject a member that does not decode to an envelope", func(
+		ctx SpecContext,
+	) {
+		files := zip.Files{
+			"manifest.json": manifest(2, "Valves"),
+			"Inlet.json":    []byte("not json"),
+		}
+		Expect(svc.ImportGroup(ctx, tx, files, xjson.Codec)).Error().
+			To(MatchError(ContainSubstring("Inlet.json")))
 	})
 })

@@ -21,6 +21,22 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// write packs entries into an archive without the Encoder's validation, so specs can
+// craft archives the Encoder refuses to produce.
+func write(entries ...[2]string) []byte {
+	GinkgoHelper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, entry := range entries {
+		f := MustSucceed(zw.Create(entry[0]))
+		if entry[1] != "" {
+			MustSucceed(f.Write([]byte(entry[1])))
+		}
+	}
+	Expect(zw.Close()).To(Succeed())
+	return buf.Bytes()
+}
+
 // read unpacks b into the file map it was encoded from.
 func read(b []byte) xzip.Files {
 	GinkgoHelper()
@@ -109,6 +125,103 @@ var _ = Describe("Encoder", func() {
 			Expect(xzip.Encoder.EncodeStream(ctx, &buf, files)).
 				To(MatchError(validate.ErrValidation))
 			Expect(buf.Bytes()).To(BeEmpty())
+		})
+	})
+})
+
+var _ = Describe("Decoder", func() {
+	Describe("ContentType", func() {
+		It("Should report the zip content type", func() {
+			Expect(xzip.Decoder.ContentType()).To(Equal("application/zip"))
+		})
+	})
+	Describe("Decode", func() {
+		It("Should decode every entry into the file map", func(ctx SpecContext) {
+			files := xzip.Files{
+				"manifest.json": []byte(`{"version":2}`),
+				"valve.json":    []byte(`{"name":"valve"}`),
+			}
+			var decoded xzip.Files
+			Expect(xzip.Decoder.Decode(
+				ctx, MustSucceed(xzip.Encoder.Encode(ctx, files)), &decoded,
+			)).To(Succeed())
+			Expect(decoded).To(Equal(files))
+		})
+		It("Should decode an empty archive into an empty file map", func(
+			ctx SpecContext,
+		) {
+			var decoded xzip.Files
+			Expect(xzip.Decoder.Decode(
+				ctx, MustSucceed(xzip.Encoder.Encode(ctx, xzip.Files{})), &decoded,
+			)).To(Succeed())
+			Expect(decoded).To(BeEmpty())
+		})
+		It("Should preserve an empty file's contents", func(ctx SpecContext) {
+			var decoded xzip.Files
+			Expect(xzip.Decoder.Decode(
+				ctx,
+				MustSucceed(xzip.Encoder.Encode(ctx, xzip.Files{"empty.json": {}})),
+				&decoded,
+			)).To(Succeed())
+			Expect(decoded).To(HaveKeyWithValue("empty.json", BeEmpty()))
+		})
+		It("Should reject a value that is not a file map pointer", func(
+			ctx SpecContext,
+		) {
+			b := write([2]string{"valve.json", "1"})
+			var wrong map[string]string
+			Expect(xzip.Decoder.Decode(ctx, b, &wrong)).
+				To(MatchError(ContainSubstring("failed to decode")))
+		})
+		It("Should reject bytes that are not a zip archive", func(ctx SpecContext) {
+			var decoded xzip.Files
+			Expect(xzip.Decoder.Decode(ctx, []byte("not a zip"), &decoded)).
+				To(MatchError(ContainSubstring("failed to decode")))
+		})
+		It("Should reject an archive that repeats an entry name", func(
+			ctx SpecContext,
+		) {
+			b := write([2]string{"valve.json", "1"}, [2]string{"valve.json", "2"})
+			var decoded xzip.Files
+			Expect(xzip.Decoder.Decode(ctx, b, &decoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("repeats an earlier entry")),
+			))
+		})
+		DescribeTable("Should reject an entry name that is not a leaf",
+			func(ctx SpecContext, name, reason string) {
+				var decoded xzip.Files
+				Expect(xzip.Decoder.Decode(ctx, write([2]string{name, "1"}), &decoded)).
+					To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(reason)),
+					))
+			},
+			Entry("an empty name", "", "file name is empty"),
+			Entry("a nested entry", "nested/valve.json", "holds a path separator"),
+			Entry("a backslash", `nested\valve.json`, "holds a path separator"),
+			Entry("the current directory", ".", "addresses a directory"),
+			Entry("the parent directory", "..", "addresses a directory"),
+		)
+		It("Should reject a directory entry", func(ctx SpecContext) {
+			var decoded xzip.Files
+			Expect(xzip.Decoder.Decode(ctx, write([2]string{"nested/", ""}), &decoded)).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("holds a path separator")),
+				))
+		})
+	})
+	Describe("DecodeStream", func() {
+		It("Should decode the archive from the reader", func(ctx SpecContext) {
+			files := xzip.Files{"valve.json": []byte(`{"name":"valve"}`)}
+			var decoded xzip.Files
+			Expect(xzip.Decoder.DecodeStream(
+				ctx,
+				bytes.NewReader(MustSucceed(xzip.Encoder.Encode(ctx, files))),
+				&decoded,
+			)).To(Succeed())
+			Expect(decoded).To(Equal(files))
 		})
 	})
 })

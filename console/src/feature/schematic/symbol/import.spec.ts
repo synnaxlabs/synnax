@@ -122,7 +122,15 @@ describe("Schematic.Symbol.useImportGroup", () => {
       { client },
     );
 
-  it("creates a group and imports every symbol in the manifest", async () => {
+  const findImportedGroup = async (groupName: string) => {
+    const root = await client.schematics.symbols.retrieveGroup();
+    const groups = await client.ontology.children.retrieve({
+      ids: group.ontologyID(root.key),
+    });
+    return groups.find((g) => g.name === groupName);
+  };
+
+  it("imports every symbol a legacy manifest declares", async () => {
     const picker = interceptFilePicker();
     const { result } = await renderImportGroup();
     const groupName = uniqueName("imported_grp");
@@ -152,15 +160,11 @@ describe("Schematic.Symbol.useImportGroup", () => {
         result.current.notifications.statuses.some(
           (st) =>
             st.variant === "success" &&
-            st.message === `Successfully imported 1 symbols into group "${groupName}"`,
+            st.message === `Successfully imported symbol group "${groupName}"`,
         ),
       ).toBe(true),
     );
-    const root = await client.schematics.symbols.retrieveGroup();
-    const groups = await client.ontology.children.retrieve({
-      ids: group.ontologyID(root.key),
-    });
-    const created = groups.find((g) => g.name === groupName);
+    const created = await findImportedGroup(groupName);
     if (created == null) throw new Error("imported group not found");
     expect(await childNames(created.id)).toContain(symbolName);
   });
@@ -183,7 +187,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
     );
   });
 
-  it("warns when only part of the manifest imports successfully", async () => {
+  it("imports nothing when the manifest declares a missing member", async () => {
     const picker = interceptFilePicker();
     const { result } = await renderImportGroup();
     const groupName = uniqueName("partial_grp");
@@ -211,11 +215,11 @@ describe("Schematic.Symbol.useImportGroup", () => {
       expect(
         result.current.notifications.statuses.some(
           (st) =>
-            st.variant === "warning" &&
-            st.message === "Imported 1/2 symbols. Some imports failed.",
+            st.variant === "error" && st.message === "Failed to import symbol group",
         ),
       ).toBe(true),
     );
+    expect(await findImportedGroup(groupName)).toBeUndefined();
   });
 
   it("infers membership from the directory for a Core-written manifest", async () => {
@@ -243,15 +247,11 @@ describe("Schematic.Symbol.useImportGroup", () => {
         result.current.notifications.statuses.some(
           (st) =>
             st.variant === "success" &&
-            st.message === `Successfully imported 1 symbols into group "${groupName}"`,
+            st.message === `Successfully imported symbol group "${groupName}"`,
         ),
       ).toBe(true),
     );
-    const root = await client.schematics.symbols.retrieveGroup();
-    const groups = await client.ontology.children.retrieve({
-      ids: group.ontologyID(root.key),
-    });
-    const created = groups.find((g) => g.name === groupName);
+    const created = await findImportedGroup(groupName);
     if (created == null) throw new Error("imported group not found");
     expect(await childNames(created.id)).toContain(symbolName);
   });

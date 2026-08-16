@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
+import {
+  type FileTransport,
+  type UnaryClient,
+  type UploadBody,
+} from "@synnaxlabs/freighter";
 import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -60,6 +64,7 @@ const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
 const retrieveGroupResZ = z.object({ group: group.groupZ });
 const exportGroupReqZ = z.object({ key: group.keyZ });
+const importGroupResZ = z.object({ group: group.groupZ });
 const deleteGroupReqZ = z.object({ key: group.keyZ });
 
 export interface CreateParams extends New {
@@ -217,6 +222,35 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       exportGroupReqZ,
       { encoding: "ZIP" },
     );
+  }
+
+  /**
+   * Imports a symbol group bundle: a zip archive holding one JSON envelope per symbol
+   * beside a manifest.json naming the group. The Core creates a fresh group under the
+   * permanent symbol group and imports every member in a single transaction, so a
+   * failure leaves nothing behind.
+   *
+   * @param data - the bundle as zip bytes.
+   * @returns the created group.
+   * @throws {ValidationError} if the manifest is missing, malformed, or of another
+   * bundle kind, if two member names collide, or if a member is not a symbol.
+   */
+  async importGroup(data: UploadBody): Promise<group.Group> {
+    const res = await this.cfg.file.upload(
+      "/schematic/symbol/group/import",
+      data,
+      { encoding: "ZIP" },
+      importGroupResZ,
+    );
+    const parent = await this.retrieveGroup();
+    this.cfg.groupStore.set(res.group);
+    const rel: ontology.Relationship = {
+      from: group.ontologyID(parent.key),
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: group.ontologyID(res.group.key),
+    };
+    this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    return res.group;
   }
 
   /**

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -73,6 +74,65 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 		}
 	}
 	return encoding.SugarEncodingError(value, zw.Close())
+}
+
+// Decoder decodes a zip archive into a Files value with one file per entry. Decoding
+// into a value that is not a *Files fails, and an archive holding an entry name that is
+// not a leaf, or holding two entries under one name, returns an error wrapping
+// validate.ErrValidation.
+var Decoder http.Decoder = decoder{}
+
+type decoder struct{}
+
+func (decoder) ContentType() string { return "application/zip" }
+
+func (decoder) Decode(_ context.Context, data []byte, value any) error {
+	files, ok := value.(*Files)
+	if !ok {
+		return encoding.SugarDecodingError(
+			data, value, errors.New("value is not *zip.Files"),
+		)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return encoding.SugarDecodingError(data, value, err)
+	}
+	decoded := make(Files, len(zr.File))
+	names := make(set.Set[string], len(zr.File))
+	for _, f := range zr.File {
+		if err := validateLeaf(f.Name); err != nil {
+			return err
+		}
+		if names.Contains(f.Name) {
+			return errors.Wrapf(
+				validate.ErrValidation, "file name %q repeats an earlier entry", f.Name,
+			)
+		}
+		names.Add(f.Name)
+		rc, err := f.Open()
+		if err != nil {
+			return encoding.SugarDecodingError(data, value, err)
+		}
+		contents, err := io.ReadAll(rc)
+		if err != nil {
+			err = errors.Combine(err, rc.Close())
+			return encoding.SugarDecodingError(data, value, err)
+		}
+		if err := rc.Close(); err != nil {
+			return encoding.SugarDecodingError(data, value, err)
+		}
+		decoded[f.Name] = contents
+	}
+	*files = decoded
+	return nil
+}
+
+func (d decoder) DecodeStream(ctx context.Context, r io.Reader, value any) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return encoding.SugarDecodingError(nil, value, err)
+	}
+	return d.Decode(ctx, data, value)
 }
 
 // validateLeaf returns an error wrapping validate.ErrValidation when name cannot be a

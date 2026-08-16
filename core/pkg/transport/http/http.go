@@ -295,6 +295,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/schematic/symbol/group/export",
 			http.WithResponseEncoders(zip.Encoder),
 		),
+		SchematicSymbolImportGroup: http.NewUnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse](
+			router,
+			"/api/v1/schematic/symbol/group/import",
+			http.WithRequestDecoders(zip.Decoder),
+		),
 		SchematicSymbolDeleteGroup: http.NewUnaryServer[symbol.DeleteGroupRequest, types.Nil](
 			router,
 			"/api/v1/schematic/symbol/group/delete",
