@@ -17,7 +17,6 @@ import (
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -63,66 +62,5 @@ type Arc struct {
 func (a Arc) Validate() error {
 	v := validate.New("Arc")
 	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
-	return v.Error()
-}
-
-// ExecutionMode selects how the Arc runtime loop schedules execution.
-type ExecutionMode string
-
-const (
-	ExecutionModeAuto        ExecutionMode = "AUTO"
-	ExecutionModeBusyWait    ExecutionMode = "BUSY_WAIT"
-	ExecutionModeHighRate    ExecutionMode = "HIGH_RATE"
-	ExecutionModeRtEvent     ExecutionMode = "RT_EVENT"
-	ExecutionModeHybrid      ExecutionMode = "HYBRID"
-	ExecutionModeEventDriven ExecutionMode = "EVENT_DRIVEN"
-)
-
-// IsValid reports whether e is one of the defined ExecutionMode
-// values.
-func (e ExecutionMode) IsValid() bool {
-	switch e {
-	case ExecutionModeAuto, ExecutionModeBusyWait, ExecutionModeHighRate, ExecutionModeRtEvent, ExecutionModeHybrid, ExecutionModeEventDriven:
-		return true
-	default:
-		return false
-	}
-}
-
-// TaskConfig configures an Arc task, which runs a compiled Arc module.
-type TaskConfig struct {
-	task.BasePersistConfig
-	// ArcKey is the key of the Arc module the task executes.
-	ArcKey Key `json:"arc_key" msgpack:"arc_key"`
-	// Hash is the semantic hash of the Arc module at deploy time.
-	Hash string `json:"hash" msgpack:"hash"`
-	// ExecutionMode overrides the runtime's automatic loop mode selection.
-	ExecutionMode ExecutionMode `json:"execution_mode" msgpack:"execution_mode"`
-	// RtPriority is the thread priority used by real-time loop modes.
-	RtPriority int32 `json:"rt_priority" msgpack:"rt_priority"`
-	// CPUAffinity pins the loop to a CPU core. -1 selects automatically.
-	CPUAffinity int32 `json:"cpu_affinity" msgpack:"cpu_affinity"`
-	// LockMemory locks the runtime's memory to prevent paging.
-	LockMemory bool `json:"lock_memory" msgpack:"lock_memory"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TaskConfig) ApplyDefaults() {
-	if t.ExecutionMode == "" {
-		t.ExecutionMode = ExecutionModeAuto
-	}
-	if t.RtPriority == 0 {
-		t.RtPriority = 47
-	}
-	if t.CPUAffinity == 0 {
-		t.CPUAffinity = -1
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t TaskConfig) Validate() error {
-	v := validate.New("TaskConfig")
-	v.Ternaryf("execution_mode", !t.ExecutionMode.IsValid(), "invalid execution_mode: %v", t.ExecutionMode)
 	return v.Error()
 }

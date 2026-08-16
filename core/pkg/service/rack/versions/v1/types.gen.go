@@ -14,7 +14,6 @@ package v1
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 )
 
 // Key is a composite identifier for a rack. The high 16 bits contain the Core key, and
@@ -45,10 +44,4 @@ type Rack struct {
 	// Integrations is the list of hardware integrations this rack supports (e.g., "ni",
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
 	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
-}
-
-// StatusTaskConfig configures the rack status reporting task, which carries no
-// settings.
-type StatusTaskConfig struct {
-	task.KeyedConfig
 }

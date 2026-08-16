@@ -24,7 +24,6 @@ import (
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -111,49 +110,6 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("TaskConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.TaskConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.TaskConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v1.TaskConfig{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-				Hash:          "test_5",
-				ExecutionMode: v1.ExecutionMode("AUTO"),
-				RtPriority:    8,
-				CPUAffinity:   9,
-				LockMemory:    true,
-			}),
-			Entry("zero values", v1.TaskConfig{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: false,
-				},
-				ArcKey:        uuid.Nil,
-				Hash:          "",
-				ExecutionMode: v1.ExecutionMode(""),
-				RtPriority:    0,
-				CPUAffinity:   0,
-				LockMemory:    false,
-			}),
-		)
-	})
 })
 
 func BenchmarkEncodeDecodeArc(b *testing.B) {
@@ -220,37 +176,6 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v1.Arc
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
-	seed := v1.TaskConfig{
-		BasePersistConfig: task.BasePersistConfig{
-			BaseStartConfig: task.BaseStartConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:   false,
-			},
-			DataSavingDisabled: true,
-		},
-		ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-		Hash:          "test_5",
-		ExecutionMode: v1.ExecutionMode("AUTO"),
-		RtPriority:    8,
-		CPUAffinity:   9,
-		LockMemory:    true,
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v1.TaskConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -352,73 +277,6 @@ func FuzzDecodeArc(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v1.Arc
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeTaskConfig(f *testing.F) {
-	{
-		seed := v1.TaskConfig{
-			BasePersistConfig: task.BasePersistConfig{
-				BaseStartConfig: task.BaseStartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:   false,
-				},
-				DataSavingDisabled: true,
-			},
-			ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-			Hash:          "test_5",
-			ExecutionMode: v1.ExecutionMode("AUTO"),
-			RtPriority:    8,
-			CPUAffinity:   9,
-			LockMemory:    true,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.TaskConfig{
-			BasePersistConfig: task.BasePersistConfig{
-				BaseStartConfig: task.BaseStartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-					AutoStart:   false,
-				},
-				DataSavingDisabled: false,
-			},
-			ArcKey:        uuid.Nil,
-			Hash:          "",
-			ExecutionMode: v1.ExecutionMode(""),
-			RtPriority:    0,
-			CPUAffinity:   0,
-			LockMemory:    false,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.TaskConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v1.TaskConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

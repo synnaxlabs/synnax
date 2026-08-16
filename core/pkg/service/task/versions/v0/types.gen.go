@@ -12,11 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
-	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // Key is a composite identifier for a task. The high 32 bits contain the rack key, and
@@ -59,67 +56,4 @@ type Task struct {
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
-}
-
-// KeyedConfig is the base for every stored task configuration record.
-type KeyedConfig struct {
-	// Key is the unique identifier for the stored configuration record.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-}
-
-// BaseStartConfig carries the configuration fields shared by every task.
-type BaseStartConfig struct {
-	KeyedConfig
-	// AutoStart is true when the task should start as soon as it is configured.
-	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
-}
-
-// BasePersistConfig carries the configuration fields shared by tasks that write
-// telemetry.
-type BasePersistConfig struct {
-	BaseStartConfig
-	// DataSavingDisabled is true when task telemetry is not persisted to disk.
-	DataSavingDisabled bool `json:"data_saving_disabled" msgpack:"data_saving_disabled"`
-}
-
-// BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
-type BaseReadConfig struct {
-	BasePersistConfig
-	// SampleRate is the per-channel hardware sample rate, in hertz.
-	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
-	// StreamRate is the rate at which samples are streamed to Synnax, in hertz.
-	StreamRate telem.Rate `json:"stream_rate" msgpack:"stream_rate"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseReadConfig) ApplyDefaults() {
-	if b.SampleRate == 0 {
-		b.SampleRate = 10
-	}
-	if b.StreamRate == 0 {
-		b.StreamRate = 5
-	}
-}
-
-// BaseWriteConfig carries the configuration fields shared by hardware control tasks.
-type BaseWriteConfig struct {
-	BasePersistConfig
-	// Device is the key of the device the task writes to.
-	Device device.Key `json:"device" msgpack:"device"`
-}
-
-// BaseScanConfig carries the fields shared by every scan task configuration.
-type BaseScanConfig struct {
-	KeyedConfig
-	// Rate is the rate at which the scan runs, in hertz.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
-	// Disabled is true when scanning is paused.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseScanConfig) ApplyDefaults() {
-	if b.Rate == 0 {
-		b.Rate = 0.2
-	}
 }

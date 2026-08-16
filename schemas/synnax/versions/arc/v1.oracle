@@ -11,7 +11,6 @@ import "schemas/arc/program"
 import "schemas/arc/versions/graph/v0"
 import "schemas/arc/versions/text/v0"
 import "schemas/synnax/status"
-import "schemas/synnax/versions/task/v0"
 
 Key = v0.Key
 
@@ -59,42 +58,6 @@ Arc struct {
         code for reactive control systems. Compiles to WebAssembly for sandboxed
         execution.
     """
-    @go marshal
-    @go migrate
-}
-
-ExecutionMode enum {
-    auto         = "AUTO"
-    busy_wait    = "BUSY_WAIT"
-    high_rate    = "HIGH_RATE"
-    rt_event     = "RT_EVENT"
-    hybrid       = "HYBRID"
-    event_driven = "EVENT_DRIVEN"
-
-    @doc value "selects how the Arc runtime loop schedules execution."
-}
-
-TaskConfig struct extends task.BasePersistConfig {
-    arc_key        Key           {
-        @doc value "is the key of the Arc module the task executes."
-    }
-    hash           string = "" {
-        @doc value "is the semantic hash of the Arc module at deploy time."
-    }
-    execution_mode ExecutionMode = auto {
-        @doc value "overrides the runtime's automatic loop mode selection."
-    }
-    rt_priority    int32 = 47 {
-        @doc value "is the thread priority used by real-time loop modes."
-    }
-    cpu_affinity   int32 = -1 {
-        @doc value "pins the loop to a CPU core. -1 selects automatically."
-    }
-    lock_memory    bool = false {
-        @doc value "locks the runtime's memory to prevent paging."
-    }
-
-    @doc value  "configures an Arc task, which runs a compiled Arc module."
     @go marshal
     @go migrate
 }

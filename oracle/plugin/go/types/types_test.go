@@ -2457,6 +2457,57 @@ Rack struct {
 			)
 
 			It(
+				"Should resolve a pinned member with its own output and name at that package",
+				func(ctx SpecContext) {
+					statusSchema := `
+Status struct {
+	key uuid @key
+	@go marshal
+	message string
+}
+
+BaseConfig struct {
+	auto_start bool = false
+
+	@go output "core/status/config"
+	@go name   "Base"
+}
+`
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/status.oracle": "@go output \"core/status\"\n" +
+							statusSchema,
+						"schemas/synnax/versions/status/v1.oracle": statusSchema,
+						"schemas/synnax/rack.oracle": `
+import "schemas/synnax/status"
+
+@go output "core/rack"
+
+Rack struct extends status.BaseConfig {
+	key uuid @key
+	@go marshal
+	name string
+}
+`,
+						"schemas/synnax/versions/rack/v2.oracle": `
+import "schemas/synnax/versions/status/v1"
+
+Rack struct extends status.BaseConfig {
+	key uuid @key
+	@go marshal
+	name string
+}
+`,
+					}, "schemas/synnax/rack.oracle", "rack")
+					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							`config "github.com/synnaxlabs/synnax/core/status/config/versions/v1"`,
+							"config.Base\n",
+						)
+				},
+			)
+
+			It(
 				"Should keep pinned and live imports of one dependency apart when persisted and transient declarations mix",
 				func(ctx SpecContext) {
 					resp := chainGenerate(ctx, goPlugin, map[string]string{

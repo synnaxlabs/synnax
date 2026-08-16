@@ -9,7 +9,7 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/task/v0"
+import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 RegisterValue struct {

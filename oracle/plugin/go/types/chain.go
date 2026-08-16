@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -98,6 +99,18 @@ func chainEntries(
 		}
 	}
 	return out, nil
+}
+
+// liveType returns livePath's live declaration of name.
+func liveType(
+	req *plugin.Request, livePath, name string,
+) (resolution.Type, bool) {
+	for _, t := range req.Resolutions.Types {
+		if t.FilePath == livePath+".oracle" && t.Name == name {
+			return t, true
+		}
+	}
+	return resolution.Type{}, false
 }
 
 // memberGoPath returns the @go output path a chain's surface members occupy
@@ -312,6 +325,18 @@ func annotateOutputs(
 					ownLive, lp,
 				)
 			}
+			// A dependency chain may span several Go outputs (task and
+			// task/config); a member with its own live output resolves there,
+			// not at the chain's first output. That package is generated from
+			// the live declaration, so its @go name comes along.
+			if lt, has := liveType(req, lp, t.Name); has {
+				if p := output.GetPath(lt, "go"); p != "" {
+					goRoot = p
+				}
+				if n := domain.GetStringFromType(lt, "go", "name"); n != "" {
+					withGoName(t, n)
+				}
+			}
 		}
 		path := versioning.VersionedPath(goRoot, v)
 		// A dependency's hand-written type has one Go home at its live root; the
@@ -347,6 +372,15 @@ func versionedGoRoot(
 // withGoOutput replaces the type's @go output expression, cloning the shared domain
 // maps first.
 func withGoOutput(t *resolution.Type, path string) {
+	withGoExpr(t, "output", path)
+}
+
+// withGoName overrides the type's generated Go identifier.
+func withGoName(t *resolution.Type, name string) {
+	withGoExpr(t, "name", name)
+}
+
+func withGoExpr(t *resolution.Type, expr, value string) {
 	domains := maps.Clone(t.Domains)
 	if domains == nil {
 		domains = make(map[string]resolution.Domain)
@@ -355,14 +389,14 @@ func withGoOutput(t *resolution.Type, path string) {
 	dom.Name = "go"
 	exprs := make(resolution.Expressions, 0, len(dom.Expressions)+1)
 	for _, e := range dom.Expressions {
-		if e.Name != "output" {
+		if e.Name != expr {
 			exprs = append(exprs, e)
 		}
 	}
 	exprs = append(exprs, resolution.Expression{
-		Name: "output",
+		Name: expr,
 		Values: []resolution.ExpressionValue{
-			{Kind: resolution.ValueKindString, StringValue: path},
+			{Kind: resolution.ValueKindString, StringValue: value},
 		},
 	})
 	dom.Expressions = exprs

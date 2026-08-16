@@ -7,8 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1
+package v2_test
 
-// CustomTypeName gives Config records a table prefix that cannot collide with the
-// identically named config types of other integrations.
-func (Config) CustomTypeName() string { return "arc_config" }
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestRackTaskV2(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Rack Task v2 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

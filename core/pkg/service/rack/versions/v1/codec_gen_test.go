@@ -12,7 +12,6 @@
 package v1_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -20,7 +19,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -59,23 +57,6 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("StatusTaskConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.StatusTaskConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.StatusTaskConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v1.StatusTaskConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			}),
-			Entry("zero values", v1.StatusTaskConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}}),
-		)
-	})
 })
 
 func BenchmarkEncodeDecodeRack(b *testing.B) {
@@ -94,25 +75,6 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v1.Rack
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeStatusTaskConfig(b *testing.B) {
-	seed := v1.StatusTaskConfig{
-		KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v1.StatusTaskConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -175,47 +137,6 @@ func FuzzDecodeRack(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v1.Rack
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeStatusTaskConfig(f *testing.F) {
-	{
-		seed := v1.StatusTaskConfig{
-			KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.StatusTaskConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.StatusTaskConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v1.StatusTaskConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

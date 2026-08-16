@@ -49,22 +49,3 @@ type Task struct {
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
-
-// KeyedConfig is the base for every stored task configuration record.
-type KeyedConfig = v0.KeyedConfig
-
-// BaseStartConfig carries the configuration fields shared by every task.
-type BaseStartConfig = v0.BaseStartConfig
-
-// BasePersistConfig carries the configuration fields shared by tasks that write
-// telemetry.
-type BasePersistConfig = v0.BasePersistConfig
-
-// BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
-type BaseReadConfig = v0.BaseReadConfig
-
-// BaseWriteConfig carries the configuration fields shared by hardware control tasks.
-type BaseWriteConfig = v0.BaseWriteConfig
-
-// BaseScanConfig carries the fields shared by every scan task configuration.
-type BaseScanConfig = v0.BaseScanConfig
