@@ -75,7 +75,7 @@
     color: var(--pluto-primary-z);
 }
 
-.pluto-icon--logo-opc {
+.pluto-icon--logo-opcua {
     transform: translateY(1px) scale(1.25);
 }
 

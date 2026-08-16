@@ -15,6 +15,7 @@ import {
   createReduceAll,
   type HandlerResult,
   type Handlers,
+  type InsertTabsPayload,
 } from "@/panel/actions.gen";
 import {
   findNode,
@@ -25,11 +26,11 @@ import {
   ROOT_NODE_KEY,
   tabLeafPath,
 } from "@/panel/tree";
-import { type Node, type NodeLeaf, type Panel, type Tab } from "@/panel/types.gen";
+import { type LeafNode, type Node, type Panel, type Tab } from "@/panel/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
-const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<NodeLeaf> | null => {
+const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<LeafNode> | null => {
   const n = findNode(root, pathKey);
   if (n == null || n.variant !== "leaf") return null;
   return n;
@@ -145,6 +146,28 @@ const replaceTab = (n: Draft<Node>, key: string, next: Tab): boolean => {
   return replaceTab(n.first, key, next) || replaceTab(n.last, key, next);
 };
 
+// resolveTargetLeaf resolves the destination leaf from the payload's addressing
+// hints, in priority order: the leaf holding targetTab, the targetLeaf path key,
+// then the first leaf in traversal order. `stale` reports that a hint was given and
+// no longer resolves, which drops the location along with it: the tabs still land,
+// but a leaf the caller never pointed at is not split.
+const resolveTargetLeaf = (
+  root: Draft<Node>,
+  payload: InsertTabsPayload,
+): { leaf: number | undefined; stale: boolean } => {
+  const { targetTab, targetLeaf } = payload;
+  if (targetTab != null) {
+    const path = tabLeafPath(root, targetTab);
+    if (path != null) return { leaf: path, stale: false };
+  }
+  if (targetLeaf != null && findNode(root, targetLeaf)?.variant === "leaf")
+    return { leaf: targetLeaf, stale: false };
+  return {
+    leaf: firstLeafPath(root),
+    stale: targetTab != null || targetLeaf != null,
+  };
+};
+
 const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.panel);
@@ -156,54 +179,66 @@ const handlers: Handlers = {
     return { inverse: [], targets: [state.key] };
   },
 
-  // insertTab upserts payload.tab keyed on its tab key. A tab whose key is
-  // already in the tree always has its content refreshed; it keeps its current
-  // position unless the caller gives an explicit placement (targetTab,
-  // targetLeaf, location, or index), in which case it is relocated. A tab whose
-  // key is absent is inserted at the resolved destination. Inserting a resource
-  // tab whose resource already backs a different tab is a no-op: a resource may
-  // back at most one tab per panel, and callers select the existing tab instead.
-  // With singleton set, inserting a view is likewise a no-op when a view of the
-  // same type already backs a tab in the panel.
-  insertTab: (state, payload) => {
-    const { tab } = payload;
-    if (tab.variant === "resource") {
-      const existing = findTabByResource(state.root, tab.resource);
-      if (existing != null && existing.key !== tab.key) return NO_OP;
-    }
-    if (payload.singleton && tab.variant === "view") {
-      const existing = findTabByType(state.root, tab.type);
-      if (existing != null && existing.key !== tab.key) return NO_OP;
-    }
+  // insertTabs upserts each tab in order into one destination leaf. A tab whose
+  // key is already in the tree always has its content refreshed; it keeps its
+  // current position unless the caller gives an explicit placement (targetTab,
+  // targetLeaf, location, or index), in which case it is relocated with the rest.
+  // A tab that would put a second tab behind the same resource, or a second
+  // singleton view behind the same type, is skipped; the rest of the batch still
+  // lands, and callers select the existing tab instead. Mirrors
+  // InsertTabsPayload.Handle in core/pkg/service/panel/actions.go.
+  insertTabs: (state, payload) => {
     const placementGiven =
       payload.targetTab != null ||
       payload.targetLeaf != null ||
       payload.location != null ||
       payload.index != null;
-    const exists = findTab(state.root, tab.key) != null;
-    if (exists && !placementGiven) {
-      replaceTab(state.root, tab.key, tab);
-      return { inverse: [], targets: [tab.key] };
-    }
-    let targetLeaf: number | undefined;
-    if (payload.targetTab != null)
-      targetLeaf = tabLeafPath(state.root, payload.targetTab);
-    else if (payload.targetLeaf != null) targetLeaf = payload.targetLeaf;
-    else targetLeaf = firstLeafPath(state.root);
+    const resolved = resolveTargetLeaf(state.root, payload);
+    let targetLeaf = resolved.leaf;
     if (targetLeaf == null) return NO_OP;
-    if (payload.location != null && payload.location !== "center") {
-      const placed = splitLeafAt(state, targetLeaf, payload.location, 0.5);
-      if (placed == null) return NO_OP;
-      targetLeaf = placed;
+    // The edge split is deferred to the first tab that actually lands, so a batch
+    // whose every tab is a duplicate leaves no empty pane behind.
+    let pendingSplit =
+      !resolved.stale && payload.location != null && payload.location !== "center"
+        ? payload.location
+        : undefined;
+    let index = payload.index;
+    const targets: string[] = [];
+    for (const tab of payload.tabs) {
+      if (tab.variant === "resource") {
+        const existing = findTabByResource(state.root, tab.resource);
+        if (existing != null && existing.key !== tab.key) continue;
+      }
+      if (payload.singleton && tab.variant === "view") {
+        const existing = findTabByType(state.root, tab.type);
+        if (existing != null && existing.key !== tab.key) continue;
+      }
+      const exists = findTab(state.root, tab.key) != null;
+      if (exists && !placementGiven) {
+        replaceTab(state.root, tab.key, tab);
+        targets.push(tab.key);
+        continue;
+      }
+      if (pendingSplit != null) {
+        targetLeaf = splitLeafAt(state, targetLeaf, pendingSplit, 0.5) ?? targetLeaf;
+        pendingSplit = undefined;
+      }
+      const leaf = walkLeaf(state.root, targetLeaf);
+      if (leaf == null) break;
+      if (exists) removeTab(state.root, tab.key);
+      // An index past the leaf's end is a drop position invalidated between the
+      // gesture and the dispatch. It clamps to the end, as moveTab does.
+      const at =
+        index != null && index >= 0 && index <= leaf.tabs.length
+          ? index
+          : leaf.tabs.length;
+      leaf.tabs.splice(at, 0, tab);
+      if (index != null) index = at + 1;
+      targets.push(tab.key);
     }
-    if (exists) removeTab(state.root, tab.key);
-    const leaf = walkLeaf(state.root, targetLeaf);
-    if (leaf == null) return NO_OP;
-    const idx = payload.index ?? leaf.tabs.length;
-    if (idx < 0 || idx > leaf.tabs.length) return NO_OP;
-    leaf.tabs.splice(idx, 0, tab);
+    if (targets.length === 0) return NO_OP;
     collapseEmptyLeaves(state);
-    return { inverse: [], targets: [tab.key] };
+    return { inverse: [], targets };
   },
 
   removeTab: (state, payload) => {

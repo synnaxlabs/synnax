@@ -60,7 +60,7 @@ addressing it by name or by key, and outputs the resolved status key.
 
 <Fragment slot="flow">
 
-```arc
+```arc channels="trigger, status_key"
 stage main {
   trigger -> status.set{
     key_or_name = "ox_alarm",
@@ -74,7 +74,7 @@ stage main {
 
 <Fragment slot="function">
 
-```arc
+```arc channels="status_key"
 func raise_alarm() {
   status_key = status.set(
     "ox_alarm",

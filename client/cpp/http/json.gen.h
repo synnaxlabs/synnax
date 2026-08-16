@@ -18,7 +18,7 @@
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/http/types.gen.h"
-#include "client/cpp/task/common/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -137,9 +137,9 @@ inline x::json::json ReadEndpoint::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::task::common::BasePersistConfig &>(
+    static_cast<::synnax::task::config::BasePersist &>(
         result
-    ) = ::synnax::task::common::BasePersistConfig::parse(parser);
+    ) = ::synnax::task::config::BasePersist::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(1));
     result.endpoints = parser.field<std::vector<ReadEndpoint>>(
@@ -151,7 +151,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BasePersistConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["rate"] = this->rate;
@@ -249,9 +249,9 @@ inline x::json::json WriteEndpoint::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::task::common::BaseStartConfig &>(
+    static_cast<::synnax::task::config::BaseStart &>(
         result
-    ) = ::synnax::task::common::BaseStartConfig::parse(parser);
+    ) = ::synnax::task::config::BaseStart::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.endpoints = parser.field<std::vector<WriteEndpoint>>(
         "endpoints",
@@ -262,15 +262,30 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BaseStartConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BaseStart::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["endpoints"] = x::json::to_array(this->endpoints);
     return j;
 }
 
-inline WriteFieldStatic WriteFieldStatic::parse(x::json::Parser parser) {
-    WriteFieldStatic result;
+inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
+    ScanConfig result;
+    static_cast<::synnax::task::config::BaseScan &>(
+        result
+    ) = ::synnax::task::config::BaseScan::parse(parser);
+    return result;
+}
+
+inline x::json::json ScanConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ::synnax::task::config::BaseScan::to_json().items())
+        j[k] = v;
+    return j;
+}
+
+inline StaticWriteField StaticWriteField::parse(x::json::Parser parser) {
+    StaticWriteField result;
     static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
     result.json_type = parser.field<std::string>("json_type", "number");
     result.value = parser.field<x::json::json>("value");
@@ -278,7 +293,7 @@ inline WriteFieldStatic WriteFieldStatic::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json WriteFieldStatic::to_json() const {
+inline x::json::json StaticWriteField::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseWriteField::to_json().items())
         j[k] = v;
@@ -288,8 +303,8 @@ inline x::json::json WriteFieldStatic::to_json() const {
     return j;
 }
 
-inline WriteFieldGenerated WriteFieldGenerated::parse(x::json::Parser parser) {
-    WriteFieldGenerated result;
+inline GeneratedWriteField GeneratedWriteField::parse(x::json::Parser parser) {
+    GeneratedWriteField result;
     static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
     result.generator = parser.field<std::string>("generator", "uuid");
     result.time_format = parser.field<std::optional<std::string>>("time_format");
@@ -297,7 +312,7 @@ inline WriteFieldGenerated WriteFieldGenerated::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json WriteFieldGenerated::to_json() const {
+inline x::json::json GeneratedWriteField::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseWriteField::to_json().items())
         j[k] = v;
@@ -309,8 +324,8 @@ inline x::json::json WriteFieldGenerated::to_json() const {
 
 inline WriteField parse_write_field(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "static") return WriteFieldStatic::parse(parser);
-    if (discriminator == "generated") return WriteFieldGenerated::parse(parser);
+    if (discriminator == "static") return StaticWriteField::parse(parser);
+    if (discriminator == "generated") return GeneratedWriteField::parse(parser);
     parser.field_err("type", "unknown WriteField type: " + discriminator);
     return {};
 }

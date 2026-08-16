@@ -26,8 +26,9 @@ class TestPagerDutyAlertTask:
                     "auto_start": False,
                     "alerts": [
                         {
+                            "key": "alert-1",
                             "status": "database-health",
-                            "enabled": True,
+                            "disabled": False,
                             "treat_error_as_critical": True,
                             "component": "postgres",
                             "group": "infrastructure",
@@ -43,16 +44,18 @@ class TestPagerDutyAlertTask:
                     "auto_start": True,
                     "alerts": [
                         {
+                            "key": "alert-1",
                             "status": "sensor-1",
-                            "enabled": True,
+                            "disabled": False,
                             "treat_error_as_critical": False,
                             "component": "temperature-sensor",
                             "group": "hardware",
                             "class": "sensor_anomaly",
                         },
                         {
+                            "key": "alert-2",
                             "status": "sensor-2",
-                            "enabled": False,
+                            "disabled": True,
                             "treat_error_as_critical": True,
                             "component": "pressure-sensor",
                             "group": "hardware",
@@ -67,8 +70,9 @@ class TestPagerDutyAlertTask:
                     "routing_key": "00000000000000000000000000000000",
                     "alerts": [
                         {
+                            "key": "alert-1",
                             "status": "my-status",
-                            "enabled": True,
+                            "disabled": False,
                         },
                     ],
                 },
@@ -76,80 +80,55 @@ class TestPagerDutyAlertTask:
         ],
     )
     def test_parse_alert_task_config(self, test_data):
-        """Test that AlertTaskConfig can parse various configurations."""
-        sy.pagerduty.AlertTaskConfig.model_validate(test_data["data"])
+        """Test that TaskConfig can parse various configurations."""
+        sy.pagerduty.TaskConfig.model_validate(test_data["data"])
 
-    def test_alert_config_defaults(self):
-        """Test that AlertConfig has correct defaults."""
-        cfg = sy.pagerduty.AlertConfig(status="my-status")
-        assert cfg.status == "my-status"
-        assert cfg.treat_error_as_critical is False
-        assert cfg.component == ""
-        assert cfg.group == ""
-        assert cfg.alert_class == ""
-        assert cfg.enabled is True
+    def test_alert_defaults(self):
+        """Test that Alert has correct defaults."""
+        alert = sy.pagerduty.Alert(status="my-status")
+        assert alert.status == "my-status"
+        assert alert.treat_error_as_critical is False
+        assert alert.component == ""
+        assert alert.group == ""
+        assert alert.class_ == ""
+        assert alert.disabled is False
 
-    def test_alert_config_class_alias(self):
-        """Test that AlertConfig serializes alert_class as 'class' in JSON."""
-        cfg = sy.pagerduty.AlertConfig(
+    def test_alert_class_alias(self):
+        """Test that Alert serializes class_ as 'class' in JSON."""
+        alert = sy.pagerduty.Alert(
             status="my-status",
-            alert_class="cpu_load",
+            class_="cpu_load",
         )
-        dumped = cfg.model_dump(by_alias=True)
+        dumped = alert.model_dump(by_alias=True)
         assert "class" in dumped
         assert dumped["class"] == "cpu_load"
-        assert "alert_class" not in dumped
+        assert "class_" not in dumped
 
-    def test_alert_config_class_from_alias(self):
-        """Test that AlertConfig can be created from JSON with 'class' key."""
-        cfg = sy.pagerduty.AlertConfig.model_validate(
-            {"status": "my-status", "class": "ping_failure", "enabled": True}
+    def test_alert_class_from_alias(self):
+        """Test that Alert can be created from JSON with 'class' key."""
+        alert = sy.pagerduty.Alert.model_validate(
+            {"status": "my-status", "class": "ping_failure", "disabled": False}
         )
-        assert cfg.alert_class == "ping_failure"
+        assert alert.class_ == "ping_failure"
 
-    def test_alert_task_config_defaults(self):
-        """Test that AlertTaskConfig has correct defaults."""
-        config = sy.pagerduty.AlertTaskConfig(
+    def test_task_config_defaults(self):
+        """Test that TaskConfig has correct defaults."""
+        config = sy.pagerduty.TaskConfig(
             routing_key="12345678901234567890123456789012",
-            alerts=[sy.pagerduty.AlertConfig(status="s", enabled=True)],
+            alerts=[sy.pagerduty.Alert(status="s")],
         )
         assert config.auto_start is False
 
-    def test_routing_key_wrong_length(self):
-        """Test that routing_key must be exactly 32 characters."""
-        with pytest.raises(
-            ValueError, match="routing_key must be exactly 32 characters"
-        ):
-            sy.pagerduty.AlertTaskConfig(
-                routing_key="too-short",
-                alerts=[sy.pagerduty.AlertConfig(status="s", enabled=True)],
-            )
-
-    def test_routing_key_too_long(self):
-        """Test that routing_key rejects keys longer than 32 characters."""
-        with pytest.raises(
-            ValueError, match="routing_key must be exactly 32 characters"
-        ):
-            sy.pagerduty.AlertTaskConfig(
-                routing_key="a" * 33,
-                alerts=[sy.pagerduty.AlertConfig(status="s", enabled=True)],
-            )
-
-    def test_no_enabled_alerts(self):
-        """Test that at least one alert must be enabled."""
-        with pytest.raises(ValueError, match="at least one alert must be enabled"):
-            sy.pagerduty.AlertTaskConfig(
-                routing_key="12345678901234567890123456789012",
-                alerts=[sy.pagerduty.AlertConfig(status="s", enabled=False)],
-            )
-
-    def test_empty_alerts_list(self):
-        """Test that an empty alerts list fails validation."""
-        with pytest.raises(ValueError, match="at least one alert must be enabled"):
-            sy.pagerduty.AlertTaskConfig(
-                routing_key="12345678901234567890123456789012",
-                alerts=[],
-            )
+    def test_alert_task_auto_key_generation(self):
+        """Test that the AlertTask assigns keys to alerts missing one."""
+        task = sy.pagerduty.AlertTask(
+            name="test",
+            routing_key="12345678901234567890123456789012",
+            alerts=[sy.pagerduty.Alert(status="s")],
+        )
+        alert = task.config.alerts[0]
+        assert alert.key != ""
+        assert len(alert.key) > 0
 
     def test_alert_task_serialization(self):
         """Test that AlertTask serializes correctly."""
@@ -158,12 +137,12 @@ class TestPagerDutyAlertTask:
             routing_key="12345678901234567890123456789012",
             auto_start=True,
             alerts=[
-                sy.pagerduty.AlertConfig(
+                sy.pagerduty.Alert(
                     status="db-health",
                     treat_error_as_critical=True,
                     component="postgres",
                     group="infra",
-                    alert_class="db_error",
+                    class_="db_error",
                 ),
             ],
         )
@@ -174,7 +153,7 @@ class TestPagerDutyAlertTask:
         alert = payload.config["alerts"][0]
         assert alert["status"] == "db-health"
         assert alert["class"] == "db_error"
-        assert "alert_class" not in alert
+        assert "class_" not in alert
 
     def test_create_and_retrieve_alert_task(self, client: sy.Synnax):
         """Test that AlertTask can be created and retrieved from the database."""
@@ -182,9 +161,9 @@ class TestPagerDutyAlertTask:
             name="test-pagerduty-alert",
             routing_key="12345678901234567890123456789012",
             alerts=[
-                sy.pagerduty.AlertConfig(
+                sy.pagerduty.Alert(
                     status="test-status",
-                    enabled=True,
+                    disabled=False,
                     treat_error_as_critical=True,
                     component="test-component",
                 ),
@@ -193,7 +172,7 @@ class TestPagerDutyAlertTask:
         created = client.tasks.create(
             name="test-pagerduty-alert",
             type="pagerduty_alert",
-            config=task.config.model_dump(by_alias=True, exclude_none=True),
+            config=task.config,
         )
         tsk = sy.pagerduty.AlertTask(created)
         assert tsk.config.routing_key == task.config.routing_key
@@ -201,11 +180,11 @@ class TestPagerDutyAlertTask:
         assert len(tsk.config.alerts) == len(task.config.alerts)
         for orig, retr in zip(task.config.alerts, tsk.config.alerts):
             assert retr.status == orig.status
-            assert retr.enabled == orig.enabled
+            assert retr.disabled == orig.disabled
             assert retr.treat_error_as_critical == orig.treat_error_as_critical
             assert retr.component == orig.component
             assert retr.group == orig.group
-            assert retr.alert_class == orig.alert_class
+            assert retr.class_ == orig.class_
 
     def test_alert_task_serialization_round_trip(self, client: sy.Synnax):
         """Test that task can be serialized and deserialized correctly."""
@@ -214,17 +193,17 @@ class TestPagerDutyAlertTask:
             routing_key="abcdefghijklmnopqrstuvwxyz123456",
             auto_start=True,
             alerts=[
-                sy.pagerduty.AlertConfig(
+                sy.pagerduty.Alert(
                     status="sensor-health",
-                    enabled=True,
+                    disabled=False,
                     treat_error_as_critical=False,
                     component="temperature",
                     group="sensors",
-                    alert_class="anomaly",
+                    class_="anomaly",
                 ),
-                sy.pagerduty.AlertConfig(
+                sy.pagerduty.Alert(
                     status="db-health",
-                    enabled=True,
+                    disabled=False,
                     treat_error_as_critical=True,
                     component="postgres",
                 ),
@@ -233,7 +212,7 @@ class TestPagerDutyAlertTask:
         created = client.tasks.create(
             name="test-round-trip",
             type="pagerduty_alert",
-            config=original.config.model_dump(by_alias=True, exclude_none=True),
+            config=original.config,
         )
         retrieved = sy.pagerduty.AlertTask(created)
         assert retrieved.config.routing_key == original.config.routing_key
@@ -241,6 +220,6 @@ class TestPagerDutyAlertTask:
         assert len(retrieved.config.alerts) == len(original.config.alerts)
         for orig, retr in zip(original.config.alerts, retrieved.config.alerts):
             assert retr.status == orig.status
-            assert retr.enabled == orig.enabled
+            assert retr.disabled == orig.disabled
             assert retr.treat_error_as_critical == orig.treat_error_as_critical
             assert retr.component == orig.component

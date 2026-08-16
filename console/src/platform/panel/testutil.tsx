@@ -13,6 +13,7 @@ import {
   type project,
   type Synnax,
 } from "@synnaxlabs/client";
+import { createPanelParent } from "@synnaxlabs/client/testutil";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -24,14 +25,29 @@ import {
 } from "react";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  getBySelector,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
-/** Persists a panel with the given tree to the cluster. */
+/** The rendered mosaic leaf: the drop target for both tabs and OS files. */
+export const getMosaicLeaf = (): HTMLElement =>
+  getBySelector<HTMLElement>(document, ".pluto-mosaic__leaf");
+
+/** Persists a panel with the given tree to the cluster, parented to a throwaway
+ * project. */
 export const createServerPanel = async (
   client: Synnax,
   root: panel.New["root"],
 ): Promise<panel.Panel> =>
-  await client.panels.create({ key: uuid.create(), name: uniqueName("panel"), root });
+  await client.panels.create({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root,
+    parent: await createPanelParent(client),
+  });
 
 export interface ResourceTab {
   panelKey: panel.Key;
@@ -50,6 +66,7 @@ export const createResourceTab = async (
   const { key: panelKey } = await client.panels.create({
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs: [{ variant: "resource", key: tabKey, resource }] },
+    parent: await createPanelParent(client),
   });
   return { panelKey, tabKey };
 };

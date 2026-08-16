@@ -30,10 +30,9 @@ type Writer struct {
 // Create creates a new panel. If the panel's key is uuid.Nil, a new key is generated.
 // The panel is registered with the ontology.
 //
-// Project-vs-draft ownership is enforced by the caller: set p.Parent to attach the
-// panel to a project (project panel) or to a user (draft). When Parent is nil or
-// zero, the panel has no parent in the ontology. Parent is not persisted on the
-// record; parenthood lives in the ontology graph.
+// Set p.Parent to attach the panel to a parent resource in the ontology; when nil or
+// zero, the panel has no parent. Parent is not persisted on the record; parenthood
+// lives in the ontology graph.
 func (w Writer) Create(
 	ctx context.Context,
 	p *Panel,
@@ -44,7 +43,7 @@ func (w Writer) Create(
 	// Default a freshly-created panel to a single empty leaf so action dispatchers
 	// always operate against a well-formed tree.
 	if p.Root.Variant == nil {
-		p.Root = Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
+		p.Root = Node{Variant: LeafNode{Tabs: []Tab{}}}
 	}
 	if err := validateTree(p.Root); err != nil {
 		return err
@@ -154,14 +153,14 @@ func (w Writer) syncTaskEdges(ctx context.Context, key Key, prev, next Node) err
 // collectTaskRefs adds the ID of every task the tree's resource tabs reference to ids.
 func collectTaskRefs(n Node, ids set.Set[ontology.ID]) {
 	switch v := n.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		for _, t := range v.Tabs {
-			if r, ok := t.Variant.(TabResource); ok &&
+			if r, ok := t.Variant.(ResourceTab); ok &&
 				r.Resource.Type == ontology.ResourceTypeTask {
 				ids.Add(r.Resource)
 			}
 		}
-	case NodeSplit:
+	case SplitNode:
 		collectTaskRefs(v.First, ids)
 		collectTaskRefs(v.Last, ids)
 	}

@@ -27,15 +27,19 @@ const createChannel = (
   line: number,
   overrides: CreateChannelOverrides = {},
 ): NI.Task.DOChannel => ({
-  ...NI.Task.ZERO_DO_CHANNEL,
+  ...NI.Task.createDOChannel(),
   key: id.create(),
   port,
   line,
   ...overrides,
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_DIGITAL_WRITE_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<NI.Task.DigitalWriteSchemas> = {
+  name: "NI Digital Write Task",
+  type: NI.Task.DIGITAL_WRITE_TYPE,
+  config: NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   config: task.Payload<NI.Task.DigitalWriteSchemas>["config"],
@@ -56,7 +60,7 @@ const renderDigitalWrite = async (
 const createConfig = (
   channels: NI.Task.DOChannel[],
   device = "placeholder_device",
-) => ({ ...NI.Task.ZERO_DIGITAL_WRITE_PAYLOAD.config, device, channels });
+) => ({ ...NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}), device, channels });
 
 describe("DigitalWrite", () => {
   it("should write edits to a channel's line number back into the form", async () => {

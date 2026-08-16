@@ -15,7 +15,7 @@ import { type FC } from "react";
 import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
-import { createDIChannel } from "@/feature/ni/task/createChannel";
+import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
@@ -28,7 +28,6 @@ import {
   DIGITAL_READ_TYPE,
   digitalReadConfigZ,
   type DigitalReadSchemas,
-  ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -40,7 +39,7 @@ const Properties = () => (
     <Flex.Box x>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving polarity="disabled" />
+      <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>
@@ -61,7 +60,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => (
   <DigitalChannelList<DIChannel>
-    createChannel={createDIChannel}
+    createChannel={createNextDIChannel}
     name={name}
     contextMenuItems={Task.readChannelContextMenuItem}
   />
@@ -71,14 +70,9 @@ const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null
-      ? digitalReadConfigZ.parse(config)
-      : ZERO_DIGITAL_READ_PAYLOAD.config;
-  return {
-    ...ZERO_DIGITAL_READ_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = digitalReadConfigZ.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "NI Digital Read Task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
@@ -163,10 +157,6 @@ export const DigitalRead = Task.wrapForm({
 });
 
 export const useCreateDigitalRead = Task.createUseCreate({
-  getInitialValues,
-});
-
-export const digitalReadIngester = Task.createIngester({
   getInitialValues,
 });
 

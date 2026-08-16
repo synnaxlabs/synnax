@@ -10,22 +10,29 @@
 package v2_test
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -71,7 +78,15 @@ var _ = Describe("Migrations", func() {
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
 			legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
-			legacyTask := v1.Task{Key: legacyKey, Name: "Legacy Task"}
+			legacyTask := v1.Task{
+				Key:  legacyKey,
+				Name: "Legacy Task",
+				Type: pagerduty.AlertTaskType,
+				Config: msgpack.EncodedJSON{
+					"routing_key": "rk-legacy",
+					"data_saving": false,
+				},
+			}
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entry(&legacyTask).
 				Exec(ctx, db)).To(Succeed())
@@ -99,6 +114,8 @@ var _ = Describe("Migrations", func() {
 				status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus),
 			).To(Succeed())
 
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -107,6 +124,7 @@ var _ = Describe("Migrations", func() {
 				Status:   stat,
 				Search:   searchIdx,
 				ImEx:     imex.NewService(),
+				Configs:  configs,
 			}))
 
 			var migrated task.Task
@@ -116,6 +134,10 @@ var _ = Describe("Migrations", func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
+			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
+			Expect(migrated.Config).ToNot(HaveKey("data_saving"))
+			Expect(migrated.Config).To(HaveKey("key"))
+			Expect(migrated.ConfigHash).ToNot(BeEmpty())
 
 			var restoredStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
@@ -134,6 +156,302 @@ var _ = Describe("Migrations", func() {
 			staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
 			Expect(string(staged)).To(Equal(migrated.Key.String()))
 			Expect(closer.Close()).To(Succeed())
+		},
+	)
+
+	It(
+		"Should decompose stored configs, rename types, and quarantine unknowns",
+		func(ctx SpecContext) {
+			// Legacy rows from released builds are msgpack-encoded, while the opened
+			// services run the production Orc codec. Seed through an msgpack view of
+			// the same KV so the fixtures land in their real on-disk form.
+			kvDB := memkv.New()
+			seedDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
+			db := DeferClose(gorp.Wrap(kvDB))
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustOpen(search.OpenIndex())
+			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Search:   searchIdx,
+			}))
+			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    g,
+				Label:    labelSvc,
+				Search:   searchIdx,
+			}))
+			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				Group:        g,
+				HostProvider: mock.NewStaticHostProvider(1),
+				Status:       stat,
+				Search:       searchIdx,
+			}))
+			testRack := &rack.Rack{Name: "Decompose Test Rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+
+			arcModuleKey := uuid.New().String()
+			pdTask := v1.Task{
+				Key:  v1.Key(uint64(testRack.Key)<<32 | 1),
+				Name: "Stored PD Task",
+				Type: pagerduty.AlertTaskType,
+				Config: msgpack.EncodedJSON{
+					"routing_key": "rk-stored",
+					"data_saving": false,
+				},
+			}
+			arcTask := v1.Task{
+				Key:  v1.Key(uint64(testRack.Key)<<32 | 2),
+				Name: "Stored Arc Task",
+				Type: "arc",
+				Config: msgpack.EncodedJSON{
+					"arc_key": arcModuleKey,
+					"hash":    "abc123",
+				},
+			}
+			bogusTask := v1.Task{
+				Key:    v1.Key(uint64(testRack.Key)<<32 | 3),
+				Name:   "Bogus Task",
+				Type:   "bogus",
+				Config: msgpack.EncodedJSON{"anything": true},
+			}
+			ljScanTask := v1.Task{
+				Key:    v1.Key(uint64(testRack.Key)<<32 | 5),
+				Name:   "Stored LabJack Scan Task",
+				Type:   "labjack_scan",
+				Config: msgpack.EncodedJSON{},
+			}
+			retiredTasks := []v1.Task{
+				{
+					Key:    v1.Key(uint64(testRack.Key)<<32 | 6),
+					Name:   "Stored Sequence Task",
+					Type:   "sequence",
+					Config: msgpack.EncodedJSON{"script": "return 1"},
+				},
+				{
+					Key:    v1.Key(uint64(testRack.Key)<<32 | 7),
+					Name:   "Stored Heartbeat Task",
+					Type:   "heartbeat",
+					Config: msgpack.EncodedJSON{},
+				},
+				{
+					Key:    v1.Key(uint64(testRack.Key)<<32 | 8),
+					Name:   "Stored OPC Scanner Task",
+					Type:   "opcScanner",
+					Config: msgpack.EncodedJSON{},
+				},
+			}
+			// A v0-era console row: snake_case from the wire, the device at the
+			// config level, the renamed AI type alias, and flat cold-junction
+			// fields.
+			niTask := v1.Task{
+				Key:  v1.Key(uint64(testRack.Key)<<32 | 9),
+				Name: "Stored NI Analog Read Task",
+				Type: "ni_analog_read",
+				Config: msgpack.EncodedJSON{
+					"device":      "dev-ni",
+					"sample_rate": float64(100),
+					"stream_rate": float64(10),
+					"data_saving": true,
+					"channels": []any{
+						map[string]any{
+							"key":        "ch-ni-tc",
+							"channel":    float64(101),
+							"port":       float64(1),
+							"type":       "ai_thermocouple",
+							"units":      "DegC",
+							"enabled":    true,
+							"min_val":    float64(-100),
+							"max_val":    float64(900),
+							"cjc_source": "ConstVal",
+							"cjc_val":    float64(25.5),
+						},
+						map[string]any{
+							"key":          "ch-ni-freq",
+							"channel":      float64(102),
+							"port":         float64(2),
+							"type":         "ai_frequency_voltage",
+							"units":        "Hz",
+							"enabled":      false,
+							"min_val":      float64(1),
+							"max_val":      float64(5000),
+							"custom_scale": map[string]any{"type": "none"},
+						},
+					},
+				},
+			}
+			ljTask := v1.Task{
+				Key:  v1.Key(uint64(testRack.Key)<<32 | 4),
+				Name: "Stored LabJack Write Task",
+				Type: "labjack_write",
+				Config: msgpack.EncodedJSON{
+					"device":      "dev-lj",
+					"state_rate":  float64(10),
+					"data_saving": true,
+					"auto_start":  false,
+					"channels": []any{map[string]any{
+						"type":      "DO",
+						"key":       "ch-do",
+						"port":      "DIO4",
+						"cmd_key":   float64(7),
+						"state_key": float64(8),
+						"enabled":   true,
+					}},
+				},
+			}
+			Expect(gorp.NewCreate[v1.Key, v1.Task]().
+				Entries(&[]v1.Task{
+					pdTask, arcTask, bogusTask, ljTask, ljScanTask, niTask,
+				}).
+				Exec(ctx, seedDB)).To(Succeed())
+			Expect(gorp.NewCreate[v1.Key, v1.Task]().
+				Entries(&retiredTasks).
+				Exec(ctx, seedDB)).To(Succeed())
+
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
+			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{DB: db}))
+			configs := MustSucceed(config.NewRegistry(slices.Concat(
+				pd.Stores(), at.Stores(), lj.Stores(), niSvc.Stores(),
+			)...))
+			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Rack:     rackSvc,
+				Status:   stat,
+				Search:   searchIdx,
+				ImEx:     imex.NewService(),
+				Configs:  configs,
+			}))
+
+			var migratedPD task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored PD Task")).
+				Entry(&migratedPD).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedPD.Config).To(
+				HaveKeyWithValue("routing_key", "rk-stored"),
+			)
+			Expect(migratedPD.Config).ToNot(HaveKey("data_saving"))
+			Expect(migratedPD.Config).To(HaveKey("key"))
+			Expect(migratedPD.ConfigHash).ToNot(BeEmpty())
+
+			var migratedArc task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored Arc Task")).
+				Entry(&migratedArc).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedArc.Type).To(Equal("arc"))
+			Expect(migratedArc.Config).To(
+				HaveKeyWithValue("arc_key", arcModuleKey),
+			)
+			Expect(migratedArc.Config).To(HaveKeyWithValue("hash", "abc123"))
+			Expect(migratedArc.Config).To(
+				HaveKeyWithValue("execution_mode", "AUTO"),
+			)
+			Expect(migratedArc.Config).To(
+				HaveKeyWithValue("rt_priority", BeEquivalentTo(47)),
+			)
+			Expect(migratedArc.Config).To(
+				HaveKeyWithValue("cpu_affinity", BeEquivalentTo(-1)),
+			)
+
+			var migratedScan task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored LabJack Scan Task")).
+				Entry(&migratedScan).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedScan.Config).To(
+				HaveKeyWithValue("rate", BeEquivalentTo(0.2)),
+			)
+
+			var migratedLJ task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored LabJack Write Task")).
+				Entry(&migratedLJ).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedLJ.Config).To(HaveKeyWithValue("device", "dev-lj"))
+			Expect(migratedLJ.Config).To(
+				HaveKeyWithValue("data_saving_disabled", false),
+			)
+			ljChannels, ok := migratedLJ.Config["channels"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(ljChannels).To(HaveLen(1))
+			ljCh, ok := ljChannels[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(ljCh).To(HaveKeyWithValue("cmd_channel", BeEquivalentTo(7)))
+			Expect(ljCh).To(HaveKeyWithValue("state_channel", BeEquivalentTo(8)))
+			Expect(ljCh).To(HaveKeyWithValue("disabled", false))
+			Expect(ljCh).ToNot(HaveKey("cmd_key"))
+			Expect(ljCh).ToNot(HaveKey("state_key"))
+
+			var migratedNI task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored NI Analog Read Task")).
+				Entry(&migratedNI).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedNI.Config).ToNot(HaveKey("device"))
+			Expect(migratedNI.Config).To(
+				HaveKeyWithValue("data_saving_disabled", false),
+			)
+			niChannels, ok := migratedNI.Config["channels"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(niChannels).To(HaveLen(2))
+			tc, ok := niChannels[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(tc).To(HaveKeyWithValue("device", "dev-ni"))
+			Expect(tc).To(HaveKeyWithValue("cjc", SatisfyAll(
+				HaveKeyWithValue("source", "const_val"),
+				HaveKeyWithValue("val", BeEquivalentTo(25.5)),
+			)))
+			Expect(tc).ToNot(HaveKey("cjc_source"))
+			Expect(tc).ToNot(HaveKey("cjc_val"))
+			freq, ok := niChannels[1].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(freq).To(HaveKeyWithValue("device", "dev-ni"))
+			Expect(freq).To(HaveKeyWithValue("type", "ai_freq_voltage"))
+			Expect(freq).To(HaveKeyWithValue("disabled", true))
+
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Bogus Task")).
+				Exists(ctx, nil)).To(BeFalse())
+			rekeyed, rekeyCloser := MustSucceed2(
+				db.Get(ctx, v2.LegacyKeyKVKey(bogusTask.Key)),
+			)
+			bogusKey := MustSucceed(uuid.Parse(string(rekeyed)))
+			Expect(rekeyCloser.Close()).To(Succeed())
+			staged, closer := MustSucceed2(
+				db.Get(ctx, v3.QuarantineKVKey(bogusKey)),
+			)
+			Expect(string(staged)).To(ContainSubstring("Bogus Task"))
+			Expect(closer.Close()).To(Succeed())
+
+			for _, retired := range retiredTasks {
+				Expect(svc.NewRetrieve().
+					Where(task.MatchNames(retired.Name)).
+					Exists(ctx, nil)).To(BeFalse())
+				rekeyed, rekeyCloser := MustSucceed2(
+					db.Get(ctx, v2.LegacyKeyKVKey(retired.Key)),
+				)
+				retiredKey := MustSucceed(uuid.Parse(string(rekeyed)))
+				Expect(rekeyCloser.Close()).To(Succeed())
+				blob, blobCloser := MustSucceed2(
+					db.Get(ctx, v3.QuarantineKVKey(retiredKey)),
+				)
+				Expect(string(blob)).To(ContainSubstring(retired.Name))
+				Expect(blobCloser.Close()).To(Succeed())
+			}
 		},
 	)
 })

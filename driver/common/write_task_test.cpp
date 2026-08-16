@@ -23,7 +23,7 @@ public:
         const std::set<synnax::channel::Key> &state_indexes,
         const std::vector<synnax::channel::Channel> &state_channels,
         const std::vector<synnax::channel::Key> &cmd_channels,
-        const bool data_saving,
+        const bool data_saving_disabled,
         const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
     ):
@@ -32,7 +32,7 @@ public:
             state_indexes,
             state_channels,
             cmd_channels,
-            data_saving
+            data_saving_disabled
         ),
         driver::pipeline::mock::Sink(writes, errors) {}
 

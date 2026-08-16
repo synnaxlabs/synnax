@@ -2699,11 +2699,11 @@ Mode enum {
 					target string
 				}
 
-				LinearScale struct { slope float64 }
-				NoneScale struct {}
+				LinearParams struct { slope float64 }
+				NoneParams struct {}
 				Scale union on type {
-					linear LinearScale
-					none   NoneScale
+					linear LinearParams
+					none   NoneParams
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
@@ -2726,20 +2726,20 @@ Mode enum {
 			"Should collect a simple union with primitive-only variants",
 			func(ctx SpecContext) {
 				source := `
-				LinearScale struct {
+				LinearParams struct {
 					slope float64
 					yIntercept float64
 				}
-				MapScale struct {
+				MapParams struct {
 					preScaledMin float64
 					scaledMin float64
 				}
-				NoneScale struct {}
+				NoneParams struct {}
 
 				Scale union on type {
-					linear LinearScale
-					map    MapScale
-					none   NoneScale
+					linear LinearParams
+					map    MapParams
+					none   NoneParams
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
@@ -2754,7 +2754,7 @@ Mode enum {
 				Expect(form.Extends).To(BeEmpty())
 
 				Expect(form.Variants[0].Name).To(Equal("linear"))
-				Expect(form.Variants[0].Type.Name).To(Equal("ni.LinearScale"))
+				Expect(form.Variants[0].Type.Name).To(Equal("ni.LinearParams"))
 				Expect(form.Variants[1].Name).To(Equal("map"))
 				Expect(form.Variants[2].Name).To(Equal("none"))
 			},
@@ -3064,14 +3064,14 @@ Mode enum {
 
 		It("Should collect per-variant domains", func(ctx SpecContext) {
 			source := `
-				LinearScale struct {}
-				MapScale struct {}
+				LinearParams struct {}
+				MapParams struct {}
 
 				Scale union on type {
-					linear LinearScale {
+					linear LinearParams {
 						@doc value "linear scaling"
 					}
-					map MapScale {
+					map MapParams {
 						@doc value "piecewise linear map"
 					}
 				}
@@ -3093,12 +3093,12 @@ Mode enum {
 
 		It("Should collect union-level domains", func(ctx SpecContext) {
 			source := `
-				LinearScale struct {}
-				MapScale struct {}
+				LinearParams struct {}
+				MapParams struct {}
 
 				Scale union on type {
-					linear LinearScale
-					map MapScale
+					linear LinearParams
+					map MapParams
 					@doc value "controls how raw values are transformed"
 				}
 			`
@@ -3152,12 +3152,12 @@ Mode enum {
 			"Should support nested unions (variant field typed as a union)",
 			func(ctx SpecContext) {
 				source := `
-				LinearScale struct { slope float64 }
-				NoneScale   struct {}
+				LinearParams struct { slope float64 }
+				NoneParams   struct {}
 
 				Scale union on type {
-					linear LinearScale
-					none   NoneScale
+					linear LinearParams
+					none   NoneParams
 				}
 
 				AIVoltageFields struct {
@@ -3199,6 +3199,24 @@ Mode enum {
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(`duplicate variant value "same"`))
 		})
+
+		It(
+			"Should error when a variant's generated type name collides with an existing type",
+			func(ctx SpecContext) {
+				source := `
+				LinearScale struct { slope float64 }
+
+				Scale union on type {
+					linear LinearScale
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(
+					diag.Error(),
+				).To(ContainSubstring(`generated variant type name LinearScale collides with an existing type`))
+			},
+		)
 
 		It(
 			"Should error when a variant value collides with the discriminator field name",

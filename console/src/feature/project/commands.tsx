@@ -14,8 +14,6 @@ import { useCallback } from "react";
 import { useExport } from "@/feature/project/export";
 import { import_ } from "@/feature/project/import";
 import { Command } from "@/platform/command";
-import { Import } from "@/platform/import";
-import { Panel } from "@/platform/panel";
 import { Project } from "@/platform/project";
 import { Session } from "@/session";
 
@@ -34,14 +32,12 @@ const CreateCommand = Command.create({
 });
 
 const useImportProject = () => {
-  const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   const store = Session.useStore();
   const client = Synnax.use();
-  const fileIngesters = Import.useFileIngesters();
   return useCallback(
-    () => import_({ openTab, handleError, store, client, fileIngesters }),
-    [openTab, handleError, store, client, fileIngesters],
+    () => import_({ handleError, store, client }),
+    [handleError, store, client],
   );
 };
 

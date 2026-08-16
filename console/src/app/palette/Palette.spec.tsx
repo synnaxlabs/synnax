@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { Palette } from "@/app/palette";
 import { Docs } from "@/feature/docs";
-import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
 import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/testutil";
 
@@ -22,10 +21,10 @@ const renderAppPalette = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   await selectTestProject(store, client);
   render(
-    <Import.FileIngestersProvider fileIngesters={{}}>
+    <>
       <Palette.Palette />
       <Modals.Stack />
-    </Import.FileIngestersProvider>,
+    </>,
     { wrapper },
   );
   return { store, client };

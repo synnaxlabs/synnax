@@ -21,9 +21,10 @@ import {
 } from "react";
 
 import { Login } from "@/feature/auth/Login";
+import { Shell } from "@/feature/shell";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
-import { Shell } from "@/platform/shell";
+import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
 /**
@@ -62,7 +63,7 @@ interface CountdownCoreProps {
 }
 
 const CountdownCore = ({ retry, checking }: CountdownCoreProps): ReactElement => {
-  const remaining = Shell.useCountdown(retry.nextAt);
+  const remaining = PlatformShell.useCountdown(retry.nextAt);
   return (
     <>
       <Text.Text level="h3" color={11} className={CSS.BE("connection", "countdown")}>
@@ -110,7 +111,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
         gap={8}
         className={CSS(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
       >
-        <Status.Orbital core={<Shell.Mark>{core}</Shell.Mark>} />
+        <Status.Orbital core={<PlatformShell.Mark>{core}</PlatformShell.Mark>} />
         {troubled ? (
           <Trouble client={client} status={status} checking={checking} />
         ) : (
@@ -155,12 +156,12 @@ const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
           </Text.Text>
         )}
         <Text.Text status={variant} className={CSS.BE("connection", "status")}>
-          <span>{checking ? "Retrying" : Shell.STATUS_LABELS[variant]}</span>
+          <span>{checking ? "Retrying" : PlatformShell.STATUS_LABELS[variant]}</span>
           <span className={CSS.M("ghost")} aria-hidden>
             Retrying
           </span>
           <span className={CSS.M("ghost")} aria-hidden>
-            {Shell.STATUS_LABELS[variant]}
+            {PlatformShell.STATUS_LABELS[variant]}
           </span>
         </Text.Text>
       </Flex.Box>

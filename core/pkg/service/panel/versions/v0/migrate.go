@@ -258,12 +258,12 @@ func convertNode(
 		if last == nil {
 			return first, nil
 		}
-		return &Node{Variant: NodeSplit{Split: Split{
+		return &Node{Variant: SplitNode{
 			Direction: convertDirection(n.Direction),
 			Size:      convertSize(n.Size),
 			First:     *first,
 			Last:      *last,
-		}}}, nil
+		}}, nil
 	}
 	tabs := make([]Tab, 0, len(n.Tabs))
 	for _, t := range n.Tabs {
@@ -292,7 +292,7 @@ func convertNode(
 		if !exists {
 			continue
 		}
-		tabs = append(tabs, Tab{Variant: TabResource{
+		tabs = append(tabs, Tab{Variant: ResourceTab{
 			TabBase:  TabBase{Key: uuid.New()},
 			Resource: id,
 		}})
@@ -300,7 +300,7 @@ func convertNode(
 	if len(tabs) == 0 {
 		return nil, nil
 	}
-	return &Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: tabs}}}, nil
+	return &Node{Variant: LeafNode{Tabs: tabs}}, nil
 }
 
 // convertTaskTab converts a legacy task layout tab into a resource tab pointing at
@@ -319,7 +319,7 @@ func convertTaskTab(ctx context.Context, tx gorp.Tx, tabKey string) (*Tab, error
 	if err := closer.Close(); err != nil {
 		return nil, err
 	}
-	return &Tab{Variant: TabResource{
+	return &Tab{Variant: ResourceTab{
 		TabBase:  TabBase{Key: uuid.New()},
 		Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
 	}}, nil
@@ -378,7 +378,7 @@ func MigrateTaskTabKeys(
 // tabs, reporting whether anything changed.
 func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 	switch v := n.Variant.(type) {
-	case NodeSplit:
+	case SplitNode:
 		first := convertNodeTaskTabs(&v.First, mapping)
 		last := convertNodeTaskTabs(&v.Last, mapping)
 		if !first && !last {
@@ -386,11 +386,11 @@ func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 		}
 		n.Variant = v
 		return true
-	case NodeLeaf:
+	case LeafNode:
 		changed := false
 		for i := range v.Tabs {
 			tab := &v.Tabs[i]
-			view, ok := tab.Variant.(TabView)
+			view, ok := tab.Variant.(ViewTab)
 			if !ok {
 				continue
 			}
@@ -402,7 +402,7 @@ func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 			if !ok {
 				continue
 			}
-			tab.Variant = TabResource{
+			tab.Variant = ResourceTab{
 				TabBase:  view.TabBase,
 				Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
 			}

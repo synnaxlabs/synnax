@@ -103,14 +103,14 @@ var _ = Describe("Export", func() {
 		)).To(Succeed())
 	}
 	resourceTab := func(id ontology.ID) panel.Tab {
-		return panel.Tab{Variant: panel.TabResource{
+		return panel.Tab{Variant: panel.ResourceTab{
 			TabBase:  panel.TabBase{Key: uuid.New()},
 			Resource: id,
 		}}
 	}
 	leaf := func(tabs ...panel.Tab) panel.Node {
-		return panel.Node{Variant: panel.NodeLeaf{
-			Leaf: panel.Leaf{Tabs: append([]panel.Tab{}, tabs...)},
+		return panel.Node{Variant: panel.LeafNode{
+			Tabs: append([]panel.Tab{}, tabs...),
 		}}
 	}
 

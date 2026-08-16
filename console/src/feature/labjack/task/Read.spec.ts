@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
 import {
-  createAIChannel,
-  createDIChannel,
+  createAnalogReadChannel,
+  createDigitalReadChannel,
   createLabJackDevice,
-  createTCChannel,
+  createThermocoupleReadChannel,
 } from "@/feature/labjack/testutil";
 import {
   deployAndAwaitTask,
@@ -35,15 +35,19 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
 
 const createConfig = (
   device: string,
-  channels: LabJack.Task.InputChannel[],
+  channels: LabJack.Task.ReadChannel[],
 ): LabJack.Task.ReadPayload["config"] => ({
-  ...LabJack.Task.ZERO_READ_PAYLOAD.config,
+  ...LabJack.Task.READ_SCHEMAS.config.parse({}),
   device,
   channels,
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = LabJack.Task.ZERO_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<LabJack.Task.ReadSchemas> = {
+  name: "LabJack Read Task",
+  type: LabJack.Task.READ_TYPE,
+  config: LabJack.Task.READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   client: Synnax,
@@ -69,9 +73,9 @@ describe("LabJack Read", () => {
     const draft = await createDraft(
       client,
       createConfig(dev.key, [
-        createAIChannel("AIN0"),
-        createAIChannel("AIN4"),
-        createDIChannel("DIO8"),
+        createAnalogReadChannel("AIN0"),
+        createAnalogReadChannel("AIN4"),
+        createDigitalReadChannel("DIO8"),
       ]),
     );
     await renderRead({ client, taskKey: draft.key });
@@ -84,7 +88,7 @@ describe("LabJack Read", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createAIChannel("AIN999")]),
+      createConfig(dev.key, [createAnalogReadChannel("AIN999")]),
     );
     await renderRead({ client, taskKey: draft.key });
     await findChannelListItem("AIN999");
@@ -94,7 +98,7 @@ describe("LabJack Read", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createAIChannel("AIN0")]),
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("AIN0"));
@@ -108,7 +112,7 @@ describe("LabJack Read", () => {
     const draft = await createDraft(
       client,
       createConfig(dev.key, [
-        createAIChannel("AIN0", {
+        createAnalogReadChannel("AIN0", {
           scale: { type: "linear", slope: 2, offset: 1 },
         }),
       ]),
@@ -123,7 +127,7 @@ describe("LabJack Read", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createTCChannel("AIN0")]),
+      createConfig(dev.key, [createThermocoupleReadChannel("AIN0")]),
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("AIN0"));
@@ -140,7 +144,7 @@ describe("LabJack Read", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createDIChannel("DIO8")]),
+      createConfig(dev.key, [createDigitalReadChannel("DIO8")]),
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("EIO0"));
@@ -153,7 +157,7 @@ describe("LabJack Read", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
-      createConfig(dev.key, [createAIChannel("AIN0")]),
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("AIN0"));
@@ -171,8 +175,8 @@ describe("LabJack Read", () => {
       const draft = await createDraft(
         client,
         createConfig(dev.key, [
-          createAIChannel("AIN0"),
-          createDIChannel("DIO8", { name: namedChannel }),
+          createAnalogReadChannel("AIN0"),
+          createDigitalReadChannel("DIO8", { name: namedChannel }),
         ]),
       );
       const { container } = await renderRead({ client, taskKey: draft.key });
@@ -210,7 +214,7 @@ describe("LabJack Read", () => {
 
     it("should reuse existing channels when redeployed", async () => {
       const dev = await createLabJackDevice(client);
-      const config = createConfig(dev.key, [createAIChannel("AIN0")]);
+      const config = createConfig(dev.key, [createAnalogReadChannel("AIN0")]);
       const firstDraft = await createDraft(client, config);
       const first = await renderRead({ client, taskKey: firstDraft.key });
       const firstTask = await deployAndAwaitTask(
@@ -240,7 +244,7 @@ describe("LabJack Read", () => {
       });
       const draft = await createDraft(
         client,
-        createConfig(dev.key, [createAIChannel("AIN0")]),
+        createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
       );
       const { container } = await renderRead({ client, taskKey: draft.key });
       await deployAndAwaitTask(client, container, draft.key, LabJack.Task.READ_SCHEMAS);

@@ -108,16 +108,16 @@ var _ = Describe("Project layout to panel migration", func() {
 			return
 		}
 		switch v := n.Variant.(type) {
-		case v0.NodeLeaf:
+		case v0.LeafNode:
 			for i, t := range v.Tabs {
-				rt, ok := t.Variant.(v0.TabResource)
+				rt, ok := t.Variant.(v0.ResourceTab)
 				Expect(ok).To(BeTrue())
 				Expect(rt.Key).ToNot(Equal(uuid.Nil))
 				rt.Key = uuid.Nil
 				v.Tabs[i] = v0.Tab{Variant: rt}
 			}
 			n.Variant = v
-		case v0.NodeSplit:
+		case v0.SplitNode:
 			zeroTabKeys(&v.First)
 			zeroTabKeys(&v.Last)
 			n.Variant = v
@@ -136,12 +136,12 @@ var _ = Describe("Project layout to panel migration", func() {
 			Exists(ctx, db))
 	}
 	resourceTab := func(t ontology.ResourceType, key string) v0.Tab {
-		return v0.Tab{Variant: v0.TabResource{
+		return v0.Tab{Variant: v0.ResourceTab{
 			Resource: ontology.ID{Type: t, Key: key},
 		}}
 	}
 	leaf := func(tabs ...v0.Tab) *v0.Node {
-		return &v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: tabs}}}
+		return &v0.Node{Variant: v0.LeafNode{Tabs: tabs}}
 	}
 	mosaicTab := func(tabKey string) map[string]any {
 		return map[string]any{"tabKey": tabKey, "name": "Tab " + tabKey}
@@ -249,17 +249,17 @@ var _ = Describe("Project layout to panel migration", func() {
 
 			main := findPanel(panels, "Main")
 			zeroTabKeys(&main.Root)
-			Expect(main.Root).To(Equal(v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
+			Expect(main.Root).To(Equal(v0.Node{Variant: v0.SplitNode{
 				Direction: spatial.DirectionX,
 				Size:      0.25,
-				First: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
+				First: v0.Node{Variant: v0.SplitNode{
 					Direction: spatial.DirectionY,
 					Size:      0.5,
 					First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
 					Last:      *leaf(resourceTab(ontology.ResourceTypeSchematic, scKey)),
-				}}},
+				}},
 				Last: *leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
-			}}}))
+			}}))
 
 			tableWin := findPanel(panels, "Table Window")
 			zeroTabKeys(&tableWin.Root)
@@ -417,10 +417,10 @@ var _ = Describe("Project layout to panel migration", func() {
 		openPanelTable(ctx, db)
 		panels := collectPanels(ctx, db)
 		Expect(panels).To(HaveLen(1))
-		lf, ok := panels[0].Root.Variant.(v0.NodeLeaf)
+		lf, ok := panels[0].Root.Variant.(v0.LeafNode)
 		Expect(ok).To(BeTrue())
 		Expect(lf.Tabs).To(HaveLen(1))
-		rt, ok := lf.Tabs[0].Variant.(v0.TabResource)
+		rt, ok := lf.Tabs[0].Variant.(v0.ResourceTab)
 		Expect(ok).To(BeTrue())
 		Expect(rt.Key).ToNot(Equal(uuid.Nil))
 		Expect(rt.Resource).To(Equal(ontology.ID{
@@ -440,7 +440,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			legacy := "4294967395"
 			taskKey := uuid.New()
 			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
-				return v0.Tab{Variant: v0.TabView{
+				return v0.Tab{Variant: v0.ViewTab{
 					TabBase: v0.TabBase{Key: uuid.New()},
 					View:    v0.View{Type: viewType, Args: args},
 				}}
@@ -449,7 +449,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			p := v0.Panel{
 				Key:  uuid.New(),
 				Name: "Ops",
-				Root: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
+				Root: v0.Node{Variant: v0.SplitNode{
 					Direction: spatial.DirectionX,
 					Size:      0.5,
 					First: *leaf(viewTab(
@@ -460,7 +460,7 @@ var _ = Describe("Project layout to panel migration", func() {
 						viewTab("docs", nil),
 						viewTab("opc_read", msgpack.EncodedJSON{"taskKey": "12345"}),
 					),
-				}}},
+				}},
 			}
 			Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
 			stageTaskKey(ctx, db, legacy, taskKey)
@@ -471,11 +471,11 @@ var _ = Describe("Project layout to panel migration", func() {
 				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
 				Entry(&got).
 				Exec(ctx, db)).To(Succeed())
-			split, ok := got.Root.Variant.(v0.NodeSplit)
+			split, ok := got.Root.Variant.(v0.SplitNode)
 			Expect(ok).To(BeTrue())
-			first, ok := split.First.Variant.(v0.NodeLeaf)
+			first, ok := split.First.Variant.(v0.LeafNode)
 			Expect(ok).To(BeTrue())
-			converted, ok := first.Tabs[0].Variant.(v0.TabResource)
+			converted, ok := first.Tabs[0].Variant.(v0.ResourceTab)
 			Expect(ok).To(BeTrue())
 			Expect(converted.Resource).To(Equal(ontology.ID{
 				Type: ontology.ResourceTypeTask,
@@ -483,12 +483,12 @@ var _ = Describe("Project layout to panel migration", func() {
 			}))
 
 			By("Leaving view tabs without staged task keys untouched")
-			last, ok := split.Last.Variant.(v0.NodeLeaf)
+			last, ok := split.Last.Variant.(v0.LeafNode)
 			Expect(ok).To(BeTrue())
-			docs, ok := last.Tabs[0].Variant.(v0.TabView)
+			docs, ok := last.Tabs[0].Variant.(v0.ViewTab)
 			Expect(ok).To(BeTrue())
 			Expect(docs.Args).To(BeNil())
-			other, ok := last.Tabs[1].Variant.(v0.TabView)
+			other, ok := last.Tabs[1].Variant.(v0.ViewTab)
 			Expect(ok).To(BeTrue())
 			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))
 

@@ -15,11 +15,11 @@ import { z } from "zod";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import {
+  createScale,
   type Scale,
   SCALE_SCHEMAS,
   type ScaleType,
   type Units,
-  ZERO_SCALES,
 } from "@/feature/ni/task/types";
 import { FS } from "@/platform/fs";
 
@@ -33,7 +33,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
     onChange: (value, { get, set, path }) => {
       const prevType = get<ScaleType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_SCALES[value]);
+      const next = createScale(value);
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<Scale>(parentPath).value;
       set(parentPath, {

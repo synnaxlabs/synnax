@@ -15,9 +15,9 @@ import "github.com/google/uuid"
 // Returns uuid.Nil for a Tab with no variant set.
 func (t Tab) Key() uuid.UUID {
 	switch v := t.Variant.(type) {
-	case TabResource:
+	case ResourceTab:
 		return v.Key
-	case TabView:
+	case ViewTab:
 		return v.Key
 	default:
 		return uuid.Nil

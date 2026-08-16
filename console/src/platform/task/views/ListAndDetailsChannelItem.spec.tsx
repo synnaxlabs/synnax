@@ -43,7 +43,7 @@ const renderItem = (
         />
       ))}
     />,
-    { values: { config: { channels: [{ key: "a", enabled: true }] } } },
+    { values: { config: { channels: [{ key: "a", disabled: false }] } } },
   );
 
 describe("layouts.ListAndDetailsChannelItem", () => {
@@ -69,18 +69,18 @@ describe("layouts.ListAndDetailsChannelItem", () => {
     expect(queryIcon(container, "tare")).toBeNull();
   });
 
-  it("should toggle the channel's enabled flag in the form", async () => {
+  it("should toggle the channel's disabled flag in the form", async () => {
     const { container, form } = await renderItem({ hasTareButton: false });
     const toggle = await waitFor(() => getToggleButton(container));
     expect(isToggled(toggle)).toBe(true);
     fireEvent.click(toggle);
     await waitFor(() =>
-      expect(form.current?.get("config.channels.a.enabled").value).toBe(false),
+      expect(form.current?.get("config.channels.a.disabled").value).toBe(true),
     );
     expect(isToggled(getToggleButton(container))).toBe(false);
     fireEvent.click(toggle);
     await waitFor(() =>
-      expect(form.current?.get("config.channels.a.enabled").value).toBe(true),
+      expect(form.current?.get("config.channels.a.disabled").value).toBe(false),
     );
     expect(isToggled(getToggleButton(container))).toBe(true);
   });

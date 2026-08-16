@@ -45,21 +45,15 @@ var _ = Describe("ImEx", func() {
 				},
 			)
 
-			It("Should report a stamped version header as versioned", func() {
-				var env imex.Envelope
-				Expect(json.Unmarshal([]byte(`{"version":0,"foo":1}`), &env)).
-					To(Succeed())
-				Expect(env.Version).To(Equal(imex.Version(0)))
-				Expect(env.Versioned()).To(BeTrue())
-			})
-
-			It("Should report an absent version header as unversioned", func() {
-				var env imex.Envelope
-				Expect(json.Unmarshal([]byte(`{"type":"arc","name":"n"}`), &env)).
-					To(Succeed())
-				Expect(env.Version).To(Equal(imex.Version(0)))
-				Expect(env.Versioned()).To(BeFalse())
-			})
+			DescribeTable("Should read a version of zero",
+				func(src string) {
+					var env imex.Envelope
+					Expect(json.Unmarshal([]byte(src), &env)).To(Succeed())
+					Expect(env.Version).To(Equal(imex.Version(0)))
+				},
+				Entry("from a stamped zero header", `{"version":0,"foo":1}`),
+				Entry("from an absent header", `{"type":"arc","name":"n"}`),
+			)
 
 			It("Should accept a legacy N.0.0 version string", func() {
 				var env imex.Envelope

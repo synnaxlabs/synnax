@@ -24,11 +24,11 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
@@ -3509,7 +3509,13 @@ export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .Pare
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}
 {{- end }}
+{{- if .IsSelfRef }}
+  get {{ .TSName }}(): {{ .ZodSchemaType }} {
+    return {{ .ZodType }};
+  },
+{{- else }}
   {{ .TSName }}: {{ .ZodType }},
+{{- end }}
 {{- end }}
 });
 {{- if $.GenerateTypes }}

@@ -19,7 +19,7 @@
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/ethercat/types.gen.h"
-#include "client/cpp/task/common/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -46,8 +46,8 @@ inline x::json::json PDOAddress::to_json() const {
     return j;
 }
 
-inline BaseInputChannel BaseInputChannel::parse(x::json::Parser parser) {
-    return BaseInputChannel{
+inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
+    return BaseReadChannel{
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
@@ -59,7 +59,7 @@ inline BaseInputChannel BaseInputChannel::parse(x::json::Parser parser) {
     };
 }
 
-inline x::json::json BaseInputChannel::to_json() const {
+inline x::json::json BaseReadChannel::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
@@ -69,8 +69,8 @@ inline x::json::json BaseInputChannel::to_json() const {
     return j;
 }
 
-inline BaseOutputChannel BaseOutputChannel::parse(x::json::Parser parser) {
-    return BaseOutputChannel{
+inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
+    return BaseWriteChannel{
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
@@ -88,7 +88,7 @@ inline BaseOutputChannel BaseOutputChannel::parse(x::json::Parser parser) {
     };
 }
 
-inline x::json::json BaseOutputChannel::to_json() const {
+inline x::json::json BaseWriteChannel::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
@@ -103,14 +103,14 @@ inline x::json::json BaseOutputChannel::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::task::common::BaseReadConfig &>(
+    static_cast<::synnax::task::config::BaseRead &>(
         result
-    ) = ::synnax::task::common::BaseReadConfig::parse(parser);
+    ) = ::synnax::task::config::BaseRead::parse(parser);
     result.channels = [&] {
-        std::vector<InputChannel> result;
+        std::vector<ReadChannel> result;
         if (parser.has("channels"))
             parser.iter("channels", [&result](x::json::Parser &p) {
-                result.push_back(parse_input_channel(p));
+                result.push_back(parse_read_channel(p));
             });
         return result;
     }();
@@ -119,7 +119,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BaseReadConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BaseRead::to_json().items())
         j[k] = v;
     {
         auto arr = x::json::json::array();
@@ -132,9 +132,9 @@ inline x::json::json ReadConfig::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::task::common::BasePersistConfig &>(
+    static_cast<::synnax::task::config::BasePersist &>(
         result
-    ) = ::synnax::task::common::BasePersistConfig::parse(parser);
+    ) = ::synnax::task::config::BasePersist::parse(parser);
     result.state_rate = parser.field<::x::telem::Rate>(
         "state_rate",
         ::x::telem::Rate(25)
@@ -144,10 +144,10 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
         ::x::telem::Rate(1000)
     );
     result.channels = [&] {
-        std::vector<OutputChannel> result;
+        std::vector<WriteChannel> result;
         if (parser.has("channels"))
             parser.iter("channels", [&result](x::json::Parser &p) {
-                result.push_back(parse_output_channel(p));
+                result.push_back(parse_write_channel(p));
             });
         return result;
     }();
@@ -156,7 +156,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::common::BasePersistConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
     j["execution_rate"] = this->execution_rate;
@@ -169,34 +169,49 @@ inline x::json::json WriteConfig::to_json() const {
     return j;
 }
 
-inline InputChannelAutomatic InputChannelAutomatic::parse(x::json::Parser parser) {
-    InputChannelAutomatic result;
-    static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
+    ScanConfig result;
+    static_cast<::synnax::task::config::BaseScan &>(
+        result
+    ) = ::synnax::task::config::BaseScan::parse(parser);
+    return result;
+}
+
+inline x::json::json ScanConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ::synnax::task::config::BaseScan::to_json().items())
+        j[k] = v;
+    return j;
+}
+
+inline AutomaticReadChannel AutomaticReadChannel::parse(x::json::Parser parser) {
+    AutomaticReadChannel result;
+    static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.pdo = parser.field<std::string>("pdo", "");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json InputChannelAutomatic::to_json() const {
+inline x::json::json AutomaticReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseInputChannel::to_json().items())
+    for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     j["pdo"] = this->pdo;
     j["type"] = this->type;
     return j;
 }
 
-inline InputChannelManual InputChannelManual::parse(x::json::Parser parser) {
-    InputChannelManual result;
-    static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+inline ManualReadChannel ManualReadChannel::parse(x::json::Parser parser) {
+    ManualReadChannel result;
+    static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     static_cast<PDOAddress &>(result) = PDOAddress::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json InputChannelManual::to_json() const {
+inline x::json::json ManualReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseInputChannel::to_json().items())
+    for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: PDOAddress::to_json().items())
         j[k] = v;
@@ -204,34 +219,34 @@ inline x::json::json InputChannelManual::to_json() const {
     return j;
 }
 
-inline OutputChannelAutomatic OutputChannelAutomatic::parse(x::json::Parser parser) {
-    OutputChannelAutomatic result;
-    static_cast<BaseOutputChannel &>(result) = BaseOutputChannel::parse(parser);
+inline AutomaticWriteChannel AutomaticWriteChannel::parse(x::json::Parser parser) {
+    AutomaticWriteChannel result;
+    static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
     result.pdo = parser.field<std::string>("pdo", "");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json OutputChannelAutomatic::to_json() const {
+inline x::json::json AutomaticWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseOutputChannel::to_json().items())
+    for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     j["pdo"] = this->pdo;
     j["type"] = this->type;
     return j;
 }
 
-inline OutputChannelManual OutputChannelManual::parse(x::json::Parser parser) {
-    OutputChannelManual result;
-    static_cast<BaseOutputChannel &>(result) = BaseOutputChannel::parse(parser);
+inline ManualWriteChannel ManualWriteChannel::parse(x::json::Parser parser) {
+    ManualWriteChannel result;
+    static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
     static_cast<PDOAddress &>(result) = PDOAddress::parse(parser);
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json OutputChannelManual::to_json() const {
+inline x::json::json ManualWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseOutputChannel::to_json().items())
+    for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: PDOAddress::to_json().items())
         j[k] = v;
@@ -239,27 +254,27 @@ inline x::json::json OutputChannelManual::to_json() const {
     return j;
 }
 
-inline InputChannel parse_input_channel(x::json::Parser parser) {
+inline ReadChannel parse_read_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "automatic") return InputChannelAutomatic::parse(parser);
-    if (discriminator == "manual") return InputChannelManual::parse(parser);
-    parser.field_err("type", "unknown InputChannel type: " + discriminator);
+    if (discriminator == "automatic") return AutomaticReadChannel::parse(parser);
+    if (discriminator == "manual") return ManualReadChannel::parse(parser);
+    parser.field_err("type", "unknown ReadChannel type: " + discriminator);
     return {};
 }
 
-inline x::json::json to_json(const InputChannel &value) {
+inline x::json::json to_json(const ReadChannel &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
-inline OutputChannel parse_output_channel(x::json::Parser parser) {
+inline WriteChannel parse_write_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "automatic") return OutputChannelAutomatic::parse(parser);
-    if (discriminator == "manual") return OutputChannelManual::parse(parser);
-    parser.field_err("type", "unknown OutputChannel type: " + discriminator);
+    if (discriminator == "automatic") return AutomaticWriteChannel::parse(parser);
+    if (discriminator == "manual") return ManualWriteChannel::parse(parser);
+    parser.field_err("type", "unknown WriteChannel type: " + discriminator);
     return {};
 }
 
-inline x::json::json to_json(const OutputChannel &value) {
+inline x::json::json to_json(const WriteChannel &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/api/config"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -86,7 +86,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		ImEx:     imex.NewService(),
 	}))
-	apiSvc = MustSucceed(apisymbol.NewService(apicfg.LayerConfig{
+	apiSvc = MustSucceed(apisymbol.NewService(config.LayerConfig{
 		Distribution: &distribution.Layer{DB: db},
 		Service: &service.Layer{
 			Schematic: &schematic.Service{Symbol: symbolSvc},

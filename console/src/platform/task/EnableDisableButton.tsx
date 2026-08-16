@@ -10,30 +10,24 @@
 import { Button, Form, Status } from "@synnaxlabs/pluto";
 
 import { useIsSnapshot } from "@/platform/task/Form";
-import { type Polarity } from "@/platform/task/types";
 
 export interface EnableDisableButtonProps extends Omit<
   Button.ToggleProps,
   "onChange" | "value" | "children"
 > {
   path: string;
-  polarity?: Polarity;
 }
 
-export const EnableDisableButton = ({
-  path,
-  polarity = "enabled",
-  ...rest
-}: EnableDisableButtonProps) => {
+export const EnableDisableButton = ({ path, ...rest }: EnableDisableButtonProps) => {
   const isSnapshot = useIsSnapshot();
   const { set } = Form.useContext();
   const raw = Form.useFieldValue<boolean>(path, { optional: true });
   if (raw == null) return null;
-  const value = polarity === "enabled" ? raw : !raw;
+  const value = !raw;
   return (
     <Button.Toggle
       disabled={isSnapshot}
-      onChange={(v) => set(path, polarity === "enabled" ? v : !v)}
+      onChange={(v) => set(path, !v)}
       size="small"
       tooltip={isSnapshot ? undefined : `${value ? "Disable" : "Enable"}`}
       value={value}

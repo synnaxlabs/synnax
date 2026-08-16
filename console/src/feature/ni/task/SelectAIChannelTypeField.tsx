@@ -16,7 +16,7 @@ import {
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
   type AIChannelType,
-  ZERO_AI_CHANNELS,
+  createAIChannel,
 } from "@/feature/ni/task/types";
 
 export interface Entry extends record.KeyedNamed<AIChannelType> {}
@@ -30,7 +30,7 @@ export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Ent
     onChange: (value, { get, set, path }) => {
       const prevType = get<AIChannelType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_AI_CHANNELS[value]);
+      const next = createAIChannel(value);
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<AIChannel>(parentPath).value;
       const schema = AI_CHANNEL_SCHEMAS[value];

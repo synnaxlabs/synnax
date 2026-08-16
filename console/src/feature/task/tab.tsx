@@ -16,7 +16,7 @@ import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
-import { OPC } from "@/feature/opc";
+import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
 import { getIcon } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
@@ -28,7 +28,7 @@ export const FORMS: Task.Forms = {
   ...LabJack.Task.FORMS,
   ...Modbus.Task.FORMS,
   ...NI.Task.FORMS,
-  ...OPC.Task.FORMS,
+  ...OPCUA.Task.FORMS,
   ...PagerDuty.Task.FORMS,
 };
 

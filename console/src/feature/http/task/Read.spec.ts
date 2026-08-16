@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -34,7 +34,7 @@ const createReadField = (
   pointer: string,
   overrides: Partial<HTTP.Task.ReadField> = {},
 ): HTTP.Task.ReadField => ({
-  ...HTTP.Task.ZERO_READ_FIELD,
+  ...http.readFieldZ.parse({}),
   key,
   pointer,
   ...overrides,
@@ -44,13 +44,17 @@ const createReadConfig = (
   device: string,
   endpoints: HTTP.Task.ReadEndpoint[],
 ): HTTP.Task.ReadPayload["config"] => ({
-  ...HTTP.Task.ZERO_READ_PAYLOAD.config,
+  ...HTTP.Task.READ_SCHEMAS.config.parse({}),
   device,
   endpoints,
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = HTTP.Task.ZERO_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<HTTP.Task.ReadSchemas> = {
+  name: "HTTP Read Task",
+  type: HTTP.Task.READ_TYPE,
+  config: HTTP.Task.READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (client: Synnax, config: HTTP.Task.ReadPayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.READ_SCHEMAS);
@@ -131,7 +135,7 @@ describe("HTTP Read form", () => {
     const client = createTestClient();
     const config = createReadConfig("dev_1", [
       {
-        ...HTTP.Task.ZERO_READ_ENDPOINT,
+        ...http.readEndpointZ.parse({}),
         key: "ep1",
         path: "/seeded",
         fields: [createReadField("f1", "/temp")],
@@ -149,7 +153,7 @@ describe("HTTP Read form", () => {
       const dev = await createHTTPDevice(client);
       const config = createReadConfig(dev.key, [
         {
-          ...HTTP.Task.ZERO_READ_ENDPOINT,
+          ...http.readEndpointZ.parse({}),
           key: "ep1",
           path: "/data",
           index: "tf",
@@ -211,7 +215,7 @@ describe("HTTP Read form", () => {
       await client.devices.create(dev);
       const config = createReadConfig(dev.key, [
         {
-          ...HTTP.Task.ZERO_READ_ENDPOINT,
+          ...http.readEndpointZ.parse({}),
           key: "ep1",
           path: "/data",
           fields: [createReadField("f1", "/temperature")],
@@ -247,7 +251,7 @@ describe("HTTP Read form", () => {
       await client.devices.create(dev);
       const config = createReadConfig(dev.key, [
         {
-          ...HTTP.Task.ZERO_READ_ENDPOINT,
+          ...http.readEndpointZ.parse({}),
           key: "ep1",
           path: "/data",
           fields: [createReadField("f1", "/temperature")],

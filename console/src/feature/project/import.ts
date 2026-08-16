@@ -27,7 +27,6 @@ import { errors, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Import } from "@/platform/import";
-import { type Panel } from "@/platform/panel";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
@@ -55,10 +54,6 @@ const legacySliceZ = z.object({
   layouts: z.record(z.string(), legacyLayoutZ),
 });
 
-// Imported panels carry the project's tab placement, so component ingesters must not
-// also open tabs in the current window.
-const noopOpenTab: Panel.OpenTab = () => {};
-
 // Rewrites every panel-tab reference to an imported component's original key with the
 // ontology ID of the resource actually created for it. Without it the imported panels'
 // tabs resolve to resources that only exist in the source cluster.
@@ -79,11 +74,10 @@ const remapNode = (node: panel.Node, remap: Map<string, ontology.ID>): panel.Nod
   };
 };
 
-type ComponentContext = Omit<Import.FileIngesterContext, "name" | "fileName">;
+type ComponentContext = Omit<Import.FileIngesterContext, "fileName">;
 
 const ingestComponents = async (
   files: Import.File[],
-  fileIngesters: Import.FileIngesters,
   ctx: ComponentContext,
 ): Promise<Map<string, ontology.ID>> => {
   const remap = new Map<string, ontology.ID>();
@@ -93,12 +87,7 @@ const ingestComponents = async (
     if (typeof data.type !== "string") continue;
     // TEMPORARY: a type the Core cannot import fails the whole directory, where it was
     // skipped before. Server-side project import replaces this loop before release.
-    const ingestFile = fileIngesters[data.type] ?? Import.ingestServer;
-    const id = await ingestFile(data, {
-      ...ctx,
-      name: Import.trimFileName(file.name),
-      fileName: file.name,
-    });
+    const id = await Import.ingestServer(data, { ...ctx, fileName: file.name });
     if (id != null && "key" in data && typeof data.key === "string")
       remap.set(data.key, id);
   }
@@ -116,18 +105,36 @@ const LEGACY_COMPONENT_TYPES = new Set<string>([
   table.TYPE_ONTOLOGY_ID.type,
 ]);
 
+// Task layout types found in legacy project exports. Their component files are typed
+// legacy task configs the Core migrates on import. Frozen for the same reason.
+const LEGACY_TASK_TYPES = new Set<string>([
+  "ethercat_read",
+  "ethercat_write",
+  "http_read",
+  "http_write",
+  "labjack_read",
+  "labjack_write",
+  "modbus_read",
+  "modbus_write",
+  "ni_analog_read",
+  "ni_analog_write",
+  "ni_counter_read",
+  "ni_digital_read",
+  "ni_digital_write",
+  "opc_read",
+  "opc_write",
+  "pagerduty_alert",
+]);
+
 const ingestLegacy = async (
   legacyData: unknown,
   files: Import.File[],
-  fileIngesters: Import.FileIngesters,
   ctx: ComponentContext,
 ): Promise<void> => {
   const { layouts } = legacySliceZ.parse(legacyData);
   for (const [key, layout] of Object.entries(layouts)) {
-    const ingestFile =
-      fileIngesters[layout.type] ??
-      (LEGACY_COMPONENT_TYPES.has(layout.type) ? Import.ingestServer : null);
-    if (ingestFile == null) continue;
+    if (!LEGACY_COMPONENT_TYPES.has(layout.type) && !LEGACY_TASK_TYPES.has(layout.type))
+      continue;
     const file = files.find(
       (file) =>
         file.name === `${layout.name}.json` ||
@@ -138,7 +145,7 @@ const ingestLegacy = async (
             ("name" in file.data && file.data.name === layout.name))),
     );
     if (file == null) throw new Error(`Data for ${key} not found`);
-    await ingestFile(file.data, { ...ctx, name: layout.name, fileName: file.name });
+    await Import.ingestServer(file.data, { ...ctx, fileName: file.name });
   }
   // TODO(SY-4370): legacy exports carried a mosaic tiling for these layouts;
   // reconstructing it as panel documents is dropped, so a legacy import only
@@ -164,6 +171,9 @@ const parentDirOf = (path: string): string =>
   path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
 
 const baseNameOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
+
+const trimJSONExtension = (name: string): string =>
+  name.endsWith(".json") ? name.slice(0, -".json".length) : name;
 
 // A member is every .json file in the bundle except the root manifest and the reserved
 // legacy tiling file. Nested files keep their names: reservations apply at the root
@@ -270,7 +280,7 @@ const ingestBundle = async (
   for (const member of members.filter(({ data }) => isPanelEnvelope(data))) {
     const path = pathOf(member);
     const envelope = bundlePanelZ.parse(member.data);
-    const name = envelope.name ?? Import.trimFileName(baseNameOf(path));
+    const name = envelope.name ?? trimJSONExtension(baseNameOf(path));
     await client.panels.create({
       key: uuid.create(),
       name,
@@ -284,7 +294,7 @@ const ingestBundle = async (
 export const ingest: Import.DirectoryIngester = async (
   name,
   files,
-  { client, fileIngesters, store },
+  { client, store },
 ) => {
   if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import projects");
@@ -300,12 +310,11 @@ export const ingest: Import.DirectoryIngester = async (
   // Create the project first so imported components can be parented to it; its
   // panels are created below once the components' real keys are known.
   await client.projects.create({ key: projectKey, name, layout: {} });
-  const ctx: ComponentContext = { openTab: noopOpenTab, client, projectKey };
+  const ctx: ComponentContext = { client, projectKey };
   if (panelsFile != null) {
     const panels = panel.panelZ.array().parse(panelsFile.data);
     const remap = await ingestComponents(
       files.filter((file) => file.name !== PANELS_FILE_NAME),
-      fileIngesters,
       ctx,
     );
     if (panels.length > 0)
@@ -317,26 +326,17 @@ export const ingest: Import.DirectoryIngester = async (
           parent: project.ontologyID(projectKey),
         })),
       );
-  } else if (legacyFile != null)
-    await ingestLegacy(legacyFile.data, files, fileIngesters, ctx);
+  } else if (legacyFile != null) await ingestLegacy(legacyFile.data, files, ctx);
   store.dispatch(Session.Project.select(projectKey));
 };
 
 export interface IngestContext {
   handleError: Status.ErrorHandler;
   client: Synnax | null;
-  fileIngesters: Import.FileIngesters;
-  openTab: Panel.OpenTab;
   store: Store;
 }
 
-export const import_ = ({
-  handleError,
-  client,
-  fileIngesters,
-  openTab,
-  store,
-}: IngestContext) => {
+export const import_ = ({ handleError, client, store }: IngestContext) => {
   let name: string | undefined = "project";
   handleError(async () => {
     const directory = await Runtime.pickDirectory({ title: "Import a Project" });
@@ -351,6 +351,6 @@ export const import_ = ({
           data: JSON.parse(await file.read()),
         })),
     );
-    await ingest(name, fileData, { client, fileIngesters, openTab, store });
+    await ingest(name, fileData, { client, store });
   }, `Failed to import ${name}`);
 };

@@ -20,6 +20,64 @@ from synnax import device as device_
 from synnax import task
 from x import telem
 
+TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
+
+TERMINAL_CONFIG_RSE: Literal["RSE"] = "RSE"
+
+TERMINAL_CONFIG_NRSE: Literal["NRSE"] = "NRSE"
+
+TERMINAL_CONFIG_DIFF: Literal["Diff"] = "Diff"
+
+TERMINAL_CONFIG_PSEUDO_DIFF: Literal["PseudoDiff"] = "PseudoDiff"
+
+
+TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
+
+EXCITATION_SOURCE_INTERNAL: Literal["Internal"] = "Internal"
+
+EXCITATION_SOURCE_EXTERNAL: Literal["External"] = "External"
+
+EXCITATION_SOURCE_NONE: Literal["None"] = "None"
+
+
+ExcitationSource = Literal["Internal", "External", "None"]
+
+BRIDGE_CONFIG_FULL_BRIDGE: Literal["FullBridge"] = "FullBridge"
+
+BRIDGE_CONFIG_HALF_BRIDGE: Literal["HalfBridge"] = "HalfBridge"
+
+BRIDGE_CONFIG_QUARTER_BRIDGE: Literal["QuarterBridge"] = "QuarterBridge"
+
+
+BridgeConfig = Literal["FullBridge", "HalfBridge", "QuarterBridge"]
+
+ELECTRICAL_UNITS_M_VOLTS_PER_VOLT: Literal["mVoltsPerVolt"] = "mVoltsPerVolt"
+
+ELECTRICAL_UNITS_VOLTS_PER_VOLT: Literal["VoltsPerVolt"] = "VoltsPerVolt"
+
+
+ElectricalUnits = Literal["mVoltsPerVolt", "VoltsPerVolt"]
+
+RESISTANCE_CONFIG_WIRE_2: Literal["2Wire"] = "2Wire"
+
+RESISTANCE_CONFIG_WIRE_3: Literal["3Wire"] = "3Wire"
+
+RESISTANCE_CONFIG_WIRE_4: Literal["4Wire"] = "4Wire"
+
+
+ResistanceConfig = Literal["2Wire", "3Wire", "4Wire"]
+
+Z_INDEX_PHASE_A_HIGH_B_HIGH: Literal["AHighBHigh"] = "AHighBHigh"
+
+Z_INDEX_PHASE_A_HIGH_B_LOW: Literal["AHighBLow"] = "AHighBLow"
+
+Z_INDEX_PHASE_A_LOW_B_HIGH: Literal["ALowBHigh"] = "ALowBHigh"
+
+Z_INDEX_PHASE_A_LOW_B_LOW: Literal["ALowBLow"] = "ALowBLow"
+
+
+ZIndexPhase = Literal["AHighBHigh", "AHighBLow", "ALowBHigh", "ALowBLow"]
+
 UNITS_VOLTS: Literal["Volts"] = "Volts"
 
 UNITS_AMPS: Literal["Amps"] = "Amps"
@@ -109,64 +167,6 @@ Units = Literal[
     "InchOunces",
     "FootPounds",
 ]
-
-TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
-
-TERMINAL_CONFIG_RSE: Literal["RSE"] = "RSE"
-
-TERMINAL_CONFIG_NRSE: Literal["NRSE"] = "NRSE"
-
-TERMINAL_CONFIG_DIFF: Literal["Diff"] = "Diff"
-
-TERMINAL_CONFIG_PSEUDO_DIFF: Literal["PseudoDiff"] = "PseudoDiff"
-
-
-TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
-
-EXCITATION_SOURCE_INTERNAL: Literal["Internal"] = "Internal"
-
-EXCITATION_SOURCE_EXTERNAL: Literal["External"] = "External"
-
-EXCITATION_SOURCE_NONE: Literal["None"] = "None"
-
-
-ExcitationSource = Literal["Internal", "External", "None"]
-
-BRIDGE_CONFIG_FULL_BRIDGE: Literal["FullBridge"] = "FullBridge"
-
-BRIDGE_CONFIG_HALF_BRIDGE: Literal["HalfBridge"] = "HalfBridge"
-
-BRIDGE_CONFIG_QUARTER_BRIDGE: Literal["QuarterBridge"] = "QuarterBridge"
-
-
-BridgeConfig = Literal["FullBridge", "HalfBridge", "QuarterBridge"]
-
-ELECTRICAL_UNITS_M_VOLTS_PER_VOLT: Literal["mVoltsPerVolt"] = "mVoltsPerVolt"
-
-ELECTRICAL_UNITS_VOLTS_PER_VOLT: Literal["VoltsPerVolt"] = "VoltsPerVolt"
-
-
-ElectricalUnits = Literal["mVoltsPerVolt", "VoltsPerVolt"]
-
-RESISTANCE_CONFIG_WIRE_2: Literal["2Wire"] = "2Wire"
-
-RESISTANCE_CONFIG_WIRE_3: Literal["3Wire"] = "3Wire"
-
-RESISTANCE_CONFIG_WIRE_4: Literal["4Wire"] = "4Wire"
-
-
-ResistanceConfig = Literal["2Wire", "3Wire", "4Wire"]
-
-Z_INDEX_PHASE_A_HIGH_B_HIGH: Literal["AHighBHigh"] = "AHighBHigh"
-
-Z_INDEX_PHASE_A_HIGH_B_LOW: Literal["AHighBLow"] = "AHighBLow"
-
-Z_INDEX_PHASE_A_LOW_B_HIGH: Literal["ALowBHigh"] = "ALowBHigh"
-
-Z_INDEX_PHASE_A_LOW_B_LOW: Literal["ALowBLow"] = "ALowBLow"
-
-
-ZIndexPhase = Literal["AHighBHigh", "AHighBLow", "ALowBHigh", "ALowBLow"]
 
 ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G: Literal["mVoltsPerG"] = "mVoltsPerG"
 
@@ -354,10 +354,12 @@ CIMeasMethod = Literal["LowFreq1Ctr", "HighFreq2Ctr", "LargeRng2Ctr", "DynamicAv
 
 CI_FREQ_UNITS_HZ: Literal["Hz"] = "Hz"
 
+CI_FREQ_UNITS_SECONDS: Literal["Seconds"] = "Seconds"
+
 CI_FREQ_UNITS_TICKS: Literal["Ticks"] = "Ticks"
 
 
-CIFreqUnits = Literal["Hz", "Ticks"]
+CIFreqUnits = Literal["Hz", "Seconds", "Ticks"]
 
 CI_TIME_UNITS_SECONDS: Literal["Seconds"] = "Seconds"
 
@@ -432,78 +434,6 @@ WAVE_TYPE_SAWTOOTH: Literal["Sawtooth"] = "Sawtooth"
 
 
 WaveType = Literal["Sine", "Triangle", "Square", "Sawtooth"]
-
-
-class LinearScale(BaseModel):
-    """Maps raw values to engineering units with a slope and intercept.
-
-    Attributes:
-        slope: Is the multiplier applied to the raw value.
-        y_intercept: Is the offset added after scaling.
-        pre_scaled_units: Are the units of the raw value before scaling.
-        scaled_units: Are the units of the value after scaling.
-    """
-
-    slope: float = 1
-    y_intercept: float = 0
-    pre_scaled_units: Units = "Volts"
-    scaled_units: str = "Volts"
-
-
-class MapScale(BaseModel):
-    """Maps a raw range linearly onto a scaled range.
-
-    Attributes:
-        pre_scaled_min: Is the lower bound of the raw input range.
-        pre_scaled_max: Is the upper bound of the raw input range.
-        scaled_min: Is the lower bound of the scaled output range.
-        scaled_max: Is the upper bound of the scaled output range.
-        pre_scaled_units: Are the units of the raw value before scaling.
-        scaled_units: Are the units of the value after scaling.
-    """
-
-    pre_scaled_min: float = 0
-    pre_scaled_max: float = 1
-    scaled_min: float = 0
-    scaled_max: float = 1
-    pre_scaled_units: Units = "Volts"
-    scaled_units: str = "Volts"
-
-
-class TableScale(BaseModel):
-    """Maps raw values to engineering units via a lookup table.
-
-    Attributes:
-        pre_scaled_vals: Are the raw breakpoints, monotonically increasing.
-        scaled_vals: Are the engineering-unit values at each breakpoint.
-        pre_scaled_units: Are the units of the raw values before scaling.
-        scaled_units: Are the units of the values after scaling.
-    """
-
-    pre_scaled_vals: list[float] = Field(default_factory=list)
-    scaled_vals: list[float] = Field(default_factory=list)
-    pre_scaled_units: Units = "Volts"
-    scaled_units: str = "Volts"
-
-
-class NoneScale(BaseModel):
-    """Applies no scaling; the raw value is used directly."""
-
-
-class PolynomialScale(BaseModel):
-    """Maps raw values to engineering units with a polynomial.
-
-    Attributes:
-        forward_coeffs: Are the coefficients mapping pre-scaled to scaled values.
-        reverse_coeffs: Are the coefficients mapping scaled to pre-scaled values.
-        pre_scaled_units: Are the units of the raw value before scaling.
-        scaled_units: Are the units of the value after scaling.
-    """
-
-    forward_coeffs: list[float] = Field(default_factory=list)
-    reverse_coeffs: list[float] = Field(default_factory=list)
-    pre_scaled_units: Units = "Volts"
-    scaled_units: str = "Volts"
 
 
 class MinMaxVal(BaseModel):
@@ -719,48 +649,18 @@ class BaseAOChannel(BaseModel):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
-    """Carries the configuration fields shared by NI write tasks.
+class DIChannel(BaseModel):
+    """Is a digital input channel the task acquires from.
 
     Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
+        key: Uniquely identifies the channel within the task.
+        name: Is the human-readable channel name.
+        disabled: Is true when the channel is excluded from acquisition.
+        channel: Is the Synnax channel that raw samples are written to.
+        port: Is the physical port the channel reads from.
+        line: Is the digital line within the port the channel reads from.
     """
 
-    state_rate: telem.Rate = telem.Rate(10)
-
-
-class CJCBuiltIn(BaseModel):
-    """Reads the reference temperature from the device's own sensor."""
-
-    source: Literal["built_in"]
-
-
-class CJCConstVal(BaseModel):
-    """Uses a fixed reference temperature."""
-
-    source: Literal["const_val"]
-    val: float = 0
-
-
-class CJCChan(BaseModel):
-    """Reads the reference temperature from another channel."""
-
-    source: Literal["chan"]
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
-
-
-# Is the cold-junction compensation for a thermocouple. The source selects
-# where the reference temperature comes from.
-CJC = Annotated[
-    Union[CJCBuiltIn, CJCConstVal, CJCChan],
-    Field(discriminator="source"),
-]
-
-
-class DigitalInputChannel(BaseModel):
-    """Carries the fields of an NI digital input channel."""
-
-    type: Literal["digital_input"]
     key: str = ""
     name: str = ""
     disabled: bool = False
@@ -768,18 +668,24 @@ class DigitalInputChannel(BaseModel):
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
     line: int = Field(default=0, ge=-2147483648, le=2147483647)
 
-
-# Is a digital input channel the task acquires from.
-DIChannel = Annotated[
-    Union[DigitalInputChannel],
-    Field(discriminator="type"),
-]
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
-class DOChannelDigitalOutput(BaseModel):
-    """Carries the fields of an NI digital output channel."""
+class DOChannel(BaseModel):
+    """Is a digital output channel the task drives.
 
-    type: Literal["digital_output"]
+    Attributes:
+        key: Uniquely identifies the channel within the task.
+        disabled: Is true when the channel is excluded from the task.
+        cmd_channel: Is the Synnax channel commands are read from.
+        state_channel: Is the Synnax channel the output state is written to.
+        cmd_channel_name: Is the human-readable name of the command channel.
+        state_channel_name: Is the human-readable name of the state channel.
+        port: Is the physical port the channel writes to.
+        line: Is the digital line within the port the channel writes to.
+    """
+
     key: str = ""
     disabled: bool = False
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -789,37 +695,115 @@ class DOChannelDigitalOutput(BaseModel):
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
     line: int = Field(default=0, ge=-2147483648, le=2147483647)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
 
-# Is a digital output channel the task drives.
-DOChannel = Annotated[
-    Union[DOChannelDigitalOutput],
-    Field(discriminator="type"),
+
+class WriteConfig(task.BaseWriteConfig):
+    """Carries the configuration fields shared by NI write tasks.
+
+    Attributes:
+        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
+    """
+
+    state_rate: telem.Rate = telem.Rate(10)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ScanConfig(task.BaseScanConfig):
+    """Configures the NI device scanner task.
+
+    Attributes:
+        ignored_models: Are regex patterns matching the device models the scan skips.
+    """
+
+    ignored_models: list[str] = Field(default_factory=lambda: ["^cRIO.*", "^nown.*"])
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class BuiltInCJC(BaseModel):
+    """Reads the reference temperature from the device's own sensor."""
+
+    source: Literal["built_in"] = "built_in"
+
+
+class ConstValCJC(BaseModel):
+    """Uses a fixed reference temperature."""
+
+    source: Literal["const_val"] = "const_val"
+    val: float = 0
+
+
+class ChanCJC(BaseModel):
+    """Reads the reference temperature from another channel."""
+
+    source: Literal["chan"] = "chan"
+    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+
+
+# Is the cold-junction compensation for a thermocouple. The source selects
+# where the reference temperature comes from.
+CJC = Annotated[
+    Union[BuiltInCJC, ConstValCJC, ChanCJC],
+    Field(discriminator="source"),
 ]
 
 
-class ScaleLinear(LinearScale):
-    type: Literal["linear"]
+class LinearScale(BaseModel):
+    """Maps raw values to engineering units with a slope and intercept."""
+
+    type: Literal["linear"] = "linear"
+    slope: float = 1
+    y_intercept: float = 0
+    pre_scaled_units: Units = "Volts"
+    scaled_units: str = "Volts"
 
 
-class ScaleMap(MapScale):
-    type: Literal["map"]
+class MapScale(BaseModel):
+    """Maps a raw range linearly onto a scaled range."""
+
+    type: Literal["map"] = "map"
+    pre_scaled_min: float = 0
+    pre_scaled_max: float = 1
+    scaled_min: float = 0
+    scaled_max: float = 1
+    pre_scaled_units: Units = "Volts"
+    scaled_units: str = "Volts"
 
 
-class ScaleTable(TableScale):
-    type: Literal["table"]
+class TableScale(BaseModel):
+    """Maps raw values to engineering units via a lookup table."""
+
+    type: Literal["table"] = "table"
+    pre_scaled_vals: list[float] = Field(default_factory=list)
+    scaled_vals: list[float] = Field(default_factory=list)
+    pre_scaled_units: Units = "Volts"
+    scaled_units: str = "Volts"
 
 
-class ScalePolynomial(PolynomialScale):
-    type: Literal["polynomial"]
+class PolynomialScale(BaseModel):
+    """Maps raw values to engineering units with a polynomial."""
+
+    type: Literal["polynomial"] = "polynomial"
+    forward_coeffs: list[float] = Field(default_factory=list)
+    reverse_coeffs: list[float] = Field(default_factory=list)
+    pre_scaled_units: Units = "Volts"
+    scaled_units: str = "Volts"
 
 
-class ScaleNone(NoneScale):
-    type: Literal["none"]
+class NoneScale(BaseModel):
+    """Applies no scaling; the raw value is used directly."""
+
+    type: Literal["none"] = "none"
 
 
 # Determines how raw sensor values are transformed to engineering units.
 Scale = Annotated[
-    Union[ScaleLinear, ScaleMap, ScaleTable, ScalePolynomial, ScaleNone],
+    Union[LinearScale, MapScale, TableScale, PolynomialScale, NoneScale],
     Field(discriminator="type"),
 ]
 
@@ -835,6 +819,9 @@ class DigitalReadConfig(task.BaseReadConfig):
     device: device_.Key = ""
     channels: list[DIChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class DigitalWriteConfig(WriteConfig):
     """Configures an NI digital write task.
@@ -845,6 +832,9 @@ class DigitalWriteConfig(WriteConfig):
 
     channels: list[DOChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class CustomScale(BaseModel):
     """Applies a user-defined scale to the raw measurement.
@@ -853,13 +843,13 @@ class CustomScale(BaseModel):
         custom_scale: Is the scale applied to the raw measurement.
     """
 
-    custom_scale: Scale = Field(default_factory=lambda: ScaleNone(type="none"))
+    custom_scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
 
 
 class AIVoltageChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a voltage."""
 
-    type: Literal["ai_voltage"]
+    type: Literal["ai_voltage"] = "ai_voltage"
     units: Units = "Volts"
 
 
@@ -868,7 +858,7 @@ class AIAccelChannel(
 ):
     """Reads acceleration from an accelerometer."""
 
-    type: Literal["ai_accel"]
+    type: Literal["ai_accel"] = "ai_accel"
     units: AccelUnits = "g"
     sensitivity_units: AccelSensitivityUnits = "mVoltsPerG"
 
@@ -876,14 +866,14 @@ class AIAccelChannel(
 class AIBridgeChannel(BaseAIChannel, MinMaxVal, Bridge, VoltageExcitation, CustomScale):
     """Reads a generic bridge-based sensor."""
 
-    type: Literal["ai_bridge"]
+    type: Literal["ai_bridge"] = "ai_bridge"
     units: ElectricalUnits = "mVoltsPerVolt"
 
 
 class AICurrentChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a current."""
 
-    type: Literal["ai_current"]
+    type: Literal["ai_current"] = "ai_current"
     units: Units = "Amps"
     shunt_resistor_loc: ShuntResistorLocation = "Default"
     ext_shunt_resistor_val: float = 1
@@ -894,7 +884,7 @@ class AIForceBridgeTableChannel(
 ):
     """Reads force from a bridge with a calibration table."""
 
-    type: Literal["ai_force_bridge_table"]
+    type: Literal["ai_force_bridge_table"] = "ai_force_bridge_table"
     units: ForceUnits = "Newtons"
     physical_units: ForceUnits = "Newtons"
 
@@ -904,7 +894,7 @@ class AIForceBridgeTwoPointLinChannel(
 ):
     """Reads force from a bridge with two-point linear calibration."""
 
-    type: Literal["ai_force_bridge_two_point_lin"]
+    type: Literal["ai_force_bridge_two_point_lin"] = "ai_force_bridge_two_point_lin"
     units: ForceUnits = "Newtons"
     physical_units: ForceUnits = "Newtons"
 
@@ -914,7 +904,7 @@ class AIForceIEPEChannel(
 ):
     """Reads force from an IEPE sensor."""
 
-    type: Literal["ai_force_iepe"]
+    type: Literal["ai_force_iepe"] = "ai_force_iepe"
     units: ForceUnits = "Newtons"
     sensitivity_units: ForceSensitivityUnits = "mVoltsPerNewton"
 
@@ -922,7 +912,7 @@ class AIForceIEPEChannel(
 class AIMicrophoneChannel(BaseAIChannel, Terminal, CurrentExcitation, CustomScale):
     """Reads sound pressure from a microphone."""
 
-    type: Literal["ai_microphone"]
+    type: Literal["ai_microphone"] = "ai_microphone"
     units: Units = "Pascals"
     mic_sensitivity: float = 0
     max_snd_press_level: float = 0
@@ -933,7 +923,7 @@ class AIPressureBridgeTableChannel(
 ):
     """Reads pressure from a bridge with a calibration table."""
 
-    type: Literal["ai_pressure_bridge_table"]
+    type: Literal["ai_pressure_bridge_table"] = "ai_pressure_bridge_table"
     units: PressureUnits = "PoundsPerSquareInch"
     physical_units: PressureUnits = "PoundsPerSquareInch"
 
@@ -943,7 +933,9 @@ class AIPressureBridgeTwoPointLinChannel(
 ):
     """Reads pressure from a bridge with two-point linear calibration."""
 
-    type: Literal["ai_pressure_bridge_two_point_lin"]
+    type: Literal["ai_pressure_bridge_two_point_lin"] = (
+        "ai_pressure_bridge_two_point_lin"
+    )
     units: PressureUnits = "PoundsPerSquareInch"
     physical_units: PressureUnits = "PoundsPerSquareInch"
 
@@ -953,14 +945,14 @@ class AIResistanceChannel(
 ):
     """Reads a resistance."""
 
-    type: Literal["ai_resistance"]
+    type: Literal["ai_resistance"] = "ai_resistance"
     units: Units = "Ohms"
 
 
 class AIRTDChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcitation):
     """Reads temperature from an RTD."""
 
-    type: Literal["ai_rtd"]
+    type: Literal["ai_rtd"] = "ai_rtd"
     units: TemperatureUnits = "DegC"
     rtd_type: RTDType = "Pt3750"
     r0: float = 0
@@ -969,7 +961,7 @@ class AIRTDChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcitation):
 class AIStrainGaugeChannel(BaseAIChannel, MinMaxVal, VoltageExcitation, CustomScale):
     """Reads strain from a strain gauge."""
 
-    type: Literal["ai_strain_gauge"]
+    type: Literal["ai_strain_gauge"] = "ai_strain_gauge"
     units: Units = "Strain"
     strain_config: StrainConfig = "FullBridgeI"
     gage_factor: float = 0
@@ -982,17 +974,17 @@ class AIStrainGaugeChannel(BaseAIChannel, MinMaxVal, VoltageExcitation, CustomSc
 class AITempBuiltinChannel(BaseAIChannel):
     """Reads temperature from the device's built-in sensor."""
 
-    type: Literal["ai_temp_builtin"]
+    type: Literal["ai_temp_builtin"] = "ai_temp_builtin"
     units: TemperatureUnits = "DegC"
 
 
 class AIThermocoupleChannel(BaseAIChannel, MinMaxVal):
     """Reads temperature from a thermocouple."""
 
-    type: Literal["ai_thermocouple"]
+    type: Literal["ai_thermocouple"] = "ai_thermocouple"
     units: TemperatureUnits = "DegC"
     thermocouple_type: ThermocoupleType = "J"
-    cjc: CJC = Field(default_factory=lambda: CJCBuiltIn(source="built_in"))
+    cjc: CJC = Field(default_factory=lambda: BuiltInCJC(source="built_in"))
 
 
 class AITorqueBridgeTableChannel(
@@ -1000,7 +992,7 @@ class AITorqueBridgeTableChannel(
 ):
     """Reads torque from a bridge with a calibration table."""
 
-    type: Literal["ai_torque_bridge_table"]
+    type: Literal["ai_torque_bridge_table"] = "ai_torque_bridge_table"
     units: TorqueUnits = "NewtonMeters"
     physical_units: TorqueUnits = "NewtonMeters"
 
@@ -1010,7 +1002,7 @@ class AITorqueBridgeTwoPointLinChannel(
 ):
     """Reads torque from a bridge with two-point linear calibration."""
 
-    type: Literal["ai_torque_bridge_two_point_lin"]
+    type: Literal["ai_torque_bridge_two_point_lin"] = "ai_torque_bridge_two_point_lin"
     units: TorqueUnits = "NewtonMeters"
     physical_units: TorqueUnits = "NewtonMeters"
 
@@ -1020,7 +1012,7 @@ class AIVelocityIEPEChannel(
 ):
     """Reads velocity from an IEPE sensor."""
 
-    type: Literal["ai_velocity_iepe"]
+    type: Literal["ai_velocity_iepe"] = "ai_velocity_iepe"
     units: VelocityUnits = "MetersPerSecond"
     sensitivity_units: VelocitySensitivityUnits = "MillivoltsPerMillimeterPerSecond"
 
@@ -1030,7 +1022,7 @@ class AIAccel4WireDCVoltageChannel(
 ):
     """Reads acceleration from a 4-wire DC-voltage accelerometer."""
 
-    type: Literal["ai_accel_4_wire_dc_voltage"]
+    type: Literal["ai_accel_4_wire_dc_voltage"] = "ai_accel_4_wire_dc_voltage"
     units: AccelUnits = "g"
     sensitivity_units: AccelSensitivityUnits = "mVoltsPerG"
     use_excit_for_scaling: bool = False
@@ -1039,7 +1031,7 @@ class AIAccel4WireDCVoltageChannel(
 class AIAccelChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads acceleration from a charge-mode accelerometer."""
 
-    type: Literal["ai_accel_charge"]
+    type: Literal["ai_accel_charge"] = "ai_accel_charge"
     units: AccelUnits = "g"
     sensitivity: float = 0
     sensitivity_units: AccelSensitivityUnits = "mVoltsPerG"
@@ -1048,14 +1040,14 @@ class AIAccelChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
 class AIChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a raw charge."""
 
-    type: Literal["ai_charge"]
+    type: Literal["ai_charge"] = "ai_charge"
     units: ChargeUnits = "Coulombs"
 
 
 class AICurrentRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads RMS current."""
 
-    type: Literal["ai_current_rms"]
+    type: Literal["ai_current_rms"] = "ai_current_rms"
     units: Units = "Amps"
     shunt_resistor_loc: ShuntResistorLocation = "Default"
     ext_shunt_resistor_val: float = 1
@@ -1066,7 +1058,7 @@ class AIForceBridgePolynomialChannel(
 ):
     """Reads force from a bridge with polynomial calibration."""
 
-    type: Literal["ai_force_bridge_polynomial"]
+    type: Literal["ai_force_bridge_polynomial"] = "ai_force_bridge_polynomial"
     units: ForceUnits = "Newtons"
     physical_units: ForceUnits = "Newtons"
 
@@ -1074,7 +1066,7 @@ class AIForceBridgePolynomialChannel(
 class AIFreqVoltageChannel(BaseAIChannel, MinMaxVal, CustomScale):
     """Reads frequency from a voltage signal."""
 
-    type: Literal["ai_freq_voltage"]
+    type: Literal["ai_freq_voltage"] = "ai_freq_voltage"
     units: Units = "Hz"
     threshold_level: float = 0
     hysteresis: float = 0
@@ -1085,7 +1077,7 @@ class AIPressureBridgePolynomialChannel(
 ):
     """Reads pressure from a bridge with polynomial calibration."""
 
-    type: Literal["ai_pressure_bridge_polynomial"]
+    type: Literal["ai_pressure_bridge_polynomial"] = "ai_pressure_bridge_polynomial"
     units: PressureUnits = "PoundsPerSquareInch"
     physical_units: PressureUnits = "PoundsPerSquareInch"
 
@@ -1093,7 +1085,7 @@ class AIPressureBridgePolynomialChannel(
 class AIThermistorIexChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcitation):
     """Reads temperature from a current-excited thermistor."""
 
-    type: Literal["ai_thermistor_iex"]
+    type: Literal["ai_thermistor_iex"] = "ai_thermistor_iex"
     units: TemperatureUnits = "DegC"
     a: float = 0
     b: float = 0
@@ -1103,7 +1095,7 @@ class AIThermistorIexChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcita
 class AIThermistorVexChannel(BaseAIChannel, MinMaxVal, Resistance, VoltageExcitation):
     """Reads temperature from a voltage-excited thermistor."""
 
-    type: Literal["ai_thermistor_vex"]
+    type: Literal["ai_thermistor_vex"] = "ai_thermistor_vex"
     units: TemperatureUnits = "DegC"
     a: float = 0
     b: float = 0
@@ -1116,7 +1108,7 @@ class AITorqueBridgePolynomialChannel(
 ):
     """Reads torque from a bridge with polynomial calibration."""
 
-    type: Literal["ai_torque_bridge_polynomial"]
+    type: Literal["ai_torque_bridge_polynomial"] = "ai_torque_bridge_polynomial"
     units: TorqueUnits = "NewtonMeters"
     physical_units: TorqueUnits = "NewtonMeters"
 
@@ -1124,7 +1116,7 @@ class AITorqueBridgePolynomialChannel(
 class AIVoltageRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads RMS voltage."""
 
-    type: Literal["ai_voltage_rms"]
+    type: Literal["ai_voltage_rms"] = "ai_voltage_rms"
     units: Units = "Volts"
 
 
@@ -1133,7 +1125,7 @@ class AIVoltageWithExcitChannel(
 ):
     """Reads a voltage with excitation."""
 
-    type: Literal["ai_voltage_with_excit"]
+    type: Literal["ai_voltage_with_excit"] = "ai_voltage_with_excit"
     units: Units = "Volts"
     bridge_config: BridgeConfig = "FullBridge"
     use_excit_for_scaling: bool = False
@@ -1181,7 +1173,7 @@ AIChannel = Annotated[
 class CIFrequencyChannel(BaseCIChannel, CustomScale):
     """Measures signal frequency."""
 
-    type: Literal["ci_frequency"]
+    type: Literal["ci_frequency"] = "ci_frequency"
     min_val: float = 2
     max_val: float = 100
     units: CIFreqUnits = "Hz"
@@ -1195,7 +1187,7 @@ class CIFrequencyChannel(BaseCIChannel, CustomScale):
 class CIEdgeCountChannel(BaseCIChannel):
     """Counts signal edges."""
 
-    type: Literal["ci_edge_count"]
+    type: Literal["ci_edge_count"] = "ci_edge_count"
     active_edge: CIEdge = "Rising"
     count_direction: CICountDirection = "CountUp"
     initial_count: float = 0
@@ -1205,7 +1197,7 @@ class CIEdgeCountChannel(BaseCIChannel):
 class CIPeriodChannel(BaseCIChannel, CustomScale):
     """Measures signal period."""
 
-    type: Literal["ci_period"]
+    type: Literal["ci_period"] = "ci_period"
     min_val: float = 0.000001
     max_val: float = 0.100000
     units: CITimeUnits = "Seconds"
@@ -1219,7 +1211,7 @@ class CIPeriodChannel(BaseCIChannel, CustomScale):
 class CIPulseWidthChannel(BaseCIChannel, CustomScale):
     """Measures pulse width."""
 
-    type: Literal["ci_pulse_width"]
+    type: Literal["ci_pulse_width"] = "ci_pulse_width"
     min_val: float = 0.000001
     max_val: float = 0.100000
     units: CITimeUnits = "Seconds"
@@ -1230,7 +1222,7 @@ class CIPulseWidthChannel(BaseCIChannel, CustomScale):
 class CISemiPeriodChannel(BaseCIChannel, CustomScale):
     """Measures semi-period."""
 
-    type: Literal["ci_semi_period"]
+    type: Literal["ci_semi_period"] = "ci_semi_period"
     min_val: float = 0.000001
     max_val: float = 0.100000
     units: CITimeUnits = "Seconds"
@@ -1240,7 +1232,7 @@ class CISemiPeriodChannel(BaseCIChannel, CustomScale):
 class CITwoEdgeSepChannel(BaseCIChannel, CustomScale):
     """Measures the separation between two edges."""
 
-    type: Literal["ci_two_edge_sep"]
+    type: Literal["ci_two_edge_sep"] = "ci_two_edge_sep"
     min_val: float = 0.000001
     max_val: float = 1
     units: CITimeUnits = "Seconds"
@@ -1253,7 +1245,7 @@ class CITwoEdgeSepChannel(BaseCIChannel, CustomScale):
 class CIVelocityLinearChannel(BaseCIChannel, CustomScale):
     """Measures linear velocity from an encoder."""
 
-    type: Literal["ci_velocity_linear"]
+    type: Literal["ci_velocity_linear"] = "ci_velocity_linear"
     min_val: float = 0
     max_val: float = 1
     units: CILinearVelocityUnits = "m/s"
@@ -1266,7 +1258,7 @@ class CIVelocityLinearChannel(BaseCIChannel, CustomScale):
 class CIVelocityAngularChannel(BaseCIChannel, CustomScale):
     """Measures angular velocity from an encoder."""
 
-    type: Literal["ci_velocity_angular"]
+    type: Literal["ci_velocity_angular"] = "ci_velocity_angular"
     min_val: float = 0
     max_val: float = 1
     units: CIAngularVelocityUnits = "RPM"
@@ -1279,7 +1271,7 @@ class CIVelocityAngularChannel(BaseCIChannel, CustomScale):
 class CIPositionLinearChannel(BaseCIChannel, CustomScale, ZIndex):
     """Measures linear position from an encoder."""
 
-    type: Literal["ci_position_linear"]
+    type: Literal["ci_position_linear"] = "ci_position_linear"
     units: CILinearPositionUnits = "Meters"
     decoding_type: CIDecodingType = "X4"
     dist_per_pulse: float = 0.000001
@@ -1291,7 +1283,7 @@ class CIPositionLinearChannel(BaseCIChannel, CustomScale, ZIndex):
 class CIPositionAngularChannel(BaseCIChannel, CustomScale, ZIndex):
     """Measures angular position from an encoder."""
 
-    type: Literal["ci_position_angular"]
+    type: Literal["ci_position_angular"] = "ci_position_angular"
     units: CIAngularPositionUnits = "Degrees"
     decoding_type: CIDecodingType = "X4"
     pulses_per_rev: float = 24
@@ -1303,7 +1295,7 @@ class CIPositionAngularChannel(BaseCIChannel, CustomScale, ZIndex):
 class CIDutyCycleChannel(BaseCIChannel, CustomScale):
     """Measures the duty cycle of a signal."""
 
-    type: Literal["ci_duty_cycle"]
+    type: Literal["ci_duty_cycle"] = "ci_duty_cycle"
     min_val: float = 2
     max_val: float = 10000
     active_edge: CIEdge = "Rising"
@@ -1333,14 +1325,14 @@ CIChannel = Annotated[
 class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale):
     """Drives a current output."""
 
-    type: Literal["ao_current"]
+    type: Literal["ao_current"] = "ao_current"
     units: Units = "Amps"
 
 
 class AOFuncGenChannel(BaseAOChannel):
     """Drives a function-generator output."""
 
-    type: Literal["ao_func_gen"]
+    type: Literal["ao_func_gen"] = "ao_func_gen"
     wave_type: WaveType = "Sine"
     frequency: float = 0
     amplitude: float = 0
@@ -1350,7 +1342,7 @@ class AOFuncGenChannel(BaseAOChannel):
 class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale):
     """Drives a voltage output."""
 
-    type: Literal["ao_voltage"]
+    type: Literal["ao_voltage"] = "ao_voltage"
     units: Units = "Volts"
 
 
@@ -1371,6 +1363,9 @@ class AnalogReadConfig(task.BaseReadConfig):
 
     channels: list[AIChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class CounterReadConfig(task.BaseReadConfig):
     """Configures an NI counter read task. Each channel carries its own device.
@@ -1381,6 +1376,9 @@ class CounterReadConfig(task.BaseReadConfig):
 
     channels: list[CIChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class AnalogWriteConfig(WriteConfig):
     """Configures an NI analog write task.
@@ -1390,3 +1388,6 @@ class AnalogWriteConfig(WriteConfig):
     """
 
     channels: list[AOChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

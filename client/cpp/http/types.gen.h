@@ -18,7 +18,7 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/common/types.gen.h"
+#include "client/cpp/task/config/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -28,6 +28,7 @@ struct Header;
 struct QueryParam;
 struct EnumEntry;
 struct BaseWriteField;
+struct ScanConfig;
 struct ReadField;
 struct ChannelField;
 struct ReadEndpoint;
@@ -103,6 +104,13 @@ struct BaseWriteField {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ScanConfig configures an HTTP scan task.
+struct ScanConfig : public ::synnax::task::config::BaseScan {
+
+    static ScanConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief ReadField is a single value extracted from an endpoint's JSON response.
 struct ReadField {
     /// @brief key uniquely identifies the field within the endpoint.
@@ -156,20 +164,20 @@ struct ChannelField {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteFieldStatic places a fixed value in the request body.
-struct WriteFieldStatic : public BaseWriteField {
+/// @brief StaticWriteField places a fixed value in the request body.
+struct StaticWriteField : public BaseWriteField {
     std::string type = "static";
     /// @brief json_type is the JSON type the value is serialized as.
     std::string json_type = JSON_TYPE_NUMBER;
     /// @brief value is the fixed JSON value placed at the pointer.
     x::json::json value;
 
-    static WriteFieldStatic parse(x::json::Parser parser);
+    static StaticWriteField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteFieldGenerated places a freshly generated UUID or timestamp in the body.
-struct WriteFieldGenerated : public BaseWriteField {
+/// @brief GeneratedWriteField places a freshly generated UUID or timestamp in the body.
+struct GeneratedWriteField : public BaseWriteField {
     std::string type = "generated";
     /// @brief generator is the generator that produces a fresh value per request.
     std::string generator = GENERATOR_TYPE_UUID;
@@ -177,13 +185,13 @@ struct WriteFieldGenerated : public BaseWriteField {
     /// iso8601.
     std::optional<std::string> time_format;
 
-    static WriteFieldGenerated parse(x::json::Parser parser);
+    static GeneratedWriteField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief WriteField is an additional body field on a write endpoint. The type field
 /// selects whether the value is fixed or generated per request.
-using WriteField = std::variant<WriteFieldStatic, WriteFieldGenerated>;
+using WriteField = std::variant<StaticWriteField, GeneratedWriteField>;
 
 WriteField parse_write_field(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteField &value);
@@ -228,7 +236,7 @@ struct WriteEndpoint {
     /// @brief query_params contains query parameters appended to the request URL.
     std::vector<QueryParam> query_params;
     /// @brief channel is the command channel whose writes trigger this endpoint.
-    ChannelField channel;
+    ChannelField channel = {};
     /// @brief fields contains additional static or generated body fields.
     std::vector<WriteField> fields;
 
@@ -238,7 +246,7 @@ struct WriteEndpoint {
 
 /// @brief ReadConfig configures an HTTP read task, which polls one or more endpoints on
 /// an HTTP server device and writes extracted JSON values to Synnax channels.
-struct ReadConfig : public ::synnax::task::common::BasePersistConfig {
+struct ReadConfig : public ::synnax::task::config::BasePersist {
     /// @brief device is the key of the HTTP server device to poll.
     ::synnax::device::Key device = "";
     /// @brief rate is the polling rate applied to all endpoints, in hertz.
@@ -252,7 +260,7 @@ struct ReadConfig : public ::synnax::task::common::BasePersistConfig {
 
 /// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
 /// whenever a value is written to an endpoint's command channel.
-struct WriteConfig : public ::synnax::task::common::BaseStartConfig {
+struct WriteConfig : public ::synnax::task::config::BaseStart {
     /// @brief device is the key of the HTTP server device to write to.
     ::synnax::device::Key device = "";
     /// @brief endpoints contains the endpoints to write to.

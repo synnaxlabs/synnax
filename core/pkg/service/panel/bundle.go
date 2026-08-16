@@ -24,16 +24,16 @@ type bundleBody struct {
 	Root any `json:"root"`
 }
 
-// bundleTabResource is the bundle wire form of a resource tab: resource holds the
+// bundleResourceTab is the bundle wire form of a resource tab: resource holds the
 // target member's path from the bundle root instead of an ontology ID.
-type bundleTabResource struct {
+type bundleResourceTab struct {
 	TabBase
 	Variant  TabType `json:"variant"`
 	Resource string  `json:"resource"`
 }
 
 // bundleLeaf is the bundle wire form of a leaf node. Tabs holds a Tab for a view and a
-// bundleTabResource for a resource.
+// bundleResourceTab for a resource.
 type bundleLeaf struct {
 	Variant NodeType `json:"variant"`
 	Tabs    []any    `json:"tabs"`
@@ -71,10 +71,10 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 // leaving emptied leaves in place for collapseEmptyLeaves.
 func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 	switch v := n.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		tabs := make([]Tab, 0, len(v.Tabs))
 		for _, t := range v.Tabs {
-			if r, ok := t.Variant.(TabResource); ok {
+			if r, ok := t.Variant.(ResourceTab); ok {
 				if _, member := refs[r.Resource]; !member {
 					continue
 				}
@@ -83,7 +83,7 @@ func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 		}
 		v.Tabs = tabs
 		return Node{Variant: v}
-	case NodeSplit:
+	case SplitNode:
 		v.First = stripNonMemberTabs(v.First, refs)
 		v.Last = stripNonMemberTabs(v.Last, refs)
 		return Node{Variant: v}
@@ -97,26 +97,26 @@ func stripNonMemberTabs(n Node, refs map[ontology.ID]string) Node {
 // skipped, the same rule stripNonMemberTabs applies.
 func bundleNode(n Node, refs map[ontology.ID]string) any {
 	switch v := n.Variant.(type) {
-	case NodeLeaf:
+	case LeafNode:
 		tabs := make([]any, 0, len(v.Tabs))
 		for _, t := range v.Tabs {
-			r, ok := t.Variant.(TabResource)
+			r, ok := t.Variant.(ResourceTab)
 			if !ok {
 				tabs = append(tabs, t)
 				continue
 			}
 			if path, ok := refs[r.Resource]; ok {
-				tabs = append(tabs, bundleTabResource{
+				tabs = append(tabs, bundleResourceTab{
 					TabBase:  r.TabBase,
-					Variant:  TabTypeResource,
+					Variant:  ResourceTabType,
 					Resource: path,
 				})
 			}
 		}
-		return bundleLeaf{Variant: NodeTypeLeaf, Tabs: tabs}
-	case NodeSplit:
+		return bundleLeaf{Variant: LeafNodeType, Tabs: tabs}
+	case SplitNode:
 		return bundleSplit{
-			Variant:   NodeTypeSplit,
+			Variant:   SplitNodeType,
 			Direction: v.Direction,
 			Size:      v.Size,
 			First:     bundleNode(v.First, refs),

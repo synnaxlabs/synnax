@@ -156,7 +156,7 @@ var _ = Describe("EncodeBundle", func() {
 // mustResource returns the ontology ID behind a resource tab fixture.
 func mustResource(t panel.Tab) ontology.ID {
 	GinkgoHelper()
-	r, ok := t.Variant.(panel.TabResource)
+	r, ok := t.Variant.(panel.ResourceTab)
 	Expect(ok).To(BeTrue())
 	return r.Resource
 }
