@@ -9,7 +9,7 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { id, testutil } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -63,5 +63,29 @@ describe("Range.MetaData", () => {
     await waitFor(async () => {
       expect(await range.kv.get(metaKey)).toBe(metaValue);
     });
+  });
+
+  it("should not restore a deleted pair whose value edit is still pending", async () => {
+    const range = await createRange();
+    const metaKey = id.create();
+    await range.kv.set(metaKey, "initial");
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Range.MetaData rangeKey={range.key} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(metaKey)).toBeTruthy());
+
+    const valueInput = screen.getByDisplayValue("initial");
+    fireEvent.change(valueInput, { target: { value: "edited" } });
+    fireEvent.blur(valueInput);
+
+    const deleteButton = screen
+      .getAllByRole("button")
+      .find((b) => b.classList.contains("console-metadata__delete"));
+    if (deleteButton == null) throw new Error("delete button not found");
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => expect(screen.queryByText(metaKey)).toBeNull());
+    await testutil.expectAlways(async () => {
+      expect(await range.kv.list()).not.toHaveProperty(metaKey);
+    }, 800);
   });
 });

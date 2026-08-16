@@ -575,6 +575,75 @@ describe("useForm", () => {
     });
   });
 
+  describe("abandon", () => {
+    // Hands back the abandon handle the form passes to its listeners, so the
+    // tests can play the record being deleted out from under the form.
+    const createAbandonableForm = () => {
+      const update = vi.fn();
+      let abandon = (): void => {};
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "John Doe", age: 25 },
+        schema: formSchema,
+        name: "test",
+        update: ({ get }) => update(get("name").value),
+        mountListeners: (params) => {
+          abandon = params.abandon;
+          return () => {};
+        },
+      });
+      return { update, useForm, abandon: () => abandon() };
+    };
+
+    const renderAbandonableForm = () => {
+      const { update, useForm, abandon } = createAbandonableForm();
+      const rendered = renderHook(
+        () => useForm({ query: { key: "123" }, autoSave: true }),
+        { wrapper: Wrapper },
+      );
+      return { ...rendered, update, abandon };
+    };
+
+    it("should autosave while the record still exists", async () => {
+      const { result, update } = renderAbandonableForm();
+      act(() => result.current.form.set("name", "Jane Doe"));
+      await waitFor(() => expect(update).toHaveBeenCalledWith("Jane Doe"));
+    });
+
+    it("should drop a pending autosave when the record is abandoned", async () => {
+      const { result, update, abandon } = renderAbandonableForm();
+      act(() => result.current.form.set("name", "Jane Doe"));
+      act(() => abandon());
+      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), 800);
+    });
+
+    it("should ignore later changes once the record is abandoned", async () => {
+      const { result, update, abandon } = renderAbandonableForm();
+      act(() => abandon());
+      act(() => result.current.form.set("name", "Jane Doe"));
+      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), 800);
+    });
+
+    it("should autosave again once the form re-points at another record", async () => {
+      const { update, useForm, abandon } = createAbandonableForm();
+      const { result, rerender } = renderHook(
+        ({ key }: { key: string }) => useForm({ query: { key }, autoSave: true }),
+        { wrapper: Wrapper, initialProps: { key: "123" } },
+      );
+      act(() => abandon());
+      rerender({ key: "456" });
+      act(() => result.current.form.set("name", "Jane Doe"));
+      await waitFor(() => expect(update).toHaveBeenCalledWith("Jane Doe"));
+    });
+
+    it("should not flush a pending autosave on unmount after abandoning", async () => {
+      const { result, update, abandon, unmount } = renderAbandonableForm();
+      act(() => result.current.form.set("name", "Jane Doe"));
+      act(() => abandon());
+      unmount();
+      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), 800);
+    });
+  });
+
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const label = await client.labels.create({
