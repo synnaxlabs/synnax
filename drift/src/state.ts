@@ -16,6 +16,7 @@ import {
   INITIAL_WINDOW_STATE,
   MAIN_WINDOW,
   PRERENDER_WINDOW,
+  resetTransientState,
   type WindowProps,
   type WindowStage,
   type WindowState,
@@ -515,7 +516,7 @@ export const restoreWindows = (current: SliceState, stored: SliceState): SliceSt
   });
   Object.entries(stored.windows).forEach(([label, win]) => {
     if (label === MAIN_WINDOW || !win.reserved) return;
-    windows[label] = { ...win, focusCount: 0, centerCount: 0, processCount: 0 };
+    windows[label] = resetTransientState(win);
   });
   const labelKeys: Record<string, string> = {};
   const keyLabels: Record<string, string> = {};

@@ -186,6 +186,39 @@ describe("restoreWindows", () => {
     });
   });
 
+  it("should drop how a restored window looked when its process ended", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+      sliceState({
+        incoming: reserved("new", {
+          stage: "reloading",
+          minimized: true,
+          fullscreen: true,
+          focus: false,
+          error: "stale",
+        }),
+      }),
+    );
+    expect(next.windows.incoming).toMatchObject({ stage: "creating" });
+    expect(next.windows.incoming?.minimized).toBeUndefined();
+    expect(next.windows.incoming?.fullscreen).toBeUndefined();
+    expect(next.windows.incoming?.focus).toBeUndefined();
+    expect(next.windows.incoming?.error).toBeUndefined();
+  });
+
+  it("should keep a restored window's geometry", () => {
+    const geometry: Partial<WindowState> = {
+      position: { x: 10, y: 20 },
+      size: { width: 800, height: 600 },
+      maximized: true,
+    };
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+      sliceState({ incoming: reserved("new", { ...geometry, minimized: true }) }),
+    );
+    expect(next.windows.incoming).toMatchObject(geometry);
+  });
+
   it("should keep unused pre-rendered windows out of the swap", () => {
     const spare = { ...INITIAL_PRERENDER_WINDOW_STATE };
     const next = restoreWindows(
