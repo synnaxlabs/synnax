@@ -29,9 +29,9 @@
 namespace driver::ni {
 /// @brief the configuration for a read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
-    /// @brief the device key that will be used for the channels in the task. Analog
-    /// read tasks can specify multiple devices. In this case, the device key field
-    /// is empty and automatically set to "cross-device".
+    /// @brief the device key that will be used for the channels in the task. Read
+    /// tasks can specify multiple devices, one per channel. In this case, the
+    /// device key field is absent and automatically set to "cross-device".
     const std::string device_key;
     /// @brief sets the timing source for the task. If not provided, the task will
     /// use software timing on digital tasks and the sample clock on analog tasks.
@@ -84,9 +84,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         ),
         channels(cfg.map<std::unique_ptr<channel::Input>>(
             "channels",
-            [](x::json::Parser &ch_cfg)
+            [&task_type](x::json::Parser &ch_cfg)
                 -> std::pair<std::unique_ptr<channel::Input>, bool> {
-                auto ch = channel::parse_input(ch_cfg);
+                auto ch = channel::parse_input(ch_cfg, task_type);
                 if (ch == nullptr) return {nullptr, false};
                 return {std::move(ch), ch->enabled};
             }
@@ -234,7 +234,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving_disabled),
         };
     }
 

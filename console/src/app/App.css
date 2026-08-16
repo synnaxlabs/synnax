@@ -49,7 +49,7 @@ body {
     -webkit-user-select: none !important;
 }
 
-.console-editor * {
+.pluto-editor * {
     user-select: text !important;
     -webkit-user-select: text !important;
 }

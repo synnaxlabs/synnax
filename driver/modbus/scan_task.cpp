@@ -53,7 +53,7 @@ bool Scanner::exec(
 }
 
 void Scanner::check_device_health(synnax::device::Device &dev) const {
-    const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
+    const auto rack_key = this->task.rack;
     const auto parser = x::json::Parser(dev.properties);
     const auto conn_cfg = device::ConnectionConfig(parser.child("connection"));
     if (parser.error()) {
@@ -102,6 +102,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
             .task = task.key,
             .running = true,
             .cmd = cmd.key,
+            .config_hash = task.config_hash,
         }
     };
     if (!parser.ok()) {

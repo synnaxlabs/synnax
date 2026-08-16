@@ -23,8 +23,8 @@ export interface Viewport extends z.infer<typeof viewportZ> {}
 export const legendStateZ = z.object({
   visible: z.boolean().default(true),
   position: sticky.xyZ.default({
-    x: 100,
-    y: 100,
+    x: 24,
+    y: 24,
     root: { x: "left", y: "top" },
     units: { x: "px", y: "px" },
   }),

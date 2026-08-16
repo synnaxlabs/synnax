@@ -33,7 +33,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
-    dev.rack = synnax::task::rack_key_from_task_key(this->task.key);
+    dev.rack = this->task.rack;
     dev.configured = false;
     NISysCfgBool is_simulated;
     if (const auto err = this->syscfg->GetResourceProperty(
@@ -243,7 +243,7 @@ x::errors::Error Scanner::start() {
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.scan_rate.period() - x::telem::SECOND).milliseconds(),
+            (this->cfg.rate.period() - x::telem::SECOND).milliseconds(),
             nullptr,
             &this->session
         ))

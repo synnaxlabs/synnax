@@ -10,6 +10,7 @@
 
 import { Breadcrumb } from "@/components/article/Breadcrumb";
 import NextPrev from "@/components/article/NextPrev.astro";
+import { InlineCode } from "@/components/text/InlineCode";
 import { Text } from "@synnaxlabs/pluto";
 const {
     title,
@@ -26,13 +27,15 @@ const {
     authorLink,
 } = Astro.props;
 
-const titleStr = String(title ?? "");
-const titleParts = titleStr.split(/(`[^`]+`)/g).filter((s) => s.length > 0);
-const visibleTitleLength = titleStr.replace(/`/g, "").length;
+const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 ---
 
 <article transition:animate="none">
-    {showBreadcrumb && url.split("/").length > 2 && <Breadcrumb url={url} />}
+    {
+        showBreadcrumb && url.split("/").length > 2 && (
+            <Breadcrumb url={url} title={title} />
+        )
+    }
     {
         published && (
             <div class="blog-meta">
@@ -41,17 +44,7 @@ const visibleTitleLength = titleStr.replace(/`/g, "").length;
         )
     }
     <Text.Text className="article-title" level={visibleTitleLength > 30 ? "h2" : "h1"}>
-        <span>
-            {
-                titleParts.map((part) =>
-                    part.startsWith("`") && part.endsWith("`") ? (
-                        <code>{part.slice(1, -1)}</code>
-                    ) : (
-                        part
-                    ),
-                )
-            }
-        </span>
+        <span><InlineCode text={title} /></span>
     </Text.Text>
     <h4 class="article-description">{description}</h4>
     {
@@ -87,12 +80,6 @@ const visibleTitleLength = titleStr.replace(/`/g, "").length;
         .article-title {
             display: inline-block;
             width: fit-content;
-
-            & code {
-                background: none;
-                border: none;
-                padding: 0;
-            }
         }
 
         & .pluto-breadcrumb {
@@ -156,7 +143,12 @@ const visibleTitleLength = titleStr.replace(/`/g, "").length;
         }
 
         .pluto-tabs__selector {
-            margin: 1.5rem 0;
+            margin: 1rem 1rem 1rem;
+        }
+
+        /* The code block's own padding carries the gap under the strip. */
+        .pluto-tabs__content .astro-code-wrapper:first-child {
+            margin-top: 0;
         }
 
         & video,

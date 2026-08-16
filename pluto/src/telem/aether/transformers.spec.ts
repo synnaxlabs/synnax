@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { TestSource } from "@/telem/aether/test/source";
 import {
@@ -16,6 +16,7 @@ import {
   ScaleNumber,
   SeriesDownsampler,
   StringifyNumber,
+  WithinBounds,
 } from "@/telem/aether/transformers";
 
 describe("SeriesDownsampler", () => {
@@ -488,6 +489,64 @@ describe("RollingAverage", () => {
     t.setSources({ in: new TestSource(123n) });
     expect(t.value()).toBe(123);
   });
+
+  it("returns the latest value until the window holds a sample", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    t.setSources({ in: new TestSource(42) });
+    expect(t.value()).toBe(42);
+  });
+
+  it("averages the samples the window holds before it fills", () => {
+    const t = new RollingAverage({ windowSize: 4 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    source.setValue(2);
+    source.setValue(4);
+    expect(t.value()).toBe(3);
+  });
+
+  it("averages the last windowSize samples once the window fills", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    [1, 2, 3, 10, 20, 30].forEach((v) => source.setValue(v));
+    expect(t.value()).toBe(20);
+  });
+
+  it("reports NaN while a NaN sample sits in the window", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    source.setValue(4);
+    source.setValue(NaN);
+    expect(Number.isNaN(t.value())).toBe(true);
+    source.setValue(6);
+    expect(Number.isNaN(t.value())).toBe(true);
+  });
+
+  it("recovers once a NaN sample slides out of the window", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    source.setValue(NaN);
+    [2, 4, 6].forEach((v) => source.setValue(v));
+    expect(t.value()).toBe(4);
+  });
+
+  // Staleness counts arrivals, so a window above 1 must not stretch the countdown.
+  it("notifies on every sample, even with a window above 1", () => {
+    const t = new RollingAverage({ windowSize: 5 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    const handler = vi.fn();
+    t.onChange(handler);
+    for (let i = 0; i < 3; i++) source.setValue(i);
+    expect(handler).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe("ScaleNumber", () => {
@@ -507,5 +566,32 @@ describe("ScaleNumber", () => {
     const t = new ScaleNumber({ scale: { scale: 2, offset: 3 } });
     t.setSources({ in: new TestSource(NaN) });
     expect(Number.isNaN(t.value())).toBe(true);
+  });
+});
+
+describe("WithinBounds", () => {
+  it("returns true for a value inside the bounds", () => {
+    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    t.setSources({ in: new TestSource(10) });
+    expect(t.value()).toBe(true);
+  });
+
+  it("returns false for a value outside the bounds", () => {
+    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    t.setSources({ in: new TestSource(20) });
+    expect(t.value()).toBe(false);
+  });
+
+  // Staleness counts arrivals, so a sample that leaves the boolean unchanged must still
+  // reach the listener.
+  it("notifies on every sample, even when the boolean stays the same", () => {
+    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    const source = new TestSource(10);
+    t.setSources({ in: source });
+    const handler = vi.fn();
+    t.onChange(handler);
+    source.setValue(11);
+    source.setValue(12);
+    expect(handler).toHaveBeenCalledTimes(2);
   });
 });

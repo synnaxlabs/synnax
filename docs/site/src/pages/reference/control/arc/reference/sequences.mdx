@@ -28,7 +28,7 @@ A sequence can be named or anonymous. A named sequence starts when an entry poin
 triggers it. An anonymous top-level sequence starts automatically when the program
 loads.
 
-```arc
+```arc channels="start_cmd"
 sequence named {
     // ... items ...
 }
@@ -53,7 +53,7 @@ A sequence item is one of:
 | Stage           | `stage name? { ... }` | Enter stage; advance when a transition fires  |
 | Nested sequence | `sequence { ... }`    | Run nested items in order                     |
 
-```arc
+```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure", bodies="abort"
 sequence prime {
     0 -> vent_vlv_cmd              // write
     1 -> press_vlv_cmd             // write
@@ -74,13 +74,26 @@ sequence prime {
 
 <Divider.Divider x />
 
+## Sequencing Rules
+
+1. When an item completes, the sequence advances; when the last item completes, the
+   sequence exits.
+2. `=> name` to a sibling item jumps there. Re-entry resets
+   [`:=` variables](/reference/control/arc/reference/variables#declaration) and keeps
+   [`$=` variables](/reference/control/arc/reference/variables#stateful).
+3. `=> name` to a top-level scope hands control away: the target starts, and the
+   sequence you jumped out of never resumes, nor does any sequence containing it.
+4. Activations are independent: several top-level scopes can run at the same time.
+
+<Divider.Divider x />
+
 ## Entry Points
 
 Entry points trigger sequences from external events:
 
-```arc
-start_cmd => main // channel triggers main sequence
-emergency_stop => abort // channel triggers abort sequence
+```arc channels="start_cmd, em_stop",  bodies="abort, main"
+start_cmd => main  // channel triggers main sequence
+em_stop => abort   // channel triggers abort sequence
 ```
 
 Entry points use `=>` because they fire while the channel value is truthy. The target
@@ -101,7 +114,7 @@ Entry point channels are typically `u8` virtual channels:
 An anonymous top-level sequence has no entry point and starts automatically on program
 load:
 
-```arc
+```arc channels="vent_vlv_cmd, press_vlv_cmd"
 sequence {
     0 -> vent_vlv_cmd
     1 -> press_vlv_cmd
@@ -119,7 +132,7 @@ An anonymous `stage { ... }` used as a sequence item acts as a multi-exit gate.
 [transition targets](/reference/control/arc/reference/flow#transition-targets) jump as
 usual.
 
-```arc
+```arc channels="press_vlv_cmd, tank_pressure"
 sequence press {
     1 -> press_vlv_cmd
     stage {
@@ -134,7 +147,7 @@ sequence press {
 
 ## Complete Example
 
-```arc
+```arc channels="press_vlv_cmd, vent_vlv_cmd, start_btn, ox_pt_1, fuel_pt_1, abort_btn, start_cmd, emergency_stop", bodies="pressurize, abort, hold, vent, complete, main"
 authority 200
 
 sequence main {

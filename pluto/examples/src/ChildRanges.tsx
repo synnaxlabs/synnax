@@ -62,7 +62,7 @@ export const ChildRanges = () => (
       style={{
         background: "var(--pluto-gray-l1)",
         padding: "2rem",
-        border: "var(--pluto-border-l5)",
+        border: "var(--pluto-border-l6)",
         borderRadius: "1rem",
         width: 500,
       }}

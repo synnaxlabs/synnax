@@ -10,11 +10,11 @@
 import { type status } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Task } from "@/feature/task";
 import { Notifications } from "@/platform/notifications";
-import { renderWithConsole } from "@/testutil";
+import { installPortalRoot, renderWithConsole } from "@/testutil";
 
 interface HarnessProps {
   crude: status.Crude;
@@ -37,12 +37,7 @@ const addStatus = async (crude: status.Crude): Promise<void> => {
 };
 
 describe("task notifications", () => {
-  beforeEach(() => {
-    const root = document.createElement("div");
-    root.id = "root";
-    document.body.appendChild(root);
-  });
-  afterEach(() => document.getElementById("root")?.remove());
+  installPortalRoot();
 
   it("suppresses a routine loading status for a task", async () => {
     await addStatus({ key: "task:1", variant: "loading", message: "Task starting" });
@@ -52,6 +47,15 @@ describe("task notifications", () => {
   it("suppresses a routine success status for a task", async () => {
     await addStatus({ key: "task:1", variant: "success", message: "Task running" });
     expect(screen.queryByText("Task running")).toBeNull();
+  });
+
+  it("suppresses the not-deployed placeholder status for a task", async () => {
+    await addStatus({
+      key: "task:1",
+      variant: "disabled",
+      message: "Task has not been deployed",
+    });
+    expect(screen.queryByText("Task has not been deployed")).toBeNull();
   });
 
   it("does not suppress a task error status", async () => {

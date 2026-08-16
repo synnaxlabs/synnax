@@ -33,17 +33,25 @@ vi.mock("@tauri-apps/plugin-fs", async () => {
   };
 });
 
+import { type task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { NI } from "@/feature/ni";
 import { renderNITaskForm } from "@/feature/ni/task/testutil";
 import { findDialogTriggerByText, selectFromDropdown } from "@/platform/task/testutil";
-import { stubGeometry } from "@/testutil";
 
 const openMock = vi.mocked(open);
 
-stubGeometry();
+const client = createTestClient();
+
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<NI.Task.AnalogReadSchemas> = {
+  name: "NI Analog Read Task",
+  type: NI.Task.ANALOG_READ_TYPE,
+  config: NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+};
 
 let dir: string;
 
@@ -62,27 +70,31 @@ beforeEach(() => {
 type VoltageChannel = Extract<NI.Task.AIChannel, { type: "ai_voltage" }>;
 
 const createChannel = (customScale: NI.Task.Scale): VoltageChannel => ({
-  ...(NI.Task.ZERO_AI_CHANNELS.ai_voltage as VoltageChannel),
+  ...(NI.Task.createAIChannel("ai_voltage") as VoltageChannel),
   key: id.create(),
   port: 0,
   device: "placeholder_device",
   customScale,
 });
 
-const renderWithScale = async (customScale: NI.Task.Scale) =>
-  await renderNITaskForm(NI.Task.AnalogRead, NI.Task.ANALOG_READ_TYPE, {
-    client: null,
-    params: {
-      config: {
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-        channels: [createChannel(customScale)],
-      },
-    },
+const renderWithScale = async (customScale: NI.Task.Scale) => {
+  const config: task.Payload<NI.Task.AnalogReadSchemas>["config"] = {
+    ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+    channels: [createChannel(customScale)],
+  };
+  const draft = await client.tasks.create(
+    { ...ZERO_DRAFT, config },
+    NI.Task.ANALOG_READ_SCHEMAS,
+  );
+  return await renderNITaskForm(NI.Task.AnalogRead, {
+    client,
+    taskKey: draft.key,
   });
+};
 
 describe("CustomScaleForm", () => {
   it("should swap the scale fields when a different scale type is selected", async () => {
-    await renderWithScale(NI.Task.ZERO_SCALES.none);
+    await renderWithScale(NI.Task.createScale("none"));
     await screen.findByText("Custom Scaling");
     expect(screen.queryByText("Slope")).toBeNull();
     await selectFromDropdown("None", "Linear");
@@ -97,7 +109,7 @@ describe("CustomScaleForm", () => {
     const csvPath = join(dir, "table.csv");
     await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,20\n3,30\n");
     openMock.mockResolvedValue(csvPath);
-    await renderWithScale(NI.Task.ZERO_SCALES.table);
+    await renderWithScale(NI.Task.createScale("table"));
     await screen.findByText("Table CSV");
     fireEvent.click(screen.getByText("Select file"));
     await findDialogTriggerByText("raw_col");
@@ -109,7 +121,7 @@ describe("CustomScaleForm", () => {
     const csvPath = join(dir, "table2.csv");
     await writeFile(csvPath, "col_a,col_b,col_c\n1,10,100\n2,20,200\n");
     openMock.mockResolvedValue(csvPath);
-    await renderWithScale(NI.Task.ZERO_SCALES.table);
+    await renderWithScale(NI.Task.createScale("table"));
     await screen.findByText("Table CSV");
     fireEvent.click(screen.getByText("Select file"));
     await findDialogTriggerByText("col_b");

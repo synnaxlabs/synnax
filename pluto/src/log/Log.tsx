@@ -9,48 +9,21 @@
 
 import { type log } from "@synnaxlabs/client";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
-import { useRedo, useRetrieveSuspended, useUndo } from "@/log/queries";
+import { use, useRedo, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
 import { Triggers } from "@/triggers";
 
 const DEFAULT_RETENTION = TimeSpan.days(7);
 const PRELOAD = TimeSpan.seconds(30);
 
-type UndoRedoMode = "undo" | "redo" | "default";
-
-const UNDO_REDO_CONFIG: Triggers.ModeConfig<UndoRedoMode> = {
-  undo: [Triggers.UNDO],
-  redo: [Triggers.REDO],
-  default: [],
-  defaultMode: "default",
-};
-
-const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
-
-const useUndoRedoTriggers = (
-  key: log.Key,
-  enabled?: boolean | (() => boolean),
-): void => {
+const useUndoRedoTriggers = (key: log.Key, enabled?: Triggers.Condition): void => {
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
-  Triggers.use({
-    triggers: UNDO_REDO_TRIGGERS,
-    callback: useCallback(
-      ({ triggers, stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        if (enabled === false) return;
-        if (typeof enabled === "function" && !enabled()) return;
-        const mode = Triggers.determineMode(UNDO_REDO_CONFIG, triggers);
-        if (mode === "undo") undo();
-        else if (mode === "redo") redo();
-      },
-      [undo, redo, enabled],
-    ),
-  });
+  Triggers.useUndoRedo({ undo, redo, enabled });
 };
 
 export interface LogProps extends Omit<
@@ -69,8 +42,9 @@ export interface LogProps extends Omit<
 // cache, so callers must render it within a Log.Suspended boundary.
 export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
   const key = useKey();
-  const { channels, hideChannelNames, hideReceiptTimestamp, timestampPrecision } =
-    useRetrieveSuspended({ key });
+  const { channels, hideChannelNames, hideReceiptTimestamp, timestampPrecision } = use({
+    key,
+  });
   useUndoRedoTriggers(key, enableTriggers);
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
   // must not subscribe to it.

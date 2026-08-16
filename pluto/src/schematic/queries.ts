@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  NotFoundError,
-  type ontology,
-  type project,
-  query,
-  schematic,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { type ontology, type project, query, schematic } from "@synnaxlabs/client";
 import { array, compare, type record, uuid, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -32,128 +25,68 @@ export type RetrieveQuery = schematic.RetrieveSingleParams;
 
 // Prefers the cached copy: it may hold locally replayed edits ahead of the
 // server.
-export const {
-  useRetrieveSuspended,
-  useRetrieveObservable,
-  useEnsureRetrieved,
-  useTombstone,
-} = Flux.createRetrieve<RetrieveQuery, schematic.Schematic>({
+export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
+  RetrieveQuery,
+  schematic.Schematic
+>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.schematics.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
   getCached: ({ client, query }) => client.schematics.getCached(query),
+  awaitCreation: true,
 });
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: schematic.Key;
 }
 
-const requireSchematic = (
-  client: Client | null,
-  key: schematic.Key,
-): schematic.Schematic => {
-  const cached = client?.schematics.getCached(key);
-  if (cached == null) throw new NotFoundError(`Schematic with key ${key} not found`);
-  if (query.Deleted.matches(cached))
-    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
-  return cached;
-};
+export const useAllNodes = Scope.bindHook(createSelector(({ nodes }) => nodes));
 
-const getSchematic = (
-  client: Client | null,
-  key: schematic.Key,
-): schematic.Schematic | undefined => {
-  const cached = client?.schematics.getCached(key);
-  if (!query.isLive(cached)) return undefined;
-  return cached;
-};
+export const useAllEdges = Scope.bindHook(createSelector(({ edges }) => edges));
 
-const subscribe = (
-  { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
-  notify: () => void,
-) => (client == null ? () => {} : client.schematics.onChange(key, notify));
-
-export const [useSelectAllNodes, useGetAllNodes] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, schematic.Node[]>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireSchematic(client, key).nodes,
-  }),
-);
-
-export const [useSelectAllEdges, useGetAllEdges] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, schematic.Edge[]>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireSchematic(client, key).edges,
-  }),
-);
-
-export interface SelectConfigParams extends SelectKeyParams {
+export interface ConfigParams extends KeyParams {
   elKey: string;
 }
 
-export const [useSelectElementConfig, useGetElementConfig] = Scope.bindSelector(
-  Flux.createSelector<SelectConfigParams, ElementConfig | undefined>({
-    subscribe,
-    select: ({ client, args: { key, elKey } }) =>
-      requireSchematic(client, key).configs[elKey] as ElementConfig | undefined,
-  }),
+export const useElementConfig = Scope.bindHook(
+  createSelector<ElementConfig | undefined, ConfigParams>(
+    ({ configs }, { elKey }) => configs[elKey] as ElementConfig | undefined,
+  ),
 );
 
-export interface SelectConfigsParams extends SelectKeyParams {
+export interface ConfigsParams extends KeyParams {
   keys: string[];
 }
 
-export const [useSelectConfigs, useGetConfigs] = Scope.bindSelector(
-  Flux.createSelector<SelectConfigsParams, Map<string, ElementConfig>>({
-    subscribe,
-    select: ({ client, args: { key, keys } }) => {
-      const result = new Map<string, ElementConfig>();
-      const s = getSchematic(client, key);
-      if (s == null || keys.length === 0) return result;
-      for (const elKey of keys) {
-        const cfg = s.configs?.[elKey];
-        if (cfg != null) result.set(elKey, cfg as ElementConfig);
-      }
-      return result;
-    },
-    equal: compare.mapsEqual,
-  }),
+export const useConfigs = Scope.bindHook(
+  createSelector<Map<string, ElementConfig>, ConfigsParams>(({ configs }, { keys }) => {
+    const result = new Map<string, ElementConfig>();
+    for (const elKey of keys) {
+      const cfg = configs?.[elKey];
+      if (cfg != null) result.set(elKey, cfg as ElementConfig);
+    }
+    return result;
+  }, compare.mapsEqual),
 );
 
-export interface SelectNodesParams extends SelectKeyParams {
+export interface NodesParams extends KeyParams {
   keys: string[];
 }
 
-export const [useSelectNodes, useGetNodes] = Scope.bindSelector(
-  Flux.createSelector<SelectNodesParams, schematic.Node[]>({
-    subscribe,
-    select: ({ client, args: { key, keys } }) => {
-      const s = getSchematic(client, key);
-      if (s == null || keys.length === 0) return [];
+export const useNodes = Scope.bindHook(
+  createSelector<schematic.Node[], NodesParams>(
+    ({ nodes }, { keys }) => {
+      if (keys.length === 0) return [];
       const keySet = new Set(keys);
-      return s.nodes.filter((n) => keySet.has(n.key));
+      return nodes.filter((n) => keySet.has(n.key));
     },
-    equal: compare.arraysEqual,
-  }),
+    (a, b) => compare.arraysEqual(a, b),
+  ),
 );
 
-export interface SelectFieldParams {
-  key: schematic.Key;
-}
+export const useIsSnapshot = Scope.bindHook(createSelector(({ snapshot }) => snapshot));
 
-export const [useSelectSnapshot, useGetSnapshot] = Scope.bindSelector(
-  Flux.createSelector<SelectFieldParams, boolean>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireSchematic(client, key).snapshot,
-  }),
-);
-
-export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, string>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireSchematic(client, key).name,
-  }),
-);
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export type DeleteParams = schematic.Key | schematic.Key[];
 

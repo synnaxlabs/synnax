@@ -117,7 +117,7 @@ const Internal = ({
     <Flex.Box
       className={CSS(
         className,
-        CSS.B("value"),
+        CSS.BE("select-orientation", "inner"),
         showOuterCenter && CSS.M("show-outer-center"),
       )}
       y
@@ -137,11 +137,15 @@ export interface ButtonProps extends Omit<BaseButton.ButtonProps, "children"> {
 
 export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElement => (
   <BaseButton.Button
-    variant="text"
-    className={CSS(className, CSS.selected(selected))}
+    variant={selected ? "outlined" : "text"}
+    className={CSS(
+      className,
+      CSS.BE("select-orientation", "btn"),
+      CSS.selected(selected),
+    )}
     size="tiny"
     {...rest}
   >
-    <div className="symbol" />
+    <div className={CSS.BE("select-orientation", "bar")} />
   </BaseButton.Button>
 );

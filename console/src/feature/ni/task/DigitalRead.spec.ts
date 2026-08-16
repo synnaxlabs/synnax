@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
@@ -15,14 +15,8 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import {
-  awaitTaskKey,
-  clickConfigure,
-  commitFieldInput,
-} from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -33,56 +27,71 @@ const createChannel = (
   line: number,
   overrides: CreateChannelOverrides = {},
 ): NI.Task.DIChannel => ({
-  ...NI.Task.ZERO_DI_CHANNEL,
+  ...NI.Task.createDIChannel(),
   key: id.create(),
   port,
   line,
   ...overrides,
 });
 
-const renderDigitalRead = async (params = {}) =>
-  await renderNITaskForm(NI.Task.DigitalRead, NI.Task.DIGITAL_READ_TYPE, {
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<NI.Task.DigitalReadSchemas> = {
+  name: "NI Digital Read Task",
+  type: NI.Task.DIGITAL_READ_TYPE,
+  config: NI.Task.DIGITAL_READ_SCHEMAS.config.parse({}),
+};
+
+const createDraft = async (
+  config: task.Payload<NI.Task.DigitalReadSchemas>["config"],
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, NI.Task.DIGITAL_READ_SCHEMAS);
+
+const renderDigitalRead = async (
+  config: task.Payload<NI.Task.DigitalReadSchemas>["config"],
+) => {
+  const draft = await createDraft(config);
+  const rendered = await renderNITaskForm(NI.Task.DigitalRead, {
     client,
-    params,
+    taskKey: draft.key,
   });
+  return { ...rendered, draft };
+};
 
 const createConfig = (
   channels: NI.Task.DIChannel[],
   device = "placeholder_device",
-) => ({ ...NI.Task.ZERO_DIGITAL_READ_PAYLOAD.config, device, channels });
+) => ({ ...NI.Task.DIGITAL_READ_SCHEMAS.config.parse({}), device, channels });
 
 describe("DigitalRead", () => {
   it("should write edits to a channel's line number back into the form", async () => {
-    await renderDigitalRead({
-      config: createConfig([
+    await renderDigitalRead(
+      createConfig([
         createChannel(0, 0, { name: "di_chan_a" }),
         createChannel(0, 1, { name: "di_chan_b" }),
       ]),
-    });
+    );
     await waitFor(() => expect(screen.getByText("di_chan_b")).toBeTruthy());
     commitFieldInput(screen.getByDisplayValue("1"), "7");
     await waitFor(() => expect(screen.getByDisplayValue("7")).toBeTruthy());
     expect(screen.queryByDisplayValue("1")).toBeNull();
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create per-line channels keyed by port and line and update the device", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("di_named");
-      const rendered = await renderDigitalRead({
-        config: createConfig(
+      const rendered = await renderDigitalRead(
+        createConfig(
           [createChannel(0, 0), createChannel(0, 1, { name: namedChannel })],
           dev.key,
         ),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
+      );
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: rendered.draft.key,
         schemas: NI.Task.DIGITAL_READ_SCHEMAS,
       });
       expect(created.type).toBe(NI.Task.DIGITAL_READ_TYPE);
-      expect(task.rackKey(created.key)).toBe(dev.rack);
+      expect(created.rack).toBe(dev.rack);
       const [c0, c1] = created.config.channels;
       expect(c0.channel).not.toBe(0);
       expect(c1.channel).not.toBe(0);
@@ -106,24 +115,26 @@ describe("DigitalRead", () => {
       expect(index.isIndex).toBe(true);
     });
 
-    it("should reuse existing channels when reconfigured", async () => {
+    it("should reuse existing channels when redeployed", async () => {
       const dev = await createNIDevice(client);
-      const rendered = await renderDigitalRead({
-        config: createConfig([createChannel(0, 0)], dev.key),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const first = await client.tasks.retrieve({
-        key: taskKey,
+      const config = createConfig([createChannel(0, 0)], dev.key);
+      const first = await renderDigitalRead(config);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
         schemas: NI.Task.DIGITAL_READ_SCHEMAS,
       });
-      await clickConfigure();
+      first.unmount();
+      const second = await renderDigitalRead(config);
+      await deployAndAwaitTask(client, second.container, second.draft.key);
       await waitFor(async () => {
         const again = await client.tasks.retrieve({
-          key: taskKey,
+          key: second.draft.key,
           schemas: NI.Task.DIGITAL_READ_SCHEMAS,
         });
-        expect(again.config.channels[0].channel).toBe(first.config.channels[0].channel);
+        expect(again.config.channels[0].channel).toBe(
+          firstTask.config.channels[0].channel,
+        );
       });
     });
   });

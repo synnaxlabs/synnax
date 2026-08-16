@@ -22,6 +22,7 @@
 #
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
 
@@ -31,6 +32,10 @@
 #include "driver/http/write_task.h"
 
 namespace driver::http {
+using ::synnax::http::GeneratedWriteField;
+using ::synnax::http::StaticWriteField;
+using ::synnax::http::WriteEndpoint;
+
 namespace {
 /// @brief helper to build a WriteTaskSink from config and a mock server URL.
 std::pair<std::unique_ptr<WriteTaskSink>, std::shared_ptr<Processor>>
@@ -46,7 +51,9 @@ make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
     std::vector<Request> base_requests;
     base_requests.reserve(cfg.endpoints.size());
     for (const auto &ep: cfg.endpoints) {
-        base_requests.push_back(device::build_request(conn, ep.request));
+        auto req_cfg = request_config(ep);
+        req_cfg.request_content_type = "application/json";
+        base_requests.push_back(device::build_request(conn, req_cfg));
     }
 
     auto processor = std::make_shared<Processor>();
@@ -90,7 +97,7 @@ TEST(HTTPWriteTask, ParseConfigAllEndpointsDisabled) {
         {"device", "dev-001"},
         {"endpoints",
          {{
-             {"enabled", false},
+             {"disabled", true},
              {"method", "POST"},
              {"path", "/api/data"},
              {"channel",
@@ -239,8 +246,15 @@ TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
     EXPECT_NE(err2.data.find("duplicate header"), std::string::npos);
 }
 
-/// @brief it should fail when a header entry is missing the value field.
-TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
+/// @brief a header entry may omit the value field; it defaults to an empty string.
+TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto cmd_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("cmd"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(cmd_ch));
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -249,14 +263,17 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
              {"method", "POST"},
              {"path", "/api/data"},
              {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+              {{"pointer", "/value"},
+               {"json_type", "number"},
+               {"channel", cmd_ch.key}}},
              {"headers", {{{"name", "X-Key"}}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [_3, err3] = WriteTaskConfig::parse(ctx, task);
-    ASSERT_TRUE(err3.matches(x::errors::VALIDATION));
-    EXPECT_NE(err3.data.find("value"), std::string::npos);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
+    ASSERT_EQ(cfg.endpoints[0].headers.size(), 1);
+    EXPECT_EQ(cfg.endpoints[0].headers.at(0).name, "X-Key");
+    EXPECT_EQ(cfg.endpoints[0].headers.at(0).value, "");
 }
 
 /// @brief it should fail when a query_params entry is missing the parameter field.
@@ -279,8 +296,8 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
     EXPECT_NE(err4.data.find("parameter"), std::string::npos);
 }
 
-/// @brief it should fail when a query_params entry is missing the value field.
-TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueErrors) {
+/// @brief it should fail when a static field is missing the value field.
+TEST(HTTPWriteTask, ParseConfigStaticFieldMissingValueErrors) {
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -290,13 +307,44 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueErrors) {
              {"path", "/api/data"},
              {"channel",
               {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
-             {"query_params", {{{"parameter", "limit"}}}},
+             {"fields", {{{"type", "static"}, {"pointer", "/extra"}}}},
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [_5, err5] = WriteTaskConfig::parse(ctx, task);
-    ASSERT_TRUE(err5.matches(x::errors::VALIDATION));
-    EXPECT_NE(err5.data.find("value"), std::string::npos);
+    auto [_, err] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("value"), std::string::npos);
+}
+
+/// @brief a query_params entry may omit the value field; it defaults to an empty
+/// string.
+TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto cmd_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("cmd"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(cmd_ch));
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"},
+               {"json_type", "number"},
+               {"channel", cmd_ch.key}}},
+             {"query_params", {{{"parameter", "limit"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
+    ASSERT_EQ(cfg.endpoints[0].query_params.size(), 1);
+    EXPECT_EQ(cfg.endpoints[0].query_params.at(0).parameter, "limit");
+    EXPECT_EQ(cfg.endpoints[0].query_params.at(0).value, "");
 }
 
 /// @brief it should fail when duplicate query parameter names exist.
@@ -343,12 +391,11 @@ TEST(HTTPWriteTask, POSTNumericValue) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -388,12 +435,11 @@ TEST(HTTPWriteTask, PUTStringValue) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::PUT;
-    ep.request.path = "/api/setpoint";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/state");
-    ep.channel.json_type = x::json::Type::String;
-    ep.channel.channel_key = 1;
+    ep.method = "PUT";
+    ep.path = "/api/setpoint";
+    ep.channel.pointer = "/state";
+    ep.channel.json_type = "string";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -431,12 +477,11 @@ TEST(HTTPWriteTask, BarePrimitiveBody) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::PUT;
-    ep.request.path = "/api/setpoint";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "PUT";
+    ep.path = "/api/setpoint";
+    ep.channel.pointer = "";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -473,16 +518,15 @@ TEST(HTTPWriteTask, StaticFields) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
-    ep.static_fields = {{
-        .pointer = x::json::json::json_pointer("/device_id"),
-        .value = "sensor-01",
-    }};
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
+    StaticWriteField device_field;
+    device_field.pointer = "/device_id";
+    device_field.value = "sensor-01";
+    ep.fields = {device_field};
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -521,16 +565,15 @@ TEST(HTTPWriteTask, GeneratedUUIDField) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
-    ep.generated_fields = {{
-        .pointer = x::json::json::json_pointer("/request_id"),
-        .generator = GeneratorType::UUID,
-    }};
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
+    GeneratedWriteField request_id_field;
+    request_id_field.pointer = "/request_id";
+    request_id_field.generator = "uuid";
+    ep.fields = {request_id_field};
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -571,12 +614,11 @@ TEST(HTTPWriteTask, Error4xxResponse) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -610,12 +652,11 @@ TEST(HTTPWriteTask, Error5xxResponse) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -657,20 +698,18 @@ TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/temp";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.method = "POST";
+    ep1.path = "/api/temp";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.request.method = Method::PUT;
-    ep2.request.path = "/api/pressure";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.method = "PUT";
+    ep2.path = "/api/pressure";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -726,28 +765,25 @@ TEST(HTTPWriteTask, ParallelMultipleEndpoints) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/temp";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.method = "POST";
+    ep1.path = "/api/temp";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.request.method = Method::POST;
-    ep2.request.path = "/api/pressure";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.method = "POST";
+    ep2.path = "/api/pressure";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     WriteEndpoint ep3;
-    ep3.request.method = Method::POST;
-    ep3.request.path = "/api/humidity";
-    ep3.request.request_content_type = "application/json";
-    ep3.channel.pointer = x::json::json::json_pointer("/value");
-    ep3.channel.json_type = x::json::Type::Number;
-    ep3.channel.channel_key = 3;
+    ep3.method = "POST";
+    ep3.path = "/api/humidity";
+    ep3.channel.pointer = "/value";
+    ep3.channel.json_type = "number";
+    ep3.channel.channel = 3;
 
     cfg.endpoints = {ep1, ep2, ep3};
     cfg.cmd_keys = {1, 2, 3};
@@ -816,20 +852,18 @@ TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/good";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.method = "POST";
+    ep1.path = "/api/good";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.request.method = Method::POST;
-    ep2.request.path = "/api/bad";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.method = "POST";
+    ep2.path = "/api/bad";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -882,20 +916,18 @@ TEST(HTTPWriteTask, ParallelBatchAllFailures) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/client-err";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.method = "POST";
+    ep1.path = "/api/client-err";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.request.method = Method::POST;
-    ep2.request.path = "/api/server-err";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.method = "POST";
+    ep2.path = "/api/server-err";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -942,12 +974,11 @@ TEST(HTTPWriteTask, LastWriteWins) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -988,12 +1019,11 @@ TEST(HTTPWriteTask, SequentialSends) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1037,12 +1067,11 @@ TEST(HTTPWriteTask, RecoverFromError) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1106,12 +1135,11 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1151,12 +1179,11 @@ TEST(HTTPWriteTask, PATCHBooleanValue) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::PATCH;
-    ep.request.path = "/api/config";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/enabled");
-    ep.channel.json_type = x::json::Type::Boolean;
-    ep.channel.channel_key = 1;
+    ep.method = "PATCH";
+    ep.path = "/api/config";
+    ep.channel.pointer = "/enabled";
+    ep.channel.json_type = "boolean";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1195,13 +1222,12 @@ TEST(HTTPWriteTask, TimeFormatISO8601) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/timestamp");
-    ep.channel.json_type = x::json::Type::String;
-    ep.channel.channel_key = 1;
-    ep.channel.time_format = x::json::TimeFormat::ISO8601;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/timestamp";
+    ep.channel.json_type = "string";
+    ep.channel.channel = 1;
+    ep.channel.time_format = "iso8601";
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1246,13 +1272,12 @@ TEST(HTTPWriteTask, TimeFormatUnixSeconds) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/ts");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
-    ep.channel.time_format = x::json::TimeFormat::UnixSecond;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/ts";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
+    ep.channel.time_format = "unix_sec";
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1295,17 +1320,16 @@ TEST(HTTPWriteTask, GeneratedTimestampField) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
-    ep.generated_fields = {{
-        .pointer = x::json::json::json_pointer("/created_at"),
-        .generator = GeneratorType::Timestamp,
-        .time_format = x::json::TimeFormat::ISO8601,
-    }};
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
+    GeneratedWriteField created_at_field;
+    created_at_field.pointer = "/created_at";
+    created_at_field.generator = "timestamp";
+    created_at_field.time_format = "iso8601";
+    ep.fields = {created_at_field};
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1348,24 +1372,18 @@ TEST(HTTPWriteTask, DeeplyNestedPointer) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/data";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer(
-        "/payload/sensors/temperature/reading"
-    );
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
-    ep.static_fields = {
-        {
-            .pointer = x::json::json::json_pointer("/payload/sensors/temperature/unit"),
-            .value = "celsius",
-        },
-        {
-            .pointer = x::json::json::json_pointer("/metadata/source"),
-            .value = "driver",
-        },
-    };
+    ep.method = "POST";
+    ep.path = "/api/data";
+    ep.channel.pointer = "/payload/sensors/temperature/reading";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
+    StaticWriteField unit_field;
+    unit_field.pointer = "/payload/sensors/temperature/unit";
+    unit_field.value = "celsius";
+    StaticWriteField source_field;
+    source_field.pointer = "/metadata/source";
+    source_field.value = "driver";
+    ep.fields = {unit_field, source_field};
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1414,13 +1432,15 @@ TEST(HTTPWriteTask, EnumMappingNumericToString) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/state");
-    ep.channel.json_type = x::json::Type::String;
-    ep.channel.channel_key = 1;
-    ep.channel.enum_values = {{1.0, "ON"}, {0.0, "OFF"}};
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/state";
+    ep.channel.json_type = "string";
+    ep.channel.channel = 1;
+    ep.channel.enum_values = std::vector<::synnax::http::EnumEntry>{
+        {"ON", 1.0},
+        {"OFF", 0.0},
+    };
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1459,13 +1479,15 @@ TEST(HTTPWriteTask, EnumMappingUnmatchedFallsThrough) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.channel.pointer = x::json::json::json_pointer("/state");
-    ep.channel.json_type = x::json::Type::String;
-    ep.channel.channel_key = 1;
-    ep.channel.enum_values = {{1.0, "ON"}, {0.0, "OFF"}};
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/state";
+    ep.channel.json_type = "string";
+    ep.channel.channel = 1;
+    ep.channel.enum_values = std::vector<::synnax::http::EnumEntry>{
+        {"ON", 1.0},
+        {"OFF", 0.0},
+    };
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1555,22 +1577,20 @@ TEST(HTTPWriteTask, DisabledEndpointSkipped) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.enabled = true;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/active";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.disabled = false;
+    ep1.method = "POST";
+    ep1.path = "/api/active";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.enabled = false;
-    ep2.request.method = Method::POST;
-    ep2.request.path = "/api/inactive";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.disabled = true;
+    ep2.method = "POST";
+    ep2.path = "/api/inactive";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1};
@@ -1612,13 +1632,12 @@ TEST(HTTPWriteTask, EndpointHeaders) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.request.headers = {{"X-Custom", "test-val"}};
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.headers = std::vector<::synnax::http::Header>{{"X-Custom", "test-val"}};
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1657,13 +1676,15 @@ TEST(HTTPWriteTask, EndpointQueryParams) {
     cfg.auto_start = false;
 
     WriteEndpoint ep;
-    ep.request.method = Method::POST;
-    ep.request.path = "/api/control";
-    ep.request.request_content_type = "application/json";
-    ep.request.query_params = {{"key", "abc"}, {"verbose", "true"}};
-    ep.channel.pointer = x::json::json::json_pointer("/value");
-    ep.channel.json_type = x::json::Type::Number;
-    ep.channel.channel_key = 1;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.query_params = std::vector<::synnax::http::QueryParam>{
+        {"key", "abc"},
+        {"verbose", "true"}
+    };
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1715,20 +1736,18 @@ TEST(HTTPWriteTask, PartialSuccessRetryOnly) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/good";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.method = "POST";
+    ep1.path = "/api/good";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.request.method = Method::POST;
-    ep2.request.path = "/api/flaky";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.method = "POST";
+    ep2.path = "/api/flaky";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -1775,20 +1794,18 @@ TEST(HTTPWriteTask, NoProgressStopsRetry) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/a";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.method = "POST";
+    ep1.path = "/api/a";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.request.method = Method::POST;
-    ep2.request.path = "/api/b";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.method = "POST";
+    ep2.path = "/api/b";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -1843,28 +1860,25 @@ TEST(HTTPWriteTask, ProgressDrivenMultipleRounds) {
     cfg.auto_start = false;
 
     WriteEndpoint ep_a;
-    ep_a.request.method = Method::POST;
-    ep_a.request.path = "/api/a";
-    ep_a.request.request_content_type = "application/json";
-    ep_a.channel.pointer = x::json::json::json_pointer("/value");
-    ep_a.channel.json_type = x::json::Type::Number;
-    ep_a.channel.channel_key = 1;
+    ep_a.method = "POST";
+    ep_a.path = "/api/a";
+    ep_a.channel.pointer = "/value";
+    ep_a.channel.json_type = "number";
+    ep_a.channel.channel = 1;
 
     WriteEndpoint ep_b;
-    ep_b.request.method = Method::POST;
-    ep_b.request.path = "/api/b";
-    ep_b.request.request_content_type = "application/json";
-    ep_b.channel.pointer = x::json::json::json_pointer("/value");
-    ep_b.channel.json_type = x::json::Type::Number;
-    ep_b.channel.channel_key = 2;
+    ep_b.method = "POST";
+    ep_b.path = "/api/b";
+    ep_b.channel.pointer = "/value";
+    ep_b.channel.json_type = "number";
+    ep_b.channel.channel = 2;
 
     WriteEndpoint ep_c;
-    ep_c.request.method = Method::POST;
-    ep_c.request.path = "/api/c";
-    ep_c.request.request_content_type = "application/json";
-    ep_c.channel.pointer = x::json::json::json_pointer("/value");
-    ep_c.channel.json_type = x::json::Type::Number;
-    ep_c.channel.channel_key = 3;
+    ep_c.method = "POST";
+    ep_c.path = "/api/c";
+    ep_c.channel.pointer = "/value";
+    ep_c.channel.json_type = "number";
+    ep_c.channel.channel = 3;
 
     cfg.endpoints = {ep_a, ep_b, ep_c};
     cfg.cmd_keys = {1, 2, 3};
@@ -1914,20 +1928,18 @@ TEST(HTTPWriteTask, CriticalErrorDoesNotPreventTemporaryRetry) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/critical";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.method = "POST";
+    ep1.path = "/api/critical";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.request.method = Method::POST;
-    ep2.request.path = "/api/flaky";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.method = "POST";
+    ep2.path = "/api/flaky";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -1975,20 +1987,18 @@ TEST(HTTPWriteTask, AllCriticalNoRetry) {
     cfg.auto_start = false;
 
     WriteEndpoint ep1;
-    ep1.request.method = Method::POST;
-    ep1.request.path = "/api/a";
-    ep1.request.request_content_type = "application/json";
-    ep1.channel.pointer = x::json::json::json_pointer("/value");
-    ep1.channel.json_type = x::json::Type::Number;
-    ep1.channel.channel_key = 1;
+    ep1.method = "POST";
+    ep1.path = "/api/a";
+    ep1.channel.pointer = "/value";
+    ep1.channel.json_type = "number";
+    ep1.channel.channel = 1;
 
     WriteEndpoint ep2;
-    ep2.request.method = Method::POST;
-    ep2.request.path = "/api/b";
-    ep2.request.request_content_type = "application/json";
-    ep2.channel.pointer = x::json::json::json_pointer("/value");
-    ep2.channel.json_type = x::json::Type::Number;
-    ep2.channel.channel_key = 2;
+    ep2.method = "POST";
+    ep2.path = "/api/b";
+    ep2.channel.pointer = "/value";
+    ep2.channel.json_type = "number";
+    ep2.channel.channel = 2;
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};

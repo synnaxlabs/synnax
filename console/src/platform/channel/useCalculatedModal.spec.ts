@@ -34,19 +34,26 @@ const openModal = async (
 
 describe("useCalculatedModal", () => {
   describe("operation selection", () => {
+    it("should hide the window and reset-channel fields for the none operation", async () => {
+      await openModal();
+      await waitFor(() => expect(screen.getByText("Derivative")).toBeTruthy());
+      expect(screen.queryByText("Window")).toBeNull();
+      expect(screen.queryByText("Reset Channel")).toBeNull();
+    });
+
     it("should hide the window and reset-channel fields for the derivative operation", async () => {
       await openModal();
+      await waitFor(() => expect(screen.getByText("Average")).toBeTruthy());
+      fireEvent.click(screen.getByText("Average"));
       await waitFor(() => expect(screen.getByText("Window")).toBeTruthy());
       fireEvent.click(screen.getByText("Derivative"));
       await waitFor(() => expect(screen.queryByText("Window")).toBeNull());
       expect(screen.queryByText("Reset Channel")).toBeNull();
     });
 
-    it("should restore the window and reset-channel fields when switching back to a windowed operation", async () => {
+    it("should show the window and reset-channel fields when switching to a windowed operation", async () => {
       await openModal();
-      await waitFor(() => expect(screen.getByText("Derivative")).toBeTruthy());
-      fireEvent.click(screen.getByText("Derivative"));
-      await waitFor(() => expect(screen.queryByText("Window")).toBeNull());
+      await waitFor(() => expect(screen.getByText("Average")).toBeTruthy());
       fireEvent.click(screen.getByText("Average"));
       await waitFor(() => expect(screen.getByText("Window")).toBeTruthy());
       expect(screen.getByText("Reset Channel")).toBeTruthy();

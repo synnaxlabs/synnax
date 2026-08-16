@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/status"
+import "schemas/synnax/task"
 
 @ts output  "client/ts/src/rack"
 @py output  "client/py/synnax/rack"
@@ -16,15 +17,14 @@ import "schemas/synnax/status"
 @pb
 
 Key uint32 {
-    @go version 1
-    @doc value  """
-        is a composite identifier for a rack. The high 16 bits contain the node key, and
-        the low 16 bits contain the local sequential key. Racks are leased to specific
-        nodes because task configuration signals are passed through gossip operations,
-        which can take 15s+ to propagate through a large cluster. This structure
-        minimizes hops and configuration latency.
+    @go version  2
+    @doc value   """
+        is a composite identifier for a rack. The high 16 bits contain the Core key, and
+        the low 16 bits contain the local sequential key. A rack is leased to the Core
+        named in its high bits, so writes route to the Core running its Driver.
     """
-    @go marshal flex
+    @go marshal  flex
+    @cpp include "client/cpp/rack/key.h"
 }
 
 StatusDetails struct {
@@ -32,12 +32,12 @@ StatusDetails struct {
         @doc value "is the key of the rack this status pertains to."
     }
 
-    @go version 1
+    @go version 2
     @doc value  "contains rack-specific status details."
 }
 
 Status = status.Status<StatusDetails> {
-    @go version 1
+    @go version 2
     @doc value  "is rack-specific status information including operational state."
 }
 
@@ -51,11 +51,6 @@ Rack struct {
         @doc value         "is a human-readable name for the rack."
         @validate required
         @filter
-    }
-    task_counter uint32 = 0 {
-        @doc value """
-            is an internal counter used for generating unique local task keys.
-        """
     }
     embedded     bool = false {
         @doc value """
@@ -75,11 +70,11 @@ Rack struct {
         @filter
     }
 
-    @go version      1
+    @go version      2
     @doc value       """
-        is a collection container for hardware devices and tasks running on a
-        specific cluster node. Racks serve as the integration point between the
-        Synnax server and physical hardware via the Driver system.
+        is a collection container for hardware devices and tasks running on a specific
+        Core. Racks are the integration point between the Core and physical hardware
+        through the Driver.
     """
     @ts name         "Payload"
     @ontology type   "rack"
@@ -93,7 +88,6 @@ Rack struct {
 }
 
 New struct extends Rack {
-    -task_counter
     -embedded
     key = 0
 
@@ -103,4 +97,17 @@ New struct extends Rack {
     @pb omit
     @cpp omit
     @py name      "Rack"
+}
+
+StatusTaskConfig struct extends task.KeyedConfig {
+    @doc value  "configures the rack status reporting task, which carries no settings."
+    @go version 1
+    @go output  "core/pkg/service/rack/task"
+    @go name    "StatusConfig"
+    @go marshal
+    @go migrate
+    @pb omit
+    @ts omit
+    @py omit
+    @cpp omit
 }

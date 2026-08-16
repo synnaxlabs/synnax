@@ -10,11 +10,17 @@
 import { panel, project, query } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { destructor } from "@synnaxlabs/x";
+import { useRef } from "react";
 
-import { selectActiveWindow, selectSelected } from "@/session/panel/selectors";
+import {
+  selectActiveWindow,
+  selectOrder,
+  selectSelected,
+} from "@/session/panel/selectors";
 import {
   type Action,
   clearSelected,
+  reconcileOrder,
   reconcileSelection,
   remove,
   select,
@@ -45,28 +51,38 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers<
     name: "remove deleted panels",
     domain: (client) => client.panels,
     selectKeys,
-    remove,
+    remove: (keys) => remove({ keys }),
   }),
 ];
 
-const applySelection = ({ client, store }: Params, candidates: panel.Key[]): void => {
+const applyMembership = (
+  { client, store }: Params,
+  candidates: panel.Panel[],
+): void => {
   // A retrieve can race a delete and return an already-deleted panel; the
   // local tombstone is authoritative.
-  const keys = candidates.filter(
-    (key) => !query.Deleted.matches(client.panels.getCached(key)),
+  const live = candidates.filter(
+    ({ key }) => !query.Deleted.matches(client.panels.getCached(key)),
+  );
+  store.dispatch(
+    reconcileOrder({ panels: live.map(({ key, name }) => ({ key, name })) }),
   );
   const win = selectActiveWindow(store.getState());
   if (win == null) return;
   const { selected } = win.state;
+  const keys = live.map(({ key }) => key);
   if (selected != null && keys.includes(selected)) return;
   if (keys.length === 0) {
     if (selected != null) store.dispatch(clearSelected({ windowKey: win.key }));
     return;
   }
-  store.dispatch(select({ key: keys[0], windowKey: win.key }));
+  // The reconcile above put every live key in the order, so the first live
+  // entry is the strip's leftmost pill.
+  const first = selectOrder(store.getState()).find((key) => keys.includes(key));
+  store.dispatch(select({ key: first ?? keys[0], windowKey: win.key }));
 };
 
-const repairSelection = async (params: Params): Promise<void> => {
+const repairMembership = async (params: Params): Promise<void> => {
   const { client, store } = params;
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
@@ -74,20 +90,20 @@ const repairSelection = async (params: Params): Promise<void> => {
     parent: project.ontologyID(projectKey),
   });
   if (store.getState().project.selected !== projectKey) return;
-  applySelection(
-    params,
-    panels.map(({ key }) => key),
-  );
+  applyMembership(params, panels);
 };
 
-// The session's selection outlives the project it was made in, so a panel
-// outside the active project must never stay selected.
-const selection: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
-  reconcile: repairSelection,
+// The session's strip order and selection both follow the project's live
+// membership: the order converges first, then the selection, so a repaired
+// selection always lands on the strip's leftmost pill. The selection outlives
+// the project it was made in, so a panel outside the active project must
+// never stay selected.
+const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
+  reconcile: repairMembership,
   listen: (params) => {
     const { client, store } = params;
     const repair = (): void => {
-      repairSelection(params).catch(console.error);
+      repairMembership(params).catch(console.error);
     };
     // The client maintains the by-project answer itself, tracking optimistic
     // creates and ontology changes a manual retrieve would race.
@@ -100,10 +116,7 @@ const selection: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
         { parent: project.ontologyID(projectKey) },
         (result) => {
           if (!query.isLive(result)) return repair();
-          applySelection(
-            params,
-            result.map(({ key }) => key),
-          );
+          applyMembership(params, result);
         },
       );
     };
@@ -158,23 +171,38 @@ const windowTitle: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = 
   },
 };
 
-const reconcileTabs = (store: RequiredStore, pan: panel.Panel): void => {
+// The leaves each panel last reconciled against. The client holds one version of a
+// panel document, so the row a closed tab sat in is gone by the time the change
+// arrives; keeping it here is what lets the selection move to the tab beside the
+// closed one rather than to a fixed position.
+type LeafGroups = Map<panel.Key, panel.TabKey[][]>;
+
+const reconcileTabs = (
+  store: RequiredStore,
+  leafGroups: LeafGroups,
+  pan: panel.Panel,
+): void => {
   const win = selectActiveWindow(store.getState());
   if (win == null) return;
   if (win.state.selected !== pan.key && win.state.panels[pan.key] == null) return;
+  const leaves = panel.leafTabGroups(pan.root);
   store.dispatch(
     reconcileSelection({
       windowKey: win.key,
       key: pan.key,
-      leaves: panel.leafTabGroups(pan.root),
+      leaves,
+      previous: leafGroups.get(pan.key),
     }),
   );
+  leafGroups.set(pan.key, leaves);
 };
 
 // Converges the window's tab selections to each referenced panel's live tree.
 // Runs per window off its own cache feed, so the selection and the tree
 // update in the same tick; cross-window echoes of the action are no-ops.
-const tabSelections: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
+const createTabSelections = (
+  leafGroups: LeafGroups,
+): Synchronizer.Callbacks<RequiredStoreState, RequiredAction> => ({
   reconcile: async ({ client, store }) => {
     const win = selectActiveWindow(store.getState());
     if (win == null) return;
@@ -185,27 +213,37 @@ const tabSelections: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> 
       keys: [...keys],
       ignoreNotFoundError: true,
     });
-    panels.forEach((pan) => reconcileTabs(store, pan));
+    panels.forEach((pan) => reconcileTabs(store, leafGroups, pan));
   },
   listen: ({ client, store }) => {
-    const removeOnSet = client.panels.onSet((pan) => reconcileTabs(store, pan));
+    const removeOnSet = client.panels.onSet((pan) =>
+      reconcileTabs(store, leafGroups, pan),
+    );
     // A panel cached before the window first selects it fires no set event, so
     // the selection change itself reconciles against the cached tree.
     const unwatchSelected = Synchronizer.watch(store, selectSelected, (selected) => {
       if (selected == null) return;
       const cached = client.panels.getCached(selected);
       if (!query.isLive(cached)) return;
-      reconcileTabs(store, cached);
+      reconcileTabs(store, leafGroups, cached);
     });
     return () => destructor.unwind(removeOnSet, unwatchSelected);
   },
+});
+
+const useTabSelections = (): Synchronizer.Callbacks<
+  RequiredStoreState,
+  RequiredAction
+> => {
+  const leafGroups = useRef<LeafGroups>(new Map());
+  return createTabSelections(leafGroups.current);
 };
 
 export const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
 > = [
-  { name: "reconcile panel selection", use: () => selection },
+  { name: "reconcile panel order and selection", use: () => membership },
   { name: "sync window title", use: () => windowTitle },
-  { name: "reconcile tab selections", use: () => tabSelections },
+  { name: "reconcile tab selections", use: useTabSelections },
 ];

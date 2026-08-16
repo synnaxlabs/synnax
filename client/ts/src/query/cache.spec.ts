@@ -192,7 +192,7 @@ describe("Cache", () => {
       await cache.close();
     });
 
-    it("silences sets whose value equals the cached row", () => {
+    it("silences sets whose value equals the cached entry", () => {
       const cache = makeEngine();
       const table = cache.createTable<string, Doc>({ name: "docs" });
       const listener = vi.fn();
@@ -311,7 +311,7 @@ describe("Cache", () => {
       cache.listen({ channel: "commands", schema: z.string(), onChange });
       await cache.ensureStreaming();
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
-      expect(onChange).toHaveBeenCalledWith("start");
+      expect(onChange).toHaveBeenCalledWith(["start"]);
       await cache.close();
     });
 

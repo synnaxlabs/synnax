@@ -23,6 +23,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/modbus",
         "//driver/common",
         "//driver/errors",
         "//driver/modbus/device",

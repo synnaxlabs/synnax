@@ -11,16 +11,15 @@ import "@/schematic/node/common/custom/Overrides.css";
 
 import { type schematic } from "@synnaxlabs/client";
 import { caseconv, type color, deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Flux } from "@/flux";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
-import { useRetrieveEffect } from "@/schematic/symbol/queries";
+import { Symbol } from "@/schematic/symbol";
 import { Select } from "@/select";
 import { Text } from "@/text";
 
@@ -162,29 +161,31 @@ export const StateOverrideForm = (): ReactElement => {
   );
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  useRetrieveEffect({
-    query: { key: specKey },
-    addStatusOnFailure: false,
-    onChange: useCallback(
-      (res: Flux.Result<schematic.symbol.Symbol>) => {
-        if (res.data?.data == null) return;
-        const symbolSpec = res.data.data;
-        setOriginalStates(deep.copy(symbolSpec.states));
-        const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
-        if (currentOverrides.value?.length === 0) {
-          form.set("stateOverrides", deep.copy(symbolSpec.states));
-          setSelectedState(symbolSpec.states[0].key);
-        } else {
-          const syncedStates = syncStateOverrides(
-            currentOverrides.value,
-            symbolSpec.states,
-          );
-          form.set("stateOverrides", syncedStates);
-        }
-      },
-      [form],
-    ),
-  });
+  const applySymbol = useCallback(
+    (symbol: schematic.symbol.Symbol) => {
+      if (symbol.data == null) return;
+      const symbolSpec = symbol.data;
+      setOriginalStates(deep.copy(symbolSpec.states));
+      const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
+      if (currentOverrides.value?.length === 0) {
+        form.set("stateOverrides", deep.copy(symbolSpec.states));
+        setSelectedState(symbolSpec.states[0].key);
+      } else {
+        const syncedStates = syncStateOverrides(
+          currentOverrides.value,
+          symbolSpec.states,
+        );
+        form.set("stateOverrides", syncedStates);
+      }
+    },
+    [form],
+  );
+  // A dangling spec key must not throw here: the owner renders a repair form for it.
+  const { symbol } = Symbol.useResolved(specKey);
+  useEffect(() => {
+    if (symbol == null) return;
+    applySymbol(symbol);
+  }, [symbol, applySymbol]);
 
   const resetRegion = useCallback(
     (path: string) => {

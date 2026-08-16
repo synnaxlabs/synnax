@@ -12,22 +12,19 @@ import { Access, Component, type Flux, Icon, Menu, Status } from "@synnaxlabs/pl
 import { useCallback, useMemo } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
-  const q = Status.useRetrieveMultiple({ keys });
+const Internal = ({ keys }: Menu.ContextMenuMenuProps) => {
+  const statuses = Status.useMultiple({ keys });
   const dispatch = Session.useDispatch();
   const favoriteSet = Session.Status.useSelectFavoriteSet();
   const ids = status.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
 
-  const confirm = Tree.useConfirmDelete({
-    type: "Status",
-    description: "This action cannot be undone.",
-  });
+  const confirm = Modals.useConfirmDelete({ type: "Status" });
   const { update: del } = Status.useDelete();
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();
@@ -54,37 +51,37 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     () => keys.some((k) => !favoriteSet.has(k)),
     [favoriteSet, keys],
   );
-  const getCopyText = useCallback(() => {
-    if (q.variant !== "success") return "";
-    return q.data.map((s) => status.toString(s)).join("\n\n");
-  }, [q]);
+  const getCopyText = useCallback(
+    () => statuses.map((s) => status.toString(s)).join("\n\n"),
+    [statuses],
+  );
 
-  if (q.variant !== "success") return null;
-  const statuses = q.data;
   const isEmpty = statuses.length === 0;
   const isSingle = statuses.length === 1;
 
   return (
     <Base.Menu>
+      {hasUpdatePermission && isSingle && (
+        <Base.RenameItem onClick={() => rename.update(statuses[0])} />
+      )}
+      <Menu.Divider />
       <Base.FavoriteItems
         anyFavorited={anyFavorited}
         anyNotFavorited={anyNotFavorited}
         onFavorite={() => dispatch(Session.Status.addFavorites(keys))}
         onUnfavorite={() => dispatch(Session.Status.removeFavorites(keys))}
       />
-      {(anyFavorited || anyNotFavorited) && <Menu.Divider />}
+      <Menu.Divider />
       {!isEmpty && (
-        <>
-          <Menu.CopyItem
-            itemKey="copyDiagnostics"
-            text={getCopyText}
-            successMessage="Copied diagnostics to clipboard"
-          >
-            Copy Diagnostics
-          </Menu.CopyItem>
-          <Menu.Divider />
-        </>
+        <Menu.CopyItem
+          itemKey="copyDiagnostics"
+          text={getCopyText}
+          successMessage="Copied diagnostics to clipboard"
+        >
+          Copy diagnostics
+        </Menu.CopyItem>
       )}
+      <Menu.Divider />
       {hasDeletePermission && !isEmpty && (
         <Base.DeleteItem
           onClick={() => {
@@ -95,11 +92,16 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
           }}
         />
       )}
-      {hasUpdatePermission && isSingle && (
-        <Base.RenameItem onClick={() => rename.update(statuses[0])} />
-      )}
+      <Menu.Divider />
+      <Base.ReloadConsoleItem />
     </Base.Menu>
   );
 };
+
+const ContextMenu = (props: Menu.ContextMenuMenuProps) => (
+  <Errors.SuspenseBoundary loading={null}>
+    <Internal {...props} />
+  </Errors.SuspenseBoundary>
+);
 
 export const contextMenu = Component.renderProp(ContextMenu);

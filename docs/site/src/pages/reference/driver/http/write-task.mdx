@@ -123,13 +123,13 @@ supported:
 
 ```python
 # UUID generator - produces a unique ID per request
-http.GeneratedField(
+http.GeneratedWriteField(
     pointer="/request_id",
     generator="uuid",
 )
 
 # Timestamp generator - produces current time per request
-http.GeneratedField(
+http.GeneratedWriteField(
     pointer="/timestamp",
     generator="timestamp",
     time_format="iso8601",
@@ -257,12 +257,12 @@ task = http.WriteTask(
                 channel=setpoint_cmd.key,
             ),
             fields=[
-                http.StaticField(
+                http.StaticWriteField(
                     pointer="/source",
                     json_type="string",
                     value="synnax",
                 ),
-                http.GeneratedField(
+                http.GeneratedWriteField(
                     pointer="/request_id",
                     generator="uuid",
                 ),

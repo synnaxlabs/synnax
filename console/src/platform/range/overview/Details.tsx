@@ -27,6 +27,7 @@ import { type FC, type ReactElement, useCallback } from "react";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { CSV } from "@/platform/csv";
+import { Errors } from "@/platform/errors";
 import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
@@ -35,13 +36,10 @@ interface ParentRangeButtonProps {
   rangeKey: string;
 }
 
-const ParentRangeButton = ({
-  rangeKey,
-}: ParentRangeButtonProps): ReactElement | null => {
-  const res = Ranger.useRetrieveParent({ id: ranger.ontologyID(rangeKey) });
+const Internal = ({ rangeKey }: ParentRangeButtonProps): ReactElement | null => {
+  const parent = Ranger.useParent({ id: ranger.ontologyID(rangeKey) });
   const openTab = Panel.useOpenTab();
-  if (res.variant !== "success" || res.data == null) return null;
-  const parent = res.data;
+  if (parent == null) return null;
   const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];
   return (
     <Flex.Box x gap="small" align="center">
@@ -49,9 +47,8 @@ const ParentRangeButton = ({
         Child Range of
       </Text.Text>
       <Button.Button
-        color={8}
+        color={9}
         variant="text"
-        weight={400}
         gap="small"
         className={CSS.BE("range-overview", "parent-button")}
         onClick={() =>
@@ -65,12 +62,18 @@ const ParentRangeButton = ({
   );
 };
 
+const ParentRangeButton = (props: ParentRangeButtonProps): ReactElement => (
+  <Errors.SuspenseBoundary loading={null}>
+    <Internal {...props} />
+  </Errors.SuspenseBoundary>
+);
+
 export interface DetailsProps {
   rangeKey: string;
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const { data: range } = Ranger.useRetrieve({ key: rangeKey });
+  const range = Ranger.use({ key: rangeKey });
   const now = TimeStamp.now().nanoseconds;
   const { form, status } = Ranger.useForm({
     query: { key: rangeKey },
@@ -188,7 +191,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             >
               <Icon.Link />
             </Button.Button>
-            {range != null && <FavoriteButton range={range} size="medium" />}
+            <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
@@ -219,7 +222,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             )}
           </Form.Field>
           <Form.Field<string[]> required={false} path="labels">
-            {({ variant: _, ...p }) => (
+            {(p) => (
               <Label.SelectMultiple
                 zIndex={100}
                 variant="floating"

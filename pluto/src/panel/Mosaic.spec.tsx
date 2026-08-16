@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, panel } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -18,7 +18,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Haul } from "@/haul";
@@ -29,6 +29,12 @@ const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client
 // must pick up through the action channel.
 const writer = createTestClient();
+
+// Panel creation requires a parent; every panel here shares one throwaway project.
+let defaultParent: ontology.ID;
+beforeAll(async () => {
+  defaultParent = await createPanelParent(client);
+});
 
 const ROUND_TRIP = { timeout: 5000 };
 
@@ -55,11 +61,16 @@ const selectorTab = (): panel.Tab => ({
 });
 
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
-  const created = await client.panels.create({ name: `mosaic-${uuid.create()}` });
+  const created = await client.panels.create({
+    name: `mosaic-${uuid.create()}`,
+    parent: defaultParent,
+  });
   if (tabs.length > 0)
     await client.panels.dispatch(
       created.key,
-      tabs.map((tab) => panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })),
+      tabs.map((tab) =>
+        panel.insertTabs({ tabs: [tab], targetLeaf: panel.ROOT_NODE_KEY }),
+      ),
     );
   return created;
 };
@@ -86,8 +97,8 @@ const records = new Map<string, Recorded>();
 // scope, records it, and renders the visible content text.
 const ResourceContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
-  const type = Panel.useSelectTabType({});
-  const resource = Panel.useSelectTabResource({});
+  const type = Panel.useTabType({});
+  const resource = Panel.useTabResource({});
   records.set(tabKey, { type, resource, args: null });
   return <div>{`${resource.type}:${resource.key}`}</div>;
 };
@@ -96,8 +107,8 @@ const ResourceContentProbe = (): ReactElement => {
 // them, and renders the visible content text.
 const ViewContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
-  const type = Panel.useSelectTabType({});
-  const args = Panel.useSelectTabArgs({});
+  const type = Panel.useTabType({});
+  const args = Panel.useTabArgs({});
   records.set(tabKey, { type, resource: null, args });
   const text = type === "selector" ? `empty:${tabKey}` : `${type}:${tabKey}`;
   return <div>{text}</div>;
@@ -107,7 +118,7 @@ const ViewContentProbe = (): ReactElement => {
 // selectors, mirroring how production renderers consume the tab scope: only a
 // resource renderer reads the resource, only a view renderer reads the args.
 const TabContentProbe = (): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
+  const variant = Panel.useTabVariant({});
   if (variant === "resource") return <ResourceContentProbe />;
   return <ViewContentProbe />;
 };
@@ -115,7 +126,7 @@ const TabContentProbe = (): ReactElement => {
 // TabNameProbe reads its tab's type from the surrounding tab scope and renders a name,
 // exercising the scope-based name delivery.
 const TabNameProbe = (): ReactElement => {
-  const type = Panel.useSelectTabType({});
+  const type = Panel.useTabType({});
   return <span>{`name:${type}`}</span>;
 };
 
@@ -133,7 +144,7 @@ const children: Panel.MosaicProps["children"] = () => <TabContentProbe />;
 // trips a React 19 dev-mode replay bug for hooks declared after the
 // suspension point.
 const Bootstrap = ({ panelKey }: { panelKey: panel.Key }): ReactElement => {
-  Panel.useEnsureRetrieved({ key: panelKey });
+  Panel.useEnsure({ key: panelKey });
   return <p>loaded</p>;
 };
 
@@ -451,6 +462,51 @@ describe("Panel.Mosaic", () => {
       expect(onSelect).toHaveBeenCalledWith(b.key);
     });
 
+    it("should call onSelect when a selected but unfocused tab is clicked", async () => {
+      const a1 = resourceTab();
+      const a2 = resourceTab();
+      const b1 = resourceTab();
+      const b2 = resourceTab();
+      const p = await splitPanel(a1, a2, b1, b2);
+      const onSelect = vi.fn();
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a1.key, b1.key],
+        onSelect,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a1))).toBeTruthy());
+      expect(isTabSelected(utils, b1.key)).toBe(true);
+      expect(isTabFocused(utils, b1.key)).toBe(false);
+
+      await act(async () => {
+        fireEvent.click(tabEl(utils, b1.key));
+      });
+
+      expect(onSelect).toHaveBeenCalledWith(b1.key);
+    });
+
+    it("should not call onSelect when the focused tab is clicked", async () => {
+      const a1 = resourceTab();
+      const a2 = resourceTab();
+      const b1 = resourceTab();
+      const b2 = resourceTab();
+      const p = await splitPanel(a1, a2, b1, b2);
+      const onSelect = vi.fn();
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a1.key, b1.key],
+        onSelect,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a1))).toBeTruthy());
+      expect(isTabFocused(utils, a1.key)).toBe(true);
+
+      await act(async () => {
+        fireEvent.click(tabEl(utils, a1.key));
+      });
+
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
     it("should remove a tab from the document when its close button is clicked", async () => {
       const a = resourceTab();
       const b = resourceTab();
@@ -511,7 +567,16 @@ describe("Panel.Mosaic", () => {
       return <span>{`extra:${tabKey ?? "none"}`}</span>;
     };
 
-    const extraMenuItems = (): ReactElement => <ExtraMenuProbe />;
+    const contextMenu: Panel.MosaicProps["contextMenu"] = ({ keys }) =>
+      keys.length === 0 ? (
+        <ExtraMenuProbe />
+      ) : (
+        <>
+          <Panel.CloseTabMenuItem />
+          <Panel.SplitTabMenuItems />
+          <ExtraMenuProbe />
+        </>
+      );
 
     const openMenuOn = async (utils: RenderResult, target: HTMLElement) => {
       await act(async () => {
@@ -529,7 +594,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
-        extraMenuItems,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -547,6 +612,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -571,6 +637,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -589,7 +656,7 @@ describe("Panel.Mosaic", () => {
       const a = resourceTab();
       const p = await createPanel(a);
       const tabName = vi.fn(() => <TabKeyNameProbe />);
-      const utils = await renderMosaic({ panelKey: p.key, tabName });
+      const utils = await renderMosaic({ panelKey: p.key, tabName, contextMenu });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await openMenuOn(utils, utils.getByText(`name:${a.key}`));
@@ -603,7 +670,7 @@ describe("Panel.Mosaic", () => {
       const p = await createPanel(a);
       const utils = await renderMosaic({
         panelKey: p.key,
-        extraMenuItems,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -769,7 +836,12 @@ describe("Panel.Mosaic", () => {
         drop(leaves[1]);
       });
 
-      expect(onSelectB).toHaveBeenCalledWith(moved.key);
+      // The tab is selected once it has actually landed, so the source only gives it
+      // up after the insert resolves.
+      await waitFor(
+        () => expect(onSelectB).toHaveBeenCalledWith(moved.key),
+        ROUND_TRIP,
+      );
       await waitFor(async () => {
         const [srcDoc, dstDoc] = await Promise.all([
           client.panels.retrieve(a.key),
@@ -802,6 +874,91 @@ describe("Panel.Mosaic", () => {
         expect(panel.findTab(fetched.root, first.key)).toBeDefined();
         expect(panel.findTab(fetched.root, second.key)).toBeDefined();
       }, ROUND_TRIP);
+    });
+
+    // A drag fires no click, so a tab moved between leaves of one panel reaches its
+    // new leaf unselected unless the drop selects it.
+    it("should select a tab dropped into another leaf of the same panel", async () => {
+      const moved = resourceTab();
+      const stays = resourceTab();
+      const p = await splitPanel(moved, stays, resourceTab(), resourceTab());
+      const onSelect = vi.fn();
+      let utils!: RenderResult;
+      await act(async () => {
+        utils = render(
+          <Haul.Provider>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
+              <Panel.Suspended panelKey={p.key}>
+                <Panel.Mosaic tabName={() => <TabKeyNameProbe />} onSelect={onSelect}>
+                  {children}
+                </Panel.Mosaic>
+              </Panel.Suspended>
+            </Errors.SuspenseBoundary>
+          </Haul.Provider>,
+          { wrapper },
+        );
+      });
+      await waitFor(() => expect(utils.getByText(`name:${moved.key}`)).toBeTruthy());
+
+      const leaves = utils.container.querySelectorAll(".pluto-mosaic__leaf");
+      expect(leaves).toHaveLength(2);
+      await act(async () => {
+        fireEvent.dragStart(utils.getByText(`name:${moved.key}`));
+        drop(leaves[1]);
+      });
+
+      expect(onSelect).toHaveBeenCalledWith(moved.key);
+      await waitFor(async () => {
+        const fetched = await client.panels.retrieve(p.key);
+        expect(panel.leafTabGroups(fetched.root)).toEqual([
+          [stays.key],
+          expect.arrayContaining([moved.key]),
+        ]);
+      }, ROUND_TRIP);
+    });
+
+    // Another client can close the dragged tab before the drop lands. The move is
+    // then a no-op, and naming the tab to a selection handler would name one this
+    // panel no longer holds.
+    it("should not select a dragged tab another client closed mid-drag", async () => {
+      const moved = resourceTab();
+      const stays = resourceTab();
+      const p = await splitPanel(moved, stays, resourceTab(), resourceTab());
+      const onSelect = vi.fn();
+      let utils!: RenderResult;
+      await act(async () => {
+        utils = render(
+          <Haul.Provider>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
+              <Panel.Suspended panelKey={p.key}>
+                <Panel.Mosaic tabName={() => <TabKeyNameProbe />} onSelect={onSelect}>
+                  {children}
+                </Panel.Mosaic>
+              </Panel.Suspended>
+            </Errors.SuspenseBoundary>
+          </Haul.Provider>,
+          { wrapper },
+        );
+      });
+      await waitFor(() => expect(utils.getByText(`name:${moved.key}`)).toBeTruthy());
+
+      const leaves = utils.container.querySelectorAll(".pluto-mosaic__leaf");
+      await act(async () => {
+        fireEvent.dragStart(utils.getByText(`name:${moved.key}`));
+      });
+      await writer.panels.retrieve(p.key);
+      await act(async () => {
+        await writer.panels.dispatch(p.key, [panel.removeTab({ key: moved.key })]);
+      });
+      await waitFor(
+        () => expect(utils.queryByText(`name:${moved.key}`)).toBeNull(),
+        ROUND_TRIP,
+      );
+
+      await act(async () => {
+        drop(leaves[1]);
+      });
+      expect(onSelect).not.toHaveBeenCalled();
     });
   });
 });

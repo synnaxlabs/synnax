@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device } from "@synnaxlabs/client";
+import { channel, type device, http } from "@synnaxlabs/client";
 import { json, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
@@ -78,12 +78,6 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
-export const headerEntryZ = z.object({ name: z.string(), value: z.string() });
-export interface HeaderEntry extends z.infer<typeof headerEntryZ> {}
-
-export const queryParamEntryZ = z.object({ parameter: z.string(), value: z.string() });
-export interface QueryParamEntry extends z.infer<typeof queryParamEntryZ> {}
-
 export const checkDuplicateKeys =
   (keyField: string, label: string) =>
   (ctx: { value: Record<string, unknown>[] | undefined; issues: unknown[] }) => {
@@ -103,24 +97,12 @@ export const checkDuplicateKeys =
     });
   };
 
-const v0HeadersZ = z.record(z.string(), z.string());
-const v1HeadersZ = z.array(headerEntryZ);
-export const headersZ: z.ZodType<HeaderEntry[]> = v1HeadersZ
-  .or(
-    v0HeadersZ.transform((rec) =>
-      Object.entries(rec).map(([name, value]) => ({ name, value })),
-    ),
-  )
+export const headersZ = http.headerZ
+  .array()
   .check(checkDuplicateKeys("name", "header"));
 
-const v0QueryParamsZ = z.record(z.string(), z.string());
-const v1QueryParamsZ = z.array(queryParamEntryZ);
-export const queryParamsZ: z.ZodType<QueryParamEntry[]> = v1QueryParamsZ
-  .or(
-    v0QueryParamsZ.transform((rec) =>
-      Object.entries(rec).map(([parameter, value]) => ({ parameter, value })),
-    ),
-  )
+export const queryParamsZ = http.queryParamZ
+  .array()
   .check(checkDuplicateKeys("parameter", "query parameter"));
 
 const sharedHealthCheckZ = z.object({

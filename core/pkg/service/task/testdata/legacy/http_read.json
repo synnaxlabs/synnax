@@ -1,0 +1,67 @@
+{
+  "type": "http_read",
+  "autoStart": true,
+  "device": "fixture-http-device",
+  "dataSaving": false,
+  "rate": 2.5,
+  "endpoints": [
+    {
+      "key": "ep-read-get",
+      "method": "GET",
+      "path": "/api/v1/fixtureTelemetry",
+      "headers": {
+        "Content-Type": "application/json",
+        "xApiKey": "fixture-api-key-123"
+      },
+      "queryParams": { "siteId": "fixture-site-7", "verbose": "true" },
+      "index": "fixture_http_time_index",
+      "fields": [
+        {
+          "enabled": true,
+          "key": "fld-ts",
+          "channel": 10010,
+          "name": "fixture_http_timestamp",
+          "pointer": "/data/timestamp",
+          "dataType": "timestamp",
+          "timestampFormat": "unix_ms"
+        },
+        {
+          "enabled": true,
+          "key": "fld-mode",
+          "channel": 10020,
+          "name": "fixture_http_mode",
+          "pointer": "/data/modeLabel",
+          "dataType": "uint8",
+          "enumValues": { "idle": 1, "running": 2, "faulted": 3 }
+        },
+        {
+          "enabled": false,
+          "key": "fld-press",
+          "channel": 10030,
+          "name": "fixture_http_pressure",
+          "pointer": "/data/pressurePsi",
+          "dataType": "float32"
+        }
+      ]
+    },
+    {
+      "key": "ep-read-post",
+      "method": "POST",
+      "path": "/api/v1/fixtureQuery",
+      "body": "{\"deviceId\": \"fixture-42\"}",
+      "headers": { "xRequestSource": "fixture" },
+      "queryParams": { "limitCount": "25" },
+      "index": null,
+      "fields": [
+        {
+          "enabled": true,
+          "key": "fld-temp",
+          "channel": 10040,
+          "name": "fixture_http_temperature",
+          "pointer": "/results/0/tempC",
+          "dataType": "float64"
+        }
+      ]
+    }
+  ]
+}

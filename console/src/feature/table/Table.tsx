@@ -31,6 +31,7 @@ const Internal: Panel.Content = () => {
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
   const selected = Session.Table.useSelectSelectedCellKeys();
+  const centered = Session.Table.useSelectCentered();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = Session.useDispatch();
@@ -55,17 +56,14 @@ const Internal: Panel.Content = () => {
     [dispatch, key],
   );
 
+  const handleCenteredChange = useCallback(
+    (next: boolean) => dispatch(Session.Table.setCentered({ key, centered: next })),
+    [dispatch, key],
+  );
+
   const handleDoubleClick = useCallback(() => {
     if (canEdit) dispatch(Session.Nav.showBottom({}));
   }, [canEdit, dispatch]);
-
-  const modals = Session.Modals.useStore("Table");
-  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
-
-  const enableTriggers = useCallback(
-    () => !modals.isAnyOpen() && getTabIsFocused(),
-    [getTabIsFocused, modals],
-  );
 
   // When editing, indicators always show; the hideIndicators setting only
   // takes effect outside edit mode.
@@ -76,12 +74,13 @@ const Internal: Panel.Content = () => {
       <Base.Table
         selected={selected}
         onSelectionChange={handleSelectionChange}
-        enableTriggers={enableTriggers}
         editable={canEdit}
         visible={visible}
         onEditableChange={hasUpdatePermission ? handleEditableChange : undefined}
         showIndicators={showIndicators}
         onShowIndicatorsChange={handleShowIndicatorsChange}
+        centered={centered}
+        onCenteredChange={handleCenteredChange}
         onDoubleClick={handleDoubleClick}
         extraMenuItems={<ContextMenu.ReloadConsoleItem />}
       />
@@ -90,10 +89,11 @@ const Internal: Panel.Content = () => {
   );
 };
 
-const TableControls = (): ReactElement | null => {
+const TableControls = (): ReactElement => {
   const key = Base.useKey();
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
+  const centered = Session.Table.useSelectCentered();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const dispatch = Session.useDispatch();
   const handleEdit = useCallback(
@@ -104,13 +104,25 @@ const TableControls = (): ReactElement | null => {
     () => dispatch(Session.Table.setHideIndicators({ key })),
     [dispatch, key],
   );
+  const handleToggleCentered = useCallback(
+    () => dispatch(Session.Table.setCentered({ key })),
+    [dispatch, key],
+  );
   const canEdit = hasUpdatePermission && editable;
   // Hide-indicators only matters outside edit mode; the toggle is irrelevant
   // while editing because indicators are forced visible.
   const showHideToggle = !canEdit;
-  if (!hasUpdatePermission && !showHideToggle) return null;
   return (
     <Vis.Controls x>
+      <Button.Toggle
+        value={centered}
+        onChange={handleToggleCentered}
+        size="small"
+        tooltipLocation={location.BOTTOM_LEFT}
+        tooltip={centered ? "Align table to top left" : "Center table"}
+      >
+        {centered ? <Icon.Align.BoxCenter /> : <Icon.Align.BoxTopLeft />}
+      </Button.Toggle>
       {showHideToggle && (
         <Button.Toggle
           value={hideIndicators}
@@ -138,7 +150,7 @@ const TableControls = (): ReactElement | null => {
 };
 
 export const Table: Panel.Content = () => {
-  const { key } = PPanel.useSelectTabResource();
+  const { key } = PPanel.useTabResource();
   return (
     <Base.Suspended tableKey={key}>
       <Internal />

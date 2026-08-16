@@ -11,7 +11,7 @@ import "@/feature/rack/tree.css";
 
 import { arc, rack, task } from "@synnaxlabs/client";
 import { Access, Icon, List, Menu, Rack, Text, Tree as PTree } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Arc } from "@/feature/arc";
 import { NI } from "@/feature/ni";
@@ -34,8 +34,7 @@ const useRename = Tree.createUseRename({
 
 const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const res = Rack.useRetrieve({ key: Number(resource.id.key) });
-  const status = res.data?.status;
+  const status = Rack.useResult({ key: Number(resource.id.key) }).data?.status;
 
   return (
     <PTree.Item {...rest}>
@@ -44,7 +43,7 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
         id={List.itemNameID(itemKey)}
         allowDoubleClick={false}
         value={resource.name}
-        overflow="ellipsis"
+        overflow="fade"
         className={CSS.B("rack-tree-name")}
         grow
         onChange
@@ -59,6 +58,23 @@ const useDelete = Tree.createUseDelete({
   query: Rack.useDelete,
   convertKey: Number,
 });
+
+interface NIScannerItemProps {
+  rackKey: rack.Key;
+}
+
+const NIScannerItem = ({ rackKey }: NIScannerItemProps): ReactElement | null => {
+  Rack.useEnsure({ key: rackKey });
+  const integrations = Rack.useIntegrations({ key: rackKey });
+  const toggleScanner = NI.Task.useToggleScanner(rackKey);
+  if (!integrations.includes(NI_INTEGRATION_NAME)) return null;
+  return (
+    <Menu.Item itemKey="toggleNIScanner" onClick={toggleScanner}>
+      <Icon.Logo.NI />
+      Toggle NI Device Scanner
+    </Menu.Item>
+  );
+};
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
@@ -80,48 +96,35 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const create = Arc.useCreate();
   const isSingle = ids.length === 1;
   const rackKey = Number(ids[0]?.key ?? 0);
-  const rackRes = Rack.useRetrieve({ key: rackKey });
-  const hasNIIntegration =
-    rackRes.data?.integrations.includes(NI_INTEGRATION_NAME) ?? false;
-  const toggleNIScanner = NI.Task.useToggleScanner(rackKey);
   const handleCreate = useCallback(() => create(), [create]);
   return (
     <ContextMenu.Menu>
+      {hasUpdatePermission && isSingle && <ContextMenu.RenameItem onClick={rename} />}
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
           rootID={rootID}
           shape={shape}
-          showBottomDivider
           onClick={() => group(props)}
         />
       )}
+      <Menu.Divider />
       {hasUpdatePermission && isSingle && (
         <>
-          <ContextMenu.RenameItem onClick={rename} />
           {hasArcCreatePermission && (
             <Menu.Item itemKey="createArc" onClick={handleCreate}>
               <CreateArcIcon />
               Create Arc automation
             </Menu.Item>
           )}
-          {hasTaskUpdatePermission && hasNIIntegration && (
-            <Menu.Item itemKey="toggleNIScanner" onClick={toggleNIScanner}>
-              <Icon.Logo.NI />
-              Toggle NI Device Scanner
-            </Menu.Item>
-          )}
-          <Menu.Divider />
+          {hasTaskUpdatePermission && <NIScannerItem rackKey={rackKey} />}
         </>
       )}
+      <Menu.Divider />
+      {isSingle && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      <Menu.Divider />
       {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
-      {isSingle && (
-        <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
-        </>
-      )}
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type PayloadAction } from "@reduxjs/toolkit";
 import { describe, expect, it } from "vitest";
 
 import {
+  assignLabel,
   createWindow,
+  type CreateWindowPayload,
   reducer,
   restoreWindows,
   runtimeSetWindowProps,
@@ -78,6 +81,35 @@ describe("createWindow", () => {
     s = reducer(s, createWindow({ key: "a", label: "lx", prerenderLabel: "px" }));
     expect(s.nextOrdinal).toEqual(before);
     expect(s.windows.la.ordinal).toEqual(2);
+  });
+});
+
+describe("assignLabel", () => {
+  const labels = (a: PayloadAction<CreateWindowPayload>): (string | undefined)[] => [
+    a.payload.label,
+    a.payload.prerenderLabel,
+  ];
+
+  // Any window may open another one, and the one that dispatches is the one that
+  // names it. Waiting for the main window to do the naming left the dispatching
+  // window applying a create the reducer rejects.
+  it("should mint labels for a create dispatched outside the main window", () => {
+    const a = assignLabel(createWindow({ key: "a" }), {
+      ...ZERO_SLICE_STATE,
+      label: "secondary",
+    });
+    expect(labels(a)).not.toContain(undefined);
+  });
+
+  it("should keep the labels an emitted create already carries", () => {
+    const a = assignLabel(
+      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+      {
+        ...ZERO_SLICE_STATE,
+        label: MAIN_WINDOW,
+      },
+    );
+    expect(labels(a)).toEqual(["la", "pa"]);
   });
 });
 

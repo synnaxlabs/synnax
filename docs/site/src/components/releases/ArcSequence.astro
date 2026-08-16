@@ -11,6 +11,8 @@
 import Code from "astro/components/Code.astro";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 
+import { theme } from "@/util/shiki";
+
 const code = `sequence startup {
     1 -> press_vlv
     pressure > 500
@@ -23,5 +25,5 @@ const code = `sequence startup {
 ---
 
 <div class="arc-sequence-thumbnail">
-    <Code code={code} lang={arcGrammar} theme="css-variables" />
+    <Code code={code} lang={arcGrammar} theme={theme} />
 </div>

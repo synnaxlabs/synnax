@@ -62,17 +62,19 @@ const ContextMenu = <C extends Channel>({
     const allChannels = get<C[]>(path).value;
     onDuplicate?.(allChannels, keys);
   };
-  const handleDisable = () =>
-    keys.forEach((key) => set(`${path}.${key}.enabled`, false));
-  const handleEnable = () => keys.forEach((key) => set(`${path}.${key}.enabled`, true));
+  const isEnabled = (c: C) => !c.disabled;
+  const setEnabled = (key: string, enabled: boolean) =>
+    set(`${path}.${key}.disabled`, !enabled);
+  const handleDisable = () => keys.forEach((key) => setEnabled(key, false));
+  const handleEnable = () => keys.forEach((key) => setEnabled(key, true));
   const handleTare = useCallback(
     () => onTare?.(keys, channels),
     [onTare, keys, channels],
   );
   const canDuplicate = onDuplicate != null && keys.length > 0;
   const canRemove = keys.length > 0;
-  const canDisable = channels.some(({ enabled }) => enabled);
-  const canEnable = channels.some(({ enabled }) => !enabled);
+  const canDisable = channels.some(isEnabled);
+  const canEnable = channels.some((c) => !isEnabled(c));
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
     <PlatformContextMenu.Menu>
@@ -84,36 +86,34 @@ const ContextMenu = <C extends Channel>({
               Duplicate
             </Menu.Item>
           )}
-          {canRemove && (
-            <Menu.Item itemKey="remove" onClick={handleRemove}>
-              <Icon.Close />
-              Remove
-            </Menu.Item>
-          )}
-          {(canDuplicate || canRemove) && <Menu.Divider />}
+          <Menu.Divider />
           {contextMenuItems?.({ channels, keys }) ?? null}
-          {canDisable && (
-            <Menu.Item itemKey="disable" onClick={handleDisable}>
-              <Icon.Disable />
-              Disable
-            </Menu.Item>
-          )}
           {canEnable && (
             <Menu.Item itemKey="enable" onClick={handleEnable}>
               <Icon.Enable />
               Enable
             </Menu.Item>
           )}
-          {(canDisable || canEnable) && <Menu.Divider />}
-          {canTare && (
-            <>
-              <Menu.Item itemKey="tare" onClick={handleTare}>
-                <Icon.Tare />
-                Tare
-              </Menu.Item>
-              <Menu.Divider />
-            </>
+          {canDisable && (
+            <Menu.Item itemKey="disable" onClick={handleDisable}>
+              <Icon.Disable />
+              Disable
+            </Menu.Item>
           )}
+          {canTare && (
+            <Menu.Item itemKey="tare" onClick={handleTare}>
+              <Icon.Tare />
+              Tare
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {canRemove && (
+            <Menu.Item itemKey="remove" onClick={handleRemove}>
+              <Icon.Close />
+              Remove
+            </Menu.Item>
+          )}
+          <Menu.Divider />
         </>
       )}
       <PlatformContextMenu.ReloadConsoleItem />

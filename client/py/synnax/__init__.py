@@ -9,7 +9,17 @@
 
 from importlib.metadata import version as _version
 
-from synnax import ethercat, http, labjack, modbus, ni, node, opcua, pagerduty, status
+from synnax import (
+    ethercat,
+    http,
+    labjack,
+    modbus,
+    ni,
+    node,
+    opcua,
+    pagerduty,
+    status,
+)
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (

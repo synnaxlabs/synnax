@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  NotFoundError,
-  type project,
-  query,
-  type Synnax as Client,
-  type table,
-} from "@synnaxlabs/client";
+import { type project, type table } from "@synnaxlabs/client";
 import { compare, id, uuid, verbs, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
@@ -30,95 +24,54 @@ const RESOURCE_NAME = "table";
 
 export type RetrieveQuery = table.RetrieveSingleParams;
 
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved, useTombstone } =
-  Flux.createRetrieve<RetrieveQuery, table.Table>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.tables.retrieve(query),
-    subscribe: ({ client, query }, handler) => client.tables.onChange(query, handler),
-    getCached: ({ client, query }) => client.tables.getCached(query),
-  });
+export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
+  RetrieveQuery,
+  table.Table
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.tables.retrieve(query),
+  onChange: ({ client, query }, handler) => client.tables.onChange(query, handler),
+  getCached: ({ client, query }) => client.tables.getCached(query),
+  awaitCreation: true,
+});
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: table.Key;
 }
 
-const requireTable = (client: Client | null, key: table.Key): table.Table => {
-  const cached = client?.tables.getCached(key);
-  if (cached == null) throw new NotFoundError(`Table with key ${key} not found`);
-  if (query.Deleted.matches(cached))
-    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
-  return cached;
-};
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
-const getTable = (client: Client | null, key: table.Key): table.Table | undefined => {
-  const cached = client?.tables.getCached(key);
-  if (!query.isLive(cached)) return undefined;
-  return cached;
-};
+export const useRows = Scope.bindHook(createSelector(({ rows }) => rows));
 
-const subscribe = (
-  { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
-  notify: () => void,
-) => (client == null ? () => {} : client.tables.onChange(key, notify));
+export const useColumns = Scope.bindHook(createSelector(({ columns }) => columns));
 
-export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, string>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireTable(client, key).name,
-  }),
-);
-
-export const [useSelectRows, useGetRows] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, table.Row[]>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireTable(client, key).rows,
-  }),
-);
-
-export const [useSelectColumns, useGetColumns] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, table.Column[]>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireTable(client, key).columns,
-  }),
-);
-
-export interface SelectCellParams {
-  key: table.Key;
+export interface CellParams extends KeyParams {
   cellKey: string;
 }
 
-export const [useSelectCell, useGetCell] = Scope.bindSelector(
-  Flux.createSelector<SelectCellParams, Cell.Config | undefined>({
-    subscribe,
-    select: ({ client, args: { key, cellKey } }) =>
-      getTable(client, key)?.cells?.[cellKey] as Cell.Config | undefined,
-  }),
+export const useCell = Scope.bindHook(
+  createSelector<Cell.Config | undefined, CellParams>(
+    ({ cells }, { cellKey }) => cells?.[cellKey] as Cell.Config | undefined,
+  ),
 );
 
-export interface SelectCellsParams {
-  key: table.Key;
+export interface CellsParams extends KeyParams {
   cellKeys: string[];
 }
 
-// useSelectCells returns a Map<cellKey, Cell.Config> for the given cellKeys,
+// useCells returns a Map<cellKey, Cell.Config> for the given cellKeys,
 // omitting keys that don't resolve to a cell. The map preserves
 // caller-provided key order; consumers that need positional iteration should
 // iterate cellKeys and look up via the map.
-export const [useSelectCells, useGetCells] = Scope.bindSelector(
-  Flux.createSelector<SelectCellsParams, Map<string, Cell.Config>>({
-    subscribe,
-    select: ({ client, args: { key, cellKeys } }) => {
-      const result = new Map<string, Cell.Config>();
-      const t = getTable(client, key);
-      if (t == null || cellKeys.length === 0) return result;
-      for (const cellKey of cellKeys) {
-        const cell = t.cells?.[cellKey] as Cell.Config | undefined;
-        if (cell != null) result.set(cellKey, cell);
-      }
-      return result;
-    },
-    equal: compare.mapsEqual,
-  }),
+export const useCells = Scope.bindHook(
+  createSelector<Map<string, Cell.Config>, CellsParams>(({ cells }, { cellKeys }) => {
+    const result = new Map<string, Cell.Config>();
+    for (const cellKey of cellKeys) {
+      const cell = cells?.[cellKey] as Cell.Config | undefined;
+      if (cell != null) result.set(cellKey, cell);
+    }
+    return result;
+  }, compare.mapsEqual),
 );
 
 export type DeleteParams = table.Key | table.Key[];
@@ -273,8 +226,8 @@ export const cellsInRegion = (
 };
 
 export const useCellPosition = Scope.bindHook(
-  ({ key, cellKey }: SelectCellParams): xy.XY | null => {
-    const rows = useSelectRows({ key });
+  ({ key, cellKey }: CellParams): xy.XY | null => {
+    const rows = useRows({ key });
     return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
   },
 );

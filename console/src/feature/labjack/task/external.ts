@@ -8,31 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { Read, ReadSelectable } from "@/feature/labjack/task/Read";
-import {
-  READ_SCHEMAS,
-  READ_TYPE,
-  WRITE_SCHEMAS,
-  WRITE_TYPE,
-} from "@/feature/labjack/task/types";
+import { READ_TYPE, WRITE_TYPE } from "@/feature/labjack/task/types";
 import { Write, WriteSelectable } from "@/feature/labjack/task/Write";
-import { type Import } from "@/platform/import";
-import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
-import { Task } from "@/platform/task";
+import { type Task } from "@/platform/task";
 
 export * from "@/feature/labjack/task/commands";
 export * from "@/feature/labjack/task/Read";
-export * from "@/feature/labjack/task/SelectInputChannelTypeField";
-export * from "@/feature/labjack/task/SelectOutputChannelType";
+export * from "@/feature/labjack/task/SelectReadChannelTypeField";
+export * from "@/feature/labjack/task/SelectWriteChannelType";
 export * from "@/feature/labjack/task/types";
 export * from "@/feature/labjack/task/Write";
 
-export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_TYPE),
-  [WRITE_TYPE]: Task.createIngester(WRITE_SCHEMAS.config, WRITE_TYPE),
-};
-
-export const TABS: Panel.Tabs = {
+export const FORMS: Task.Forms = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
 };

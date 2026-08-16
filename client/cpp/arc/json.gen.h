@@ -11,10 +11,12 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include "client/cpp/arc/types.gen.h"
 #include "client/cpp/status/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "arc/cpp/graph/json.gen.h"
@@ -37,7 +39,7 @@ inline x::json::json StatusDetails::to_json() const {
 
 inline Arc Arc::parse(x::json::Parser parser) {
     return Arc{
-        .key = parser.field<Key>("key"),
+        .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .mode = parser.field<std::string>("mode"),
         .graph = parser.field<::arc::graph::Graph>("graph"),
@@ -56,6 +58,33 @@ inline x::json::json Arc::to_json() const {
     j["text"] = this->text.to_json();
     if (this->program.has_value()) j["program"] = this->program->to_json();
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    return j;
+}
+
+inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
+    TaskConfig result;
+    static_cast<::synnax::task::config::BasePersist &>(
+        result
+    ) = ::synnax::task::config::BasePersist::parse(parser);
+    result.arc_key = parser.field<Key>("arc_key");
+    result.hash = parser.field<std::string>("hash", "");
+    result.execution_mode = parser.field<std::string>("execution_mode", "AUTO");
+    result.rt_priority = parser.field<std::int32_t>("rt_priority", 47);
+    result.cpu_affinity = parser.field<std::int32_t>("cpu_affinity", -1);
+    result.lock_memory = parser.field<bool>("lock_memory", false);
+    return result;
+}
+
+inline x::json::json TaskConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
+        j[k] = v;
+    j["arc_key"] = this->arc_key.to_json();
+    j["hash"] = this->hash;
+    j["execution_mode"] = this->execution_mode;
+    j["rt_priority"] = this->rt_priority;
+    j["cpu_affinity"] = this->cpu_affinity;
+    j["lock_memory"] = this->lock_memory;
     return j;
 }
 

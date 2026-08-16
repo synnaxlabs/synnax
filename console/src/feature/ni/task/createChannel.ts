@@ -14,14 +14,14 @@ import {
   type AnalogChannel,
   type AOChannel,
   type CIChannel,
+  createAIChannel,
+  createAOChannel,
+  createCIChannel,
+  createDIChannel,
+  createDOChannel,
   type DIChannel,
   type DigitalChannel,
   type DOChannel,
-  ZERO_AI_CHANNEL,
-  ZERO_AO_CHANNEL,
-  ZERO_CI_CHANNEL,
-  ZERO_DI_CHANNEL,
-  ZERO_DO_CHANNEL,
 } from "@/feature/ni/task/types";
 import { Task } from "@/platform/task";
 
@@ -33,11 +33,11 @@ const createDigitalChannel = <C extends DigitalChannel>(
   return { ...zeroChannel, key: id.create(), line };
 };
 
-export const createDIChannel = (channels: DIChannel[]): DIChannel =>
-  createDigitalChannel<DIChannel>(channels, ZERO_DI_CHANNEL);
+export const createNextDIChannel = (channels: DIChannel[]): DIChannel =>
+  createDigitalChannel<DIChannel>(channels, createDIChannel());
 
-export const createDOChannel = (channels: DOChannel[]): DOChannel =>
-  createDigitalChannel<DOChannel>(channels, ZERO_DO_CHANNEL);
+export const createNextDOChannel = (channels: DOChannel[]): DOChannel =>
+  createDigitalChannel<DOChannel>(channels, createDOChannel());
 
 const createAnalogChannel = <C extends AnalogChannel>(
   channels: C[],
@@ -60,11 +60,11 @@ const createAnalogChannel = <C extends AnalogChannel>(
   return { ...template, key, port, ...override };
 };
 
-export const createAIChannel = (channels: AIChannel[], key?: string): AIChannel =>
-  createAnalogChannel(channels, ZERO_AI_CHANNEL, Task.READ_CHANNEL_OVERRIDE, key);
+export const createNextAIChannel = (channels: AIChannel[], key?: string): AIChannel =>
+  createAnalogChannel(channels, createAIChannel(), Task.READ_CHANNEL_OVERRIDE, key);
 
-export const createAOChannel = (channels: AOChannel[], key?: string): AOChannel =>
-  createAnalogChannel(channels, ZERO_AO_CHANNEL, Task.WRITE_CHANNEL_OVERRIDE, key);
+export const createNextAOChannel = (channels: AOChannel[], key?: string): AOChannel =>
+  createAnalogChannel(channels, createAOChannel(), Task.WRITE_CHANNEL_OVERRIDE, key);
 
 const createCounterChannel = <C extends CIChannel>(
   channels: C[],
@@ -87,5 +87,5 @@ const createCounterChannel = <C extends CIChannel>(
   return { ...template, key, port, ...override };
 };
 
-export const createCIChannel = (channels: CIChannel[], key?: string): CIChannel =>
-  createCounterChannel(channels, ZERO_CI_CHANNEL, Task.READ_CHANNEL_OVERRIDE, key);
+export const createNextCIChannel = (channels: CIChannel[], key?: string): CIChannel =>
+  createCounterChannel(channels, createCIChannel(), Task.READ_CHANNEL_OVERRIDE, key);

@@ -16,8 +16,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
@@ -110,7 +112,7 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 var _ = Describe("Index", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = gorp.Wrap(memkv.New())
+		idxDB = OpenGorpMsgpackDB()
 	})
 	AfterEach(func() {
 		Expect(idxDB.Close()).To(Succeed())
@@ -903,6 +905,7 @@ var _ = Describe("Index", func() {
 		BeforeEach(func(ctx SpecContext) {
 			noopDB = gorp.Wrap(
 				memkv.New(),
+				gorp.WithCodec(msgpack.Codec),
 				gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
 			)
 			nameIdx = gorp.NewLookupIndex(
@@ -1012,7 +1015,7 @@ var _ = Describe("Index", func() {
 var _ = Describe("Composite-string-keyed Lookup", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = gorp.Wrap(memkv.New())
+		idxDB = OpenGorpMsgpackDB()
 	})
 	AfterEach(func() {
 		Expect(idxDB.Close()).To(Succeed())
@@ -1246,7 +1249,7 @@ var _ = Describe("Async populate", func() {
 		var idxDB *gorp.DB
 		BeforeEach(func() {
 			mem := DeferClose(memkv.New())
-			idxDB = gorp.Wrap(mem)
+			idxDB = gorp.Wrap(mem, gorp.WithCodec(msgpack.Codec))
 		})
 
 		It("Should return nil for a table with no indexes", func(ctx SpecContext) {
@@ -1293,7 +1296,10 @@ var _ = Describe("Async populate", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			mem := DeferClose(memkv.New())
-			db = gorp.Wrap(&failOnceDB{DB: mem, err: errors.New("populate boom")})
+			db = gorp.Wrap(
+				&failOnceDB{DB: mem, err: errors.New("populate boom")},
+				gorp.WithCodec(msgpack.Codec),
+			)
 			seed := []indexedEntry{
 				{ID: 1, Name: "alpha"},
 				{ID: 2, Name: "beta"},

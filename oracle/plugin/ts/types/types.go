@@ -24,11 +24,11 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
@@ -553,7 +553,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			}
 			if toString {
 				zodType = fmt.Sprintf(
-					"%s.or(z.number().transform(String).or(z.bigint().transform(String)))",
+					"z.union([%s, z.number(), z.bigint()]).transform(String)",
 					zodType,
 				)
 			}
@@ -603,7 +603,10 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			)
 		}
 		if toString {
-			zodType = fmt.Sprintf("%s.or(z.number().transform(String))", zodType)
+			zodType = fmt.Sprintf(
+				"z.union([%s, z.number()]).transform(String)",
+				zodType,
+			)
 		}
 		return typeDefData{
 			Name:    td.Name,
@@ -2501,6 +2504,9 @@ func (p *Plugin) typeRefToZodSchemaType(
 	case resolution.DistinctForm:
 		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 
+	case resolution.AliasForm:
+		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+
 	case resolution.UnionForm:
 		// A union schema's inferred type depends on every variant schema, so a
 		// `typeof xZ` annotation in a getter would re-enter the inference cycle the
@@ -2731,6 +2737,21 @@ func (p *Plugin) applyValidation(
 					zodType,
 					p.enumVariantToTS(ev, data),
 				)
+			}
+			if uv, ok := validation.ResolveUnionVariant(
+				defaultVal.IdentValue,
+				typeRef,
+				table,
+			); ok {
+				// .prefault re-parses the discriminator literal, so the variant's own
+				// field defaults fill in rather than being demanded of the caller.
+				zodType = fmt.Sprintf(
+					"%s.prefault({ %s: %q })",
+					zodType,
+					fieldCamel(uv.Union.Discriminator),
+					uv.Variant.Name,
+				)
+				isPrefault = true
 			}
 		case resolution.ValueKindArray:
 			zodType = fmt.Sprintf(
@@ -3488,7 +3509,13 @@ export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .Pare
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}
 {{- end }}
+{{- if .IsSelfRef }}
+  get {{ .TSName }}(): {{ .ZodSchemaType }} {
+    return {{ .ZodType }};
+  },
+{{- else }}
   {{ .TSName }}: {{ .ZodType }},
+{{- end }}
 {{- end }}
 });
 {{- if $.GenerateTypes }}

@@ -36,7 +36,7 @@ describe("ParentRangeButton", () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const tsk = await rack.createTask({
         name: uniqueName("tsk"),
-        type: "test_type",
+        type: "opc_read",
         config: {},
       });
       const range = await client.ranges.create({

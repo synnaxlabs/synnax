@@ -30,6 +30,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids },
     state,
   } = props;
+  const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
@@ -38,23 +39,15 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   return (
     <ContextMenu.Menu>
       {singleResource && !hasInternal && (
-        <>
-          <ContextMenu.RenameItem onClick={handleRename} />
-          <Menu.Divider />
-        </>
+        <ContextMenu.RenameItem onClick={handleRename} />
       )}
-      {!hasInternal && (
-        <>
-          <ContextMenu.DeleteItem onClick={handleDelete} />
-          <Menu.Divider />
-        </>
+      <Menu.Divider />
+      {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      <Menu.Divider />
+      {hasDeletePermission && !hasInternal && (
+        <ContextMenu.DeleteItem onClick={handleDelete} />
       )}
-      {singleResource && (
-        <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

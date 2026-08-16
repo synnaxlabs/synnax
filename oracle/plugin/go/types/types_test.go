@@ -1175,6 +1175,115 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
+				"Should keep embedding when a field restates only a default",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Parent struct {
+					port string = "BASE"
+					name string = ""
+				}
+
+				Child struct extends Parent {
+					port  string = "AIN0"
+					range float64 = 10
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					// The embedded parent already declares Port. Declaring it again
+					// would shadow it with a duplicate json tag, so the override
+					// contributes a default fill alone. The child's fill must run
+					// before the parent recursion, or the parent would win.
+					content := MustContentOf(resp, "types.gen.go")
+					Expect(content).To(ContainSubstring(
+						"type Child struct {\n\tParent\n\tRange float64",
+					))
+					Expect(content).To(ContainSubstring(
+						"func (c *Child) ApplyDefaults() {\n" +
+							"\tif c.Port == \"\" {\n\t\tc.Port = \"AIN0\"\n\t}\n" +
+							"\tif c.Range == 0 {\n\t\tc.Range = 10\n\t}\n" +
+							"\tc.Parent.ApplyDefaults()\n}",
+					))
+					Expect(content).NotTo(MatchRegexp(`Child struct \{[^}]*Port`))
+				},
+			)
+
+			It(
+				"Should keep embedding for a typeless default override",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Parent struct {
+					rate float64 = 10
+				}
+
+				Child struct extends Parent {
+					rate = 50
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					content := MustContentOf(resp, "types.gen.go")
+					Expect(content).To(ContainSubstring(
+						"type Child struct {\n\tParent\n}",
+					))
+					Expect(content).To(ContainSubstring(
+						"\tif c.Rate == 0 {\n\t\tc.Rate = 50\n\t}",
+					))
+				},
+			)
+
+			It(
+				"Should flatten when a field restates an inherited type",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Parent struct {
+					port string = ""
+					name string = ""
+				}
+
+				Child struct extends Parent {
+					port int32 = 4
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					// Go cannot restate an embedded field's type, so Child flattens
+					// and declares one Port of the child's type.
+					ExpectContent(resp, "types.gen.go").
+						ToContain(
+							"type Child struct {\n",
+							"Port int32 `json:\"port\"",
+							"Name string `json:\"name\"",
+						).
+						ToNotContain("type Child struct {\n\tParent\n")
+				},
+			)
+
+			It(
+				"Should flatten when a field restates inherited optionality",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Parent struct {
+					port string = ""
+				}
+
+				Child struct extends Parent {
+					port string?
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("Port *string `json:\"port,omitempty\"").
+						ToNotContain("type Child struct {\n\tParent\n")
+				},
+			)
+
+			It(
 				"Should generate cross-namespace struct embedding with import",
 				func(ctx SpecContext) {
 					loader.Add("schemas/parent.oracle", `
@@ -2369,14 +2478,14 @@ var _ = Describe("Go Types Plugin", func() {
 					source := `
 					@go output "out"
 
-					LinearScale struct {
+					LinearParams struct {
 					    @go version 2
 						slope float64
 					}
 
 					Scale union on type {
 					    @go version 2
-						linear LinearScale
+						linear LinearParams
 					}
 
 					Entry struct {
@@ -2393,8 +2502,8 @@ var _ = Describe("Go Types Plugin", func() {
 							"type Scale = versions.Scale",
 							"type ScaleVariant = versions.ScaleVariant",
 							"type ScaleType = versions.ScaleType",
-							"type ScaleLinear = versions.ScaleLinear",
-							"ScaleTypeLinear ScaleType = versions.ScaleTypeLinear",
+							"type LinearScale = versions.LinearScale",
+							"LinearScaleType ScaleType = versions.LinearScaleType",
 						)
 				},
 			)
@@ -2510,20 +2619,20 @@ var _ = Describe("Go Union Generation", func() {
 			source := `
 			@go output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					`type ScaleType string`,
-					`ScaleTypeLinear ScaleType = "linear"`,
-					`ScaleTypeNone ScaleType = "none"`,
+					`LinearScaleType ScaleType = "linear"`,
+					`NoneScaleType ScaleType = "none"`,
 				)
 		},
 	)
@@ -2534,12 +2643,12 @@ var _ = Describe("Go Union Generation", func() {
 			source := `
 			@go output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
@@ -2547,11 +2656,11 @@ var _ = Describe("Go Union Generation", func() {
 				ToContain(
 					`type ScaleVariant interface {`,
 					`isScaleVariant()`,
-					`type ScaleLinear struct {`,
-					`LinearScale`,
-					`func (ScaleLinear) isScaleVariant() {}`,
-					`type ScaleNone struct {`,
-					`func (ScaleNone) isScaleVariant() {}`,
+					`type LinearScale struct {`,
+					`LinearParams`,
+					`func (LinearScale) isScaleVariant() {}`,
+					`type NoneScale struct {`,
+					`func (NoneScale) isScaleVariant() {}`,
 					`type Scale struct {`,
 					`Variant ScaleVariant`,
 				)
@@ -2564,25 +2673,25 @@ var _ = Describe("Go Union Generation", func() {
 			source := `
 			@go output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					`func (u Scale) MarshalJSON() ([]byte, error) {`,
-					`case ScaleLinear:`,
-					`t = ScaleTypeLinear`,
+					`case LinearScale:`,
+					`t = LinearScaleType`,
 					`fields["type"] = tag`,
 					`func (u *Scale) UnmarshalJSON(data []byte) error {`,
 					`Type ScaleType `+"`"+`json:"type"`+"`",
-					`case ScaleTypeLinear:`,
-					`var v ScaleLinear`,
+					`case LinearScaleType:`,
+					`var v LinearScale`,
 					`u.Variant = v`,
 				)
 		},
@@ -2615,6 +2724,40 @@ var _ = Describe("Go Union Generation", func() {
 					`type AIChannel struct {`,
 					`Variant AIChannelVariant`,
 				)
+		},
+	)
+
+	It(
+		"Should not redeclare a variant field that restates a union base default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseInputChannel struct {
+				port string = ""
+			}
+
+			InputChannel union on type extends BaseInputChannel {
+				AI { port string = "AIN0" }
+				DI { port string = "DIO4" }
+			}
+		`
+			resp := MustGenerate(ctx, source, "labjack", loader, goPlugin)
+			// The union's base contributes Port to every variant, so restating it
+			// in a variant must change the fill alone.
+			content := MustContentOf(resp, "types.gen.go")
+			Expect(content).To(ContainSubstring(
+				"type AIInputChannel struct {\n\tBaseInputChannel\n}",
+			))
+			Expect(content).To(ContainSubstring(
+				"func (a *AIInputChannel) ApplyDefaults() {\n" +
+					"\tif a.Port == \"\" {\n\t\ta.Port = \"AIN0\"\n\t}\n}",
+			))
+			Expect(content).To(ContainSubstring(
+				"func (d *DIInputChannel) ApplyDefaults() {\n" +
+					"\tif d.Port == \"\" {\n\t\td.Port = \"DIO4\"\n\t}\n}",
+			))
+			Expect(content).NotTo(MatchRegexp(`AIInputChannel struct \{[^}]*Port`))
 		},
 	)
 
@@ -2657,12 +2800,12 @@ var _ = Describe("Go Union Generation", func() {
 			source := `
 			@go output "out"
 
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			Channel struct {
@@ -2703,16 +2846,16 @@ var _ = Describe("Go Union Generation", func() {
 				port int32
 				enabled bool
 			}
-			LinearScale struct { slope float64 }
-			NoneScale struct {}
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
 			VoltageFields struct {
 				minVal float64
 				customScale Scale
 			}
 
 			Scale union on type {
-				linear LinearScale
-				none NoneScale
+				linear LinearParams
+				none NoneParams
 			}
 
 			AIChannel union on type extends BaseAIChan {
@@ -2752,14 +2895,14 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 	source := `
 		@go output "out"
 
-		LinearScale struct { slope float64 }
-		NoneScale struct {}
+		LinearParams struct { slope float64 }
+		NoneParams struct {}
 
 		Scale union on type {
-			linear LinearScale {
+			linear LinearParams {
 				@doc value "a linear scale."
 			}
-			none NoneScale
+			none NoneParams
 		}
 
 		Channel struct {
@@ -2772,7 +2915,7 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 		func(ctx SpecContext) {
 			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
-				ToContain("// ScaleLinear a linear scale.", "type ScaleLinear struct {")
+				ToContain("// LinearScale a linear scale.", "type LinearScale struct {")
 		},
 	)
 
@@ -2792,25 +2935,25 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 
 type rtScaleType string
 
-const rtScaleTypeLinear rtScaleType = "linear"
+const rtLinearScaleType rtScaleType = "linear"
 
 type rtScaleVariant interface{ isRtScaleVariant() }
 
-type rtLinearScale struct {
+type rtLinearParams struct {
 	Slope float64 `json:"slope"`
 }
 
-type rtScaleLinear struct{ rtLinearScale }
+type rtLinearScale struct{ rtLinearParams }
 
-func (rtScaleLinear) isRtScaleVariant() {}
+func (rtLinearScale) isRtScaleVariant() {}
 
 type rtScale struct{ Variant rtScaleVariant }
 
 func (u rtScale) MarshalJSON() ([]byte, error) {
 	var t rtScaleType
 	switch u.Variant.(type) {
-	case rtScaleLinear:
-		t = rtScaleTypeLinear
+	case rtLinearScale:
+		t = rtLinearScaleType
 	default:
 		return nil, gotesterrors.Newf("rtScale: unknown variant %T", u.Variant)
 	}
@@ -2838,8 +2981,8 @@ func (u *rtScale) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	switch disc.Type {
-	case rtScaleTypeLinear:
-		var v rtScaleLinear
+	case rtLinearScaleType:
+		var v rtLinearScale
 		if err := gojson.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -2903,7 +3046,7 @@ var _ = Describe("Union codec round trip", func() {
 			rtBase: rtBase{Port: 7},
 			rtVoltage: rtVoltage{
 				MinVal: -10,
-				Scale:  rtScale{Variant: rtScaleLinear{rtLinearScale{Slope: 1.5}}},
+				Scale:  rtScale{Variant: rtLinearScale{rtLinearParams{Slope: 1.5}}},
 			},
 		}}
 		data := MustSucceed(gojson.Marshal(in))
@@ -2920,7 +3063,7 @@ var _ = Describe("Union codec round trip", func() {
 		got := out.Variant.(rtChanV)
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
-		Expect(got.Scale.Variant.(rtScaleLinear).Slope).To(Equal(1.5))
+		Expect(got.Scale.Variant.(rtLinearScale).Slope).To(Equal(1.5))
 	})
 })
 

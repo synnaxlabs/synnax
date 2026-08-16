@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { color, primitive, type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { primitive, type text } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Color } from "@/color";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
@@ -20,28 +19,31 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
+import { Status } from "@/status";
+import { Synnax } from "@/synnax";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 
 const TelemForm = (): ReactElement => {
   const { set } = Base.useContext();
   const { value, onChange } = Base.useField<telem.StringSourceSpec>("telem");
   const source = telem.streamChannelValuePropsZ.parse(value?.props);
-  const { retrieve } = Channel.useRetrieveObservable({
-    onChange: useCallback(
-      ({ data }) => data != null && set("tooltip", [data.name]),
-      [set],
-    ),
-  });
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
-    if (primitive.isNonZero(key)) retrieve({ key });
+    if (primitive.isNonZero(key) && client != null)
+      handleError(async () => {
+        const { name } = await client.channels.retrieve({ key });
+        set("tooltip", [name]);
+      }, "Failed to retrieve channel");
     onChange(telem.streamChannelStringValue({ channel: key ?? 0 }));
   };
   if (typeof source.channel != "number")
     throw new Error("Must pass in a channel by key to the String Display form");
   return (
     <>
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle
           value={source.channel}
           onChange={handleSourceChange}
@@ -50,25 +52,7 @@ const TelemForm = (): ReactElement => {
         />
       </Input.Item>
       <Flex.Box x>
-        <Base.Field<color.Crude>
-          hideIfNull
-          label="Stale color"
-          align="start"
-          path="stalenessColor"
-        >
-          {({ value, onChange }) => (
-            <Color.Swatch
-              value={value ?? color.setAlpha(color.ZERO, 1)}
-              onChange={onChange}
-              bordered
-            />
-          )}
-        </Base.Field>
-        <Base.NumericField
-          path="stalenessTimeout"
-          label="Stale timeout"
-          inputProps={{ bounds: { lower: 1, upper: Infinity }, endContent: "s" }}
-        />
+        <Staleness.Fields />
       </Flex.Box>
     </>
   );

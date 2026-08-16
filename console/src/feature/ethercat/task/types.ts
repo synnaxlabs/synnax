@@ -7,142 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type task, UnexpectedError } from "@synnaxlabs/client";
+import { channel, ethercat, type task, UnexpectedError } from "@synnaxlabs/client";
 import { caseconv, id } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
 
-const baseChannelZ = Task.channelZ.extend({
-  device: z.string(),
-  name: Task.nameZ,
-});
+export type ReadChannel = ethercat.ReadChannel;
 
-const automaticChannelZ = baseChannelZ.extend({
-  type: z.literal("automatic"),
-  pdo: z.string(),
-});
+export const READ_CHANNEL_SCHEMAS = ethercat.READ_CHANNEL_SCHEMAS;
 
-const manualChannelZ = baseChannelZ.extend({
-  type: z.literal("manual"),
-  index: z.number(),
-  subindex: z.number(),
-  bitLength: z.number(),
-  dataType: z.string(),
-});
+export type WriteChannel = ethercat.WriteChannel;
 
-export const READ_TYPE = `${PREFIX}_read`;
+export const WRITE_CHANNEL_SCHEMAS = ethercat.WRITE_CHANNEL_SCHEMAS;
 
-const inputChannelExtensionShape = { channel: channel.keyZ } as const;
-
-const inputChannelZ = z.discriminatedUnion("type", [
-  automaticChannelZ.extend(inputChannelExtensionShape),
-  manualChannelZ.extend(inputChannelExtensionShape),
-]);
-
-export type InputChannel = z.infer<typeof inputChannelZ>;
-
-const ZERO_AUTOMATIC_INPUT_CHANNEL = {
-  type: "automatic",
-  device: "",
-  pdo: "",
-  channel: 0,
-  enabled: true,
-  key: "",
-  name: "",
-} as const satisfies InputChannel;
-
-const ZERO_MANUAL_INPUT_CHANNEL = {
-  type: "manual",
-  device: "",
-  index: 0,
-  subindex: 0,
-  bitLength: 16,
-  dataType: "uint16",
-  channel: 0,
-  enabled: true,
-  key: "",
-  name: "",
-} as const satisfies InputChannel;
-
-export const ZERO_INPUT_CHANNELS = {
-  automatic: ZERO_AUTOMATIC_INPUT_CHANNEL,
-  manual: ZERO_MANUAL_INPUT_CHANNEL,
-} as const satisfies Record<ChannelMode, InputChannel>;
-
-const outputChannelExtensionShape = {
-  cmdChannel: channel.keyZ,
-  stateChannel: channel.keyZ,
-  cmdChannelName: Task.nameZ,
-  stateChannelName: Task.nameZ,
-} as const;
-
-const outputChannelZ = z.union([
-  automaticChannelZ.extend(outputChannelExtensionShape),
-  manualChannelZ.extend(outputChannelExtensionShape),
-]);
-
-export type OutputChannel = z.infer<typeof outputChannelZ>;
-
-const ZERO_AUTOMATIC_OUTPUT_CHANNEL = {
-  type: "automatic",
-  device: "",
-  pdo: "",
-  cmdChannel: 0,
-  stateChannel: 0,
-  cmdChannelName: "",
-  stateChannelName: "",
-  enabled: true,
-  key: "",
-  name: "",
-} as const satisfies OutputChannel;
-
-const ZERO_MANUAL_OUTPUT_CHANNEL = {
-  type: "manual",
-  device: "",
-  index: 0,
-  subindex: 0,
-  bitLength: 16,
-  dataType: "uint16",
-  cmdChannel: 0,
-  stateChannel: 0,
-  cmdChannelName: "",
-  stateChannelName: "",
-  enabled: true,
-  key: "",
-  name: "",
-} as const satisfies OutputChannel;
-
-export const ZERO_OUTPUT_CHANNELS = {
-  automatic: ZERO_AUTOMATIC_OUTPUT_CHANNEL,
-  manual: ZERO_MANUAL_OUTPUT_CHANNEL,
-} as const satisfies Record<ChannelMode, OutputChannel>;
-
-export type Channel = InputChannel | OutputChannel;
+export type Channel = ReadChannel | WriteChannel;
 
 export type ChannelMode = Channel["type"];
 
-const readConfigZ = Task.baseReadConfigZ
-  .omit({ device: true })
+export type ChannelSchemas = typeof READ_CHANNEL_SCHEMAS | typeof WRITE_CHANNEL_SCHEMAS;
+
+export const READ_TYPE = `${PREFIX}_read`;
+
+export const readConfigZ = ethercat.readConfigZ;
+
+export const deployReadConfigZ = ethercat.readConfigZ
   .extend({
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
-    channels: z.array(inputChannelZ),
   })
   .check(Task.validateStreamRate);
-
-interface ReadConfig extends z.infer<typeof readConfigZ> {}
-
-const ZERO_READ_CONFIG = {
-  autoStart: false,
-  dataSaving: true,
-  sampleRate: 1000,
-  streamRate: 25,
-  channels: [],
-} as const satisfies ReadConfig;
 
 const readStatusDataZ = z
   .object({
@@ -163,31 +60,14 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
-export const ZERO_READ_PAYLOAD = {
-  key: "",
-  name: "EtherCAT Read Task",
-  config: ZERO_READ_CONFIG,
-  type: "ethercat_read",
-  internal: false,
-  snapshot: false,
-} as const satisfies ReadPayload;
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeConfigZ = Task.baseConfigZ.omit({ device: true }).extend({
+export const writeConfigZ = ethercat.writeConfigZ;
+
+export const deployWriteConfigZ = ethercat.writeConfigZ.extend({
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
-  channels: z.array(outputChannelZ),
 });
-
-interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-const ZERO_WRITE_CONFIG = {
-  autoStart: false,
-  stateRate: 25,
-  executionRate: 1000,
-  channels: [],
-} as const satisfies WriteConfig;
 
 const writeStatusDataZ = z
   .object({
@@ -208,33 +88,30 @@ export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
 
-export const ZERO_WRITE_PAYLOAD = {
-  key: "",
-  name: "EtherCAT Write Task",
-  config: ZERO_WRITE_CONFIG,
-  type: "ethercat_write",
-  internal: false,
-  snapshot: false,
-} as const satisfies WritePayload;
-
 /** Generates a unique map key for a channel configuration within a slave. */
 export const channelMapKey = (ch: Channel): string => {
   if (ch.type === "automatic") return `auto_${ch.pdo}`;
-  return `manual_${ch.index}_${ch.subindex}`;
+  return `manual_${ch.index}_${ch.subIndex}`;
 };
 
-/** Creates a new input channel, copying from the last channel if available. */
-export const createInputChannel = (channels: InputChannel[]): InputChannel => {
+/** Creates a new read channel, copying from the last channel if available. */
+export const createReadChannel = (channels: ReadChannel[]): ReadChannel => {
   if (channels.length === 0)
-    return { ...ZERO_AUTOMATIC_INPUT_CHANNEL, key: id.create() };
+    return {
+      ...READ_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
+      key: id.create(),
+    };
   const last = channels[channels.length - 1];
   return { ...last, ...Task.READ_CHANNEL_OVERRIDE, key: id.create() };
 };
 
-/** Creates a new output channel, copying from the last channel if available. */
-export const createOutputChannel = (channels: OutputChannel[]): OutputChannel => {
+/** Creates a new write channel, copying from the last channel if available. */
+export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
   if (channels.length === 0)
-    return { ...ZERO_AUTOMATIC_OUTPUT_CHANNEL, key: id.create() };
+    return {
+      ...WRITE_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
+      key: id.create(),
+    };
   const last = channels[channels.length - 1];
   return {
     ...last,
@@ -271,10 +148,10 @@ export const resolvePDODataType = (
 export const getPortLabel = (ch: Channel): string =>
   ch.type === "automatic"
     ? ch.pdo || "No PDO"
-    : `0x${ch.index.toString(16).padStart(4, "0")}:${ch.subindex}`;
+    : `0x${ch.index.toString(16).padStart(4, "0")}:${ch.subIndex}`;
 
 /** Generates a safe name for a PDO channel. */
 export const getPDOName = (ch: Channel): string =>
   channel.escapeInvalidName(
-    ch.type === "automatic" ? ch.pdo : `0x${ch.index.toString(16)}_${ch.subindex}`,
+    ch.type === "automatic" ? ch.pdo : `0x${ch.index.toString(16)}_${ch.subIndex}`,
   );

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, project } from "@synnaxlabs/client";
+import { ontology, project, query, type Synnax } from "@synnaxlabs/client";
 import { array, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -20,22 +20,25 @@ export type RetrieveQuery = {
   key: project.Key;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, project.Project>({
+export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
   getCached: ({ client, query }) => client.projects.getCached(query),
 });
 
-export type ListParams = Pick<project.RetrieveRequest, "keys" | "offset" | "limit">;
+export type ListParams = Pick<
+  project.RetrieveRequest,
+  "keys" | "offset" | "limit" | "searchTerm"
+>;
 
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.projects.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
   getCached: ({ client, query }) => client.projects.getCached(query),
-  subscribeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
+  onChangeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
 });
 
 export type DeleteParams = project.Key | project.Key[];
@@ -69,7 +72,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export type RetrieveGroupQuery = Record<string, never>;
 
-export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
+export const { use: useGroupID } = Flux.createRetrieve<
   RetrieveGroupQuery,
   ontology.ID | undefined
 >({
@@ -87,13 +90,14 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   layout: {},
 };
 
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
+export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
-    reset(await client.projects.retrieve(key));
+  retrieve: async ({ client, query: { key } }) => await client.projects.retrieve(key),
+  getCached: ({ client, query: { key } }) => {
+    const cached = client.projects.getCached(key);
+    return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());
@@ -132,13 +136,16 @@ const collectChildren = async (
     ids: parentID,
     types: [...types, "group"],
   });
-  const results: record.KeyedNamed[] = [];
-  for (const child of children)
-    if (types.includes(child.id.type) && child.id.key !== exclude)
-      results.push({ key: child.id.key, name: child.name });
-    else if (child.id.type === "group")
-      results.push(...(await collectChildren(client, child.id, types, exclude)));
-  return results;
+  const results = await Promise.all(
+    children.map(async (child): Promise<record.KeyedNamed[]> => {
+      if (types.includes(child.id.type) && child.id.key !== exclude)
+        return [{ key: child.id.key, name: child.name }];
+      if (child.id.type === "group")
+        return await collectChildren(client, child.id, types, exclude);
+      return [];
+    }),
+  );
+  return results.flat();
 };
 
 const findProjectAncestor = async (
@@ -153,20 +160,17 @@ const findProjectAncestor = async (
   return null;
 };
 
-const retrieveChildrenImpl = async ({
-  client,
-  query: { resourceID, types },
-}: Flux.RetrieveParams<RetrieveChildrenQuery>): Promise<record.KeyedNamed[]> => {
+/**
+ * Retrieves the sibling resources sharing the queried resource's project,
+ * excluding the resource itself. Returns an empty list when the resource has no
+ * project ancestor.
+ */
+export const retrieveChildren = async (
+  client: Synnax,
+  { resourceID, types }: RetrieveChildrenQuery,
+): Promise<record.KeyedNamed[]> => {
   if (resourceID == null) return [];
   const projectID = await findProjectAncestor(client, resourceID);
   if (projectID == null) return [];
   return await collectChildren(client, projectID, types, resourceID.key);
 };
-
-export const { useRetrieve: useRetrieveChildren } = Flux.createRetrieve<
-  RetrieveChildrenQuery,
-  record.KeyedNamed[]
->({
-  name: "project children",
-  retrieve: retrieveChildrenImpl,
-});

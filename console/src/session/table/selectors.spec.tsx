@@ -23,6 +23,7 @@ const customState = Table.stateZ.parse({
   selectedCells: ["a", "b"],
   lastSelected: "b",
   hideIndicators: true,
+  centered: true,
 });
 
 const storeWith = (slice: Table.SliceState) =>
@@ -90,6 +91,13 @@ describe("table selector hooks", () => {
 
   it("should return the hide indicators flag", () => {
     const { result } = renderHook(() => Table.useSelectHideIndicators(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe(true);
+  });
+
+  it("should return the centered flag", () => {
+    const { result } = renderHook(() => Table.useSelectCentered(), {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toBe(true);

@@ -227,13 +227,13 @@ task = ethercat.WriteTask(
     state_rate=20,       # Update state at 20 Hz
     data_saving=True,
     channels=[
-        ethercat.AutomaticOutputChan(
+        ethercat.AutomaticWriteChannel(
             device=dev.key,
             pdo="control_word",
             cmd_channel=control_cmd.key,
             state_channel=control_state.key,
         ),
-        ethercat.AutomaticOutputChan(
+        ethercat.AutomaticWriteChannel(
             device=dev.key,
             pdo="target_position",
             cmd_channel=target_pos_cmd.key,
@@ -316,7 +316,7 @@ task = ethercat.WriteTask(
     state_rate=20,
     data_saving=True,
     channels=[
-        ethercat.ManualOutputChan(
+        ethercat.ManualWriteChannel(
             device=dev.key,
             index=0x6040,      # Control word (CiA 402)
             sub_index=0,

@@ -14,7 +14,13 @@ import { describe, expect, it, vi } from "vitest";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
-import { getIconButton, queryIcon, queryIconButton } from "@/testutil";
+import {
+  getIconButton,
+  getToggleButton,
+  isToggled,
+  queryIcon,
+  queryIconButton,
+} from "@/testutil";
 
 // The channel item renders inside its real Select/List context by being handed to the
 // layouts List as its listItem render prop.
@@ -37,7 +43,7 @@ const renderItem = (
         />
       ))}
     />,
-    { values: { config: { channels: [{ key: "a", enabled: true }] } } },
+    { values: { config: { channels: [{ key: "a", disabled: false }] } } },
   );
 
 describe("layouts.ListAndDetailsChannelItem", () => {
@@ -63,18 +69,20 @@ describe("layouts.ListAndDetailsChannelItem", () => {
     expect(queryIcon(container, "tare")).toBeNull();
   });
 
-  it("should toggle the channel's enabled flag in the form", async () => {
+  it("should toggle the channel's disabled flag in the form", async () => {
     const { container, form } = await renderItem({ hasTareButton: false });
-    await waitFor(() => expect(queryIconButton(container, "circle")).toBeTruthy());
-    const toggle = getIconButton(container, "circle");
+    const toggle = await waitFor(() => getToggleButton(container));
+    expect(isToggled(toggle)).toBe(true);
     fireEvent.click(toggle);
     await waitFor(() =>
-      expect(form.current?.get("config.channels.a.enabled").value).toBe(false),
+      expect(form.current?.get("config.channels.a.disabled").value).toBe(true),
     );
+    expect(isToggled(getToggleButton(container))).toBe(false);
     fireEvent.click(toggle);
     await waitFor(() =>
-      expect(form.current?.get("config.channels.a.enabled").value).toBe(true),
+      expect(form.current?.get("config.channels.a.disabled").value).toBe(false),
     );
+    expect(isToggled(getToggleButton(container))).toBe(true);
   });
 
   it("should render command and state names when a state channel is present", async () => {

@@ -59,7 +59,7 @@ public:
 TEST(TestCommonReadTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -94,11 +94,48 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
 }
 
+/// @brief a start on a running task should ack the command without reopening
+/// the source.
+TEST(TestCommonReadTask, testStartWhileRunningAcks) {
+    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
+    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    auto mock_source = std::make_unique<MockSource>(reads);
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(mock_source),
+        mock_writer_factory
+    );
+    ASSERT_TRUE(read_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_EQ(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
+    ASSERT_FALSE(read_task.start("start_cmd_2"));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    auto ack_state = ctx->statuses[1];
+    EXPECT_EQ(ack_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(ack_state.details.cmd, "start_cmd_2");
+    EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ack_state.message, "Task started successfully");
+    EXPECT_EQ(ack_state.details.running, true);
+    // The live source was not closed and reopened.
+    EXPECT_EQ(mock_writer_factory->writer_opens.load(std::memory_order_acquire), 1);
+    read_task.stop("stop_cmd", true);
+}
+
 /// @brief it should report error status when source fails to start.
 TEST(TestCommonReadTask, testErrorOnStart) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -130,7 +167,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
 TEST(TestCommonReadTask, testErrorOnStop) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -172,7 +209,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
 TEST(TestCommonReadTask, testMultiStartStop) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
 
@@ -242,7 +279,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 TEST(TestCommonReadTask, testReadError) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -298,7 +335,7 @@ TEST(TestCommonReadTask, testReadError) {
 TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -361,7 +398,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
 TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -440,10 +477,11 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 }
 
 /// @brief it should report warning status on temporary hardware error and recover.
+/// Neither the warning nor the recovery answers the start, so neither claims its key.
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -472,14 +510,14 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     auto warning_state = ctx->statuses[1];
     EXPECT_EQ(warning_state.key, synnax::task::status_key(t));
-    EXPECT_EQ(warning_state.details.cmd, "start_cmd");
+    EXPECT_EQ(warning_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(warning_state.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(warning_state.message, errors::TEMPORARY_HARDWARE_ERROR.message());
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     auto recovered_state = ctx->statuses[2];
     EXPECT_EQ(recovered_state.key, synnax::task::status_key(t));
-    EXPECT_EQ(recovered_state.details.cmd, "start_cmd");
+    EXPECT_EQ(recovered_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(recovered_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(recovered_state.message, "Task running");
 
@@ -496,7 +534,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
 /// @brief it should parse valid base read task configuration.
 TEST(BaseReadTaskConfigTest, testValidConfig) {
     const x::json::json j{
-        {"data_saving", true},
+        {"data_saving_disabled", true},
         {"sample_rate", 100.0},
         {"stream_rate", 50.0}
     };
@@ -504,19 +542,19 @@ TEST(BaseReadTaskConfigTest, testValidConfig) {
     auto p = x::json::Parser(j);
     const auto cfg = BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
-    EXPECT_TRUE(cfg.data_saving);
+    EXPECT_TRUE(cfg.data_saving_disabled);
     EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));
 }
 
-/// @brief it should default data_saving to true when not specified.
+/// @brief it should default data_saving_disabled to false when not specified.
 TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
     const x::json::json j{{"sample_rate", 100.0}, {"stream_rate", 50.0}};
 
     auto p = x::json::Parser(j);
     const auto cfg = BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
-    EXPECT_TRUE(cfg.data_saving);
+    EXPECT_FALSE(cfg.data_saving_disabled);
     EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));
 }
@@ -532,22 +570,26 @@ TEST(BaseReadTaskConfigTest, testEqualRates) {
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(100.0));
 }
 
-/// @brief it should return validation error when sample_rate is missing.
+/// @brief it should fall back to the schema default when sample_rate is missing.
 TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
-    const x::json::json j{{"stream_rate", 50.0}};
+    const x::json::json j{{"stream_rate", 5.0}};
 
     auto p = x::json::Parser(j);
-    [[maybe_unused]] auto _ = BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
+    const auto cfg = BaseReadTaskConfig(p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(cfg.sample_rate, x::telem::Rate(10));
+    EXPECT_EQ(cfg.stream_rate, x::telem::Rate(5));
 }
 
-/// @brief it should return validation error when stream_rate is missing.
+/// @brief it should fall back to the schema default when stream_rate is missing.
 TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
     const x::json::json j{{"sample_rate", 100.0}};
 
     auto p = x::json::Parser(j);
-    [[maybe_unused]] auto _ = BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
+    const auto cfg = BaseReadTaskConfig(p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100));
+    EXPECT_EQ(cfg.stream_rate, x::telem::Rate(5));
 }
 
 /// @brief it should return validation error for negative sample_rate.
@@ -581,7 +623,7 @@ TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
 TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
     const x::json::json j{
         {"sample_rate", 100.0},
-        {"data_saving", true}
+        {"data_saving_disabled", true}
         // No stream_rate provided
     };
 
@@ -589,7 +631,7 @@ TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
     const auto cfg = BaseReadTaskConfig(p, TimingConfig(), false);
     ASSERT_NIL(p.error());
     EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
-    EXPECT_TRUE(cfg.data_saving);
+    EXPECT_TRUE(cfg.data_saving_disabled);
 }
 
 /// @brief it should transfer buffer data to frame for single channel.

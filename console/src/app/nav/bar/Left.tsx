@@ -13,6 +13,7 @@ import { type ReactElement, useCallback } from "react";
 import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Palette } from "@/app/palette";
 import { Toolbars } from "@/app/toolbars";
+import { Project } from "@/feature/project";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Session } from "@/session";
 
@@ -69,14 +70,19 @@ const LeftMenu = () => {
 };
 
 export const Left = (): ReactElement => (
-  <PlatformNav.Bar location="left" size="8rem">
-    <Nav.Bar.Start bordered align="center">
-      <Palette.Palette />
+  <PlatformNav.Bar
+    location="left"
+    size="var(--console-left-bar-size)"
+    data-tauri-drag-region
+  >
+    <Nav.Bar.Start bordered align="center" data-tauri-drag-region>
+      <Project.Selector />
     </Nav.Bar.Start>
-    <Nav.Bar.Content align="center">
+    <Nav.Bar.Content align="center" data-tauri-drag-region>
+      <Palette.Palette />
       <LeftMenu />
     </Nav.Bar.Content>
-    <Nav.Bar.End bordered>
+    <Nav.Bar.End bordered data-tauri-drag-region>
       <BottomMenu />
     </Nav.Bar.End>
   </PlatformNav.Bar>

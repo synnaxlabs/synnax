@@ -88,18 +88,17 @@ tsk = sy.labjack.WriteTask(
     name="LabJack Py - Write Task",
     device=dev.key,
     state_rate=sy.Rate.HZ * 20,  # Update state at 20 Hz
-    data_saving=True,
     channels=[
         # Analog output (DAC0) - voltage control
-        sy.labjack.OutputChan(
-            type="AO",
+        sy.labjack.AnalogWriteChannel(
+            type="analog",
             port="DAC0",
             cmd_channel=dac0_cmd.key,
             state_channel=dac0_state.key,
         ),
         # Digital output (FIO4) - binary control
-        sy.labjack.OutputChan(
-            type="DO",
+        sy.labjack.DigitalWriteChannel(
+            type="digital",
             port="FIO4",
             cmd_channel=fio4_cmd.key,
             state_channel=fio4_state.key,

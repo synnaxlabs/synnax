@@ -9,14 +9,133 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A sticky box stops at its containing block's content edge, so a shadow, not the
+   box, covers the strip's end padding. A wider box would add scrollable width. */
+.pluto-panel-mosaic__cap {
+    --surface: var(--pluto-gray-l0);
+    --spill: 1rem;
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    flex-shrink: 0;
+    align-self: stretch;
+    background: var(--surface);
+    box-shadow: var(--spill) 0 0 var(--spill) var(--surface);
+
+    &::before {
+        content: "";
+        position: absolute;
+        right: 100%;
+        inset-block: calc(-1 * var(--spill));
+        width: 3rem;
+        background: linear-gradient(to right, transparent, var(--surface));
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.1s ease-out;
+    }
+}
+
+/* The fade is inactive while the tabs fit. */
+.pluto-tabs__selector--scrollable .pluto-panel-mosaic__cap::before {
+    opacity: 1;
+}
+
+/* Anchored on the frame, outside the scrollport, so it hugs the strip's true left
+   edge instead of pinning inside its padding. Height matches the strip's min-height
+   set below. */
+.pluto-mosaic__leaf > .pluto-tabs::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 5rem;
+    width: 3rem;
+    background: linear-gradient(to right, var(--pluto-gray-l0), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s ease-out;
+    z-index: 2;
+}
+
+/* Shows only while tabs are hidden past the start. */
+.pluto-mosaic__leaf > .pluto-tabs:has(> .pluto-tabs__selector--clipped-start)::before {
+    opacity: 1;
+}
+
+.pluto-panel-mosaic__create {
+    border-radius: var(--pluto-border-radius-small);
+
+    &.pluto-btn.pluto--square > .pluto-icon {
+        width: round(2.25rem, 1px);
+        height: round(2.25rem, 1px);
+    }
+}
+
+/* Built from l11, the frame's focus-glow tone, so chip and frame read as one light.
+   The repeated variant classes outrank the text variant's own fill vars. */
+.pluto-btn.pluto-btn--text.pluto-panel-mosaic__overlaid-exit {
+    border-radius: var(--pluto-border-radius-small);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l11-30);
+    color: var(--pluto-gray-l11);
+    --pluto-bg: var(--pluto-gray-l11-10);
+    --pluto-hover-bg: var(--pluto-gray-l11-15);
+    --pluto-active-bg: var(--pluto-gray-l11-20);
+}
+
+.pluto-panel-mosaic__overlaid-exit {
+    align-self: flex-end;
+    margin-bottom: calc((var(--pluto-tabs-tab-height) - var(--pluto-height)) / 2);
+}
+
 .pluto-panel-mosaic__portal-out {
     width: 100%;
     height: 100%;
     position: relative;
 }
 
-/* Single-child pass-through: block spares WebKit a level of per-frame flex
-   re-measurement while a pane or drawer resizes. */
-.pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__content {
+/* Spares WebKit a level of per-frame flex re-measurement while a pane resizes. */
+.pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__content,
+.pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__content {
     display: block;
+}
+
+/* No bottom divider, so chips sit flush with the content edge. A selected pane's tab
+   reads a step quieter than the focused tab, which re-points its own color. */
+.pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector--default.pluto--direction-x,
+.pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
+    /* The strip's fade mask would also fade the sticky cap at the masked edge; the
+       cap and start-fade gradients carry the overflow fades here instead. */
+    mask-image: none;
+    min-height: 5rem;
+    --pluto-tabs-tab-height: round(4.3333rem, 1px);
+    --pluto-tabs-tab-align: flex-end;
+    --pluto-tabs-selected-text-color: var(--pluto-gray-l10);
+    /* Unselected tabs shrink-wrap their content and compress to a sliver before
+       the strip scrolls; the selected tab holds its full content and never pads
+       past it. */
+    --pluto-tabs-selected-min-width: min-content;
+    --pluto-tabs-tab-min-width: 11rem;
+}
+
+.pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
+    --pluto-selected-subtle-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-subtle-hover-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-subtle-active-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-subtle-border-color: var(--pluto-gray-l11-30);
+    --pluto-selected-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-hover-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-active-bg: var(--pluto-gray-l11-10);
+    --pluto-selected-border-color: var(--pluto-gray-l11-30);
+}
+
+.pluto-panel-mosaic__overlaid-leaf
+    .pluto-tabs__selector
+    > .pluto-tabs__tab.pluto--selected {
+    --pluto-tabs-selected-text-color: var(--pluto-gray-l11);
+    &.pluto--alt-color {
+        --pluto-tabs-selected-text-color: var(--pluto-gray-l11);
+        > .pluto-icon {
+            color: var(--pluto-gray-l11);
+        }
+    }
 }

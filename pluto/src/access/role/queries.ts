@@ -21,10 +21,10 @@ export type RetrieveQuery = {
   key: string;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
+export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.access.roles.onChange(query, handler),
   getCached: ({ client, query }) => client.access.roles.getCached(query),
 });
@@ -35,9 +35,9 @@ export const useList = Flux.createList<ListQuery, access.role.Key, access.role.R
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.access.roles.retrieve(key),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.access.roles.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) =>
+  onChangeByKey: ({ client, key }, handler) =>
     client.access.roles.onChange(key, handler),
   getCached: ({ client, query }) => client.access.roles.getCached(query),
 });
@@ -97,10 +97,10 @@ export const useChangeRoleForm = Flux.createForm<
   name: RESOURCE_NAME,
   schema: changeRoleFormSchema,
   initialValues: { key: "", role: "" },
-  retrieve: async ({ client, query: { key: userKey }, reset }) => {
-    const roleKey = await retrieveUserRole(client, userKey);
-    reset({ key: userKey, role: roleKey ?? "" });
-  },
+  retrieve: async ({ client, query: { key: userKey } }) => ({
+    key: userKey,
+    role: (await retrieveUserRole(client, userKey)) ?? "",
+  }),
   update: async ({ client, value }) => {
     const { key: userKey, role: newRoleKey } = value();
     const oldRoleKey = await retrieveUserRole(client, userKey);
@@ -108,37 +108,5 @@ export const useChangeRoleForm = Flux.createForm<
     if (oldRoleKey != null)
       await client.access.roles.unassign({ user: userKey, role: oldRoleKey });
     await client.access.roles.assign({ user: userKey, role: newRoleKey });
-  },
-});
-
-export const formSchema = access.role.roleZ
-  .extend({
-    policies: access.policy.keyZ.array(),
-  })
-  .partial({ key: true });
-
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
-  name: RESOURCE_NAME,
-  schema: formSchema,
-  initialValues: {
-    name: "",
-    description: "",
-    internal: false,
-    policies: [],
-  },
-  retrieve: async ({ client, query }) => {
-    if (query.key == null) return;
-    await client.access.roles.retrieve(query.key);
-  },
-  update: async ({ client, value, set }) => {
-    const v = value();
-    let r: access.role.Role = access.role.roleZ.parse(v);
-    if (v.policies.length > 0)
-      await client.ontology.addChildren(
-        access.role.ontologyID(r.key),
-        ...v.policies.map((p) => access.policy.ontologyID(p)),
-      );
-    r = await client.access.roles.create(r);
-    set("key", r.key);
   },
 });

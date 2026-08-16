@@ -27,11 +27,16 @@ const client = createTestClient();
 const rack = await client.racks.create({ name: uniqueName("rack") });
 
 const createTask = async () =>
-  await rack.createTask({ name: uniqueName("tsk"), type: "test_type", config: {} });
+  await rack.createTask({ name: uniqueName("tsk"), type: "opc_read", config: {} });
 
 const RUNNING_VALUES: TaskFormValues = {
   key: "task-1",
   status: { details: { running: true } },
+};
+
+const STOPPED_VALUES: TaskFormValues = {
+  key: "task-1",
+  status: { details: { running: false } },
 };
 
 const CHANNELS: Chan[] = [
@@ -65,7 +70,7 @@ describe("useTare", () => {
     });
 
     it("should not allow taring when the task is not running", async () => {
-      const { result } = await renderUseTare({ key: "task-1" });
+      const { result } = await renderUseTare(STOPPED_VALUES);
       expect(result.current[1](["a"], CHANNELS)).toBe(false);
     });
 

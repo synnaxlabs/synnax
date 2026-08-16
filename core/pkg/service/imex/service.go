@@ -43,29 +43,56 @@ func NewService() *Service {
 
 // RegisterImportExporter registers a single handler for both halves under its own type.
 // Use this for symmetric services (one resource type for both import and export) —
-// e.g., logs, schematics.
-func (s *Service) RegisterImportExporter(ie ImportExporter) {
+// e.g., logs, schematics. It returns ErrTypeTaken if either half of the type is already
+// registered, leaving both halves untouched.
+func (s *Service) RegisterImportExporter(ie ImportExporter) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t := ie.Type()
+	if _, taken := s.importers[string(t)]; taken {
+		return typeTakenError("importer", string(t))
+	}
+	if _, taken := s.exporters[t]; taken {
+		return typeTakenError("exporter", string(t))
+	}
 	s.importers[string(t)] = ie
 	s.exporters[t] = ie
+	return nil
 }
 
 // RegisterImporter adds an Importer for t. Use it when a service registers under
 // fine-grained type strings ("http_read") but exports under one coarse type ("task").
-func (s *Service) RegisterImporter(t string, i Importer) {
+// It returns ErrTypeTaken if an Importer is already registered for t.
+func (s *Service) RegisterImporter(t string, i Importer) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, taken := s.importers[t]; taken {
+		return typeTakenError("importer", t)
+	}
 	s.importers[t] = i
+	return nil
 }
 
 // RegisterExporter adds an [Exporter] for the given resource type. See
-// [Service.RegisterImporter] for the asymmetric-registration use case.
-func (s *Service) RegisterExporter(e Exporter) {
+// [Service.RegisterImporter] for the asymmetric-registration use case. It returns
+// ErrTypeTaken if an Exporter is already registered for the type.
+func (s *Service) RegisterExporter(e Exporter) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, taken := s.exporters[e.Type()]; taken {
+		return typeTakenError("exporter", string(e.Type()))
+	}
 	s.exporters[e.Type()] = e
+	return nil
+}
+
+// ErrTypeTaken is returned when a handler is registered for a type another handler
+// already claims. Two services claiming one type is a wiring mistake: the second
+// registration would silently shadow the first.
+var ErrTypeTaken = errors.New("import/export type already registered")
+
+func typeTakenError(kind, typ string) error {
+	return errors.Wrapf(ErrTypeTaken, "%s for type %q", kind, typ)
 }
 
 // ImporterType returns the ontology resource type created by the Importer registered

@@ -9,10 +9,10 @@
 
 import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
-import { Import } from "@/platform/import";
+import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
 import {
@@ -20,7 +20,12 @@ import {
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
-import { createConsoleWrapper, createTestStore, type TestStore } from "@/testutil";
+import {
+  createConsoleWrapper,
+  createTestStore,
+  renderSuspended,
+  type TestStore,
+} from "@/testutil";
 
 export interface RenderTreeContextMenuOptions {
   client: Client;
@@ -71,11 +76,13 @@ export const renderTreeContextMenu = async (
     state: createState(resources, stateOverrides),
   };
   const { wrapper } = await createConsoleWrapper({ client, store: resolvedStore });
-  render(
-    <Import.FileIngestersProvider fileIngesters={{}}>
-      <TreeContextMenu {...props} />
+  await renderSuspended(
+    <>
+      <Errors.SuspenseBoundary loading={null}>
+        <TreeContextMenu {...props} />
+      </Errors.SuspenseBoundary>
       <Modals.Stack />
-    </Import.FileIngestersProvider>,
+    </>,
     { wrapper },
   );
   return { store: resolvedStore, props };
@@ -109,7 +116,7 @@ export const renderToolbar = async (
     </Console>
   );
   Wrapper.displayName = "ToolbarWrapper";
-  render(
+  await renderSuspended(
     <>
       {content}
       <Modals.Stack />

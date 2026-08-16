@@ -41,7 +41,7 @@ For task lifecycle management, see the
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Input ([`AI`](https://support.labjack.com/docs/14-0-analog-inputs-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Input ([`analog`](https://support.labjack.com/docs/14-0-analog-inputs-t-series-datasheet))</Text.Text>
 
 Reads analog voltage from a specified input terminal. Supports single-ended and
 differential configurations.
@@ -57,7 +57,7 @@ differential configurations.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`TC`](https://support.labjack.com/docs/14-1-1-thermocouple-t7-t8-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`thermocouple`](https://support.labjack.com/docs/14-1-1-thermocouple-t7-t8-t-series-datasheet))</Text.Text>
 
 Reads temperature from a thermocouple with cold junction compensation (CJC).
 
@@ -89,7 +89,7 @@ Reads temperature from a thermocouple with cold junction compensation (CJC).
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Input ([`DI`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Input ([`digital`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
 Reads digital state (0 or 1) from a specified digital I/O line.
 
@@ -177,21 +177,21 @@ task = labjack.ReadTask(
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
     channels=[
-        labjack.AIChan(
+        labjack.AnalogReadChannel(
             channel=ai_0.key,
             port="AIN0",
             range=10.0,
             neg_chan=199,  # Single-ended
             pos_chan=0,
         ),
-        labjack.AIChan(
+        labjack.AnalogReadChannel(
             channel=ai_1.key,
             port="AIN1",
             range=10.0,
             neg_chan=199,  # Single-ended
             pos_chan=1,
         ),
-        labjack.DIChan(
+        labjack.DigitalReadChannel(
             channel=di_4.key,
             port="DIO4",
         ),
@@ -293,7 +293,7 @@ const task = await client.tasks.create({
     data_saving: true,
     channels: [
       {
-        type: "AI",
+        type: "analog",
         channel: ai0.key,
         port: "AIN0",
         range: 10.0,
@@ -301,7 +301,7 @@ const task = await client.tasks.create({
         pos_chan: 0,
       },
       {
-        type: "AI",
+        type: "analog",
         channel: ai1.key,
         port: "AIN1",
         range: 10.0,
@@ -309,7 +309,7 @@ const task = await client.tasks.create({
         pos_chan: 1,
       },
       {
-        type: "DI",
+        type: "digital",
         channel: di4.key,
         port: "DIO4",
       },

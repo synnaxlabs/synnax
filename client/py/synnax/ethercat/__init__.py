@@ -8,27 +8,57 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ethercat.types import (
-    AutomaticInputChan,
-    AutomaticOutputChan,
+    MAKE,
+    MODEL,
     Device,
-    ManualInputChan,
-    ManualOutputChan,
     PDOEntry,
     ReadTask,
-    ReadTaskConfig,
     WriteTask,
-    WriteTaskConfig,
 )
+from synnax.ethercat.types_gen import (
+    AutomaticReadChannel,
+    AutomaticWriteChannel,
+    BaseReadChannel,
+    BaseWriteChannel,
+    ManualReadChannel,
+    ManualWriteChannel,
+    PDOAddress,
+    ReadChannel,
+    ReadConfig,
+    ScanConfig,
+    WriteChannel,
+    WriteConfig,
+)
+from x.deprecation import deprecated_getattr
+
+_DEPRECATED: dict[str, str | tuple[str, str]] = {
+    "AutomaticInputChan": "AutomaticReadChannel",
+    "AutomaticOutputChan": "AutomaticWriteChannel",
+    "ManualInputChan": "ManualReadChannel",
+    "ManualOutputChan": "ManualWriteChannel",
+    "ReadTaskConfig": "ReadConfig",
+    "WriteTaskConfig": "WriteConfig",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
-    "AutomaticInputChan",
-    "AutomaticOutputChan",
+    "AutomaticReadChannel",
+    "AutomaticWriteChannel",
+    "BaseReadChannel",
+    "BaseWriteChannel",
     "Device",
-    "ManualInputChan",
-    "ManualOutputChan",
+    "MAKE",
+    "MODEL",
+    "ManualReadChannel",
+    "ManualWriteChannel",
+    "PDOAddress",
     "PDOEntry",
+    "ReadChannel",
+    "ReadConfig",
     "ReadTask",
-    "ReadTaskConfig",
+    "ScanConfig",
+    "WriteChannel",
+    "WriteConfig",
     "WriteTask",
-    "WriteTaskConfig",
 ]

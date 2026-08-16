@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, color } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
@@ -65,7 +65,7 @@ const setup = ({
 };
 
 const drawCalls = (recorder: canvasTest.Recorder, op: string) =>
-  recorder.lower2d.calls.filter((c) => c.op === op);
+  recorder.upper2d.calls.filter((c) => c.op === op);
 
 const fillTexts = (recorder: canvasTest.Recorder): string[] =>
   drawCalls(recorder, "fillText").map((c) => c.args[0] as string);
@@ -164,7 +164,7 @@ describe("value/aether/Value", () => {
       expect(texts).not.toContain("-5");
     });
 
-    it("should scale the lower canvas before drawing", () => {
+    it("should scale the upper canvas before drawing", () => {
       const { component, recorder } = setup({ value: "7" });
       recorder.clear();
       component.render({});
@@ -290,28 +290,90 @@ describe("value/aether/Value", () => {
       expect(styles).toContain(color.hex(THEME.colors.gray.l11));
       expect(styles).not.toContain(color.hex(illegible));
     });
+  });
 
-    it("should use the staleness color once a received value goes stale", () => {
+  describe("staleness", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    // The worker draws the value, so a transition must not cost a state push.
+    it("should keep staleness off the state that crosses to the DOM", () => {
+      expect(value.Value.z.parse({ box: box.ZERO })).not.toHaveProperty("stale");
+    });
+
+    it("should stay live before the source has ever sent", () => {
+      const stale = color.construct("#ff0000");
+      const { component, recorder } = setup({
+        state: { stalenessTimeout: 1, stalenessColor: stale },
+      });
+      vi.advanceTimersByTime(10000);
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).not.toContain(color.hex(stale));
+    });
+
+    it("should use the staleness color once the source goes quiet", () => {
       const stale = color.construct("#ff0000");
       const { component, source, recorder } = setup({
-        value: "1",
-        state: { stalenessTimeout: -1, stalenessColor: stale },
+        state: { stalenessTimeout: 1, stalenessColor: stale },
       });
-      source.setValue("2");
+      source.setValue("1");
+      vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
       expect(fillStyles(recorder)).toContain(color.hex(stale));
     });
 
-    it("should fall back to the warning color when stale without a staleness color", () => {
+    it("should fall back to the warning color when no staleness color is set", () => {
       const { component, source, recorder } = setup({
-        value: "1",
-        state: { stalenessTimeout: -1 },
+        state: { stalenessTimeout: 1 },
       });
-      source.setValue("2");
+      source.setValue("1");
+      vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
       expect(fillStyles(recorder)).toContain(color.hex(THEME.colors.warning.m1));
+    });
+
+    it("should repaint itself when the source goes quiet", () => {
+      const stale = color.construct("#ff0000");
+      const { source, recorder } = setup({
+        state: { stalenessTimeout: 1, stalenessColor: stale },
+      });
+      source.setValue("1");
+      recorder.clear();
+      // Nothing else asks the canvas to redraw once the source stops sending, so the
+      // transition has to request the repaint itself.
+      vi.advanceTimersByTime(1250);
+      expect(fillStyles(recorder)).toContain(color.hex(stale));
+    });
+
+    it("should stay live while the source keeps sending", () => {
+      const stale = color.construct("#ff0000");
+      const { component, source, recorder } = setup({
+        value: "1",
+        state: { stalenessTimeout: 5, stalenessColor: stale },
+      });
+      for (let i = 0; i < 5; i++) {
+        vi.advanceTimersByTime(1000);
+        source.setValue(`${i}`);
+      }
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).not.toContain(color.hex(stale));
+    });
+
+    it("should clear the staleness color when the source sends again", () => {
+      const stale = color.construct("#ff0000");
+      const { component, source, recorder } = setup({
+        state: { stalenessTimeout: 1, stalenessColor: stale },
+      });
+      source.setValue("1");
+      vi.advanceTimersByTime(1250);
+      source.setValue("2");
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).not.toContain(color.hex(stale));
     });
   });
 

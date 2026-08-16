@@ -15,19 +15,12 @@ import { DigitalWrite, DigitalWriteSelectable } from "@/feature/ni/task/DigitalW
 import {
   ANALOG_READ_TYPE,
   ANALOG_WRITE_TYPE,
-  analogReadConfigZ,
-  analogWriteConfigZ,
   COUNTER_READ_TYPE,
-  counterReadConfigZ,
   DIGITAL_READ_TYPE,
   DIGITAL_WRITE_TYPE,
-  digitalReadConfigZ,
-  digitalWriteConfigZ,
 } from "@/feature/ni/task/types";
-import { type Import } from "@/platform/import";
-import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
-import { Task } from "@/platform/task";
+import { type Task } from "@/platform/task";
 
 export * from "@/feature/ni/task/AnalogRead";
 export * from "@/feature/ni/task/AnalogWrite";
@@ -38,15 +31,7 @@ export * from "@/feature/ni/task/DigitalWrite";
 export * from "@/feature/ni/task/types";
 export * from "@/feature/ni/task/useToggleScanner";
 
-export const FILE_INGESTERS: Import.FileIngesters = {
-  [ANALOG_READ_TYPE]: Task.createIngester(analogReadConfigZ, ANALOG_READ_TYPE),
-  [ANALOG_WRITE_TYPE]: Task.createIngester(analogWriteConfigZ, ANALOG_WRITE_TYPE),
-  [COUNTER_READ_TYPE]: Task.createIngester(counterReadConfigZ, COUNTER_READ_TYPE),
-  [DIGITAL_READ_TYPE]: Task.createIngester(digitalReadConfigZ, DIGITAL_READ_TYPE),
-  [DIGITAL_WRITE_TYPE]: Task.createIngester(digitalWriteConfigZ, DIGITAL_WRITE_TYPE),
-};
-
-export const TABS: Panel.Tabs = {
+export const FORMS: Task.Forms = {
   [ANALOG_READ_TYPE]: AnalogRead,
   [ANALOG_WRITE_TYPE]: AnalogWrite,
   [COUNTER_READ_TYPE]: CounterRead,

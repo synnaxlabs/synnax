@@ -52,8 +52,8 @@ describe("layouts.ListAndDetails", () => {
 
   it("should switch the details panel to the channel that is selected", async () => {
     await renderListAndDetails([
-      { key: "a", enabled: true },
-      { key: "b", enabled: true },
+      { key: "a", disabled: false },
+      { key: "b", disabled: false },
     ]);
     fireEvent.click(await screen.findByText("item-a"));
     await waitFor(() =>
@@ -69,10 +69,10 @@ describe("layouts.ListAndDetails", () => {
   it("should create a channel with the selected key as the copy source when Add is pressed", async () => {
     const createChannel = vi.fn((_channels: Channel[], copyFrom?: string): Channel => ({
       key: `new_${copyFrom ?? "none"}`,
-      enabled: true,
+      disabled: false,
     }));
     const { container, form } = await renderListAndDetails(
-      [{ key: "a", enabled: true }],
+      [{ key: "a", disabled: false }],
       createChannel,
     );
     fireEvent.click(await screen.findByText("item-a"));
@@ -89,10 +89,10 @@ describe("layouts.ListAndDetails", () => {
     let counter = 0;
     const createChannel = (_channels: Channel[], copyFrom?: string): Channel => ({
       key: `dup_${copyFrom}_${counter++}`,
-      enabled: true,
+      disabled: false,
     });
     const { form } = await renderListAndDetails(
-      [{ key: "a", enabled: true }],
+      [{ key: "a", disabled: false }],
       createChannel,
     );
     fireEvent.contextMenu(await screen.findByText("item-a"));
@@ -104,7 +104,7 @@ describe("layouts.ListAndDetails", () => {
   });
 
   it("should remove a channel through the context menu and clear the details panel", async () => {
-    const { form } = await renderListAndDetails([{ key: "a", enabled: true }]);
+    const { form } = await renderListAndDetails([{ key: "a", disabled: false }]);
     fireEvent.click(await screen.findByText("item-a"));
     await waitFor(() =>
       expect(screen.getByText("details-for-config.channels.a")).toBeTruthy(),

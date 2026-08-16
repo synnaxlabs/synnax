@@ -39,7 +39,7 @@ export const Secondary = (): ReactElement => (
   <>
     <SideEffect />
     <Auth.Guard>
-      <Auth.ConnectionGuard nav={false}>
+      <Auth.ConnectionGuard>
         <Project.Guard>
           <ProjectSideEffect />
           <Nav.Bar.Top secondary />

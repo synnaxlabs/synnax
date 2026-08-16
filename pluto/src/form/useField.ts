@@ -39,7 +39,7 @@ export interface UseFieldReturn<I, O = I> extends FieldState<I> {
   onChange: (value: O) => void;
   setStatus: (status: status.Crude) => void;
   status: status.Crude;
-  variant?: "preview";
+  preview?: boolean;
 }
 
 interface UseField {
@@ -99,8 +99,8 @@ export const useField = (<I, O = I>(
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
   }
-  const variant = ctx.mode === "preview" ? "preview" : undefined;
-  return { onChange: handleChange, setStatus: handleSetStatus, variant, ...state };
+  const preview = ctx.mode === "preview" ? true : undefined;
+  return { onChange: handleChange, setStatus: handleSetStatus, preview, ...state };
 }) as UseField;
 
 export interface UseFieldValue {

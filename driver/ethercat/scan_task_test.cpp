@@ -32,7 +32,7 @@ protected:
 
 TEST_F(EtherCATScanTest, ScannerCreation) {
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -43,14 +43,14 @@ TEST_F(EtherCATScanTest, ScannerCreation) {
 }
 
 TEST_F(EtherCATScanTest, ScanConfigParsesCorrectly) {
-    x::json::json cfg_json = {{"scan_rate", 2.0}, {"enabled", true}};
+    x::json::json cfg_json = {{"rate", 2.0}, {"disabled", false}};
 
     x::json::Parser parser(cfg_json);
     ScanTaskConfig cfg(parser);
 
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(cfg.scan_rate.hz(), 2.0);
-    EXPECT_TRUE(cfg.enabled);
+    EXPECT_EQ(cfg.rate.hz(), 2.0);
+    EXPECT_FALSE(cfg.disabled);
 }
 
 TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
@@ -60,12 +60,12 @@ TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
     ScanTaskConfig cfg(parser);
 
     ASSERT_NIL(parser.error());
-    EXPECT_TRUE(cfg.enabled);
+    EXPECT_FALSE(cfg.disabled);
 }
 
 TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
     synnax::task::Task task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true,
@@ -80,7 +80,7 @@ TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
 
 TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
     synnax::task::Task task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true,
@@ -94,7 +94,7 @@ TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     synnax::task::Task task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true,
@@ -114,7 +114,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
 
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     synnax::task::Task task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true,
@@ -147,7 +147,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -202,7 +202,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -233,7 +233,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true

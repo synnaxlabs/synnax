@@ -9,7 +9,12 @@
 
 import "@/feature/pagerduty/task/Alert.css";
 
-import { type rack, type status, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  pagerduty,
+  type rack,
+  type status,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -32,23 +37,14 @@ import {
   ALERT_SCHEMAS,
   ALERT_TYPE,
   type AlertConfig,
-  type AlertPayload,
   type AlertSchemas,
-  ZERO_ALERT_CONFIG,
-  ZERO_ALERT_PAYLOAD,
+  deployAlertTaskConfigZ,
 } from "@/feature/pagerduty/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const AlertSelectable = Selector.createSelectable({
-  type: ALERT_TYPE,
-  title: "PagerDuty Alert",
-  icon: <Icon.Logo.PagerDuty />,
-  useOnSelect: Task.createOpenTab(ALERT_TYPE),
-});
 
 const Properties = () => (
   <Flex.Box x grow>
@@ -59,7 +55,7 @@ const Properties = () => (
       grow
       className={CSS.B("pagerduty-routing-key")}
     />
-    <PForm.Field<number> path="rackKey" label="Connect from" grow>
+    <PForm.Field<number> path="rack" label="Connect from" grow>
       {selectRackRenderProp}
     </PForm.Field>
     <Task.Fields.AutoStart />
@@ -139,10 +135,9 @@ const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => (
 const AlertListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const statusKey = PForm.useFieldValue<status.Key>(`config.alerts.${itemKey}.status`);
-  const status = Status.useRetrieve(
-    { key: statusKey },
-    { addStatusOnFailure: false },
-  ).data;
+  const { data: status } = Status.useResult(
+    statusKey.length > 0 ? { key: statusKey } : null,
+  );
   const isNotDefined = status == null;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>
@@ -156,7 +151,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
           {isNotDefined ? "New alert" : status.name}
         </Text.Text>
       </Flex.Box>
-      <Task.EnableDisableButton path={`config.alerts.${itemKey}.enabled`} />
+      <Task.EnableDisableButton path={`config.alerts.${itemKey}.disabled`} />
     </Select.ListItem>
   );
 };
@@ -173,19 +168,10 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   const alerts = PForm.useFieldValue<AlertConfig[]>("config.alerts").filter((a) =>
     keys.includes(a.key),
   );
-  const canDisable = alerts.some(({ enabled }) => enabled);
-  const canEnable = alerts.some(({ enabled }) => !enabled);
+  const canDisable = alerts.some(({ disabled }) => !disabled);
+  const canEnable = alerts.some(({ disabled }) => disabled);
   return (
     <ContextMenu.Menu>
-      {canRemove && (
-        <>
-          <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
-            <Icon.Close />
-            Remove
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
-      )}
       {canEnable && (
         <PMenu.Item itemKey="enable" onClick={() => onSetEnabled(keys, true)}>
           <Icon.Enable />
@@ -198,13 +184,20 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
           Disable
         </PMenu.Item>
       )}
-      {(canDisable || canEnable) && <PMenu.Divider />}
+      <PMenu.Divider />
+      {canRemove && (
+        <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
+          <Icon.Close />
+          Remove
+        </PMenu.Item>
+      )}
+      <PMenu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
 
-const Form: FC<Task.FormProps<AlertSchemas>> = () => {
+const Form: FC = () => {
   const { data, push, remove } = PForm.useFieldList<string, AlertConfig>(
     "config.alerts",
   );
@@ -213,7 +206,7 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
   const menuProps = PMenu.useContextMenu();
 
   const handleAdd = useCallback(() => {
-    const alert: AlertConfig = { ...ZERO_ALERT_CONFIG, key: id.create() };
+    const alert: AlertConfig = { ...pagerduty.alertZ.parse({}), key: id.create() };
     push(alert);
     setSelected([alert.key]);
   }, [push]);
@@ -228,7 +221,7 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
 
   const handleSetEnabled = useCallback(
     (keys: string[], enabled: boolean) => {
-      for (const key of keys) set(`config.alerts.${key}.enabled`, enabled);
+      for (const key of keys) set(`config.alerts.${key}.disabled`, !enabled);
     },
     [set],
   );
@@ -254,10 +247,9 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
           <Header.Actions>
             <Button.Button
               onClick={handleAdd}
-              variant="text"
-              contrast={2}
+              variant="filled"
               tooltip="Add alert"
-              sharp
+              size="small"
             >
               <Icon.Add />
             </Button.Button>
@@ -300,12 +292,12 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
 };
 
 const getInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {
-  const pld: AlertPayload = { ...ZERO_ALERT_PAYLOAD };
-  if (config != null) {
-    const parsed = ALERT_SCHEMAS.config.safeParse(config);
-    if (parsed.success) pld.config = parsed.data;
-  }
-  return pld;
+  const parsed = ALERT_SCHEMAS.config.safeParse(config ?? {});
+  return {
+    name: "PagerDuty Alert Task",
+    type: ALERT_TYPE,
+    config: parsed.success ? parsed.data : ALERT_SCHEMAS.config.parse({}),
+  };
 };
 
 const onConfigure: Task.OnConfigure<AlertSchemas["config"]> = async (
@@ -317,7 +309,19 @@ export const Alert = Task.wrapForm({
   Properties,
   Form,
   schemas: ALERT_SCHEMAS,
+  deployConfigZ: deployAlertTaskConfigZ,
   type: ALERT_TYPE,
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateAlert = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const AlertSelectable = Selector.createSelectable({
+  type: ALERT_TYPE,
+  title: "PagerDuty Alert",
+  icon: <Icon.Logo.PagerDuty />,
+  useOnSelect: useCreateAlert,
 });

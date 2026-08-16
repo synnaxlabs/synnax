@@ -8,28 +8,44 @@
 // included in the file licenses/APL.txt.
 
 import { type panel } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Icon, Panel as PPanel, Text } from "@synnaxlabs/pluto";
+import { Haul, Icon, Panel as PPanel, Text, Triggers } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { act, render, screen, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useEffect,
+} from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Mosaic } from "@/feature/panel/Mosaic";
+import {
+  createJSONFile,
+  fakeFileEntry,
+  FileDragSource,
+  fireFileDrop,
+  startFileDrag,
+} from "@/platform/import/testutil";
 import { Panel } from "@/platform/panel";
 import { createServerPanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
+  getBySelector,
   type TestStore,
+  uniqueName,
 } from "@/testutil";
 
 // The shape a reload hydrates: the persisted selection with the keep-alive set
 // cleared, since it is excluded from persistence.
 const hydrated = (key: panel.Key): ConsolePreloadedState => ({
   [Session.Panel.SLICE_NAME]: {
+    ...Session.Panel.ZERO_SLICE_STATE,
     windows: {
       [Drift.MAIN_WINDOW]: { ...Session.Panel.ZERO_WINDOW_STATE, selected: key },
     },
@@ -54,8 +70,43 @@ const ProbeName: Panel.TabName = () => <Text.Text>probe</Text.Text>;
 
 const ProbeIcon: Panel.TabIcon = () => <Icon.Visualize />;
 
+const tabMounts: panel.TabKey[] = [];
+const tabUnmounts: panel.TabKey[] = [];
+
+// The panel-keyed probe can't tell tabs in the same panel apart, so overlay
+// tests use a tab-keyed variant.
+const TabProbeContent: Panel.Content = () => {
+  const tabKey = PPanel.useTabKey();
+  useEffect(() => {
+    tabMounts.push(tabKey);
+    return () => void tabUnmounts.push(tabKey);
+  }, [tabKey]);
+  return <Text.Text>{`tab-content-${tabKey}`}</Text.Text>;
+};
+
+const TRIGGER: Triggers.Trigger = ["F8"];
+const triggerFires: panel.TabKey[] = [];
+
+// Records every trigger this tab's content actually receives, so a test can assert
+// which tabs the mosaic lets hear a keystroke.
+const TriggerProbeContent: Panel.Content = () => {
+  const tabKey = PPanel.useTabKey();
+  Triggers.use({
+    triggers: TRIGGER,
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage === "start") triggerFires.push(tabKey);
+      },
+      [tabKey],
+    ),
+  });
+  return <Text.Text>{`tab-content-${tabKey}`}</Text.Text>;
+};
+
 const REGISTRY: Panel.Tabs = {
   probe: { Content: ProbeContent, Name: ProbeName, Icon: ProbeIcon },
+  tabProbe: { Content: TabProbeContent, Name: ProbeName, Icon: ProbeIcon },
+  triggerProbe: { Content: TriggerProbeContent, Name: ProbeName, Icon: ProbeIcon },
 };
 
 const createTab = (): panel.NewTab => ({
@@ -82,7 +133,9 @@ const setup = async (
   });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <Panel.RendererContext value={REGISTRY}>{children}</Panel.RendererContext>
+      <Triggers.Provider>
+        <Panel.RendererContext value={REGISTRY}>{children}</Panel.RendererContext>
+      </Triggers.Provider>
     </Console>
   );
   return { wrapper, store };
@@ -137,6 +190,27 @@ describe("Panel.Mosaic keep-alive", () => {
     await waitFor(() => expect(screen.getByText(`content-${a.key}`)).toBeTruthy());
   });
 
+  // With no panel open there is no leaf to drop onto, so the empty state is the
+  // drop target itself. It reports no leaf, which opens the tabs in a new panel.
+  it("should report a file dropped on the empty state with no leaf", async () => {
+    const onFileDrop = vi.fn();
+    const { wrapper } = await setup();
+    render(
+      <Haul.Provider>
+        <FileDragSource />
+        <Mosaic onCreateTab={createTab} onFileDrop={onFileDrop} />
+      </Haul.Provider>,
+      { wrapper },
+    );
+    await screen.findByText("No panels open.");
+    startFileDrag();
+    fireFileDrop(getBySelector(document, ".console-mosaic--empty"), [
+      fakeFileEntry(createJSONFile("widget.json", { type: "log" })),
+    ]);
+    await waitFor(() => expect(onFileDrop).toHaveBeenCalledTimes(1));
+    expect(onFileDrop.mock.calls[0][0]).not.toHaveProperty("nodeKey");
+  });
+
   it("should show the empty state while keeping visited panels mounted", async () => {
     const a = await probePanel();
     const { wrapper, store } = await setup();
@@ -150,11 +224,7 @@ describe("Panel.Mosaic keep-alive", () => {
     act(() => {
       store.dispatch(Session.Panel.clearSelected({}));
     });
-    await waitFor(() =>
-      expect(
-        screen.getByText("No panels open. Create one to get started."),
-      ).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText("No panels open.")).toBeTruthy());
     expect(unmounts).toHaveLength(0);
   });
 
@@ -195,9 +265,202 @@ describe("Panel.Mosaic keep-alive", () => {
     await waitFor(() => expect(screen.getByText(`content-${b.key}`)).toBeTruthy());
 
     act(() => {
-      store.dispatch(Session.Panel.remove(a.key));
+      store.dispatch(Session.Panel.remove({ keys: a.key }));
     });
     await waitFor(() => expect(unmounts).toEqual([a.key]));
     expect(screen.getByText(`content-${b.key}`)).toBeTruthy();
+  });
+});
+
+describe("Panel.Mosaic not found", () => {
+  it("should load the panel when retry is clicked after it exists again", async () => {
+    const key = uuid.create();
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    // The suspending read must be awaited: a component that suspends inside a
+    // synchronous act never resumes.
+    await act(async () => {
+      store.dispatch(Session.Panel.select({ key }));
+    });
+    // The read holds a not-found open for a window before settling, in case the
+    // reference outran its document's create broadcast.
+    await screen.findByText(/could not be found/, {}, { timeout: 10000 });
+
+    await client.panels.create({
+      key,
+      name: uniqueName("panel"),
+      root: {
+        variant: "leaf",
+        tabs: [{ variant: "view", key: uuid.create(), type: "probe" }],
+      },
+      parent: await createPanelParent(client),
+    });
+    fireEvent.click(screen.getByText("Retry"));
+    await waitFor(() => expect(screen.getByText(`content-${key}`)).toBeTruthy());
+  });
+});
+
+describe("Panel.Mosaic overlay", () => {
+  beforeEach(() => {
+    tabMounts.length = 0;
+    tabUnmounts.length = 0;
+  });
+
+  const tabProbeTab = (): panel.Tab => ({
+    variant: "view",
+    key: uuid.create(),
+    type: "tabProbe",
+    args: {},
+  });
+
+  const tabMountCount = (key: panel.TabKey): number =>
+    tabMounts.filter((k) => k === key).length;
+
+  it("should collapse a split panel to the overlaid tab and restore it on exit", async () => {
+    const tabA = tabProbeTab();
+    const tabB = tabProbeTab();
+    const pan = await createServerPanel(client, {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: { variant: "leaf", tabs: [tabA] },
+      last: { variant: "leaf", tabs: [tabB] },
+    });
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: pan.key }));
+    });
+    await waitFor(() => {
+      expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
+      expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy();
+    });
+
+    act(() => {
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: pan.key,
+          tabKey: tabA.key,
+          otherTabKeys: [tabA.key],
+        }),
+      );
+      store.dispatch(Session.Panel.startOverlaying({}));
+    });
+    await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
+    // Only the overlaid tab stays in the document; the other leaf's content
+    // detaches but its React tree stays mounted.
+    expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
+    expect(screen.queryByText(`tab-content-${tabB.key}`)).toBeNull();
+    expect(tabUnmounts).toHaveLength(0);
+
+    fireEvent.click(screen.getByText("Exit focus"));
+    await waitFor(() => {
+      expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
+      expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy();
+    });
+    // Reattached, not remounted.
+    expect(screen.queryByText("Exit focus")).toBeNull();
+    expect(tabMountCount(tabA.key)).toBe(1);
+    expect(tabMountCount(tabB.key)).toBe(1);
+    expect(tabUnmounts).toHaveLength(0);
+  });
+
+  it("should carry overlay mode to the newly selected panel on switch", async () => {
+    const tabA = tabProbeTab();
+    const a = await createServerPanel(client, { variant: "leaf", tabs: [tabA] });
+    const tabB = tabProbeTab();
+    const b = await createServerPanel(client, { variant: "leaf", tabs: [tabB] });
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: a.key }));
+      // The tab-selection synchronizer doesn't run in this harness, so panel
+      // b's focused tab is seeded the way visiting it would.
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: b.key,
+          tabKey: tabB.key,
+          otherTabKeys: [],
+        }),
+      );
+    });
+    await waitFor(() =>
+      expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy(),
+    );
+    act(() => {
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: a.key,
+          tabKey: tabA.key,
+          otherTabKeys: [],
+        }),
+      );
+      store.dispatch(Session.Panel.startOverlaying({}));
+    });
+    await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
+
+    // Overlay is window-level: the newly selected panel shows its own focused
+    // tab overlaid, while the background panel detaches without unmounting.
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: b.key }));
+    });
+    await waitFor(() =>
+      expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy(),
+    );
+    await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
+    expect(screen.queryByText(`tab-content-${tabA.key}`)).toBeNull();
+    expect(tabUnmounts).toHaveLength(0);
+  });
+});
+
+describe("Panel.Mosaic trigger scope", () => {
+  beforeEach(() => {
+    triggerFires.length = 0;
+  });
+
+  const triggerProbeTab = (): panel.Tab => ({
+    variant: "view",
+    key: uuid.create(),
+    type: "triggerProbe",
+    args: {},
+  });
+
+  const pressTrigger = (): void => {
+    fireEvent.keyDown(document.body, { code: "F8" });
+    fireEvent.keyUp(document.body, { code: "F8" });
+  };
+
+  it("should only let the focused tab hear a trigger", async () => {
+    const tabA = triggerProbeTab();
+    const tabB = triggerProbeTab();
+    const pan = await createServerPanel(client, {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: { variant: "leaf", tabs: [tabA] },
+      last: { variant: "leaf", tabs: [tabB] },
+    });
+    const { wrapper, store } = await setup();
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    act(() => void store.dispatch(Session.Panel.select({ key: pan.key })));
+    await waitFor(() => {
+      expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
+      expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy();
+    });
+    act(
+      () =>
+        void store.dispatch(
+          Session.Panel.internalSelectTab({
+            key: pan.key,
+            tabKey: tabA.key,
+            otherTabKeys: [tabA.key],
+          }),
+        ),
+    );
+    pressTrigger();
+    expect(triggerFires).toEqual([tabA.key]);
   });
 });

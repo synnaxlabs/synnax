@@ -10,8 +10,18 @@
  */
 
 .console-main {
-    height: 100%;
-    width: 100%;
+    --console-top-bar-size: 7rem;
+
     overflow: hidden;
     background: var(--pluto-gray-l2);
+}
+
+/* Outlined chips recess into the chrome rather than rise off it. Scoped to the
+   variant: a text button has no rest fill, so the same band would darken it on
+   hover and then drop it back onto the bar on press. */
+.console-nav__bar .pluto-btn--outlined,
+.console-shell__islands .pluto-btn--outlined {
+    --pluto-fill-rest: var(--pluto-gray-l0);
+    --pluto-fill-hover: var(--pluto-gray-l1);
+    --pluto-fill-press: var(--pluto-gray-l2);
 }

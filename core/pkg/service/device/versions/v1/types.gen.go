@@ -14,7 +14,7 @@ package v1
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"

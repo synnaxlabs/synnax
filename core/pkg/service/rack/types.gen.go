@@ -13,11 +13,9 @@ package rack
 
 import "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 
-// Key is a composite identifier for a rack. The high 16 bits contain the node key, and
-// the low 16 bits contain the local sequential key. Racks are leased to specific nodes
-// because task configuration signals are passed through gossip operations, which can
-// take 15s+ to propagate through a large cluster. This structure minimizes hops and
-// configuration latency.
+// Key is a composite identifier for a rack. The high 16 bits contain the Core key, and
+// the low 16 bits contain the local sequential key. A rack is leased to the Core named
+// in its high bits, so writes route to the Core running its Driver.
 type Key = versions.Key
 
 // StatusDetails contains rack-specific status details.
@@ -27,6 +25,6 @@ type StatusDetails = versions.StatusDetails
 type Status = versions.Status
 
 // Rack is a collection container for hardware devices and tasks running on a specific
-// cluster node. Racks serve as the integration point between the Synnax server and
-// physical hardware via the Driver system.
+// Core. Racks are the integration point between the Core and physical hardware through
+// the Driver.
 type Rack = versions.Rack

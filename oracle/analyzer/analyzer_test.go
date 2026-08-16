@@ -2501,7 +2501,8 @@ var _ = Describe("Analyzer", func() {
 	Describe("Field Defaults", func() {
 		defaultOf := func(ctx SpecContext, fieldDecl string) *resolution.ExpressionValue {
 			GinkgoHelper()
-			source := "Item struct {\n\t" + fieldDecl + "\n}\n"
+			source := "Mode enum {\n\texclusive = \"Exclusive\"\n}\n\n" +
+				"Item struct {\n\t" + fieldDecl + "\n}\n"
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Item").Form.(resolution.StructForm)
@@ -2552,10 +2553,10 @@ var _ = Describe("Analyzer", func() {
 			),
 			Entry(
 				"qualified ident",
-				"mode string = control.Exclusive",
+				"mode Mode = test.ModeExclusive",
 				resolution.ExpressionValue{
 					Kind:       resolution.ValueKindIdent,
-					IdentValue: "control.Exclusive",
+					IdentValue: "test.ModeExclusive",
 				},
 			),
 		)
@@ -2610,6 +2611,83 @@ var _ = Describe("Analyzer", func() {
 		)
 	})
 
+	Describe("Identifier Defaults", func() {
+		const unionSource = `ChanPayload struct {
+    port int32
+}
+
+SafePayload struct {
+    port int32 = 0
+}
+
+CJC union on source {
+    built_in {}
+    const_val {
+        val float64 = 0
+    }
+    chan ChanPayload
+    safe SafePayload
+}
+
+Mode enum {
+    fast = "Fast"
+}
+
+`
+		analyze := func(ctx SpecContext, fieldDecl string) *diagnostics.Files {
+			GinkgoHelper()
+			source := unionSource + "Item struct {\n\t" + fieldDecl + "\n}\n"
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			return diag
+		}
+
+		DescribeTable(
+			"Should accept an identifier default the generators can emit",
+			func(ctx SpecContext, fieldDecl string) {
+				Expect(analyze(ctx, fieldDecl).Ok()).To(BeTrue())
+			},
+			Entry("enum member", "mode Mode = fast"),
+			Entry("union variant", "cjc CJC = built_in"),
+			Entry("union variant, prefixed", "cjc CJC = CJCBuiltIn"),
+			Entry("create sentinel", "key string = create"),
+			Entry("now sentinel", "at int64 = now"),
+		)
+
+		DescribeTable(
+			"Should reject an identifier default that names nothing",
+			func(ctx SpecContext, fieldDecl string) {
+				Expect(analyze(ctx, fieldDecl).Error()).To(ContainSubstring(
+					"names neither a member of its enum type nor a variant of its union type",
+				))
+			},
+			Entry("misspelled enum member", "mode Mode = fest"),
+			Entry("misspelled union variant", "cjc CJC = buit_in"),
+			Entry("variant of another union", "mode Mode = built_in"),
+		)
+
+		It(
+			"Should reject a union default whose named payload cannot be constructed",
+			func(ctx SpecContext) {
+				Expect(analyze(ctx, "cjc CJC = chan").Error()).To(SatisfyAll(
+					ContainSubstring("defaults to union variant \"chan\""),
+					ContainSubstring(
+						"whose field \"port\" is required and has no default",
+					),
+				))
+			},
+		)
+
+		DescribeTable(
+			"Should accept a union default whose variant fields are all defaulted",
+			func(ctx SpecContext, fieldDecl string) {
+				Expect(analyze(ctx, fieldDecl).Ok()).To(BeTrue())
+			},
+			Entry("inline variant", "cjc CJC = const_val"),
+			Entry("named payload", "cjc CJC = safe"),
+			Entry("empty inline variant", "cjc CJC = built_in"),
+		)
+	})
+
 	Describe("Union Definitions", func() {
 		It(
 			"Should allow 'on' as a field name since it is not a reserved keyword",
@@ -2621,11 +2699,11 @@ var _ = Describe("Analyzer", func() {
 					target string
 				}
 
-				LinearScale struct { slope float64 }
-				NoneScale struct {}
+				LinearParams struct { slope float64 }
+				NoneParams struct {}
 				Scale union on type {
-					linear LinearScale
-					none   NoneScale
+					linear LinearParams
+					none   NoneParams
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
@@ -2648,20 +2726,20 @@ var _ = Describe("Analyzer", func() {
 			"Should collect a simple union with primitive-only variants",
 			func(ctx SpecContext) {
 				source := `
-				LinearScale struct {
+				LinearParams struct {
 					slope float64
 					yIntercept float64
 				}
-				MapScale struct {
+				MapParams struct {
 					preScaledMin float64
 					scaledMin float64
 				}
-				NoneScale struct {}
+				NoneParams struct {}
 
 				Scale union on type {
-					linear LinearScale
-					map    MapScale
-					none   NoneScale
+					linear LinearParams
+					map    MapParams
+					none   NoneParams
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
@@ -2676,7 +2754,7 @@ var _ = Describe("Analyzer", func() {
 				Expect(form.Extends).To(BeEmpty())
 
 				Expect(form.Variants[0].Name).To(Equal("linear"))
-				Expect(form.Variants[0].Type.Name).To(Equal("ni.LinearScale"))
+				Expect(form.Variants[0].Type.Name).To(Equal("ni.LinearParams"))
 				Expect(form.Variants[1].Name).To(Equal("map"))
 				Expect(form.Variants[2].Name).To(Equal("none"))
 			},
@@ -2986,14 +3064,14 @@ var _ = Describe("Analyzer", func() {
 
 		It("Should collect per-variant domains", func(ctx SpecContext) {
 			source := `
-				LinearScale struct {}
-				MapScale struct {}
+				LinearParams struct {}
+				MapParams struct {}
 
 				Scale union on type {
-					linear LinearScale {
+					linear LinearParams {
 						@doc value "linear scaling"
 					}
-					map MapScale {
+					map MapParams {
 						@doc value "piecewise linear map"
 					}
 				}
@@ -3015,12 +3093,12 @@ var _ = Describe("Analyzer", func() {
 
 		It("Should collect union-level domains", func(ctx SpecContext) {
 			source := `
-				LinearScale struct {}
-				MapScale struct {}
+				LinearParams struct {}
+				MapParams struct {}
 
 				Scale union on type {
-					linear LinearScale
-					map MapScale
+					linear LinearParams
+					map MapParams
 					@doc value "controls how raw values are transformed"
 				}
 			`
@@ -3074,12 +3152,12 @@ var _ = Describe("Analyzer", func() {
 			"Should support nested unions (variant field typed as a union)",
 			func(ctx SpecContext) {
 				source := `
-				LinearScale struct { slope float64 }
-				NoneScale   struct {}
+				LinearParams struct { slope float64 }
+				NoneParams   struct {}
 
 				Scale union on type {
-					linear LinearScale
-					none   NoneScale
+					linear LinearParams
+					none   NoneParams
 				}
 
 				AIVoltageFields struct {
@@ -3121,6 +3199,24 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(`duplicate variant value "same"`))
 		})
+
+		It(
+			"Should error when a variant's generated type name collides with an existing type",
+			func(ctx SpecContext) {
+				source := `
+				LinearScale struct { slope float64 }
+
+				Scale union on type {
+					linear LinearScale
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(
+					diag.Error(),
+				).To(ContainSubstring(`generated variant type name LinearScale collides with an existing type`))
+			},
+		)
 
 		It(
 			"Should error when a variant value collides with the discriminator field name",

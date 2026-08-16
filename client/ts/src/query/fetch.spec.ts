@@ -11,11 +11,11 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import type Synnax from "@/client";
-import { type project } from "@/project";
+import { project } from "@/project";
 import { createTestClient } from "@/testutil/client";
 
 // Every document table declares a fetch that resolves keys against the
-// cluster and omits rows the cluster no longer has. Reconciliation and watch
+// cluster and omits entries the cluster no longer has. Reconciliation and watch
 // backfill ride that contract (the reconcile pass itself is covered in
 // cache.spec.ts); these tests pin it per domain through the keys-only
 // retrieve path, which resolves through the same table fetch. Each test uses
@@ -74,7 +74,13 @@ const DOMAINS: Domain[] = [
   },
   {
     name: "panel",
-    create: async () => (await writer.panels.create({ name: `p-${id.create()}` })).key,
+    create: async () =>
+      (
+        await writer.panels.create({
+          name: `p-${id.create()}`,
+          parent: project.ontologyID(proj.key),
+        })
+      ).key,
     del: async (key) => await writer.panels.delete(key),
     retrieveKeys: async (reader, keys) => await reader.panels.retrieve({ keys }),
   },
@@ -90,7 +96,7 @@ describe("table fetch", () => {
           const res = await retrieveKeys(reader, [key]);
           expect(res.map((r) => r.key)).toEqual([key]);
         } finally {
-          reader.close();
+          await reader.close();
         }
       });
 
@@ -102,7 +108,7 @@ describe("table fetch", () => {
           const res = await retrieveKeys(reader, [key]);
           expect(res).toHaveLength(0);
         } finally {
-          reader.close();
+          await reader.close();
         }
       });
     });

@@ -11,10 +11,10 @@ import { type status } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Feed } from "@/app/notifications/Feed";
-import { renderWithConsole } from "@/testutil";
+import { installPortalRoot, renderWithConsole } from "@/testutil";
 
 const Harness = ({ crude }: { crude: status.Crude }): ReactElement => {
   const add = Status.useAdder();
@@ -33,12 +33,7 @@ const addStatus = async (crude: status.Crude): Promise<void> => {
 };
 
 describe("app notifications", () => {
-  beforeEach(() => {
-    const root = document.createElement("div");
-    root.id = "root";
-    document.body.appendChild(root);
-  });
-  afterEach(() => document.getElementById("root")?.remove());
+  installPortalRoot();
 
   it("shows a hardware error notification", async () => {
     await addStatus({ key: "rack-1", variant: "error", message: "Rack failed" });

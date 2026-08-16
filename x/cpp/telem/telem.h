@@ -730,6 +730,12 @@ public:
         os << r.value << " Hz";
         return os;
     }
+
+    friend void to_json(x::json::json &j, const Rate &r) { j = r.value; }
+
+    friend void from_json(const x::json::json &j, Rate &r) {
+        r = Rate(j.get<double>());
+    }
 };
 
 /// @brief a single hertz

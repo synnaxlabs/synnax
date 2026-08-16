@@ -9,12 +9,15 @@
 
 #pragma once
 
-#include <cstdint>
-#include <functional>
-#include <map>
+#include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
+#include <type_traits>
+#include <variant>
+#include <vector>
 
+#include "client/cpp/ethercat/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
@@ -33,90 +36,77 @@ struct Channel : pdo::Entry {
     virtual ~Channel() = default;
 
 protected:
-    explicit Channel(x::json::Parser &parser, const slave::Properties &slave):
-        pdo::Entry{slave.position, 0, 0, 0, true, x::telem::UNKNOWN_T},
-        enabled(parser.field<bool>("enabled", true)),
-        device_key(parser.field<std::string>("device")) {}
+    Channel(
+        const slave::Properties &slave,
+        const bool is_input,
+        const bool disabled,
+        std::string device
+    ):
+        pdo::Entry{slave.position, 0, 0, 0, is_input, x::telem::UNKNOWN_T},
+        enabled(!disabled),
+        device_key(std::move(device)) {}
+
+    /// @brief copies an inline PDO address into the entry.
+    void bind_address(const ::synnax::ethercat::PDOAddress &addr) {
+        this->index = addr.index;
+        this->sub_index = addr.sub_index;
+        this->bit_length = addr.bit_length;
+        this->data_type = addr.data_type;
+    }
+
+    /// @brief copies a discovered PDO's address into the entry, accumulating a
+    /// field error under the given path prefix when the PDO was not found.
+    void resolve_pdo(
+        const std::optional<pdo::Properties> &pdo,
+        const std::string &name,
+        const x::json::Parser &parser,
+        const std::string &path
+    ) {
+        if (!pdo)
+            return parser.field_err(
+                path + "pdo",
+                "PDO '" + name + "' not found in slave"
+            );
+        this->index = pdo->index;
+        this->sub_index = pdo->sub_index;
+        this->bit_length = pdo->bit_length;
+        this->data_type = pdo->data_type;
+    }
 };
 
-/// @brief base input channel (TxPDO, slave->master).
-struct Input : virtual Channel {
+/// @brief input channel (TxPDO, slave->master).
+struct Input final : Channel {
     /// @brief the key of the Synnax channel to write data to.
     synnax::channel::Key synnax_key;
     /// @brief the Synnax channel object (populated after remote lookup).
     synnax::channel::Channel ch;
 
+    Input(
+        const ::synnax::ethercat::AutomaticReadChannel &cfg,
+        const slave::Properties &slave,
+        const x::json::Parser &parser,
+        const std::string &path = ""
+    ):
+        Channel(slave, true, cfg.disabled, cfg.device), synnax_key(cfg.channel) {
+        this->resolve_pdo(slave.find_input_pdo(cfg.pdo), cfg.pdo, parser, path);
+    }
+
+    Input(
+        const ::synnax::ethercat::ManualReadChannel &cfg,
+        const slave::Properties &slave
+    ):
+        Channel(slave, true, cfg.disabled, cfg.device), synnax_key(cfg.channel) {
+        this->bind_address(cfg);
+    }
+
     /// @brief binds remote channel information retrieved from Synnax.
     void bind_remote_info(const synnax::channel::Channel &remote_ch) {
         this->ch = remote_ch;
     }
-
-protected:
-    explicit Input(x::json::Parser &parser, const slave::Properties &slave):
-        Channel(parser, slave),
-        synnax_key(parser.field<synnax::channel::Key>("channel")) {
-        this->is_input = true;
-    }
 };
 
-/// @brief automatic input channel that resolves PDO address from slave device
-/// properties.
-struct AutomaticInput final : Input {
-    /// @brief the name of the PDO to look up in slave device properties.
-    std::string pdo_name;
-
-    explicit AutomaticInput(x::json::Parser &parser, const slave::Properties &slave):
-        Channel(parser, slave),
-        Input(parser, slave),
-        pdo_name(parser.field<std::string>("pdo")) {
-        auto pdo = slave.find_input_pdo(this->pdo_name);
-        if (!pdo) {
-            parser.field_err("pdo", "PDO '" + this->pdo_name + "' not found in slave");
-            return;
-        }
-        this->index = pdo->index;
-        this->sub_index = pdo->sub_index;
-        this->bit_length = pdo->bit_length;
-        this->data_type = x::telem::DataType(pdo->data_type);
-    }
-};
-
-/// @brief manual input channel where user specifies PDO address inline.
-struct ManualInput final : Input {
-    explicit ManualInput(x::json::Parser &parser, const slave::Properties &slave):
-        Channel(parser, slave), Input(parser, slave) {
-        this->index = static_cast<uint16_t>(parser.field<int>("index"));
-        this->sub_index = static_cast<uint8_t>(parser.field<int>("sub_index"));
-        this->bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
-        this->data_type = x::telem::DataType(parser.field<std::string>("data_type"));
-    }
-};
-
-/// @brief factory function type for creating input channels.
-using InputFactory = std::function<
-    std::unique_ptr<Input>(x::json::Parser &, const slave::Properties &)>;
-
-/// @brief parses an input channel from JSON configuration.
-inline std::unique_ptr<Input>
-parse_input(x::json::Parser &parser, const slave::Properties &slave) {
-    static const std::map<std::string, InputFactory> INPUT_FACTORIES = {
-        {"automatic",
-         [](x::json::Parser &cfg, const slave::Properties &s) {
-             return std::make_unique<AutomaticInput>(cfg, s);
-         }},
-        {"manual", [](x::json::Parser &cfg, const slave::Properties &s) {
-             return std::make_unique<ManualInput>(cfg, s);
-         }}
-    };
-    const auto type = parser.field<std::string>("type");
-    const auto it = INPUT_FACTORIES.find(type);
-    if (it != INPUT_FACTORIES.end()) return it->second(parser, slave);
-    parser.field_err("type", "unknown channel type: " + type);
-    return nullptr;
-}
-
-/// @brief base output channel (RxPDO, master->slave).
-struct Output : virtual Channel {
+/// @brief output channel (RxPDO, master->slave).
+struct Output final : Channel {
     /// @brief the key of the Synnax channel to receive commands from.
     synnax::channel::Key command_key;
     /// @brief the key of the Synnax channel to write state feedback to.
@@ -124,73 +114,89 @@ struct Output : virtual Channel {
     /// @brief the Synnax state channel object (populated after remote lookup).
     synnax::channel::Channel state_ch;
 
+    Output(
+        const ::synnax::ethercat::AutomaticWriteChannel &cfg,
+        const slave::Properties &slave,
+        const x::json::Parser &parser,
+        const std::string &path = ""
+    ):
+        Channel(slave, false, cfg.disabled, cfg.device),
+        command_key(cfg.cmd_channel),
+        state_key(cfg.state_channel) {
+        this->resolve_pdo(slave.find_output_pdo(cfg.pdo), cfg.pdo, parser, path);
+    }
+
+    Output(
+        const ::synnax::ethercat::ManualWriteChannel &cfg,
+        const slave::Properties &slave
+    ):
+        Channel(slave, false, cfg.disabled, cfg.device),
+        command_key(cfg.cmd_channel),
+        state_key(cfg.state_channel) {
+        this->bind_address(cfg);
+    }
+
     void bind_remote_info(const synnax::channel::Channel &state_channel) {
         this->state_ch = state_channel;
     }
-
-protected:
-    explicit Output(x::json::Parser &parser, const slave::Properties &slave):
-        Channel(parser, slave),
-        command_key(parser.field<synnax::channel::Key>("cmd_channel")),
-        state_key(parser.field<synnax::channel::Key>("state_channel", 0)) {
-        this->is_input = false;
-    }
 };
 
-/// @brief automatic output channel that resolves PDO address from slave device
-/// properties.
-struct AutomaticOutput final : Output {
-    /// @brief the name of the PDO to look up in slave device properties.
-    std::string pdo_name;
+/// @brief the shared base fields of a parsed input channel configuration.
+inline const ::synnax::ethercat::BaseReadChannel &
+base(const ::synnax::ethercat::ReadChannel &cfg) {
+    return std::visit(
+        [](const auto &c) -> const ::synnax::ethercat::BaseReadChannel & { return c; },
+        cfg
+    );
+}
 
-    explicit AutomaticOutput(x::json::Parser &parser, const slave::Properties &slave):
-        Channel(parser, slave),
-        Output(parser, slave),
-        pdo_name(parser.field<std::string>("pdo")) {
-        auto pdo = slave.find_output_pdo(this->pdo_name);
-        if (!pdo) {
-            parser.field_err("pdo", "PDO '" + this->pdo_name + "' not found in slave");
-            return;
-        }
-        this->index = pdo->index;
-        this->sub_index = pdo->sub_index;
-        this->bit_length = pdo->bit_length;
-        this->data_type = x::telem::DataType(pdo->data_type);
-    }
-};
+/// @brief the shared base fields of a parsed output channel configuration.
+inline const ::synnax::ethercat::BaseWriteChannel &
+base(const ::synnax::ethercat::WriteChannel &cfg) {
+    return std::visit(
+        [](const auto &c) -> const ::synnax::ethercat::BaseWriteChannel & { return c; },
+        cfg
+    );
+}
 
-/// @brief manual output channel where user specifies PDO address inline.
-struct ManualOutput final : Output {
-    explicit ManualOutput(x::json::Parser &parser, const slave::Properties &slave):
-        Channel(parser, slave), Output(parser, slave) {
-        this->index = static_cast<uint16_t>(parser.field<int>("index"));
-        this->sub_index = static_cast<uint8_t>(parser.field<int>("sub_index"));
-        this->bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
-        this->data_type = x::telem::DataType(parser.field<std::string>("data_type"));
-    }
-};
+/// @brief constructs a runtime input channel from a parsed configuration,
+/// accumulating errors on the parser under the given path prefix.
+inline std::unique_ptr<Input> make_input(
+    const ::synnax::ethercat::ReadChannel &cfg,
+    const slave::Properties &slave,
+    const x::json::Parser &parser,
+    const std::string &path = ""
+) {
+    return std::visit(
+        [&](const auto &c) -> std::unique_ptr<Input> {
+            using T = std::decay_t<decltype(c)>;
+            if constexpr (std::is_same_v<T, ::synnax::ethercat::AutomaticReadChannel>)
+                return std::make_unique<Input>(c, slave, parser, path);
+            else
+                return std::make_unique<Input>(c, slave);
+        },
+        cfg
+    );
+}
 
-/// @brief factory function type for creating output channels.
-using OutputFactory = std::function<
-    std::unique_ptr<Output>(x::json::Parser &, const slave::Properties &)>;
-
-/// @brief parses an output channel from JSON configuration.
-inline std::unique_ptr<Output>
-parse_output(x::json::Parser &parser, const slave::Properties &slave) {
-    static const std::map<std::string, OutputFactory> OUTPUT_FACTORIES = {
-        {"automatic",
-         [](x::json::Parser &cfg, const slave::Properties &s) {
-             return std::make_unique<AutomaticOutput>(cfg, s);
-         }},
-        {"manual", [](x::json::Parser &cfg, const slave::Properties &s) {
-             return std::make_unique<ManualOutput>(cfg, s);
-         }}
-    };
-    const auto type = parser.field<std::string>("type");
-    const auto it = OUTPUT_FACTORIES.find(type);
-    if (it != OUTPUT_FACTORIES.end()) return it->second(parser, slave);
-    parser.field_err("type", "unknown channel type: " + type);
-    return nullptr;
+/// @brief constructs a runtime output channel from a parsed configuration,
+/// accumulating errors on the parser under the given path prefix.
+inline std::unique_ptr<Output> make_output(
+    const ::synnax::ethercat::WriteChannel &cfg,
+    const slave::Properties &slave,
+    const x::json::Parser &parser,
+    const std::string &path = ""
+) {
+    return std::visit(
+        [&](const auto &c) -> std::unique_ptr<Output> {
+            using T = std::decay_t<decltype(c)>;
+            if constexpr (std::is_same_v<T, ::synnax::ethercat::AutomaticWriteChannel>)
+                return std::make_unique<Output>(c, slave, parser, path);
+            else
+                return std::make_unique<Output>(c, slave);
+        },
+        cfg
+    );
 }
 
 /// @brief sorts a vector of channel pointers by slave position, then by index.

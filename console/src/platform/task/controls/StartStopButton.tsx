@@ -27,12 +27,12 @@ export const StartStopButton = ({
   ...props
 }: StartStopButtonProps): ReactElement => (
   <Button.Button
-    status={statusVariant}
+    status={statusVariant ?? (running ? "error" : undefined)}
     onClick={onClick}
     size="medium"
     variant="filled"
     {...props}
   >
-    {running ? <Icon.Pause /> : <Icon.Play />}
+    {running ? <Icon.Stop /> : <Icon.Play />}
   </Button.Button>
 );

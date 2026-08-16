@@ -142,9 +142,9 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
+				Rack: testRack.Key,
 				Name: "child-task",
-				Type: "arc",
+				Type: arc.TaskType,
 			}
 			Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
 
@@ -152,7 +152,7 @@ var _ = Describe("Writer", func() {
 				ctx,
 				a.OntologyID(),
 				ontology.RelationshipTypeParentOf,
-				t.Key.OntologyID(),
+				t.OntologyID(),
 			)).To(Succeed())
 
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
@@ -181,14 +181,14 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 				t1 := &task.Task{
-					Key:  task.NewKey(testRack.Key, 0),
+					Rack: testRack.Key,
 					Name: "child-task-1",
-					Type: "arc",
+					Type: arc.TaskType,
 				}
 				t2 := &task.Task{
-					Key:  task.NewKey(testRack.Key, 0),
+					Rack: testRack.Key,
 					Name: "child-task-2",
-					Type: "arc",
+					Type: arc.TaskType,
 				}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t1)).To(Succeed())
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t2)).To(Succeed())

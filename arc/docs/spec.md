@@ -435,10 +435,11 @@ Functions can also reference global channels directly by name.
 IfStatement ::= 'if' Expression Block ElseIfClause* ElseClause?
 ElseIfClause ::= 'else' 'if' Expression Block
 ElseClause ::= 'else' Block
+ForStatement ::= 'for' ForClause? Block
+ForClause ::= Identifier (',' Identifier)? ':=' Expression | Expression
 ```
 
-Only conditional statements supported. No loops (reactive model handles iteration via
-events + stateful variables).
+`for` iterates a series or `range()`, tests a condition, or is empty to loop forever.
 
 ```arc
 if pressure > 100 {
@@ -560,8 +561,8 @@ test sequences, state machines, and ordered procedures.
 
 ### Core Concepts
 
-**Sequence**: A state machine containing ordered stages. Only one stage is active at a
-time per sequence.
+**Sequence**: An ordered list of steps: flow statements, stages, and nested sequences.
+Only one step is active at a time.
 
 **Stage**: A state within a sequence. When active, its reactive flows execute; when
 inactive, they don't.
@@ -574,11 +575,15 @@ inactive, they don't.
 ### Sequence Syntax
 
 ```
-SequenceDeclaration ::= 'sequence' Identifier '{' StageDeclaration+ '}'
+SequenceDeclaration ::= 'sequence' Identifier? '{' SequenceItem* '}'
 
-StageDeclaration ::= 'stage' Identifier '{' StageItem* '}'
+SequenceItem ::= FlowStatement | Assignment | SingleInvocation
+              | VariableDeclaration | StageDeclaration | SequenceDeclaration
 
-StageItem ::= FlowStatement
+StageDeclaration ::= 'stage' Identifier? '{' StageItem* '}'
+
+StageItem ::= FlowStatement | Assignment | SingleInvocation
+            | VariableDeclaration | SequenceDeclaration
 ```
 
 ### Example
@@ -635,6 +640,19 @@ stage step3 {} // terminal (no outgoing transitions)
 - `=> stage_name` — Jump to any stage in the same sequence
 - `=> sequence_name` — Jump to a different sequence (starts at its first stage)
 
+### Step Completion
+
+A sequence runs its steps in order. When a step completes, the sequence advances; when
+its last step completes, the sequence exits. A completed gated sequence can be triggered
+again.
+
+A nested sequence is one step of its parent: when it completes, the parent advances or
+exits in turn. A sequence declared inside a stage does not advance anything when it
+completes. The stage leaves only through its own `=>` transition.
+
+A flow step completes when its final node fires. Stages do not complete; they leave only
+through an explicit `=>` transition.
+
 ### Reactive vs One-Shot Semantics
 
 **Reactive flows (`->`)**: Execute every time the source produces a value while the
@@ -643,15 +661,15 @@ stage is active.
 **Conditional transitions (`=>`)**: Propagate only when the condition is truthy
 (non-zero). A transition to an already-active stage is a no-op, preventing re-entry.
 
-### Stage Entry Semantics
+### Scope Entry Semantics
 
-When entering a stage:
+When entering a stage or a sequence:
 
 1. Local variables (`:=`) reset to their initial values; stateful variables (`$=`) keep
    their state
-2. Reactive flows start fresh
+2. Reactive flows start fresh; a sequence restarts at its first step
 
-Aside from stateful variables (`$=`), a stage keeps no memory between entries.
+Aside from stateful variables (`$=`), a scope keeps no memory between entries.
 
 ### Cross-Sequence Transitions
 
@@ -660,6 +678,9 @@ When transitioning to another sequence (e.g., `=> abort`):
 1. Source sequence's active stage is deactivated
 2. Target sequence starts at its first defined stage
 3. This is one-way—no built-in "return" mechanism
+4. The source's enclosing sequences do not resume; their remaining steps never run
+
+Activations are independent: several top-level scopes can run at the same time.
 
 ### Top-Level Entry Points
 
@@ -694,7 +715,6 @@ These simplify implementation while maintaining expressiveness:
    or channel IDs may be supplied in the `{}` block
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
-8. **No loops**: Use reactive patterns with stateful variables instead
 
 ## Error Handling
 

@@ -7,17 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
+import { Alamos } from "@/alamos";
+import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
+import { Telem } from "@/telem";
+import { telem } from "@/telem/aether";
+import { theming } from "@/theming/aether";
 import { canvasTest } from "@/vis/render/test";
+import { Staleness } from "@/vis/staleness";
+import { staleness } from "@/vis/staleness/aether";
 
 interface RenderContextSeedProps extends PropsWithChildren {
   context: canvasTest.Recorder;
@@ -35,33 +42,17 @@ const RenderContextSeed = ({
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
-const newWrapper = (
-  client: Client | null,
-  additionalRegistry?: aether.ComponentRegistry,
-  renderContext?: canvasTest.Recorder,
-) => {
-  const AetherProvider = aetherTest.createProvider({
-    ...synnax.REGISTRY,
-    ...status.REGISTRY,
-    ...(renderContext != null
-      ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
-      : {}),
-    ...additionalRegistry,
+const TEST_THEME = theming.themeZ.parse(theming.SYNNAX_THEMES.synnaxLight);
+
+// Mounts the production aether theming provider without the React provider's
+// font loading, which jsdom cannot perform (no FontFace).
+const ThemingSeed = ({ children }: PropsWithChildren): ReactElement => {
+  const { path } = Aether.useLifecycle({
+    type: theming.Provider.TYPE,
+    schema: theming.Provider.z,
+    initialState: { theme: TEST_THEME, fontURLs: [] },
   });
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <AetherProvider>
-      <Status.Aggregator>
-        <Synnax.TestProvider client={client}>
-          {renderContext == null ? (
-            children
-          ) : (
-            <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
-          )}
-        </Synnax.TestProvider>
-      </Status.Aggregator>
-    </AetherProvider>
-  );
-  return Wrapper;
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
 export interface CreateSynnaxWrapperParams {
@@ -74,14 +65,67 @@ export interface CreateSynnaxWrapperParams {
    * with {@link canvasTest.record} and keep the reference for assertions.
    */
   renderContext?: canvasTest.Recorder;
+  /**
+   * When defined, mounts the telemetry provider stack so components that resolve
+   * telem sources (e.g. value cells) can mount. The factories are added to the
+   * production factory set; pass `[new telemTest.TestFactory()]` to resolve
+   * telemTest source and sink specs.
+   */
+  telemFactories?: telem.Factory[];
+  /** Connection status the Synnax context reports; defaults to disconnected. */
+  connectionStatus?: connection.Status;
 }
 
 export const createSynnaxWrapper = ({
   client,
   additionalRegistry,
   renderContext,
-}: CreateSynnaxWrapperParams): FC<PropsWithChildren> =>
-  newWrapper(client, additionalRegistry, renderContext);
+  telemFactories,
+  connectionStatus,
+}: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
+  const AetherProvider = aetherTest.createProvider({
+    ...synnax.REGISTRY,
+    ...status.REGISTRY,
+    ...alamos.REGISTRY,
+    ...theming.REGISTRY,
+    ...staleness.REGISTRY,
+    ...(renderContext != null
+      ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
+      : {}),
+    ...(telemFactories != null
+      ? {
+          [telem.PROVIDER_TYPE]: telem.createProvider((c) =>
+            telem.createFactory(c, telemFactories),
+          ),
+        }
+      : {}),
+    ...additionalRegistry,
+  });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
+    let inner =
+      renderContext == null ? (
+        children
+      ) : (
+        <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
+      );
+    inner = <Staleness.Provider>{inner}</Staleness.Provider>;
+    if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
+    return (
+      <AetherProvider>
+        <Status.Aggregator>
+          <Alamos.Provider>
+            <Synnax.TestProvider client={client} status={connectionStatus}>
+              <Suspense fallback={null}>
+                <ThemingSeed>{inner}</ThemingSeed>
+              </Suspense>
+            </Synnax.TestProvider>
+          </Alamos.Provider>
+        </Status.Aggregator>
+      </AetherProvider>
+    );
+  };
+  return Wrapper;
+};
 
 export const createAsyncSynnaxWrapper = async (
   params: CreateSynnaxWrapperParams,

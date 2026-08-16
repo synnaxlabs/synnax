@@ -31,12 +31,15 @@ var _ = Describe("Reduce", func() {
 		Expect(next.Name).To(Equal("new"))
 	})
 
-	It("Should route an InsertTab action", func() {
+	It("Should route an InsertTabs action", func() {
 		k := uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode()},
-			panel.NewInsertTabAction(
-				panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))},
+			panel.NewInsertTabsAction(
+				panel.InsertTabsPayload{
+					Tabs:       []panel.Tab{tab(k)},
+					TargetLeaf: new(int32(1)),
+				},
 			),
 		))
 		Expect(tabKeys(next.Root)).To(ContainElement(k))
@@ -84,7 +87,7 @@ var _ = Describe("Reduce", func() {
 		Expect(split.Size).To(Equal(0.7))
 	})
 
-	It("Should route a SetTabResource action", func() {
+	It("Should route a SetResourceTab action", func() {
 		k, other := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(viewTab(k, "selector"))},
@@ -93,13 +96,13 @@ var _ = Describe("Reduce", func() {
 			),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.TabResource{
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ResourceTab{
 			TabBase:  panel.TabBase{Key: k},
 			Resource: tabResource(other),
 		}}))
 	})
 
-	It("Should route a SetTabView action", func() {
+	It("Should route a SetViewTab action", func() {
 		k := uuid.New()
 		view := panel.View{Type: "docs"}
 		next := MustSucceed(panel.Reduce(
@@ -107,7 +110,7 @@ var _ = Describe("Reduce", func() {
 			panel.NewSetTabViewAction(panel.SetTabViewPayload{Key: k, View: view}),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.TabView{
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ViewTab{
 			TabBase: panel.TabBase{Key: k},
 			View:    view,
 		}}))
@@ -118,8 +121,11 @@ var _ = Describe("Reduce", func() {
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Name: "old", Root: leafNode()},
 			panel.NewRenameAction(panel.RenamePayload{Name: "new"}),
-			panel.NewInsertTabAction(
-				panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))},
+			panel.NewInsertTabsAction(
+				panel.InsertTabsPayload{
+					Tabs:       []panel.Tab{tab(k)},
+					TargetLeaf: new(int32(1)),
+				},
 			),
 		))
 		Expect(next.Name).To(Equal("new"))
@@ -138,12 +144,12 @@ var _ = Describe("Reduce", func() {
 			Expect(res).To(Equal(p))
 		},
 		Entry("Rename", panel.ActionTypeRename),
-		Entry("InsertTab", panel.ActionTypeInsertTab),
+		Entry("InsertTabs", panel.ActionTypeInsertTabs),
 		Entry("RemoveTab", panel.ActionTypeRemoveTab),
 		Entry("MoveTab", panel.ActionTypeMoveTab),
 		Entry("SplitTab", panel.ActionTypeSplitTab),
 		Entry("ResizeSplit", panel.ActionTypeResizeSplit),
-		Entry("SetTabResource", panel.ActionTypeSetTabResource),
-		Entry("SetTabView", panel.ActionTypeSetTabView),
+		Entry("SetResourceTab", panel.ActionTypeSetTabResource),
+		Entry("SetViewTab", panel.ActionTypeSetTabView),
 	)
 })

@@ -10,7 +10,10 @@
 package types_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	. "github.com/synnaxlabs/oracle/testutil"
 )
@@ -327,6 +330,78 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		})
 	})
 
+	Describe("Array field defaults", func() {
+		It("Should fill a non-empty array default", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					patterns string[]  = ["^cRIO.*", "^nown.*"]
+					limits   float64[] = [0, 1.5]
+					flags    bool[]    = [false, true]
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Cfg) ApplyDefaults() {",
+				"if c.Patterns == nil {",
+				`c.Patterns = []string{"^cRIO.*", "^nown.*"}`,
+				"c.Limits = []float64{0, 1.5}",
+				"c.Flags = []bool{false, true}",
+			)
+		})
+
+		It("Should fill an array of enum variants", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Level enum {
+					h1 = "h1"
+					h2 = "h2"
+				}
+
+				Cfg struct {
+					levels Level[] = [LevelH2, LevelH1]
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"c.Levels = []Level{LevelH2, LevelH1}",
+			)
+		})
+
+		It("Should ignore an empty array default", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					patterns string[] = []
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+		})
+
+		It("Should fill an array component of a struct default", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Filter struct {
+					patterns string[]
+				}
+
+				Cfg struct {
+					filter Filter = { patterns = ["^a.*"] }
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if c.Filter.Patterns == nil {",
+				`c.Filter.Patterns = []string{"^a.*"}`,
+			)
+		})
+	})
+
 	Describe("Recursion into nested types", func() {
 		It(
 			"Should recurse ApplyDefaults into a nested struct field",
@@ -586,15 +661,15 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 
 			Notation enum { standard = "standard" scientific = "scientific" }
 
-			LinearScale struct {
+			LinearParams struct {
 				slope    int32    = 1
 				notation Notation = NotationStandard
 			}
-			NoneScale struct {}
+			NoneParams struct {}
 
 			Scale union on type {
-				linear LinearScale
-				none   NoneScale
+				linear LinearParams
+				none   NoneParams
 			}
 
 			Container struct { scale Scale }
@@ -605,8 +680,8 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (s *ScaleLinear) ApplyDefaults() {",
-					"s.LinearScale.ApplyDefaults()",
+					"func (l *LinearScale) ApplyDefaults() {",
+					"l.LinearParams.ApplyDefaults()",
 				)
 			},
 		)
@@ -616,8 +691,8 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (s ScaleLinear) Validate() error {",
-					"v.Exec(s.LinearScale.Validate)",
+					"func (l LinearScale) Validate() error {",
+					"v.Exec(l.LinearParams.Validate)",
 				)
 			},
 		)
@@ -629,7 +704,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"func (u *Scale) ApplyDefaults() {",
 					"switch variant := u.Variant.(type) {",
-					"case ScaleLinear:",
+					"case LinearScale:",
 					"variant.ApplyDefaults()",
 					"u.Variant = variant",
 				)
@@ -655,6 +730,119 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					"func (c *Container) ApplyDefaults() {",
 					"c.Scale.ApplyDefaults()",
 				)
+			},
+		)
+	})
+
+	Describe("Inline union variants with own defaults", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			Kind enum { number = "number" text = "text" }
+
+			Field union on type {
+				static {
+					kind Kind = KindNumber
+					name string {
+						@validate min_length 2
+					}
+				}
+				generated {}
+			}
+
+			Container struct { fields Field[] }
+		`
+
+		It(
+			"Should fill and validate inline fields on the variant",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (s *StaticField) ApplyDefaults() {",
+					"s.Kind = KindNumber",
+					"func (s StaticField) Validate() error {",
+					"!s.Kind.IsValid()",
+				)
+			},
+		)
+
+		It(
+			"Should emit constraint checks for inline variant fields",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.Ternaryf("name", len(s.Name) < 2, ` +
+						`"must be at least 2 characters long")`,
+				)
+			},
+		)
+
+		It(
+			"Should dispatch the wrapper methods the container recurses into",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (u *Field) ApplyDefaults() {",
+					"func (u Field) Validate() error {",
+					"func (c *Container) ApplyDefaults() {",
+					"c.Fields[i].ApplyDefaults()",
+				)
+			},
+		)
+	})
+
+	Describe("Union-typed field defaults", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			CJC union on source {
+				built_in {}
+				const_val {
+					val float64 = 0
+				}
+			}
+
+			Item struct { cjc CJC = const_val }
+		`
+
+		It(
+			"Should fill the nil variant with the defaulted one",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (i *Item) ApplyDefaults() {",
+					"if i.Cjc.Variant == nil {",
+					"i.Cjc.Variant = ConstValCJC{}",
+				)
+			},
+		)
+
+		It(
+			"Should recurse into the filled variant so its own defaults land",
+			func(ctx SpecContext) {
+				withVariantDefault := `
+					@go output "core/pkg/service/x"
+
+					CJC union on source {
+						built_in {}
+						const_val {
+							val float64 = 25
+						}
+					}
+
+					Item struct { cjc CJC = const_val }
+				`
+				resp := MustGenerate(ctx, withVariantDefault, "x", loader, goPlugin)
+				content := MustContentOf(resp, "types.gen.go")
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *ConstValCJC) ApplyDefaults() {",
+					"c.Val = 25",
+					"i.Cjc.ApplyDefaults()",
+				)
+				// The fill must precede the recursion: a nil variant has no
+				// ApplyDefaults to dispatch to.
+				Expect(strings.Index(content, "i.Cjc.Variant = ConstValCJC{}")).
+					To(BeNumerically("<", strings.Index(content, "i.Cjc.ApplyDefaults()")))
 			},
 		)
 	})

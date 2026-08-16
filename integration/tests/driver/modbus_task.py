@@ -26,7 +26,7 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]: ...
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.ReadChannel]: ...
 
     def create(
         self,
@@ -56,7 +56,7 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]: ...
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]: ...
 
     def create(
         self,

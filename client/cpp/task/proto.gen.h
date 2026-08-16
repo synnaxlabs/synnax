@@ -28,20 +28,31 @@ namespace synnax::task {
 inline std::pair<::service::task::pb::StatusDetails, x::errors::Error>
 StatusDetails::to_proto() const {
     ::service::task::pb::StatusDetails pb;
-    pb.set_task(static_cast<uint64_t>(this->task));
+    pb.set_task(this->task.to_string());
     pb.set_running(this->running);
     pb.set_cmd(this->cmd);
-    if (this->data.has_value())
-        *pb.mutable_data() = x::json::to_struct(*this->data).first;
+    pb.set_config_hash(this->config_hash);
+    pb.set_rack(static_cast<uint32_t>(this->rack));
+    if (this->data.has_value()) {
+        auto [v, err] = x::json::to_struct(*this->data);
+        if (err) return {{}, err};
+        *pb.mutable_data() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<StatusDetails, x::errors::Error>
 StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
     StatusDetails cpp;
-    cpp.task = Key(pb.task());
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.task());
+        if (err) return {{}, err};
+        cpp.task = v;
+    }
     cpp.running = pb.running();
     cpp.cmd = pb.cmd();
+    cpp.config_hash = pb.config_hash();
+    cpp.rack = ::synnax::rack::Key(pb.rack());
     if (pb.has_data()) {
         auto [v, err] = x::json::from_struct(pb.data());
         if (err) return {{}, err};
@@ -52,10 +63,16 @@ StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
 
 inline std::pair<::service::task::pb::Task, x::errors::Error> Task::to_proto() const {
     ::service::task::pb::Task pb;
-    pb.set_key(static_cast<uint64_t>(this->key));
+    pb.set_key(this->key.to_string());
+    pb.set_rack(static_cast<uint32_t>(this->rack));
     pb.set_name(this->name);
     pb.set_type(this->type);
-    *pb.mutable_config() = x::json::to_struct(this->config).first;
+    {
+        auto [v, err] = x::json::to_struct(this->config);
+        if (err) return {{}, err};
+        *pb.mutable_config() = v;
+    }
+    pb.set_config_hash(this->config_hash);
     pb.set_internal(this->internal);
     pb.set_snapshot(this->snapshot);
     if (this->status.has_value()) {
@@ -69,7 +86,12 @@ inline std::pair<::service::task::pb::Task, x::errors::Error> Task::to_proto() c
 inline std::pair<Task, x::errors::Error>
 Task::from_proto(const ::service::task::pb::Task &pb) {
     Task cpp;
-    cpp.key = Key(pb.key());
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    cpp.rack = ::synnax::rack::Key(pb.rack());
     cpp.name = pb.name();
     cpp.type = pb.type();
     {
@@ -77,6 +99,7 @@ Task::from_proto(const ::service::task::pb::Task &pb) {
         if (err) return {{}, err};
         cpp.config = v;
     }
+    cpp.config_hash = pb.config_hash();
     cpp.internal = pb.internal();
     cpp.snapshot = pb.snapshot();
     if (pb.has_status()) {
@@ -90,19 +113,29 @@ Task::from_proto(const ::service::task::pb::Task &pb) {
 inline std::pair<::service::task::pb::Command, x::errors::Error>
 Command::to_proto() const {
     ::service::task::pb::Command pb;
-    pb.set_task(static_cast<uint64_t>(this->task));
+    pb.set_task(this->task.to_string());
     pb.set_type(this->type);
     pb.set_key(this->key);
-    *pb.mutable_args() = x::json::to_struct(this->args).first;
+    pb.set_config_hash(this->config_hash);
+    {
+        auto [v, err] = x::json::to_struct(this->args);
+        if (err) return {{}, err};
+        *pb.mutable_args() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<Command, x::errors::Error>
 Command::from_proto(const ::service::task::pb::Command &pb) {
     Command cpp;
-    cpp.task = Key(pb.task());
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.task());
+        if (err) return {{}, err};
+        cpp.task = v;
+    }
     cpp.type = pb.type();
     cpp.key = pb.key();
+    cpp.config_hash = pb.config_hash();
     {
         auto [v, err] = x::json::from_struct(pb.args());
         if (err) return {{}, err};

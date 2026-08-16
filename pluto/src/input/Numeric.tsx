@@ -64,6 +64,7 @@ export const Numeric = ({
   bounds: propsBounds = bounds.INFINITE,
   resetValue,
   variant = "outlined",
+  preview,
   className,
   children,
   disabled,
@@ -71,7 +72,6 @@ export const Numeric = ({
   units,
   size,
   color,
-  contrast,
   emptyValue,
   ...rest
 }: NumericProps): ReactElement => {
@@ -152,13 +152,14 @@ export const Numeric = ({
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (variant === "preview") showDragHandle = false;
+  if (preview === true) showDragHandle = false;
 
   return (
     <Text
       ref={ref}
       type="text"
       variant={variant}
+      preview={preview}
       className={className}
       value={value_}
       onChange={handleChange}
@@ -174,7 +175,6 @@ export const Numeric = ({
       onBlur={handleBlur}
       size={size}
       color={color}
-      contrast={contrast}
       {...rest}
     >
       {showDragHandle && (
@@ -187,7 +187,6 @@ export const Numeric = ({
           onBlur={handleBlur}
           size={size}
           color={color}
-          contrast={contrast}
           disabled={disabled}
         />
       )}

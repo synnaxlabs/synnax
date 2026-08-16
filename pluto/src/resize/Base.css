@@ -10,60 +10,90 @@
  */
 
 .pluto-resize {
-    --resize-panel-handle-size: calc(var(--pluto-border-width) * 5);
+    /* Fixed rather than a multiple of the border width, which halves on retina and
+       would leave a 2.5px drag target. */
+    --resize-panel-handle-size: 6px;
     position: relative;
 
     &.pluto--location-left > .pluto-resize__handle {
         right: 0;
         top: 0;
+
+        &::after {
+            right: 0;
+        }
     }
 
     &.pluto--location-right > .pluto-resize__handle {
         left: 0;
         top: 0;
+
+        &::after {
+            left: 0;
+        }
     }
 
     &.pluto--location-top > .pluto-resize__handle {
         left: 0;
         bottom: 0;
+
+        &::after {
+            bottom: 0;
+        }
     }
 
     &.pluto--location-bottom > .pluto-resize__handle {
         left: 0;
         top: 0;
+
+        &::after {
+            top: 0;
+        }
     }
 
     &.pluto--direction-x > .pluto-resize__handle {
         width: var(--resize-panel-handle-size);
         height: 100%;
         cursor: col-resize;
+
+        &::after {
+            top: 0;
+            width: 2px;
+            height: 100%;
+        }
     }
 
     &.pluto--direction-y > .pluto-resize__handle {
         height: var(--resize-panel-handle-size);
         width: 100%;
         cursor: row-resize;
+
+        &::after {
+            left: 0;
+            height: 2px;
+            width: 100%;
+        }
     }
 }
 
+/* The divider is the container's own border. The handle stays transparent and paints
+   the bar only while hovered or dragged, so the edge never doubles up. */
 .pluto-resize__handle {
     position: absolute;
     z-index: 4;
-    color: var(--pluto-border-color);
-    border-color: var(--pluto-border-color);
-    transition:
-        border-color 0.1s ease-in-out,
-        border-width 0.1s ease-in-out;
 
-    &:is(:hover, :active) {
-        border-width: 2px;
+    &::after {
+        content: "";
+        position: absolute;
+        background-color: transparent;
+        transition: background-color 0.1s ease-in-out;
     }
 
-    &:hover {
-        border-color: var(--pluto-primary-z);
+    &:hover::after {
+        background-color: var(--pluto-primary-z);
     }
 
-    &:active {
-        border-color: var(--pluto-primary-p1);
+    &:active::after {
+        background-color: var(--pluto-primary-p1);
     }
 }

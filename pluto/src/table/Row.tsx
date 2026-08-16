@@ -14,13 +14,16 @@ import { memo, type ReactElement, useCallback, useMemo } from "react";
 import { CSS } from "@/css";
 import { Cell } from "@/table/cells";
 import { Indicator } from "@/table/Indicator";
-import { useDispatch, useSelectCell } from "@/table/queries";
+import { useCell, useDispatch } from "@/table/queries";
 import { Selection } from "@/table/selection";
 
 export interface RowProps {
   index: number;
   size: number;
-  position: number;
+  /** Canvas x coordinate of the row's first cell. */
+  x: number;
+  /** Canvas y coordinate of the row. */
+  y: number;
   resourceKey: table.Key;
   cells: string[];
   columns: number[];
@@ -35,7 +38,8 @@ export const Row = memo(
   ({
     index,
     size,
-    position,
+    x,
+    y,
     resourceKey,
     cells,
     columns,
@@ -45,7 +49,7 @@ export const Row = memo(
     onSelect,
     onCellSelect,
   }: RowProps): ReactElement => {
-    let xCursor = showIndicator ? 4.5 * 6 : 0;
+    let xCursor = x;
     return (
       <tr className={CSS(CSS.BE("table", "row"))}>
         {showIndicator && (
@@ -67,7 +71,7 @@ export const Row = memo(
               resourceKey={resourceKey}
               cellKey={cellKey}
               x={xPos}
-              y={position}
+              y={y}
               width={columns[i]}
               height={size}
               editable={editable}
@@ -111,7 +115,7 @@ const VariantCell = memo(
     editable,
     onSelect,
   }: VariantCellProps): ReactElement | null => {
-    const cell = useSelectCell({ key: resourceKey, cellKey });
+    const cell = useCell({ key: resourceKey, cellKey });
     const selected = Selection.useIsMember(cellKey);
     const { dispatch } = useDispatch();
     const b = useMemo(

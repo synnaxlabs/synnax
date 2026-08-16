@@ -16,7 +16,7 @@ import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
-import { createAOChannel } from "@/feature/ni/task/createChannel";
+import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
 import {
   ANALOG_WRITE_SCHEMAS,
@@ -27,18 +27,11 @@ import {
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
   type AOChannelType,
-  ZERO_ANALOG_WRITE_PAYLOAD,
+  deployAnalogWriteConfigZ,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const AnalogWriteSelectable = Selector.createSelectable({
-  type: ANALOG_WRITE_TYPE,
-  title: "NI Analog Write Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(ANALOG_WRITE_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -86,11 +79,11 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 const channelDetails = Component.renderProp(ChannelDetails);
 const channelListItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<AnalogWriteSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
-    createChannel={createAOChannel}
+    createChannel={createNextAOChannel}
     contextMenuItems={Task.writeChannelContextMenuItems}
   />
 );
@@ -99,14 +92,9 @@ const getInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null
-      ? analogWriteConfigZ.parse(config)
-      : ZERO_ANALOG_WRITE_PAYLOAD.config;
-  return {
-    ...ZERO_ANALOG_WRITE_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = analogWriteConfigZ.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "NI Analog Write Task", type: ANALOG_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
@@ -222,7 +210,19 @@ export const AnalogWrite = Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
+  deployConfigZ: deployAnalogWriteConfigZ,
   type: "ni_analog_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateAnalogWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const AnalogWriteSelectable = Selector.createSelectable({
+  type: ANALOG_WRITE_TYPE,
+  title: "NI Analog Write Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateAnalogWrite,
 });

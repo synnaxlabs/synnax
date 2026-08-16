@@ -50,56 +50,6 @@ export const removeFilePickers = (): void => {
   delete window.showDirectoryPicker;
 };
 
-export interface InstallFakeDirectoryPickerParams {
-  name?: string;
-  preExisted?: boolean;
-}
-
-export interface FakeDirectoryPicker {
-  /** Files written through the picker, keyed by filename. */
-  files: Map<string, string>;
-}
-
-/**
- * Installs a window.showDirectoryPicker returning a minimal writable directory
- * handle that records written files. jsdom cannot construct real
- * FileSystemDirectoryHandle instances, so the sanctioned casts to the DOM types
- * live here.
- */
-export const installFakeDirectoryPicker = ({
-  name = "exports",
-  preExisted = false,
-}: InstallFakeDirectoryPickerParams = {}): FakeDirectoryPicker => {
-  const files = new Map<string, string>();
-  const createSubdir = (subName: string): FileSystemDirectoryHandle =>
-    ({
-      name: subName,
-      getFileHandle: async (fileName: string) => ({
-        createWritable: async () => {
-          let text = "";
-          return {
-            write: async (chunk: string) => {
-              text += chunk;
-            },
-            close: async () => {
-              files.set(fileName, text);
-            },
-          };
-        },
-      }),
-    }) as unknown as FileSystemDirectoryHandle;
-  const root = {
-    name,
-    getDirectoryHandle: async (subName: string, opts?: { create?: boolean }) => {
-      if (!preExisted && opts?.create !== true)
-        throw new DOMException("directory not found", "NotFoundError");
-      return createSubdir(subName);
-    },
-  } as unknown as FileSystemDirectoryHandle;
-  installDirectoryPicker(async () => root);
-  return { files };
-};
-
 export interface InstallPickedDirectoryOptions {
   /**
    * Whether the export subdirectory already exists in the picked directory. When

@@ -36,12 +36,12 @@ describe("parseType", () => {
 
 describe("getIcon", () => {
   it.each([
-    ["ethercat_read", Icon.Device],
+    ["ethercat_read", Icon.Logo.EtherCAT],
     ["http_scan", Icon.Logo.HTTP],
     ["labjack_read", Icon.Logo.LabJack],
     ["modbus_read", Icon.Logo.Modbus],
     ["ni_analog_read", Icon.Logo.NI],
-    ["opc_read", Icon.Logo.OPC],
+    ["opc_read", Icon.Logo.OPCUA],
     ["pagerduty_alert", Icon.Logo.PagerDuty],
   ])("should resolve the vendor icon for %s", (type, expected) => {
     expect(Task.getIcon(type).type).toBe(expected);

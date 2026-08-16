@@ -15,9 +15,7 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Status } from "@/feature/status";
 import { findModalButton } from "@/platform/tree/menuTestutil";
 import { Session } from "@/session";
-import { resolveFocusedTab, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

@@ -17,7 +17,7 @@ import {
   AO_CHANNEL_TYPES,
   type AOChannel,
   type AOChannelType,
-  ZERO_AO_CHANNELS,
+  createAOChannel,
 } from "@/feature/ni/task/types";
 
 export interface Entry extends record.KeyedNamed<AOChannelType> {}
@@ -31,7 +31,7 @@ export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Ent
     onChange: (value, { get, set, path }) => {
       const prevType = get<AOChannelType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_AO_CHANNELS[value]);
+      const next = createAOChannel(value);
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<AOChannel>(parentPath).value;
       const schema = AO_CHANNEL_SCHEMAS[value];
@@ -46,7 +46,7 @@ export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Ent
     resourceName: "channel type",
     data: AO_CHANNEL_TYPES.map((key) => {
       const Icon = AO_CHANNEL_TYPE_ICONS[key];
-      return { key, name: AO_CHANNEL_TYPE_NAMES[key], icon: <Icon color={8} /> };
+      return { key, name: AO_CHANNEL_TYPE_NAMES[key], icon: <Icon color={9} /> };
     }),
   },
 });

@@ -34,3 +34,10 @@ type Codec interface {
 	Encoder
 	Decoder
 }
+
+// FileCodec is a Codec that also names the files its output belongs in, so a caller
+// writing a directory can name each file without knowing which codec holds it.
+type FileCodec interface {
+	Codec
+	encoding.FileEncoder
+}

@@ -9,12 +9,28 @@
 
 import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type MouseEventHandler, type ReactElement, useEffect, useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import {
+  type CSSProperties,
+  type MouseEventHandler,
+  type ReactElement,
+  useEffect,
+  useState,
+} from "react";
+import {
+  afterEach,
+  assert,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi,
+} from "vitest";
 
 import { Haul } from "@/haul";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
+import { fireDragEvent } from "@/testutil/dom";
 
 interface BasicTabsProps {
   initialValue?: string;
@@ -43,6 +59,22 @@ const BasicTabs = (props: BasicTabsProps): ReactElement => (
 );
 
 const tab = (name: string): HTMLElement => screen.getByRole("tab", { name });
+
+// jsdom lays nothing out, so the scrollport geometry is stubbed per element.
+const stubStrip = (scrollWidth: number, clientWidth: number): HTMLElement => {
+  const strip = screen.getByRole("tablist");
+  let scrollLeft = 0;
+  Object.defineProperties(strip, {
+    scrollWidth: { value: scrollWidth, configurable: true },
+    clientWidth: { value: clientWidth, configurable: true },
+    scrollLeft: {
+      get: () => scrollLeft,
+      set: (v: number) => (scrollLeft = v),
+      configurable: true,
+    },
+  });
+  return strip;
+};
 
 describe("Tabs", () => {
   describe("Frame", () => {
@@ -103,6 +135,28 @@ describe("Tabs", () => {
       expect(screen.queryByText("Content A")).toBeNull();
       fireEvent.click(tab("Tab A"));
       expect(onSelect).toHaveBeenCalledWith("a");
+    });
+
+    it("should select a tab that does not head an ordered selection", () => {
+      const onSelect = vi.fn();
+      render(
+        <Select.Context value={["b", "a"]} onSelect={onSelect}>
+          <BasicTabs />
+        </Select.Context>,
+      );
+      fireEvent.click(tab("Tab A"));
+      expect(onSelect).toHaveBeenCalledWith("a");
+    });
+
+    it("should not select the tab heading an ordered selection", () => {
+      const onSelect = vi.fn();
+      render(
+        <Select.Context value={["b", "a"]} onSelect={onSelect}>
+          <BasicTabs />
+        </Select.Context>,
+      );
+      fireEvent.click(tab("Tab B"));
+      expect(onSelect).not.toHaveBeenCalled();
     });
 
     it("should shadow an enclosing selection when it owns one", () => {
@@ -417,6 +471,277 @@ describe("Tabs", () => {
     });
   });
 
+  describe("style knobs", () => {
+    const strip = (props: Tabs.SelectorProps = {}): HTMLElement => {
+      render(
+        <Tabs.Frame initialValue="a">
+          <Tabs.Selector {...props}>
+            <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>,
+      );
+      return screen.getByRole("tablist");
+    };
+
+    it.each([
+      ["default", "align-center", "sizing-elastic"],
+      ["pill", "align-start", "sizing-fixed"],
+    ] as const)("should default %s to %s and %s", (variant, align, sizing) => {
+      const el = strip({ variant });
+      expect(el.classList.contains(`pluto-tabs__selector--${align}`)).toBe(true);
+      expect(el.classList.contains(`pluto-tabs__selector--${sizing}`)).toBe(true);
+    });
+
+    it.each(["elastic", "fixed", "content"] as const)(
+      "should apply the %s sizing",
+      (sizing) => {
+        const el = strip({ sizing });
+        expect(el.classList.contains(`pluto-tabs__selector--sizing-${sizing}`)).toBe(
+          true,
+        );
+      },
+    );
+
+    it("should let explicit knobs override the variant defaults", () => {
+      const el = strip({ variant: "pill", align: "center", sizing: "elastic" });
+      expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
+      expect(el.classList.contains("pluto-tabs__selector--sizing-elastic")).toBe(true);
+    });
+
+    it("should start-align a vertical strip whose variant centers when horizontal", () => {
+      const el = strip({ variant: "default", y: true });
+      expect(el.classList.contains("pluto-tabs__selector--align-start")).toBe(true);
+    });
+
+    it("should still honor an explicit align on a vertical strip", () => {
+      const el = strip({ variant: "default", y: true, align: "center" });
+      expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
+    });
+  });
+
+  describe("scroll thumb", () => {
+    // The thumb renders as the strip's sibling so it can hang below the scrollport.
+    const thumb = (strip: HTMLElement): HTMLElement => {
+      const el = strip.parentElement?.querySelector<HTMLElement>(".pluto-tabs__thumb");
+      assert(el != null);
+      return el;
+    };
+
+    it("should mark an overflowing strip scrollable", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      fireEvent.scroll(strip);
+      expect(strip.classList.contains("pluto-tabs__selector--scrollable")).toBe(true);
+    });
+
+    it("should not mark a strip whose tabs fit", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(200, 200);
+      fireEvent.scroll(strip);
+      expect(strip.classList.contains("pluto-tabs__selector--scrollable")).toBe(false);
+    });
+
+    it("should mark only the edges with tabs hidden past them", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      const clipped = (edge: string): boolean =>
+        strip.classList.contains(`pluto-tabs__selector--clipped-${edge}`);
+      fireEvent.scroll(strip);
+      expect(clipped("start")).toBe(false);
+      expect(clipped("end")).toBe(true);
+      strip.scrollLeft = 150;
+      fireEvent.scroll(strip);
+      expect(clipped("start")).toBe(true);
+      expect(clipped("end")).toBe(true);
+      strip.scrollLeft = 300;
+      fireEvent.scroll(strip);
+      expect(clipped("start")).toBe(true);
+      expect(clipped("end")).toBe(false);
+    });
+
+    it("should size and place the thumb from the scroll geometry", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      strip.scrollLeft = 150;
+      fireEvent.scroll(strip);
+      // Width covers the visible fraction: 200 / 500 * 200. The offset walks the
+      // free track with scroll progress: (150 / 300) * (200 - 80).
+      expect(thumb(strip).style.width).toEqual("80px");
+      expect(thumb(strip).style.transform).toEqual("translateX(60px)");
+    });
+
+    it("should clamp the thumb to its minimum width", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(4000, 100);
+      fireEvent.scroll(strip);
+      expect(thumb(strip).style.width).toEqual("24px");
+    });
+
+    it("should scroll the strip when the thumb is dragged", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      fireEvent.scroll(strip);
+      const el = thumb(strip);
+      el.setPointerCapture = vi.fn();
+      Object.defineProperty(el, "offsetWidth", { value: 80, configurable: true });
+      fireEvent.pointerDown(el, { pointerId: 1, clientX: 0 });
+      fireEvent.pointerMove(el, { pointerId: 1, clientX: 40 });
+      // 40px over the 120px of free track maps to 100px of the 300px scroll range.
+      expect(strip.scrollLeft).toEqual(100);
+      fireEvent.pointerUp(el, { pointerId: 1 });
+      fireEvent.pointerMove(el, { pointerId: 1, clientX: 80 });
+      expect(strip.scrollLeft).toEqual(100);
+    });
+  });
+
+  describe("selected tab visibility", () => {
+    let scrollLeft: MockInstance<(offset: number) => void>;
+
+    // jsdom lays nothing out and ignores scrollLeft writes, so every tab takes a 100px
+    // slot in a 100px port and the write is read back off the setter.
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(100);
+      vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(100);
+      vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (
+        this: HTMLElement,
+      ): number {
+        return Array.from(this.parentElement?.children ?? []).indexOf(this) * 100;
+      });
+      scrollLeft = vi.spyOn(Element.prototype, "scrollLeft", "set");
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    // The strip each write scrolled, in order.
+    const scrolled = (): Element[] => scrollLeft.mock.contexts as Element[];
+
+    // The offsets written, in order.
+    const offsets = (): number[] => scrollLeft.mock.calls.map(([offset]) => offset);
+
+    // Two strips sharing one selection, the shape Panel.Mosaic renders.
+    const SplitTabs = ({ value }: { value: string }): ReactElement => (
+      <Select.Context value={value}>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="b">Tab B</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+      </Select.Context>
+    );
+
+    it("should scroll the selected tab into view when the selection changes", () => {
+      const { rerender } = render(<BasicTabs value="a" onChange={vi.fn()} />);
+      scrollLeft.mockClear();
+      rerender(<BasicTabs value="c" onChange={vi.fn()} />);
+      expect(scrolled()).toEqual([screen.getByRole("tablist")]);
+      expect(offsets()).toEqual([200]);
+    });
+
+    it("should scroll the already selected tab into view on mount", () => {
+      render(<BasicTabs initialValue="b" />);
+      expect(scrolled()).toEqual([screen.getByRole("tablist")]);
+      expect(offsets()).toEqual([100]);
+    });
+
+    it("should not scroll when the selected tab belongs to another strip", () => {
+      const { rerender } = render(<SplitTabs value="a" />);
+      scrollLeft.mockClear();
+      rerender(<SplitTabs value="b" />);
+      expect(scrolled()).toEqual([screen.getAllByRole("tablist")[1]]);
+    });
+
+    // Two strips each holding a selection, the shape a split Panel.Mosaic renders.
+    const SplitSelection = ({ value }: { value: string[] }): ReactElement => (
+      <Select.Context value={value}>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="a1">Tab A1</Tabs.Tab>
+            <Tabs.Tab itemKey="a2">Tab A2</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="b1">Tab B1</Tabs.Tab>
+            <Tabs.Tab itemKey="b2">Tab B2</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+      </Select.Context>
+    );
+
+    it("should leave a strip alone when a sibling's selection changes", () => {
+      const { rerender } = render(<SplitSelection value={["a1", "b1"]} />);
+      scrollLeft.mockClear();
+      rerender(<SplitSelection value={["a2", "b1"]} />);
+      expect(scrolled()).toEqual([screen.getAllByRole("tablist")[0]]);
+      expect(offsets()).toEqual([100]);
+    });
+  });
+
+  describe("wheel scrolling", () => {
+    const wheel = (strip: HTMLElement, init: WheelEventInit): Event => {
+      const event = createEvent.wheel(strip, { cancelable: true, ...init });
+      fireEvent(strip, event);
+      return event;
+    };
+
+    it("should scroll an overflowing strip right on a downward wheel", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      const event = wheel(strip, { deltaY: 100 });
+      expect(strip.scrollLeft).toEqual(100);
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it("should scroll left on an upward wheel", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      strip.scrollLeft = 150;
+      wheel(strip, { deltaY: -100 });
+      expect(strip.scrollLeft).toEqual(50);
+    });
+
+    it("should not scroll a strip that does not overflow", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(200, 200);
+      const event = wheel(strip, { deltaY: 100 });
+      expect(strip.scrollLeft).toEqual(0);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("should ignore a wheel already travelling horizontally", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      const event = wheel(strip, { deltaX: 100, deltaY: 20 });
+      expect(strip.scrollLeft).toEqual(0);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("should clamp at the end and let the wheel chain to an ancestor", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      const clamped = wheel(strip, { deltaY: 1000 });
+      expect(strip.scrollLeft).toEqual(300);
+      expect(clamped.defaultPrevented).toBe(true);
+      const atLimit = wheel(strip, { deltaY: 100 });
+      expect(strip.scrollLeft).toEqual(300);
+      expect(atLimit.defaultPrevented).toBe(false);
+    });
+
+    it("should scale a line-mode wheel into pixels", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      wheel(strip, { deltaY: 3, deltaMode: WheelEvent.DOM_DELTA_LINE });
+      expect(strip.scrollLeft).toEqual(48);
+    });
+  });
+
   describe("Selector drag-and-drop", () => {
     const TAB_TYPE = "tab";
 
@@ -456,6 +781,8 @@ describe("Tabs", () => {
       canDrop?: Haul.CanDrop;
       onDrop?: (params: Tabs.SelectorOnDropParams) => Haul.Item[];
       items?: Haul.Item[];
+      // jsdom loads no stylesheet, so a strip needing a real gap sets one inline.
+      style?: CSSProperties;
     }
 
     const DragTabs = ({
@@ -463,11 +790,17 @@ describe("Tabs", () => {
       canDrop,
       onDrop,
       items = [{ type: TAB_TYPE, key: "x" }],
+      style,
     }: DragTabsProps): ReactElement => (
       <Haul.Provider>
         <DragSource items={items} />
         <Tabs.Frame initialValue="a">
-          <Tabs.Selector haulType={haulType} canDrop={canDrop} onDrop={onDrop}>
+          <Tabs.Selector
+            haulType={haulType}
+            canDrop={canDrop}
+            onDrop={onDrop}
+            style={style}
+          >
             <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
             <Tabs.Tab itemKey="b">Tab B</Tabs.Tab>
             <Tabs.Tab itemKey="c">Tab C</Tabs.Tab>
@@ -481,36 +814,46 @@ describe("Tabs", () => {
       stubStripRects(screen.getByRole("tablist"));
     };
 
-    // jsdom has no DragEvent, so testing-library falls back to a plain Event and the
-    // cursor coordinates in the init are lost. Define them on the event directly.
-    const fireDragEvent = (type: "dragOver" | "drop", x: number): void => {
-      const target = screen.getByRole("tablist");
-      const event = createEvent[type](target);
-      Object.defineProperties(event, {
-        clientX: { value: x },
-        clientY: { value: 16 },
-        screenX: { value: x },
-        screenY: { value: 16 },
-      });
-      fireEvent(target, event);
-    };
+    const fireStripDrag = (type: "dragOver" | "drop", x: number): void =>
+      fireDragEvent(screen.getByRole("tablist"), type, { x, y: 16 });
 
-    const indicator = (): HTMLElement | null =>
-      document.querySelector(".pluto-tabs__insertion");
+    const ghost = (): HTMLElement | null =>
+      document.querySelector(".pluto-tabs__ghost");
 
-    it("should render an insertion indicator while dragging an accepted item", () => {
+    it("should render a ghost slot while dragging an accepted item", () => {
       render(<DragTabs />);
-      expect(indicator()).toBeNull();
+      expect(ghost()).toBeNull();
       beginDrag();
-      fireDragEvent("dragOver", 150);
-      expect(indicator()).not.toBeNull();
+      fireStripDrag("dragOver", 150);
+      expect(ghost()).not.toBeNull();
+    });
+
+    // An empty strip has no tab to measure the slot from, so it falls back to its own
+    // leading padding and to the standard width the stylesheet gives the ghost.
+    it("should render the ghost at the leading padding of an empty strip", () => {
+      render(
+        <Haul.Provider>
+          <DragSource items={[{ type: TAB_TYPE, key: "x" }]} />
+          <Tabs.Frame initialValue="a">
+            <Tabs.Selector
+              haulType={TAB_TYPE}
+              onDrop={() => []}
+              style={{ paddingLeft: 12 }}
+            />
+          </Tabs.Frame>
+        </Haul.Provider>,
+      );
+      fireEvent.click(screen.getByTestId("drag-source"));
+      fireStripDrag("dragOver", 150);
+      expect(ghost()?.style.left).toEqual("12px");
+      expect(ghost()?.style.width).toEqual("");
     });
 
     it("should report the resolved insertion index on drop", () => {
       const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs onDrop={onDrop} />);
       beginDrag();
-      fireDragEvent("drop", 90);
+      fireStripDrag("drop", 90);
       expect(onDrop).toHaveBeenCalledTimes(1);
       expect(onDrop.mock.calls[0][0].index).toEqual(1);
     });
@@ -521,36 +864,36 @@ describe("Tabs", () => {
       // Tab centers sit at 50/150/250; a drop ends the drag, so restart it per slot.
       for (const x of [30, 90, 210, 400]) {
         beginDrag();
-        fireDragEvent("drop", x);
+        fireStripDrag("drop", x);
       }
       expect(onDrop.mock.calls.map(([p]) => p.index)).toEqual([0, 1, 2, 3]);
     });
 
-    it("should clear the indicator once a drop lands", () => {
+    it("should clear the ghost once a drop lands", () => {
       render(<DragTabs onDrop={() => []} />);
       beginDrag();
-      fireDragEvent("dragOver", 150);
-      expect(indicator()).not.toBeNull();
-      fireDragEvent("drop", 150);
-      expect(indicator()).toBeNull();
+      fireStripDrag("dragOver", 150);
+      expect(ghost()).not.toBeNull();
+      fireStripDrag("drop", 150);
+      expect(ghost()).toBeNull();
     });
 
-    it("should clear the indicator when the drag leaves the strip", () => {
+    it("should clear the ghost when the drag leaves the strip", () => {
       render(<DragTabs />);
       beginDrag();
-      fireDragEvent("dragOver", 150);
-      expect(indicator()).not.toBeNull();
+      fireStripDrag("dragOver", 150);
+      expect(ghost()).not.toBeNull();
       fireEvent.dragLeave(screen.getByRole("tablist"));
-      expect(indicator()).toBeNull();
+      expect(ghost()).toBeNull();
     });
 
     it("should register no drop zone when haulType is empty", () => {
       const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs haulType="" onDrop={onDrop} />);
       beginDrag();
-      fireDragEvent("dragOver", 150);
-      expect(indicator()).toBeNull();
-      fireDragEvent("drop", 150);
+      fireStripDrag("dragOver", 150);
+      expect(ghost()).toBeNull();
+      fireStripDrag("drop", 150);
       expect(onDrop).not.toHaveBeenCalled();
     });
 
@@ -558,9 +901,9 @@ describe("Tabs", () => {
       const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs onDrop={onDrop} items={[{ type: "other", key: "y" }]} />);
       beginDrag();
-      fireDragEvent("dragOver", 150);
-      expect(indicator()).toBeNull();
-      fireDragEvent("drop", 150);
+      fireStripDrag("dragOver", 150);
+      expect(ghost()).toBeNull();
+      fireStripDrag("drop", 150);
       expect(onDrop).not.toHaveBeenCalled();
     });
 
@@ -568,9 +911,9 @@ describe("Tabs", () => {
       const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs canDrop={() => false} onDrop={onDrop} />);
       beginDrag();
-      fireDragEvent("dragOver", 150);
-      expect(indicator()).toBeNull();
-      fireDragEvent("drop", 150);
+      fireStripDrag("dragOver", 150);
+      expect(ghost()).toBeNull();
+      fireStripDrag("drop", 150);
       expect(onDrop).not.toHaveBeenCalled();
     });
 
@@ -582,16 +925,21 @@ describe("Tabs", () => {
           .getByRole("tablist")
           .querySelector<HTMLElement>(`[data-tab-key="${key}"]`)!;
 
-      // jsdom reports offsetWidth as 0, so the shift distance would collapse; stub the
-      // tabs to a uniform 100px, matching the stubbed strip rects.
+      // jsdom reports every offset as 0, so the shift distance would collapse and every
+      // slot would resolve to the strip's start; lay the tabs out 100px wide from 0,
+      // matching the stubbed strip rects.
       const beginReorder = (): void => {
         beginDrag();
         screen
           .getByRole("tablist")
           .querySelectorAll<HTMLElement>("[data-tab-key]")
-          .forEach((t) =>
-            Object.defineProperty(t, "offsetWidth", { configurable: true, value: 100 }),
-          );
+          .forEach((t, i) => {
+            Object.defineProperty(t, "offsetWidth", { configurable: true, value: 100 });
+            Object.defineProperty(t, "offsetLeft", {
+              configurable: true,
+              value: i * 100,
+            });
+          });
       };
 
       const fireDragLeave = (relatedTarget: Node | null): void => {
@@ -606,43 +954,86 @@ describe("Tabs", () => {
       it("should slide passed tabs aside and lift the source dragging right", () => {
         render(<DragTabs items={draggingTab("a")} onDrop={() => []} />);
         beginReorder();
-        fireDragEvent("dragOver", 210);
+        fireStripDrag("dragOver", 210);
         expect(tabByKey("a").classList.contains(HAULED)).toBe(true);
         expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
         expect(tabByKey("c").style.transform).toBe("");
+        // b slid back over a's slot, opening the one between b and c.
+        expect(ghost()?.style.left).toEqual("100px");
       });
 
       it("should slide passed tabs aside dragging left", () => {
         render(<DragTabs items={draggingTab("c")} onDrop={() => []} />);
         beginReorder();
-        fireDragEvent("dragOver", 30);
+        fireStripDrag("dragOver", 30);
         expect(tabByKey("c").classList.contains(HAULED)).toBe(true);
         expect(tabByKey("a").style.transform).toBe("translateX(100px)");
         expect(tabByKey("b").style.transform).toBe("translateX(100px)");
+        expect(ghost()?.style.left).toEqual("0px");
       });
 
       it("should not shift any tab while the drag hovers its own slot", () => {
         render(<DragTabs items={draggingTab("b")} onDrop={() => []} />);
         beginReorder();
-        fireDragEvent("dragOver", 110);
+        fireStripDrag("dragOver", 110);
         expect(tabByKey("a").style.transform).toBe("");
         expect(tabByKey("b").style.transform).toBe("");
         expect(tabByKey("c").style.transform).toBe("");
+        // The slot the drag would land in is the one it came from.
+        expect(ghost()?.style.left).toEqual("100px");
       });
 
-      it("should fall back to the indicator for a foreign item", () => {
-        render(<DragTabs items={draggingTab("x")} onDrop={() => []} />);
+      // A tab leaving the flow frees the gap that followed it too, so the tabs it
+      // passes slide by both and the ghost keeps even gaps on either side.
+      it("should slide the passed tabs by the strip's gap as well", () => {
+        render(
+          <DragTabs
+            items={draggingTab("a")}
+            style={{ columnGap: 10 }}
+            onDrop={() => []}
+          />,
+        );
         beginReorder();
-        fireDragEvent("dragOver", 150);
-        expect(indicator()).not.toBeNull();
-        ["a", "b", "c"].forEach((k) => expect(tabByKey(k).style.transform).toBe(""));
+        fireStripDrag("dragOver", 210);
+        expect(tabByKey("b").style.transform).toBe("translateX(-110px)");
+        expect(ghost()?.style.left).toEqual("100px");
+      });
+
+      it("should leave a gap before a ghost landing past the last tab", () => {
+        render(
+          <DragTabs
+            items={draggingTab("x")}
+            style={{ columnGap: 10 }}
+            onDrop={() => []}
+          />,
+        );
+        beginReorder();
+        fireStripDrag("dragOver", 400);
+        expect(ghost()?.style.left).toEqual("310px");
+      });
+
+      it("should open a ghost slot for an item hauled in from elsewhere", () => {
+        render(
+          <DragTabs
+            items={draggingTab("x")}
+            style={{ columnGap: 10 }}
+            onDrop={() => []}
+          />,
+        );
+        beginReorder();
+        fireStripDrag("dragOver", 150);
+        expect(ghost()?.style.width).toEqual("100px");
+        expect(ghost()?.style.left).toEqual("200px");
+        expect(tabByKey("a").style.transform).toBe("");
+        expect(tabByKey("b").style.transform).toBe("");
+        expect(tabByKey("c").style.transform).toBe("translateX(110px)");
         expect(document.querySelector(`.${HAULED}`)).toBeNull();
       });
 
       it("should keep the preview when the cursor crosses onto a child tab", () => {
         render(<DragTabs items={draggingTab("a")} onDrop={() => []} />);
         beginReorder();
-        fireDragEvent("dragOver", 210);
+        fireStripDrag("dragOver", 210);
         fireDragLeave(tabByKey("c"));
         expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
       });
@@ -650,7 +1041,7 @@ describe("Tabs", () => {
       it("should reset the preview when the cursor truly leaves the strip", () => {
         render(<DragTabs items={draggingTab("a")} onDrop={() => []} />);
         beginReorder();
-        fireDragEvent("dragOver", 210);
+        fireStripDrag("dragOver", 210);
         fireDragLeave(document.body);
         expect(tabByKey("b").style.transform).toBe("");
         expect(document.querySelector(`.${HAULED}`)).toBeNull();
@@ -659,9 +1050,9 @@ describe("Tabs", () => {
       it("should clear the preview once a drop commits", () => {
         render(<DragTabs items={draggingTab("a")} onDrop={() => []} />);
         beginReorder();
-        fireDragEvent("dragOver", 210);
+        fireStripDrag("dragOver", 210);
         expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
-        fireDragEvent("drop", 210);
+        fireStripDrag("drop", 210);
         expect(tabByKey("b").style.transform).toBe("");
         expect(document.querySelector(`.${HAULED}`)).toBeNull();
       });
@@ -669,11 +1060,54 @@ describe("Tabs", () => {
       it("should reset the preview when the drag ends without a drop", () => {
         render(<DragTabs items={draggingTab("a")} />);
         beginReorder();
-        fireDragEvent("dragOver", 210);
+        fireStripDrag("dragOver", 210);
         expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
         fireEvent.dragEnd(screen.getByTestId("drag-source"));
         expect(tabByKey("b").style.transform).toBe("");
         expect(document.querySelector(`.${HAULED}`)).toBeNull();
+      });
+
+      const SCROLLABLE = "pluto-tabs__selector--scrollable";
+
+      const shiftOf = (tab: HTMLElement): number =>
+        Number(/translateX\((-?[\d.]+)px\)/.exec(tab.style.transform)?.[1] ?? 0);
+
+      // jsdom lays nothing out, so the strip reports no width of its own. Stand in
+      // for the browser's scrollable overflow rule: the tabs are an exact fit, and
+      // one translated toward the end pushes the scrollable width past the strip.
+      const stubStripMetrics = (): void => {
+        const strip = screen.getByRole("tablist");
+        const tabs = (): HTMLElement[] =>
+          Array.from(strip.querySelectorAll<HTMLElement>("[data-tab-key]"));
+        Object.defineProperty(strip, "clientWidth", {
+          configurable: true,
+          get: () => tabs().length * 100,
+        });
+        Object.defineProperty(strip, "scrollWidth", {
+          configurable: true,
+          get: () => tabs().length * 100 + Math.max(0, ...tabs().map(shiftOf)),
+        });
+      };
+
+      // Dragging left shifts the passed tabs toward the end, so the strip measures
+      // as scrollable while the preview holds. Measuring before the reset leaves a
+      // strip that fits wearing the fade and the scroll thumb.
+      it("should report no overflow once a leftward reorder drops", () => {
+        render(<DragTabs items={draggingTab("c")} onDrop={() => []} />);
+        beginReorder();
+        stubStripMetrics();
+        fireStripDrag("dragOver", 30);
+        fireStripDrag("drop", 30);
+        expect(screen.getByRole("tablist").classList.contains(SCROLLABLE)).toBe(false);
+      });
+
+      it("should report no overflow once a leftward reorder is abandoned", () => {
+        render(<DragTabs items={draggingTab("c")} />);
+        beginReorder();
+        stubStripMetrics();
+        fireStripDrag("dragOver", 30);
+        fireEvent.dragEnd(screen.getByTestId("drag-source"));
+        expect(screen.getByRole("tablist").classList.contains(SCROLLABLE)).toBe(false);
       });
     });
   });

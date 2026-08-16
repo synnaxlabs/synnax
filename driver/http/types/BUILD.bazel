@@ -15,6 +15,7 @@ cc_library(
     hdrs = ["types.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/telem",
     ],

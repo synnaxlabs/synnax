@@ -20,6 +20,7 @@ import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
+import { Staleness } from "@/vis/staleness";
 import { type Toggle as VisToggle } from "@/vis/toggle";
 
 interface ChannelFormProps {
@@ -98,6 +99,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
       <Flex.Box x grow>
         {!omit.includes("onClickDelay") && <ActivationDelayField grow />}
         <ControlChipField />
+        <Staleness.Fields />
       </Flex.Box>
     </Wrapper>
   );

@@ -16,15 +16,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
-import { findDialogTrigger, stubGeometry, uniqueName } from "@/testutil";
+import { findDialogTrigger, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const RackKeyProbe = (): ReactElement => {
-  const value = Form.useFieldValue<number>("rackKey", { optional: true });
-  return <div>{`rack-key:${value ?? "none"}`}</div>;
+const RackProbe = (): ReactElement => {
+  const value = Form.useFieldValue<number>("rack", { optional: true });
+  return <div>{`rack:${value ?? "none"}`}</div>;
 };
-RackKeyProbe.displayName = "RackKeyProbe";
+RackProbe.displayName = "RackProbe";
 
 const renderSelect = async (
   props: Device.SelectProps,
@@ -32,7 +32,7 @@ const renderSelect = async (
   await renderWithDeviceForm(
     <>
       <Device.Select {...props} />
-      <RackKeyProbe />
+      <RackProbe />
     </>,
     { deviceKey: "", client },
   );
@@ -42,8 +42,6 @@ const openAndClick = async (name: string): Promise<void> => {
   fireEvent.click(await screen.findByText(name));
 };
 
-stubGeometry();
-
 describe("Device.Select", () => {
   it("should write the selected device's rack into the form and skip onConfigure for a configured device", async () => {
     const make = uniqueName("make");
@@ -51,7 +49,7 @@ describe("Device.Select", () => {
     const onConfigure = vi.fn();
     await renderSelect({ make, onConfigure });
     await openAndClick(dev.name);
-    await waitFor(() => expect(screen.getByText(`rack-key:${dev.rack}`)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(`rack:${dev.rack}`)).toBeTruthy());
     const trigger = await findDialogTrigger();
     expect(trigger.textContent).toContain(dev.name);
     expect(onConfigure).not.toHaveBeenCalled();

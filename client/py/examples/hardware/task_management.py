@@ -83,13 +83,12 @@ original_task = sy.modbus.ReadTask(
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,
     stream_rate=sy.Rate.HZ * 10,
-    data_saving=True,
     channels=[
-        sy.modbus.InputRegisterChan(
-            channel=input_reg_0.key, address=0, data_type="uint8"
+        sy.modbus.InputRegisterReadChannel(
+            type="register_input", channel=input_reg_0.key, address=0, data_type="uint8"
         ),
-        sy.modbus.InputRegisterChan(
-            channel=input_reg_1.key, address=1, data_type="uint8"
+        sy.modbus.InputRegisterReadChannel(
+            type="register_input", channel=input_reg_1.key, address=1, data_type="uint8"
         ),
     ],
 )

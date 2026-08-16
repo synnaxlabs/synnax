@@ -24,7 +24,7 @@ namespace driver::arc {
 /// @brief integration name for arc runtime.
 const std::string INTEGRATION_NAME = "arc";
 /// @brief task type for arc runtime tasks.
-const std::string TASK_TYPE = INTEGRATION_NAME;
+const std::string TASK_TYPE = "arc";
 
 /// @brief factory for creating arc runtime tasks.
 class Factory final : public task::Factory {
@@ -42,7 +42,8 @@ public:
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override;
 
     [[nodiscard]] std::string name() override;

@@ -34,7 +34,7 @@ describe("Schematic.Toolbar", () => {
           Session.Schematic.selectState({ state: store.getState(), key }).editable,
         ).toBe(true),
       );
-      expect(await screen.findByText("Search symbols")).toBeDefined();
+      expect(await screen.findByPlaceholderText("Search symbols...")).toBeDefined();
     });
 
     it("flips the editable state from the release-control prompt when control is acquired", async () => {
