@@ -15,12 +15,12 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -154,6 +154,9 @@ type (
 	ExportRequest struct {
 		// Key identifies the project to export.
 		Key project.Key `json:"key" msgpack:"key"`
+		// Encoding names the serialization member files are written in. "JSON" is the
+		// only supported value.
+		Encoding string `json:"encoding" msgpack:"encoding"`
 	}
 	// ExportResponse holds the bundle's contents keyed by path from the bundle root.
 	// The HTTP transport encodes it as a zip archive.
@@ -167,6 +170,10 @@ func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,
 ) (ExportResponse, error) {
+	encoder, err := imex.ResolveEncoding(req.Encoding)
+	if err != nil {
+		return nil, err
+	}
 	var (
 		enforcer = s.access.NewEnforcer(nil)
 		subject  = auth.GetSubject(ctx)
@@ -178,7 +185,7 @@ func (s *Service) Export(
 	}); err != nil {
 		return nil, err
 	}
-	files, members, err := s.internal.Export(ctx, req.Key, json.PrettyCodec)
+	files, members, err := s.internal.Export(ctx, req.Key, encoder)
 	if err != nil {
 		return nil, err
 	}

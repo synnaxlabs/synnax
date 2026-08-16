@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -197,10 +198,22 @@ var _ = Describe("ExportGroup", func() {
 				ctx, author.OntologyID(), g.OntologyID(), symbol.OntologyID(sym.Key),
 			)
 			Expect(MustSucceed(apiSvc.ExportGroup(
-				AuthedCtx(ctx, author), apisymbol.ExportGroupRequest{Key: g.Key},
+				AuthedCtx(ctx, author),
+				apisymbol.ExportGroupRequest{
+					Key:      g.Key,
+					Encoding: apiimex.EncodingJSON,
+				},
 			))).To(SatisfyAll(HaveKey("manifest.json"), HaveKey("Inlet.json")))
 		},
 	)
+	It("Should reject an unsupported encoding", func(ctx SpecContext) {
+		g := createGroup(ctx, "bad-encoding")
+		grantRetrieveOn(ctx, author.OntologyID(), g.OntologyID())
+		Expect(apiSvc.ExportGroup(
+			AuthedCtx(ctx, author),
+			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: "YAML"},
+		)).Error().To(MatchError(ContainSubstring("unsupported encoding")))
+	})
 	It("Should reject the request when retrieve is not granted on the group", func(
 		ctx SpecContext,
 	) {
@@ -208,7 +221,8 @@ var _ = Describe("ExportGroup", func() {
 		sym := createSymbol(ctx, g, "Outlet")
 		grantRetrieveOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
 		Expect(apiSvc.ExportGroup(
-			AuthedCtx(ctx, author), apisymbol.ExportGroupRequest{Key: g.Key},
+			AuthedCtx(ctx, author),
+			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 	It("Should refuse the group before it names the child that is not a symbol", func(
@@ -217,7 +231,8 @@ var _ = Describe("ExportGroup", func() {
 		g := createGroup(ctx, "ungranted-with-nested")
 		MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "Nested", g.OntologyID()))
 		Expect(apiSvc.ExportGroup(
-			AuthedCtx(ctx, createUser(ctx)), apisymbol.ExportGroupRequest{Key: g.Key},
+			AuthedCtx(ctx, createUser(ctx)),
+			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 	It("Should reject the request when retrieve is not granted on a member", func(
@@ -227,7 +242,8 @@ var _ = Describe("ExportGroup", func() {
 		createSymbol(ctx, g, "Vent")
 		grantRetrieveOn(ctx, author.OntologyID(), g.OntologyID())
 		Expect(apiSvc.ExportGroup(
-			AuthedCtx(ctx, author), apisymbol.ExportGroupRequest{Key: g.Key},
+			AuthedCtx(ctx, author),
+			apisymbol.ExportGroupRequest{Key: g.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 })

@@ -437,7 +437,8 @@ const GroupListContextMenu = ({
         onClick={() => {
           if (item != null)
             exportGroup({
-              stream: (client) => client.schematics.symbols.exportGroup(item.key),
+              stream: (client) =>
+                client.schematics.symbols.exportGroup(item.key, { encoding: "JSON" }),
               name: item.name,
               extension: "zip",
             });

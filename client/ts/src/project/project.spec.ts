@@ -129,7 +129,7 @@ describe("Project", () => {
     // Zip entry names are stored uncompressed, so the raw archive names the bundle's
     // files without the spec needing a zip reader.
     const download = async (key: string): Promise<string> => {
-      const stream = await client.projects.export(key);
+      const stream = await client.projects.export(key, { encoding: "JSON" });
       return new TextDecoder().decode(await new Response(stream).arrayBuffer());
     };
 

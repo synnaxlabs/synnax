@@ -61,7 +61,7 @@ const ExportProjectCommand = Command.create({
         const p = await client.projects.retrieve(getSelected());
         name = p.name;
         handleExport({
-          stream: (client) => client.projects.export(p.key),
+          stream: (client) => client.projects.export(p.key, { encoding: "JSON" }),
           name,
           extension: "zip",
         });

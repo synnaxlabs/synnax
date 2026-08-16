@@ -75,7 +75,7 @@ describe("exporting a symbol group", () => {
     const { result } = await renderHookWithConsole(() => Export.use(), { client });
     act(() =>
       result.current({
-        stream: (c) => c.schematics.symbols.exportGroup(grp.key),
+        stream: (c) => c.schematics.symbols.exportGroup(grp.key, { encoding: "JSON" }),
         name: grp.name,
         extension: "zip",
       }),

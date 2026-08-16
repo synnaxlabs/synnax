@@ -145,7 +145,8 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           <Export.ContextMenuItem
             onClick={() =>
               handleExport({
-                stream: (client) => client.projects.export(first.id.key),
+                stream: (client) =>
+                  client.projects.export(first.id.key, { encoding: "JSON" }),
                 name: first.name,
                 extension: "zip",
               })

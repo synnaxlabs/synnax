@@ -12,6 +12,7 @@ import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
+import { imex } from "@/imex";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import {
@@ -59,7 +60,7 @@ const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
 const retrieveGroupResZ = z.object({ group: group.groupZ });
-const exportGroupReqZ = z.object({ key: group.keyZ });
+const exportGroupReqZ = z.object({ key: group.keyZ, encoding: imex.encodingZ });
 const deleteGroupReqZ = z.object({ key: group.keyZ });
 
 export interface CreateParams extends New {
@@ -208,12 +209,17 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * client buffering the whole archive.
    *
    * @param key - the key of the group to export.
+   * @param options - the export options, including the serialization member files are
+   * written in.
    * @returns the bundle as a stream of zip bytes.
    */
-  async exportGroup(key: group.Key): Promise<ReadableStream<Uint8Array>> {
+  async exportGroup(
+    key: group.Key,
+    options: imex.Options,
+  ): Promise<ReadableStream<Uint8Array>> {
     return await this.cfg.file.download(
       "/schematic/symbol/group/export",
-      { key },
+      { key, encoding: options.encoding },
       exportGroupReqZ,
       { encoding: "ZIP" },
     );

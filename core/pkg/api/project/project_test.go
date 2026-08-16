@@ -12,6 +12,7 @@ package project_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -33,16 +34,26 @@ var _ = Describe("Export", func() {
 				log.OntologyID(l.Key),
 			)
 			Expect(MustSucceed(apiSvc.Export(
-				AuthedCtx(ctx, author), apiproject.ExportRequest{Key: proj.Key},
+				AuthedCtx(ctx, author),
+				apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 			))).To(SatisfyAll(HaveKey("manifest.json"), HaveKey("Metrics.json")))
 		},
 	)
+	It("Should reject an unsupported encoding", func(ctx SpecContext) {
+		proj := createProject(ctx, "bad-encoding")
+		grantRetrieveOn(ctx, author.OntologyID(), project.OntologyID(proj.Key))
+		Expect(apiSvc.Export(
+			AuthedCtx(ctx, author),
+			apiproject.ExportRequest{Key: proj.Key, Encoding: "YAML"},
+		)).Error().To(MatchError(ContainSubstring("unsupported encoding")))
+	})
 	It("Should reject the request when retrieve is not granted on the project", func(
 		ctx SpecContext,
 	) {
 		proj := createProject(ctx, "ungranted-project")
 		Expect(apiSvc.Export(
-			AuthedCtx(ctx, author), apiproject.ExportRequest{Key: proj.Key},
+			AuthedCtx(ctx, author),
+			apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 	It("Should reject the request when retrieve is not granted on a member", func(
@@ -52,7 +63,8 @@ var _ = Describe("Export", func() {
 		createLog(ctx, proj.Key, "Metrics")
 		grantRetrieveOn(ctx, author.OntologyID(), project.OntologyID(proj.Key))
 		Expect(apiSvc.Export(
-			AuthedCtx(ctx, author), apiproject.ExportRequest{Key: proj.Key},
+			AuthedCtx(ctx, author),
+			apiproject.ExportRequest{Key: proj.Key, Encoding: apiimex.EncodingJSON},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 })

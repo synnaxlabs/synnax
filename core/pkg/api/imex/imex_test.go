@@ -20,6 +20,7 @@ import (
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -175,5 +176,19 @@ var _ = Describe("Import", func() {
 				MatchError(ContainSubstring("invalid params")),
 				MatchError(ContainSubstring("validation error")),
 			))
+	})
+})
+
+var _ = Describe("ResolveEncoding", func() {
+	It("Should return the pretty JSON encoder for the JSON encoding", func() {
+		Expect(apiimex.ResolveEncoding(apiimex.EncodingJSON)).To(
+			BeIdenticalTo(xjson.PrettyCodec),
+		)
+	})
+	It("Should reject an unsupported encoding", func() {
+		Expect(apiimex.ResolveEncoding("YAML")).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("encoding")),
+			MatchError(ContainSubstring("YAML")),
+		))
 	})
 })

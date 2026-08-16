@@ -16,7 +16,10 @@ import { ontology } from "@/ontology";
  * The serialized wire formats a resource can be imported from or exported to. Today
  * only "JSON" is supported.
  */
-export type Encoding = "JSON";
+export const encodingZ = z.enum(["JSON"]);
+
+/** The serialized wire format of an imported or exported resource. */
+export type Encoding = z.infer<typeof encodingZ>;
 
 /**
  * Options shared by import and export. Carries the wire format of the resource and is
