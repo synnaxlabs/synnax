@@ -10,11 +10,42 @@
 /// <reference types="vitest/config" />
 
 import react from "@vitejs/plugin-react";
+import * as fs from "node:fs/promises";
 import * as path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, normalizePath, type Plugin } from "vite";
 
 const isDev = process.env.VITE_IS_DEV === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
+
+// Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
+// the Console's map would bottom out at pluto/dist/pluto.js and friends. Loading the
+// adjacent .map here lets Rollup chain it, so crash-screen frames resolve all the way
+// to library TS sources.
+const workspaceSourcemaps = (): Plugin => {
+  const distRoot = normalizePath(repoRoot);
+  return {
+    name: "workspace-sourcemaps",
+    async load(id) {
+      const cleanId = normalizePath(id.split("?")[0]);
+      if (
+        !cleanId.startsWith(distRoot) ||
+        !cleanId.includes("/dist/") ||
+        !cleanId.endsWith(".js")
+      )
+        return null;
+      try {
+        const [code, map] = await Promise.all([
+          fs.readFile(cleanId, "utf-8"),
+          fs.readFile(`${cleanId}.map`, "utf-8"),
+        ]);
+        return { code, map };
+      } catch {
+        // A dist file without a map falls through to the default loader.
+        return null;
+      }
+    },
+  };
+};
 
 export default defineConfig({
   clearScreen: false,
@@ -35,7 +66,7 @@ export default defineConfig({
       : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
-  plugins: [react()],
+  plugins: [react(), workspaceSourcemaps()],
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
     minify: !isDev,

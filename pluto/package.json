@@ -94,7 +94,8 @@
     "ws": "catalog:"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map"
   ],
   "exports": {
     ".": {
