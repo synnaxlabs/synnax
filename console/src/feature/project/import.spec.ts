@@ -151,6 +151,21 @@ describe("project import", () => {
       expect(tab.resource).toEqual(grouped[0].id);
     });
 
+    it("imports a root LAYOUT.json member when a manifest is present", async () => {
+      const files = bundleFiles(`bundle-${id.create()}`);
+      files.push({
+        name: Project.LAYOUT_FILE_NAME,
+        path: Project.LAYOUT_FILE_NAME,
+        data: { ...SCHEMATIC_DATA, key: uuid.create(), name: "LAYOUT" },
+      });
+      const store = await runImport(files);
+      const projectKey = selectImportedProject(store);
+      const children = await retrieveProjectChildren(projectKey);
+      const member = children.find(({ name }) => name === "LAYOUT");
+      assertDefined(member, "LAYOUT.json member was not imported");
+      expect(member.id.type).toBe(SCHEMATIC_TYPE);
+    });
+
     it("rejects a bundle of another kind", async () => {
       const files = bundleFiles(`bundle-${id.create()}`);
       files[0] = { ...files[0], data: { version: 1, type: "symbol_group", name: "g" } };

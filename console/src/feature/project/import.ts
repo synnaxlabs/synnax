@@ -138,11 +138,11 @@ const baseNameOf = (path: string): string => path.slice(path.lastIndexOf("/") + 
 const trimJSONExtension = (name: string): string =>
   name.endsWith(".json") ? name.slice(0, -".json".length) : name;
 
-// A member is every .json file in the bundle except the root manifest and the reserved
-// legacy tiling file. Nested files keep their names: reservations apply at the root
-// alone.
+// A member is every .json file in the bundle except the root manifest, the sole
+// reserved name. A root LAYOUT.json marks a legacy directory only when no manifest is
+// present; in a bundle it is a normal member.
 const isMember = (path: string): boolean =>
-  path.endsWith(".json") && path !== MANIFEST_FILE_NAME && path !== LAYOUT_FILE_NAME;
+  path.endsWith(".json") && path !== MANIFEST_FILE_NAME;
 
 // Rewrites each resource tab's bundle path to the ontology ID minted for that member,
 // leaving every other field for panelZ to validate on create. Tabs referencing a

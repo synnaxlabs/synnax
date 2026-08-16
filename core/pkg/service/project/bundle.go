@@ -24,10 +24,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// legacyLayoutFileName is reserved so a stable-release project directory migrated in
-// place keeps working.
-const legacyLayoutFileName = "LAYOUT.json"
-
 // Export serializes the project identified by key and its ontology descendants as a
 // bundle: one envelope per member document and panel, group children as directories,
 // and a manifest naming the project at the root. It also returns the ontology ID of
@@ -64,7 +60,7 @@ func (s *Service) Export(
 		refs:    map[ontology.ID]string{},
 	}
 	manifestFileName := imex.ManifestBaseName + w.ext
-	claims := imex.NewClaims(manifestFileName, legacyLayoutFileName)
+	claims := imex.NewClaims(manifestFileName)
 	if err = w.directory(ctx, OntologyID(key), "", claims); err != nil {
 		return nil, nil, err
 	}

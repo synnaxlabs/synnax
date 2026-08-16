@@ -317,6 +317,15 @@ var _ = Describe("Export", func() {
 		Expect(files).To(HaveKey("manifest (1).json"))
 	})
 
+	It("Should export a root member named LAYOUT without a suffix", func(
+		ctx SpecContext,
+	) {
+		proj := createProject(ctx, "Layout Member")
+		createLog(ctx, proj.Key, "LAYOUT")
+		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		Expect(files).To(HaveKey("LAYOUT.json"))
+	})
+
 	It("Should allow a reserved name inside a group directory", func(ctx SpecContext) {
 		proj := createProject(ctx, "Nested Reserved")
 		g := createGroup(ctx, "Configs", proj.OntologyID())
