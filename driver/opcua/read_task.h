@@ -116,7 +116,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         device_key(parser.field<std::string>("device")),
         array_mode(parser.field<bool>("array_mode", false)),
         array_size(parser.field<std::size_t>("array_size", 1)),
-        samples_per_chan(this->sample_rate / this->stream_rate) {
+        // Array mode never uses samples_per_chan and its stream rate may be zero.
+        samples_per_chan(this->array_mode ? 0 : this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](x::json::Parser &cp) {
             const auto parsed = ::synnax::opcua::ReadChannel::parse(cp);
             if (parsed.disabled) return;
