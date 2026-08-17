@@ -159,7 +159,8 @@ struct Task {
     std::string config_hash = "";
     /// @brief internal is true if this is an internal system task.
     bool internal = false;
-    /// @brief snapshot indicates whether to persist this task's configuration.
+    /// @brief snapshot is true if this task is an immutable snapshot copy of another
+    /// task.
     bool snapshot = false;
     /// @brief status is the current execution status of the task.
     std::optional<Status> status;

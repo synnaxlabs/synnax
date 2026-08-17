@@ -481,8 +481,7 @@ func (x *Channels) GetWrite() map[uint32]string {
 	return nil
 }
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 type Dimensions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// length is the length dimension exponent (meters).
@@ -497,7 +496,7 @@ type Dimensions struct {
 	Temperature int32 `protobuf:"varint,5,opt,name=temperature,proto3" json:"temperature,omitempty"`
 	// angle is the angle dimension exponent (radians).
 	Angle int32 `protobuf:"varint,6,opt,name=angle,proto3" json:"angle,omitempty"`
-	// count is the count dimension exponent (dimensionless quantity).
+	// count is the count dimension exponent.
 	Count int32 `protobuf:"varint,7,opt,name=count,proto3" json:"count,omitempty"`
 	// data is the data size dimension exponent (bytes).
 	Data          int32 `protobuf:"varint,8,opt,name=data,proto3" json:"data,omitempty"`

@@ -88,8 +88,7 @@ struct Channels {
     friend std::ostream &operator<<(std::ostream &os, const Channels &c);
 };
 
-/// @brief Dimensions contains physical dimension exponents for dimensional analysis (SI
-/// base quantities).
+/// @brief Dimensions contains dimension exponents for dimensional analysis.
 struct Dimensions {
     /// @brief length is the length dimension exponent (meters).
     std::int8_t length = 0;
@@ -103,7 +102,7 @@ struct Dimensions {
     std::int8_t temperature = 0;
     /// @brief angle is the angle dimension exponent (radians).
     std::int8_t angle = 0;
-    /// @brief count is the count dimension exponent (dimensionless quantity).
+    /// @brief count is the count dimension exponent.
     std::int8_t count = 0;
     /// @brief data is the data size dimension exponent (bytes).
     std::int8_t data = 0;

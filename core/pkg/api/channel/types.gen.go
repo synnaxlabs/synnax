@@ -57,8 +57,8 @@ type Channel struct {
 	// Expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`
-	// Operations contains optional aggregation operations (min, max, avg) applied to
-	// channel data over time or triggered by a reset channel.
+	// Operations contains optional aggregation operations (min, max, avg, derivative)
+	// applied to channel data over time or triggered by a reset channel.
 	Operations []servicechannel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.

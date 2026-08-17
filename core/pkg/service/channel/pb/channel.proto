@@ -28,10 +28,10 @@ enum OperationType {
 }
 
 // Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, or average values over a time duration or triggered by a reset
-// channel.
+// calculate min, max, average, or derivative values over a time duration or triggered
+// by a reset channel.
 message Operation {
-  // type is the aggregation operation type: min, max, avg, or none.
+  // type is the aggregation operation type: min, max, avg, derivative, or none.
   OperationType type = 1;
   // reset_channel is the channel key that triggers reset of the aggregation. If 0,
   // duration-based reset is used.
@@ -57,8 +57,7 @@ message Channel {
   bool is_index = 4;
   // local_key is the locally-unique portion of this channel's key.
   uint32 local_key = 5;
-  // local_index is the channel used to index this channel's values, associating each
-  // value with a timestamp.
+  // local_index is the locally-unique portion of the index channel's key.
   uint32 local_index = 6;
   // virtual is true if this channel does not persist data and is used only for
   // streaming.

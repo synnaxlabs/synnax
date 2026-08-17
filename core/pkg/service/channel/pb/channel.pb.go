@@ -91,11 +91,11 @@ func (OperationType) EnumDescriptor() ([]byte, []int) {
 }
 
 // Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, or average values over a time duration or triggered by a reset
-// channel.
+// calculate min, max, average, or derivative values over a time duration or triggered
+// by a reset channel.
 type Operation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// type is the aggregation operation type: min, max, avg, or none.
+	// type is the aggregation operation type: min, max, avg, derivative, or none.
 	Type OperationType `protobuf:"varint,1,opt,name=type,proto3,enum=service.channel.pb.OperationType" json:"type,omitempty"`
 	// reset_channel is the channel key that triggers reset of the aggregation. If 0,
 	// duration-based reset is used.
@@ -175,8 +175,7 @@ type Channel struct {
 	IsIndex bool `protobuf:"varint,4,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
 	// local_key is the locally-unique portion of this channel's key.
 	LocalKey uint32 `protobuf:"varint,5,opt,name=local_key,json=localKey,proto3" json:"local_key,omitempty"`
-	// local_index is the channel used to index this channel's values, associating each
-	// value with a timestamp.
+	// local_index is the locally-unique portion of the index channel's key.
 	LocalIndex uint32 `protobuf:"varint,6,opt,name=local_index,json=localIndex,proto3" json:"local_index,omitempty"`
 	// virtual is true if this channel does not persist data and is used only for
 	// streaming.

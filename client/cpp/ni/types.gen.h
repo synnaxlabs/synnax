@@ -953,8 +953,7 @@ struct AIAccelChargeChannel : public BaseAIChannel,
     std::string units = ACCEL_UNITS_G;
     /// @brief sensitivity is the sensitivity of the accelerometer.
     double sensitivity = 0;
-    /// @brief sensitivity_units are the units of the accelerometer's sensitivity
-    /// rating.
+    /// @brief sensitivity_units are the units of the accelerometer sensitivity.
     std::string sensitivity_units = ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G;
 
     static AIAccelChargeChannel parse(x::json::Parser parser);

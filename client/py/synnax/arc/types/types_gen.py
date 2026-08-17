@@ -63,8 +63,7 @@ class Channels(BaseModel):
 
 
 class Dimensions(BaseModel):
-    """Contains physical dimension exponents for dimensional analysis (SI base
-    quantities).
+    """Contains dimension exponents for dimensional analysis.
 
     Attributes:
         length: Is the length dimension exponent (meters).
@@ -73,7 +72,7 @@ class Dimensions(BaseModel):
         current: Is the electric current dimension exponent (amperes).
         temperature: Is the temperature dimension exponent (kelvin).
         angle: Is the angle dimension exponent (radians).
-        count: Is the count dimension exponent (dimensionless quantity).
+        count: Is the count dimension exponent.
         data: Is the data size dimension exponent (bytes).
     """
 

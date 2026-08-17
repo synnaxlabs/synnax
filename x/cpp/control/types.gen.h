@@ -44,8 +44,8 @@ struct Subject {
     std::string key;
     /// @brief name is a human-readable name for the subject.
     std::string name;
-    /// @brief group optional identifier shared by subjects from the same logical group
-    /// (e.g.) all writers from the same Driver rack.
+    /// @brief group is an optional identifier shared by subjects from the same logical
+    /// group (e.g., all writers from the same Driver rack).
     std::uint32_t group = 0;
 
     static Subject parse(x::json::Parser parser);
@@ -86,9 +86,9 @@ struct State {
 /// and From.Subject != To.Subject, a transfer occurred.
 template<typename R>
 struct Transfer {
-    /// @brief from the previous authority holder. Null on initial acquire.
+    /// @brief from is the previous authority holder. Null on initial acquire.
     std::optional<State<R>> from;
-    /// @brief to the new authority holder. Null on release.
+    /// @brief to is the new authority holder. Null on release.
     std::optional<State<R>> to;
 
     static Transfer parse(x::json::Parser parser);

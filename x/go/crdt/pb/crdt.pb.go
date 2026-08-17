@@ -34,8 +34,8 @@ const (
 )
 
 // ID uniquely identifies a character within a replicated text document. It pairs the
-// replica that created the character with that replica's per-character counter, making
-// the identifier globally unique without coordination.
+// replica that created the character with that replica's counter value, making the
+// identifier globally unique without coordination.
 type ID struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// replica is the replica that created the character. A zero replica marks the
@@ -97,8 +97,8 @@ type Insert struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// id is the identity of the inserted character.
 	Id *ID `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// origin is the existing character this one anchors to. The root sentinel anchors to
-	// the start of the document.
+	// origin is the existing character this one anchors to. Anchoring to the root
+	// sentinel places the character at the start of the document.
 	Origin *ID `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
 	// side is the side of origin the character anchors to: left places it immediately
 	// before the origin, right immediately after.

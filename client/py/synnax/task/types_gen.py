@@ -141,7 +141,7 @@ class Payload(BaseModel):
             ignored on writes from clients. Compare against a status's config_hash to
             detect drift.
         internal: Is true if this is an internal system task.
-        snapshot: Indicates whether to persist this task's configuration.
+        snapshot: Is true if this task is an immutable snapshot copy of another task.
         status: Is the current execution status of the task.
     """
 

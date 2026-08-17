@@ -25,8 +25,8 @@ ID struct {
 
     @doc value  """
         uniquely identifies a character within a replicated text document. It pairs the
-        replica that created the character with that replica's per-character counter,
-        making the identifier globally unique without coordination.
+        replica that created the character with that replica's counter value, making the
+        identifier globally unique without coordination.
     """
     @go marshal
 }
@@ -37,8 +37,8 @@ Insert struct {
     }
     origin ID                {
         @doc value """
-            is the existing character this one anchors to. The root sentinel anchors to
-            the start of the document.
+            is the existing character this one anchors to. Anchoring to the root
+            sentinel places the character at the start of the document.
         """
     }
     side   spatial.XLocation {

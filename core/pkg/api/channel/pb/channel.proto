@@ -50,8 +50,8 @@ message Channel {
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
   string expression = 10;
-  // operations contains optional aggregation operations (min, max, avg) applied to
-  // channel data over time or triggered by a reset channel.
+  // operations contains optional aggregation operations (min, max, avg, derivative)
+  // applied to channel data over time or triggered by a reset channel.
   repeated .service.channel.pb.Operation operations = 11;
   // concurrency sets the policy for concurrent writes to the channel's data. Only
   // virtual channels can have a policy of shared concurrency.

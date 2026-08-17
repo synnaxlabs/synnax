@@ -102,7 +102,7 @@ Task struct<
         @filter
     }
     snapshot    bool = false {
-        @doc value "indicates whether to persist this task's configuration."
+        @doc value "is true if this task is an immutable snapshot copy of another task."
         @filter
     }
     status      Status<StatusData>? {

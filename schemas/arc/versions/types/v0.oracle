@@ -145,15 +145,14 @@ Dimensions struct {
         @doc value "is the angle dimension exponent (radians)."
     }
     count       int8 {
-        @doc value "is the count dimension exponent (dimensionless quantity)."
+        @doc value "is the count dimension exponent."
     }
     data        int8 {
         @doc value "is the data size dimension exponent (bytes)."
     }
 
     @doc value  """
-        contains physical dimension exponents for dimensional analysis (SI base
-        quantities).
+        contains dimension exponents for dimensional analysis.
     """
     @go marshal
 }

@@ -68,7 +68,7 @@ type Task struct {
 	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
 	// Internal is true if this is an internal system task.
 	Internal bool `json:"internal" msgpack:"internal"`
-	// Snapshot indicates whether to persist this task's configuration.
+	// Snapshot is true if this task is an immutable snapshot copy of another task.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`

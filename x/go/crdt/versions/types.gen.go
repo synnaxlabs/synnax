@@ -14,8 +14,8 @@ package versions
 import "github.com/synnaxlabs/x/crdt/versions/v0"
 
 // ID uniquely identifies a character within a replicated text document. It pairs the
-// replica that created the character with that replica's per-character counter, making
-// the identifier globally unique without coordination.
+// replica that created the character with that replica's counter value, making the
+// identifier globally unique without coordination.
 type ID = v0.ID
 
 // Insert introduces a single character into a replicated text document.

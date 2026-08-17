@@ -67,8 +67,8 @@ type Channel struct {
 	// expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `protobuf:"bytes,10,opt,name=expression,proto3" json:"expression,omitempty"`
-	// operations contains optional aggregation operations (min, max, avg) applied to
-	// channel data over time or triggered by a reset channel.
+	// operations contains optional aggregation operations (min, max, avg, derivative)
+	// applied to channel data over time or triggered by a reset channel.
 	Operations []*pb.Operation `protobuf:"bytes,11,rep,name=operations,proto3" json:"operations,omitempty"`
 	// concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.

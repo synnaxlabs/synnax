@@ -949,7 +949,7 @@ export const aiAccelChargeChannelZ = baseAIChannelZ
     units: accelUnitsZ.default("g"),
     /** sensitivity is the sensitivity of the accelerometer. */
     sensitivity: z.number().default(0),
-    /** sensitivityUnits are the units of the accelerometer's sensitivity rating. */
+    /** sensitivityUnits are the units of the accelerometer sensitivity. */
     sensitivityUnits: accelSensitivityUnitsZ.default("mVoltsPerG"),
   });
 export interface AIAccelChargeChannel extends z.infer<typeof aiAccelChargeChannelZ> {}

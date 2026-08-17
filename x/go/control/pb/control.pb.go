@@ -88,8 +88,8 @@ type Subject struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the subject.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// group optional identifier shared by subjects from the same logical group (e.g.) all
-	// writers from the same Driver rack.
+	// group is an optional identifier shared by subjects from the same logical group
+	// (e.g., all writers from the same Driver rack).
 	Group         uint32 `protobuf:"varint,3,opt,name=group,proto3" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

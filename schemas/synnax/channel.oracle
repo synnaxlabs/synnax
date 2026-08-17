@@ -66,7 +66,9 @@ OperationType enum {
 
 Operation struct {
     type          OperationType  {
-        @doc value "is the aggregation operation type: min, max, avg, or none."
+        @doc value """
+            is the aggregation operation type: min, max, avg, derivative, or none.
+        """
     }
     reset_channel Key = 0 {
         @doc value """
@@ -80,8 +82,8 @@ Operation struct {
 
     @doc value  """
         defines an aggregation operation applied to channel data. Operations calculate
-        min, max, or average values over a time duration or triggered by a reset
-        channel.
+        min, max, average, or derivative values over a time duration or triggered by a
+        reset channel.
     """
     @go marshal
     @go output  "core/pkg/service/channel"
@@ -116,10 +118,7 @@ Channel struct {
         @doc value "is the locally-unique portion of this channel's key."
     }
     local_index LocalKey            {
-        @doc value """
-            is the channel used to index this channel's values, associating each value
-            with a timestamp.
-        """
+        @doc value "is the locally-unique portion of the index channel's key."
     }
     virtual     bool                {
         @doc value """
@@ -231,8 +230,8 @@ APIChannel struct {
     }
     operations  Operation[] = [] {
         @doc value """
-            contains optional aggregation operations (min, max, avg) applied to channel
-            data over time or triggered by a reset channel.
+            contains optional aggregation operations (min, max, avg, derivative) applied
+            to channel data over time or triggered by a reset channel.
         """
     }
     concurrency control.Concurrency = control.ConcurrencyExclusive {

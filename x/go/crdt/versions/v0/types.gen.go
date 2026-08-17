@@ -17,8 +17,8 @@ import (
 )
 
 // ID uniquely identifies a character within a replicated text document. It pairs the
-// replica that created the character with that replica's per-character counter, making
-// the identifier globally unique without coordination.
+// replica that created the character with that replica's counter value, making the
+// identifier globally unique without coordination.
 type ID struct {
 	// Replica is the replica that created the character. A zero replica marks the
 	// document root sentinel.
@@ -32,8 +32,8 @@ type ID struct {
 type Insert struct {
 	// ID is the identity of the inserted character.
 	ID ID `json:"id" msgpack:"id"`
-	// Origin is the existing character this one anchors to. The root sentinel anchors
-	// to the start of the document.
+	// Origin is the existing character this one anchors to. Anchoring to the root
+	// sentinel places the character at the start of the document.
 	Origin ID `json:"origin" msgpack:"origin"`
 	// Side is the side of origin the character anchors to: left places it immediately
 	// before the origin, right immediately after.

@@ -34,8 +34,8 @@ class Subject(BaseModel):
     Attributes:
         key: Is a unique identifier for the subject.
         name: Is a human-readable name for the subject.
-        group: Optional identifier shared by subjects from the same logical group (e.g.)
-            all writers from the same Driver rack.
+        group: Is an optional identifier shared by subjects from the same logical group
+            (e.g., all writers from the same Driver rack).
     """
 
     key: str
@@ -71,8 +71,8 @@ class Transfer(BaseModel, Generic[R]):
     and From.Subject != To.Subject, a transfer occurred.
 
     Attributes:
-        from_: The previous authority holder. Null on initial acquire.
-        to: The new authority holder. Null on release.
+        from_: Is the previous authority holder. Null on initial acquire.
+        to: Is the new authority holder. Null on release.
     """
 
     model_config = ConfigDict(populate_by_name=True)

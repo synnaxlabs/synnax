@@ -698,7 +698,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "is the sensitivity of the accelerometer."
         }
         sensitivity_units AccelSensitivityUnits = m_volts_per_g {
-            @doc value "are the units of the accelerometer's sensitivity rating."
+            @doc value "are the units of the accelerometer sensitivity."
         }
 
         @doc value "reads acceleration from a charge-mode accelerometer."

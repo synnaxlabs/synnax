@@ -145,7 +145,7 @@ func (ResourceType) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_service_ontology_pb_ontology_proto_rawDescGZIP(), []int{0}
 }
 
-// ID ID is a unique identifier for a Resource. An example:
+// ID is a unique identifier for a Resource. An example:
 //
 // userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }
 //

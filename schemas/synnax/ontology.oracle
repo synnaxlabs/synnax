@@ -61,7 +61,7 @@ ID struct {
 
     @cpp hand
     @doc value  """
-        ID is a unique identifier for a Resource. An example:
+        is a unique identifier for a Resource. An example:
 
         userID := ID{
              Key:  "748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
@@ -109,7 +109,7 @@ Relationship struct {
         @doc value "is the source resource of the relationship."
     }
     type RelationshipType {
-        @doc value "is the type of relationship (e.g., 'parent_of', 'owns')."
+        @doc value "is the type of relationship (e.g., 'parent', 'labeled_by')."
     }
     to   ID               {
         @doc value "is the target resource of the relationship."

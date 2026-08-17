@@ -50,10 +50,11 @@ using Name = std::string;
 using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Operation defines an aggregation operation applied to channel data.
-/// Operations calculate min, max, or average values over a time duration or triggered
-/// by a reset channel.
+/// Operations calculate min, max, average, or derivative values over a time duration or
+/// triggered by a reset channel.
 struct Operation {
-    /// @brief type is the aggregation operation type: min, max, avg, or none.
+    /// @brief type is the aggregation operation type: min, max, avg, derivative, or
+    /// none.
     std::string type;
     /// @brief reset_channel is the channel key that triggers reset of the aggregation.
     /// If
@@ -111,9 +112,8 @@ struct Channel {
     /// channel
     /// is automatically configured as virtual.
     std::string expression = "";
-    /// @brief operations contains optional aggregation operations (min, max, avg)
-    /// applied
-    /// to channel data over time or triggered by a reset channel.
+    /// @brief operations contains optional aggregation operations (min, max, avg,
+    /// derivative) applied to channel data over time or triggered by a reset channel.
     std::vector<Operation> operations = {};
     /// @brief concurrency sets the policy for concurrent writes to the channel's data.
     /// Only

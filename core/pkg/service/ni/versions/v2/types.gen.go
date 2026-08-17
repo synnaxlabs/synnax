@@ -1933,7 +1933,7 @@ type AIAccelChargeChannel struct {
 	Units AccelUnits `json:"units" msgpack:"units"`
 	// Sensitivity is the sensitivity of the accelerometer.
 	Sensitivity float64 `json:"sensitivity" msgpack:"sensitivity"`
-	// SensitivityUnits are the units of the accelerometer's sensitivity rating.
+	// SensitivityUnits are the units of the accelerometer sensitivity.
 	SensitivityUnits AccelSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
 }
 

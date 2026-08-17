@@ -42,10 +42,11 @@ Status: TypeAlias = status_.Status[None]
 
 class Operation(BaseModel):
     """Defines an aggregation operation applied to channel data. Operations calculate
-    min, max, or average values over a time duration or triggered by a reset channel.
+    min, max, average, or derivative values over a time duration or triggered by a reset
+    channel.
 
     Attributes:
-        type: Is the aggregation operation type: min, max, avg, or none.
+        type: Is the aggregation operation type: min, max, avg, derivative, or none.
         reset_channel: Is the channel key that triggers reset of the aggregation. If 0,
             duration-based reset is used.
         duration: Is the time window for aggregation when reset_channel is 0.
@@ -82,8 +83,8 @@ class Payload(BaseModel):
         internal: Is true if this is a system channel hidden from normal user queries.
         expression: Is an Arc expression for calculated channels. If set, the channel is
             automatically configured as virtual.
-        operations: Contains optional aggregation operations (min, max, avg) applied to
-            channel data over time or triggered by a reset channel.
+        operations: Contains optional aggregation operations (min, max, avg, derivative)
+            applied to channel data over time or triggered by a reset channel.
         concurrency: Sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.

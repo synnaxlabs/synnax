@@ -96,8 +96,7 @@ type Params []Param
 // channels.
 type Channels = v0.Channels
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 type Dimensions = v0.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.

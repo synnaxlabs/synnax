@@ -99,8 +99,7 @@ message Channels {
   map<uint32, string> write = 2;
 }
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 message Dimensions {
   // length is the length dimension exponent (meters).
   int32 length = 1;
@@ -114,7 +113,7 @@ message Dimensions {
   int32 temperature = 5;
   // angle is the angle dimension exponent (radians).
   int32 angle = 6;
-  // count is the count dimension exponent (dimensionless quantity).
+  // count is the count dimension exponent.
   int32 count = 7;
   // data is the data size dimension exponent (bytes).
   int32 data = 8;

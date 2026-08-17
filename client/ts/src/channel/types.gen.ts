@@ -33,11 +33,11 @@ export type OperationType = z.infer<typeof operationTypeZ>;
 
 /**
  * Operation defines an aggregation operation applied to channel data. Operations
- * calculate min, max, or average values over a time duration or triggered by a reset
- * channel.
+ * calculate min, max, average, or derivative values over a time duration or triggered
+ * by a reset channel.
  */
 export const operationZ = z.object({
-  /** type is the aggregation operation type: min, max, avg, or none. */
+  /** type is the aggregation operation type: min, max, avg, derivative, or none. */
   type: operationTypeZ,
   /**
    * resetChannel is the channel key that triggers reset of the aggregation. If 0,
@@ -103,8 +103,8 @@ export const payloadZ = z.object({
    */
   expression: z.string().default(""),
   /**
-   * operations contains optional aggregation operations (min, max, avg) applied to
-   * channel data over time or triggered by a reset channel.
+   * operations contains optional aggregation operations (min, max, avg, derivative)
+   * applied to channel data over time or triggered by a reset channel.
    */
   operations: operationZ.array().default(() => []),
   /**

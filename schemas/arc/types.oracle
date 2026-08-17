@@ -153,17 +153,14 @@ Dimensions struct {
         @doc value "is the angle dimension exponent (radians)."
     }
     count       int8 {
-        @doc value "is the count dimension exponent (dimensionless quantity)."
+        @doc value "is the count dimension exponent."
     }
     data        int8 {
         @doc value "is the data size dimension exponent (bytes)."
     }
 
     @cpp methods "bool operator==(const Dimensions& other) const" "[[nodiscard]] bool is_zero() const"
-    @doc value   """
-        contains physical dimension exponents for dimensional analysis (SI base
-        quantities).
-    """
+    @doc value   "contains dimension exponents for dimensional analysis."
     @go marshal
 }
 

@@ -150,7 +150,7 @@ type Task struct {
 	ConfigHash string `protobuf:"bytes,6,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// internal is true if this is an internal system task.
 	Internal bool `protobuf:"varint,7,opt,name=internal,proto3" json:"internal,omitempty"`
-	// snapshot indicates whether to persist this task's configuration.
+	// snapshot is true if this task is an immutable snapshot copy of another task.
 	Snapshot bool `protobuf:"varint,8,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	// status is the current execution status of the task.
 	Status        *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`

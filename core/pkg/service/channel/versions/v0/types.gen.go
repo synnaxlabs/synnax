@@ -49,10 +49,10 @@ func (o OperationType) IsValid() bool {
 }
 
 // Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, or average values over a time duration or triggered by a reset
-// channel.
+// calculate min, max, average, or derivative values over a time duration or triggered
+// by a reset channel.
 type Operation struct {
-	// Type is the aggregation operation type: min, max, avg, or none.
+	// Type is the aggregation operation type: min, max, avg, derivative, or none.
 	Type OperationType `json:"type" msgpack:"type"`
 	// ResetChannel is the channel key that triggers reset of the aggregation. If 0,
 	// duration-based reset is used.
@@ -86,8 +86,7 @@ type Channel struct {
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// LocalKey is the locally-unique portion of this channel's key.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
-	// LocalIndex is the channel used to index this channel's values, associating each
-	// value with a timestamp.
+	// LocalIndex is the locally-unique portion of the index channel's key.
 	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
 	// Virtual is true if this channel does not persist data and is used only for
 	// streaming.

@@ -27,8 +27,8 @@ struct Insert;
 struct Delete;
 
 /// @brief ID uniquely identifies a character within a replicated text document. It
-/// pairs the replica that created the character with that replica's per-character
-/// counter, making the identifier globally unique without coordination.
+/// pairs the replica that created the character with that replica's counter value,
+/// making the identifier globally unique without coordination.
 struct ID {
     /// @brief replica is the replica that created the character. A zero replica marks
     /// the
@@ -50,8 +50,9 @@ struct ID {
 struct Insert {
     /// @brief id is the identity of the inserted character.
     ID id;
-    /// @brief origin is the existing character this one anchors to. The root sentinel
-    /// anchors to the start of the document.
+    /// @brief origin is the existing character this one anchors to. Anchoring to the
+    /// root
+    /// sentinel places the character at the start of the document.
     ID origin;
     /// @brief side is the side of origin the character anchors to: left places it
     /// immediately before the origin, right immediately after.

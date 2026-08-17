@@ -106,8 +106,7 @@ type Channels struct {
 	Write map[uint32]string `json:"write,omitzero" msgpack:"write,omitzero"`
 }
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 type Dimensions struct {
 	// Length is the length dimension exponent (meters).
 	Length int8 `json:"length" msgpack:"length"`
@@ -121,7 +120,7 @@ type Dimensions struct {
 	Temperature int8 `json:"temperature" msgpack:"temperature"`
 	// Angle is the angle dimension exponent (radians).
 	Angle int8 `json:"angle" msgpack:"angle"`
-	// Count is the count dimension exponent (dimensionless quantity).
+	// Count is the count dimension exponent.
 	Count int8 `json:"count" msgpack:"count"`
 	// Data is the data size dimension exponent (bytes).
 	Data int8 `json:"data" msgpack:"data"`
