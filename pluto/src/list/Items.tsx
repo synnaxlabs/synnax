@@ -24,6 +24,11 @@ export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
   children: ItemRenderProp<K>;
   emptyContent?: ReactNode;
   displayItems?: number;
+  /**
+   * Smooths the height change when the item count changes. Set it only when the list
+   * is sized by its content; a list sized by its container lags behind every resize.
+   */
+  animateHeight?: boolean;
 }
 
 /* The container's 1rem top and bottom padding (Items.css); the sized box is
@@ -38,6 +43,7 @@ const BaseItems = <
   children,
   emptyContent,
   displayItems,
+  animateHeight = false,
   style,
   direction,
   x,
@@ -93,6 +99,7 @@ const BaseItems = <
         CSS.BE("list", "items"),
         isVirtual && CSS.BEM("list", "items", "virtual"),
         !hasItems && CSS.BEM("list", "items", "empty"),
+        animateHeight && CSS.BEM("list", "items", "animate-height"),
       )}
       style={boxStyle}
       full={parsedDirection}

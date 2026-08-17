@@ -103,6 +103,7 @@ const Base = memo(
             grow
             rounded
             full="x"
+            animateHeight
           >
             {children}
           </List.Items>
@@ -117,7 +118,7 @@ const Base = memo(
             rounded
             full="x"
           >
-            <List.Items emptyContent={emptyContent} grow full="x">
+            <List.Items emptyContent={emptyContent} grow full="x" animateHeight>
               {children}
             </List.Items>
             {footer}

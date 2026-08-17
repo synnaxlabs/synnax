@@ -239,6 +239,31 @@ describe("List", () => {
     });
   });
 
+  describe("height animation", () => {
+    const hasAnimateClass = (animateHeight?: boolean) =>
+      render(
+        <List.Frame data={["1"]}>
+          <List.Items animateHeight={animateHeight}>
+            {({ key, ...rest }: List.ItemProps<string>) => (
+              <List.Item key={key} {...rest}>
+                {key}
+              </List.Item>
+            )}
+          </List.Items>
+        </List.Frame>,
+      )
+        .container.querySelector(".pluto-list__items")
+        ?.classList.contains("pluto-list__items--animate-height");
+
+    it("should not animate height unless the caller opts in", () => {
+      expect(hasAnimateClass()).toBe(false);
+    });
+
+    it("should animate height when the caller opts in", () => {
+      expect(hasAnimateClass(true)).toBe(true);
+    });
+  });
+
   describe("scroll-based pagination (non-virtual)", () => {
     let mockObserverCallback: IntersectionObserverCallback;
     const mockObserve = vi.fn();
