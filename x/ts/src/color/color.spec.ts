@@ -10,6 +10,7 @@
 import { describe, expect, test } from "vitest";
 
 import { color } from "@/color";
+import { zod } from "@/zod";
 
 describe("color.Color", () => {
   describe("constructor", () => {
@@ -91,6 +92,59 @@ describe("color.Color", () => {
     test("colorZ parses rgba struct", () => {
       const c = color.colorZ.parse({ r: 255, g: 0, b: 0, a: 1 });
       expect(c).toEqual([255, 0, 0, 1]);
+    });
+
+    test("throws a ParseError for an invalid crude color", () => {
+      expect(() => color.construct([300, 0, 0] as any)).toThrow(zod.ParseError);
+      expect(() => color.construct([300, 0, 0] as any)).toThrow(
+        /Failed to parse color/,
+      );
+    });
+
+    describe("legacy 0-255 alpha", () => {
+      test("from rgba with alpha 255", () => {
+        const c = color.construct([28, 28, 28, 255]);
+        expect(c).toEqual([28, 28, 28, 1]);
+      });
+      test("from rgba with mid-range alpha", () => {
+        const c = color.construct([255, 0, 0, 128]);
+        expect(color.aValue(c)).toBeCloseTo(128 / 255);
+      });
+      test("from rgba with alpha just above 1 clamps to opaque", () => {
+        const c = color.construct([255, 0, 0, 1.5]);
+        expect(color.aValue(c)).toEqual(1);
+      });
+      test("from rgba with alpha at the clamp boundary", () => {
+        const c = color.construct([255, 0, 0, 2]);
+        expect(color.aValue(c)).toEqual(1);
+      });
+      test("from rgba with alpha just above the clamp boundary divides", () => {
+        const c = color.construct([255, 0, 0, 2.01]);
+        expect(color.aValue(c)).toBeCloseTo(2.01 / 255);
+      });
+      test("rejects an alpha above 255", () => {
+        expect(() => color.construct([255, 0, 0, 300])).toThrow(zod.ParseError);
+        expect(() => color.construct({ r: 5, g: 5, b: 5, a: 300 })).toThrow(
+          zod.ParseError,
+        );
+      });
+      test("from legacy object with alpha 255", () => {
+        const c = color.construct({ rgba255: [5, 5, 5, 255] });
+        expect(c).toEqual([5, 5, 5, 1]);
+      });
+      test("from rgba struct with alpha 255", () => {
+        const c = color.construct({ r: 5, g: 5, b: 5, a: 255 });
+        expect(c).toEqual([5, 5, 5, 1]);
+      });
+      test("cssString renders a legacy alpha as opaque", () => {
+        expect(color.cssString([28, 28, 28, 255])).toEqual("rgba(28, 28, 28, 1)");
+      });
+      test("isCrude accepts a legacy alpha", () => {
+        expect(color.isCrude([28, 28, 28, 255])).toBe(true);
+      });
+      test("isColor still rejects a legacy alpha", () => {
+        expect(color.isColor([28, 28, 28, 255])).toBe(false);
+      });
     });
   });
 
@@ -675,10 +729,13 @@ describe("color.Color", () => {
       expect(color.cssString(c)).toEqual("rgba(128, 128, 128, 0.7)");
     });
 
-    test("throws error for invalid color format", () => {
-      expect(() => color.cssString({} as any)).toThrow();
-      expect(() => color.cssString([1, 2] as any)).toThrow();
-      expect(() => color.cssString([300, 0, 0] as any)).toThrow();
+    test("throws a ParseError for invalid color format", () => {
+      expect(() => color.cssString({} as any)).toThrow(zod.ParseError);
+      expect(() => color.cssString([1, 2] as any)).toThrow(zod.ParseError);
+      expect(() => color.cssString([300, 0, 0] as any)).toThrow(zod.ParseError);
+      expect(() => color.cssString([300, 0, 0] as any)).toThrow(
+        /Failed to parse color/,
+      );
     });
   });
 
@@ -726,7 +783,7 @@ describe("color.Color", () => {
     });
 
     test("rejects invalid RGBA arrays", () => {
-      expect(color.isCrude([255, 0, 0, 1.5])).toBe(false);
+      expect(color.isCrude([255, 0, 0, 256])).toBe(false);
       expect(color.isCrude([255, 0, 0, -0.1])).toBe(false);
     });
 
