@@ -101,7 +101,7 @@ var _ = Describe("SeriesFactory", func() {
 				"timestamp",
 				newFixedSeriesRoundtripTest(
 					[]telem.TimeStamp{1, 2, 3},
-					telem.TimeStampT,
+					telem.TimestampT,
 				),
 			)
 			Specify(
@@ -113,7 +113,7 @@ var _ = Describe("SeriesFactory", func() {
 			)
 			Specify(
 				"bool",
-				newFixedSeriesRoundtripTest([]bool{true, false, true}, telem.BoolT),
+				newFixedSeriesRoundtripTest([]bool{true, false, true}, telem.BooleanT),
 			)
 			Specify("empty", newFixedSeriesRoundtripTest([]int64{}, telem.Int64T))
 			Specify("nil", func() {
@@ -214,7 +214,7 @@ var _ = Describe("SeriesFactory", func() {
 	Describe("NewSeriesSecondsTSV", func() {
 		It("Should multiply timestamps by SecondTS", func() {
 			s := telem.NewSeriesSecondsTSV(1, 2, 3)
-			Expect(s.DataType).To(Equal(telem.TimeStampT))
+			Expect(s.DataType).To(Equal(telem.TimestampT))
 			Expect(s.Len()).To(BeEquivalentTo(3))
 			data := telem.UnmarshalSeries[telem.TimeStamp](s)
 			Expect(data[0]).To(Equal(telem.SecondTS))
@@ -399,7 +399,7 @@ var _ = Describe("SeriesFactory", func() {
 
 		It("Should create a series with timestamps", func() {
 			s := telem.Arrange[telem.TimeStamp](0, 3, 100)
-			Expect(s.DataType).To(Equal(telem.TimeStampT))
+			Expect(s.DataType).To(Equal(telem.TimestampT))
 			Expect(telem.UnmarshalSeries[telem.TimeStamp](s)).
 				To(Equal([]telem.TimeStamp{0, 100, 200}))
 		})
@@ -535,21 +535,21 @@ var _ = Describe("SeriesFactory", func() {
 			),
 			// timestamp
 			Entry(
-				"TimeStamp → TimeStampT",
+				"TimeStamp → TimestampT",
 				telem.TimeStamp(1000),
-				telem.TimeStampT,
+				telem.TimestampT,
 				telem.NewSeriesV(telem.TimeStamp(1000)),
 			),
 			Entry(
-				"int64 → TimeStampT",
+				"int64 → TimestampT",
 				int64(5000),
-				telem.TimeStampT,
+				telem.TimestampT,
 				telem.NewSeriesV(telem.TimeStamp(5000)),
 			),
 			Entry(
-				"TimeSpan → TimeStampT",
+				"TimeSpan → TimestampT",
 				telem.TimeSpan(1000),
-				telem.TimeStampT,
+				telem.TimestampT,
 				telem.NewSeriesV(telem.TimeStamp(1000)),
 			),
 			Entry(
@@ -666,29 +666,34 @@ var _ = Describe("SeriesFactory", func() {
 				MustSucceed(telem.NewJSONSeriesV(42)),
 			),
 			// bool
-			Entry("bool true → BoolT", true, telem.BoolT, telem.NewSeriesV(true)),
-			Entry("bool false → BoolT", false, telem.BoolT, telem.NewSeriesV(false)),
-			Entry("int 1 → BoolT", 1, telem.BoolT, telem.NewSeriesV(true)),
-			Entry("int 0 → BoolT", 0, telem.BoolT, telem.NewSeriesV(false)),
+			Entry("bool true → BooleanT", true, telem.BooleanT, telem.NewSeriesV(true)),
 			Entry(
-				"int 42 → BoolT (normalizes nonzero)",
+				"bool false → BooleanT",
+				false,
+				telem.BooleanT,
+				telem.NewSeriesV(false),
+			),
+			Entry("int 1 → BooleanT", 1, telem.BooleanT, telem.NewSeriesV(true)),
+			Entry("int 0 → BooleanT", 0, telem.BooleanT, telem.NewSeriesV(false)),
+			Entry(
+				"int 42 → BooleanT (normalizes nonzero)",
 				42,
-				telem.BoolT,
+				telem.BooleanT,
 				telem.NewSeriesV(true),
 			),
 			Entry(
-				"int -3 → BoolT (normalizes nonzero)",
+				"int -3 → BooleanT (normalizes nonzero)",
 				-3,
-				telem.BoolT,
+				telem.BooleanT,
 				telem.NewSeriesV(true),
 			),
 			Entry(
-				"float 1.5 → BoolT (normalizes nonzero)",
+				"float 1.5 → BooleanT (normalizes nonzero)",
 				1.5,
-				telem.BoolT,
+				telem.BooleanT,
 				telem.NewSeriesV(true),
 			),
-			Entry("float 0.0 → BoolT", 0.0, telem.BoolT, telem.NewSeriesV(false)),
+			Entry("float 0.0 → BooleanT", 0.0, telem.BooleanT, telem.NewSeriesV(false)),
 			Entry("bool true → Uint8T", true, telem.Uint8T, telem.NewSeriesV(uint8(1))),
 			Entry(
 				"bool false → Uint8T",
@@ -719,9 +724,9 @@ var _ = Describe("SeriesFactory", func() {
 				"cannot cast string to int64",
 			),
 			Entry(
-				"string → TimeStampT",
+				"string → TimestampT",
 				"2024-01-01",
-				telem.TimeStampT,
+				telem.TimestampT,
 				"cannot cast string to v0.TimeStamp",
 			),
 			Entry("int → UUIDT", 42, telem.UUIDT, "cannot cast int to uuid.UUID"),

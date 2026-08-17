@@ -56,7 +56,7 @@ var _ = Describe("Accuracy", func() {
 							Name:     "Rufus",
 							Key:      idxKey,
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Name:     "Du",
@@ -199,13 +199,13 @@ var _ = Describe("Accuracy", func() {
 							cesium.Channel{
 								Name:     "Albert",
 								Key:      idxKey1,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
 								Name:     "Park",
 								Key:      idxKey2,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{

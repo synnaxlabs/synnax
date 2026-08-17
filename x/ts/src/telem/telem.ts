@@ -2043,7 +2043,7 @@ export class DataType
   static readonly BYTES = new DataType("bytes");
   /** Represents a boolean data type. Samples are a single byte with canonical values
    * 0x00 (false) and 0x01 (true). */
-  static readonly BOOLEAN = new DataType("bool");
+  static readonly BOOLEAN = new DataType("boolean");
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([

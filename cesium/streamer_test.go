@@ -73,7 +73,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      basic1,
 								Name:     "Planck",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						)).To(Succeed())
@@ -111,7 +111,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      key,
 								Name:     "Curie",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						)).To(Succeed())
@@ -153,7 +153,7 @@ var _ = Describe("Streamer Behavior", func() {
 						cesium.Channel{
 							Key:      basic2,
 							Name:     "Bohr",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 					)).To(Succeed())
@@ -228,7 +228,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      idx,
 								Name:     "Noether",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -276,7 +276,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      idx,
 								Name:     "Hopper",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -325,7 +325,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      idx,
 								Name:     "Franklin",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -377,7 +377,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      basic3,
 								Name:     "Schrodinger",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						)).To(Succeed())
@@ -501,7 +501,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      key,
 								Name:     "Noether",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						)).To(Succeed())
@@ -597,7 +597,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Einstein",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())

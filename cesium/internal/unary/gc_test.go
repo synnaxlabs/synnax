@@ -45,7 +45,7 @@ var _ = Describe("Garbage Collection", func() {
 						Channel: channel.Channel{
 							Name:     "Chin",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
@@ -163,7 +163,7 @@ var _ = Describe("Garbage Collection", func() {
 						Channel: channel.Channel{
 							Name:     "Wilkes",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
