@@ -38,7 +38,7 @@ export interface PickedFile {
   /** Reads the file's contents as text. */
   read: () => Promise<string>;
   /** Reads the file's raw bytes. */
-  readBytes: () => Promise<Uint8Array>;
+  readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
 }
 
 export interface PickFilesParams {

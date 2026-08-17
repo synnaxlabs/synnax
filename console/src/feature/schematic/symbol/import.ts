@@ -14,7 +14,6 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { zipSync } from "fflate";
 import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
@@ -72,33 +71,4 @@ export const useImport = (parentGroup?: string): (() => void) => {
       );
     }, "Failed to import symbols");
   }, [client, handleError, addStatus, parentGroup]);
-};
-
-export const useImportGroup = (): (() => void) => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const addStatus = Status.useAdder();
-
-  return useCallback(() => {
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      const directory = await Runtime.pickDirectory({ title: "Import symbol group" });
-      if (directory == null) return;
-      // The Core owns the bundle format: manifest recognition, legacy migration,
-      // membership, and validation. The directory's top-level files are zipped and
-      // uploaded untouched. Entries are stored uncompressed; symbol files are small.
-      const entries: Record<string, Uint8Array> = {};
-      for (const file of directory.files) {
-        if (file.path.includes("/")) continue;
-        entries[file.path] = await file.readBytes();
-      }
-      const imported = await client.schematics.symbols.importGroup(
-        zipSync(entries, { level: 0 }),
-      );
-      addStatus({
-        variant: "success",
-        message: `Successfully imported symbol group "${imported.name}"`,
-      });
-    }, "Failed to import symbol group");
-  }, [client, handleError, addStatus]);
 };

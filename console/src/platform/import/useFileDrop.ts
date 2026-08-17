@@ -12,42 +12,18 @@ import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import {
+  captureEntries,
+  isDirectoryEntry,
+  isFileEntry,
+  readDirectoryFiles,
+  readEntryFile,
+} from "@/platform/import/entries";
 import { ingestServer } from "@/platform/import/import";
 import { ingestBatch } from "@/platform/import/ingestBatch";
 import { type DirectoryIngester } from "@/platform/import/ingester";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
-
-// DataTransferItem handles stop resolving once the drop handler returns, so the entries
-// are taken before anything is awaited.
-const captureEntries = (dataTransfer: DataTransfer): FileSystemEntry[] =>
-  Array.from(dataTransfer.items)
-    .filter((item) => item.kind === "file")
-    .map((item) => item.webkitGetAsEntry())
-    .filter((entry) => entry != null);
-
-// The DOM entry types carry isFile and isDirectory as plain booleans, so narrowing to
-// the reading APIs takes a guard.
-const isFile = (entry: FileSystemEntry): entry is FileSystemFileEntry => entry.isFile;
-
-const isDirectory = (entry: FileSystemEntry): entry is FileSystemDirectoryEntry =>
-  entry.isDirectory;
-
-const readFile = async (entry: FileSystemFileEntry): Promise<File> =>
-  await new Promise((resolve, reject) => entry.file(resolve, reject));
-
-const readDirectory = async (entry: FileSystemDirectoryEntry): Promise<File[]> => {
-  const reader = entry.createReader();
-  const files: File[] = [];
-  while (true) {
-    const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
-      reader.readEntries(resolve, reject);
-    });
-    if (entries.length === 0) break;
-    for (const child of entries) if (isFile(child)) files.push(await readFile(child));
-  }
-  return files;
-};
 
 const readJSON = async (file: File): Promise<unknown> => JSON.parse(await file.text());
 
@@ -64,15 +40,15 @@ const ingestEntry = async (
   entry: FileSystemEntry,
   { client, ingestDirectory, projectKey, store }: IngestContext,
 ): Promise<void | ontology.ID> => {
-  if (isDirectory(entry)) {
-    const files = await readDirectory(entry);
+  if (isDirectoryEntry(entry)) {
+    const files = await readDirectoryFiles(entry);
     const parsed = await Promise.all(
       files.map(async (file) => ({ name: file.name, data: await readJSON(file) })),
     );
     return await ingestDirectory(entry.name, parsed, { client, store });
   }
-  if (!isFile(entry)) return;
-  const file = await readFile(entry);
+  if (!isFileEntry(entry)) return;
+  const file = await readEntryFile(entry);
   if (file.type !== "application/json") throw new Error("not a JSON file");
   return await ingestServer(await readJSON(file), {
     client,

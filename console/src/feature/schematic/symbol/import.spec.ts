@@ -7,13 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology } from "@synnaxlabs/client";
+import { group } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
-import { client, createSymbolPayload } from "@/feature/schematic/testutil";
+import {
+  childNames,
+  client,
+  createLegacySymbolFile,
+} from "@/feature/schematic/testutil";
 import {
   fakePickedFile,
   interceptFilePicker,
@@ -25,11 +29,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// A symbol file as main-era Consoles exported it: typeless camelCase symbolZ JSON
-// carrying the persisted version field the schema stamped by default.
-const createLegacySymbolFile = (name: string): string =>
-  JSON.stringify({ version: 1, ...createSymbolPayload(name) });
-
 const createSymbolGroup = async (): Promise<group.Group> => {
   const root = await client.schematics.symbols.retrieveGroup();
   return await client.groups.create({
@@ -37,9 +36,6 @@ const createSymbolGroup = async (): Promise<group.Group> => {
     name: uniqueName("symbol_grp"),
   });
 };
-
-const childNames = async (id: ontology.ID): Promise<string[]> =>
-  (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);
 
 describe("Schematic.Symbol.useImport", () => {
   it("imports a picked symbol file into the given group", async () => {
@@ -109,150 +105,5 @@ describe("Schematic.Symbol.useImport", () => {
     await act(async () => {});
     expect(result.current.notifications.statuses).toHaveLength(0);
     expect(await childNames(group.ontologyID(grp.key))).toHaveLength(0);
-  });
-});
-
-describe("Schematic.Symbol.useImportGroup", () => {
-  const renderImportGroup = async () =>
-    await renderHookWithConsole(
-      () => ({
-        run: Schematic.Symbol.useImportGroup(),
-        notifications: Status.useNotifications(),
-      }),
-      { client },
-    );
-
-  const findImportedGroup = async (groupName: string) => {
-    const root = await client.schematics.symbols.retrieveGroup();
-    const groups = await client.ontology.children.retrieve({
-      ids: group.ontologyID(root.key),
-    });
-    return groups.find((g) => g.name === groupName);
-  };
-
-  it("imports every symbol a legacy manifest declares", async () => {
-    const picker = interceptFilePicker();
-    const { result } = await renderImportGroup();
-    const groupName = uniqueName("imported_grp");
-    const symbolName = uniqueName("sym");
-    const manifest = {
-      version: 1,
-      type: "symbol_group",
-      name: groupName,
-      symbols: [{ file: "sym1.json", key: "k1", name: symbolName }],
-    };
-    act(() => result.current.run());
-    await waitFor(() => expect(picker.lastInput()).toBeDefined());
-    picker.selectFiles([
-      fakePickedFile(
-        "manifest.json",
-        JSON.stringify(manifest),
-        `${groupName}/manifest.json`,
-      ),
-      fakePickedFile(
-        "sym1.json",
-        createLegacySymbolFile(symbolName),
-        `${groupName}/sym1.json`,
-      ),
-    ]);
-    await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "success" &&
-            st.message === `Successfully imported symbol group "${groupName}"`,
-        ),
-      ).toBe(true),
-    );
-    const created = await findImportedGroup(groupName);
-    if (created == null) throw new Error("imported group not found");
-    expect(await childNames(created.id)).toContain(symbolName);
-  });
-
-  it("raises an error when the directory has no manifest", async () => {
-    const picker = interceptFilePicker();
-    const { result } = await renderImportGroup();
-    act(() => result.current.run());
-    await waitFor(() => expect(picker.lastInput()).toBeDefined());
-    picker.selectFiles([
-      fakePickedFile("stray.json", "{}", "no_manifest_dir/stray.json"),
-    ]);
-    await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "error" && st.message === "Failed to import symbol group",
-        ),
-      ).toBe(true),
-    );
-  });
-
-  it("imports nothing when the manifest declares a missing member", async () => {
-    const picker = interceptFilePicker();
-    const { result } = await renderImportGroup();
-    const groupName = uniqueName("partial_grp");
-    const okName = uniqueName("ok");
-    const manifest = {
-      version: 1,
-      type: "symbol_group",
-      name: groupName,
-      symbols: [
-        { file: "ok.json", key: "k1", name: okName },
-        { file: "missing.json", key: "k2", name: "missing" },
-      ],
-    };
-    act(() => result.current.run());
-    await waitFor(() => expect(picker.lastInput()).toBeDefined());
-    picker.selectFiles([
-      fakePickedFile(
-        "manifest.json",
-        JSON.stringify(manifest),
-        `${groupName}/manifest.json`,
-      ),
-      fakePickedFile("ok.json", createLegacySymbolFile(okName), `${groupName}/ok.json`),
-    ]);
-    await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "error" && st.message === "Failed to import symbol group",
-        ),
-      ).toBe(true),
-    );
-    expect(await findImportedGroup(groupName)).toBeUndefined();
-  });
-
-  it("infers membership from the directory for a Core-written manifest", async () => {
-    const picker = interceptFilePicker();
-    const { result } = await renderImportGroup();
-    const groupName = uniqueName("core_grp");
-    const symbolName = uniqueName("sym");
-    const manifest = { version: 2, type: "symbol_group", name: groupName };
-    act(() => result.current.run());
-    await waitFor(() => expect(picker.lastInput()).toBeDefined());
-    picker.selectFiles([
-      fakePickedFile(
-        "manifest.json",
-        JSON.stringify(manifest),
-        `${groupName}/manifest.json`,
-      ),
-      fakePickedFile(
-        `${symbolName}.json`,
-        createLegacySymbolFile(symbolName),
-        `${groupName}/${symbolName}.json`,
-      ),
-    ]);
-    await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "success" &&
-            st.message === `Successfully imported symbol group "${groupName}"`,
-        ),
-      ).toBe(true),
-    );
-    const created = await findImportedGroup(groupName);
-    if (created == null) throw new Error("imported group not found");
-    expect(await childNames(created.id)).toContain(symbolName);
   });
 });

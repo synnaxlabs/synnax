@@ -23,14 +23,19 @@ export interface FakePickedFile {
 /** fakePickedFile builds a FakePickedFile with the given name and contents. */
 export const fakePickedFile = (
   name: string,
-  contents = "content",
+  contents: string | Uint8Array<ArrayBuffer> = "content",
   webkitRelativePath?: string,
-): FakePickedFile => ({
-  name,
-  webkitRelativePath,
-  text: () => Promise.resolve(contents),
-  arrayBuffer: async () => new TextEncoder().encode(contents).buffer,
-});
+): FakePickedFile => {
+  const bytes =
+    typeof contents === "string" ? new TextEncoder().encode(contents) : contents;
+  return {
+    name,
+    webkitRelativePath,
+    text: () => Promise.resolve(new TextDecoder().decode(bytes)),
+    arrayBuffer: async () =>
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  };
+};
 
 /**
  * FilePickerInterceptor drives the browser file-picker boundary from a test: the
