@@ -660,18 +660,12 @@ public:
         return this->cfg.sy_channels();
     }
 
-    /// @brief restarts the source, claiming the device again so a disconnect and
-    /// reconnect between runs gets a fresh LJM handle.
+    /// @brief restarts the source. The claim is released before the acquire so a
+    /// device that reconnects gets a fresh LJM handle instead of the cached one.
     x::errors::Error restart(const bool force) {
-        const auto prev = this->dev;
         this->stop();
         auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
-        if (acquire_err) {
-            // Keep the previous claim so mid-run recovery retries on the old
-            // handle instead of dereferencing null.
-            this->dev = prev;
-            return acquire_err;
-        }
+        if (acquire_err) return acquire_err;
         this->dev = std::move(d);
         if (const auto err = this->cfg.apply(this->dev); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
@@ -708,6 +702,12 @@ public:
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
+        // A failed restart leaves no device. The pipeline retries temporary errors,
+        // giving recovery a chance on every attempt.
+        if (this->dev == nullptr) {
+            res.error = translate_error(this->restart(true));
+            if (res.error) return res;
+        }
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
         common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);

@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -140,17 +142,22 @@ private:
 /// @brief a Manager that serves scripted devices for tests instead of opening LJM
 /// handles.
 class MockManager final : public Manager {
+    /// @brief the device handed to callers while a holder is still alive.
+    std::weak_ptr<Device> cached;
+
 public:
     /// @brief errors to return from acquire() calls in sequence. Calls past the end
     /// of the sequence succeed.
     std::vector<x::errors::Error> acquire_errors;
     /// @brief number of times acquire() was called.
     size_t acquire_call_count = 0;
-    /// @brief the device returned by successful acquire() calls.
+    /// @brief opens a device when no holder remains. Defaults to serving dev.
+    std::function<std::shared_ptr<Device>()> open;
+    /// @brief the device the default open() serves.
     std::shared_ptr<Device> dev;
 
     explicit MockManager(std::shared_ptr<Device> dev = std::make_shared<Mock>()):
-        dev(std::move(dev)) {}
+        open([this] { return this->dev; }), dev(std::move(dev)) {}
 
     x::errors::Error list_all(int, int, int *, int *, int *, int *, int *) override {
         return x::errors::NIL;
@@ -161,7 +168,10 @@ public:
         const auto i = this->acquire_call_count++;
         if (i < this->acquire_errors.size() && this->acquire_errors[i])
             return {nullptr, this->acquire_errors[i]};
-        return {this->dev, x::errors::NIL};
+        if (auto existing = this->cached.lock()) return {existing, x::errors::NIL};
+        auto opened = this->open();
+        this->cached = opened;
+        return {opened, x::errors::NIL};
     }
 };
 }

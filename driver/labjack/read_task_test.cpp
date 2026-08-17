@@ -474,4 +474,43 @@ TEST_F(SourceClaimTest, testStreamSourceRestartReclaimsDevice) {
     ASSERT_NIL(source.stop());
     EXPECT_EQ(devs->dev.use_count(), 1);
 }
+
+/// @brief a restart must drop its claim before acquiring. The manager shares one
+/// handle per device while a holder is alive, so a source that keeps the old claim
+/// across the acquire gets the dead handle back instead of a reopened one.
+TEST_F(SourceClaimTest, testStreamSourceRestartOpensAFreshHandle) {
+    parse_config(false);
+    size_t opens = 0;
+    devs->open = [&opens] {
+        ++opens;
+        return std::make_shared<device::Mock>();
+    };
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(opens, 1);
+    ASSERT_NIL(source.restart(true));
+    EXPECT_EQ(opens, 2);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief a read after a restart that failed to acquire must claim the device again
+/// instead of dereferencing a released one.
+TEST_F(SourceClaimTest, testStreamSourceReadReclaimsAfterFailedRestart) {
+    parse_config(false);
+    devs->acquire_errors = {
+        x::errors::NIL,
+        x::errors::Error(ljm::CRITICAL_ERROR, "device not found")
+    };
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    ASSERT_OCCURRED_AS(source.restart(true), ljm::CRITICAL_ERROR);
+
+    x::breaker::Breaker breaker(x::breaker::default_config("read"));
+    breaker.start();
+    x::telem::Frame fr(0);
+    const auto res = source.read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(devs->acquire_call_count, 3);
+    ASSERT_NIL(source.stop());
+}
 }
