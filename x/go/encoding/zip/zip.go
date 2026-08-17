@@ -30,10 +30,10 @@ import (
 // and no nesting: every name is a leaf, which the Codec enforces.
 type Files = map[string][]byte
 
-// MaxDecodedSize caps the total decompressed size of an archive Decode accepts,
+// maxDecodedSize caps the total decompressed size of an archive Decode accepts,
 // guarding against zip bombs. Enforced while reading, so a lying size header cannot
 // bypass it.
-const MaxDecodedSize = 64 << 20
+const maxDecodedSize = 64 << 20
 
 // Codec encodes a Files value into a zip archive with one entry per file and decodes
 // such an archive back into a *Files. Entries are written in sorted name order, so
@@ -41,7 +41,7 @@ const MaxDecodedSize = 64 << 20
 // desktop archivers: it skips directory entries and macOS metadata (__MACOSX trees,
 // ._* files, .DS_Store) and unwraps root directories all entries share. A value of
 // another type fails, and a remaining name that is not a leaf, two entries under one
-// name, or contents decompressing past MaxDecodedSize, returns an error wrapping
+// name, or contents decompressing past a fixed 64 MiB cap, returns an error wrapping
 // validate.ErrValidation.
 var Codec http.Codec = codec{}
 
@@ -108,7 +108,7 @@ func (codec) Decode(_ context.Context, data []byte, value any) error {
 	stripSharedRoot(names)
 	decoded := make(Files, len(entries))
 	seen := make(set.Set[string], len(entries))
-	remaining := int64(MaxDecodedSize)
+	remaining := int64(maxDecodedSize)
 	for i, f := range entries {
 		name := names[i]
 		if err := validateLeaf(name); err != nil {
@@ -137,7 +137,7 @@ func (codec) Decode(_ context.Context, data []byte, value any) error {
 		if int64(len(contents)) > remaining {
 			return errors.Wrapf(
 				validate.ErrValidation,
-				"archive contents decompress past the %d byte limit", MaxDecodedSize,
+				"archive contents decompress past the %d byte limit", maxDecodedSize,
 			)
 		}
 		remaining -= int64(len(contents))

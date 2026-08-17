@@ -22,6 +22,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// maxDecodedSize mirrors the Codec's 64 MiB decompression cap.
+const maxDecodedSize = 64 << 20
+
 // write packs entries into an archive without the Codec's validation, so specs can
 // craft archives the Codec refuses to produce.
 func write(entries ...[2]string) []byte {
@@ -235,12 +238,12 @@ var _ = Describe("Codec", func() {
 			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(xzip.Files{"valve.json": []byte("1")}))
 		})
-		It("Should reject contents decompressing past MaxDecodedSize", func(
+		It("Should reject contents decompressing past the cap", func(
 			ctx SpecContext,
 		) {
 			// Two half-budget entries plus one byte: small compressed, over the cap
 			// decompressed, and neither entry alone crosses it.
-			half := strings.Repeat("0", xzip.MaxDecodedSize/2)
+			half := strings.Repeat("0", maxDecodedSize/2)
 			b := write([2]string{"a.json", half}, [2]string{"b.json", half + "0"})
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(SatisfyAll(
@@ -248,11 +251,11 @@ var _ = Describe("Codec", func() {
 				MatchError(ContainSubstring("decompress past")),
 			))
 		})
-		It("Should decode contents exactly at MaxDecodedSize", func(ctx SpecContext) {
-			b := write([2]string{"a.json", strings.Repeat("0", xzip.MaxDecodedSize)})
+		It("Should decode contents exactly at the cap", func(ctx SpecContext) {
+			b := write([2]string{"a.json", strings.Repeat("0", maxDecodedSize)})
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
-			Expect(decoded["a.json"]).To(HaveLen(xzip.MaxDecodedSize))
+			Expect(decoded["a.json"]).To(HaveLen(maxDecodedSize))
 		})
 		It("Should skip a directory entry", func(ctx SpecContext) {
 			b := write([2]string{"nested/", ""}, [2]string{"valve.json", "1"})
