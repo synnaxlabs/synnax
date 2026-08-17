@@ -69,7 +69,7 @@ const EmptyContent = (): ReactElement => {
   return (
     <Empty.Action
       message="No channels"
-      action={hasCreatePermission ? "Create a channel" : undefined}
+      action={hasCreatePermission ? "Create channel" : undefined}
       onClick={() => openCreate()}
     />
   );

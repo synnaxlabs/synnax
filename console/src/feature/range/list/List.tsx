@@ -52,7 +52,7 @@ const EmptyContent = () => {
   return (
     <Empty.Action
       message="No ranges found"
-      action={hasCreatePermission ? "Create a range" : undefined}
+      action={hasCreatePermission ? "Create range" : undefined}
       onClick={() => openCreate()}
     />
   );

@@ -52,7 +52,7 @@ const EmptyContent = () => {
   return (
     <Empty.Action
       message="No tasks"
-      action={hasCreatePermission ? "Create a task" : undefined}
+      action={hasCreatePermission ? "Create task" : undefined}
       onClick={() => openSelector()}
     />
   );

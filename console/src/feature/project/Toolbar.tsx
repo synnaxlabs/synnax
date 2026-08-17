@@ -61,7 +61,7 @@ const EmptyContent = () => {
   return (
     <Empty.Action
       message="No projects found"
-      action={hasCreatePermission ? "Create a project" : undefined}
+      action={hasCreatePermission ? "Create project" : undefined}
       onClick={handleClick}
     />
   );

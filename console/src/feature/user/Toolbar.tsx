@@ -57,7 +57,7 @@ const EmptyContent = (): ReactElement => {
   return (
     <Empty.Action
       message="No users"
-      action={hasCreatePermission ? "Create a user" : undefined}
+      action={hasCreatePermission ? "Create user" : undefined}
       onClick={() => openRegister()}
     />
   );
