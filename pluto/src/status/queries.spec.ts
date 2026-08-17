@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, query, status } from "@synnaxlabs/client";
+import { group, NotFoundError, ontology, query, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, testutil, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -688,6 +688,35 @@ describe("Status queries", () => {
         expect(result.current.retrieve?.variant).toEqual("success");
         expect(result.current.retrieve?.message).toEqual("Updated message");
       });
+    });
+
+    it("should not write back a status deleted while an autosave was pending", async () => {
+      const key = uuid.create();
+      await client.statuses.set({
+        name: "Autosave Race",
+        key,
+        variant: "info",
+        message: "Original",
+        time: TimeStamp.now(),
+      });
+      const { result } = await renderHookSuspended(
+        () =>
+          Status.useForm({
+            query: { key },
+            autoSave: true,
+            // Holds the save open long enough for the delete to overtake it.
+            autoSaveDebounce: TimeSpan.milliseconds(500),
+          }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set("name", "Edited"));
+      await act(async () => await client.statuses.delete(key));
+      await testutil.expectAlways(async () => {
+        await expect(
+          async () => await client.statuses.retrieve({ keys: [key] }),
+        ).rejects.toThrow(NotFoundError);
+      }, 800);
     });
 
     it("should handle status with labels", async () => {

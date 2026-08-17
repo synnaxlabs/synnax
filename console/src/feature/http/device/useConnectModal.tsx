@@ -63,6 +63,10 @@ const INITIAL_VALUES: Device = {
 
 const useForm = PDevice.createForm(SCHEMAS);
 
+const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
+// Longer than the usual request timeout to allow for negotiating an SSL handshake.
+const TEST_CONNECTION_REQUEST_TIMEOUT_MS = TimeSpan.seconds(5).milliseconds;
+
 const beforeSave = async ({
   client,
   get,
@@ -79,14 +83,14 @@ const beforeSave = async ({
   const protocol = props.secure ? "https://" : "http://";
   const connection = {
     base_url: `${protocol}${host}`,
-    timeout_ms: TimeSpan.seconds(5).milliseconds, // use longer timeout to allow for negotiating SSL handshake
+    timeout_ms: TEST_CONNECTION_REQUEST_TIMEOUT_MS,
     verify_ssl: props.verifySsl,
     auth: props.auth,
   };
   const healthCheck = props.healthCheck;
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
-    timeout: TimeSpan.seconds(10),
+    timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection, healthCheck },
   });
   if (state.variant === "error") throw new Error(state.message);
