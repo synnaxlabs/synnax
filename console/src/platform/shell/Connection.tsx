@@ -11,17 +11,9 @@ import { type connection } from "@synnaxlabs/client";
 import { Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Connection as PlatformConnection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { Island } from "@/platform/shell/Island";
-
-export const STATUS_LABELS: Record<connection.Status["variant"], string> = {
-  success: "Connected",
-  info: "Connected",
-  loading: "Connecting",
-  warning: "Reconnecting",
-  error: "Unreachable",
-  disabled: "Disconnected",
-};
 
 /* Rejected credentials mean the Core answered, so the island stays nominal and
    the login form carries the auth error. */
@@ -86,7 +78,7 @@ export const Connection = ({ cluster }: ConnectionProps): ReactElement | null =>
         {cluster.host}:{cluster.port}
       </Text.Text>
       <Text.Text status={variant} className={CSS.BE("shell", "connection-status")}>
-        {STATUS_LABELS[variant]}
+        {PlatformConnection.STATUS_LABELS[variant]}
       </Text.Text>
     </Island>
   );
