@@ -18,10 +18,7 @@ import { useHeldChecking } from "@/platform/connection/useHeldChecking";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
-/**
- * The active Core: its name, address, and reachability. The label reserves the
- * width of every state it can show, so a change never moves the line.
- */
+/** The active Core on one line: its name, address, and reachability. */
 export const Target = (): ReactElement => {
   const { variant, details } = Synnax.useConnectionStatus();
   const checking = useHeldChecking(details.checking);

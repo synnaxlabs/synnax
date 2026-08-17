@@ -20,17 +20,16 @@ import { CSS } from "@/platform/css";
 export interface RetryProps extends Omit<Button.ButtonProps, "onClick" | "disabled"> {}
 
 /**
- * Runs a connection check now. Disabled while one is in flight, and absent when
- * there is no client to check with.
+ * Runs a connection check now. Disabled while a check is in flight, and renders
+ * nothing when there is no client.
  */
 export const Retry = ({ children, ...rest }: RetryProps): ReactElement | null => {
   const client = Synnax.use();
   const { details } = Synnax.useConnectionStatus();
-  const checking = useHeldChecking(details.checking);
   if (client == null) return null;
   return (
     <Button.Button
-      disabled={checking}
+      disabled={details.checking}
       onClick={() => client.connection.retryNow()}
       {...rest}
     >
@@ -77,8 +76,7 @@ export interface RetryScheduleProps {
 
 /**
  * The retry schedule on one line: the check in flight, or the wait until the next
- * one. Keeps its height when there is nothing to report, so the surrounding layout
- * holds still across an attempt.
+ * one. Holds its line height when there is nothing to report.
  */
 export const RetrySchedule = ({
   details: { retry, checking },

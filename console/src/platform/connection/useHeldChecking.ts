@@ -14,9 +14,9 @@ import { useEffect, useState } from "react";
 const HOLD = TimeSpan.milliseconds(1250);
 
 /**
- * Whether a connection check is in flight, held long enough after a fast one to
- * stay legible. Read this instead of `details.checking` for anything the user
- * looks at.
+ * Whether a connection check is in flight, held after a fast one so it stays
+ * legible. Read this instead of `details.checking` for anything the user looks
+ * at, and read `details.checking` for anything the user acts on.
  */
 export const useHeldChecking = (checking: boolean): boolean => {
   const [held, setHeld] = useState(checking);

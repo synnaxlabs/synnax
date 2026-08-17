@@ -28,7 +28,8 @@ const causeOf = (error: unknown): unknown => {
   return details.error;
 };
 
-/** Reports whether the failure is the Core being unreachable, at any depth. */
+/** Reports whether the failure is an unreachable Core, at any depth of its cause
+ * chain. */
 export const isConnectionError = (error: unknown): boolean => {
   let current: unknown = error;
   for (let i = 0; i < MAX_DEPTH && current != null; i++) {
@@ -39,9 +40,8 @@ export const isConnectionError = (error: unknown): boolean => {
 };
 
 /**
- * Stands in for the crash fallback when the read failed because the Core is
- * unreachable. Boundaries reset on the next connection epoch, so the panel
- * recovers by itself once the Core answers again.
+ * Stands in for the crash fallback when a read failed because the Core is
+ * unreachable. The panel recovers by itself once the Core answers again.
  */
 export const Disconnected = (): ReactElement => {
   const { details } = Synnax.useConnectionStatus();

@@ -17,10 +17,6 @@ import { CSS } from "@/platform/css";
 
 export interface IndicatorProps extends Omit<Status.IndicatorProps, "variant"> {}
 
-/**
- * The live connection as a dot. Pulses while a check runs, keeping the variant's
- * color: an attempt in flight is activity, not a better verdict.
- */
 export const Indicator = ({ className, ...rest }: IndicatorProps): ReactElement => {
   const { variant, details } = Synnax.useConnectionStatus();
   const checking = useHeldChecking(details.checking);

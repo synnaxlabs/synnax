@@ -10,15 +10,7 @@
 import "@/feature/cluster/ConnectionBadge.css";
 
 import { type connection, status as clientStatus } from "@synnaxlabs/client";
-import {
-  Button,
-  Dialog,
-  Flex,
-  Icon,
-  Synnax,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Button, Dialog, Flex, Icon, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
