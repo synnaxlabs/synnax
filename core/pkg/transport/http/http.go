@@ -546,7 +546,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](
 			router,
 			"/api/v1/imex/export",
-			http.WithResponseEncoders(json.PrettyCodec),
+			http.WithResponseEncoders(json.NewCodec(json.WithIndent("  "))),
 		),
 	})
 }

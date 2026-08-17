@@ -31,13 +31,17 @@ import (
 // EncodingJSON names the JSON serialization in an export request's encoding field.
 const EncodingJSON = "JSON"
 
+// prettyJSON encodes export payloads with two-space indentation, for files a user
+// reads.
+var prettyJSON = xjson.NewCodec(xjson.WithIndent("  "))
+
 // ResolveEncoding returns the file encoder for the named export serialization. It
 // returns a validation error scoped to the "encoding" field when name is not a
 // supported serialization.
 func ResolveEncoding(name string) (encoding.FileEncoder, error) {
 	switch name {
 	case EncodingJSON:
-		return xjson.PrettyCodec, nil
+		return prettyJSON, nil
 	default:
 		return nil, validate.PathedError(
 			errors.Wrapf(validate.ErrValidation, "unsupported encoding %q", name),

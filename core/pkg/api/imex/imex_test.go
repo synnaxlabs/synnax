@@ -20,7 +20,6 @@ import (
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -180,10 +179,13 @@ var _ = Describe("Import", func() {
 })
 
 var _ = Describe("ResolveEncoding", func() {
-	It("Should return the pretty JSON encoder for the JSON encoding", func() {
-		Expect(apiimex.ResolveEncoding(apiimex.EncodingJSON)).To(
-			BeIdenticalTo(xjson.PrettyCodec),
-		)
+	It("Should return a pretty JSON encoder for the JSON encoding", func(
+		ctx SpecContext,
+	) {
+		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
+		Expect(enc.Extension()).To(Equal(".json"))
+		b := MustSucceed(enc.Encode(ctx, map[string]int{"value": 1}))
+		Expect(string(b)).To(Equal("{\n  \"value\": 1\n}\n"))
 	})
 	It("Should reject an unsupported encoding", func() {
 		Expect(apiimex.ResolveEncoding("YAML")).Error().To(SatisfyAll(

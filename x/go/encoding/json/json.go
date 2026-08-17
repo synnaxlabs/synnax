@@ -21,14 +21,32 @@ import (
 	"github.com/synnaxlabs/x/http"
 )
 
-// Codec is a JSON implementation of http.FileCodec.
-var Codec http.FileCodec = &codec{}
+// Codec is a JSON implementation of http.FileCodec with compact encoding.
+var Codec = NewCodec()
 
-// PrettyCodec is a JSON implementation of http.FileCodec that encodes with two-space
-// indentation and a trailing newline, for files a user reads. Decoding matches Codec.
-var PrettyCodec http.FileCodec = &prettyCodec{}
+type codec struct {
+	// indent is the per-level indentation for encoded output; empty means compact.
+	indent string
+}
 
-type codec struct{}
+// NewCodec returns a JSON implementation of http.FileCodec configured with the given
+// options.
+func NewCodec(opts ...Option) http.FileCodec {
+	c := &codec{}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
+}
+
+// Option configures a codec built by NewCodec.
+type Option func(*codec)
+
+// WithIndent encodes each level of nesting with the given indentation and appends a
+// trailing newline, for files a user reads. Decoding is unaffected.
+func WithIndent(indent string) Option {
+	return func(c *codec) { c.indent = indent }
+}
 
 func (*codec) ContentType() string { return "application/json" }
 
@@ -47,41 +65,31 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	return nil
 }
 
-func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return nil, encoding.SugarEncodingError(value, err)
+func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
+	if c.indent == "" {
+		b, err := json.Marshal(value)
+		if err != nil {
+			return nil, encoding.SugarEncodingError(value, err)
+		}
+		return b, nil
 	}
-	return b, nil
+	var buf bytes.Buffer
+	if err := c.EncodeStream(ctx, &buf, value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
-func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
-	if err := json.NewEncoder(w).Encode(value); err != nil {
+func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", c.indent)
+	if err := enc.Encode(value); err != nil {
 		return encoding.SugarEncodingError(value, err)
 	}
 	return nil
 }
 
 func (*codec) Extension() string { return ".json" }
-
-type prettyCodec struct{ codec }
-
-func (p *prettyCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := p.EncodeStream(ctx, &buf, value); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func (*prettyCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(value); err != nil {
-		return encoding.SugarEncodingError(value, err)
-	}
-	return nil
-}
 
 // MarshalStringInt64 marshals the int64 value to a UTF-8 string.
 func MarshalStringInt64(n int64) []byte {
