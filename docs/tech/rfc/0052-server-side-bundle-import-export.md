@@ -94,11 +94,11 @@ The file extension names the serialization and defines membership. Every file un
 root in a supported extension, at any depth, is a member. This RFC implements JSON only;
 YAML and TOML add extensions and codecs later with no change to the layout, the
 reference form, or the migration rules. Files in every other extension (`README.md`,
-`.gitignore`) are ignored, so a bundle can live in a repository. Two base names are
-reserved at the root and never members there: `manifest`, in every supported extension,
-and `LAYOUT.json`, so a stable-release project directory migrated in place keeps working
-(§4.5). A member that does not decode to a valid envelope is a validation error naming
-the file.
+`.gitignore`) are ignored, so a bundle can live in a repository. One base name is
+reserved at the root and never a member there: `manifest`, in every supported extension.
+A root `LAYOUT.json` marks a legacy project directory only when no manifest is present
+(§4.5); in a bundle it is a normal member. A member that does not decode to a valid
+envelope is a validation error naming the file.
 
 A `group` child becomes a subdirectory named after the sanitized group name, nesting
 recursively (§6.18). Directories exist only as prefixes of member paths: a group with no
