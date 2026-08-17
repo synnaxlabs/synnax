@@ -9,7 +9,7 @@
 
 import { label } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color } from "@synnaxlabs/x";
+import { color, testutil, TimeSpan } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -469,6 +469,31 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("externallyUpdated");
       });
+    });
+
+    it("should not write back a label deleted while an autosave was pending", async () => {
+      const toDelete = await client.labels.create({
+        name: "autosaveRace",
+        color: "#FF0000",
+      });
+      const { result } = renderHook(
+        () =>
+          Label.useForm({
+            query: { key: toDelete.key },
+            autoSave: true,
+            // Holds the save open long enough for the delete to overtake it.
+            autoSaveDebounce: TimeSpan.milliseconds(500),
+          }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set("name", "edited"));
+      await act(async () => await client.labels.delete(toDelete.key));
+      await testutil.expectAlways(async () => {
+        await expect(
+          async () => await client.labels.retrieve(toDelete.key),
+        ).rejects.toThrow();
+      }, 800);
     });
 
     it("should handle form with default values", async () => {

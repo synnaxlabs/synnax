@@ -130,7 +130,7 @@ const LABEL_OVERLAP_Y_THRESHOLD = 30;
 const POINT_LABEL_OFFSET = 15;
 const POINT_LABEL_SPACING = 8;
 
-const TIME_FORMAT_THRESHOLD_MS = 10;
+const TIME_FORMAT_THRESHOLD = TimeSpan.milliseconds(10);
 
 export interface MeasureProps {
   findByXDecimal: (target: number) => FindResult[];
@@ -614,7 +614,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
     // Now draw all labels on top
     const yValue = `${math.smartRound(yDist, bounds.construct(yDist))} ${oneValue.units ?? ""}`;
-    const trunc = xDist.lessThan(TimeSpan.milliseconds(TIME_FORMAT_THRESHOLD_MS))
+    const trunc = xDist.lessThan(TIME_FORMAT_THRESHOLD)
       ? TimeSpan.MICROSECOND
       : TimeSpan.MILLISECOND;
     const xValue = xDist.truncate(trunc).toString();

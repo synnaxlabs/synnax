@@ -150,11 +150,13 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
       });
     set("key", res.key);
   },
-  mountListeners: ({ client, query: { key }, reset }) =>
+  mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.statuses.onChange(key, (result) => {
-      if (!query.isLive(result)) return;
-      const { labels, ...rest } = result;
-      reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
+      if (query.Deleted.matches(result)) abandon();
+      else if (query.isLive(result)) {
+        const { labels, ...rest } = result;
+        reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
+      }
     }),
 });
 
