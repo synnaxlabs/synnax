@@ -246,26 +246,6 @@ const SecondEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>
   },
 });
 
-const _FirstTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
-  fieldKey: "firstTerminal",
-  fieldProps: { label: "First terminal" },
-  inputProps: {
-    resourceName: "first terminal",
-    allowNone: true,
-    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
-  },
-});
-
-const _SecondTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
-  fieldKey: "secondTerminal",
-  fieldProps: { label: "Second terminal" },
-  inputProps: {
-    resourceName: "second terminal",
-    allowNone: true,
-    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
-  },
-});
-
 const TerminalAField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminalA",
   fieldProps: { label: "Input terminal A" },
