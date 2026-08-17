@@ -34,7 +34,7 @@ message Channel {
   // TimeStamp).
   string data_type = 4;
   // is_index is true if this is an index channel. Index channels must have int64 values
-  // (TIMESTAMP data type) written in ascending order, and are most commonly unix
+  // (TIMESTAMP data type) written in ascending order, and are most commonly Unix
   // nanosecond timestamps.
   bool is_index = 5;
   // index is the channel used to index this channel's values, associating each value

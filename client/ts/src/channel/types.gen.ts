@@ -79,7 +79,7 @@ export const payloadZ = z.object({
   dataType: telem.dataTypeZ,
   /**
    * isIndex is true if this is an index channel. Index channels must have int64 values
-   * (TIMESTAMP data type) written in ascending order, and are most commonly unix
+   * (TIMESTAMP data type) written in ascending order, and are most commonly Unix
    * nanosecond timestamps.
    */
   isIndex: z.boolean().default(false),

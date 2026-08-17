@@ -53,7 +53,7 @@ message Channel {
   string data_type = 3;
   // is_index is true if this channel is an index channel. Index channels must have
   // int64 values (TIMESTAMP data type) written in ascending order, and are most
-  // commonly unix nanosecond timestamps.
+  // commonly Unix nanosecond timestamps.
   bool is_index = 4;
   // local_key is the locally-unique portion of this channel's key.
   uint32 local_key = 5;

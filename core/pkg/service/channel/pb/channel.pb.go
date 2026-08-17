@@ -171,7 +171,7 @@ type Channel struct {
 	DataType string `protobuf:"bytes,3,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
 	// is_index is true if this channel is an index channel. Index channels must have
 	// int64 values (TIMESTAMP data type) written in ascending order, and are most
-	// commonly unix nanosecond timestamps.
+	// commonly Unix nanosecond timestamps.
 	IsIndex bool `protobuf:"varint,4,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
 	// local_key is the locally-unique portion of this channel's key.
 	LocalKey uint32 `protobuf:"varint,5,opt,name=local_key,json=localKey,proto3" json:"local_key,omitempty"`

@@ -51,7 +51,7 @@ class Insert(BaseModel):
 
 
 class Delete(BaseModel):
-    """Tombstones the character with the given id. It carries only the id because
+    """Tombstones the character with the given ID. It carries only the ID because
     removal needs no position; the character remains in the document tree as a tombstone
     so concurrently-inserted neighbors can still anchor to it.
 

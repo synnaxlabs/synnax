@@ -29,7 +29,7 @@ BaseChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     node_id   string = "" {
-        @doc value "is the OPC UA node id the channel is bound to."
+        @doc value "is the OPC UA node ID the channel is bound to."
     }
     node_name string = "" {
         @doc value "is the browse name of the OPC UA node."

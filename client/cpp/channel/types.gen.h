@@ -91,7 +91,7 @@ struct Channel {
     /// @brief is_index is true if this is an index channel. Index channels must have
     /// int64
     /// values (TIMESTAMP data type) written in ascending order, and are most commonly
-    /// unix nanosecond timestamps.
+    /// Unix nanosecond timestamps.
     bool is_index = false;
     /// @brief index is the channel used to index this channel's values, associating
     /// each

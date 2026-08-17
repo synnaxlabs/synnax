@@ -42,7 +42,7 @@ type Channel struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this is an index channel. Index channels must have int64
 	// values (TIMESTAMP data type) written in ascending order, and are most commonly
-	// unix nanosecond timestamps.
+	// Unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Index is the channel used to index this channel's values, associating each value
 	// with a timestamp.

@@ -26,7 +26,7 @@ type BaseChannel struct {
 	Name string `json:"name" msgpack:"name"`
 	// Disabled is true when the channel is excluded from the task.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// NodeID is the OPC UA node id the channel is bound to.
+	// NodeID is the OPC UA node ID the channel is bound to.
 	NodeID string `json:"node_id" msgpack:"node_id"`
 	// NodeName is the browse name of the OPC UA node.
 	NodeName string `json:"node_name" msgpack:"node_name"`

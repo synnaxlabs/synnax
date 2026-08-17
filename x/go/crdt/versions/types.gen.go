@@ -21,7 +21,7 @@ type ID = v0.ID
 // Insert introduces a single character into a replicated text document.
 type Insert = v0.Insert
 
-// Delete tombstones the character with the given id. It carries only the id because
+// Delete tombstones the character with the given ID. It carries only the ID because
 // removal needs no position; the character remains in the document tree as a tombstone
 // so concurrently-inserted neighbors can still anchor to it.
 type Delete = v0.Delete

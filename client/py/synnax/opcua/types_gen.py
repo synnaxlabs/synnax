@@ -26,7 +26,7 @@ class BaseChannel(BaseModel):
         key: Uniquely identifies the channel within the task.
         name: Is the human-readable channel name.
         disabled: Is true when the channel is excluded from the task.
-        node_id: Is the OPC UA node id the channel is bound to.
+        node_id: Is the OPC UA node ID the channel is bound to.
         node_name: Is the browse name of the OPC UA node.
         data_type: Is the data type of the Synnax channel.
     """

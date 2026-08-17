@@ -23,7 +23,7 @@ export const baseChannelZ = z.object({
   name: z.string().default(""),
   /** disabled is true when the channel is excluded from the task. */
   disabled: z.boolean().default(false),
-  /** nodeId is the OPC UA node id the channel is bound to. */
+  /** nodeId is the OPC UA node ID the channel is bound to. */
   nodeId: z.string().default(""),
   /** nodeName is the browse name of the OPC UA node. */
   nodeName: z.string().default(""),

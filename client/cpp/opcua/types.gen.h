@@ -38,7 +38,7 @@ struct BaseChannel {
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
-    /// @brief node_id is the OPC UA node id the channel is bound to.
+    /// @brief node_id is the OPC UA node ID the channel is bound to.
     std::string node_id = "";
     /// @brief node_name is the browse name of the OPC UA node.
     std::string node_name = "";

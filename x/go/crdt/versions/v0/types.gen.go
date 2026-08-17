@@ -50,7 +50,7 @@ func (i Insert) Validate() error {
 	return v.Error()
 }
 
-// Delete tombstones the character with the given id. It carries only the id because
+// Delete tombstones the character with the given ID. It carries only the ID because
 // removal needs no position; the character remains in the document tree as a tombstone
 // so concurrently-inserted neighbors can still anchor to it.
 type Delete struct {

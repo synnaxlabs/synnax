@@ -51,7 +51,7 @@ type Channel struct {
 	// TimeStamp).
 	DataType string `protobuf:"bytes,4,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
 	// is_index is true if this is an index channel. Index channels must have int64 values
-	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
+	// (TIMESTAMP data type) written in ascending order, and are most commonly Unix
 	// nanosecond timestamps.
 	IsIndex bool `protobuf:"varint,5,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
 	// index is the channel used to index this channel's values, associating each value

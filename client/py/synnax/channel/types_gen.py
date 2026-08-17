@@ -73,7 +73,7 @@ class Payload(BaseModel):
             Int32, TimeStamp).
         is_index: Is true if this is an index channel. Index channels must have int64
             values (TIMESTAMP data type) written in ascending order, and are most
-            commonly unix nanosecond timestamps.
+            commonly Unix nanosecond timestamps.
         index: Is the channel used to index this channel's values, associating each
             value with a timestamp.
         alias: Is an optional alternate name for the channel within a specific context.
