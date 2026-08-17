@@ -154,7 +154,7 @@ ReadConfig struct extends task.PersistConfig {
         @doc value "is the key of the HTTP server device to poll."
     }
     rate      telem.Rate = 1 {
-        @doc value "is the polling rate applied to all endpoints, in hertz."
+        @doc value "is the polling rate applied to all endpoints, in Hertz."
         @ts type   "number"
     }
     endpoints ReadEndpoint[] {

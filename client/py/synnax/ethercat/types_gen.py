@@ -153,8 +153,8 @@ class WriteConfig(task.PersistConfig):
     slave; all slaves must share one network interface.
 
     Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
-        execution_rate: Is the rate at which commands are applied to the bus, in hertz.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        execution_rate: Is the rate at which commands are applied to the bus, in Hertz.
         channels: Are the channels the task drives.
     """
 

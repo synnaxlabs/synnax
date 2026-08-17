@@ -1567,7 +1567,7 @@ export const aoFuncGenChannelZ = baseAOChannelZ.extend({
   type: z.literal("ao_func_gen"),
   /** waveType selects the waveform to generate. */
   waveType: waveTypeZ.default("Sine"),
-  /** frequency is the waveform frequency, in hertz. */
+  /** frequency is the waveform frequency, in Hertz. */
   frequency: z.number().default(0),
   /** amplitude is the waveform amplitude. */
   amplitude: z.number().default(0),

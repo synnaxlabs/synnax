@@ -169,7 +169,7 @@ type ReadConfig struct {
 	task.PersistConfig
 	// Device is the key of the HTTP server device to poll.
 	Device device.Key `json:"device" msgpack:"device"`
-	// Rate is the polling rate applied to all endpoints, in hertz.
+	// Rate is the polling rate applied to all endpoints, in Hertz.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Endpoints contains the endpoints to poll.
 	Endpoints []ReadEndpoint `json:"endpoints,omitzero" msgpack:"endpoints,omitzero"`

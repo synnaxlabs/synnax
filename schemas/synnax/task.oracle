@@ -181,11 +181,11 @@ PersistConfig struct extends StartConfig {
 
 ReadConfig struct extends PersistConfig {
     sample_rate telem.Rate = 10 {
-        @doc value "is the per-channel hardware sample rate, in hertz."
+        @doc value "is the per-channel hardware sample rate, in Hertz."
         @ts type   "number"
     }
     stream_rate telem.Rate = 5 {
-        @doc value "is the rate at which samples are streamed to Synnax, in hertz."
+        @doc value "is the rate at which samples are streamed to Synnax, in Hertz."
         @ts type   "number"
     }
 
@@ -204,7 +204,7 @@ WriteConfig struct extends PersistConfig {
 
 ScanConfig struct extends KeyedConfig {
     rate     telem.Rate = 0.2 {
-        @doc value "is the rate at which the scan runs, in hertz."
+        @doc value "is the rate at which the scan runs, in Hertz."
         @ts type   "number"
     }
     disabled bool = false {

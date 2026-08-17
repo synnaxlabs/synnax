@@ -97,9 +97,9 @@ type PersistConfig struct {
 // ReadConfig carries the configuration fields shared by hardware acquisition tasks.
 type ReadConfig struct {
 	PersistConfig
-	// SampleRate is the per-channel hardware sample rate, in hertz.
+	// SampleRate is the per-channel hardware sample rate, in Hertz.
 	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
-	// StreamRate is the rate at which samples are streamed to Synnax, in hertz.
+	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
 	StreamRate telem.Rate `json:"stream_rate" msgpack:"stream_rate"`
 }
 
@@ -123,7 +123,7 @@ type WriteConfig struct {
 // ScanConfig carries the fields shared by every scan task configuration.
 type ScanConfig struct {
 	KeyedConfig
-	// Rate is the rate at which the scan runs, in hertz.
+	// Rate is the rate at which the scan runs, in Hertz.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Disabled is true when scanning is paused.
 	Disabled bool `json:"disabled" msgpack:"disabled"`

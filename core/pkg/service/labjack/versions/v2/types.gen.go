@@ -621,7 +621,7 @@ func (r ReadConfig) Validate() error {
 // WriteConfig configures a LabJack write task.
 type WriteConfig struct {
 	task.WriteConfig
-	// StateRate is the rate at which output state is reported to Synnax, in hertz.
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`

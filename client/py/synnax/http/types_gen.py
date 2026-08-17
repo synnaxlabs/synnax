@@ -271,7 +271,7 @@ class ReadConfig(task.PersistConfig):
 
     Attributes:
         device: Is the key of the HTTP server device to poll.
-        rate: Is the polling rate applied to all endpoints, in hertz.
+        rate: Is the polling rate applied to all endpoints, in Hertz.
         endpoints: Contains the endpoints to poll.
     """
 

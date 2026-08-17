@@ -703,7 +703,7 @@ class WriteConfig(task.WriteConfig):
     """Carries the configuration fields shared by NI write tasks.
 
     Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
     """
 
     state_rate: telem.Rate = telem.Rate(10)

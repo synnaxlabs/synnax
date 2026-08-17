@@ -159,10 +159,10 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
 /// entry on its own slave; all slaves must share one network interface.
 struct WriteConfig : public ::synnax::task::PersistConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
-    /// hertz.
+    /// Hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(25);
     /// @brief execution_rate is the rate at which commands are applied to the bus, in
-    /// hertz.
+    /// Hertz.
     ::x::telem::Rate execution_rate = ::x::telem::Rate(1000);
     /// @brief channels are the channels the task drives.
     std::vector<WriteChannel> channels;

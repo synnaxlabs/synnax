@@ -66,11 +66,11 @@ WriteChannel struct extends BaseChannel {
 
 ReadConfig struct extends task.ReadConfig {
     sample_rate telem.Rate = 50 {
-        @doc value "is the per-channel hardware sample rate, in hertz."
+        @doc value "is the per-channel hardware sample rate, in Hertz."
         @ts type   "number"
     }
     stream_rate telem.Rate = 25 {
-        @doc value "is the rate at which samples are streamed to Synnax, in hertz."
+        @doc value "is the rate at which samples are streamed to Synnax, in Hertz."
         @ts type   "number"
     }
     device      device.Key = "" {

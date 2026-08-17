@@ -207,7 +207,7 @@ class WriteConfig(task.WriteConfig):
     """Configures a LabJack write task.
 
     Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
         channels: Are the channels the task drives.
     """
 

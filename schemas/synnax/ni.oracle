@@ -1274,7 +1274,7 @@ AOChannel union on type extends BaseAOChannel {
             @doc value "selects the waveform to generate."
         }
         frequency float64 = 0 {
-            @doc value "is the waveform frequency, in hertz."
+            @doc value "is the waveform frequency, in Hertz."
         }
         amplitude float64 = 0 {
             @doc value "is the waveform amplitude."
@@ -1382,7 +1382,7 @@ CounterReadConfig struct extends task.ReadConfig {
 
 WriteConfig struct extends task.WriteConfig {
     state_rate telem.Rate = 10 {
-        @doc value "is the rate at which output state is reported to Synnax, in hertz."
+        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
         @ts type   "number"
     }
 

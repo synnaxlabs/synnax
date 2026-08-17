@@ -232,7 +232,7 @@ ReadChannel parse_read_channel(x::json::Parser parser);
 /// @brief WriteConfig configures a LabJack write task.
 struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
-    /// hertz.
+    /// Hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(10);
     /// @brief channels are the channels the task drives.
     std::vector<WriteChannel> channels;

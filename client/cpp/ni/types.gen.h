@@ -339,7 +339,7 @@ struct DOChannel {
 /// @brief WriteConfig carries the configuration fields shared by NI write tasks.
 struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
-    /// hertz.
+    /// Hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(10);
 
     static WriteConfig parse(x::json::Parser parser);
@@ -1430,7 +1430,7 @@ struct AOFuncGenChannel : public BaseAOChannel {
     std::string type = "ao_func_gen";
     /// @brief wave_type selects the waveform to generate.
     std::string wave_type = WAVE_TYPE_SINE;
-    /// @brief frequency is the waveform frequency, in hertz.
+    /// @brief frequency is the waveform frequency, in Hertz.
     double frequency = 0;
     /// @brief amplitude is the waveform amplitude.
     double amplitude = 0;

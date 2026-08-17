@@ -96,7 +96,7 @@ class ScanConfig(KeyedConfig):
     """Carries the fields shared by every scan task configuration.
 
     Attributes:
-        rate: Is the rate at which the scan runs, in hertz.
+        rate: Is the rate at which the scan runs, in Hertz.
         disabled: Is true when scanning is paused.
     """
 
@@ -163,8 +163,8 @@ class ReadConfig(PersistConfig):
     """Carries the configuration fields shared by hardware acquisition tasks.
 
     Attributes:
-        sample_rate: Is the per-channel hardware sample rate, in hertz.
-        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
     """
 
     sample_rate: telem.Rate = telem.Rate(10)

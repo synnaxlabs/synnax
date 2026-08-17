@@ -249,7 +249,7 @@ struct WriteEndpoint {
 struct ReadConfig : public ::synnax::task::PersistConfig {
     /// @brief device is the key of the HTTP server device to poll.
     ::synnax::device::Key device = "";
-    /// @brief rate is the polling rate applied to all endpoints, in hertz.
+    /// @brief rate is the polling rate applied to all endpoints, in Hertz.
     ::x::telem::Rate rate = ::x::telem::Rate(1);
     /// @brief endpoints contains the endpoints to poll.
     std::vector<ReadEndpoint> endpoints;

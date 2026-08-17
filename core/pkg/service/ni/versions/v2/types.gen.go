@@ -3916,7 +3916,7 @@ type AOFuncGenChannel struct {
 	BaseAOChannel
 	// WaveType selects the waveform to generate.
 	WaveType WaveType `json:"wave_type" msgpack:"wave_type"`
-	// Frequency is the waveform frequency, in hertz.
+	// Frequency is the waveform frequency, in Hertz.
 	Frequency float64 `json:"frequency" msgpack:"frequency"`
 	// Amplitude is the waveform amplitude.
 	Amplitude float64 `json:"amplitude" msgpack:"amplitude"`
@@ -4166,7 +4166,7 @@ func (c CounterReadConfig) Validate() error {
 // WriteConfig carries the configuration fields shared by NI write tasks.
 type WriteConfig struct {
 	task.WriteConfig
-	// StateRate is the rate at which output state is reported to Synnax, in hertz.
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 }
 

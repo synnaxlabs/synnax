@@ -142,11 +142,11 @@ ReadConfig struct extends task.ReadConfig {
 
 WriteConfig struct extends task.PersistConfig {
     state_rate     telem.Rate = 25 {
-        @doc value "is the rate at which output state is reported to Synnax, in hertz."
+        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
         @ts type   "number"
     }
     execution_rate telem.Rate = 1000 {
-        @doc value "is the rate at which commands are applied to the bus, in hertz."
+        @doc value "is the rate at which commands are applied to the bus, in Hertz."
         @ts type   "number"
     }
     channels       WriteChannel[] {

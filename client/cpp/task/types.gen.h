@@ -112,7 +112,7 @@ struct StartConfig : public KeyedConfig {
 
 /// @brief ScanConfig carries the fields shared by every scan task configuration.
 struct ScanConfig : public KeyedConfig {
-    /// @brief rate is the rate at which the scan runs, in hertz.
+    /// @brief rate is the rate at which the scan runs, in Hertz.
     ::x::telem::Rate rate = ::x::telem::Rate(0.200000);
     /// @brief disabled is true when scanning is paused.
     bool disabled = false;
@@ -177,10 +177,10 @@ struct Task {
 /// @brief ReadConfig carries the configuration fields shared by hardware acquisition
 /// tasks.
 struct ReadConfig : public PersistConfig {
-    /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
     ::x::telem::Rate sample_rate = ::x::telem::Rate(10);
     /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
-    /// hertz.
+    /// Hertz.
     ::x::telem::Rate stream_rate = ::x::telem::Rate(5);
 
     static ReadConfig parse(x::json::Parser parser);

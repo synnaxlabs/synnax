@@ -317,9 +317,9 @@ func (r *ReadConfig) ApplyDefaults() {
 // its own slave; all slaves must share one network interface.
 type WriteConfig struct {
 	task.PersistConfig
-	// StateRate is the rate at which output state is reported to Synnax, in hertz.
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
-	// ExecutionRate is the rate at which commands are applied to the bus, in hertz.
+	// ExecutionRate is the rate at which commands are applied to the bus, in Hertz.
 	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
