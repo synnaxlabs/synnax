@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -546,7 +547,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](
 			router,
 			"/api/v1/imex/export",
-			http.WithResponseEncoders(json.NewCodec(json.WithIndent("  "))),
+			http.WithResponseEncoders(apiimex.JSONCodec),
 		),
 	})
 }

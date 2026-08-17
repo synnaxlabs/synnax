@@ -44,9 +44,7 @@ type Option func(*codec)
 
 // WithIndent encodes each level of nesting with the given indentation and appends a
 // trailing newline, for files a user reads. Decoding is unaffected.
-func WithIndent(indent string) Option {
-	return func(c *codec) { c.indent = indent }
-}
+func WithIndent(indent string) Option { return func(c *codec) { c.indent = indent } }
 
 func (*codec) ContentType() string { return "application/json" }
 

@@ -25,15 +25,15 @@ import (
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // EncodingJSON names the JSON serialization in an export request's encoding field.
 const EncodingJSON = "JSON"
 
-// prettyJSON encodes export payloads with two-space indentation, for files a user
-// reads.
-var prettyJSON = xjson.NewCodec(xjson.WithIndent("  "))
+// JSONCodec is the encoder for the JSON serialization that pretty-prints its output.
+var JSONCodec http.FileCodec = xjson.NewCodec(xjson.WithIndent("  "))
 
 // ResolveEncoding returns the file encoder for the named export serialization. It
 // returns a validation error scoped to the "encoding" field when name is not a
@@ -41,7 +41,7 @@ var prettyJSON = xjson.NewCodec(xjson.WithIndent("  "))
 func ResolveEncoding(name string) (encoding.FileEncoder, error) {
 	switch name {
 	case EncodingJSON:
-		return prettyJSON, nil
+		return JSONCodec, nil
 	default:
 		return nil, validate.PathedError(
 			errors.Wrapf(validate.ErrValidation, "unsupported encoding %q", name),
