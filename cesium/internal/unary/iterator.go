@@ -211,7 +211,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
 	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(
+	viewEnd, err := i.idx.Stamp(
 		ctx,
 		i.view.Start,
 		i.AutoChunkSize,
@@ -221,10 +221,16 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	if endApprox.Lower.After(i.bounds.End) {
+	if viewEnd.Lower.After(i.bounds.End) {
 		return i.Next(ctx, i.view.Start.Span(i.bounds.End))
 	}
-	i.view.End = endApprox.Lower
+	// A view start between two samples brackets the chunk end. The upper bound is the
+	// first sample past the chunk, so a view ending there holds exactly AutoChunkSize
+	// samples. A stamp that runs out of data reports an unbounded upper instead.
+	i.view.End = viewEnd.Lower
+	if viewEnd.Upper != telem.TimeStampMax {
+		i.view.End = viewEnd.Upper
+	}
 	i.reset(i.view.BoundBy(i.bounds))
 
 	nRemaining := i.AutoChunkSize
