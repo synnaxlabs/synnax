@@ -53,7 +53,6 @@
    a row shorter than the assumed pitch would leave a gap. */
 .pluto-list__items--virtual .pluto-list__item {
     position: absolute;
-    top: 0;
     left: 0;
     min-height: var(--pluto-list-item-height);
 }

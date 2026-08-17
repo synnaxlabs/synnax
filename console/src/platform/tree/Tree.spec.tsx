@@ -385,10 +385,8 @@ describe("Tree.Tree", () => {
       await screen.findByText(names[0]);
       const offsets = Array.from(
         container.querySelectorAll<HTMLElement>(".pluto-tree__item"),
-      ).map((row) => row.style.transform);
-      offsets.forEach((transform, index) =>
-        expect(transform).toBe(`translateY(${index * ITEM_HEIGHT}px)`),
-      );
+      ).map((row) => row.style.top);
+      offsets.forEach((top, index) => expect(top).toBe(`${index * ITEM_HEIGHT}px`));
     });
   });
 

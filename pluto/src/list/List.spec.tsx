@@ -220,7 +220,7 @@ describe("List", () => {
     it("should offset each row by its index", () => {
       const rendered = rows(renderWindowed());
       rendered.forEach((row, index) =>
-        expect(row.style.transform).toBe(`translateY(${index * ITEM_HEIGHT}px)`),
+        expect(row.style.top).toBe(`${index * ITEM_HEIGHT}px`),
       );
     });
 

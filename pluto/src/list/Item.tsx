@@ -69,13 +69,11 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   style,
   ...rest
 }: ItemProps<K, E>): ReactElement => {
-  const itemStyle = useMemo(
-    () => ({
-      transform: translate != null ? `translateY(${translate}px)` : undefined,
-      ...style,
-    }),
-    [translate, style],
-  );
+  // Offset with `top`, not a transform. A transform leaves the row's real box at the
+  // top of the list, and the browser snapshots that box for the drag preview, so every
+  // row but the first dragged with no image. The offset is the row's place in the whole
+  // list, so it is written once at mount rather than on every scroll frame.
+  const itemStyle = useMemo(() => ({ top: translate, ...style }), [translate, style]);
   const handleClick = useCallback<MouseEventHandler<HTMLElement>>(
     (e) => {
       onSelect?.(itemKey, e);

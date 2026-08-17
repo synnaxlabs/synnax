@@ -108,9 +108,7 @@ describe("Tree", () => {
     const rows = Array.from(
       container.querySelectorAll<HTMLElement>(".pluto-tree__item"),
     );
-    rows.forEach((row, index) =>
-      expect(row.style.transform).toBe(`translateY(${index * 27}px)`),
-    );
+    rows.forEach((row, index) => expect(row.style.top).toBe(`${index * 27}px`));
   });
 
   it("should reserve scroll height for every node", () => {
