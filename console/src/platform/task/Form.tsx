@@ -108,7 +108,7 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 const SKIP_AUTOSAVE: PForm.SetOptions = { notifyOnChange: false };
 
 // Numeric fields have drag handles that emit a change per pixel.
-const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(500);
+const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
 
 const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
   issue.code === "custom" && issue.params != null && "variant" in issue.params
