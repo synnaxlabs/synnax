@@ -166,7 +166,7 @@ export class Client extends query.Retriever<
     // table hydrates if-absent, and hydrate() decides when a fresh network
     // doc replaces the cached one.
     const store = cache.createTable<Key, Arc>({
-      name: "arcs",
+      name: "Arcs",
       hydrate: "if-absent",
       fetch: async (keys) =>
         await this.execRetrieve({ keys, ignoreNotFoundError: true }),
@@ -182,7 +182,7 @@ export class Client extends query.Retriever<
     });
     cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
     const single = cache.queries<SingleRetrieveParams, Arc, Key, Arc>({
-      name: "arc",
+      name: "Arc",
       table: store,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
       compose: (records) => records[0],
@@ -191,7 +191,7 @@ export class Client extends query.Retriever<
       single: true,
     });
     super(cache, {
-      name: "arc",
+      name: "Arc",
       table: store,
       request: {
         schema: retrieveMultiParamsZ,
@@ -214,7 +214,7 @@ export class Client extends query.Retriever<
       ],
     });
     this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
-      name: "arc task",
+      name: "Arc task",
       table: composedTasks,
       fetch: async (q) => {
         const tsk = await this.fetchTask(q);
@@ -251,7 +251,7 @@ export class Client extends query.Retriever<
     const isMany = Array.isArray(arcs);
     const optimistic = array
       .toArray(arcs)
-      .map((a) => zod.parse(arcZ, a, { label: "arc" }));
+      .map((a) => zod.parse(arcZ, a, { label: "Arc" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),

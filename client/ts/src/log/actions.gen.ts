@@ -239,21 +239,21 @@ export type Action = z.infer<typeof actionZ>;
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
   create: zod.parse(createPayloadZ, payload, {
-    label: "Log create action payload",
+    label: "log create action payload",
   }),
 });
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
-    label: "Log rename action payload",
+    label: "log rename action payload",
   }),
 });
 
 export const addChannel = (payload: z.input<typeof addChannelPayloadZ>): Action => ({
   type: "add_channel",
   addChannel: zod.parse(addChannelPayloadZ, payload, {
-    label: "Log add_channel action payload",
+    label: "log add_channel action payload",
   }),
 });
 
@@ -262,7 +262,7 @@ export const removeChannel = (
 ): Action => ({
   type: "remove_channel",
   removeChannel: zod.parse(removeChannelPayloadZ, payload, {
-    label: "Log remove_channel action payload",
+    label: "log remove_channel action payload",
   }),
 });
 
@@ -271,7 +271,7 @@ export const setChannelEntry = (
 ): Action => ({
   type: "set_channel_entry",
   setChannelEntry: zod.parse(setChannelEntryPayloadZ, payload, {
-    label: "Log set_channel_entry action payload",
+    label: "log set_channel_entry action payload",
   }),
 });
 
@@ -280,7 +280,7 @@ export const setChannelColor = (
 ): Action => ({
   type: "set_channel_color",
   setChannelColor: zod.parse(setChannelColorPayloadZ, payload, {
-    label: "Log set_channel_color action payload",
+    label: "log set_channel_color action payload",
   }),
 });
 
@@ -289,7 +289,7 @@ export const setChannelNotation = (
 ): Action => ({
   type: "set_channel_notation",
   setChannelNotation: zod.parse(setChannelNotationPayloadZ, payload, {
-    label: "Log set_channel_notation action payload",
+    label: "log set_channel_notation action payload",
   }),
 });
 
@@ -298,7 +298,7 @@ export const setChannelPrecision = (
 ): Action => ({
   type: "set_channel_precision",
   setChannelPrecision: zod.parse(setChannelPrecisionPayloadZ, payload, {
-    label: "Log set_channel_precision action payload",
+    label: "log set_channel_precision action payload",
   }),
 });
 
@@ -307,7 +307,7 @@ export const setChannelAlias = (
 ): Action => ({
   type: "set_channel_alias",
   setChannelAlias: zod.parse(setChannelAliasPayloadZ, payload, {
-    label: "Log set_channel_alias action payload",
+    label: "log set_channel_alias action payload",
   }),
 });
 
@@ -316,7 +316,7 @@ export const setChannelTimestampFormat = (
 ): Action => ({
   type: "set_channel_timestamp_format",
   setChannelTimestampFormat: zod.parse(setChannelTimestampFormatPayloadZ, payload, {
-    label: "Log set_channel_timestamp_format action payload",
+    label: "log set_channel_timestamp_format action payload",
   }),
 });
 
@@ -325,21 +325,21 @@ export const setChannelTimestampTz = (
 ): Action => ({
   type: "set_channel_timestamp_tz",
   setChannelTimestampTz: zod.parse(setChannelTimestampTzPayloadZ, payload, {
-    label: "Log set_channel_timestamp_tz action payload",
+    label: "log set_channel_timestamp_tz action payload",
   }),
 });
 
 export const setChannels = (payload: z.input<typeof setChannelsPayloadZ>): Action => ({
   type: "set_channels",
   setChannels: zod.parse(setChannelsPayloadZ, payload, {
-    label: "Log set_channels action payload",
+    label: "log set_channels action payload",
   }),
 });
 
 export const swapChannel = (payload: z.input<typeof swapChannelPayloadZ>): Action => ({
   type: "swap_channel",
   swapChannel: zod.parse(swapChannelPayloadZ, payload, {
-    label: "Log swap_channel action payload",
+    label: "log swap_channel action payload",
   }),
 });
 
@@ -348,7 +348,7 @@ export const setTimestampPrecision = (
 ): Action => ({
   type: "set_timestamp_precision",
   setTimestampPrecision: zod.parse(setTimestampPrecisionPayloadZ, payload, {
-    label: "Log set_timestamp_precision action payload",
+    label: "log set_timestamp_precision action payload",
   }),
 });
 
@@ -357,7 +357,7 @@ export const setHideChannelNames = (
 ): Action => ({
   type: "set_hide_channel_names",
   setHideChannelNames: zod.parse(setHideChannelNamesPayloadZ, payload, {
-    label: "Log set_hide_channel_names action payload",
+    label: "log set_hide_channel_names action payload",
   }),
 });
 
@@ -366,7 +366,7 @@ export const setHideReceiptTimestamp = (
 ): Action => ({
   type: "set_hide_receipt_timestamp",
   setHideReceiptTimestamp: zod.parse(setHideReceiptTimestampPayloadZ, payload, {
-    label: "Log set_hide_receipt_timestamp action payload",
+    label: "log set_hide_receipt_timestamp action payload",
   }),
 });
 

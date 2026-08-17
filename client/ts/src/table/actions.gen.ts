@@ -161,70 +161,70 @@ export type Action = z.infer<typeof actionZ>;
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
   create: zod.parse(createPayloadZ, payload, {
-    label: "Table create action payload",
+    label: "table create action payload",
   }),
 });
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
-    label: "Table rename action payload",
+    label: "table rename action payload",
   }),
 });
 
 export const addRow = (payload: z.input<typeof addRowPayloadZ>): Action => ({
   type: "add_row",
   addRow: zod.parse(addRowPayloadZ, payload, {
-    label: "Table add_row action payload",
+    label: "table add_row action payload",
   }),
 });
 
 export const removeRow = (payload: z.input<typeof removeRowPayloadZ>): Action => ({
   type: "remove_row",
   removeRow: zod.parse(removeRowPayloadZ, payload, {
-    label: "Table remove_row action payload",
+    label: "table remove_row action payload",
   }),
 });
 
 export const addCol = (payload: z.input<typeof addColPayloadZ>): Action => ({
   type: "add_col",
   addCol: zod.parse(addColPayloadZ, payload, {
-    label: "Table add_col action payload",
+    label: "table add_col action payload",
   }),
 });
 
 export const removeCol = (payload: z.input<typeof removeColPayloadZ>): Action => ({
   type: "remove_col",
   removeCol: zod.parse(removeColPayloadZ, payload, {
-    label: "Table remove_col action payload",
+    label: "table remove_col action payload",
   }),
 });
 
 export const resizeRow = (payload: z.input<typeof resizeRowPayloadZ>): Action => ({
   type: "resize_row",
   resizeRow: zod.parse(resizeRowPayloadZ, payload, {
-    label: "Table resize_row action payload",
+    label: "table resize_row action payload",
   }),
 });
 
 export const resizeCol = (payload: z.input<typeof resizeColPayloadZ>): Action => ({
   type: "resize_col",
   resizeCol: zod.parse(resizeColPayloadZ, payload, {
-    label: "Table resize_col action payload",
+    label: "table resize_col action payload",
   }),
 });
 
 export const setCell = (payload: z.input<typeof setCellPayloadZ>): Action => ({
   type: "set_cell",
   setCell: zod.parse(setCellPayloadZ, payload, {
-    label: "Table set_cell action payload",
+    label: "table set_cell action payload",
   }),
 });
 
 export const eraseCells = (payload: z.input<typeof eraseCellsPayloadZ>): Action => ({
   type: "erase_cells",
   eraseCells: zod.parse(eraseCellsPayloadZ, payload, {
-    label: "Table erase_cells action payload",
+    label: "table erase_cells action payload",
   }),
 });
 

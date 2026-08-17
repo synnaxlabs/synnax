@@ -20,6 +20,7 @@ package actions
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Options configures the actions plugin output.
@@ -94,9 +96,10 @@ func (p *Plugin) generateFile(
 	}
 
 	data := &templateData{
-		Manager:        mgr,
-		TargetType:     casing.TypeCamel(typ.Name),
-		TargetTypeName: typ.Name,
+		Manager:         mgr,
+		TargetType:      casing.TypeCamel(typ.Name),
+		TargetTypeName:  typ.Name,
+		TargetProseName: proseName(typ.Name),
 	}
 
 	for _, action := range form.Actions {
@@ -131,7 +134,23 @@ type templateData struct {
 	*imports.Manager
 	TargetType     string
 	TargetTypeName string
-	Actions        []actionData
+	// TargetProseName is the type name as mid-sentence prose for parse-error
+	// labels: "line plot", or the name unchanged for proper nouns like Arc.
+	TargetProseName string
+	Actions         []actionData
+}
+
+// properNouns holds type names that are product names and keep their casing in
+// prose instead of lowercasing.
+var properNouns = set.New("Arc")
+
+// proseName renders a PascalCase type name as mid-sentence prose: words split
+// and lowercased ("LinePlot" -> "line plot"), proper nouns left unchanged.
+func proseName(name string) string {
+	if properNouns.Contains(name) {
+		return name
+	}
+	return strings.ReplaceAll(casing.TypeSnake(name), "_", " ")
 }
 
 type actionData struct {
@@ -183,7 +202,7 @@ export type Action = z.infer<typeof actionZ>;
 export const {{ camelCase .Name }} = (payload: z.input<typeof {{ camelCase .Name }}PayloadZ>): Action => ({
   type: "{{ .TypeName }}",
   {{ camelCase .Name }}: zod.parse({{ camelCase .Name }}PayloadZ, payload, {
-    label: "{{ $.TargetTypeName }} {{ .TypeName }} action payload",
+    label: "{{ $.TargetProseName }} {{ .TypeName }} action payload",
   }),
 });
 {{end}}
