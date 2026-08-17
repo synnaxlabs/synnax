@@ -23,6 +23,9 @@ export default defineConfig({
         dev: path.resolve(".", "src/dev/index.ts"),
       },
     },
+    rolldownOptions: {
+      external: ["@opentelemetry/api", "@synnaxlabs/x"],
+    },
   },
   test: {
     exclude: ["**/node_modules/**", "**/dist/**"],

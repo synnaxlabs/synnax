@@ -9,6 +9,7 @@
 
 import { type Dispatch } from "@reduxjs/toolkit";
 import { Color, type state } from "@synnaxlabs/pluto";
+import { zod } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -21,7 +22,9 @@ import {
 import { Select } from "@/session/select";
 
 const selectContext = (state: StoreState): Color.ContextState =>
-  Color.contextStateZ.parse(state[SLICE_NAME].context);
+  zod.parse(Color.contextStateZ, state[SLICE_NAME].context, {
+    label: "color context",
+  });
 
 export const useSelectContext = (): Color.ContextState =>
   Select.useMemo(selectContext, []);

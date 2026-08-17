@@ -13,9 +13,17 @@ import { type Plugin } from "vite";
 
 export interface Options {
   name: string;
+  /**
+   * Whether the package includes its source maps in the npm tarball. Set false for a
+   * package whose `files` field excludes them: production builds then write the maps
+   * to disk without a sourceMappingURL comment, so the Console build can still chain
+   * them and consumers are not pointed at a file the tarball omits.
+   * @default true
+   */
+  publishSourcemaps?: boolean;
 }
 
-export const lib = ({ name }: Options): Plugin[] => {
+export const lib = ({ name, publishSourcemaps = true }: Options): Plugin[] => {
   const dtsPlugin = dts({});
   return [
     {
@@ -28,7 +36,7 @@ export const lib = ({ name }: Options): Plugin[] => {
         return {
           resolve: { tsconfigPaths: true },
           build: {
-            sourcemap: !prod,
+            sourcemap: prod && !publishSourcemaps ? "hidden" : true,
             minify: prod,
             lib: {
               name,

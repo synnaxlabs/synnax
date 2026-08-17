@@ -12,7 +12,15 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
+import {
+  array,
+  deep,
+  type destructor,
+  errors,
+  id,
+  primitive,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -241,7 +249,9 @@ export class Client extends query.Retriever<
     opts: query.WriteOptions<Arc[]> = {},
   ): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
-    const optimistic = array.toArray(arcs).map((a) => arcZ.parse(a));
+    const optimistic = array
+      .toArray(arcs)
+      .map((a) => zod.parse(arcZ, a, { label: "arc" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { primitive, type text } from "@synnaxlabs/x";
+import { primitive, type text, zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -28,7 +28,9 @@ import { Staleness } from "@/vis/staleness";
 const TelemForm = (): ReactElement => {
   const { set } = Base.useContext();
   const { value, onChange } = Base.useField<telem.StringSourceSpec>("telem");
-  const source = telem.streamChannelValuePropsZ.parse(value?.props);
+  const source = zod.parse(telem.streamChannelValuePropsZ, value?.props, {
+    label: "value stream source",
+  });
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {

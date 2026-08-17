@@ -21,7 +21,7 @@ import {
   table,
 } from "@synnaxlabs/client";
 import { Access, type Status } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { PANELS_FILE_NAME } from "@/feature/project/export";
@@ -121,7 +121,9 @@ const ingestLegacy = async (
   files: Import.File[],
   ctx: ComponentContext,
 ): Promise<void> => {
-  const { layouts } = legacySliceZ.parse(legacyData);
+  const { layouts } = zod.parse(legacySliceZ, legacyData, {
+    label: "legacy layout file",
+  });
   for (const [key, layout] of Object.entries(layouts)) {
     if (!LEGACY_COMPONENT_TYPES.has(layout.type) && !LEGACY_TASK_TYPES.has(layout.type))
       continue;
@@ -160,7 +162,9 @@ export const ingest: Import.DirectoryIngester = async (
   await client.projects.create({ key: projectKey, name, layout: {} });
   const ctx: ComponentContext = { client, projectKey };
   if (panelsFile != null) {
-    const panels = panel.panelZ.array().parse(panelsFile.data);
+    const panels = zod.parse(panel.panelZ.array(), panelsFile.data, {
+      label: "panels file",
+    });
     const remap = await ingestComponents(
       files.filter((file) => file.name !== PANELS_FILE_NAME),
       ctx,

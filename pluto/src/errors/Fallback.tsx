@@ -18,6 +18,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { z } from "zod";
 
 import { Breadcrumb } from "@/breadcrumb";
 import { Button } from "@/button";
@@ -84,6 +85,12 @@ export const Fallback = ({
   const displayStack = resolved?.stack || error.stack || null;
   const displayComponentStack = resolved?.componentStack || componentStack || null;
 
+  // A raw ZodError's message is its entire issues array as JSON; prettify it for
+  // display. Copy diagnostics keeps the raw message for full fidelity.
+  const message =
+    error instanceof z.core.$ZodError ? z.prettifyError(error) : error.message;
+  const multiline = message.includes("\n");
+
   const getCopyText = useCallback(() => {
     const sections: string[] = [];
     sections.push(`Error: ${error.name}`);
@@ -135,11 +142,15 @@ export const Fallback = ({
               {error.name}
             </Text.Text>
             <Text.Text
-              level="h5"
+              level={multiline ? "small" : "h5"}
+              variant={multiline ? "code" : undefined}
               color={10}
-              className={CSS.BE("error-fallback", "message")}
+              className={CSS(
+                CSS.BE("error-fallback", "message"),
+                multiline && CSS.BEM("error-fallback", "message", "multiline"),
+              )}
             >
-              {error.message}
+              {message}
             </Text.Text>
           </Flex.Box>
           <Divider.Divider x />

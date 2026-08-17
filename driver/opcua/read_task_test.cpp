@@ -456,6 +456,38 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
     EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
 }
 
+/// @brief it should stay out of array mode when array_mode is false, even when
+/// the config carries an array_size greater than one.
+TEST_F(TestReadTask, testArraySizeIgnoredWhenArrayModeDisabled) {
+    task_cfg_json["array_size"] = 5;
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_FALSE(cfg.array_mode);
+
+    task_cfg_json["stream_rate"] = 0;
+    auto strict_p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig strict_cfg(ctx->client, strict_p);
+    ASSERT_OCCURRED_AS(strict_p.error(), x::errors::VALIDATION);
+}
+
+/// @brief it should require a stream rate only when array_mode is false.
+TEST_F(TestReadTask, testStreamRateOptionalInArrayMode) {
+    task_cfg_json["stream_rate"] = 0;
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig unary_cfg(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+
+    task_cfg_json["array_mode"] = true;
+    task_cfg_json["array_size"] = 5;
+    auto array_p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig array_cfg(ctx->client, array_p);
+    ASSERT_NIL(array_p.error());
+    EXPECT_TRUE(array_cfg.array_mode);
+    EXPECT_EQ(array_cfg.array_size, 5);
+    EXPECT_EQ(array_cfg.samples_per_chan, 0);
+}
+
 /// @brief it should handle rapid start and stop cycles.
 TEST_F(TestReadTask, testRapidStartStop) {
     const auto rt = create_task();

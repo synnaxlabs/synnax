@@ -10,23 +10,14 @@
 import "@/feature/cluster/ConnectionBadge.css";
 
 import { type connection, status as clientStatus } from "@synnaxlabs/client";
-import {
-  Button,
-  Dialog,
-  Flex,
-  Icon,
-  Status,
-  Synnax,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Button, Dialog, Flex, Icon, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
 import { Cluster } from "@/platform/cluster";
+import { Connection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
-import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
 
 interface SummaryProps {
@@ -36,7 +27,7 @@ interface SummaryProps {
 const Summary = ({ status: { variant, message } }: SummaryProps): ReactElement => (
   <Flex.Box y gap="tiny">
     <Text.Text status={variant} weight={650}>
-      {Shell.STATUS_LABELS[variant]}
+      {Connection.STATUS_LABELS[variant]}
     </Text.Text>
     <Text.Text color={9} weight={450}>
       {message}
@@ -44,40 +35,7 @@ const Summary = ({ status: { variant, message } }: SummaryProps): ReactElement =
   </Flex.Box>
 );
 
-interface RetryLineProps {
-  details: connection.StatusDetails;
-}
-
-interface RetryCountdownProps {
-  retry: NonNullable<connection.StatusDetails["retry"]>;
-}
-
-const RetryCountdown = ({ retry }: RetryCountdownProps): ReactElement => {
-  const remaining = Shell.useCountdown(retry.nextAt);
-  return (
-    <Text.Text level="small" color={9}>
-      <Icon.Sync />
-      {`Retrying in ${remaining}s (attempt ${retry.attempt})`}
-    </Text.Text>
-  );
-};
-
-const RetryLine = ({
-  details: { retry, checking },
-}: RetryLineProps): ReactElement | null => {
-  if (checking)
-    return (
-      <Text.Text level="small" color={9}>
-        <Icon.Loading />
-        Checking connection
-      </Text.Text>
-    );
-  if (retry == null) return null;
-  return <RetryCountdown retry={retry} />;
-};
-
 const Diagnostics = (): ReactElement => {
-  const client = Synnax.use();
   const status = Synnax.useConnectionStatus();
   const { variant, details } = status;
   const activeKey = Session.Cluster.useSelectSelectedKey();
@@ -95,10 +53,7 @@ const Diagnostics = (): ReactElement => {
     <>
       <Flex.Box y gap="small" className={CSS.BE("connection-badge", "body")}>
         <Flex.Box x align="center" gap="medium">
-          <Status.Indicator
-            variant={variant}
-            className={CSS.BE("connection-badge", "dot")}
-          />
+          <Connection.Indicator className={CSS.BE("connection-badge", "dot")} />
           <Text.Text weight={500} color={10} overflow="ellipsis">
             {cluster?.name ?? "Cluster"}
           </Text.Text>
@@ -107,7 +62,7 @@ const Diagnostics = (): ReactElement => {
             level="small"
             className={CSS.BE("connection-badge", "state")}
           >
-            {Shell.STATUS_LABELS[variant]}
+            {Connection.STATUS_LABELS[variant]}
           </Text.Text>
         </Flex.Box>
         {cluster != null && (
@@ -135,7 +90,7 @@ const Diagnostics = (): ReactElement => {
             {details.error.message}
           </Text.Text>
         )}
-        {degraded && <RetryLine details={details} />}
+        {degraded && <Connection.RetrySchedule details={details} />}
         {details.nodeVersion != null && (
           <Text.Text level="small" color={9}>
             {`Core v${details.nodeVersion}`}
@@ -154,17 +109,8 @@ const Diagnostics = (): ReactElement => {
       </Flex.Box>
       {(degraded || activeKey != null) && (
         <Flex.Box x gap="small" className={CSS.BE("connection-badge", "actions")}>
-          {degraded && client != null && (
-            <Button.Button
-              variant="filled"
-              size="small"
-              grow
-              justify="center"
-              onClick={() => client.connection.retryNow()}
-            >
-              <Icon.Refresh />
-              Retry now
-            </Button.Button>
+          {degraded && (
+            <Connection.Retry variant="filled" size="small" grow justify="center" />
           )}
           {activeKey != null && (
             <Button.Button
@@ -203,7 +149,7 @@ export const ConnectionBadge = (): ReactElement => {
           rounded="small"
           status={clientStatus.removeVariants(variant, ["loading", "disabled"])}
         >
-          <Status.Indicator variant={variant} />
+          <Connection.Indicator />
         </Dialog.Trigger>
       </Tooltip.Dialog>
       <Dialog.Dialog
