@@ -190,18 +190,55 @@ var _ = Describe("Codec", func() {
 					))
 			},
 			Entry("an empty name", "", "file name is empty"),
-			Entry("a nested entry", "nested/valve.json", "holds a path separator"),
 			Entry("a backslash", `nested\valve.json`, "holds a path separator"),
 			Entry("the current directory", ".", "addresses a directory"),
 			Entry("the parent directory", "..", "addresses a directory"),
 		)
-		It("Should reject a directory entry", func(ctx SpecContext) {
+		It("Should reject a nested entry beside a root entry", func(ctx SpecContext) {
+			b := write([2]string{"a.json", "1"}, [2]string{"nested/b.json", "2"})
 			var decoded xzip.Files
-			Expect(xzip.Codec.Decode(ctx, write([2]string{"nested/", ""}), &decoded)).
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("holds a path separator")),
-				))
+			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("holds a path separator")),
+			))
+		})
+		It("Should unwrap a root directory all entries share", func(ctx SpecContext) {
+			b := write(
+				[2]string{"grp/", ""},
+				[2]string{"grp/manifest.json", `{"version":2}`},
+				[2]string{"grp/valve.json", `{"name":"valve"}`},
+				[2]string{"__MACOSX/._grp", "junk"},
+				[2]string{"__MACOSX/grp/._manifest.json", "junk"},
+				[2]string{"grp/.DS_Store", "junk"},
+			)
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(xzip.Files{
+				"manifest.json": []byte(`{"version":2}`),
+				"valve.json":    []byte(`{"name":"valve"}`),
+			}))
+		})
+		It("Should unwrap nested shared root directories", func(ctx SpecContext) {
+			b := write([2]string{"outer/inner/valve.json", "1"})
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+			Expect(decoded).To(HaveKeyWithValue("valve.json", []byte("1")))
+		})
+		It("Should skip macOS metadata beside root entries", func(ctx SpecContext) {
+			b := write(
+				[2]string{"valve.json", "1"},
+				[2]string{".DS_Store", "junk"},
+				[2]string{"._valve.json", "junk"},
+			)
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(xzip.Files{"valve.json": []byte("1")}))
+		})
+		It("Should skip a directory entry", func(ctx SpecContext) {
+			b := write([2]string{"nested/", ""}, [2]string{"valve.json", "1"})
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(xzip.Files{"valve.json": []byte("1")}))
 		})
 	})
 	Describe("DecodeStream", func() {

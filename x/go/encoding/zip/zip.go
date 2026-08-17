@@ -32,9 +32,11 @@ type Files = map[string][]byte
 
 // Codec encodes a Files value into a zip archive with one entry per file and decodes
 // such an archive back into a *Files. Entries are written in sorted name order, so
-// equal Files always encode to equal bytes. A value of another type fails, and a file
-// name that is not a leaf, or an archive holding two entries under one name, returns
-// an error wrapping validate.ErrValidation.
+// equal Files always encode to equal bytes. Decode tolerates archives re-zipped by
+// desktop archivers: it skips directory entries and macOS metadata (__MACOSX trees,
+// ._* files, .DS_Store) and unwraps root directories all entries share. A value of
+// another type fails, and a remaining name that is not a leaf, or two entries under
+// one name, returns an error wrapping validate.ErrValidation.
 var Codec http.Codec = codec{}
 
 type codec struct{}
@@ -88,18 +90,29 @@ func (codec) Decode(_ context.Context, data []byte, value any) error {
 	if err != nil {
 		return encoding.SugarDecodingError(data, value, err)
 	}
-	decoded := make(Files, len(zr.File))
-	names := make(set.Set[string], len(zr.File))
+	entries := make([]*zip.File, 0, len(zr.File))
+	names := make([]string, 0, len(zr.File))
 	for _, f := range zr.File {
-		if err := validateLeaf(f.Name); err != nil {
+		if strings.HasSuffix(f.Name, "/") || junk(f.Name) {
+			continue
+		}
+		entries = append(entries, f)
+		names = append(names, f.Name)
+	}
+	stripSharedRoot(names)
+	decoded := make(Files, len(entries))
+	seen := make(set.Set[string], len(entries))
+	for i, f := range entries {
+		name := names[i]
+		if err := validateLeaf(name); err != nil {
 			return err
 		}
-		if names.Contains(f.Name) {
+		if seen.Contains(name) {
 			return errors.Wrapf(
-				validate.ErrValidation, "file name %q repeats an earlier entry", f.Name,
+				validate.ErrValidation, "file name %q repeats an earlier entry", name,
 			)
 		}
-		names.Add(f.Name)
+		seen.Add(name)
 		rc, err := f.Open()
 		if err != nil {
 			return encoding.SugarDecodingError(data, value, err)
@@ -112,10 +125,41 @@ func (codec) Decode(_ context.Context, data []byte, value any) error {
 		if err := rc.Close(); err != nil {
 			return encoding.SugarDecodingError(data, value, err)
 		}
-		decoded[f.Name] = contents
+		decoded[name] = contents
 	}
 	*files = decoded
 	return nil
+}
+
+// junk reports whether name is archiver metadata rather than content: the __MACOSX
+// tree, AppleDouble ._* files, and .DS_Store.
+func junk(name string) bool {
+	if name == "__MACOSX" || strings.HasPrefix(name, "__MACOSX/") {
+		return true
+	}
+	base := name[strings.LastIndexByte(name, '/')+1:]
+	return base == ".DS_Store" || strings.HasPrefix(base, "._")
+}
+
+// stripSharedRoot trims directory prefixes shared by every name in place: while all
+// names sit under one top-level directory, that directory is dropped. Desktop
+// archivers produce this shape by zipping a folder rather than its contents.
+func stripSharedRoot(names []string) {
+	for len(names) > 0 {
+		i := strings.IndexByte(names[0], '/')
+		if i < 0 {
+			return
+		}
+		root := names[0][:i+1]
+		for _, name := range names[1:] {
+			if !strings.HasPrefix(name, root) {
+				return
+			}
+		}
+		for j, name := range names {
+			names[j] = strings.TrimPrefix(name, root)
+		}
+	}
 }
 
 func (c codec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
