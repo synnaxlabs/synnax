@@ -187,7 +187,7 @@ export interface IngestContext {
 export const import_ = ({ handleError, client, store }: IngestContext) => {
   let name: string | undefined = "project";
   handleError(async () => {
-    const directory = await Runtime.pickDirectory({ title: "Import a Project" });
+    const directory = await Runtime.pickDirectory({ title: "Import project" });
     if (directory == null) return;
     name = directory.name;
     const fileData = await Promise.all(
