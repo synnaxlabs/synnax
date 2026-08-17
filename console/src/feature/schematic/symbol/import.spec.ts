@@ -57,7 +57,7 @@ describe("Schematic.Symbol.useImport", () => {
         result.current.notifications.statuses.some(
           (st) =>
             st.variant === "success" &&
-            st.message === `Successfully imported symbol: ${name}`,
+            st.message === "Successfully imported symbol.json",
         ),
       ).toBe(true),
     );

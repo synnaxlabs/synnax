@@ -34,15 +34,14 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
             // More performant importing will come in w/ project importing.
             try {
               const data = await file.read();
-              const id = await client.imex.import(data, {
+              await client.imex.import(data, {
                 encoding: "JSON",
                 fileName: file.name,
                 parent: parentID,
               });
-              const created = await client.schematics.symbols.retrieve({ key: id.key });
               addStatus({
                 variant: "success",
-                message: `Successfully imported symbol: ${created.name}`,
+                message: `Successfully imported ${file.name}`,
               });
             } catch (e) {
               handleError(e, `Failed to import symbol from ${file.name}`);
