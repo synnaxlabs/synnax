@@ -94,6 +94,15 @@ var _ = Describe("Sequence", func() {
 		}
 	}
 
+	// triggerBool is trigger for a bool channel: it ingests true instead of u8=1.
+	triggerBool := func(h *runtimeHarness, ctx SpecContext, key uint32) {
+		h.Ingest(key, telem.NewSeriesV[bool](true))
+		for range 5 {
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+		}
+	}
+
 	// advance ticks the scheduler with the given elapsed time.
 	advance := func(h *runtimeHarness, ctx SpecContext, elapsed telem.TimeSpan) {
 		h.Tick(ctx, elapsed)
@@ -487,7 +496,7 @@ var _ = Describe("Sequence", func() {
 			"Advances past a completed routing case body in a sequence step",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"trigger": {types.U8(), 100},
+					"trigger": {types.Bool(), 100},
 					"log":     {types.String(), 101},
 				})
 				h := newRuntimeHarness(ctx, `
@@ -500,13 +509,13 @@ var _ = Describe("Sequence", func() {
 				    "after" -> log
 				}
 				1 => main`, resolver,
-					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 100, DataType: telem.BoolT},
 					channels.Digest{Key: 101, DataType: telem.StringT},
 				)
 				defer h.Close(ctx)
 
 				settle(h, ctx)
-				trigger(h, ctx, 100)
+				triggerBool(h, ctx, 100)
 				out, _ := h.Flush()
 				Expect(drainStrings(out, 101)).To(Equal([]string{"case", "after"}))
 			},
@@ -516,7 +525,7 @@ var _ = Describe("Sequence", func() {
 			"Holds on a routing case body that is a stage without a transition",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"trigger": {types.U8(), 100},
+					"trigger": {types.Bool(), 100},
 					"log":     {types.String(), 101},
 				})
 				h := newRuntimeHarness(ctx, `
@@ -529,13 +538,13 @@ var _ = Describe("Sequence", func() {
 				    "after" -> log
 				}
 				1 => main`, resolver,
-					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 100, DataType: telem.BoolT},
 					channels.Digest{Key: 101, DataType: telem.StringT},
 				)
 				defer h.Close(ctx)
 
 				settle(h, ctx)
-				trigger(h, ctx, 100)
+				triggerBool(h, ctx, 100)
 				out, _ := h.Flush()
 				Expect(drainStrings(out, 101)).To(Equal([]string{"case"}),
 					"a stage case body has no completion; main must hold")
