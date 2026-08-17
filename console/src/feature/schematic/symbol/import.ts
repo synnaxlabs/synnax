@@ -29,11 +29,9 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
         });
         if (files == null) return;
         const parentID = group.ontologyID(parentGroup);
-        // The Core owns symbol envelope decoding, type resolution for typeless legacy
-        // files, legacy-version migration, file-name naming, and group parenting, so
-        // each file's bytes are streamed up untouched.
         await Promise.all(
           files.map(async (file) => {
+            // More performant importing will come in w/ project importing.
             try {
               const data = await file.read();
               const id = await client.imex.import(data, {

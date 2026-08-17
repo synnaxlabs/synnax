@@ -139,9 +139,9 @@ type legacyGroupManifest struct {
 // only one supported: the manifest is manifest.json, and members are the JSON files
 // beside it. A version 1 manifest declares members in its symbols list, version 2
 // infers them from the files beside the manifest. It returns an error naming the
-// offending file when the manifest is missing, malformed, of another bundle kind, or
-// of an unsupported version, when two member names compare equal case-folded, or when
-// a member is not a schematic symbol.
+// offending file when the manifest is missing, malformed, of another bundle kind, or of
+// an unsupported version, when two member names compare equal case-folded, or when a
+// member is not a schematic symbol.
 func (s *Service) ImportGroup(
 	ctx context.Context,
 	tx gorp.Tx,
