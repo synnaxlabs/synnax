@@ -38,6 +38,9 @@ class RangesClient:
     UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
     NAME_INPUT_PLACEHOLDER = "Range Name"
+    # Polls the explorer list must stay the same height at the bottom before it counts
+    # as fully paged in.
+    SCROLL_SETTLED_POLLS = 3
 
     def __init__(
         self,
@@ -174,6 +177,7 @@ class RangesClient:
         lst.evaluate("el => { el.scrollTop = 0; }")
         timer = sy.Timer()
         prev_height = -1
+        settled = 0
         while timer.elapsed() < budget:
             if item.count() > 0:
                 return
@@ -181,9 +185,11 @@ class RangesClient:
             at_bottom = lst.evaluate(
                 "el => el.scrollTop + el.clientHeight >= el.scrollHeight - 1"
             )
-            # The pager appends on reaching the bottom, so only give up once the
-            # list stops growing there.
-            if at_bottom and height == prev_height:
+            # The pager appends on reaching the bottom, so only give up once the list
+            # stops growing there. One unchanged poll proves nothing: the next page
+            # can still be in flight.
+            settled = settled + 1 if at_bottom and height == prev_height else 0
+            if settled >= self.SCROLL_SETTLED_POLLS:
                 return
             prev_height = height
             lst.evaluate("el => { el.scrollTop += el.clientHeight * 0.8; }")
