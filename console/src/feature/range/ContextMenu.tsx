@@ -180,7 +180,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           {!rng.persisted && hasCreatePermission && client != null && (
             <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
               <Icon.Save />
-              Save to Synnax
+              Save to Core
             </Menu.Item>
           )}
           <Menu.Divider />

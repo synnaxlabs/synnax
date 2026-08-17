@@ -188,7 +188,7 @@ class Project(ConsoleCase):
             with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(data, f)
             with self.console.layout.page.expect_file_chooser() as fc_info:
-                self.console.layout.command_palette("Import component(s)")
+                self.console.layout.command_palette("Import components")
             fc_info.value.set_files(tmp_path)
             # The tab initially carries the file-derived layout name and converges to
             # the log's real name once retrieved, so wait for either before asserting on
@@ -309,7 +309,7 @@ class Project(ConsoleCase):
             )
 
     def test_import_project(self) -> None:
-        """Test importing a project through the real "Import a project" command."""
+        """Test importing a project through the real "Import project" command."""
         self.log("Testing import project via command palette")
 
         # Rename the bundle (directory and manifest) so the imported project has a

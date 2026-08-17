@@ -156,7 +156,7 @@ export const Login = (): ReactElement => {
                   full="x"
                   justify="center"
                 >
-                  Log In
+                  Log in
                   <Icon.Arrow.Right />
                 </Button.Button>
               </Flex.Box>

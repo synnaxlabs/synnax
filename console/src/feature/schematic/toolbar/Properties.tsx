@@ -53,7 +53,7 @@ export const Properties = memo((): ReactElement => {
   if (selected.length === 0 || configByKey.size === 0)
     return (
       <Text.Text status="disabled" center>
-        Select a schematic element to configure its properties.
+        Select a schematic element to configure its properties
       </Text.Text>
     );
   if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;

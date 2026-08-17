@@ -20,7 +20,7 @@ const TAB: Panel.Tab = {
   Content: Explorer,
   Icon: Status.ExplorerIcon,
   Name: Panel.createStaticTabName({
-    name: "Status Explorer",
+    name: "Status explorer",
     icon: <Status.ExplorerIcon />,
   }),
 };

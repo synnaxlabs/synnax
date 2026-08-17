@@ -270,8 +270,8 @@ const FieldList = ({ epKey }: FieldListProps) => {
         }
         emptyContent={
           <Empty.Action
-            message="No fields."
-            action="Add a field"
+            message="No fields"
+            action="Add field"
             onClick={isSnapshot ? undefined : handleAdd}
           />
         }
@@ -508,8 +508,8 @@ const Form: FC = () => {
               onContextMenu={menuProps.open}
               emptyContent={
                 <Empty.Action
-                  message="No endpoints."
-                  action="Add an endpoint"
+                  message="No endpoints"
+                  action="Add endpoint"
                   onClick={isSnapshot ? undefined : handleAddEndpoint}
                 />
               }
@@ -547,7 +547,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "HTTP Read Task", type: READ_TYPE, config: cfg };
+  return { name: "HTTP read task", type: READ_TYPE, config: cfg };
 };
 
 const retrieveChannel = async (
@@ -669,7 +669,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  title: "HTTP Read Task",
+  title: "HTTP read task",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateRead,
 });

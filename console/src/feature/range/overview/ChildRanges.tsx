@@ -26,7 +26,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
     <Flex.Box y>
       <Header.Header level="h4" bordered borderColor={6}>
         <Header.Title color={11} weight={450}>
-          Child Ranges
+          Child ranges
         </Header.Title>
         <Header.Actions>
           <Button.Button

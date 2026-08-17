@@ -105,7 +105,7 @@ const deployReadChannelZ = z.union([
   labjack.digitalReadChannelZ.extend({ port: deployDigitalPortZ }),
   labjack.thermocoupleReadChannelZ.extend({
     port: deployAIPortZ,
-    cjcSource: z.string().min(1, "CJC Source must be specified"),
+    cjcSource: z.string().min(1, "CJC source must be specified"),
   }),
 ]);
 

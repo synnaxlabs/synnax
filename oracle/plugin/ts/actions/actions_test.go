@@ -106,9 +106,9 @@ var _ = Describe("TS Actions Plugin", func() {
 							"export const setValue = (payload: z.input<typeof setValuePayloadZ>): Action",
 							"export const increment = (payload: z.input<typeof incrementPayloadZ>): Action",
 							"setValue: zod.parse(setValuePayloadZ, payload, {",
-							`label: "Counter set_value action payload",`,
+							`label: "counter set_value action payload",`,
 							"increment: zod.parse(incrementPayloadZ, payload, {",
-							`label: "Counter increment action payload",`,
+							`label: "counter increment action payload",`,
 							"export type HandlerResult = actions.HandlerResult<Action>;",
 							"export type ReduceAllResult = actions.ReduceAllResult<Counter, Action>;",
 							"export interface Handlers {",
@@ -172,6 +172,46 @@ var _ = Describe("TS Actions Plugin", func() {
 							"export const scopedActionZ = actions.scopedZ(keyZ, actionZ);",
 							"export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);",
 						)
+				},
+			)
+
+			It(
+				"Should lowercase a multi-word type name in parse-error labels",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/lineplot"
+
+					LinePlot struct {
+						key uuid
+
+						action Rename {
+							name string
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "lineplot", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(`label: "line plot rename action payload",`)
+				},
+			)
+
+			It(
+				"Should keep a proper-noun type name unchanged in parse-error labels",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/arc"
+
+					Arc struct {
+						key uuid
+
+						action Rename {
+							name string
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "arc", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(`label: "Arc rename action payload",`)
 				},
 			)
 

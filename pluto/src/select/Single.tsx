@@ -76,7 +76,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
       <SingleTrigger
         haulType={haulType}
         icon={icon}
-        placeholder={`Select a ${resourceName}`}
+        placeholder={`Select ${resourceName}`}
         disabled={disabled}
         preview={preview}
         {...triggerProps}

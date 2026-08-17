@@ -80,7 +80,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       onError: (error) =>
         i.runAsync(async () => {
           throw error;
-        }, "failed to retrieve ranges"),
+        }, "Failed to retrieve ranges"),
     });
     const client = synnax.use(ctx);
     if (client != null) i.client = client;

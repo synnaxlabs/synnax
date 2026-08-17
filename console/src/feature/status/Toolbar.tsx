@@ -39,8 +39,8 @@ const NoStatuses = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No favorited statuses."
-      action={hasRetrievePermission ? "Open Status Explorer" : undefined}
+      message="No favorited statuses"
+      action={hasRetrievePermission ? "Open status explorer" : undefined}
       onClick={openExplorer}
     />
   );
@@ -136,7 +136,7 @@ const Actions = (): ReactElement | null => {
   return (
     <Toolbar.Actions>
       {hasRetrievePermission && (
-        <Toolbar.Action tooltip="Open Status Explorer" onClick={openExplorer}>
+        <Toolbar.Action tooltip="Open status explorer" onClick={openExplorer}>
           <Icon.Explore />
         </Toolbar.Action>
       )}

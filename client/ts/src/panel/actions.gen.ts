@@ -157,49 +157,49 @@ export type Action = z.infer<typeof actionZ>;
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
   create: zod.parse(createPayloadZ, payload, {
-    label: "Panel create action payload",
+    label: "panel create action payload",
   }),
 });
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
-    label: "Panel rename action payload",
+    label: "panel rename action payload",
   }),
 });
 
 export const insertTabs = (payload: z.input<typeof insertTabsPayloadZ>): Action => ({
   type: "insert_tabs",
   insertTabs: zod.parse(insertTabsPayloadZ, payload, {
-    label: "Panel insert_tabs action payload",
+    label: "panel insert_tabs action payload",
   }),
 });
 
 export const removeTab = (payload: z.input<typeof removeTabPayloadZ>): Action => ({
   type: "remove_tab",
   removeTab: zod.parse(removeTabPayloadZ, payload, {
-    label: "Panel remove_tab action payload",
+    label: "panel remove_tab action payload",
   }),
 });
 
 export const moveTab = (payload: z.input<typeof moveTabPayloadZ>): Action => ({
   type: "move_tab",
   moveTab: zod.parse(moveTabPayloadZ, payload, {
-    label: "Panel move_tab action payload",
+    label: "panel move_tab action payload",
   }),
 });
 
 export const splitTab = (payload: z.input<typeof splitTabPayloadZ>): Action => ({
   type: "split_tab",
   splitTab: zod.parse(splitTabPayloadZ, payload, {
-    label: "Panel split_tab action payload",
+    label: "panel split_tab action payload",
   }),
 });
 
 export const resizeSplit = (payload: z.input<typeof resizeSplitPayloadZ>): Action => ({
   type: "resize_split",
   resizeSplit: zod.parse(resizeSplitPayloadZ, payload, {
-    label: "Panel resize_split action payload",
+    label: "panel resize_split action payload",
   }),
 });
 
@@ -208,14 +208,14 @@ export const setTabResource = (
 ): Action => ({
   type: "set_tab_resource",
   setTabResource: zod.parse(setTabResourcePayloadZ, payload, {
-    label: "Panel set_tab_resource action payload",
+    label: "panel set_tab_resource action payload",
   }),
 });
 
 export const setTabView = (payload: z.input<typeof setTabViewPayloadZ>): Action => ({
   type: "set_tab_view",
   setTabView: zod.parse(setTabViewPayloadZ, payload, {
-    label: "Panel set_tab_view action payload",
+    label: "panel set_tab_view action payload",
   }),
 });
 

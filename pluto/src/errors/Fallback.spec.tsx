@@ -238,7 +238,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copiedText = writeTextMock.mock.calls[0][0];
-      expect(copiedText).toContain("Stack Trace:");
+      expect(copiedText).toContain("Stack trace:");
       expect(copiedText).toContain("at TestFunction");
     });
 
@@ -255,7 +255,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copiedText = writeTextMock.mock.calls[0][0];
-      expect(copiedText).toContain("Component Stack:");
+      expect(copiedText).toContain("Component stack:");
       expect(copiedText).toContain("at MyComponent");
     });
 
@@ -272,7 +272,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copiedText = writeTextMock.mock.calls[0][0];
-      expect(copiedText).toContain("Additional Info:");
+      expect(copiedText).toContain("Additional info:");
       expect(copiedText).toContain('"version": "1.0.0"');
       expect(copiedText).toContain('"userId": "123"');
     });
@@ -290,7 +290,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copiedText = writeTextMock.mock.calls[0][0];
-      expect(copiedText).not.toContain("Additional Info:");
+      expect(copiedText).not.toContain("Additional info:");
     });
 
     it("should show check icon after copying", async () => {
@@ -395,7 +395,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copied = writeTextMock.mock.calls[0][0];
-      expect(copied).toContain("Stack Trace:\n  at resolvedFn (src/resolved.ts:99:4)");
+      expect(copied).toContain("Stack trace:\n  at resolvedFn (src/resolved.ts:99:4)");
       expect(copied).not.toContain("RESOLVABLE_STACK");
       expect(warnSpy).not.toHaveBeenCalled();
     });

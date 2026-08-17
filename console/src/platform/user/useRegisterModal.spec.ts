@@ -58,7 +58,7 @@ describe("User.useRegisterModal", () => {
     fireEvent.change(screen.getByPlaceholderText("password"), {
       target: { value: "password123" },
     });
-    fireEvent.click(await screen.findByText("Select a role"));
+    fireEvent.click(await screen.findByText("Select role"));
     const [roleItem] = await screen.findAllByText(role.name);
     fireEvent.click(roleItem);
 

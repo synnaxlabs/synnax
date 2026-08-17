@@ -76,7 +76,7 @@ class RoleOperatorPermissions(ConsoleCase):
         sy.sleep(0.3)
 
         # Check if command is available
-        project_cmd = self.page.get_by_text("Create a project", exact=True)
+        project_cmd = self.page.get_by_text("Create project", exact=True)
         project_cmd_exists = project_cmd.count() > 0
 
         self.console.layout.press_escape()
@@ -98,7 +98,7 @@ class RoleOperatorPermissions(ConsoleCase):
         palette_input.fill(">Create a schematic", timeout=2000)
         sy.sleep(0.3)
 
-        schematic_cmd = self.page.get_by_text("Create a schematic", exact=True)
+        schematic_cmd = self.page.get_by_text("Create schematic", exact=True)
         schematic_cmd_exists = schematic_cmd.count() > 0
 
         self.console.layout.press_escape()

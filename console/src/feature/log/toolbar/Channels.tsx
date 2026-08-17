@@ -205,7 +205,7 @@ const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
 };
 
 const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {
-  placeholder: "Add a channel...",
+  placeholder: "Add channel",
 };
 
 interface AddChannelRowProps {

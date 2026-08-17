@@ -79,10 +79,10 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
     return (
       <Form.Form<typeof formSchema> {...form}>
         <Modals.Frame className={CSS.B("download-csv")}>
-          <Modals.Header icon={icon}>Download.CSV</Modals.Header>
+          <Modals.Header icon={icon}>CSV.Download</Modals.Header>
           <Modals.Body gap="huge">
             <Text.Text level="h3" weight={450}>
-              Download data for {name} to a CSV
+              Download data for {name} as CSV
             </Text.Text>
             <Flex.Box y full="x" gap="medium">
               <Flex.Box x gap="medium">
@@ -118,12 +118,11 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
               </Form.Field>
               <DownsampleFactorField
                 path="downsampleFactor"
-                label="Downsample Factor"
+                label="Downsample factor"
               />
               {runtime.getOS() !== "Windows" && (
                 <Text.Text status="warning" weight={450}>
-                  For improved performance when downloading large datasets, we recommend
-                  exporting from the Console when it is running in Google Chrome or
+                  Large downloads are faster when the Console runs in Google Chrome or
                   Microsoft Edge.
                 </Text.Text>
               )}

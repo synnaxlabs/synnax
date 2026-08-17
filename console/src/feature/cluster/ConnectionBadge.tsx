@@ -55,7 +55,7 @@ const Diagnostics = (): ReactElement => {
         <Flex.Box x align="center" gap="medium">
           <Connection.Indicator className={CSS.BE("connection-badge", "dot")} />
           <Text.Text weight={500} color={10} overflow="ellipsis">
-            {cluster?.name ?? "Cluster"}
+            {cluster?.name ?? "Core"}
           </Text.Text>
           <Text.Text
             status={variant}
@@ -103,7 +103,7 @@ const Diagnostics = (): ReactElement => {
         )}
         {details.clockSkewExceeded && (
           <Text.Text level="small" status="warning">
-            {`Clock is ${details.clockSkew.abs().toString()} ${skewDirection} the cluster`}
+            {`Clock is ${details.clockSkew.abs().toString()} ${skewDirection} the Core`}
           </Text.Text>
         )}
       </Flex.Box>
