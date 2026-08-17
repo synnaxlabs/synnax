@@ -43,7 +43,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Alex",
 							Key:      index,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    index,
 						},
@@ -1917,7 +1917,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									MetaCodec: json.Codec,
 									Channel: channel.Channel{
 										Key:      iKey,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 										IsIndex:  true,
 										Index:    iKey,
 									},
@@ -2014,7 +2014,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Channel: channel.Channel{
 									Name:     "Ozturk",
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -2174,7 +2174,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Key:      key,
 							Name:     "ludwig",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						Instrumentation: PanicLogger(),
@@ -2257,7 +2257,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Fred",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
@@ -2355,7 +2355,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "GI",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						FileSize: fileSizeLimit,

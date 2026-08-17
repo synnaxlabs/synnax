@@ -296,7 +296,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var (
 				indexes = []channel.Channel{{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}}
 				bases = []channel.Channel{{
@@ -343,7 +343,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				var (
 					indexes = []channel.Channel{{
 						Name:     UniqueChannelName(),
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					}}
 					bases = []channel.Channel{
@@ -402,12 +402,12 @@ var _ = Describe("Calculation", Ordered, func() {
 					indexes = []channel.Channel{
 						{
 							Name:     UniqueChannelName(),
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{
 							Name:     UniqueChannelName(),
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 					}
@@ -476,12 +476,12 @@ var _ = Describe("Calculation", Ordered, func() {
 					indexes = []channel.Channel{
 						{
 							Name:     UniqueChannelName(),
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{
 							Name:     UniqueChannelName(),
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 					}

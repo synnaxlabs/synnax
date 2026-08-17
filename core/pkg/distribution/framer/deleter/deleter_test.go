@@ -255,17 +255,17 @@ func newChannelSet() []channel.Channel {
 		{
 			Name:     "test1",
 			IsIndex:  true,
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 		},
 		{
 			Name:     "test2",
 			IsIndex:  true,
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 		},
 		{
 			Name:     "test3",
 			IsIndex:  true,
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 		},
 	}
 }

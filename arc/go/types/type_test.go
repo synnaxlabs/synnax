@@ -194,7 +194,7 @@ var _ = Describe("Types", func() {
 			Entry("StringT", telem.StringT, types.String()),
 			Entry("JSONT", telem.JSONT, types.String()),
 			Entry("UUIDT", telem.UUIDT, types.String()),
-			Entry("TimeStampT", telem.TimeStampT, types.TimeStamp()),
+			Entry("TimestampT", telem.TimestampT, types.TimeStamp()),
 		)
 
 		It("Should return invalid type for unknown telem type", func() {

@@ -161,7 +161,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 		It("Should track index channels for reads", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "time_index",
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 				Virtual:  false,
 			}
@@ -200,7 +200,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 		It("Should track index channels for writes", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "write_time_index",
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 				Virtual:  false,
 			}
@@ -513,7 +513,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 			func(ctx SpecContext) {
 				indexCh := &channel.Channel{
 					Name:     "complex_index",
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 					Virtual:  false,
 				}

@@ -1096,7 +1096,7 @@ func collectValidation(
 			}
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if defaultVal.IdentValue == "now" && isTimeStampType(typeRef, table) {
+			if defaultVal.IdentValue == "now" && isTimestampType(typeRef, table) {
 				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID
@@ -1392,8 +1392,8 @@ func resolveDistinctWrapper(
 	return typeToPython(typeRef, table, data)
 }
 
-// isTimeStampType checks if a type reference is or resolves to a TimeStamp type.
-func isTimeStampType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+// isTimestampType checks if a type reference is or resolves to a TimeStamp type.
+func isTimestampType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	name := typeRef.Name
 	// Check for direct TimeStamp reference (with or without namespace)
 	if name == "TimeStamp" || strings.HasSuffix(name, ".TimeStamp") {
