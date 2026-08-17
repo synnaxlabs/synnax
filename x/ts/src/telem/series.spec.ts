@@ -1026,7 +1026,6 @@ describe("Series", () => {
       const schema = z.object({
         cells: caseconv.preserveCase(z.record(z.string(), z.number())),
       });
-      // Build the buffer as the server would: raw JSON with semantic keys.
       const raw = new TextEncoder().encode(
         JSON.stringify({ cells: { UnSv19BHjPB: 1, x5kWGi0DZha: 2 } }),
       );
