@@ -368,7 +368,7 @@ const ContextMenu = ({
         return addStatus({
           variant: "error",
           message: "Failed to copy link",
-          description: `Task with key ${key} not found`,
+          description: "The task no longer exists.",
         });
       copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
     },
