@@ -23,10 +23,7 @@
     }
 
     .pluto-tree__item {
-        /* Every variant fits in one row, so the pitch the virtualizer assumes is
-           committed here rather than left to grow. */
-        height: var(--pluto-list-item-height);
-        flex-shrink: 0;
+        min-height: 4.5rem;
         padding-right: 1.5rem;
 
         &:is(a) {
@@ -50,6 +47,13 @@
             padding-bottom: 0;
             padding-left: var(--pluto-tree-item-offset);
         }
+    }
+
+    &.pluto-list__items--virtual .pluto-tree__item {
+        /* Every variant fits in one row, so the pitch the virtualizer assumes is
+           committed here rather than left to grow. */
+        height: var(--pluto-list-item-height);
+        flex-shrink: 0;
     }
 
     &:hover .pluto-tree__item.pluto--show-rules::after {
