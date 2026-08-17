@@ -19,6 +19,7 @@ import {
   idZ,
   oppositeRelationshipDirection,
   PARENT_OF_RELATIONSHIP_TYPE,
+  parseID,
   parseIDs,
   type Relationship,
   type RelationshipDirection,
@@ -357,7 +358,7 @@ export class Client extends query.Retriever<
   /** Subscribes to every resource delete delivered to the cache. */
   onResourceDelete(handler: (id: ID) => void): destructor.Destructor {
     return this.cache.resources.subscribe((event) => {
-      if (event.variant === "delete") handler(idZ.parse(event.key));
+      if (event.variant === "delete") handler(parseID(event.key));
     });
   }
 
@@ -389,7 +390,9 @@ export class Client extends query.Retriever<
   // never reaches the resource store, so fetches always hit the network
   // rather than serving a possibly stale cached entry.
   private async fetchSingle(q: string): Promise<Resource> {
-    const resources = await this.execRetrieve({ ids: [idZ.parse(q)] });
+    const resources = await this.execRetrieve({
+      ids: [parseID(q)],
+    });
     if (resources.length === 0)
       throw new NotFoundError(`No resource found with ID ${q}`);
     this.writeResources(resources);
@@ -419,7 +422,7 @@ export class Client extends query.Retriever<
     // Multi-anchor answers can't attribute members to an anchor, so only
     // single-anchor queries write relationships through.
     if (ids.length === 1) {
-      const anchor = idZ.parse(ids[0]);
+      const anchor = parseID(ids[0]);
       resources.forEach(({ id }) => {
         const rel = direction === "to" ? parentRel(anchor, id) : parentRel(id, anchor);
         this.cache.relationships.set(relationshipToString(rel), rel);
