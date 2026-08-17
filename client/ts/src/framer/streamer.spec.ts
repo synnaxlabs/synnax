@@ -964,6 +964,77 @@ describe("Streamer", () => {
       await hardened.update([2, 3]);
       expect(openerMock).toHaveBeenCalledTimes(2);
     });
+
+    it("should not leak a stream when an update races a reconnect", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      const streamer2 = new MockStreamer();
+      streamer2.read = async () => await new Promise<never>(() => {});
+      const pendingOpens: ((s: Streamer) => void)[] = [];
+      let opens = 0;
+      const onDrop = vi.fn();
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          return await new Promise<Streamer>((resolve) => pendingOpens.push(resolve));
+        },
+        { channels: [1] },
+        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+        undefined,
+        onDrop,
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      // Age the stream past stableAfter so the reconnect skips the backoff sleep.
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      void hardened.read().catch(() => {});
+      await expect.poll(() => opens).toBe(2);
+      const updateP = hardened.update([1, 2]);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(opens).toBe(2);
+      pendingOpens[0](streamer2);
+      await updateP;
+      expect(streamer2.updateMock).toHaveBeenCalledWith([1, 2]);
+      expect(opens).toBe(2);
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      hardened.close();
+      expect(streamer1.closeMock).toHaveBeenCalled();
+      expect(streamer2.closeMock).toHaveBeenCalled();
+    });
+
+    it("should reject every joiner when a shared reconnect fails", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      const pendingOpens: ((e: Error) => void)[] = [];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          return await new Promise<Streamer>((_, reject) => pendingOpens.push(reject));
+        },
+        { channels: [1] },
+        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      const readP = hardened.read().catch((e: unknown) => e);
+      await expect.poll(() => opens).toBe(2);
+      const updateP = hardened.update([1, 2]).catch((e: unknown) => e);
+      const denied = new AccessDeniedError("no permission to stream");
+      pendingOpens[0](denied);
+      expect(await readP).toBe(denied);
+      expect(await updateP).toBe(denied);
+      hardened.close();
+    });
   });
 
   describe("observable", () => {

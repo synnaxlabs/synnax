@@ -171,6 +171,7 @@ export type Store = BaseStore<State, Action>;
 
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   visible: IS_DEV,
+  size: { width: 800, height: 600 },
   minSize: { width: 625, height: 375 },
 };
 

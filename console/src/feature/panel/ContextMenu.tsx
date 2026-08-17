@@ -81,13 +81,14 @@ const MoveToPanelItem = (): ReactElement => {
   );
 };
 
-const MoveToNewWindowItem = (): ReactElement => {
+const MoveToNewWindowItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const tearOff = useTearOffTab();
   const handleMove = useCallback(() => {
     const origin = getOrigin();
     if (origin != null) tearOff(origin);
   }, [getOrigin, tearOff]);
+  if (Session.Runtime.ENGINE !== "tauri") return null;
   return (
     <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>
       <Icon.OpenInNewWindow />
