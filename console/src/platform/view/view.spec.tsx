@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import {
+  type channel,
+  channel as channelClient,
+  DataType,
+  type Synnax as Client,
+  view,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Channel, Component, type List, Menu } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -16,7 +22,15 @@ import { describe, expect, it } from "vitest";
 
 import { View } from "@/platform/view";
 import { enableEditing } from "@/platform/view/testutil";
-import { createConsoleWrapper, getIconButton, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  createTestClientWithGrants,
+  getBySelector,
+  getIconButton,
+  type Grants,
+  queryIconButton,
+  uniqueName,
+} from "@/testutil";
 
 const RenderItem = ({ itemKey }: List.ItemProps<channel.Key>): ReactElement => (
   <span>{String(itemKey)}</span>
@@ -49,8 +63,8 @@ Harness.displayName = "Harness";
 
 const client = createTestClient();
 
-const renderHarness = async (): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
+const renderHarness = async (as: Client = client): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
   render(<Harness />, { wrapper });
 };
 
@@ -110,5 +124,47 @@ describe("View", () => {
     const trigger = await waitFor(() => getIconButton(document.body, "filter"));
     fireEvent.click(trigger);
     await waitFor(() => expect(screen.getByText("Filter Option")).toBeTruthy());
+  });
+});
+
+describe("View permissions", () => {
+  const createSubject = async (grants: Grants) =>
+    await createTestClientWithGrants(client, {
+      ...grants,
+      retrieve: [channelClient.TYPE_ONTOLOGY_ID, view.TYPE_ONTOLOGY_ID],
+    });
+
+  // The toggle shows on the built-in view for everyone, so the grant is what decides
+  // whether pressing it does anything.
+  it("should leave the view read-only for a subject who cannot update views", async () => {
+    await renderHarness(await createSubject({}));
+    await enableEditing();
+    await screen.findByText("All Channels");
+    expect(screen.queryByPlaceholderText("Search channels...")).toBeNull();
+    expect(queryIconButton(getBySelector(document.body, ".console-controls"), "add"))
+      .toBeNull();
+  });
+
+  it("should withhold the view create button from a subject who cannot create views", async () => {
+    await renderHarness(await createSubject({ update: [view.TYPE_ONTOLOGY_ID] }));
+    await enableEditing();
+    await screen.findByPlaceholderText("Search channels...");
+    expect(queryIconButton(getBySelector(document.body, ".console-controls"), "add"))
+      .toBeNull();
+  });
+
+  it("should offer the view create button to a subject who may create views", async () => {
+    await renderHarness(
+      await createSubject({
+        update: [view.TYPE_ONTOLOGY_ID],
+        create: [view.TYPE_ONTOLOGY_ID],
+      }),
+    );
+    await enableEditing();
+    await waitFor(() =>
+      expect(
+        queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+      ).toBeTruthy(),
+    );
   });
 });

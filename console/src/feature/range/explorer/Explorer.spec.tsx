@@ -11,7 +11,6 @@ import {
   group,
   label,
   NotFoundError,
-  type ontology,
   panel,
   project,
   ranger,
@@ -32,6 +31,7 @@ import {
   createConsoleWrapper,
   createTestClientWithGrants,
   getBySelector,
+  type Grants,
   queryIconButton,
   resolveFocusedTab,
   selectTestProject,
@@ -227,8 +227,9 @@ describe("range/Explorer permissions", () => {
   // grants before the range grant it is under test for can matter. The view create
   // button sits outside the toolbar and answers to the same policy read, so waiting for
   // it proves the reads have resolved before the toolbar is judged empty.
-  const createEditor = async (creatable: ontology.ID[] = []) =>
+  const createEditor = async (grants: Grants = {}) =>
     await createTestClientWithGrants(client, {
+      ...grants,
       retrieve: [
         ranger.TYPE_ONTOLOGY_ID,
         view.TYPE_ONTOLOGY_ID,
@@ -237,12 +238,12 @@ describe("range/Explorer permissions", () => {
         project.TYPE_ONTOLOGY_ID,
         panel.TYPE_ONTOLOGY_ID,
       ],
-      update: [view.TYPE_ONTOLOGY_ID],
-      create: [view.TYPE_ONTOLOGY_ID, ...creatable],
+      update: [view.TYPE_ONTOLOGY_ID, ...(grants.update ?? [])],
+      create: [view.TYPE_ONTOLOGY_ID, ...(grants.create ?? [])],
     });
 
   it("should withhold the create button from a subject who cannot create ranges", async () => {
-    await renderExplorer(await createEditor());
+    await renderExplorer(await createEditor({}));
     await enableEditing();
     await waitFor(() =>
       expect(
@@ -255,8 +256,35 @@ describe("range/Explorer permissions", () => {
   });
 
   it("should offer the create button to a subject who may create ranges", async () => {
-    await renderExplorer(await createEditor([ranger.TYPE_ONTOLOGY_ID]));
+    await renderExplorer(await createEditor({ create: [ranger.TYPE_ONTOLOGY_ID] }));
     await enableEditing();
     expect(await findToolbarIconButton("add")).toBeTruthy();
+  });
+
+  describe("context menu", () => {
+    it("should offer reads but no writes to a subject with no range grants", async () => {
+      const rng = await createTestRange(client);
+      await renderExplorer(await createEditor({}));
+      fireEvent.contextMenu(await revealRange(rng.name));
+      expect(await screen.findByText("View details")).toBeTruthy();
+      expect(screen.queryByText("Rename")).toBeNull();
+      expect(screen.queryByText("Create child range")).toBeNull();
+      expect(screen.queryByText("Delete")).toBeNull();
+    });
+
+    it("should offer every write to a subject granted them", async () => {
+      const rng = await createTestRange(client);
+      await renderExplorer(
+        await createEditor({
+          create: [ranger.TYPE_ONTOLOGY_ID],
+          update: [ranger.TYPE_ONTOLOGY_ID],
+          delete: [ranger.TYPE_ONTOLOGY_ID],
+        }),
+      );
+      fireEvent.contextMenu(await revealRange(rng.name));
+      expect(await screen.findByText("Rename")).toBeTruthy();
+      expect(await screen.findByText("Create child range")).toBeTruthy();
+      expect(await screen.findByText("Delete")).toBeTruthy();
+    });
   });
 });
