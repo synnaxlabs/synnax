@@ -21,7 +21,6 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
 // expectOperatorTypeError validates that code fails with an error mentioning
@@ -37,10 +36,10 @@ func expectOperatorTypeError(
 	ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-	Expect(*ctx.Diagnostics).To(HaveLen(1))
-	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
-	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(typeName))
-	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(operator))
+	errs := ctx.Diagnostics.Errors()
+	Expect(errs).To(HaveLen(1))
+	Expect(errs[0].Message).To(ContainSubstring(typeName))
+	Expect(errs[0].Message).To(ContainSubstring(operator))
 }
 
 var _ = Describe("Expressions", func() {
@@ -404,6 +403,43 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "f64", "<<"),
 		)
+
+		Describe("Xor transition warning", func() {
+			It("Should warn that ^ is now bitwise xor", func(ctx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+					func testFunc() {
+						a i32 := 12
+						b i32 := 10
+						c := a ^ b
+					}
+				`))
+				aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				warnings := aCtx.Diagnostics.Warnings()
+				Expect(warnings).To(HaveLen(1))
+				Expect(warnings[0].Message).To(
+					Equal("^ is now bitwise xor; use ** for exponent"))
+			})
+
+			It(
+				"Should not warn on bitwise expressions without ^",
+				func(ctx SpecContext) {
+					ast := MustSucceed(parser.Parse(`
+					func testFunc() {
+						a i32 := 12
+						b i32 := 10
+						c := a & b | a
+					}
+				`))
+					aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
+					analyzer.AnalyzeProgram(aCtx)
+					Expect(
+						aCtx.Diagnostics.Empty(),
+					).To(BeTrue(), aCtx.Diagnostics.String())
+				},
+			)
+		})
 
 		DescribeTable("type mismatch errors",
 			func(ctx SpecContext, code, expectedErrSubstring string) {

@@ -375,6 +375,10 @@ func analyzeBitwiseXor(ctx context.Context[parser.IBitwiseXorExpressionContext])
 		analyzeBitwiseAnd(context.Child(ctx, bitwiseAnd))
 	}
 	validateType(ctx, bitwiseAnds, "^", types.InferBitwiseAnd, isInteger)
+	if len(bitwiseAnds) > 1 {
+		ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
+			"^ is now bitwise xor; use ** for exponent"))
+	}
 }
 
 func analyzeBitwiseAnd(ctx context.Context[parser.IBitwiseAndExpressionContext]) {
