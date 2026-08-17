@@ -13,8 +13,8 @@ import type z from "zod";
 
 import { Flux } from "@/flux";
 
-export const RESOURCE_NAME = "label";
-export const PLURAL_RESOURCE_NAME = "labels";
+const RESOURCE_NAME = "label";
+const PLURAL_RESOURCE_NAME = "labels";
 
 export type RetrieveQuery = label.RetrieveSingleParams;
 

@@ -14,8 +14,8 @@ import { z } from "zod";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 
-export const RESOURCE_NAME = "role";
-export const PLURAL_RESOURCE_NAME = "roles";
+const RESOURCE_NAME = "role";
+const PLURAL_RESOURCE_NAME = "roles";
 
 export type RetrieveQuery = {
   key: string;
