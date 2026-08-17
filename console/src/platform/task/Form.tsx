@@ -107,6 +107,9 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 // The deploy pipeline saves once at the end; notifying would fire autosave first.
 const SKIP_AUTOSAVE: PForm.SetOptions = { notifyOnChange: false };
 
+// Numeric fields have drag handles that emit a change per pixel.
+const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(500);
+
 const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
   issue.code === "custom" && issue.params != null && "variant" in issue.params
     ? (issue.params.variant as status.Variant)
@@ -130,8 +133,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const { form, saveAsync } = useForm({
       query: { key: taskKey },
       autoSave: true,
-      // Numeric fields have drag handles that emit a change per pixel.
-      autoSaveDebounce: TimeSpan.milliseconds(500),
+      autoSaveDebounce: AUTO_SAVE_DEBOUNCE,
     });
 
     // Deploy pipeline: resolve channels and rack through onConfigure, persist

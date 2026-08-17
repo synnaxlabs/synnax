@@ -41,9 +41,12 @@ export interface ConfigProps extends PropsWithChildren {
   skipDelay?: CrudeTimeSpan;
 }
 
+const DEFAULT_DELAY = TimeSpan.milliseconds(700);
+const DEFAULT_SKIP_DELAY = TimeSpan.milliseconds(300);
+
 const [Context, useConfig] = context.create<ContextValue>({
   defaultValue: {
-    delay: TimeSpan.milliseconds(700),
+    delay: DEFAULT_DELAY,
     isWarm: () => false,
     markClosed: () => {},
     acquire: () => () => {},
@@ -63,8 +66,8 @@ export { useConfig };
  * @default 300ms.
  */
 export const Config = ({
-  delay = TimeSpan.milliseconds(700),
-  skipDelay = TimeSpan.milliseconds(300),
+  delay = DEFAULT_DELAY,
+  skipDelay = DEFAULT_SKIP_DELAY,
   children,
 }: ConfigProps): ReactElement => {
   const lastClosed = useRef<TimeStamp | null>(null);
