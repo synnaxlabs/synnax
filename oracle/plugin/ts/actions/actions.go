@@ -12,13 +12,9 @@
 // an Action union dispatches by literal type, and the plugin emits a Handlers interface
 // plus a createReduceAll factory that binds a caller-provided Handlers object.
 // HandlerResult, ReduceAllResult, and the outer reduceAll loop live in the shared
-//
-//	@synnaxlabs/client	actions package; this plugin emits type aliases and a thin
-//
-// wrapper
-//
-// that delegate to them. The per-action handler functions are hand-written and supplied
-// by the caller; this plugin does not generate them.
+// actions package; this plugin emits type aliases and a thin wrapper that delegate to
+// them. The per-action handler functions are hand-written and supplied by the caller;
+// this plugin does not generate them.
 package actions
 
 import (
