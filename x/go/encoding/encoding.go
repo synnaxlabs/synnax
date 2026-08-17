@@ -44,15 +44,6 @@ type FileEncoder interface {
 	Extension() string
 }
 
-// FileDecoder is a Decoder that names the files its input comes from, so a caller
-// reading a directory can pick each file without knowing which codec it holds.
-type FileDecoder interface {
-	Decoder
-	// Extension returns the file extension the decoder's input is read from, leading
-	// dot included.
-	Extension() string
-}
-
 // Codec is an interface that encodes and decodes values.
 type Codec interface {
 	Decoder
