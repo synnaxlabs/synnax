@@ -56,7 +56,7 @@ describe("exporting a symbol", () => {
     const { result } = await renderHookWithConsole(() => Export.useResource(), {
       client,
     });
-    act(() => result.current({ id: schematic.symbol.ontologyID(symbol.key), name }));
+    act(() => result.current(schematic.symbol.ontologyID(symbol.key)));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${name}.json`);
     const contents = JSON.parse(

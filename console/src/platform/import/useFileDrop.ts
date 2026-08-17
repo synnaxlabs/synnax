@@ -12,10 +12,10 @@ import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { canParseFile } from "@/platform/import/canParseFile";
 import { ingestServer } from "@/platform/import/import";
 import { ingestBatch } from "@/platform/import/ingestBatch";
 import { type DirectoryIngester } from "@/platform/import/ingester";
-import { canParseFile } from "@/platform/import/canParseFile";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
