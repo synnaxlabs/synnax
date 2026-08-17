@@ -251,7 +251,7 @@ BinaryOperator ::= ArithmeticOp | ComparisonOp | LogicalOp | BitwiseOp
 ArithmeticOp ::= '+' | '-' | '*' | '/' | '%' | '**'
 ComparisonOp ::= '==' | '!=' | '<' | '>' | '<=' | '>='
 LogicalOp ::= 'and' | 'or'
-BitwiseOp ::= '&' | '|' | '^'
+BitwiseOp ::= '&' | '|' | '^' | '<<' | '>>'
 ```
 
 **Precedence** (highest to lowest):
@@ -260,13 +260,14 @@ BitwiseOp ::= '&' | '|' | '^'
 2. `**` (right-associative)
 3. `*`, `/`, `%` (left-associative)
 4. `+`, `-` (left-associative)
-5. `<`, `>`, `<=`, `>=`
-6. `==`, `!=`
-7. `&` (bitwise and)
-8. `^` (bitwise xor)
-9. `|` (bitwise or)
-10. `and` (short-circuit)
-11. `or` (short-circuit)
+5. `<<`, `>>` (left-associative)
+6. `<`, `>`, `<=`, `>=`
+7. `==`, `!=`
+8. `&` (bitwise and)
+9. `^` (bitwise xor)
+10. `|` (bitwise or)
+11. `and` (short-circuit)
+12. `or` (short-circuit)
 
 Bitwise operators take integer operands.
 

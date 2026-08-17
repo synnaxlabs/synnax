@@ -452,6 +452,42 @@ var _ = Describe("Binary Opcodes", func() {
 			Expect(writer.WriteBinaryOpInferred("^", types.I64())).To(Succeed())
 			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI64Xor)}))
 		})
+
+		It("Should map << operator to i32.shl for i32", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred("<<", types.I32())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI32Shl)}))
+		})
+
+		It("Should map << operator to i64.shl for i64", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred("<<", types.I64())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI64Shl)}))
+		})
+
+		It("Should map >> operator to i32.shr_s for i32", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred(">>", types.I32())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI32ShrS)}))
+		})
+
+		It("Should map >> operator to i32.shr_u for u32", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred(">>", types.U32())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI32ShrU)}))
+		})
+
+		It("Should map >> operator to i64.shr_s for i64", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred(">>", types.I64())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI64ShrS)}))
+		})
+
+		It("Should map >> operator to i64.shr_u for u64", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred(">>", types.U64())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI64ShrU)}))
+		})
 	})
 
 	Describe("Error Cases", func() {

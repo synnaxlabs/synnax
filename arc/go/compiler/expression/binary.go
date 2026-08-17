@@ -123,6 +123,54 @@ func compileBitwiseAndImpl(
 	return hintType, nil
 }
 
+func compileShiftImpl(
+	ctx context.Context[parser.IShiftExpressionContext],
+) (types.Type, error) {
+	adds := ctx.AST.AllAdditiveExpression()
+	leftType, err := compileAdditive(context.Child(ctx, adds[0]))
+	if err != nil {
+		return types.Type{}, err
+	}
+	hintType := leftType
+	if leftType.Kind == types.KindChan {
+		hintType = leftType.Unwrap()
+	}
+	if hintType.Kind == types.KindSeries {
+		return types.Type{}, errors.New(
+			"bitwise operators are not supported on series",
+		)
+	}
+	var operators []string
+	for _, child := range ctx.AST.GetChildren() {
+		if termNode, ok := child.(antlr.TerminalNode); ok {
+			switch termNode.GetSymbol().GetTokenType() {
+			case parser.ArcLexerLSHIFT:
+				operators = append(operators, "<<")
+			case parser.ArcLexerRSHIFT:
+				operators = append(operators, ">>")
+			}
+		}
+	}
+	for i := 1; i < len(adds); i++ {
+		rhsType, err := compileAdditive(context.Child(ctx, adds[i]).WithHint(hintType))
+		if err != nil {
+			return types.Type{}, err
+		}
+		if rhsType.Kind == types.KindSeries {
+			return types.Type{}, errors.New(
+				"bitwise operators are not supported on series",
+			)
+		}
+		if err := ctx.Writer.WriteBinaryOpInferred(
+			operators[i-1],
+			hintType,
+		); err != nil {
+			return types.Type{}, err
+		}
+	}
+	return hintType, nil
+}
+
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
@@ -305,8 +353,8 @@ func compileBinaryMultiplicative(
 func compileBinaryRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) (types.Type, error) {
-	adds := ctx.AST.AllAdditiveExpression()
-	leftType, err := compileAdditive(context.Child(ctx, adds[0]))
+	shifts := ctx.AST.AllShiftExpression()
+	leftType, err := compileShift(context.Child(ctx, shifts[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -327,7 +375,7 @@ func compileBinaryRelational(
 		operandHint = elemType
 	}
 
-	_, err = compileAdditive(context.Child(ctx, adds[1]).WithHint(operandHint))
+	_, err = compileShift(context.Child(ctx, shifts[1]).WithHint(operandHint))
 	if err != nil {
 		return types.Type{}, err
 	}

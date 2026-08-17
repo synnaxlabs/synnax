@@ -134,6 +134,25 @@ var _ = Describe("Expressions", func() {
 					c := 12 & 10
 				}
 			`),
+			Entry("left shift on integers", `
+				func testFunc() {
+					a i32 := 1
+					b i32 := 4
+					c := a << b
+				}
+			`),
+			Entry("right shift on integers", `
+				func testFunc() {
+					a i32 := 16
+					b i32 := 2
+					c := a >> b
+				}
+			`),
+			Entry("left shift on untyped integer constants", `
+				func testFunc() {
+					c := 1 << 4
+				}
+			`),
 			Entry("multiple additions", `
 				func testFunc() {
 					a i32 := 1
@@ -337,6 +356,39 @@ var _ = Describe("Expressions", func() {
 					z := 1.5 & 2.5
 				}
 			`, "float", "&"),
+			Entry("left shift on bool", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x << y
+				}
+			`, "bool", "<<"),
+			Entry("right shift on bool", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x >> y
+				}
+			`, "bool", ">>"),
+			Entry("left shift on f64", `
+				func testFunc() {
+					x f64 := 1.0
+					y f64 := 2.0
+					z := x << y
+				}
+			`, "f64", "<<"),
+			Entry("right shift on f64", `
+				func testFunc() {
+					x f64 := 1.0
+					y f64 := 2.0
+					z := x >> y
+				}
+			`, "f64", ">>"),
+			Entry("left shift on untyped float constants", `
+				func testFunc() {
+					z := 1.5 << 2.5
+				}
+			`, "float", "<<"),
 		)
 
 		DescribeTable("type mismatch errors",
@@ -1420,6 +1472,20 @@ var _ = Describe("Expressions", func() {
 					z := x ^ y
 				}
 			`, "cannot use bool in ^ operation: ^ takes integer operands."),
+			Entry("bool in <<", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x << y
+				}
+			`, "cannot use bool in << operation: << takes integer operands."),
+			Entry("bool in >>", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x >> y
+				}
+			`, "cannot use bool in >> operation: >> takes integer operands."),
 		)
 	})
 
@@ -1451,6 +1517,8 @@ var _ = Describe("Expressions", func() {
 			Entry("bitwise not expression", `~1 -> out`, false),
 			Entry("bitwise expression", `1 & 0 -> out`, false),
 			Entry("bitwise xor expression", `1 ^ 0 -> out`, false),
+			Entry("left shift expression", `1 << 0 -> out`, false),
+			Entry("right shift expression", `1 >> 0 -> out`, false),
 			Entry("numeric literal with unit suffix", `5m -> out`, true),
 		)
 

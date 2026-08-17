@@ -292,6 +292,10 @@ func (v *BaseArcParserVisitor) VisitRelationalExpression(ctx *RelationalExpressi
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitShiftExpression(ctx *ShiftExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitAdditiveExpression(ctx *AdditiveExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }

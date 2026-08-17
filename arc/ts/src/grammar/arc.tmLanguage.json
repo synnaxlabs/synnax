@@ -241,7 +241,7 @@
         },
         {
           "name": "keyword.operator.symbol.arc",
-          "match": "[&|^~]"
+          "match": "<<|>>|[&|^~]"
         },
         {
           "name": "keyword.operator.assignment.declare.arc",

@@ -105,11 +105,21 @@ func compileEquality(
 func compileRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) (types.Type, error) {
-	adds := validateNonZeroArray(ctx.AST.AllAdditiveExpression(), "relational")
+	shifts := validateNonZeroArray(ctx.AST.AllShiftExpression(), "relational")
+	if len(shifts) == 1 {
+		return compileShift(context.Child(ctx, shifts[0]))
+	}
+	return compileBinaryRelational(ctx)
+}
+
+func compileShift(
+	ctx context.Context[parser.IShiftExpressionContext],
+) (types.Type, error) {
+	adds := validateNonZeroArray(ctx.AST.AllAdditiveExpression(), "shift")
 	if len(adds) == 1 {
 		return compileAdditive(context.Child(ctx, adds[0]))
 	}
-	return compileBinaryRelational(ctx)
+	return compileShiftImpl(ctx)
 }
 
 func compileAdditive(

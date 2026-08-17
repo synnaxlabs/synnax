@@ -404,7 +404,11 @@ equalityExpression
     ;
 
 relationalExpression
-    : additiveExpression ((LT | GT | LEQ | GEQ) additiveExpression)*
+    : shiftExpression ((LT | GT | LEQ | GEQ) shiftExpression)*
+    ;
+
+shiftExpression
+    : additiveExpression ((LSHIFT | RSHIFT) additiveExpression)*
     ;
 
 additiveExpression

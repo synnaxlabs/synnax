@@ -443,6 +443,12 @@ func (s *BaseArcParserListener) EnterRelationalExpression(ctx *RelationalExpress
 // ExitRelationalExpression is called when production relationalExpression is exited.
 func (s *BaseArcParserListener) ExitRelationalExpression(ctx *RelationalExpressionContext) {}
 
+// EnterShiftExpression is called when production shiftExpression is entered.
+func (s *BaseArcParserListener) EnterShiftExpression(ctx *ShiftExpressionContext) {}
+
+// ExitShiftExpression is called when production shiftExpression is exited.
+func (s *BaseArcParserListener) ExitShiftExpression(ctx *ShiftExpressionContext) {}
+
 // EnterAdditiveExpression is called when production additiveExpression is entered.
 func (s *BaseArcParserListener) EnterAdditiveExpression(ctx *AdditiveExpressionContext) {}
 

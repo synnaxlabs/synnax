@@ -104,7 +104,8 @@ var _ = Describe("Parser", func() {
 					bitwiseAnd     = bitwiseXor.BitwiseAndExpression(0)
 					equality       = bitwiseAnd.EqualityExpression(0)
 					relational     = equality.RelationalExpression(0)
-					additive       = relational.AdditiveExpression(0)
+					shift          = relational.ShiftExpression(0)
+					additive       = shift.AdditiveExpression(0)
 					multiplicative = additive.MultiplicativeExpression(0)
 					power          = multiplicative.PowerExpression(0)
 					unary          = power.UnaryExpression()
@@ -963,6 +964,43 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(bitwiseXor.AllBitwiseAndExpression()).To(HaveLen(2))
 				Expect(bitwiseXor.CARET(0)).NotTo(BeNil())
 			})
+
+			It("Should parse shifts between additive and relational", func() {
+				// a + b << c > d
+				// Should be: ((a + b) << c) > d
+				expr := mustParseExpression("a + b << c > d")
+
+				relational := expr.LogicalOrExpression().
+					LogicalAndExpression(0).
+					BitwiseOrExpression(0).
+					BitwiseXorExpression(0).
+					BitwiseAndExpression(0).
+					EqualityExpression(0).
+					RelationalExpression(0)
+				Expect(relational.AllShiftExpression()).To(HaveLen(2))
+				Expect(relational.GT(0)).NotTo(BeNil())
+
+				shift := relational.ShiftExpression(0)
+				Expect(shift.AllAdditiveExpression()).To(HaveLen(2))
+				Expect(shift.LSHIFT(0)).NotTo(BeNil())
+				Expect(shift.AdditiveExpression(0).PLUS(0)).NotTo(BeNil())
+			})
+
+			It("Should parse mixed shift chains left-associatively", func() {
+				// a << b >> c: ((a << b) >> c)
+				shift := mustParseExpression("a << b >> c").
+					LogicalOrExpression().
+					LogicalAndExpression(0).
+					BitwiseOrExpression(0).
+					BitwiseXorExpression(0).
+					BitwiseAndExpression(0).
+					EqualityExpression(0).
+					RelationalExpression(0).
+					ShiftExpression(0)
+				Expect(shift.AllAdditiveExpression()).To(HaveLen(3))
+				Expect(shift.LSHIFT(0)).NotTo(BeNil())
+				Expect(shift.RSHIFT(0)).NotTo(BeNil())
+			})
 		})
 
 		Context("Complex series operations", func() {
@@ -1071,6 +1109,15 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 					parser.ParseExpression("a ^^ b"),
 				).Error().
 					To(MatchError(ContainSubstring("extraneous input '^'")))
+			})
+
+			It("Should report error for repeated shift operators", func() {
+				// '<<<' lexes as LSHIFT + LT and fails at the parser rather than
+				// the lexer.
+				Expect(
+					parser.ParseExpression("a <<< b"),
+				).Error().
+					To(MatchError(ContainSubstring("extraneous input '<'")))
 			})
 
 			It("Should report error for double assignment", func() {
@@ -2196,7 +2243,7 @@ func getMultiplicativeExpression(
 func getAdditiveExpression(
 	expr parser.IExpressionContext,
 ) parser.IAdditiveExpressionContext {
-	return getRelationalExpression(expr).AdditiveExpression(0)
+	return getRelationalExpression(expr).ShiftExpression(0).AdditiveExpression(0)
 }
 
 func getRelationalExpression(

@@ -51,6 +51,9 @@ func isNegatedLiteral(node antlr.ParserRuleContext) bool {
 		rels := ctx.AllRelationalExpression()
 		return len(rels) == 1 && isNegatedLiteral(rels[0])
 	case IRelationalExpressionContext:
+		shifts := ctx.AllShiftExpression()
+		return len(shifts) == 1 && isNegatedLiteral(shifts[0])
+	case IShiftExpressionContext:
 		adds := ctx.AllAdditiveExpression()
 		return len(adds) == 1 && isNegatedLiteral(adds[0])
 	case IAdditiveExpressionContext:
@@ -92,6 +95,9 @@ func isLiteral(node antlr.ParserRuleContext) bool {
 		rels := ctx.AllRelationalExpression()
 		return len(rels) == 1 && isLiteral(rels[0])
 	case IRelationalExpressionContext:
+		shifts := ctx.AllShiftExpression()
+		return len(shifts) == 1 && isLiteral(shifts[0])
+	case IShiftExpressionContext:
 		adds := ctx.AllAdditiveExpression()
 		return len(adds) == 1 && isLiteral(adds[0])
 	case IAdditiveExpressionContext:
@@ -160,6 +166,11 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 			return GetLiteralNode(rels[0])
 		}
 	case IRelationalExpressionContext:
+		shifts := ctx.AllShiftExpression()
+		if len(shifts) == 1 {
+			return GetLiteralNode(shifts[0])
+		}
+	case IShiftExpressionContext:
 		adds := ctx.AllAdditiveExpression()
 		if len(adds) == 1 {
 			return GetLiteralNode(adds[0])
@@ -239,6 +250,9 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 		rels := ctx.AllRelationalExpression()
 		return len(rels) == 1 && isNumericLiteral(rels[0])
 	case IRelationalExpressionContext:
+		shifts := ctx.AllShiftExpression()
+		return len(shifts) == 1 && isNumericLiteral(shifts[0])
+	case IShiftExpressionContext:
 		adds := ctx.AllAdditiveExpression()
 		return len(adds) == 1 && isNumericLiteral(adds[0])
 	case IAdditiveExpressionContext:
@@ -324,10 +338,14 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 		return nil
 	}
 	rel := eq.AllRelationalExpression()[0]
-	if len(rel.AllAdditiveExpression()) != 1 {
+	if len(rel.AllShiftExpression()) != 1 {
 		return nil
 	}
-	add := rel.AllAdditiveExpression()[0]
+	shift := rel.AllShiftExpression()[0]
+	if len(shift.AllAdditiveExpression()) != 1 {
+		return nil
+	}
+	add := shift.AllAdditiveExpression()[0]
 	if len(add.AllMultiplicativeExpression()) != 1 {
 		return nil
 	}

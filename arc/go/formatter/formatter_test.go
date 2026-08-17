@@ -53,6 +53,7 @@ var _ = Describe("Formatter", func() {
 		Entry("chained power", "x := a ** b ** c", "x := a ** b ** c\n"),
 		Entry("power with multiply", "x := 2 ** 3 * 4", "x := 2 ** 3 * 4\n"),
 		Entry("bitwise operators", "x:=a&b|c^d", "x := a & b | c ^ d\n"),
+		Entry("shift operators", "x:=a<<b>>c", "x := a << b >> c\n"),
 	)
 
 	DescribeTable(
@@ -414,6 +415,8 @@ var _ = Describe("Formatter", func() {
 		Entry("and with not", "x := a and not b", "x := a and not b\n"),
 		Entry("negation after xor", "x := a ^ -b", "x := a ^ -b\n"),
 		Entry("negation after bitwise and", "x := a & -b", "x := a & -b\n"),
+		Entry("negation after left shift", "x := a << -b", "x := a << -b\n"),
+		Entry("negation after right shift", "x := a >> -b", "x := a >> -b\n"),
 		Entry("bitwise not", "x:=~y", "x := ~y\n"),
 	)
 

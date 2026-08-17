@@ -53,6 +53,8 @@ var _ = Describe("AST Utilities", func() {
 			Entry("logical", "1 and 0"),
 			Entry("bitwise and", "1 & 0"),
 			Entry("bitwise xor", "1 ^ 0"),
+			Entry("left shift", "1 << 0"),
+			Entry("right shift", "1 >> 0"),
 			Entry("bitwise not", "~1"),
 		)
 	})
@@ -168,6 +170,8 @@ var _ = Describe("AST Utilities", func() {
 			Entry("bitwise or", "a | b"),
 			Entry("bitwise xor", "a ^ b"),
 			Entry("bitwise and", "a & b"),
+			Entry("left shift", "a << b"),
+			Entry("right shift", "a >> b"),
 			Entry("unary minus", "-1"),
 			Entry("power", "2 ** 3"),
 		)
@@ -194,7 +198,7 @@ var _ = Describe("AST Utilities", func() {
 			expr := parseExpr("42")
 			postfix := expr.LogicalOrExpression().LogicalAndExpression(0).
 				BitwiseOrExpression(0).BitwiseXorExpression(0).BitwiseAndExpression(0).
-				EqualityExpression(0).RelationalExpression(0).
+				EqualityExpression(0).RelationalExpression(0).ShiftExpression(0).
 				AdditiveExpression(0).MultiplicativeExpression(0).
 				PowerExpression(0).UnaryExpression().PostfixExpression()
 			lit := parser.GetLiteralNode(postfix)

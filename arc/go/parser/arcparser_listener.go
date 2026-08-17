@@ -223,6 +223,9 @@ type ArcParserListener interface {
 	// EnterRelationalExpression is called when entering the relationalExpression production.
 	EnterRelationalExpression(c *RelationalExpressionContext)
 
+	// EnterShiftExpression is called when entering the shiftExpression production.
+	EnterShiftExpression(c *ShiftExpressionContext)
+
 	// EnterAdditiveExpression is called when entering the additiveExpression production.
 	EnterAdditiveExpression(c *AdditiveExpressionContext)
 
@@ -471,6 +474,9 @@ type ArcParserListener interface {
 
 	// ExitRelationalExpression is called when exiting the relationalExpression production.
 	ExitRelationalExpression(c *RelationalExpressionContext)
+
+	// ExitShiftExpression is called when exiting the shiftExpression production.
+	ExitShiftExpression(c *ShiftExpressionContext)
 
 	// ExitAdditiveExpression is called when exiting the additiveExpression production.
 	ExitAdditiveExpression(c *AdditiveExpressionContext)

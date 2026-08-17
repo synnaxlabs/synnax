@@ -4058,6 +4058,57 @@ var _ = Describe("Compiler", func() {
 			Entry("i64 and", `{ return i64(255) & i64(15) }`, int64(15)),
 			Entry("i64 or", `{ return i64(240) | i64(15) }`, int64(255)),
 			Entry("i64 xor", `{ return i64(255) ^ i64(15) }`, int64(240)),
+			// Shift operations
+			Entry("left shift", `{ return i32(1) << i32(4) }`, int32(16)),
+			Entry("left shift zero", `{ return i32(12) << i32(0) }`, int32(12)),
+			Entry("right shift", `{ return i32(16) >> i32(2) }`, int32(4)),
+			Entry("right shift zero", `{ return i32(12) >> i32(0) }`, int32(12)),
+			Entry("right shift to zero", `{ return i32(1) >> i32(4) }`, int32(0)),
+			Entry(
+				"signed right shift is arithmetic",
+				`{ return i32(-8) >> i32(1) }`,
+				int32(-4),
+			),
+			Entry(
+				"unsigned right shift is logical",
+				`{ return ~u32(0) >> u32(28) }`,
+				uint32(15),
+			),
+			// Chained operations
+			Entry(
+				"chained left shift",
+				`{ return i32(1) << i32(2) << i32(3) }`,
+				int32(32),
+			),
+			Entry(
+				"mixed shift chain",
+				`{ return i32(64) >> i32(2) << i32(1) }`,
+				int32(32),
+			),
+			// Precedence: + binds tighter than <<, << binds tighter than &
+			Entry(
+				"additive binds tighter than left shift",
+				`{ return i32(1) + i32(1) << i32(2) }`,
+				int32(8),
+			),
+			Entry(
+				"left shift binds tighter than and",
+				`{ return i32(2) << i32(1) & i32(3) }`,
+				int32(0),
+			),
+			// i64 shift operands
+			Entry("i64 left shift", `{ return i64(255) << i64(4) }`, int64(4080)),
+			Entry("i64 right shift", `{ return i64(255) >> i64(4) }`, int64(15)),
+			Entry(
+				"i64 signed right shift is arithmetic",
+				`{ return i64(-16) >> i64(2) }`,
+				int64(-4),
+			),
+			Entry(
+				"u64 right shift is logical",
+				`{ return ~u64(0) >> u64(60) }`,
+				uint64(15),
+			),
 		)
 
 		DescribeTable(
@@ -4216,6 +4267,14 @@ var _ = Describe("Compiler", func() {
 				if i32(12) ^ i32(8) { return i32(1) }
 				return i32(0)
 			}`, int32(1)),
+			Entry("if left shift", `{
+				if i32(1) << i32(4) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+			Entry("if right shift", `{
+				if i32(1) >> i32(4) { return i32(1) }
+				return i32(0)
+			}`, int32(0)),
 		)
 
 		DescribeTable("type casting",

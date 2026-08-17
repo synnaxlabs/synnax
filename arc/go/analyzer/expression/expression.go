@@ -145,7 +145,7 @@ func operatorOperands(op string) (wants, counterpart string, ok bool) {
 		return "integer", "or (logical or)", true
 	case "~":
 		return "integer", "not (logical not)", true
-	case "^":
+	case "^", "<<", ">>":
 		return "integer", "", true
 	}
 	return "", "", false
@@ -180,6 +180,18 @@ func operatorHint(op string, t basetypes.Type) string {
 // channel, or an untyped integer constant.
 func isBitwiseNotOperand(t basetypes.Type) bool {
 	return isInteger(resolveConstraint(t.UnwrapChan()))
+}
+
+func getShiftOperator(ctx antlr.ParserRuleContext) string {
+	if shiftCtx, ok := ctx.(parser.IShiftExpressionContext); ok {
+		if len(shiftCtx.AllLSHIFT()) > 0 {
+			return "<<"
+		}
+		if len(shiftCtx.AllRSHIFT()) > 0 {
+			return ">>"
+		}
+	}
+	return "shift"
 }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
@@ -388,6 +400,20 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 }
 
 func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {
+	shifts := ctx.AST.AllShiftExpression()
+	for _, shift := range shifts {
+		analyzeShift(context.Child(ctx, shift))
+	}
+	validateType(
+		ctx,
+		shifts,
+		getRelationalOperator(ctx.AST),
+		types.InferShift,
+		isNumeric,
+	)
+}
+
+func analyzeShift(ctx context.Context[parser.IShiftExpressionContext]) {
 	additives := ctx.AST.AllAdditiveExpression()
 	for _, additive := range additives {
 		analyzeAdditive(context.Child(ctx, additive))
@@ -395,9 +421,9 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 	validateType(
 		ctx,
 		additives,
-		getRelationalOperator(ctx.AST),
+		getShiftOperator(ctx.AST),
 		types.InferAdditive,
-		isNumeric,
+		isInteger,
 	)
 }
 

@@ -223,6 +223,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#relationalExpression.
 	VisitRelationalExpression(ctx *RelationalExpressionContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#shiftExpression.
+	VisitShiftExpression(ctx *ShiftExpressionContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#additiveExpression.
 	VisitAdditiveExpression(ctx *AdditiveExpressionContext) interface{}
 

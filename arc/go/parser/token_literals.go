@@ -68,6 +68,8 @@ const (
 	LiteralPIPE          = "|"
 	LiteralTILDE         = "~"
 	LiteralCARET         = "^"
+	LiteralLSHIFT        = "<<"
+	LiteralRSHIFT        = ">>"
 	LiteralLPAREN        = "("
 	LiteralRPAREN        = ")"
 	LiteralLBRACE        = "{"

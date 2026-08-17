@@ -109,6 +109,8 @@ Bitwise operators take integer operands and return the operand type.
 | `\|`     | Bitwise OR  | `12 \| 10` | `14`   |
 | `~`      | Bitwise NOT | `~12`      | `-13`  |
 | `^`      | Bitwise XOR | `12 ^ 10`  | `6`    |
+| `<<`     | Left shift  | `1 << 4`   | `16`   |
+| `>>`     | Right shift | `16 >> 4`  | `1`    |
 
 Bitwise operators are not supported on series.
 
@@ -161,13 +163,14 @@ Operators listed from highest to lowest precedence.
 | 2           | `**`                    | Right         |
 | 3           | `*`, `/`, `%`           | Left          |
 | 4           | `+`, `-`                | Left          |
-| 5           | `<`, `>`, `<=`, `>=`    | Left          |
-| 6           | `==`, `!=`              | Left          |
-| 7           | `&`                     | Left          |
-| 8           | `^`                     | Left          |
-| 9           | `\|`                    | Left          |
-| 10          | `and`                   | Left          |
-| 11 (lowest) | `or`                    | Left          |
+| 5           | `<<`, `>>`              | Left          |
+| 6           | `<`, `>`, `<=`, `>=`    | Left          |
+| 7           | `==`, `!=`              | Left          |
+| 8           | `&`                     | Left          |
+| 9           | `^`                     | Left          |
+| 10          | `\|`                    | Left          |
+| 11          | `and`                   | Left          |
+| 12 (lowest) | `or`                    | Left          |
 
 ### Precedence Examples
 
