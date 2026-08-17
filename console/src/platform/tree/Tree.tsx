@@ -14,6 +14,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   context,
   Haul,
@@ -92,17 +93,28 @@ const itemRenderProp = Component.renderProp(
       [onDragStart, itemKey],
     );
     const loading = useLoading(itemKey);
+    // A drop re-parents the dragged items, so the grant is read on them and not on the
+    // destination. The item itself carries the same grant to leave its parent.
+    const client = Synnax.use();
+    const canMove = Access.useUpdateGranted(id);
 
     const [draggingOver, setDraggingOver] = useState(false);
 
     const onDropDrops = Haul.useDrop({
       type: Base.HAUL_TYPE,
       key: itemKey,
-      canDrop: useCallback(({ items: entities, source }) => {
-        const keys = entities.map((item) => item.key);
-        setDraggingOver(false);
-        return source.type === Base.HAUL_TYPE && !keys.includes(itemKey);
-      }, []),
+      canDrop: useCallback(
+        ({ items: entities, source }) => {
+          const keys = entities.map((item) => item.key);
+          setDraggingOver(false);
+          if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
+          return Access.updateGranted({
+            client,
+            id: Base.filterHaulItems(entities).map(({ key }) => ontology.idZ.parse(key)),
+          });
+        },
+        [itemKey, client],
+      ),
       onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
       onDragOver: useCallback(() => setDraggingOver(true), []),
     });
@@ -114,7 +126,7 @@ const itemRenderProp = Component.renderProp(
         {...rest}
         draggingOver={draggingOver}
         onDragStart={handleDragStart}
-        draggable
+        draggable={canMove}
         {...onDropDrops}
         onDragLeave={() => setDraggingOver(false)}
         onDragEnd={onDragEnd}

@@ -9,7 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { DisconnectedError, project, type Synnax as Client } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Access, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { ingestBatch } from "@/platform/import/ingestBatch";
@@ -92,4 +92,19 @@ export const useImport = (): ((projectKey?: string) => void) => {
       importComponent({ store, openTabs, client, handleError, projectKey }),
     [store, openTabs, client, handleError],
   );
+};
+
+/**
+ * Reports whether the subject may import into the selected project. The Core enforces
+ * create on the imported resource's own type as well, which no caller can know before
+ * the file is read, so a permitted import can still be refused on that second check.
+ * With no project selected there is no parent to read the grant on, and the import
+ * itself has nowhere to land, so the answer is deferred to the Core.
+ */
+export const useCanImport = (): boolean => {
+  const selected = Session.Project.useSelectOptionalSelected();
+  const granted = Access.useUpdateGranted(
+    selected == null ? project.TYPE_ONTOLOGY_ID : project.ontologyID(selected),
+  );
+  return selected == null || granted;
 };

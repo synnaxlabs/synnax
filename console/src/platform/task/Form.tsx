@@ -15,9 +15,10 @@ import {
   type rack,
   type status,
   type Synnax,
-  type task,
+  task,
 } from "@synnaxlabs/client";
 import {
+  Access,
   Flex,
   Form as PForm,
   Input,
@@ -165,6 +166,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     }, [client, taskKey, handleError]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
+    // The form saves on every edit, so a subject who cannot write the task gets it
+    // read-only rather than fields that revert once the save is refused.
+    const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
     return (
       <Flex.Box
         y
@@ -175,7 +179,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         <Flex.Box grow>
           <PForm.Form<PTask.FormSchema<S>>
             {...form}
-            mode={isSnapshot ? "preview" : "normal"}
+            mode={isSnapshot || !canEdit ? "preview" : "normal"}
           >
             {showHeader && <Header isSnapshot={isSnapshot} />}
             {Properties != null && (

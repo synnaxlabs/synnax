@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, NotFoundError } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul, User } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,6 +20,7 @@ import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { assertDefined, queryIcon, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const RoleItem = Access.Role.TREE_ITEMS.role;
 const PolicyItem = Access.Policy.TREE_ITEMS.policy;
@@ -41,6 +42,19 @@ describe("role ontology service", () => {
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.getByText("Copy properties")).toBeTruthy();
+  });
+
+  it("should hide rename from a subject who cannot write the role", async () => {
+    const role = await createRole();
+    const viewer = await roles.get("Viewer");
+    assertDefined(RoleItem.ContextMenu);
+    await renderTreeContextMenu(RoleItem.ContextMenu, {
+      client: viewer,
+      resources: [roleResource(role.key, role.name, false)],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 
   it("should hide rename and delete for internal roles", async () => {

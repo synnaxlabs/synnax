@@ -250,6 +250,9 @@ describe("wrapForm", () => {
         { key: deviceKey, includeStatus: true },
         seen,
       );
+      // Let the one-time setup renders settle, the permission grant among them, so the
+      // count reflects only what the status change causes.
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
       const before = renders;
       await client.statuses.set({
         key: device.statusKey(deviceKey),
