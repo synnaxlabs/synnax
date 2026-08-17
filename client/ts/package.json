@@ -63,7 +63,10 @@
   "type": "module",
   "files": [
     "dist",
-    "!dist/**/*.map"
+    "src",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!dist/eslint.config.*"
   ],
   "exports": {
     ".": {

@@ -10,8 +10,7 @@
     }
   },
   "files": [
-    "dist",
-    "!dist/**/*.map"
+    "dist"
   ],
   "scripts": {
     "build": "tsc --noEmit && vite build",
