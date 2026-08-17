@@ -107,8 +107,9 @@ interface FormMountListenersParams<
   extends Form.UseReturn<Schema>, Omit<FormClientParams<Query>, "query"> {
   query: Query;
   /**
-   * Drops the pending autosave and stops further ones. Call when the record no
-   * longer exists: a save queued before a delete would otherwise write it back.
+   * Drops the pending autosave, aborts one already running, and stops further ones.
+   * Call when the record no longer exists: a save queued before a delete would
+   * otherwise write it back.
    */
   abandon: () => void;
 }
@@ -209,6 +210,8 @@ export const createForm = <
       );
 
     const abandonedRef = useRef(false);
+    const abortRef = useRef<AbortController>(null);
+    abortRef.current ??= new AbortController();
     const values = retrieved ?? initialValues ?? baseInitialValues;
     const form = Form.use<Schema>({
       schema,
@@ -236,12 +239,13 @@ export const createForm = <
       if (readQuery.current === memoQuery) return;
       readQuery.current = memoQuery;
       abandonedRef.current = false;
+      abortRef.current = new AbortController();
       form.reset(valuesRef.current);
     }, [memoQuery, form]);
 
     const saveAsync = useCallback(
       async (opts: query.FetchOptions = {}): Promise<boolean> => {
-        const { signal } = opts;
+        const { signal = abortRef.current?.signal } = opts;
         try {
           if (client == null) {
             setResult(nullClientResult<undefined>(`update ${name}`));
@@ -255,7 +259,10 @@ export const createForm = <
             setResult(successResult(`updated ${name}`, undefined));
             return false;
           }
-          if (signal?.aborted === true) return false;
+          if (signal?.aborted === true) {
+            setResult(successResult(`updated ${name}`, undefined));
+            return false;
+          }
           const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
             setResult((p) => {
               const nextStatus = state.executeSetter(setter, p.status);
@@ -296,6 +303,7 @@ export const createForm = <
     const abandon = useCallback(() => {
       abandonedRef.current = true;
       debouncedSave.cancel();
+      abortRef.current?.abort();
     }, [debouncedSave]);
 
     useEffect(() => {

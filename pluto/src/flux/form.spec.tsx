@@ -671,6 +671,34 @@ describe("useForm", () => {
       unmount();
       await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
     });
+
+    it("should abort a save already running when the record is abandoned", async () => {
+      const { update, useForm, abandon } = createAbandonableForm();
+      let enter = (): void => {};
+      let release = (): void => {};
+      const entered = new Promise<void>((resolve) => (enter = resolve));
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const { result } = renderHook(
+        () =>
+          useForm({
+            query: { key: "123" },
+            autoSave: true,
+            autoSaveDebounce: DEBOUNCE,
+            // Holds the save open past the delete, so abandon lands mid-flight.
+            beforeSave: async () => {
+              enter();
+              await held;
+              return true;
+            },
+          }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.form.set("name", "Jane Doe"));
+      await entered;
+      act(() => abandon());
+      await act(async () => release());
+      await testutil.expectAlways(() => expect(update).not.toHaveBeenCalled(), SETTLE);
+    });
   });
 
   describe("listeners", () => {
