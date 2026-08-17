@@ -40,8 +40,8 @@ import { Triggers } from "@/platform/triggers";
 const formSchema = z.object({
   channels: channel.keyZ.array().min(1, "Select at least one channel"),
   timeRange: numericTimeRangeZ.refine(({ start, end }) => start < end, {
-    error: "Start time must be before end time",
-    path: ["start"],
+    error: "End time must be after start time",
+    path: ["end"],
   }),
 });
 

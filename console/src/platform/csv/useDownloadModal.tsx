@@ -178,7 +178,7 @@ const formSchema = z.object({
   channelNames: z.record(channel.keyZ, z.string()).optional(),
   channels: channel.keyZ.array(),
   timeRange: numericTimeRangeZ.refine(({ start, end }) => end >= start, {
-    error: "Start time must be before end time",
+    error: "End time must be after start time",
     path: ["end"],
   }),
   downsampleFactor: z.int().min(1).default(1),
