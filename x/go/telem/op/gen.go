@@ -76,12 +76,6 @@ var operations = []Operation{
 // Modulo operations - uses % for integers, math.Mod for floats
 var moduloIntOp = Operation{Name: "Modulo", Op: "%"}
 
-// Bitwise logical operations for uint8.
-var logicalOperations = []Operation{
-	{Name: "And", Op: "&"},
-	{Name: "Or", Op: "|"},
-}
-
 // Logical operations for the boolean type.
 var boolLogicalOperations = []Operation{
 	{Name: "And", Op: "&&"},
@@ -589,18 +583,6 @@ func main() {
 			}))
 		}
 	}
-
-	// Generate bitwise logical operations (and, or, not) for uint8.
-	uint8Type := TypeInfo{Name: "U8", GoType: "uint8", Size: 1, IsUnsigned: true}
-	lo.Must0(tmpl.Execute(&buf, map[string]any{
-		"Type":       uint8Type,
-		"Operations": logicalOperations,
-	}))
-	notOp := []UnaryOperation{{Name: "Not", Op: "^"}}
-	lo.Must0(unaryTmpl.Execute(&buf, map[string]any{
-		"Type":     uint8Type,
-		"UnaryOps": notOp,
-	}))
 
 	// Generate logical operations (and, or, not) for the boolean type.
 	boolType := TypeInfo{Name: "Bool", GoType: "bool", Size: 1}
