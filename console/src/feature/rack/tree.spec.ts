@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  access,
   arc,
   ni,
   NotFoundError,
@@ -16,14 +15,8 @@ import {
   rack,
   type Synnax as Client,
   task,
-  user,
 } from "@synnaxlabs/client";
-import {
-  createTestClient,
-  createTestClientWithPolicy,
-  RoleClients,
-} from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -31,7 +24,7 @@ import { NI } from "@/feature/ni";
 import { Rack } from "@/feature/rack";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
-import { assertDefined, uniqueName } from "@/testutil";
+import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -70,25 +63,16 @@ const renderMenu = async (
   });
 };
 
-const READABLE = [
-  rack.TYPE_ONTOLOGY_ID,
-  task.TYPE_ONTOLOGY_ID,
-  arc.TYPE_ONTOLOGY_ID,
-  user.TYPE_ONTOLOGY_ID,
-  access.role.TYPE_ONTOLOGY_ID,
-  access.policy.TYPE_ONTOLOGY_ID,
-];
-
 /**
  * A client that may rename racks and read everything the menu touches, differing only
- * in the types it may create.
+ * in the type it may create.
  */
 const createRackWriter = async (creatable: ontology.ID) =>
-  await createTestClientWithPolicy(client, [
-    { name: uuid.create(), objects: READABLE, actions: ["retrieve"] },
-    { name: uuid.create(), objects: [rack.TYPE_ONTOLOGY_ID], actions: ["update"] },
-    { name: uuid.create(), objects: [creatable], actions: ["create"] },
-  ]);
+  await createTestClientWithGrants(client, {
+    retrieve: [rack.TYPE_ONTOLOGY_ID, task.TYPE_ONTOLOGY_ID, arc.TYPE_ONTOLOGY_ID],
+    update: [rack.TYPE_ONTOLOGY_ID],
+    create: [creatable],
+  });
 
 describe("rack ontology service", () => {
   it("should expose rename, arc creation, and delete for a single rack", async () => {

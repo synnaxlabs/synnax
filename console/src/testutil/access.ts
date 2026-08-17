@@ -7,28 +7,48 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, type ontology, type Synnax as Client, user } from "@synnaxlabs/client";
+import {
+  access,
+  framer,
+  type ontology,
+  type Synnax as Client,
+  user,
+} from "@synnaxlabs/client";
 import { createTestClientWithPolicy } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 
-// Every console surface resolves the subject and its policies before it renders.
+// Every console surface resolves the subject and its policies before it renders, and
+// the flux store needs the frame stream to receive any live update at all.
 const BASELINE = [
   user.TYPE_ONTOLOGY_ID,
   access.role.TYPE_ONTOLOGY_ID,
   access.policy.TYPE_ONTOLOGY_ID,
+  framer.TYPE_ONTOLOGY_ID,
 ];
 
+/** The types the subject may act on, keyed by action. */
+export type Grants = Partial<Record<access.Action, ontology.ID[]>>;
+
 /**
- * Creates a client whose only reads are the console baseline plus the given types, for
- * pinning a surface a retrieve grant withholds. A built-in role reads every type, so no
- * role can stand in.
+ * Creates a client granted exactly these actions on these types, on top of the reads
+ * every console surface needs to render at all. Every built-in role covers whole
+ * action sets at once, so none of them can isolate a single gate.
  */
-export const createTestClientWithReads = async (
+export const createTestClientWithGrants = async (
   client: Client,
-  ...types: ontology.ID[]
-): Promise<Client> =>
-  await createTestClientWithPolicy(client, {
-    name: uuid.create(),
-    objects: [...BASELINE, ...types],
-    actions: ["retrieve"],
-  });
+  grants: Grants = {},
+): Promise<Client> => {
+  const { retrieve = [], ...rest } = grants;
+  return await createTestClientWithPolicy(client, [
+    {
+      name: uuid.create(),
+      objects: [...BASELINE, ...retrieve],
+      actions: ["retrieve"],
+    },
+    ...Object.entries(rest).map(([action, objects]) => ({
+      name: uuid.create(),
+      objects,
+      actions: [action as access.Action],
+    })),
+  ]);
+};

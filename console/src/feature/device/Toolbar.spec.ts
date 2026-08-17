@@ -17,7 +17,7 @@ import { renderToolbar } from "@/platform/tree/menuTestutil";
 import { findTreeRow } from "@/platform/tree/treeTestutil";
 import {
   assertDefined,
-  createTestClientWithReads,
+  createTestClientWithGrants,
   renderHookWithConsole,
 } from "@/testutil";
 
@@ -40,7 +40,7 @@ describe("device/Toolbar", () => {
 
 describe("device toolbar permissions", () => {
   it("should hide the toolbar from a subject who cannot read devices", async () => {
-    const denied = await createTestClientWithReads(client);
+    const denied = await createTestClientWithGrants(client);
     assertDefined(Device.TOOLBAR.useVisible);
     const { result } = await renderHookWithConsole(Device.TOOLBAR.useVisible, {
       client: denied,

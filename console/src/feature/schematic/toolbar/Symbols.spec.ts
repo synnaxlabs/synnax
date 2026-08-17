@@ -7,7 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, type schematic } from "@synnaxlabs/client";
+import {
+  channel,
+  group,
+  label,
+  NotFoundError,
+  type ontology,
+  panel,
+  project,
+  ranger,
+  type schematic,
+  schematic as schematicClient,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -21,12 +33,18 @@ import {
 } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import { getCompositeIconButton, uniqueName } from "@/testutil";
+import {
+  createTestClientWithGrants,
+  getCompositeIconButton,
+  getCompositeIconButtons,
+  uniqueName,
+} from "@/testutil";
 
-const renderSymbolsToolbar = async () =>
+const renderSymbolsToolbar = async (as?: Client) =>
   await renderSchematic(Schematic.Toolbar, {
     sessionState: { editable: true },
     additionalRegistry: theming.REGISTRY,
+    as,
   });
 
 const createRemoteSymbolGroup = async (
@@ -164,5 +182,57 @@ describe("Schematic toolbar Symbols", () => {
       });
       expect(children.map((c) => c.name)).toContain(name);
     });
+  });
+});
+
+describe("schematic/toolbar/Symbols permissions", () => {
+  const READS = [
+    schematicClient.TYPE_ONTOLOGY_ID,
+    schematicClient.symbol.TYPE_ONTOLOGY_ID,
+    group.TYPE_ONTOLOGY_ID,
+    project.TYPE_ONTOLOGY_ID,
+    panel.TYPE_ONTOLOGY_ID,
+    label.TYPE_ONTOLOGY_ID,
+    ranger.TYPE_ONTOLOGY_ID,
+    channel.TYPE_ONTOLOGY_ID,
+  ];
+
+  const createEditor = async (creatable: ontology.ID[] = []) =>
+    await createTestClientWithGrants(client, {
+      retrieve: READS,
+      update: [schematicClient.TYPE_ONTOLOGY_ID],
+      create: creatable,
+    });
+
+  // The symbol library is a cluster-wide resource, so a subject who may edit the
+  // schematic still needs its own grant to add to the library.
+  it("should withhold the creation actions from an editor who cannot add symbols", async () => {
+    const { result } = await renderSymbolsToolbar(await createEditor());
+    await screen.findByText("Gauge");
+    await waitFor(() =>
+      expect(getCompositeIconButtons(result.container, ["group", "add"])).toHaveLength(
+        0,
+      ),
+    );
+    expect(
+      getCompositeIconButtons(result.container, ["schematic", "add"]),
+    ).toHaveLength(0);
+  });
+
+  it("should offer the creation actions to an editor who may add symbols", async () => {
+    const editor = await createEditor([
+      group.TYPE_ONTOLOGY_ID,
+      schematicClient.symbol.TYPE_ONTOLOGY_ID,
+    ]);
+    const { result } = await renderSymbolsToolbar(editor);
+    await screen.findByText("Gauge");
+    await waitFor(() =>
+      expect(getCompositeIconButtons(result.container, ["group", "add"])).toHaveLength(
+        1,
+      ),
+    );
+    expect(
+      getCompositeIconButtons(result.container, ["schematic", "add"]),
+    ).toHaveLength(1);
   });
 });

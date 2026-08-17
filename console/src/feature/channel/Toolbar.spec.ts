@@ -16,7 +16,7 @@ import { getSwitch } from "@/platform/modals/testutil";
 import { renderToolbar } from "@/platform/tree/menuTestutil";
 import {
   assertDefined,
-  createTestClientWithReads,
+  createTestClientWithGrants,
   getIconButton,
   getIconButtons,
   queryIcon,
@@ -70,7 +70,7 @@ describe("channel/Toolbar permissions", () => {
   });
 
   it("should hide the toolbar itself from a subject who cannot read channels", async () => {
-    const denied = await createTestClientWithReads(client);
+    const denied = await createTestClientWithGrants(client);
     assertDefined(Channel.TOOLBAR.useVisible);
     const { result } = await renderHookWithConsole(Channel.TOOLBAR.useVisible, {
       client: denied,
