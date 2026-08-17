@@ -40,6 +40,20 @@ const createClock = (): (() => TimeStamp) => {
   };
 };
 
+/**
+ * Asserts a read returned every value written so far and nothing else. A span crossing
+ * the live boundary can come back in both its streamed and its fetched representation,
+ * so a value may appear twice, but never more.
+ */
+const expectWrittenValues = (values: number[], writeCount: number): void => {
+  const counts = new Map<number, number>();
+  values.forEach((v) => counts.set(v, (counts.get(v) ?? 0) + 1));
+  expect([...counts.keys()].sort((a, b) => a - b)).toEqual(
+    Array.from({ length: writeCount }, (_, i) => i),
+  );
+  expect([...counts.entries()].filter(([, count]) => count > 2)).toEqual([]);
+};
+
 const createChannels = async () => {
   const time = await client.channels.create({
     name: id.create(),
@@ -124,7 +138,7 @@ describe("feed", () => {
     sub.close();
   });
 
-  it("should return every streamed sample across the live boundary", async () => {
+  it("should return every written sample across the live boundary", async () => {
     const { time, data } = await createChannels();
     const received: number[] = [];
     const sub = feed.stream(
@@ -162,9 +176,7 @@ describe("feed", () => {
     // different alignments and both stay visible until the fetched form wins.
     const tr = new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(1)));
     const res = await feed.read(tr, data.key);
-    const values = new Set(Array.from(res) as number[]);
-    expect(values.size).toBeGreaterThan(0);
-    for (const v of received) expect(values).toContain(v);
+    expectWrittenValues(Array.from(res) as number[], value);
     // A second writer opens a new alignment domain, which flushes the old leading
     // buffer into the static cache as a streamed entry.
     const w2 = await client.openWriter({
@@ -178,8 +190,7 @@ describe("feed", () => {
     }
     const tr2 = new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(1)));
     const res2 = await feed.read(tr2, data.key);
-    const values2 = new Set(Array.from(res2) as number[]);
-    for (const v of received) expect(values2).toContain(v);
+    expectWrittenValues(Array.from(res2) as number[], value);
     sub.close();
   });
 

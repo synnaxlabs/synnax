@@ -12,6 +12,7 @@ import {
   DataType,
   MultiSeries,
   Series,
+  sleep,
   type TimeRange,
   TimeSpan,
   TimeStamp,
@@ -360,6 +361,21 @@ describe("StaticReadCache", () => {
         TimeStamp.seconds(10).range(TimeStamp.seconds(40)),
       );
       expect(series.series).toHaveLength(2);
+    });
+
+    // Streamed entries arrive continuously, so a collector that misses them leaks.
+    it("should garbage collect streamed entries alongside fetched ones", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const streamedTR = TimeStamp.seconds(30).range(TimeStamp.seconds(40));
+      const fetchedTR = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      c.write(streamed(streamedTR, [3, 4]), true);
+      c.write(fetched(fetchedTR, [1, 2]));
+      const read = () =>
+        c.dirtyRead(TimeStamp.seconds(10).range(TimeStamp.seconds(40))).series.series;
+      expect(read()).toHaveLength(2);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(c.gc().purgedSeries).toEqual(2);
+      expect(read()).toHaveLength(0);
     });
   });
 
