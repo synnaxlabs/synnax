@@ -524,6 +524,7 @@ describe("Retriever", () => {
           .then(() => null)
           .catch((exc: unknown) => exc);
         assert(err instanceof ValidationError);
+        expect(ValidationError.matches(err)).toBe(true);
         expect(err.message).toContain("Failed to parse");
         expect(err.cause).toBeInstanceOf(zod.ParseError);
         expect(fetchRequest).not.toHaveBeenCalled();
