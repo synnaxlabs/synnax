@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { array, id } from "@synnaxlabs/x";
 
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
@@ -55,14 +55,27 @@ const createUser = async (client: Synnax) => {
   return { username, key: u.key };
 };
 
-export const createTestClientWithPolicy = async (client: Synnax, pol: policy.New) => {
+/**
+ * Creates a client authenticated as a new user holding a role that carries the
+ * policies. Pass several to grant different actions on different objects, which one
+ * policy cannot express.
+ */
+export const createTestClientWithPolicy = async (
+  client: Synnax,
+  pol: policy.New | policy.New[],
+) => {
   const u = await createUser(client);
-  const p = await client.access.policies.create(pol);
+  const policies = await Promise.all(
+    array.toArray(pol).map(async (p) => await client.access.policies.create(p)),
+  );
   const r = await client.access.roles.create({
     name: "test",
     description: "test",
   });
-  await client.ontology.addChildren(role.ontologyID(r.key), policy.ontologyID(p.key));
+  await client.ontology.addChildren(
+    role.ontologyID(r.key),
+    ...policies.map(({ key }) => policy.ontologyID(key)),
+  );
   await client.access.roles.assign({ user: u.key, role: r.key });
   return await connectAs(u.username, u.key);
 };

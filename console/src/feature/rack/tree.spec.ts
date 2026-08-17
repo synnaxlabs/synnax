@@ -7,8 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ni, NotFoundError, rack } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  access,
+  arc,
+  ni,
+  NotFoundError,
+  type ontology,
+  rack,
+  type Synnax as Client,
+  task,
+  user,
+} from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,6 +34,7 @@ import { createResource } from "@/platform/tree/testutil";
 import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Item = Rack.TREE_ITEMS.rack;
 
@@ -43,13 +59,36 @@ const createNIRackWithScanner = async () => {
 const rackResource = (key: number, name: string) =>
   createResource(rack.ontologyID(key), name);
 
-const renderMenu = async (racks: { key: number; name: string }[]) => {
+const renderMenu = async (
+  racks: { key: number; name: string }[],
+  as: Client = client,
+) => {
   assertDefined(Item.ContextMenu);
   return await renderTreeContextMenu(Item.ContextMenu, {
-    client,
+    client: as,
     resources: racks.map((r) => rackResource(r.key, r.name)),
   });
 };
+
+const READABLE = [
+  rack.TYPE_ONTOLOGY_ID,
+  task.TYPE_ONTOLOGY_ID,
+  arc.TYPE_ONTOLOGY_ID,
+  user.TYPE_ONTOLOGY_ID,
+  access.role.TYPE_ONTOLOGY_ID,
+  access.policy.TYPE_ONTOLOGY_ID,
+];
+
+/**
+ * A client that may rename racks and read everything the menu touches, differing only
+ * in the types it may create.
+ */
+const createRackWriter = async (creatable: ontology.ID) =>
+  await createTestClientWithPolicy(client, [
+    { name: uuid.create(), objects: READABLE, actions: ["retrieve"] },
+    { name: uuid.create(), objects: [rack.TYPE_ONTOLOGY_ID], actions: ["update"] },
+    { name: uuid.create(), objects: [creatable], actions: ["create"] },
+  ]);
 
 describe("rack ontology service", () => {
   it("should expose rename, arc creation, and delete for a single rack", async () => {
@@ -108,5 +147,31 @@ describe("rack ontology service", () => {
       });
       expect(after.config.disabled).toBe(!scanTask.config.disabled);
     });
+  });
+});
+
+describe("permission to write the rack", () => {
+  it("should withhold rename, arc creation, and delete from a viewer", async () => {
+    const r = await createRack();
+    await renderMenu([r], await roles.get("Viewer"));
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Create Arc automation")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  // Toggling the scanner rewrites the scan task's config, so the item answers to task
+  // create and not to the rack write that puts the rest of the menu on screen.
+  it("should withhold the scanner toggle from a subject who cannot create tasks", async () => {
+    const { rack: r } = await createNIRackWithScanner();
+    await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
+    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    expect(screen.queryByText("Toggle NI Device Scanner")).toBeNull();
+  });
+
+  it("should offer the scanner toggle to a subject who may create tasks", async () => {
+    const { rack: r } = await createNIRackWithScanner();
+    await renderMenu([r], await createRackWriter(task.TYPE_ONTOLOGY_ID));
+    expect(await screen.findByText("Toggle NI Device Scanner")).toBeTruthy();
   });
 });
