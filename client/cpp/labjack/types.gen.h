@@ -165,7 +165,7 @@ WriteChannel parse_write_channel(x::json::Parser parser);
 /// @brief AnalogReadChannel reads a voltage from an analog input port.
 struct AnalogReadChannel : public BaseReadChannel {
     std::string type = "analog";
-    /// @brief range is the upper bound of the voltage input range, in volts.
+    /// @brief range is the upper bound of the voltage input range, in Volts.
     double range = 10;
     /// @brief neg_chan is the negative channel for differential readings on T7 devices.
     /// 199
@@ -206,9 +206,9 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     /// ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN port
     /// (e.g. 'AIN2').
     std::string cjc_source = "TEMPERATURE_DEVICE_K";
-    /// @brief cjc_slope is the CJC voltage-to-temperature slope, in kelvin per volt.
+    /// @brief cjc_slope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
     double cjc_slope = 1;
-    /// @brief cjc_offset is the CJC temperature offset, in kelvins.
+    /// @brief cjc_offset is the CJC temperature offset, in Kelvins.
     double cjc_offset = 0;
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_KELVIN;

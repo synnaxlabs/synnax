@@ -69,8 +69,8 @@ class Dimensions(BaseModel):
         length: Is the length dimension exponent (meters).
         mass: Is the mass dimension exponent (kilograms).
         time: Is the time dimension exponent (seconds).
-        current: Is the electric current dimension exponent (amperes).
-        temperature: Is the temperature dimension exponent (kelvin).
+        current: Is the electric current dimension exponent (Amperes).
+        temperature: Is the temperature dimension exponent (Kelvin).
         angle: Is the angle dimension exponent (radians).
         count: Is the count dimension exponent.
         data: Is the data size dimension exponent (bytes).

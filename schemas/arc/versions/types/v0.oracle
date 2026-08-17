@@ -136,10 +136,10 @@ Dimensions struct {
         @doc value "is the time dimension exponent (seconds)."
     }
     current     int8 {
-        @doc value "is the electric current dimension exponent (amperes)."
+        @doc value "is the electric current dimension exponent (Amperes)."
     }
     temperature int8 {
-        @doc value "is the temperature dimension exponent (kelvin)."
+        @doc value "is the temperature dimension exponent (Kelvin)."
     }
     angle       int8 {
         @doc value "is the angle dimension exponent (radians)."

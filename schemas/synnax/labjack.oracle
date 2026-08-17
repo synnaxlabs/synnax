@@ -100,7 +100,7 @@ ReadChannel union on type extends BaseReadChannel {
     analog {
         port     string = "AIN0"
         range    float64 = 10 {
-            @doc value "is the upper bound of the voltage input range, in volts."
+            @doc value "is the upper bound of the voltage input range, in Volts."
         }
         neg_chan int32 = 199 {
             @doc value """
@@ -141,10 +141,10 @@ ReadChannel union on type extends BaseReadChannel {
             """
         }
         cjc_slope         float64 = 1 {
-            @doc value "is the CJC voltage-to-temperature slope, in kelvin per volt."
+            @doc value "is the CJC voltage-to-temperature slope, in Kelvin per Volt."
         }
         cjc_offset        float64 = 0 {
-            @doc value "is the CJC temperature offset, in kelvins."
+            @doc value "is the CJC temperature offset, in Kelvins."
         }
         units             TemperatureUnits = kelvin {
             @doc value "are the units of the temperature measurement."

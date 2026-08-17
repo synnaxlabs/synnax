@@ -473,7 +473,7 @@ class CurrentExcitation(BaseModel):
 
     Attributes:
         current_excit_source: Selects the source of the current excitation signal.
-        current_excit_val: Is the current excitation level, in amps.
+        current_excit_val: Is the current excitation level, in Amps.
     """
 
     current_excit_source: ExcitationSource = "Internal"
@@ -485,7 +485,7 @@ class VoltageExcitation(BaseModel):
 
     Attributes:
         voltage_excit_source: Selects the source of the voltage excitation signal.
-        voltage_excit_val: Is the voltage excitation level, in volts.
+        voltage_excit_val: Is the voltage excitation level, in Volts.
     """
 
     voltage_excit_source: ExcitationSource = "Internal"
@@ -497,7 +497,7 @@ class Bridge(BaseModel):
 
     Attributes:
         bridge_config: Selects the physical bridge wiring.
-        nominal_bridge_resistance: Is the nominal resistance of the bridge, in ohms.
+        nominal_bridge_resistance: Is the nominal resistance of the bridge, in Ohms.
     """
 
     bridge_config: BridgeConfig = "FullBridge"

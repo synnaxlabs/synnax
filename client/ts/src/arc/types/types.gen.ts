@@ -67,9 +67,9 @@ export const dimensionsZ = z.object({
   mass: zod.int8,
   /** time is the time dimension exponent (seconds). */
   time: zod.int8,
-  /** current is the electric current dimension exponent (amperes). */
+  /** current is the electric current dimension exponent (Amperes). */
   current: zod.int8,
-  /** temperature is the temperature dimension exponent (kelvin). */
+  /** temperature is the temperature dimension exponent (Kelvin). */
   temperature: zod.int8,
   /** angle is the angle dimension exponent (radians). */
   angle: zod.int8,

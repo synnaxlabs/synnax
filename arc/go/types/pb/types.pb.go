@@ -490,9 +490,9 @@ type Dimensions struct {
 	Mass int32 `protobuf:"varint,2,opt,name=mass,proto3" json:"mass,omitempty"`
 	// time is the time dimension exponent (seconds).
 	Time int32 `protobuf:"varint,3,opt,name=time,proto3" json:"time,omitempty"`
-	// current is the electric current dimension exponent (amperes).
+	// current is the electric current dimension exponent (Amperes).
 	Current int32 `protobuf:"varint,4,opt,name=current,proto3" json:"current,omitempty"`
-	// temperature is the temperature dimension exponent (kelvin).
+	// temperature is the temperature dimension exponent (Kelvin).
 	Temperature int32 `protobuf:"varint,5,opt,name=temperature,proto3" json:"temperature,omitempty"`
 	// angle is the angle dimension exponent (radians).
 	Angle int32 `protobuf:"varint,6,opt,name=angle,proto3" json:"angle,omitempty"`

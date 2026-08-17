@@ -246,7 +246,7 @@ export interface Sensitivity extends z.infer<typeof sensitivityZ> {}
 export const currentExcitationZ = z.object({
   /** currentExcitSource selects the source of the current excitation signal. */
   currentExcitSource: excitationSourceZ.default("Internal"),
-  /** currentExcitVal is the current excitation level, in amps. */
+  /** currentExcitVal is the current excitation level, in Amps. */
   currentExcitVal: z.number().default(0),
 });
 export interface CurrentExcitation extends z.infer<typeof currentExcitationZ> {}
@@ -255,7 +255,7 @@ export interface CurrentExcitation extends z.infer<typeof currentExcitationZ> {}
 export const voltageExcitationZ = z.object({
   /** voltageExcitSource selects the source of the voltage excitation signal. */
   voltageExcitSource: excitationSourceZ.default("Internal"),
-  /** voltageExcitVal is the voltage excitation level, in volts. */
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
   voltageExcitVal: z.number().default(0),
 });
 export interface VoltageExcitation extends z.infer<typeof voltageExcitationZ> {}
@@ -264,7 +264,7 @@ export interface VoltageExcitation extends z.infer<typeof voltageExcitationZ> {}
 export const bridgeZ = z.object({
   /** bridgeConfig selects the physical bridge wiring. */
   bridgeConfig: bridgeConfigZ.default("FullBridge"),
-  /** nominalBridgeResistance is the nominal resistance of the bridge, in ohms. */
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
   nominalBridgeResistance: z.number().default(1),
 });
 export interface Bridge extends z.infer<typeof bridgeZ> {}
@@ -665,7 +665,7 @@ export const aiCurrentChannelZ = baseAIChannelZ
     units: unitsZ.default("Amps"),
     /** shuntResistorLoc selects where the shunt resistor is located. */
     shuntResistorLoc: shuntResistorLocationZ.default("Default"),
-    /** extShuntResistorVal is the external shunt resistor value, in ohms. */
+    /** extShuntResistorVal is the external shunt resistor value, in Ohms. */
     extShuntResistorVal: z.number().default(1),
   });
 export interface AICurrentChannel extends z.infer<typeof aiCurrentChannelZ> {}
@@ -806,7 +806,7 @@ export const aiRTDChannelZ = baseAIChannelZ
     units: temperatureUnitsZ.default("DegC"),
     /** rtdType selects the RTD resistance-temperature curve. */
     rtdType: rtdTypeZ.default("Pt3750"),
-    /** r0 is the sensor resistance at 0 degrees Celsius, in ohms. */
+    /** r0 is the sensor resistance at 0 degrees Celsius, in Ohms. */
     r0: z.number().default(0),
   });
 export interface AIRTDChannel extends z.infer<typeof aiRTDChannelZ> {}
@@ -826,11 +826,11 @@ export const aiStrainGaugeChannelZ = baseAIChannelZ
     gageFactor: z.number().default(0),
     /** initialBridgeVoltage is the bridge output voltage in the unloaded state. */
     initialBridgeVoltage: z.number().default(0),
-    /** nominalGageResistance is the nominal gauge resistance, in ohms. */
+    /** nominalGageResistance is the nominal gauge resistance, in Ohms. */
     nominalGageResistance: z.number().default(0),
     /** poissonRatio is the Poisson ratio of the gauge material. */
     poissonRatio: z.number().default(0),
-    /** leadWireResistance is the resistance of the lead wires, in ohms. */
+    /** leadWireResistance is the resistance of the lead wires, in Ohms. */
     leadWireResistance: z.number().default(0),
   });
 export interface AIStrainGaugeChannel extends z.infer<typeof aiStrainGaugeChannelZ> {}
@@ -977,7 +977,7 @@ export const aiCurrentRMSChannelZ = baseAIChannelZ
     units: unitsZ.default("Amps"),
     /** shuntResistorLoc selects where the shunt resistor is located. */
     shuntResistorLoc: shuntResistorLocationZ.default("Default"),
-    /** extShuntResistorVal is the external shunt resistor value, in ohms. */
+    /** extShuntResistorVal is the external shunt resistor value, in Ohms. */
     extShuntResistorVal: z.number().default(1),
   });
 export interface AICurrentRMSChannel extends z.infer<typeof aiCurrentRMSChannelZ> {}
@@ -1073,7 +1073,7 @@ export const aiThermistorVexChannelZ = baseAIChannelZ
     b: z.number().default(0),
     /** c is the third Steinhart-Hart coefficient. */
     c: z.number().default(0),
-    /** r1 is the reference resistor value, in ohms. */
+    /** r1 is the reference resistor value, in Ohms. */
     r1: z.number().default(0),
   });
 export interface AIThermistorVexChannel extends z.infer<

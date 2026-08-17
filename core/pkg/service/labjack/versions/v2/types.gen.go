@@ -244,7 +244,7 @@ type ReadChannelVariant interface {
 // AnalogReadChannel reads a voltage from an analog input port.
 type AnalogReadChannel struct {
 	BaseReadChannel
-	// Range is the upper bound of the voltage input range, in volts.
+	// Range is the upper bound of the voltage input range, in Volts.
 	Range float64 `json:"range" msgpack:"range"`
 	// NegChan is the negative channel for differential readings on T7 devices. 199
 	// selects single-ended.
@@ -300,9 +300,9 @@ type ThermocoupleReadChannel struct {
 	// ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN port (e.g.
 	// 'AIN2').
 	CjcSource string `json:"cjc_source" msgpack:"cjc_source"`
-	// CjcSlope is the CJC voltage-to-temperature slope, in kelvin per volt.
+	// CjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
 	CjcSlope float64 `json:"cjc_slope" msgpack:"cjc_slope"`
-	// CjcOffset is the CJC temperature offset, in kelvins.
+	// CjcOffset is the CJC temperature offset, in Kelvins.
 	CjcOffset float64 `json:"cjc_offset" msgpack:"cjc_offset"`
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`

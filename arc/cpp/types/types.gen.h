@@ -96,9 +96,9 @@ struct Dimensions {
     std::int8_t mass = 0;
     /// @brief time is the time dimension exponent (seconds).
     std::int8_t time = 0;
-    /// @brief current is the electric current dimension exponent (amperes).
+    /// @brief current is the electric current dimension exponent (Amperes).
     std::int8_t current = 0;
-    /// @brief temperature is the temperature dimension exponent (kelvin).
+    /// @brief temperature is the temperature dimension exponent (Kelvin).
     std::int8_t temperature = 0;
     /// @brief angle is the angle dimension exponent (radians).
     std::int8_t angle = 0;

@@ -546,7 +546,7 @@ struct TwoPointLin {
 struct CurrentExcitation {
     /// @brief current_excit_source selects the source of the current excitation signal.
     std::string current_excit_source = EXCITATION_SOURCE_INTERNAL;
-    /// @brief current_excit_val is the current excitation level, in amps.
+    /// @brief current_excit_val is the current excitation level, in Amps.
     double current_excit_val = 0;
 
     static CurrentExcitation parse(x::json::Parser parser);
@@ -557,7 +557,7 @@ struct CurrentExcitation {
 struct VoltageExcitation {
     /// @brief voltage_excit_source selects the source of the voltage excitation signal.
     std::string voltage_excit_source = EXCITATION_SOURCE_INTERNAL;
-    /// @brief voltage_excit_val is the voltage excitation level, in volts.
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
     double voltage_excit_val = 0;
 
     static VoltageExcitation parse(x::json::Parser parser);
@@ -579,7 +579,7 @@ struct Bridge {
     /// @brief bridge_config selects the physical bridge wiring.
     std::string bridge_config = BRIDGE_CONFIG_FULL_BRIDGE;
     /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
-    /// ohms.
+    /// Ohms.
     double nominal_bridge_resistance = 1;
 
     static Bridge parse(x::json::Parser parser);
@@ -674,7 +674,7 @@ struct AICurrentChannel : public BaseAIChannel,
     std::string units = UNITS_AMPS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
-    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in ohms.
+    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
     double ext_shunt_resistor_val = 1;
 
     static AICurrentChannel parse(x::json::Parser parser);
@@ -810,7 +810,7 @@ struct AIRTDChannel : public BaseAIChannel,
     std::string units = TEMPERATURE_UNITS_DEG_C;
     /// @brief rtd_type selects the RTD resistance-temperature curve.
     std::string rtd_type = RTD_TYPE_PT_3750;
-    /// @brief r0 is the sensor resistance at 0 degrees Celsius, in ohms.
+    /// @brief r0 is the sensor resistance at 0 degrees Celsius, in Ohms.
     double r0 = 0;
 
     static AIRTDChannel parse(x::json::Parser parser);
@@ -832,11 +832,11 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
     /// @brief initial_bridge_voltage is the bridge output voltage in the unloaded
     /// state.
     double initial_bridge_voltage = 0;
-    /// @brief nominal_gage_resistance is the nominal gauge resistance, in ohms.
+    /// @brief nominal_gage_resistance is the nominal gauge resistance, in Ohms.
     double nominal_gage_resistance = 0;
     /// @brief poisson_ratio is the Poisson ratio of the gauge material.
     double poisson_ratio = 0;
-    /// @brief lead_wire_resistance is the resistance of the lead wires, in ohms.
+    /// @brief lead_wire_resistance is the resistance of the lead wires, in Ohms.
     double lead_wire_resistance = 0;
 
     static AIStrainGaugeChannel parse(x::json::Parser parser);
@@ -983,7 +983,7 @@ struct AICurrentRMSChannel : public BaseAIChannel,
     std::string units = UNITS_AMPS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
-    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in ohms.
+    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
     double ext_shunt_resistor_val = 1;
 
     static AICurrentRMSChannel parse(x::json::Parser parser);
@@ -1075,7 +1075,7 @@ struct AIThermistorVexChannel : public BaseAIChannel,
     double b = 0;
     /// @brief c is the third Steinhart-Hart coefficient.
     double c = 0;
-    /// @brief r1 is the reference resistor value, in ohms.
+    /// @brief r1 is the reference resistor value, in Ohms.
     double r1 = 0;
 
     static AIThermistorVexChannel parse(x::json::Parser parser);

@@ -107,9 +107,9 @@ message Dimensions {
   int32 mass = 2;
   // time is the time dimension exponent (seconds).
   int32 time = 3;
-  // current is the electric current dimension exponent (amperes).
+  // current is the electric current dimension exponent (Amperes).
   int32 current = 4;
-  // temperature is the temperature dimension exponent (kelvin).
+  // temperature is the temperature dimension exponent (Kelvin).
   int32 temperature = 5;
   // angle is the angle dimension exponent (radians).
   int32 angle = 6;

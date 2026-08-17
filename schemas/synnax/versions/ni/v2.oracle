@@ -349,7 +349,7 @@ CurrentExcitation struct {
         @doc value "selects the source of the current excitation signal."
     }
     current_excit_val    float64 = 0 {
-        @doc value "is the current excitation level, in amps."
+        @doc value "is the current excitation level, in Amps."
     }
 
     @doc value  "configures the current excitation supplied to a sensor."
@@ -361,7 +361,7 @@ VoltageExcitation struct {
         @doc value "selects the source of the voltage excitation signal."
     }
     voltage_excit_val    float64 = 0 {
-        @doc value "is the voltage excitation level, in volts."
+        @doc value "is the voltage excitation level, in Volts."
     }
 
     @doc value  "configures the voltage excitation supplied to a sensor."
@@ -373,7 +373,7 @@ Bridge struct {
         @doc value "selects the physical bridge wiring."
     }
     nominal_bridge_resistance float64 = 1 {
-        @doc value "is the nominal resistance of the bridge, in ohms."
+        @doc value "is the nominal resistance of the bridge, in Ohms."
     }
 
     @doc value  "configures the wiring and nominal resistance of a bridge-based sensor."
@@ -512,7 +512,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "selects where the shunt resistor is located."
         }
         ext_shunt_resistor_val float64 = 1 {
-            @doc value "is the external shunt resistor value, in ohms."
+            @doc value "is the external shunt resistor value, in Ohms."
         }
 
         @doc value "reads a current."
@@ -595,7 +595,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "selects the RTD resistance-temperature curve."
         }
         r0       float64 = 0 {
-            @doc value "is the sensor resistance at 0 degrees Celsius, in ohms."
+            @doc value "is the sensor resistance at 0 degrees Celsius, in Ohms."
         }
 
         @doc value "reads temperature from an RTD."
@@ -614,13 +614,13 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "is the bridge output voltage in the unloaded state."
         }
         nominal_gage_resistance float64 = 0 {
-            @doc value "is the nominal gauge resistance, in ohms."
+            @doc value "is the nominal gauge resistance, in Ohms."
         }
         poisson_ratio           float64 = 0 {
             @doc value "is the Poisson ratio of the gauge material."
         }
         lead_wire_resistance    float64 = 0 {
-            @doc value "is the resistance of the lead wires, in ohms."
+            @doc value "is the resistance of the lead wires, in Ohms."
         }
 
         @doc value "reads strain from a strain gauge."
@@ -718,7 +718,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "selects where the shunt resistor is located."
         }
         ext_shunt_resistor_val float64 = 1 {
-            @doc value "is the external shunt resistor value, in ohms."
+            @doc value "is the external shunt resistor value, in Ohms."
         }
 
         @doc value "reads RMS current."
@@ -786,7 +786,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "is the third Steinhart-Hart coefficient."
         }
         r1    float64 = 0 {
-            @doc value "is the reference resistor value, in ohms."
+            @doc value "is the reference resistor value, in Ohms."
         }
 
         @doc value "reads temperature from a voltage-excited thermistor."

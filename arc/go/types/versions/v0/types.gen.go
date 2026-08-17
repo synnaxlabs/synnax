@@ -114,9 +114,9 @@ type Dimensions struct {
 	Mass int8 `json:"mass" msgpack:"mass"`
 	// Time is the time dimension exponent (seconds).
 	Time int8 `json:"time" msgpack:"time"`
-	// Current is the electric current dimension exponent (amperes).
+	// Current is the electric current dimension exponent (Amperes).
 	Current int8 `json:"current" msgpack:"current"`
-	// Temperature is the temperature dimension exponent (kelvin).
+	// Temperature is the temperature dimension exponent (Kelvin).
 	Temperature int8 `json:"temperature" msgpack:"temperature"`
 	// Angle is the angle dimension exponent (radians).
 	Angle int8 `json:"angle" msgpack:"angle"`

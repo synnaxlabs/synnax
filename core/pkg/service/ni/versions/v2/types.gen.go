@@ -901,7 +901,7 @@ type Sensitivity struct {
 type CurrentExcitation struct {
 	// CurrentExcitSource selects the source of the current excitation signal.
 	CurrentExcitSource ExcitationSource `json:"current_excit_source" msgpack:"current_excit_source"`
-	// CurrentExcitVal is the current excitation level, in amps.
+	// CurrentExcitVal is the current excitation level, in Amps.
 	CurrentExcitVal float64 `json:"current_excit_val" msgpack:"current_excit_val"`
 }
 
@@ -924,7 +924,7 @@ func (c CurrentExcitation) Validate() error {
 type VoltageExcitation struct {
 	// VoltageExcitSource selects the source of the voltage excitation signal.
 	VoltageExcitSource ExcitationSource `json:"voltage_excit_source" msgpack:"voltage_excit_source"`
-	// VoltageExcitVal is the voltage excitation level, in volts.
+	// VoltageExcitVal is the voltage excitation level, in Volts.
 	VoltageExcitVal float64 `json:"voltage_excit_val" msgpack:"voltage_excit_val"`
 }
 
@@ -947,7 +947,7 @@ func (vo VoltageExcitation) Validate() error {
 type Bridge struct {
 	// BridgeConfig selects the physical bridge wiring.
 	BridgeConfig BridgeConfig `json:"bridge_config" msgpack:"bridge_config"`
-	// NominalBridgeResistance is the nominal resistance of the bridge, in ohms.
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
 	NominalBridgeResistance float64 `json:"nominal_bridge_resistance" msgpack:"nominal_bridge_resistance"`
 }
 
@@ -1272,7 +1272,7 @@ type AICurrentChannel struct {
 	Units Units `json:"units" msgpack:"units"`
 	// ShuntResistorLoc selects where the shunt resistor is located.
 	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
-	// ExtShuntResistorVal is the external shunt resistor value, in ohms.
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
 	ExtShuntResistorVal float64 `json:"ext_shunt_resistor_val" msgpack:"ext_shunt_resistor_val"`
 }
 
@@ -1607,7 +1607,7 @@ type AIRTDChannel struct {
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 	// RtdType selects the RTD resistance-temperature curve.
 	RtdType RTDType `json:"rtd_type" msgpack:"rtd_type"`
-	// R0 is the sensor resistance at 0 degrees Celsius, in ohms.
+	// R0 is the sensor resistance at 0 degrees Celsius, in Ohms.
 	R0 float64 `json:"r0" msgpack:"r0"`
 }
 
@@ -1651,11 +1651,11 @@ type AIStrainGaugeChannel struct {
 	GageFactor float64 `json:"gage_factor" msgpack:"gage_factor"`
 	// InitialBridgeVoltage is the bridge output voltage in the unloaded state.
 	InitialBridgeVoltage float64 `json:"initial_bridge_voltage" msgpack:"initial_bridge_voltage"`
-	// NominalGageResistance is the nominal gauge resistance, in ohms.
+	// NominalGageResistance is the nominal gauge resistance, in Ohms.
 	NominalGageResistance float64 `json:"nominal_gage_resistance" msgpack:"nominal_gage_resistance"`
 	// PoissonRatio is the Poisson ratio of the gauge material.
 	PoissonRatio float64 `json:"poisson_ratio" msgpack:"poisson_ratio"`
-	// LeadWireResistance is the resistance of the lead wires, in ohms.
+	// LeadWireResistance is the resistance of the lead wires, in Ohms.
 	LeadWireResistance float64 `json:"lead_wire_resistance" msgpack:"lead_wire_resistance"`
 }
 
@@ -2005,7 +2005,7 @@ type AICurrentRMSChannel struct {
 	Units Units `json:"units" msgpack:"units"`
 	// ShuntResistorLoc selects where the shunt resistor is located.
 	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
-	// ExtShuntResistorVal is the external shunt resistor value, in ohms.
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
 	ExtShuntResistorVal float64 `json:"ext_shunt_resistor_val" msgpack:"ext_shunt_resistor_val"`
 }
 
@@ -2212,7 +2212,7 @@ type AIThermistorVexChannel struct {
 	B float64 `json:"b" msgpack:"b"`
 	// C is the third Steinhart-Hart coefficient.
 	C float64 `json:"c" msgpack:"c"`
-	// R1 is the reference resistor value, in ohms.
+	// R1 is the reference resistor value, in Ohms.
 	R1 float64 `json:"r1" msgpack:"r1"`
 }
 
