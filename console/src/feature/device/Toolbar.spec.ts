@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, it } from "vitest";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { createTestDevice } from "@/platform/device/testutil";
 import { renderToolbar } from "@/platform/tree/menuTestutil";
 import { findTreeRow } from "@/platform/tree/treeTestutil";
+import {
+  assertDefined,
+  createTestClientWithReads,
+  renderHookWithConsole,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 describe("device/Toolbar", () => {
   it("lists a created device under its rack in the devices tree", async () => {
@@ -29,5 +35,24 @@ describe("device/Toolbar", () => {
     await screen.findByText("Devices");
     fireEvent.click(await findTreeRow(rack.name));
     await screen.findByText(dev.name);
+  });
+});
+
+describe("device toolbar permissions", () => {
+  it("should hide the toolbar from a subject who cannot read devices", async () => {
+    const denied = await createTestClientWithReads(client);
+    assertDefined(Device.TOOLBAR.useVisible);
+    const { result } = await renderHookWithConsole(Device.TOOLBAR.useVisible, {
+      client: denied,
+    });
+    await waitFor(() => expect(result.current).toBe(false));
+  });
+
+  it("should offer the toolbar to a viewer, who may read devices", async () => {
+    assertDefined(Device.TOOLBAR.useVisible);
+    const { result } = await renderHookWithConsole(Device.TOOLBAR.useVisible, {
+      client: await roles.get("Viewer"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
   });
 });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,9 +17,10 @@ import {
   findModalButton,
   renderToolbar,
 } from "@/platform/tree/menuTestutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { getIconButton, getIconButtons, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 describe("user toolbar", () => {
   it("should list a registered user under its assigned role", async () => {
@@ -39,5 +40,13 @@ describe("user toolbar", () => {
     fireEvent.click(getIconButton(document.body, "add"));
     await screen.findByRole("dialog");
     expect(findModalButton("Register")).toBeTruthy();
+  });
+});
+
+describe("user toolbar permissions", () => {
+  it("should withhold the register action from a viewer", async () => {
+    await renderToolbar(User.TOOLBAR.content, { client: await roles.get("Viewer") });
+    expect(await screen.findByText("Users")).toBeTruthy();
+    expect(getIconButtons(document.body, "add")).toHaveLength(0);
   });
 });

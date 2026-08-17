@@ -8,15 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { renderToolbar } from "@/platform/tree/menuTestutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { getIconButton, getIconButtons, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 describe("project toolbar", () => {
   it("should list projects in the tree", async () => {
@@ -37,5 +38,13 @@ describe("project toolbar", () => {
     await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(getIconButton(document.body, "add"));
     expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+});
+
+describe("project toolbar permissions", () => {
+  it("should withhold the create action from a viewer", async () => {
+    await renderToolbar(Project.TOOLBAR.content, { client: await roles.get("Viewer") });
+    expect(await screen.findByText("Projects")).toBeTruthy();
+    expect(getIconButtons(document.body, "add")).toHaveLength(0);
   });
 });
