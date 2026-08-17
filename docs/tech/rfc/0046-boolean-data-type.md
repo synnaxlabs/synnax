@@ -251,7 +251,7 @@ infrastructure. There is no boolean-specific code path beyond the entry in the t
 The type is added to each language's telem module using the existing data type
 scaffolding. No new generic machinery is introduced beyond the codec branch in §3.2.
 
-**Go** (`x/go/telem/data_type.go`). A new `BooleanT DataType = "bool"` constant with
+**Go** (`x/go/telem/data_type.go`). A new `BooleanT DataType = "boolean"` constant with
 density 1. The density lookup table gains one entry. The Go-level client API for a
 boolean channel reads and writes `bool`; the conversion between `bool` and the canonical
 byte happens at the edge of the client library. The Freighter frame codec branch lives
