@@ -26,13 +26,13 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   render(props: XAxisRenderProps): void {
     if (this.deleted) return;
-    const [dataToDecimal, err] = this.dataToDecimalScale(
+    const [dataToDecimal, xBounds, err] = this.dataToDecimalScale(
       props.hold,
       this.dataBounds.bind(this),
       props.viewport,
     );
     this.renderAxis(props, dataToDecimal.reverse());
-    this.renderYAxes(props, dataToDecimal);
+    this.renderYAxes(props, dataToDecimal, xBounds);
     this.renderRanges(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
@@ -42,7 +42,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     props: Omit<XAxisRenderProps, "canvases">,
     target: number,
   ): FindResult[] {
-    const [scale, err] = this.dataToDecimalScale(
+    const [scale, , err] = this.dataToDecimalScale(
       props.hold,
       this.dataBounds.bind(this),
       props.viewport,
@@ -55,18 +55,22 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     props: Omit<XAxisRenderProps, "canvases">,
     target: number,
   ): FindResult[] {
-    const [xDataToDecimalScale, error] = this.dataToDecimalScale(
+    const [xDataToDecimalScale, xBounds, error] = this.dataToDecimalScale(
       props.hold,
       this.dataBounds.bind(this),
       props.viewport,
     );
     if (error != null) throw error;
-    const p = { ...props, xDataToDecimalScale };
+    const p = { ...props, xDataToDecimalScale, xBounds };
     return this.yAxes.map((el) => el.findByXValue(p, target)).flat();
   }
 
-  private renderYAxes(props: XAxisRenderProps, xDataToDecimalScale: scale.Scale): void {
-    const p = { ...props, xDataToDecimalScale };
+  private renderYAxes(
+    props: XAxisRenderProps,
+    xDataToDecimalScale: scale.Scale,
+    xBounds: bounds.Bounds,
+  ): void {
+    const p = { ...props, xDataToDecimalScale, xBounds };
     this.yAxes.forEach((el) => el.render(p));
   }
 

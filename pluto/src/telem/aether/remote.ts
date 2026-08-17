@@ -215,13 +215,16 @@ export class ChannelData
     const { channel, timeRange } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
-    if (timeRange.span.isZero || channel === 0) return [bounds.ZERO, this.data];
+    if (timeRange.span.isZero || channel === 0) return [bounds.INVALID, this.data];
     if (!this.valid) void this.read();
     const { channel: ch, data } = this;
-    if (ch == null) return [bounds.ZERO, this.data];
+    if (ch == null) return [bounds.INVALID, this.data];
     let b = data.bounds;
-    if (ch.dataType.equals(DataType.TIMESTAMP))
+    if (ch.dataType.equals(DataType.TIMESTAMP)) {
       b = bounds.min([b, timeRange.numericBounds]);
+      // A reversed intersection means the data lies outside the requested range.
+      if (b.lower > b.upper) b = bounds.INVALID;
+    }
     return [b, data];
   }
 
@@ -289,11 +292,11 @@ export class StreamChannelData
 
   value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeSpan } = this.props;
-    if (channel === 0) return [bounds.ZERO, this.data];
+    if (channel === 0) return [bounds.INVALID, this.data];
     if (!this.valid) void this.read();
     const { data, channel: ch } = this;
     const now = this.now();
-    if (ch != null && ch.dataType.isVariable) return [bounds.ZERO, this.data];
+    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, this.data];
     const filtered = data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);

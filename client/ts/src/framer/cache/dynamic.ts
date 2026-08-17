@@ -261,6 +261,20 @@ export class Dynamic {
     return Math.round(Math.max(Math.min(size, MAX_SIZE), MIN_SIZE));
   }
 
+  /**
+   * Flushes the leading buffer, stamping its end with the last stamped write or
+   * the wall clock.
+   * @returns the flushed buffer, or null when there is none.
+   */
+  flush(): Series | null {
+    const res: WriteResponse = {
+      flushed: new MultiSeries([]),
+      allocated: new MultiSeries([]),
+    };
+    this.flushCurr(res);
+    return res.flushed.series[0] ?? null;
+  }
+
   /** Closes the cache. It must not be used afterwards. */
   close(): void {
     this.curr = null;
