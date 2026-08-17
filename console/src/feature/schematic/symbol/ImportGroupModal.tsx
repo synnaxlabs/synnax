@@ -147,10 +147,10 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
             <Icon.Import />
           </Text.Text>
           <Text.Text level="p" color={9}>
-            Drop a symbol group here, or click to browse for a .zip
+            Drop a .zip or folder here
           </Text.Text>
           <Text.Text level="small" color={8}>
-            Accepts a .zip export or its extracted folder
+            or click to browse
           </Text.Text>
           <Button.Button
             variant="text"

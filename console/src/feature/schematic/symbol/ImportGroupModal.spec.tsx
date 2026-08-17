@@ -42,7 +42,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const ZONE_TEXT = "Drop a symbol group here, or click to browse for a .zip";
+const ZONE_TEXT = "Drop a .zip or folder here";
 
 const renderModal = async () => {
   const statuses: Status.NotificationSpec[] = [];
