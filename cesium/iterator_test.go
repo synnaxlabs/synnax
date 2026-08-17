@@ -381,7 +381,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Amundsen",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,
@@ -517,7 +517,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Shackleton",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,
@@ -608,7 +608,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Nansen",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,

@@ -483,7 +483,7 @@ TEST(CodecTests, EncodeMismatchedDataType) {
 }
 
 /// @brief it should accept an int64 series for a timestamp channel, mirroring the
-/// Int64T <-> TimeStampT equivalence applied by the server-side writer validator
+/// Int64T <-> TimestampT equivalence applied by the server-side writer validator
 /// and frame codec.
 TEST(CodecTests, EncodeInt64SeriesForTimestampChannel) {
     const std::vector data_types = {x::telem::TIMESTAMP_T};
@@ -502,7 +502,7 @@ TEST(CodecTests, EncodeInt64SeriesForTimestampChannel) {
 }
 
 /// @brief it should accept a timestamp series for an int64 channel, mirroring the
-/// Int64T <-> TimeStampT equivalence applied by the server-side writer validator
+/// Int64T <-> TimestampT equivalence applied by the server-side writer validator
 /// and frame codec.
 TEST(CodecTests, EncodeTimestampSeriesForInt64Channel) {
     const std::vector data_types = {x::telem::INT64_T};
