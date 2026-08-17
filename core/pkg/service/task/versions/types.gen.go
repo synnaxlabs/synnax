@@ -27,3 +27,22 @@ type Status = v2.Status
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
 type Task = v2.Task
+
+// KeyedConfig is the base for every stored task configuration record.
+type KeyedConfig = v2.KeyedConfig
+
+// BaseStartConfig carries the configuration fields shared by every task.
+type BaseStartConfig = v2.BaseStartConfig
+
+// BasePersistConfig carries the configuration fields shared by tasks that write
+// telemetry.
+type BasePersistConfig = v2.BasePersistConfig
+
+// BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
+type BaseReadConfig = v2.BaseReadConfig
+
+// BaseWriteConfig carries the configuration fields shared by hardware control tasks.
+type BaseWriteConfig = v2.BaseWriteConfig
+
+// BaseScanConfig carries the fields shared by every scan task configuration.
+type BaseScanConfig = v2.BaseScanConfig

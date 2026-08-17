@@ -7,4 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as taskConfig from "@/task/config/types.gen";
+#pragma once
+
+#include <string>
+
+namespace synnax::device {
+/// @brief Key is a unique identifier for a device. Kept in its own header so task
+/// headers can reference it without pulling in the full device types.
+using Key = std::string;
+}

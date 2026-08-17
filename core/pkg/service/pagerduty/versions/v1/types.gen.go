@@ -11,7 +11,7 @@
 
 package v1
 
-import config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+import task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 
 // Alert maps a Synnax status to a PagerDuty event routing rule.
 type Alert struct {
@@ -35,7 +35,7 @@ type Alert struct {
 // TaskConfig configures a PagerDuty alert task, which forwards Synnax status changes to
 // PagerDuty as events.
 type TaskConfig struct {
-	config.BaseStart
+	task.BaseStartConfig
 	// RoutingKey is the PagerDuty Events API v2 routing key.
 	RoutingKey string `json:"routing_key" msgpack:"routing_key"`
 	// Alerts are the alerts the task evaluates.

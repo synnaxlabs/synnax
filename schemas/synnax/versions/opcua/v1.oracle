@@ -9,7 +9,7 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/task_config/v0"
+import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 BaseChannel struct {
@@ -58,7 +58,7 @@ WriteChannel struct extends BaseChannel {
     @go marshal
 }
 
-ReadConfig struct extends task_config.BaseRead {
+ReadConfig struct extends task.BaseReadConfig {
     sample_rate = 50
     stream_rate = 25
     device      device.Key = "" {
@@ -79,7 +79,7 @@ ReadConfig struct extends task_config.BaseRead {
     @go migrate
 }
 
-WriteConfig struct extends task_config.BaseWrite {
+WriteConfig struct extends task.BaseWriteConfig {
     channels WriteChannel[] {
         @doc value "are the OPC UA nodes the task drives."
     }
@@ -89,7 +89,7 @@ WriteConfig struct extends task_config.BaseWrite {
     @go migrate
 }
 
-ScanConfig struct extends task_config.BaseScan {
+ScanConfig struct extends task.BaseScanConfig {
     @doc value  "configures an OPC UA scan task."
     @go marshal
     @go migrate

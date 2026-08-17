@@ -13,7 +13,7 @@ package v3
 
 import (
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,7 +42,7 @@ func (e ExecutionMode) IsValid() bool {
 
 // Config configures an Arc task, which runs a compiled Arc module.
 type Config struct {
-	config.BasePersist
+	task.BasePersistConfig
 	// ArcKey is the key of the Arc module the task executes.
 	ArcKey arc.Key `json:"arc_key" msgpack:"arc_key"`
 	// Hash is the semantic hash of the Arc module at deploy time.

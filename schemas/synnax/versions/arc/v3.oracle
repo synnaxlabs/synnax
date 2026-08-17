@@ -10,7 +10,7 @@
 import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/text/v1"
-import "schemas/synnax/versions/task_config/v0"
+import "schemas/synnax/versions/task/v2"
 
 Key = v1.Key
 
@@ -67,7 +67,7 @@ ExecutionMode enum {
     @doc value "selects how the Arc runtime loop schedules execution."
 }
 
-TaskConfig struct extends task_config.BasePersist {
+TaskConfig struct extends task.BasePersistConfig {
     arc_key        Key           {
         @doc value "is the key of the Arc module the task executes."
     }

@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
-import { taskConfig } from "@/task/config";
+import { task } from "@/task";
 
 export const TEMPERATURE_UNITS = ["C", "F", "K"] as const;
 export const temperatureUnitsZ = z.enum(TEMPERATURE_UNITS);
@@ -67,7 +67,7 @@ export const baseWriteChannelZ = z.object({
 });
 export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
-export const scanConfigZ = taskConfig.baseScanZ.extend({
+export const scanConfigZ = task.baseScanConfigZ.extend({
   tcpScanMultiplier: z.int32().default(10),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
@@ -236,13 +236,13 @@ export const READ_CHANNEL_SCHEMAS: {
   thermocouple: thermocoupleReadChannelZ,
 };
 
-export const writeConfigZ = taskConfig.baseWriteZ.extend({
+export const writeConfigZ = task.baseWriteConfigZ.extend({
   stateRate: z.number().default(10),
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-export const readConfigZ = taskConfig.baseReadZ.extend({
+export const readConfigZ = task.baseReadConfigZ.extend({
   device: device.keyZ.default(""),
   channels: readChannelZ.array().default(() => []),
   deviceScanBacklogWarnOnCount: z.uint32().default(0),

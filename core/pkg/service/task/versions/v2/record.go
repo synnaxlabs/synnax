@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0
+package v2
 
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Keyed{}
+var _ gorp.Entry[uuid.UUID] = KeyedConfig{}
 
 // GorpKey implements gorp.Entry.
-func (c Keyed) GorpKey() uuid.UUID { return c.Key }
+func (c KeyedConfig) GorpKey() uuid.UUID { return c.Key }
 
 // SetOptions implements gorp.Entry.
-func (Keyed) SetOptions() []any { return nil }
+func (KeyedConfig) SetOptions() []any { return nil }
 
 // SetKey sets the key of the stored configuration record.
-func (c *Keyed) SetKey(key uuid.UUID) { c.Key = key }
+func (c *KeyedConfig) SetKey(key uuid.UUID) { c.Key = key }

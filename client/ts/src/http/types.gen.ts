@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
-import { taskConfig } from "@/task/config";
+import { task } from "@/task";
 
 export const TIME_FORMATS = [
   "iso8601",
@@ -86,7 +86,7 @@ export const baseWriteFieldZ = z.object({
 });
 export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
 
-export const scanConfigZ = taskConfig.baseScanZ;
+export const scanConfigZ = task.baseScanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 /** ReadField is a single value extracted from an endpoint's JSON response. */
@@ -230,14 +230,14 @@ export const writeEndpointZ = z.object({
 });
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
-export const readConfigZ = taskConfig.basePersistZ.extend({
+export const readConfigZ = task.basePersistConfigZ.extend({
   device: device.keyZ.default(""),
   rate: z.number().default(1),
   endpoints: readEndpointZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = taskConfig.baseStartZ.extend({
+export const writeConfigZ = task.baseStartConfigZ.extend({
   device: device.keyZ.default(""),
   endpoints: writeEndpointZ.array().default(() => []),
 });

@@ -9,7 +9,7 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/task_config/v0"
+import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 PDOAddress struct {
@@ -121,7 +121,7 @@ WriteChannel union on type extends BaseWriteChannel {
     @go marshal
 }
 
-ReadConfig struct extends task_config.BaseRead {
+ReadConfig struct extends task.BaseReadConfig {
     channels ReadChannel[] {
         @doc value "are the channels the task acquires."
     }
@@ -134,7 +134,7 @@ ReadConfig struct extends task_config.BaseRead {
     @go migrate
 }
 
-WriteConfig struct extends task_config.BasePersist {
+WriteConfig struct extends task.BasePersistConfig {
     state_rate     telem.Rate = 25 {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
     }
@@ -153,7 +153,7 @@ WriteConfig struct extends task_config.BasePersist {
     @go migrate
 }
 
-ScanConfig struct extends task_config.BaseScan {
+ScanConfig struct extends task.BaseScanConfig {
     @doc value  "configures an EtherCAT scan task."
     @go marshal
     @go migrate

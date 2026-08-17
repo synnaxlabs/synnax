@@ -9,7 +9,7 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/task_config/v0"
+import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 TemperatureUnits enum {
@@ -204,7 +204,7 @@ WriteChannel union on type extends BaseWriteChannel {
     @go marshal
 }
 
-ReadConfig struct extends task_config.BaseRead {
+ReadConfig struct extends task.BaseReadConfig {
     device                            device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
@@ -229,7 +229,7 @@ ReadConfig struct extends task_config.BaseRead {
     @go migrate
 }
 
-WriteConfig struct extends task_config.BaseWrite {
+WriteConfig struct extends task.BaseWriteConfig {
     state_rate telem.Rate = 10 {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
     }
@@ -242,7 +242,7 @@ WriteConfig struct extends task_config.BaseWrite {
     @go migrate
 }
 
-ScanConfig struct extends task_config.BaseScan {
+ScanConfig struct extends task.BaseScanConfig {
     tcp_scan_multiplier int32 = 10 {
         @doc value """
             is the number of scan cycles between TCP device scans. USB devices scan

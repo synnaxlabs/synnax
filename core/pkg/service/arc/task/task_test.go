@@ -37,7 +37,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -477,8 +476,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-auto-start",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
+						BasePersistConfig: task.BasePersistConfig{
+							BaseStartConfig: task.BaseStartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -512,8 +511,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-silent-stop",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
+						BasePersistConfig: task.BasePersistConfig{
+							BaseStartConfig: task.BaseStartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -597,8 +596,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-boot-auto-start-failure",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
+						BasePersistConfig: task.BasePersistConfig{
+							BaseStartConfig: task.BaseStartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -654,8 +653,8 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "test-boot-auto-start",
 				Type: arctask.Type,
 				Config: configToMap(arctask.Config{
-					BasePersist: config.BasePersist{
-						BaseStart: config.BaseStart{AutoStart: true},
+					BasePersistConfig: task.BasePersistConfig{
+						BaseStartConfig: task.BaseStartConfig{AutoStart: true},
 					},
 					ArcKey: uuid.New(),
 				}),

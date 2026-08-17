@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v3"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -37,10 +37,10 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v3.Config{
-				BasePersist: config.BasePersist{
-					BaseStart: config.BaseStart{
-						Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart: false,
+				BasePersistConfig: task.BasePersistConfig{
+					BaseStartConfig: task.BaseStartConfig{
+						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:   false,
 					},
 					DataSavingDisabled: true,
 				},
@@ -52,8 +52,11 @@ var _ = Describe("Codec", func() {
 				LockMemory:    true,
 			}),
 			Entry("zero values", v3.Config{
-				BasePersist: config.BasePersist{
-					BaseStart:          config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
+				BasePersistConfig: task.BasePersistConfig{
+					BaseStartConfig: task.BaseStartConfig{
+						KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
+						AutoStart:   false,
+					},
 					DataSavingDisabled: false,
 				},
 				ArcKey:        uuid.Nil,
@@ -69,10 +72,10 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeConfig(b *testing.B) {
 	seed := v3.Config{
-		BasePersist: config.BasePersist{
-			BaseStart: config.BaseStart{
-				Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart: false,
+		BasePersistConfig: task.BasePersistConfig{
+			BaseStartConfig: task.BaseStartConfig{
+				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:   false,
 			},
 			DataSavingDisabled: true,
 		},
@@ -101,10 +104,10 @@ func BenchmarkEncodeDecodeConfig(b *testing.B) {
 func FuzzDecodeConfig(f *testing.F) {
 	{
 		seed := v3.Config{
-			BasePersist: config.BasePersist{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
+			BasePersistConfig: task.BasePersistConfig{
+				BaseStartConfig: task.BaseStartConfig{
+					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:   false,
 				},
 				DataSavingDisabled: true,
 			},
@@ -123,8 +126,11 @@ func FuzzDecodeConfig(f *testing.F) {
 	}
 	{
 		seed := v3.Config{
-			BasePersist: config.BasePersist{
-				BaseStart:          config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
+			BasePersistConfig: task.BasePersistConfig{
+				BaseStartConfig: task.BaseStartConfig{
+					KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
+					AutoStart:   false,
+				},
 				DataSavingDisabled: false,
 			},
 			ArcKey:        uuid.Nil,

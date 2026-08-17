@@ -18,7 +18,8 @@ import "schemas/synnax/status"
 @ts output  "client/ts/src/device"
 
 Key = string {
-    @doc value "is a unique identifier for the device"
+    @cpp include "client/cpp/device/key.h"
+    @doc value   "is a unique identifier for the device"
 }
 
 StatusDetails struct {

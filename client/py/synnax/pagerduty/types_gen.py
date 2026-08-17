@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax.task import config
+from synnax import task
 
 
 class Alert(BaseModel):
@@ -44,7 +44,7 @@ class Alert(BaseModel):
         return hash(self.key)
 
 
-class TaskConfig(config.BaseStart):
+class TaskConfig(task.BaseStartConfig):
     """Configures a PagerDuty alert task, which forwards Synnax status changes to
     PagerDuty as events.
 

@@ -11,9 +11,9 @@
 
 package v0
 
-import config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+import task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 
 // StatusConfig configures the rack status reporting task, which carries no settings.
 type StatusConfig struct {
-	config.Keyed
+	task.KeyedConfig
 }

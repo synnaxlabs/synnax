@@ -9,7 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
-import "schemas/synnax/task_config"
+import "schemas/synnax/task"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/opcua"
@@ -64,12 +64,14 @@ WriteChannel struct extends BaseChannel {
     @go marshal
 }
 
-ReadConfig struct extends task_config.BaseRead {
+ReadConfig struct extends task.BaseReadConfig {
     sample_rate telem.Rate = 50 {
         @doc value "is the per-channel hardware sample rate, in hertz."
+        @ts type   "number"
     }
     stream_rate telem.Rate = 25 {
         @doc value "is the rate at which samples are streamed to Synnax, in hertz."
+        @ts type   "number"
     }
     device      device.Key = "" {
         @doc value "is the key of the device representing the OPC UA server."
@@ -89,7 +91,7 @@ ReadConfig struct extends task_config.BaseRead {
     @go migrate
 }
 
-WriteConfig struct extends task_config.BaseWrite {
+WriteConfig struct extends task.BaseWriteConfig {
     channels WriteChannel[] {
         @doc value "are the OPC UA nodes the task drives."
     }
@@ -99,7 +101,7 @@ WriteConfig struct extends task_config.BaseWrite {
     @go migrate
 }
 
-ScanConfig struct extends task_config.BaseScan {
+ScanConfig struct extends task.BaseScanConfig {
     @doc value  "configures an OPC UA scan task."
     @go marshal
     @go migrate

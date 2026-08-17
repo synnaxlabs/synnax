@@ -9,7 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
-import "schemas/synnax/task_config"
+import "schemas/synnax/task"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/labjack"
@@ -209,7 +209,7 @@ WriteChannel union on type extends BaseWriteChannel {
     @go marshal
 }
 
-ReadConfig struct extends task_config.BaseRead {
+ReadConfig struct extends task.BaseReadConfig {
     device                            device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
@@ -234,7 +234,7 @@ ReadConfig struct extends task_config.BaseRead {
     @go migrate
 }
 
-WriteConfig struct extends task_config.BaseWrite {
+WriteConfig struct extends task.BaseWriteConfig {
     state_rate telem.Rate = 10 {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
         @ts type   "number"
@@ -248,7 +248,7 @@ WriteConfig struct extends task_config.BaseWrite {
     @go migrate
 }
 
-ScanConfig struct extends task_config.BaseScan {
+ScanConfig struct extends task.BaseScanConfig {
     tcp_scan_multiplier int32 = 10 {
         @doc value """
             is the number of scan cycles between TCP device scans. USB devices scan

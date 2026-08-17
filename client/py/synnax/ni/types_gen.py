@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
 from synnax import device as device_
-from synnax.task import config
+from synnax import task
 from x import telem
 
 TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
@@ -699,7 +699,7 @@ class DOChannel(BaseModel):
         return hash(self.key)
 
 
-class WriteConfig(config.BaseWrite):
+class WriteConfig(task.BaseWriteConfig):
     """Carries the configuration fields shared by NI write tasks.
 
     Attributes:
@@ -712,7 +712,7 @@ class WriteConfig(config.BaseWrite):
         return hash(self.key)
 
 
-class ScanConfig(config.BaseScan):
+class ScanConfig(task.BaseScanConfig):
     """Configures the NI device scanner task.
 
     Attributes:
@@ -808,7 +808,7 @@ Scale = Annotated[
 ]
 
 
-class DigitalReadConfig(config.BaseRead):
+class DigitalReadConfig(task.BaseReadConfig):
     """Configures an NI digital read task.
 
     Attributes:
@@ -1354,7 +1354,7 @@ AOChannel = Annotated[
 ]
 
 
-class AnalogReadConfig(config.BaseRead):
+class AnalogReadConfig(task.BaseReadConfig):
     """Configures an NI analog read task. Each channel carries its own device.
 
     Attributes:
@@ -1367,7 +1367,7 @@ class AnalogReadConfig(config.BaseRead):
         return hash(self.key)
 
 
-class CounterReadConfig(config.BaseRead):
+class CounterReadConfig(task.BaseReadConfig):
     """Configures an NI counter read task. Each channel carries its own device.
 
     Attributes:

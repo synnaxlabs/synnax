@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/task_config"
+import "schemas/synnax/task"
 
 @go output "core/pkg/service/pagerduty"
 @py output "client/py/synnax/pagerduty"
@@ -41,7 +41,7 @@ Alert struct {
     @go marshal
 }
 
-TaskConfig struct extends task_config.BaseStart {
+TaskConfig struct extends task.BaseStartConfig {
     routing_key string = "" {
         @doc value "is the PagerDuty Events API v2 routing key."
     }

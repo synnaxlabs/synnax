@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/config/types.gen.h"
+#include "client/cpp/device/key.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -87,7 +87,7 @@ struct BaseWriteChannel {
 };
 
 /// @brief ScanConfig configures an EtherCAT scan task.
-struct ScanConfig : public ::synnax::task::config::BaseScan {
+struct ScanConfig : public ::synnax::task::BaseScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -147,7 +147,7 @@ WriteChannel parse_write_channel(x::json::Parser parser);
 
 /// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
-struct ReadConfig : public ::synnax::task::config::BaseRead {
+struct ReadConfig : public ::synnax::task::BaseReadConfig {
     /// @brief channels are the channels the task acquires.
     std::vector<ReadChannel> channels;
 
@@ -157,7 +157,7 @@ struct ReadConfig : public ::synnax::task::config::BaseRead {
 
 /// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
-struct WriteConfig : public ::synnax::task::config::BasePersist {
+struct WriteConfig : public ::synnax::task::BasePersistConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(25);

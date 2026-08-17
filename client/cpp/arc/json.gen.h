@@ -16,7 +16,7 @@
 
 #include "client/cpp/arc/types.gen.h"
 #include "client/cpp/status/json.gen.h"
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "arc/cpp/graph/json.gen.h"
@@ -63,9 +63,9 @@ inline x::json::json Arc::to_json() const {
 
 inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
     TaskConfig result;
-    static_cast<::synnax::task::config::BasePersist &>(
+    static_cast<::synnax::task::BasePersistConfig &>(
         result
-    ) = ::synnax::task::config::BasePersist::parse(parser);
+    ) = ::synnax::task::BasePersistConfig::parse(parser);
     result.arc_key = parser.field<Key>("arc_key");
     result.hash = parser.field<std::string>("hash", "");
     result.execution_mode = parser.field<std::string>("execution_mode", "AUTO");
@@ -77,7 +77,7 @@ inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
 
 inline x::json::json TaskConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
+    for (auto &[k, v]: ::synnax::task::BasePersistConfig::to_json().items())
         j[k] = v;
     j["arc_key"] = this->arc_key.to_json();
     j["hash"] = this->hash;

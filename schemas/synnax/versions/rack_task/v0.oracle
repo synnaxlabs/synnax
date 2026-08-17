@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/task_config/v0"
+import "schemas/synnax/versions/task/v2"
 
-StatusConfig struct extends task_config.Keyed {
+StatusConfig struct extends task.KeyedConfig {
     @doc value  "configures the rack status reporting task, which carries no settings."
     @go marshal
     @go migrate

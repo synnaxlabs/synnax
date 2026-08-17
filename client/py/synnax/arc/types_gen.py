@@ -17,11 +17,11 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import status as status_
+from synnax import task
 from synnax.arc import graph as graph_
 from synnax.arc import program as program_
 from synnax.arc import text as text_
 from synnax.ontology.payload import ID
-from synnax.task import config
 
 MODE_TEXT: Literal["text"] = "text"
 
@@ -60,7 +60,7 @@ class StatusDetails(BaseModel):
     running: bool
 
 
-class TaskConfig(config.BasePersist):
+class TaskConfig(task.BasePersistConfig):
     """Configures an Arc task, which runs a compiled Arc module.
 
     Attributes:

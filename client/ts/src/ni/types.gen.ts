@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
-import { taskConfig } from "@/task/config";
+import { task } from "@/task";
 
 export const TERMINAL_CONFIGS = [
   "Cfg_Default",
@@ -438,12 +438,12 @@ export const doChannelZ = z.object({
 });
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 
-export const writeConfigZ = taskConfig.baseWriteZ.extend({
+export const writeConfigZ = task.baseWriteConfigZ.extend({
   stateRate: z.number().default(10),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-export const scanConfigZ = taskConfig.baseScanZ.extend({
+export const scanConfigZ = task.baseScanConfigZ.extend({
   ignoredModels: z.string().array().default(["^cRIO.*", "^nown.*"]),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
@@ -595,7 +595,7 @@ export const SCALE_SCHEMAS: {
   none: noneScaleZ,
 };
 
-export const digitalReadConfigZ = taskConfig.baseReadZ.extend({
+export const digitalReadConfigZ = task.baseReadConfigZ.extend({
   device: device.keyZ.default(""),
   channels: diChannelZ.array().default(() => []),
 });
@@ -1610,12 +1610,12 @@ export const AO_CHANNEL_SCHEMAS: {
   ao_voltage: aoVoltageChannelZ,
 };
 
-export const analogReadConfigZ = taskConfig.baseReadZ.extend({
+export const analogReadConfigZ = task.baseReadConfigZ.extend({
   channels: aiChannelZ.array().default(() => []),
 });
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
 
-export const counterReadConfigZ = taskConfig.baseReadZ.extend({
+export const counterReadConfigZ = task.baseReadConfigZ.extend({
   channels: ciChannelZ.array().default(() => []),
 });
 export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}

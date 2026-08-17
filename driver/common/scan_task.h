@@ -16,7 +16,7 @@
 
 #include "absl/log/log.h"
 
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
@@ -53,11 +53,11 @@ inline x::json::json merge_device_properties(
 /// @brief common scan task configuration shared across device discovery tasks.
 /// Wraps the schema-generated scan config (rate, disabled) so the field set has a
 /// single definition in the oracle schema.
-struct ScanTaskConfig : ::synnax::task::config::BaseScan {
+struct ScanTaskConfig : ::synnax::task::BaseScanConfig {
     ScanTaskConfig() = default;
 
     explicit ScanTaskConfig(x::json::Parser &cfg):
-        ::synnax::task::config::BaseScan(::synnax::task::config::BaseScan::parse(cfg)) {
+        ::synnax::task::BaseScanConfig(::synnax::task::BaseScanConfig::parse(cfg)) {
     }
 };
 

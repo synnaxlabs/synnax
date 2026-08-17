@@ -9,56 +9,56 @@
 
 #include <include/gtest/gtest.h>
 
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 
-namespace synnax::task::config {
-/// @brief it should parse the generated BaseStart with auto_start present.
-TEST(BaseStart, testParseWithAutoStart) {
+namespace synnax::task {
+/// @brief it should parse the generated BaseStartConfig with auto_start present.
+TEST(BaseStartConfig, testParseWithAutoStart) {
     const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BaseStart::parse(parser);
+    const auto config = BaseStartConfig::parse(parser);
 
     EXPECT_TRUE(config.auto_start);
 }
 
 /// @brief it should use default values when fields are missing.
-TEST(BaseStart, testParseWithDefaults) {
+TEST(BaseStartConfig, testParseWithDefaults) {
     const auto json = nlohmann::json{};
     auto parser = x::json::Parser(json);
-    const auto config = BaseStart::parse(parser);
+    const auto config = BaseStartConfig::parse(parser);
 
     EXPECT_FALSE(config.auto_start);
 }
 
-/// @brief it should parse the generated BasePersist with both fields present.
-TEST(BasePersist, testParseWithBothFields) {
+/// @brief it should parse the generated BasePersistConfig with both fields present.
+TEST(BasePersistConfig, testParseWithBothFields) {
     const auto json = nlohmann::json{
         {"data_saving_disabled", true},
         {"auto_start", true}
     };
     auto parser = x::json::Parser(json);
-    const auto config = BasePersist::parse(parser);
+    const auto config = BasePersistConfig::parse(parser);
 
     EXPECT_TRUE(config.data_saving_disabled);
     EXPECT_TRUE(config.auto_start);
 }
 
 /// @brief it should use default values when fields are missing.
-TEST(BasePersist, testParseWithDefaults) {
+TEST(BasePersistConfig, testParseWithDefaults) {
     const auto json = nlohmann::json{};
     auto parser = x::json::Parser(json);
-    const auto config = BasePersist::parse(parser);
+    const auto config = BasePersistConfig::parse(parser);
 
     EXPECT_FALSE(config.data_saving_disabled);
     EXPECT_FALSE(config.auto_start);
 }
 
 /// @brief it should parse with only data_saving_disabled present.
-TEST(BasePersist, testParseWithDataSavingDisabledOnly) {
+TEST(BasePersistConfig, testParseWithDataSavingDisabledOnly) {
     const auto json = nlohmann::json{{"data_saving_disabled", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BasePersist::parse(parser);
+    const auto config = BasePersistConfig::parse(parser);
 
     EXPECT_TRUE(config.data_saving_disabled);
     EXPECT_FALSE(config.auto_start);
@@ -66,20 +66,20 @@ TEST(BasePersist, testParseWithDataSavingDisabledOnly) {
 
 /// @brief it should mint a record key for a config that carries none, so a config
 /// written by the driver still parses.
-TEST(BaseStart, testParseWithoutKey) {
+TEST(BaseStartConfig, testParseWithoutKey) {
     const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BaseStart::parse(parser);
+    const auto config = BaseStartConfig::parse(parser);
 
     EXPECT_FALSE(parser.error()) << parser.error().message();
     EXPECT_FALSE(config.key.is_nil());
 }
 
 /// @brief it should parse with only auto_start present.
-TEST(BasePersist, testParseWithAutoStartOnly) {
+TEST(BasePersistConfig, testParseWithAutoStartOnly) {
     const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BasePersist::parse(parser);
+    const auto config = BasePersistConfig::parse(parser);
 
     EXPECT_FALSE(config.data_saving_disabled);
     EXPECT_TRUE(config.auto_start);

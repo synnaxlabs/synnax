@@ -31,6 +31,25 @@ type Status = versions.Status
 // for devices.
 type Task = versions.Task
 
+// KeyedConfig is the base for every stored task configuration record.
+type KeyedConfig = versions.KeyedConfig
+
+// BaseStartConfig carries the configuration fields shared by every task.
+type BaseStartConfig = versions.BaseStartConfig
+
+// BasePersistConfig carries the configuration fields shared by tasks that write
+// telemetry.
+type BasePersistConfig = versions.BasePersistConfig
+
+// BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
+type BaseReadConfig = versions.BaseReadConfig
+
+// BaseWriteConfig carries the configuration fields shared by hardware control tasks.
+type BaseWriteConfig = versions.BaseWriteConfig
+
+// BaseScanConfig carries the fields shared by every scan task configuration.
+type BaseScanConfig = versions.BaseScanConfig
+
 // Command is a command to execute on a task in the Driver system.
 type Command struct {
 	// Task is the key of the target task.

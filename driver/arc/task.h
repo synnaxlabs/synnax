@@ -16,7 +16,7 @@
 
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/synnax.h"
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -37,13 +37,13 @@
 
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
-struct TaskConfig : ::synnax::task::config::BasePersist {
+struct TaskConfig : ::synnax::task::BasePersistConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
-        ::synnax::task::config::BasePersist(std::move(other)),
+        ::synnax::task::BasePersistConfig(std::move(other)),
         arc_key(std::move(other.arc_key)),
         program(std::move(other.program)),
         loop(std::move(other.loop)) {}
@@ -52,8 +52,8 @@ struct TaskConfig : ::synnax::task::config::BasePersist {
     const TaskConfig &operator=(const TaskConfig &) = delete;
 
     explicit TaskConfig(x::json::Parser &parser):
-        ::synnax::task::config::BasePersist(
-            ::synnax::task::config::BasePersist::parse(parser)
+        ::synnax::task::BasePersistConfig(
+            ::synnax::task::BasePersistConfig::parse(parser)
         ),
         arc_key(parser.field<x::uuid::UUID>("arc_key")),
         loop(parser) {}

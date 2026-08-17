@@ -17,9 +17,9 @@
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
-#include "client/cpp/device/json.gen.h"
+#include "client/cpp/device/key.h"
 #include "client/cpp/modbus/types.gen.h"
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -92,9 +92,9 @@ inline x::json::json BaseWriteChannel::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::task::config::BaseRead &>(
+    static_cast<::synnax::task::BaseReadConfig &>(
         result
-    ) = ::synnax::task::config::BaseRead::parse(parser);
+    ) = ::synnax::task::BaseReadConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.channels = [&] {
         std::vector<ReadChannel> result;
@@ -109,7 +109,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseRead::to_json().items())
+    for (auto &[k, v]: ::synnax::task::BaseReadConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     {
@@ -123,9 +123,9 @@ inline x::json::json ReadConfig::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::task::config::BaseWrite &>(
+    static_cast<::synnax::task::BaseWriteConfig &>(
         result
-    ) = ::synnax::task::config::BaseWrite::parse(parser);
+    ) = ::synnax::task::BaseWriteConfig::parse(parser);
     result.channels = [&] {
         std::vector<WriteChannel> result;
         if (parser.has("channels"))
@@ -139,7 +139,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseWrite::to_json().items())
+    for (auto &[k, v]: ::synnax::task::BaseWriteConfig::to_json().items())
         j[k] = v;
     {
         auto arr = x::json::json::array();
@@ -152,15 +152,15 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::task::config::BaseScan &>(
+    static_cast<::synnax::task::BaseScanConfig &>(
         result
-    ) = ::synnax::task::config::BaseScan::parse(parser);
+    ) = ::synnax::task::BaseScanConfig::parse(parser);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseScan::to_json().items())
+    for (auto &[k, v]: ::synnax::task::BaseScanConfig::to_json().items())
         j[k] = v;
     return j;
 }

@@ -16,7 +16,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -300,14 +300,14 @@ func (u *WriteChannel) ApplyDefaults() {
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type ReadConfig struct {
-	config.BaseRead
+	task.BaseReadConfig
 	// Channels are the channels the task acquires.
 	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
-	r.BaseRead.ApplyDefaults()
+	r.BaseReadConfig.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -316,7 +316,7 @@ func (r *ReadConfig) ApplyDefaults() {
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type WriteConfig struct {
-	config.BasePersist
+	task.BasePersistConfig
 	// StateRate is the rate at which output state is reported to Synnax, in hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 	// ExecutionRate is the rate at which commands are applied to the bus, in hertz.
@@ -340,10 +340,10 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig struct {
-	config.BaseScan
+	task.BaseScanConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
-	s.BaseScan.ApplyDefaults()
+	s.BaseScanConfig.ApplyDefaults()
 }

@@ -9,7 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
-import "schemas/synnax/task_config"
+import "schemas/synnax/task"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/ethercat"
@@ -127,7 +127,7 @@ WriteChannel union on type extends BaseWriteChannel {
     @go marshal
 }
 
-ReadConfig struct extends task_config.BaseRead {
+ReadConfig struct extends task.BaseReadConfig {
     channels ReadChannel[] {
         @doc value "are the channels the task acquires."
     }
@@ -140,7 +140,7 @@ ReadConfig struct extends task_config.BaseRead {
     @go migrate
 }
 
-WriteConfig struct extends task_config.BasePersist {
+WriteConfig struct extends task.BasePersistConfig {
     state_rate     telem.Rate = 25 {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
         @ts type   "number"
@@ -161,7 +161,7 @@ WriteConfig struct extends task_config.BasePersist {
     @go migrate
 }
 
-ScanConfig struct extends task_config.BaseScan {
+ScanConfig struct extends task.BaseScanConfig {
     @doc value  "configures an EtherCAT scan task."
     @go marshal
     @go migrate

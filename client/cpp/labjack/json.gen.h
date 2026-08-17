@@ -17,9 +17,9 @@
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
-#include "client/cpp/device/json.gen.h"
+#include "client/cpp/device/key.h"
 #include "client/cpp/labjack/types.gen.h"
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -80,9 +80,9 @@ inline x::json::json BaseWriteChannel::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::task::config::BaseRead &>(
+    static_cast<::synnax::task::BaseReadConfig &>(
         result
-    ) = ::synnax::task::config::BaseRead::parse(parser);
+    ) = ::synnax::task::BaseReadConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.channels = [&] {
         std::vector<ReadChannel> result;
@@ -105,7 +105,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseRead::to_json().items())
+    for (auto &[k, v]: ::synnax::task::BaseReadConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     {
@@ -121,9 +121,9 @@ inline x::json::json ReadConfig::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::task::config::BaseWrite &>(
+    static_cast<::synnax::task::BaseWriteConfig &>(
         result
-    ) = ::synnax::task::config::BaseWrite::parse(parser);
+    ) = ::synnax::task::BaseWriteConfig::parse(parser);
     result.state_rate = parser.field<::x::telem::Rate>(
         "state_rate",
         ::x::telem::Rate(10)
@@ -141,7 +141,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseWrite::to_json().items())
+    for (auto &[k, v]: ::synnax::task::BaseWriteConfig::to_json().items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
     {
@@ -155,16 +155,16 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::task::config::BaseScan &>(
+    static_cast<::synnax::task::BaseScanConfig &>(
         result
-    ) = ::synnax::task::config::BaseScan::parse(parser);
+    ) = ::synnax::task::BaseScanConfig::parse(parser);
     result.tcp_scan_multiplier = parser.field<std::int32_t>("tcp_scan_multiplier", 10);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseScan::to_json().items())
+    for (auto &[k, v]: ::synnax::task::BaseScanConfig::to_json().items())
         j[k] = v;
     j["tcp_scan_multiplier"] = this->tcp_scan_multiplier;
     return j;
