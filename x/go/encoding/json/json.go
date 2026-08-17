@@ -10,6 +10,7 @@
 package json
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -20,10 +21,30 @@ import (
 	"github.com/synnaxlabs/x/http"
 )
 
-// Codec is a JSON implementation of http.FileCodec.
-var Codec http.FileCodec = &codec{}
+// Codec is a JSON implementation of http.FileCodec with compact encoding.
+var Codec = NewCodec()
 
-type codec struct{}
+type codec struct {
+	// indent is the per-level indentation for encoded output; empty means compact.
+	indent string
+}
+
+// NewCodec returns a JSON implementation of http.FileCodec configured with the given
+// options.
+func NewCodec(opts ...Option) http.FileCodec {
+	c := &codec{}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
+}
+
+// Option configures a codec built by NewCodec.
+type Option func(*codec)
+
+// WithIndent encodes each level of nesting with the given indentation and appends a
+// trailing newline, for files a user reads. Decoding is unaffected.
+func WithIndent(indent string) Option { return func(c *codec) { c.indent = indent } }
 
 func (*codec) ContentType() string { return "application/json" }
 
@@ -42,16 +63,25 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	return nil
 }
 
-func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return nil, encoding.SugarEncodingError(value, err)
+func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
+	if c.indent == "" {
+		b, err := json.Marshal(value)
+		if err != nil {
+			return nil, encoding.SugarEncodingError(value, err)
+		}
+		return b, nil
 	}
-	return b, nil
+	var buf bytes.Buffer
+	if err := c.EncodeStream(ctx, &buf, value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
-func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
-	if err := json.NewEncoder(w).Encode(value); err != nil {
+func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", c.indent)
+	if err := enc.Encode(value); err != nil {
 		return encoding.SugarEncodingError(value, err)
 	}
 	return nil

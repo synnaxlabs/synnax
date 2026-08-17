@@ -9,6 +9,7 @@
 
 import {
   DisconnectedError,
+  imex,
   type ontology,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -59,7 +60,7 @@ export const useResource = (): ((id: ontology.ID) => void) => {
         if (client == null) throw new DisconnectedError();
         const { name } = await client.ontology.retrieve(id);
         export_({
-          stream: async (client) => await client.imex.export(id, { encoding: "JSON" }),
+          stream: async (client) => await client.imex.export(id, imex.JSON_OPTIONS),
           name,
           extension: "json",
         });

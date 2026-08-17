@@ -12,6 +12,7 @@ import {
   arc,
   DisconnectedError,
   group,
+  imex,
   lineplot,
   log,
   type ontology,
@@ -228,7 +229,7 @@ const ingestBundle = async (
     let id: ontology.ID;
     try {
       id = await client.imex.import(JSON.stringify(member.data), {
-        encoding: "JSON",
+        ...imex.JSON_OPTIONS,
         fileName: baseNameOf(path),
         parent: projectID,
       });
