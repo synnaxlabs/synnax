@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, type destructor, primitive, record } from "@synnaxlabs/x";
+import {
+  array,
+  caseconv,
+  type destructor,
+  primitive,
+  record,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
@@ -100,7 +107,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     opts: query.WriteOptions<Project[]> = {},
   ): Promise<Project | Project[]> {
     const isMany = Array.isArray(projects);
-    const optimistic = array.toArray(projects).map((p) => projectZ.parse(p));
+    const optimistic = array
+      .toArray(projects)
+      .map((p) => zod.parse(projectZ, p, { label: "project" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
