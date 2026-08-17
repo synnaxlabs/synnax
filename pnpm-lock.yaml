@@ -609,31 +609,19 @@ importers:
 
   drift:
     dependencies:
-      '@reduxjs/toolkit':
-        specifier: 'catalog:'
-        version: 2.12.0(react-redux@9.3.0(@types/react@19.2.18)(react@19.2.8)(redux@5.0.1))(react@19.2.8)
       '@synnaxlabs/x':
         specifier: workspace:^
         version: link:../x/ts
       '@tauri-apps/api':
         specifier: 'catalog:'
         version: 2.11.1
-      async-mutex:
-        specifier: 'catalog:'
-        version: 0.5.0
-      react:
-        specifier: 'catalog:'
-        version: 19.2.8
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.2.8(react@19.2.8)
-      react-redux:
-        specifier: 'catalog:'
-        version: 9.3.0(@types/react@19.2.18)(react@19.2.8)(redux@5.0.1)
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
+      '@reduxjs/toolkit':
+        specifier: 'catalog:'
+        version: 2.12.0(react-redux@9.3.0(@types/react@19.2.18)(react@19.2.8)(redux@5.0.1))(react@19.2.8)
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
         version: link:../configs/eslint
@@ -661,12 +649,24 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.10(vitest@4.1.10)
+      async-mutex:
+        specifier: 'catalog:'
+        version: 0.5.0
       eslint:
         specifier: 'catalog:'
         version: 10.8.0(jiti@2.7.0)(supports-color@10.2.2)
       jsdom:
         specifier: 'catalog:'
         version: 30.0.1
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.8(react@19.2.8)
+      react-redux:
+        specifier: 'catalog:'
+        version: 9.3.0(@types/react@19.2.18)(react@19.2.8)(redux@5.0.1)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -722,10 +722,41 @@ importers:
 
   pluto:
     dependencies:
-      '@codingame/monaco-vscode-api':
+      '@codingame/monaco-vscode-editor-api':
         specifier: ^36.0.0
         version: 36.0.0
-      '@codingame/monaco-vscode-editor-api':
+      '@synnaxlabs/alamos':
+        specifier: workspace:^
+        version: link:../alamos/ts
+      '@synnaxlabs/client':
+        specifier: workspace:^
+        version: link:../client/ts
+      '@synnaxlabs/freighter':
+        specifier: workspace:*
+        version: link:../freighter/ts
+      '@synnaxlabs/media':
+        specifier: workspace:*
+        version: link:../x/media
+      '@synnaxlabs/x':
+        specifier: workspace:^
+        version: link:../x/ts
+      '@xyflow/react':
+        specifier: ^12.11.2
+        version: 12.11.2(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.15)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      clsx:
+        specifier: 'catalog:'
+        version: 2.1.1
+      react-icons:
+        specifier: 'catalog:'
+        version: 5.7.0(react@19.2.8)
+      vscode-languageclient:
+        specifier: ^10.1.0
+        version: 10.1.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@codingame/monaco-vscode-api':
         specifier: ^36.0.0
         version: 36.0.0
       '@codingame/monaco-vscode-extension-api':
@@ -752,88 +783,12 @@ importers:
       '@fontsource/inter':
         specifier: 'catalog:'
         version: 5.3.0
-      '@synnaxlabs/alamos':
-        specifier: workspace:^
-        version: link:../alamos/ts
-      '@synnaxlabs/arc':
-        specifier: workspace:^
-        version: link:../arc/ts
-      '@synnaxlabs/client':
-        specifier: workspace:^
-        version: link:../client/ts
-      '@synnaxlabs/freighter':
-        specifier: workspace:*
-        version: link:../freighter/ts
-      '@synnaxlabs/media':
-        specifier: workspace:*
-        version: link:../x/media
-      '@synnaxlabs/x':
-        specifier: workspace:^
-        version: link:../x/ts
-      '@tanstack/react-virtual':
-        specifier: ^3.14.9
-        version: 3.14.9(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@xyflow/react':
-        specifier: ^12.11.2
-        version: 12.11.2(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.15)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      async-mutex:
-        specifier: 'catalog:'
-        version: 0.5.0
-      clsx:
-        specifier: 'catalog:'
-        version: 2.1.1
-      compromise:
-        specifier: 'catalog:'
-        version: 14.16.0
-      compromise-dates:
-        specifier: 'catalog:'
-        version: 3.8.1(compromise@14.16.0)
-      d3-scale:
-        specifier: ^4.0.2
-        version: 4.0.2
-      error-stack-parser:
-        specifier: ^2.1.4
-        version: 2.1.4
-      fuse.js:
-        specifier: ^7.5.0
-        version: 7.5.0
-      mathjs:
-        specifier: ^15.2.0
-        version: 15.2.0
-      pluralize:
-        specifier: 'catalog:'
-        version: 8.0.0
-      react:
-        specifier: 'catalog:'
-        version: 19.2.8
-      react-color:
-        specifier: ^2.19.3
-        version: 2.19.3(react@19.2.8)
-      react-icons:
-        specifier: 'catalog:'
-        version: 5.7.0(react@19.2.8)
-      source-map-js:
-        specifier: ^1.2.1
-        version: 1.2.1
-      use-sync-external-store:
-        specifier: ^1.6.0
-        version: 1.6.0(react@19.2.8)
-      vscode:
-        specifier: npm:@codingame/monaco-vscode-extension-api@^36.0.0
-        version: '@codingame/monaco-vscode-extension-api@36.0.0'
-      vscode-jsonrpc:
-        specifier: ^9.0.1
-        version: 9.0.1
-      vscode-languageclient:
-        specifier: ^10.1.0
-        version: 10.1.0
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-    devDependencies:
       '@juggle/resize-observer':
         specifier: ^3.4.0
         version: 3.4.0
+      '@synnaxlabs/arc':
+        specifier: workspace:^
+        version: link:../arc/ts
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
         version: link:../configs/eslint
@@ -849,6 +804,9 @@ importers:
       '@synnaxlabs/vite-plugin':
         specifier: workspace:^
         version: link:../configs/vite
+      '@tanstack/react-virtual':
+        specifier: ^3.14.9
+        version: 3.14.9(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.2(@testing-library/dom@10.4.0)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -891,42 +849,74 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.10(vitest@4.1.10)
+      async-mutex:
+        specifier: 'catalog:'
+        version: 0.5.0
+      compromise:
+        specifier: 'catalog:'
+        version: 14.16.0
+      compromise-dates:
+        specifier: 'catalog:'
+        version: 3.8.1(compromise@14.16.0)
+      d3-scale:
+        specifier: ^4.0.2
+        version: 4.0.2
+      error-stack-parser:
+        specifier: ^2.1.4
+        version: 2.1.4
       eslint:
         specifier: 'catalog:'
         version: 10.8.0(jiti@2.7.0)(supports-color@10.2.2)
+      fuse.js:
+        specifier: ^7.5.0
+        version: 7.5.0
       jsdom:
         specifier: 'catalog:'
         version: 30.0.1
+      mathjs:
+        specifier: ^15.2.0
+        version: 15.2.0
+      pluralize:
+        specifier: 'catalog:'
+        version: 8.0.0
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+      react-color:
+        specifier: ^2.19.3
+        version: 2.19.3(react@19.2.8)
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
+      source-map-js:
+        specifier: ^1.2.1
+        version: 1.2.1
       stylelint:
         specifier: 'catalog:'
         version: 17.14.1(supports-color@10.2.2)(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      use-sync-external-store:
+        specifier: ^1.6.0
+        version: 1.6.0(react@19.2.8)
       vite:
         specifier: 'catalog:'
         version: 8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+      vscode:
+        specifier: npm:@codingame/monaco-vscode-extension-api@^36.0.0
+        version: '@codingame/monaco-vscode-extension-api@36.0.0'
+      vscode-jsonrpc:
+        specifier: ^9.0.1
+        version: 9.0.1
       ws:
         specifier: 'catalog:'
         version: 8.21.2
 
   x/media:
-    dependencies:
-      clsx:
-        specifier: 'catalog:'
-        version: 2.1.1
-      react:
-        specifier: 'catalog:'
-        version: 19.2.8
-      react-icons:
-        specifier: 'catalog:'
-        version: 5.7.0(react@19.2.8)
     devDependencies:
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
@@ -952,9 +942,18 @@ importers:
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 6.0.5(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+      clsx:
+        specifier: 'catalog:'
+        version: 2.1.1
       eslint:
         specifier: 'catalog:'
         version: 10.8.0(jiti@2.7.0)(supports-color@10.2.2)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+      react-icons:
+        specifier: 'catalog:'
+        version: 5.7.0(react@19.2.8)
       stylelint:
         specifier: 'catalog:'
         version: 17.14.1(supports-color@10.2.2)(typescript@7.0.2)
@@ -970,12 +969,6 @@ importers:
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
-      nanoid:
-        specifier: ^6.0.1
-        version: 6.0.1
-      uuid:
-        specifier: ^14.0.1
-        version: 14.0.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1001,9 +994,15 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.8.0(jiti@2.7.0)(supports-color@10.2.2)
+      nanoid:
+        specifier: ^6.0.1
+        version: 6.0.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      uuid:
+        specifier: ^14.0.1
+        version: 14.0.1
       vite:
         specifier: 'catalog:'
         version: 8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)
