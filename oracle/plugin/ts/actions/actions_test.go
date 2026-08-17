@@ -176,6 +176,46 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
+				"Should lowercase a multi-word type name in parse-error labels",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/lineplot"
+
+					LinePlot struct {
+						key uuid
+
+						action Rename {
+							name string
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "lineplot", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(`label: "line plot rename action payload",`)
+				},
+			)
+
+			It(
+				"Should keep a proper-noun type name unchanged in parse-error labels",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/arc"
+
+					Arc struct {
+						key uuid
+
+						action Rename {
+							name string
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "arc", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(`label: "Arc rename action payload",`)
+				},
+			)
+
+			It(
 				"Should not emit the inlined HandlerResult/ReduceAllResult interfaces or open-coded produce loop",
 				func(ctx SpecContext) {
 					source := `
