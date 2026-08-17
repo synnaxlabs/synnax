@@ -32,7 +32,7 @@ var _ = Describe("Service", func() {
 	createIndexed := func(ctx SpecContext) (channel.Channel, channel.Channel) {
 		idxCh := channel.Channel{
 			Name:     UniqueChannelName(),
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}
 		Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())

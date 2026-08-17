@@ -68,7 +68,7 @@ var _ = Describe("Writer", func() {
 					Expect(overflowWriter.Create(ctx, &virtual)).To(Succeed())
 					internal := channel.Channel{
 						Name:        UniqueChannelName(),
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Internal:    true,
 						Leaseholder: 1,
@@ -83,7 +83,7 @@ var _ = Describe("Writer", func() {
 				for range 2 {
 					ch := channel.Channel{
 						Name:        UniqueChannelName(),
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
@@ -91,7 +91,7 @@ var _ = Describe("Writer", func() {
 				}
 				third := channel.Channel{
 					Name:        UniqueChannelName(),
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: 1,
 				}
@@ -111,7 +111,7 @@ var _ = Describe("Writer", func() {
 				)
 				idx := channel.Channel{
 					Name:        UniqueChannelName(),
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: 1,
 				}
@@ -206,7 +206,7 @@ var _ = Describe("Writer", func() {
 			JustBeforeEach(func(ctx SpecContext) {
 				ch.IsIndex = true
 				ch.Name = UniqueChannelName()
-				ch.DataType = telem.TimeStampT
+				ch.DataType = telem.TimestampT
 				ch.Leaseholder = 1
 				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			})
@@ -273,13 +273,13 @@ var _ = Describe("Writer", func() {
 				chs := []channel.Channel{
 					{
 						Name:        UniqueChannelName(),
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						Leaseholder: 1,
 						IsIndex:     true,
 					},
 					{
 						Name:        UniqueChannelName(),
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						Leaseholder: 1,
 						IsIndex:     true,
 					},
@@ -316,7 +316,7 @@ var _ = Describe("Writer", func() {
 			BeforeEach(func() {
 				ch.IsIndex = true
 				ch.Name = UniqueChannelName()
-				ch.DataType = telem.TimeStampT
+				ch.DataType = telem.TimestampT
 				ch.Leaseholder = 1
 			})
 			It("Should create the channel without error", func(ctx SpecContext) {
@@ -393,7 +393,7 @@ var _ = Describe("Writer", func() {
 						ch := channel.Channel{
 							IsIndex:     true,
 							Name:        "SG0001",
-							DataType:    telem.TimeStampT,
+							DataType:    telem.TimestampT,
 							Leaseholder: 1,
 						}
 						Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
@@ -402,7 +402,7 @@ var _ = Describe("Writer", func() {
 						newCh := channel.Channel{
 							IsIndex:     true,
 							Name:        "SG0001",         // Same name
-							DataType:    telem.TimeStampT, // Same data type
+							DataType:    telem.TimestampT, // Same data type
 							Leaseholder: 1,
 						}
 
@@ -424,7 +424,7 @@ var _ = Describe("Writer", func() {
 						).To(Succeed())
 						Expect(resChannels).To(HaveLen(1))
 						Expect(resChannels[0].IsIndex).To(BeTrue())
-						Expect(resChannels[0].DataType).To(Equal(telem.TimeStampT))
+						Expect(resChannels[0].DataType).To(Equal(telem.TimestampT))
 					},
 				)
 				It(
@@ -518,7 +518,7 @@ var _ = Describe("Writer", func() {
 
 					indexCh := indexChannels[0]
 					Expect(indexCh.IsIndex).To(BeTrue())
-					Expect(indexCh.DataType).To(Equal(telem.TimeStampT))
+					Expect(indexCh.DataType).To(Equal(telem.TimestampT))
 					Expect(indexCh.Virtual).To(BeTrue())
 					Expect(indexCh.Leaseholder).To(Equal(node.KeyFree))
 					Expect(indexCh.LocalKey).To(Equal(calcCh.LocalIndex))
@@ -584,13 +584,13 @@ var _ = Describe("Writer", func() {
 					// Create index channels for regular channels first
 					indexCh1 := channel.Channel{
 						Name:        "regular1_idx",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
 					indexCh2 := channel.Channel{
 						Name:        "regular2_idx",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
@@ -770,7 +770,7 @@ var _ = Describe("Writer", func() {
 						},
 						{
 							Name:     name + "_time",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 					}
@@ -797,7 +797,7 @@ var _ = Describe("Writer", func() {
 						},
 						{
 							Name:        name + "_time",
-							DataType:    telem.TimeStampT,
+							DataType:    telem.TimestampT,
 							IsIndex:     true,
 							Virtual:     true,
 							Leaseholder: node.KeyFree,
@@ -955,7 +955,7 @@ var _ = Describe("Writer", func() {
 				ch2 = channel.Channel{
 					IsIndex:     true,
 					Name:        UniqueChannelName(),
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Leaseholder: 1,
 				}
 				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
@@ -1005,7 +1005,7 @@ var _ = Describe("Writer", func() {
 					nonVirtualCh := channel.Channel{
 						IsIndex:     true,
 						Name:        "NonVirtual",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						Leaseholder: 1,
 						Virtual:     false,
 					}
@@ -1053,7 +1053,7 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					ch := channel.Channel{
 						Name:        "my channel with spaces",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
@@ -1091,7 +1091,7 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					ch := channel.Channel{
 						Name:        "1sensor",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
@@ -1120,7 +1120,7 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					ch := channel.Channel{
 						Name:        "original_name",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
@@ -1161,7 +1161,7 @@ var _ = Describe("Writer", func() {
 			JustBeforeEach(func(ctx SpecContext) {
 				prefix := UniqueChannelName()
 				idxCh.Name = prefix + "_time"
-				idxCh.DataType = telem.TimeStampT
+				idxCh.DataType = telem.TimestampT
 				idxCh.IsIndex = true
 				idxCh.Leaseholder = 1
 				Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
@@ -1248,7 +1248,7 @@ var _ = Describe("Writer", func() {
 			JustBeforeEach(func(ctx SpecContext) {
 				internalCh = channel.Channel{
 					Name:        UniqueChannelName(),
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Internal:    true,
 					Leaseholder: 1,
@@ -1282,7 +1282,7 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					externalCh := channel.Channel{
 						Name:        UniqueChannelName(),
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
@@ -1430,7 +1430,7 @@ var _ = Describe("Writer", func() {
 			for i := range limit {
 				ch := channel.Channel{
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Name:        fmt.Sprintf("LimitTest%d", i),
 					Leaseholder: 1,
 				}
@@ -1440,7 +1440,7 @@ var _ = Describe("Writer", func() {
 			// Try to create one more channel over the limit
 			overLimitCh := channel.Channel{
 				IsIndex:     true,
-				DataType:    telem.TimeStampT,
+				DataType:    telem.TimestampT,
 				Name:        "OverLimit",
 				Leaseholder: 1,
 			}
@@ -1456,7 +1456,7 @@ var _ = Describe("Writer", func() {
 				for i := range limit {
 					ch := channel.Channel{
 						IsIndex:     true,
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						Name:        fmt.Sprintf("LimitTest%d", i),
 						Leaseholder: 1,
 					}
@@ -1467,7 +1467,7 @@ var _ = Describe("Writer", func() {
 				// Try to create one more channel over the limit
 				overLimitCh := channel.Channel{
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Name:        "OverLimit",
 					Leaseholder: 1,
 				}
@@ -1480,7 +1480,7 @@ var _ = Describe("Writer", func() {
 				// Now we should be able to create a new channel
 				newCh := channel.Channel{
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Name:        "NewAfterDelete",
 					Leaseholder: 1,
 				}
@@ -1489,7 +1489,7 @@ var _ = Describe("Writer", func() {
 				// Try to create one more channel (should fail again)
 				anotherCh := channel.Channel{
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Name:        "AnotherOverLimit",
 					Leaseholder: 1,
 				}
@@ -1504,7 +1504,7 @@ var _ = Describe("Writer", func() {
 			for i := range limit {
 				ch := channel.Channel{
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Name:        fmt.Sprintf("LimitTest%d", i),
 					Leaseholder: 1,
 				}
@@ -1515,7 +1515,7 @@ var _ = Describe("Writer", func() {
 			// Try to create one more channel over the limit
 			overLimitCh := channel.Channel{
 				IsIndex:     true,
-				DataType:    telem.TimeStampT,
+				DataType:    telem.TimestampT,
 				Name:        "OverLimit",
 				Leaseholder: 1,
 			}
@@ -1548,7 +1548,7 @@ var _ = Describe("Writer", func() {
 				for i := range limit {
 					ch := channel.Channel{
 						IsIndex:     true,
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						Name:        fmt.Sprintf("LimitTest%d", i),
 						Leaseholder: 1,
 					}
@@ -1557,7 +1557,7 @@ var _ = Describe("Writer", func() {
 				}
 				overLimitCh := channel.Channel{
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Name:        "OverLimit",
 					Leaseholder: 1,
 				}
@@ -1575,7 +1575,7 @@ var _ = Describe("Writer", func() {
 				Expect(limitWriter.Delete(ctx, channels[0].Key(), false)).To(Succeed())
 				newCh := channel.Channel{
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Name:        "NewAfterReject",
 					Leaseholder: 1,
 				}
@@ -1590,7 +1590,7 @@ var _ = Describe("Writer", func() {
 				for i := range limit {
 					ch := channel.Channel{
 						IsIndex:     true,
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						Name:        fmt.Sprintf("LimitTest%d", i),
 						Leaseholder: 1,
 					}
@@ -1604,7 +1604,7 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 				newCh := channel.Channel{
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Name:        "NewAfterDelete",
 					Leaseholder: 1,
 				}

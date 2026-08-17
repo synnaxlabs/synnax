@@ -372,7 +372,7 @@ func (s Series) DataString() string {
 		return truncateAndFormatSlice(UnmarshalSeries[uint8](s))
 	case BooleanT:
 		return truncateAndFormatSlice(UnmarshalSeries[bool](s))
-	case TimeStampT:
+	case TimestampT:
 		first, last := xslices.Truncate(UnmarshalSeries[TimeStamp](s), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)
 		for i := 1; i < len(first); i++ {

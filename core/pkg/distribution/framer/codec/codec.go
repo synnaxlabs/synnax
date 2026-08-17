@@ -590,8 +590,8 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				c.retrieveName(ctx, key),
 			)
 		}
-		isEquivalent := (dt == telem.Int64T || dt == telem.TimeStampT) &&
-			(s.DataType == telem.Int64T || s.DataType == telem.TimeStampT)
+		isEquivalent := (dt == telem.Int64T || dt == telem.TimestampT) &&
+			(s.DataType == telem.Int64T || s.DataType == telem.TimestampT)
 		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
 				validate.ErrValidation,

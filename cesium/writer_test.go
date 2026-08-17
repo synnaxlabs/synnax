@@ -67,7 +67,7 @@ var _ = Describe("Writer Behavior", func() {
 								Key:      basic1Index,
 								Name:     "Shakespeare",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      basic1,
@@ -122,7 +122,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      basic1Index,
 										Name:     "Orwell",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      basic1,
@@ -209,7 +209,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Vonnegut",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      data,
@@ -320,7 +320,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Bradbury",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      data,
@@ -458,7 +458,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Atwood",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      data,
@@ -552,7 +552,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Camus",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      data,
@@ -633,7 +633,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Tolstoy",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      d1,
@@ -771,7 +771,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Borges",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      data,
@@ -859,7 +859,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Le Guin",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      d0,
@@ -946,7 +946,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Lem",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      d0,
@@ -1051,7 +1051,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Bulgakov",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      d0,
@@ -1158,7 +1158,7 @@ var _ = Describe("Writer Behavior", func() {
 										Key:      idx,
 										Name:     "Nabokov",
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Key:      data,
@@ -1243,7 +1243,7 @@ var _ = Describe("Writer Behavior", func() {
 								Key:      basicIdx1,
 								Name:     "Hemingway",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      basic1,
@@ -1255,7 +1255,7 @@ var _ = Describe("Writer Behavior", func() {
 								Key:      basicIdx2,
 								Name:     "Steinbeck",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      basic2,
@@ -1310,7 +1310,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Name:     "Bruce",
 								Key:      index1,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -1370,7 +1370,7 @@ var _ = Describe("Writer Behavior", func() {
 								Name:     "Bird",
 								Key:      idx,
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Name:     "Live Studio Session",
@@ -1411,7 +1411,7 @@ var _ = Describe("Writer Behavior", func() {
 								Key:      idx,
 								Name:     "var-idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      strChan,
@@ -1452,7 +1452,7 @@ var _ = Describe("Writer Behavior", func() {
 									Key:      idx,
 									Name:     "mixed-idx",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Key:      fixed,
@@ -1507,7 +1507,7 @@ var _ = Describe("Writer Behavior", func() {
 									Key:      idx,
 									Name:     "multi-var-idx",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Key:      strCh,
@@ -1559,7 +1559,7 @@ var _ = Describe("Writer Behavior", func() {
 								Key:      idx,
 								Name:     "nl-idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -1603,7 +1603,7 @@ var _ = Describe("Writer Behavior", func() {
 									Key:      idx,
 									Name:     "persist-idx",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Key:      data,
@@ -1648,7 +1648,7 @@ var _ = Describe("Writer Behavior", func() {
 									Key:      idx,
 									Name:     "no-idx-idx",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Key:      data,
@@ -1699,7 +1699,7 @@ var _ = Describe("Writer Behavior", func() {
 									Key:      idx,
 									Name:     "inexact-idx",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Key:      data,
@@ -1743,7 +1743,7 @@ var _ = Describe("Writer Behavior", func() {
 									Key:      idx,
 									Name:     "inexact-multi-idx",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Key:      data,
@@ -1801,7 +1801,7 @@ var _ = Describe("Writer Behavior", func() {
 									Name:     "Innerbloom",
 									Key:      index1,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Name:     "Lane",
@@ -1813,7 +1813,7 @@ var _ = Describe("Writer Behavior", func() {
 									Name:     "Eight",
 									Key:      index2,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Name:     "Remix",
@@ -2578,7 +2578,7 @@ var _ = Describe("Writer Behavior", func() {
 									Name:     "Tarkovsky",
 									Key:      index,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Name:     "Sokurov",
@@ -2671,7 +2671,7 @@ var _ = Describe("Writer Behavior", func() {
 								Name:     "Massane",
 								Key:      index,
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Name:     "Waiting",
@@ -2806,7 +2806,7 @@ var _ = Describe("Writer Behavior", func() {
 									Name:     "A",
 									Key:      index,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Name:     "Collection",
@@ -2971,7 +2971,7 @@ var _ = Describe("Writer Behavior", func() {
 								MustSucceed(
 									subFS.Stat(strconv.Itoa(int(index)) + "/2.domain"),
 								).Size(),
-							).To(Equal(int64(7 * telem.TimeStampT.Density())))
+							).To(Equal(int64(7 * telem.TimestampT.Density())))
 
 							By("Asserting that the data is correct")
 							f := MustSucceed(
@@ -3046,7 +3046,7 @@ var _ = Describe("Writer Behavior", func() {
 								Name:     "An Odd",
 								Key:      index,
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Name:     "Collection",
@@ -3174,7 +3174,7 @@ var _ = Describe("Writer Behavior", func() {
 									Name:     "O",
 									Key:      index,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Name:     "P",
@@ -3186,7 +3186,7 @@ var _ = Describe("Writer Behavior", func() {
 									Name:     "C",
 									Key:      index2,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 								cesium.Channel{
 									Name:     "U",
@@ -3245,7 +3245,7 @@ var _ = Describe("Writer Behavior", func() {
 								Key:      key,
 								Name:     "John",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      key2,
@@ -3332,7 +3332,7 @@ var _ = Describe("Writer Behavior", func() {
 							Name:     "U",
 							Key:      basic1Index,
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Name:     "A",
@@ -3390,7 +3390,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Key:      idx,
 								Name:     "nonexistent 1",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -3425,7 +3425,7 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.Channel{
 							Key:      idx,
 							Name:     "uneven 1",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						cesium.Channel{
@@ -3563,7 +3563,7 @@ var _ = Describe("Writer Behavior", func() {
 								Name:     "B",
 								Key:      disc1Index,
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Name:     "D",
@@ -3615,7 +3615,7 @@ var _ = Describe("Writer Behavior", func() {
 								Name:     "Gregory",
 								Key:      disc2Index,
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Name:     "Alan",
@@ -3653,7 +3653,7 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.Channel{
 							Name:     "Isakov",
 							Key:      dtErrKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 					w := MustSucceed(db.OpenWriter(
@@ -3690,7 +3690,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Name:     "We",
 								Key:      key,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						),
@@ -3864,7 +3864,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Key:      vlv1CmdTime,
 								Name:     "vlv_1_cmd_time",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -3876,7 +3876,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Key:      vlv2CmdTime,
 								Name:     "vlv_2_cmd_time",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -4000,7 +4000,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Name:     "Index 1",
 								Key:      index1,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -4074,7 +4074,7 @@ var _ = Describe("Writer Behavior", func() {
 									cesium.Channel{
 										Key:      key,
 										Name:     "Close 1",
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 										IsIndex:  true,
 									},
 								),
@@ -4115,7 +4115,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Key:      k2,
 								Name:     "Close 2",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						),
@@ -4126,7 +4126,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Key:      k3,
 								Name:     "Close 3",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						),
@@ -4137,7 +4137,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Key:      k4,
 								Name:     "Close 4",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						),
@@ -4164,7 +4164,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.Channel{
 									Key:      k,
 									Name:     "Close 5",
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 							),
@@ -4205,7 +4205,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.Channel{
 									Name:     "It",
 									Key:      key,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 							),
@@ -4236,7 +4236,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.Channel{
 									Name:     "Our",
 									Key:      key,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 							),
@@ -4264,7 +4264,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.Channel{
 								Name:     "Was",
 								Key:      key,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						),

@@ -195,7 +195,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
 			Expect(fr.Get(2).Series).To(HaveLen(1))
-			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimeStampT))
+			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimestampT))
 		})
 
 		It("Should not write to an index for non-indexed channels", func() {
@@ -419,7 +419,7 @@ var _ = Describe("ProgramState", func() {
 			Expect(fr.Get(1).Series).To(HaveLen(1))
 			Expect(telem.ValueAt[int32](fr.Get(1).Series[0], 0)).To(Equal(int32(42)))
 			Expect(fr.Get(2).Series).To(HaveLen(1))
-			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimeStampT))
+			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimestampT))
 		})
 
 		It("Should not write index for channels without one", func() {

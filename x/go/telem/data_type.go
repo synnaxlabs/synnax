@@ -37,9 +37,9 @@ const (
 	Float32T DataType = versions.Float32T
 	// Float64T is a data type for a 64-bit IEEE-754 floating point number.
 	Float64T DataType = versions.Float64T
-	// TimeStampT is a data type for a signed 64-bit nanosecond count since the Unix
+	// TimestampT is a data type for a signed 64-bit nanosecond count since the Unix
 	// epoch.
-	TimeStampT DataType = versions.TimeStampT
+	TimestampT DataType = versions.TimestampT
 	// UUIDT is a data type for a 128-bit UUID value.
 	UUIDT DataType = versions.UUIDT
 	// StringT is a variable density data type for a UTF-8 encoded string.
@@ -78,7 +78,7 @@ func InferDataType[T Sample]() DataType {
 	case float64:
 		return Float64T
 	case TimeStamp:
-		return TimeStampT
+		return TimestampT
 	case uuid.UUID:
 		return UUIDT
 	case bool:

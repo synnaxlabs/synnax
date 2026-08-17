@@ -34,7 +34,7 @@ var _ = Describe("InferDataType", func() {
 	Specify("int64", DataTypeInferTest[int64](telem.Int64T))
 	Specify("float32", DataTypeInferTest[float32](telem.Float32T))
 	Specify("float64", DataTypeInferTest[float64](telem.Float64T))
-	Specify("timestamp", DataTypeInferTest[telem.TimeStamp](telem.TimeStampT))
+	Specify("timestamp", DataTypeInferTest[telem.TimeStamp](telem.TimestampT))
 	Specify("uuid", DataTypeInferTest[uuid.UUID](telem.UUIDT))
 	Specify("string", DataTypeInferTest[string](telem.StringT))
 	Specify("bytes", DataTypeInferTest[[]byte](telem.BytesT))

@@ -49,7 +49,7 @@ var _ = Describe("Unary racing", func() {
 						Name:     "Anker",
 						Key:      indexKey,
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					},
 					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),

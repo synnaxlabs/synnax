@@ -55,7 +55,7 @@ var _ = Describe("Metrics", Ordered, func() {
 							Key:      indexKey,
 							Name:     "index",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						})).To(Succeed())
 
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{

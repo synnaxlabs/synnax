@@ -453,7 +453,7 @@ var _ = Describe("Codec", func() {
 			func(ctx SpecContext) {
 				c := codec.NewStatic(
 					[]channel.Key{1},
-					[]telem.DataType{telem.TimeStampT},
+					[]telem.DataType{telem.TimestampT},
 				)
 				fr := frame.NewUnary(1, telem.NewSeriesV[int64](1778020940471336961))
 				encoded := MustSucceed(c.Encode(ctx, fr))
@@ -481,7 +481,7 @@ var _ = Describe("Codec", func() {
 			idxCh  channel.Key = 1
 			dataCh channel.Key = 2
 		)
-		resolver := mapResolver{idxCh: telem.TimeStampT, dataCh: telem.Float32T}
+		resolver := mapResolver{idxCh: telem.TimestampT, dataCh: telem.Float32T}
 
 		It(
 			"Should allow the caller to update the list of channels",
@@ -1240,7 +1240,7 @@ var _ = Describe("Codec", func() {
 				// allChannelsPresent must be false even before this fix, but the
 				// decoder still has to walk per-series keys correctly.
 				keys := channel.Keys{1, 2}
-				dataTypes := []telem.DataType{telem.TimeStampT, telem.Float64T}
+				dataTypes := []telem.DataType{telem.TimestampT, telem.Float64T}
 				cd := codec.NewStatic(keys, dataTypes)
 
 				idxA := telem.NewSeriesSecondsTSV(3)
@@ -1290,7 +1290,7 @@ var _ = Describe("Codec", func() {
 				// Key 1 resolves but key 2 does not, so the resolver returns one data
 				// type for two keys.
 				c := codec.NewDynamic(configResolver{
-					dataTypes: map[channel.Key]telem.DataType{1: telem.TimeStampT},
+					dataTypes: map[channel.Key]telem.DataType{1: telem.TimestampT},
 				})
 				Expect(c.Update(ctx, []channel.Key{1, 2})).To(MatchError(
 					ContainSubstring(

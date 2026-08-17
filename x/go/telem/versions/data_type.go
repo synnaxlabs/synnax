@@ -34,9 +34,9 @@ const (
 	Float32T DataType = v0.Float32T
 	// Float64T is a data type for a 64-bit IEEE-754 floating point number.
 	Float64T DataType = v0.Float64T
-	// TimeStampT is a data type for a signed 64-bit nanosecond count since the Unix
+	// TimestampT is a data type for a signed 64-bit nanosecond count since the Unix
 	// epoch.
-	TimeStampT DataType = v0.TimeStampT
+	TimestampT DataType = v0.TimestampT
 	// UUIDT is a data type for a 128-bit UUID value.
 	UUIDT DataType = v0.UUIDT
 	// StringT is a variable density data type for a UTF-8 encoded string.
