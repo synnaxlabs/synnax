@@ -43,13 +43,13 @@ describe("Schematic.Symbol.useImport", () => {
     const picker = interceptFilePicker();
     const { result } = await renderHookWithConsole(
       () => ({
-        run: Schematic.Symbol.useImport(grp.key),
+        run: Schematic.Symbol.useImport(),
         notifications: Status.useNotifications(),
       }),
       { client },
     );
     const name = uniqueName("imported");
-    act(() => result.current.run());
+    act(() => result.current.run(grp.key));
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.selectFiles([fakePickedFile("symbol.json", createLegacySymbolFile(name))]);
     await waitFor(() =>
@@ -69,12 +69,12 @@ describe("Schematic.Symbol.useImport", () => {
     const picker = interceptFilePicker();
     const { result } = await renderHookWithConsole(
       () => ({
-        run: Schematic.Symbol.useImport(grp.key),
+        run: Schematic.Symbol.useImport(),
         notifications: Status.useNotifications(),
       }),
       { client },
     );
-    act(() => result.current.run());
+    act(() => result.current.run(grp.key));
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.selectFiles([fakePickedFile("bad.json", "not json at all")]);
     await waitFor(() =>
@@ -94,12 +94,12 @@ describe("Schematic.Symbol.useImport", () => {
     const picker = interceptFilePicker();
     const { result } = await renderHookWithConsole(
       () => ({
-        run: Schematic.Symbol.useImport(grp.key),
+        run: Schematic.Symbol.useImport(),
         notifications: Status.useNotifications(),
       }),
       { client },
     );
-    act(() => result.current.run());
+    act(() => result.current.run(grp.key));
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.cancel();
     await act(async () => {});

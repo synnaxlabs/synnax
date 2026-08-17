@@ -329,7 +329,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   const openEdit = Symbol.Edit.useModal();
-  const importSymbol = useImportSymbol(selectedGroup);
+  const importSymbol = useImportSymbol();
   const importGroup = useImportGroup();
   const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   const hasCreateSymbolPermission = Access.useCreateGranted(
@@ -398,7 +398,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
             size="small"
             tooltip="Import symbol"
             disabled={!isRemoteGroup}
-            onClick={importSymbol}
+            onClick={() => importSymbol(selectedGroup)}
           >
             <ImportSymbolIcon />
           </Button.Button>
