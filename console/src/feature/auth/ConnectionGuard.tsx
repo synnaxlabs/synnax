@@ -10,7 +10,16 @@
 import "@/feature/auth/ConnectionGuard.css";
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Button,
+  Errors,
+  Flex,
+  Icon,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -28,8 +37,9 @@ import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
 /**
- * Renders a splash instead of the workspace until the session settles. Rejected
- * credentials return to the login surface; a degraded live connection does not.
+ * Renders a splash instead of the workspace until the session settles and the
+ * subject's permissions are cached. Rejected credentials return to the login
+ * surface; a degraded live connection does not.
  */
 export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   const client = Synnax.use();
@@ -38,7 +48,40 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   if (client == null) return children;
   if (status.variant === "error" && status.details.reason === "auth") return <Login />;
   if (!settled) return <Splash client={client} status={status} />;
+  return (
+    <Errors.SuspenseBoundary
+      loading={<Splash client={client} status={status} />}
+      FallbackComponent={PermissionsFallback}
+    >
+      <AwaitPermissions>{children}</AwaitPermissions>
+    </Errors.SuspenseBoundary>
+  );
+};
+
+// Every guarded surface reads a denial from an empty policy set, so the workspace
+// cannot render before the policies land.
+const AwaitPermissions = ({ children }: PropsWithChildren): ReactNode => {
+  Access.useEnsurePermissions({});
   return children;
+};
+
+const PermissionsFallback = (props: Errors.FallbackProps): ReactElement => {
+  const { resetErrorBoundary } = props;
+  const invalidate = Access.useInvalidatePermissions();
+  return (
+    <Errors.Fallback {...props}>
+      <Button.Button
+        variant="filled"
+        onClick={() => {
+          invalidate({});
+          resetErrorBoundary();
+        }}
+      >
+        <Icon.Refresh />
+        Retry
+      </Button.Button>
+    </Errors.Fallback>
+  );
 };
 
 // A check against a dead local port fails in milliseconds, too fast to see.

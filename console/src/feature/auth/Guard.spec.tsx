@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { channel } from "@synnaxlabs/client";
+import { Access, Synnax } from "@synnaxlabs/pluto";
+import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import { createCluster } from "@/session/cluster/testutil";
+import { createCluster, createClusterState } from "@/session/cluster/testutil";
 import {
   createSessionConsoleWrapper,
   pinLocationOrigin,
@@ -206,5 +209,52 @@ describe("auth guard", () => {
     await waitFor(() =>
       expect(findButton("Retry now").getAttribute("aria-disabled")).toBe("true"),
     );
+  });
+});
+
+describe("connection guard permissions", () => {
+  const createGuardWrapper = async (): Promise<FC<PropsWithChildren>> => {
+    const { wrapper: SessionWrapper } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: createClusterState([createCluster(CLUSTER_KEY)], CLUSTER_KEY),
+    });
+    const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+      <SessionWrapper>
+        <Session.SettledProvider>
+          <Auth.Guard>
+            <Auth.ConnectionGuard>{children}</Auth.ConnectionGuard>
+          </Auth.Guard>
+        </Session.SettledProvider>
+      </SessionWrapper>
+    );
+    Wrapper.displayName = "GuardWrapper";
+    return Wrapper;
+  };
+
+  it("should never render a guarded child against an empty policy set", async () => {
+    const wrapper = await createGuardWrapper();
+    const verdicts: boolean[] = [];
+    const { result } = renderHook(
+      () => {
+        const client = Synnax.use();
+        const granted = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+        if (client != null) verdicts.push(granted);
+        return granted;
+      },
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current).toBe(true), { timeout: 10000 });
+    // A child that rendered before the policies landed would read the empty set as
+    // a denial, so a single false recorded here is the defect this guards.
+    expect(verdicts).not.toContain(false);
+  });
+
+  it("should hold the splash while the policies load", async () => {
+    const wrapper = await createGuardWrapper();
+    render(<span>authenticated content</span>, { wrapper });
+    expect(screen.queryByText("authenticated content")).toBeNull();
+    expect(
+      await screen.findByText("authenticated content", {}, { timeout: 10000 }),
+    ).toBeTruthy();
   });
 });
