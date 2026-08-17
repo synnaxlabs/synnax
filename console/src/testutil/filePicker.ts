@@ -11,12 +11,13 @@ import { vi } from "vitest";
 
 /**
  * FakePickedFile is the minimal File surface the browser file-picker path reads:
- * name, optional directory-relative path, and text contents.
+ * name, optional directory-relative path, and contents as text or bytes.
  */
 export interface FakePickedFile {
   name: string;
   webkitRelativePath?: string;
   text: () => Promise<string>;
+  arrayBuffer: () => Promise<ArrayBuffer>;
 }
 
 /** fakePickedFile builds a FakePickedFile with the given name and contents. */
@@ -28,6 +29,7 @@ export const fakePickedFile = (
   name,
   webkitRelativePath,
   text: () => Promise.resolve(contents),
+  arrayBuffer: async () => new TextEncoder().encode(contents).buffer,
 });
 
 /**

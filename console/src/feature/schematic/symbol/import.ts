@@ -87,11 +87,10 @@ export const useImportGroup = (): (() => void) => {
       // The Core owns the bundle format: manifest recognition, legacy migration,
       // membership, and validation. The directory's top-level files are zipped and
       // uploaded untouched. Entries are stored uncompressed; symbol files are small.
-      const encoder = new TextEncoder();
       const entries: Record<string, Uint8Array> = {};
       for (const file of directory.files) {
         if (file.path.includes("/")) continue;
-        entries[file.path] = encoder.encode(await file.read());
+        entries[file.path] = await file.readBytes();
       }
       const imported = await client.schematics.symbols.importGroup(
         zipSync(entries, { level: 0 }),
