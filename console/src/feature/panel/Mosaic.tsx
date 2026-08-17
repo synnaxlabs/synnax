@@ -420,11 +420,11 @@ const KeepAlivePanel = ({ panelKey, ...rest }: KeepAlivePanelProps): ReactElemen
 const PortaledInPanels = memo((props: MosaicProps) => {
   const mounted = Session.Panel.useSelectMounted();
   return (
-    <div>
+    <>
       {mounted.map((key) => (
         <KeepAlivePanel key={key} panelKey={key} {...props} />
       ))}
-    </div>
+    </>
   );
 });
 PortaledInPanels.displayName = "PortaledInPanels";
