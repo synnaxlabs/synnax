@@ -213,8 +213,8 @@ class TestWriter:
         assert len(f) == 6
 
     def test_write_bool_channel(self, client: sy.Synnax):
-        """Should round-trip bool samples through a BOOLEAN channel, verifying bit-packed
-        wire format and byte-packed persistence."""
+        """Should round-trip bool samples through a BOOLEAN channel, verifying
+        bit-packed wire format and byte-packed persistence."""
         idx = client.channels.create(
             name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )

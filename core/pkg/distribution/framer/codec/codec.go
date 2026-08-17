@@ -44,10 +44,10 @@ func bitPackedByteCount[T int | int64 | uint32](nSamples T) T {
 	return (nSamples + bitsPerByte - 1) / bitsPerByte
 }
 
-// wireSize returns the number of bytes a series occupies on the wire after
-// per-type encoding. BooleanT samples are bit-packed at one bit each; variable-length
-// types carry their length-prefixed in-memory representation directly; other fixed
-// types use their in-memory byte count.
+// wireSize returns the number of bytes a series occupies on the wire after per-type
+// encoding. BooleanT samples are bit-packed at one bit each; variable-length types
+// carry their length-prefixed in-memory representation directly; other fixed types use
+// their in-memory byte count.
 func wireSize(s telem.Series) int {
 	if s.DataType == telem.BooleanT {
 		return int(bitPackedByteCount(s.Len()))
