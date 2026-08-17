@@ -153,7 +153,7 @@ export const useEditModal = Modals.create(() => {
   const [searchTerm, setSearchTerm] = useState("");
   return (
     <Modals.Frame y className={CSS.BE("label", "edit")}>
-      <Modals.Header icon={<Icon.Label />}>Labels.Edit</Modals.Header>
+      <Modals.Header icon={<Icon.Label />}>Label.Edit</Modals.Header>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}

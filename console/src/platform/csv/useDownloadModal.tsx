@@ -74,7 +74,7 @@ export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
     return (
       <Form.Form<typeof formSchema> {...form}>
         <Modals.Frame className={CSS.B("download-csv")}>
-          <Modals.Header icon={icon}>Download.CSV</Modals.Header>
+          <Modals.Header icon={icon}>CSV.Download</Modals.Header>
           <Modals.Body gap="huge">
             <Text.Text level="h3" weight={450}>
               Download data for {name} to a CSV

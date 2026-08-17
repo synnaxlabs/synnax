@@ -18,13 +18,15 @@ export interface HeaderProps extends Omit<
   Nav.BarProps,
   "location" | "size" | "children"
 > {
-  children: string;
+  /** Dotted breadcrumb name, or pre-split segments for names that may contain
+   * dots. */
+  children: string | string[];
   icon?: Icon.ReactElement;
   hideClose?: boolean;
 }
 
 /**
- * Header renders a modal's top title bar: a breadcrumb of the dotted name, an optional
+ * Header renders a modal's top title bar: a breadcrumb of the given name, an optional
  * leading icon, and a close button wired to dismiss the modal. Modal renderers render
  * their own Header so that title and icon stay static presentation owned by the renderer
  * rather than dynamic state on the open-modal entry.
@@ -37,6 +39,7 @@ export const Header = ({
   ...rest
 }: HeaderProps): ReactElement => {
   const { close } = Dialog.useContext();
+  const segments = typeof children === "string" ? children.split(".") : children;
   return (
     <Nav.Bar
       location="top"
@@ -48,7 +51,7 @@ export const Header = ({
       <Nav.Bar.Start>
         <Breadcrumb.Breadcrumb gap="tiny">
           {icon != null && <Breadcrumb.Segment color={9}>{icon}</Breadcrumb.Segment>}
-          {children.split(".").map((segment) => (
+          {segments.map((segment) => (
             <Breadcrumb.Segment color={9} key={segment} weight={400}>
               {segment}
             </Breadcrumb.Segment>

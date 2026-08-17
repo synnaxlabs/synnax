@@ -93,7 +93,7 @@ const Internal = <
 
   return (
     <Modals.Frame className={CSS.B("configure")}>
-      <Modals.Header icon={icon}>{name || "Device.Configure"}</Modals.Header>
+      <Modals.Header icon={icon}>{name ? [name] : "Device.Configure"}</Modals.Header>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Modals.Body align="stretch" gap="large">
           {isNameStep ? (
