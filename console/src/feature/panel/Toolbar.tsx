@@ -22,7 +22,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({
-  message = "No component selected.",
+  message = "No component selected",
 }: EmptyContentProps): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
@@ -39,7 +39,7 @@ const EmptyContent = ({
 // resource empties it too. Show a quiet placeholder; the tombstone with Close
 // and Restore lives in the mosaic.
 const DeletedContent = ({ name }: Flux.Tombstone): ReactElement => (
-  <EmptyContent message={`${name ?? "This resource"} was deleted.`} />
+  <EmptyContent message={`${name ?? "This resource"} was deleted`} />
 );
 
 // Deletion is handled by the ResourceGuard, so only the not-found race lands here.

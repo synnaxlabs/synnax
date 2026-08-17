@@ -142,7 +142,7 @@ describe("arc editor toolbar", () => {
     await screen.findByText("Basic");
     store.dispatch(Session.Arc.setEditable({ key: arc.key, editable: false }));
     expect(await screen.findByText(/is not editable/)).toBeTruthy();
-    fireEvent.click(await screen.findByText("enable editing."));
+    fireEvent.click(await screen.findByText("Enable editing"));
     await waitFor(() =>
       expect(
         Session.Arc.selectState({ state: store.getState(), key: arc.key }).graph

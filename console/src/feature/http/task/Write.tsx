@@ -564,7 +564,7 @@ const Form: FC = () => {
               onContextMenu={menuProps.open}
               emptyContent={
                 <Empty.Action
-                  message="No endpoints."
+                  message="No endpoints"
                   action="Add endpoint"
                   onClick={isSnapshot ? undefined : handleAddEndpoint}
                 />

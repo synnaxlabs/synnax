@@ -34,7 +34,7 @@ describe("project/Splash", () => {
     it("should report why the list is empty when it never loaded", async () => {
       await renderWithConsole(<Project.Splash />);
       expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
-      expect(screen.queryByText("No projects created")).toBeNull();
+      expect(screen.queryByText("No projects")).toBeNull();
     });
   });
 
@@ -89,7 +89,7 @@ describe("project/Splash", () => {
       fireEvent.change(input, { target: { value: uniqueName("nomatchterm") } });
 
       await screen.findByText("No matching projects");
-      expect(screen.queryByText("No projects created")).toBeNull();
+      expect(screen.queryByText("No projects")).toBeNull();
     });
   });
 

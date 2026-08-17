@@ -129,9 +129,7 @@ export const Splash = (): ReactElement => {
           ) : answered ? (
             <Empty.Action
               grow
-              message={
-                searchTerm === "" ? "No projects created" : "No matching projects"
-              }
+              message={searchTerm === "" ? "No projects" : "No matching projects"}
             />
           ) : (
             <Flex.Box grow center>

@@ -80,7 +80,7 @@ const renderToolbar = async ({
 describe("range/Toolbar", () => {
   it("shows the empty state and opens the Range Explorer from it", async () => {
     const { store } = await renderToolbar();
-    expect(await screen.findByText("No favorited ranges.")).toBeTruthy();
+    expect(await screen.findByText("No favorited ranges")).toBeTruthy();
     fireEvent.click(await screen.findByText("Open range explorer"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "view")

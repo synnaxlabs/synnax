@@ -63,14 +63,14 @@ describe("HTTP Read form", () => {
   it("should show the empty state and add + select an endpoint", async () => {
     await renderRead();
     await screen.findByText("Select an endpoint to configure");
-    await screen.findByText("No endpoints.");
+    await screen.findByText("No endpoints");
     await addEndpoint();
     expect(screen.getByRole("button", { name: "GET" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "POST" })).toBeTruthy();
     expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
     expect(screen.getByText("Headers")).toBeTruthy();
     expect(screen.getByText("Query parameters")).toBeTruthy();
-    expect(screen.getByText("No fields.")).toBeTruthy();
+    expect(screen.getByText("No fields")).toBeTruthy();
     expect(screen.queryByText("Select an endpoint to configure")).toBeNull();
   });
 
@@ -92,7 +92,7 @@ describe("HTTP Read form", () => {
     fireEvent.click(screen.getByRole("button", { name: "Value" }));
     await screen.findByText("Timestamp pointer");
     expect(screen.getByText("Format")).toBeTruthy();
-    expect(screen.getByText("No fields.")).toBeTruthy();
+    expect(screen.getByText("No fields")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Software" }));
     await waitFor(() => expect(screen.queryByText("Timestamp pointer")).toBeNull());
   });

@@ -173,7 +173,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         >
           {keys.length === 0 ? (
             <Empty.Action
-              message="No Cores added"
+              message="No Cores"
               action="Add Core"
               onClick={() => openConnect()}
             />

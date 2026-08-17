@@ -270,7 +270,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
         }
         emptyContent={
           <Empty.Action
-            message="No fields."
+            message="No fields"
             action="Add field"
             onClick={isSnapshot ? undefined : handleAdd}
           />
@@ -508,7 +508,7 @@ const Form: FC = () => {
               onContextMenu={menuProps.open}
               emptyContent={
                 <Empty.Action
-                  message="No endpoints."
+                  message="No endpoints"
                   action="Add endpoint"
                   onClick={isSnapshot ? undefined : handleAddEndpoint}
                 />

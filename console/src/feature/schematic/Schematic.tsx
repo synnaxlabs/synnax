@@ -37,7 +37,7 @@ const EmptyContent = (): ReactElement => {
   }, [dispatch, key]);
   return (
     <Empty.Action
-      message="No symbols in this schematic."
+      message="No symbols in this schematic"
       action={canEdit ? "Start editing" : ""}
       onClick={handleStartEditing}
     />

@@ -284,7 +284,7 @@ const Form: FC = () => {
         {selected.length > 0 ? (
           <AlertDetails itemKey={selected[0]} />
         ) : (
-          <Empty.Action message="No alert selected." grow />
+          <Empty.Action message="No alert selected" grow />
         )}
       </Flex.Box>
     </Flex.Box>

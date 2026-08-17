@@ -51,7 +51,7 @@ const EmptyContent = () => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No ranges found."
+      message="No ranges found"
       action={hasCreatePermission ? "Create a range" : undefined}
       onClick={() => openCreate()}
     />

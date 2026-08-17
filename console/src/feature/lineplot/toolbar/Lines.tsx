@@ -29,9 +29,8 @@ const EmptyContent = () => {
   const { onSelect } = Select.useContext<string>();
   return (
     <Empty.Action
-      x
-      message="No lines plotted. Select channels using the"
-      action="data tab."
+      message="No lines plotted"
+      action="Select channels in the data tab"
       onClick={(e) => {
         e.stopPropagation();
         onSelect("data");

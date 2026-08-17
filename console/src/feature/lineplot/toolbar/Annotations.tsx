@@ -36,8 +36,7 @@ interface EmptyContentProps {
 
 const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
   <Empty.Action
-    x
-    message="No annotations added"
+    message="No annotations"
     action="Create annotation"
     onClick={onCreateRule}
   />

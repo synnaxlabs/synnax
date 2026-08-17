@@ -42,7 +42,7 @@ const NoRanges = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No favorited ranges."
+      message="No favorited ranges"
       action={hasRetrievePermission ? "Open range explorer" : undefined}
       onClick={openExplorer}
     />

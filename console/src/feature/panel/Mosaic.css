@@ -29,8 +29,8 @@
         opacity: 0.4;
     }
 
-    /* Collapses Empty.Action's 100% x 100% growing box to a single row under the
-       watermark. The .pluto--center repeat outweighs the rule it overrides. */
+    /* Collapses Empty.Action's 100% x 100% growing box to a compact block under
+       the watermark. The .pluto--center repeat outweighs the rule it overrides. */
     .console-mosaic__empty-action.pluto--center {
         width: auto;
         height: auto;

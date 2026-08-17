@@ -51,7 +51,7 @@ const EmptyContent = () => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No existing tasks."
+      message="No tasks"
       action={hasCreatePermission ? "Create a task" : undefined}
       onClick={() => openSelector()}
     />

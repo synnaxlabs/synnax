@@ -41,7 +41,7 @@ const EmptyContent = ({ onCreate }: EmptyContentProps) => {
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No existing Arcs."
+      message="No Arcs"
       action={hasCreatePermission ? "Create Arc automation" : undefined}
       onClick={onCreate}
     />

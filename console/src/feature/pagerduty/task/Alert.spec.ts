@@ -53,14 +53,14 @@ describe("PagerDuty Alert form", () => {
   it("should show the empty state and add + select an alert", async () => {
     await renderAlert();
     await screen.findByText("No alerts");
-    expect(screen.getByText("No alert selected.")).toBeTruthy();
+    expect(screen.getByText("No alert selected")).toBeTruthy();
     expect(screen.getByPlaceholderText(ROUTING_KEY_PLACEHOLDER)).toBeTruthy();
     await addAlert();
     expect(screen.getByText("Treat error as critical")).toBeTruthy();
     expect(screen.getByPlaceholderText("engine-1")).toBeTruthy();
     expect(screen.getByPlaceholderText("engines")).toBeTruthy();
     expect(screen.getByPlaceholderText("engine-failure")).toBeTruthy();
-    expect(screen.queryByText("No alert selected.")).toBeNull();
+    expect(screen.queryByText("No alert selected")).toBeNull();
   });
 
   it("should disable and re-enable alerts through the context menu", async () => {
@@ -84,7 +84,7 @@ describe("PagerDuty Alert form", () => {
     fireEvent.contextMenu(screen.getByText("New alert"));
     fireEvent.click(await screen.findByText("Remove"));
     await screen.findByText("No alerts");
-    expect(screen.getByText("No alert selected.")).toBeTruthy();
+    expect(screen.getByText("No alert selected")).toBeTruthy();
   });
 
   it("should seed the form from the task row's config", async () => {

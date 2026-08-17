@@ -25,7 +25,7 @@ describe("device empty states", () => {
     render(
       <Device.Unconfigured device={DEVICE} canConfigure onConfigure={onConfigure} />,
     );
-    expect(screen.getByText(`${DEVICE.name} is not configured.`)).toBeTruthy();
+    expect(screen.getByText(`${DEVICE.name} is not configured`)).toBeTruthy();
     fireEvent.click(screen.getByText(`Configure ${DEVICE.name}`));
     expect(onConfigure).toHaveBeenCalledWith(DEVICE.key);
   });
@@ -38,7 +38,7 @@ describe("device empty states", () => {
         onConfigure={vi.fn()}
       />,
     );
-    expect(screen.getByText(`${DEVICE.name} is not configured.`)).toBeTruthy();
+    expect(screen.getByText(`${DEVICE.name} is not configured`)).toBeTruthy();
     expect(screen.queryByText(`Configure ${DEVICE.name}`)).toBeNull();
   });
 });

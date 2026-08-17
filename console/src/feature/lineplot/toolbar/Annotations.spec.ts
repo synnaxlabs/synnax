@@ -26,7 +26,7 @@ const renderRulesTab = async () => {
     preloadedState: (key) => createPreloadedState(key),
   });
   fireEvent.click(await screen.findByText("Rules"));
-  await screen.findByText("No annotations added");
+  await screen.findByText("No annotations");
   return handle;
 };
 
@@ -132,7 +132,7 @@ describe("lineplot/toolbar/Annotations", () => {
     const { key, store } = await createRule();
     fireEvent.contextMenu(screen.getByText("Rule 1"));
     fireEvent.click(await screen.findByText("Delete"));
-    expect(await screen.findByText("No annotations added")).toBeDefined();
+    expect(await screen.findByText("No annotations")).toBeDefined();
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
       expect(plot.rules).toHaveLength(0);

@@ -27,8 +27,8 @@ describe("Schematic.Toolbar", () => {
       const { key, store } = await renderSchematic(Schematic.Toolbar, {
         schematic: { name },
       });
-      await screen.findByText(`${name} is not editable. To make changes,`);
-      fireEvent.click(await screen.findByText("enable editing."));
+      await screen.findByText(`${name} is not editable`);
+      fireEvent.click(await screen.findByText("Enable editing"));
       await waitFor(() =>
         expect(
           Session.Schematic.selectState({ state: store.getState(), key }).editable,
@@ -45,7 +45,7 @@ describe("Schematic.Toolbar", () => {
           control: { authority: 1, status: "acquired" },
         },
       });
-      fireEvent.click(await screen.findByText("release control and enable editing."));
+      fireEvent.click(await screen.findByText("Release control and enable editing"));
       await waitFor(() =>
         expect(
           Session.Schematic.selectState({ state: store.getState(), key }).editable,

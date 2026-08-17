@@ -31,7 +31,7 @@ export const Unconfigured = ({
   onConfigure,
 }: UnconfiguredProps): ReactElement => (
   <Empty.Action
-    message={`${name} is not configured.`}
+    message={`${name} is not configured`}
     action={canConfigure ? `Configure ${name}` : ""}
     onClick={() => onConfigure(key)}
   />

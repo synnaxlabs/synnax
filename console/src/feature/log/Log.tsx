@@ -50,9 +50,7 @@ const Internal: Panel.Content = () => {
       emptyContent={
         <Empty.Action
           message={
-            hasChannels
-              ? "No data received yet."
-              : "No channels configured for this log."
+            hasChannels ? "No data received yet" : "No channels configured for this log"
           }
           action={hasChannels ? "" : "Configure channels"}
           onClick={hasChannels ? handleDoubleClick : handleConfigureChannels}

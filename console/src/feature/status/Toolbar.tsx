@@ -39,7 +39,7 @@ const NoStatuses = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No favorited statuses."
+      message="No favorited statuses"
       action={hasRetrievePermission ? "Open status explorer" : undefined}
       onClick={openExplorer}
     />

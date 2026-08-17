@@ -136,7 +136,7 @@ describe("task/Toolbar", () => {
   it("withholds the empty message until the task list answers", async () => {
     const t = await createTask();
     await renderToolbar();
-    expect(screen.queryByText("No existing tasks.")).toBeNull();
+    expect(screen.queryByText("No tasks")).toBeNull();
     await screen.findByText(t.name);
   });
 

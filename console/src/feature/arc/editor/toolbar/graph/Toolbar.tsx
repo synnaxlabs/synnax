@@ -29,9 +29,8 @@ const NotEditableContent = (): ReactElement => {
   const { canEdit } = Session.Arc.useSelectEditable();
   return (
     <Empty.Action
-      x
-      message={`${name} is not editable.${canEdit ? " To make changes," : ""}`}
-      action={canEdit ? "enable editing." : undefined}
+      message={`${name} is not editable`}
+      action={canEdit ? "Enable editing" : undefined}
       onClick={(e) => {
         e.stopPropagation();
         dispatch(Session.Arc.setEditable({ key, editable: true }));
