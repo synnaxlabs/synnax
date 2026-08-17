@@ -321,7 +321,7 @@ export const useCreateAlert = Task.createUseCreate({
 
 export const AlertSelectable = Selector.createSelectable({
   type: ALERT_TYPE,
-  title: "PagerDuty Alert",
+  title: "PagerDuty alert task",
   icon: <Icon.Logo.PagerDuty />,
   useOnSelect: useCreateAlert,
 });

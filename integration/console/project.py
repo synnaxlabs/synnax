@@ -609,7 +609,7 @@ class ProjectClient:
         return files
 
     def import_page(self, json_path: str, name: str) -> None:
-        """Import a component via the real "Import component(s)" command palette flow.
+        """Import a component via the real "Import components" command palette flow.
 
         The import pipeline derives the tab name from the chosen filename (via
         trimFileName), so we copy ``json_path`` into a temp file named
@@ -631,7 +631,7 @@ class ProjectClient:
             tmp_path = os.path.join(tmp_dir, f"{name}.json")
             shutil.copyfile(json_path, tmp_path)
             with self.layout.page.expect_file_chooser() as fc_info:
-                self.layout.command_palette("Import component(s)")
+                self.layout.command_palette("Import components")
             fc_info.value.set_files(tmp_path)
             self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
             if not self.page_exists(name):

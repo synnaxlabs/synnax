@@ -139,7 +139,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           {hasUpdatePermission && (
             <Menu.Item itemKey="import" onClick={() => importComponent(firstID.key)}>
               <Icon.Import />
-              Import component(s)
+              Import components
             </Menu.Item>
           )}
           <Menu.Divider />
