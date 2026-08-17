@@ -45,6 +45,8 @@ import { Triggers } from "@/platform/triggers";
 
 const useForm = PDevice.createForm(SCHEMAS);
 
+const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
+
 const INITIAL_VALUES: Device = {
   key: "",
   name: "OPC UA server",
@@ -70,7 +72,7 @@ const beforeSave = async ({
   const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
   const scanStatus = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
-    timeout: TimeSpan.seconds(10),
+    timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
   if (scanStatus.variant === "error") throw new Error(scanStatus.message);

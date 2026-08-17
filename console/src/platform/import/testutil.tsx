@@ -65,8 +65,14 @@ export const fakeFileEntry = (file: File, until?: Promise<void>): FileSystemEntr
     },
   }) as unknown as FileSystemEntry;
 
-/** Builds the FileSystemDirectoryEntry surface the drop path reads. */
-export const fakeDirectoryEntry = (name: string, files: File[]): FileSystemEntry => {
+/**
+ * Builds the FileSystemDirectoryEntry surface the drop path reads. A File child reads
+ * as a file entry; a FileSystemEntry child passes through, so directories nest.
+ */
+export const fakeDirectoryEntry = (
+  name: string,
+  children: (File | FileSystemEntry)[],
+): FileSystemEntry => {
   let read = false;
   return {
     isFile: false,
@@ -74,7 +80,13 @@ export const fakeDirectoryEntry = (name: string, files: File[]): FileSystemEntry
     name,
     createReader: () => ({
       readEntries: (resolve: (entries: FileSystemEntry[]) => void) => {
-        resolve(read ? [] : files.map((file) => fakeFileEntry(file)));
+        resolve(
+          read
+            ? []
+            : children.map((child) =>
+                child instanceof File ? fakeFileEntry(child) : child,
+              ),
+        );
         read = true;
       },
     }),

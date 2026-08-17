@@ -644,7 +644,6 @@ class RangesClient:
         self.layout.press_escape()
 
         download_button = self.layout.page.get_by_role("button", name="Download").last
-        self.layout.page.evaluate("delete window.showSaveFilePicker")
 
         with self.layout.page.expect_download() as download_info:
             download_button.click()

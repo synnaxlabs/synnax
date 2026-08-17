@@ -26,8 +26,8 @@ import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
-import { CSV } from "@/platform/csv";
 import { Errors } from "@/platform/errors";
+import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
@@ -111,7 +111,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     [name, rangeKey],
   );
 
-  const promptDownloadCSVModal = CSV.useDownloadModal();
+  const promptDownloadCSVModal = Framer.useDownloadCSVModal();
 
   if (status.variant === "error")
     return (

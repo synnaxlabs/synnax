@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/csv/DownloadModal.css";
+import "@/platform/framer/DownloadCSVModal.css";
 
-import { channel } from "@synnaxlabs/client";
+import { channel, DisconnectedError } from "@synnaxlabs/client";
 import {
   Button,
   Channel,
@@ -19,6 +19,8 @@ import {
   Input,
   Nav,
   type Select,
+  Status,
+  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import {
@@ -30,11 +32,11 @@ import {
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
-import { useDownload } from "@/platform/csv/useDownload";
 import { Modals } from "@/platform/modals";
+import { Runtime } from "@/platform/runtime";
 import { Triggers } from "@/platform/triggers";
 
-export interface DownloadModalParams {
+export interface DownloadCSVModalParams {
   channelNames?: Record<channel.Key, string>;
   timeRange: CrudeTimeRange;
   channels: channel.Key[];
@@ -49,9 +51,12 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
 
-export interface PromptDownload extends Modals.Prompt<void, DownloadModalParams> {}
+export interface PromptDownloadCSV extends Modals.Prompt<
+  void,
+  DownloadCSVModalParams
+> {}
 
-export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
+export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalParams>(
   ({ timeRange, channels, name, channelNames, icon, close }) => {
     const form = Form.use<typeof formSchema>({
       schema: formSchema,
@@ -139,7 +144,9 @@ interface DownloadButtonProps {
 }
 
 const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
-  const downloadCSV = useDownload();
+  const handleError = Status.useErrorHandler();
+  const client = Synnax.use();
+  const download = Runtime.useDownload();
   const { get } = Form.useContext();
   const handleClick = () => {
     const timeRange = get<TimeRange>("timeRange").value;
@@ -149,14 +156,22 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
       optional: true,
     })?.value;
     const name = get<string>("name").value;
-    downloadCSV({
-      timeRange,
-      channels,
-      channelNames,
-      iteratorConfig: { downsampleFactor },
-      name,
-      onDownloadStart: handleFinish,
-    });
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const stream = await client.read({
+        timeRange,
+        channels,
+        channelNames,
+        iteratorConfig: { downsampleFactor },
+        responseType: "csv",
+      });
+      await download({
+        stream,
+        name,
+        extension: "csv",
+        onDownloadStart: handleFinish,
+      });
+    }, `Failed to download CSV data for ${name}`);
   };
   const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
   const isDisabled = channelKeys.length === 0;

@@ -11,6 +11,9 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
+import { group } from "@/group";
+import { log } from "@/log";
+import { ontologyID } from "@/project/types.gen";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -120,6 +123,64 @@ describe("Project", () => {
       expect(Object.keys(layout)).toContain("snake_case_key");
       expect(Object.keys(layout)).not.toContain("camel_case_key");
       expect(Object.keys(layout)).not.toContain("pascal_case_key");
+    });
+  });
+  describe("export", () => {
+    // Zip entry names are stored uncompressed, so the raw archive names the bundle's
+    // files without the spec needing a zip reader.
+    const download = async (key: string): Promise<string> => {
+      const stream = await client.projects.export(key, { encoding: "JSON" });
+      return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+    };
+
+    test("export documents and panels as a zip bundle", async () => {
+      const proj = await client.projects.create({ name: `export-${id.create()}` });
+      const l = await client.logs.create(proj.key, { name: "Metrics Log" });
+      await client.panels.create({
+        key: uuid.create(),
+        name: "Controls",
+        parent: ontologyID(proj.key),
+        root: {
+          variant: "leaf",
+          tabs: [
+            {
+              key: uuid.create(),
+              variant: "resource",
+              resource: log.ontologyID(l.key),
+            },
+          ],
+        },
+      });
+      const archive = await download(proj.key);
+      expect(archive.startsWith("PK")).toBe(true);
+      expect(archive).toContain("manifest.json");
+      expect(archive).toContain("Metrics Log.json");
+      expect(archive).toContain("Controls.json");
+    });
+
+    test("grouped members export into directories", async () => {
+      const proj = await client.projects.create({ name: `export-${id.create()}` });
+      const g = await client.groups.create({
+        parent: ontologyID(proj.key),
+        name: "Propulsion",
+      });
+      const l = await client.logs.create(proj.key, { name: "Pressure" });
+      await client.ontology.moveChildren(
+        ontologyID(proj.key),
+        group.ontologyID(g.key),
+        log.ontologyID(l.key),
+      );
+      const archive = await download(proj.key);
+      expect(archive).toContain("Propulsion/Pressure.json");
+    });
+
+    test("suffixes the second of two members taking one file name", async () => {
+      const proj = await client.projects.create({ name: `export-${id.create()}` });
+      await client.logs.create(proj.key, { name: "Pressure" });
+      await client.logs.create(proj.key, { name: "pressure" });
+      const archive = await download(proj.key);
+      expect(archive).toContain("Pressure.json");
+      expect(archive).toContain("pressure (1).json");
     });
   });
 });

@@ -37,6 +37,8 @@ import { Triggers } from "@/platform/triggers";
 
 const useForm = PDevice.createForm(SCHEMAS);
 
+const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
+
 const INITIAL_VALUES: Device = {
   key: "",
   name: "Modbus server",
@@ -70,7 +72,7 @@ const beforeSave = async ({
   });
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
-    timeout: TimeSpan.seconds(10),
+    timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
   if (state.variant === "error") throw new Error(state.message);

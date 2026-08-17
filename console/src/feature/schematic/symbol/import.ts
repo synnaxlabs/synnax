@@ -10,6 +10,7 @@
 import {
   DisconnectedError,
   group,
+  imex,
   type ontology,
   status,
   type Synnax as Client,
@@ -35,7 +36,7 @@ const importSymbolFromData = async (
   fileName: string,
 ): Promise<string> => {
   const id = await client.imex.import(data, {
-    encoding: "JSON",
+    ...imex.JSON_OPTIONS,
     fileName,
     parent: parentID,
   });
