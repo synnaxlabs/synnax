@@ -10,10 +10,11 @@
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { mockBoundingClientRect } from "@/testutil/dom";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 
@@ -121,6 +122,34 @@ describe("Swatch", () => {
       pick(c, GREEN);
       c.unmount();
       expect(onChange).not.toHaveBeenCalled();
+    });
+
+    // Dismissal reads the pointer against getBoundingClientRect, which jsdom reports
+    // as all zeros: the origin lands inside the picker and every other point lands
+    // outside the window. Give the document a size so the dismissal runs.
+    describe("dismissed by a click outside", () => {
+      beforeEach(() => {
+        vi.spyOn(document.documentElement, "getBoundingClientRect").mockImplementation(
+          mockBoundingClientRect(0, 0, 1000, 1000),
+        );
+      });
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it("should call onChange once with the last color", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Color.Swatch value={RED} onChange={onChange} onlyChangeOnBlur />,
+          { wrapper: Wrapper },
+        );
+        fireEvent.click(swatchOf(c));
+        pick(c, GREEN);
+        pick(c, BLUE);
+        fireEvent.pointerDown(document.body, { clientX: 500, clientY: 500 });
+        expect(onChange).toHaveBeenCalledOnce();
+        expect(color.hex(onChange.mock.calls[0][0])).toEqual(`#${BLUE}`);
+      });
     });
   });
 });
