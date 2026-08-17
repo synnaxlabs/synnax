@@ -73,17 +73,32 @@ func normalizeAlpha(a float64) (float64, error) {
 	return a / 255, nil
 }
 
+// parseChannel parses a single RGB channel. A value outside 0-255 fails validation
+// rather than wrapping through the uint8 conversion.
+func parseChannel(n json.Number) (uint8, error) {
+	v, err := n.Int64()
+	if err != nil {
+		return 0, err
+	}
+	if v < 0 || v > 255 {
+		return 0, errors.Wrapf(
+			validate.ErrValidation, "color channel %v is outside the 0-255 range", v,
+		)
+	}
+	return uint8(v), nil
+}
+
 // fromNumbers parses an [R, G, B] or [R, G, B, A] number tuple into a Color.
 func fromNumbers(arr []json.Number) (Color, error) {
-	r, err := arr[0].Int64()
+	r, err := parseChannel(arr[0])
 	if err != nil {
 		return Color{}, err
 	}
-	g, err := arr[1].Int64()
+	g, err := parseChannel(arr[1])
 	if err != nil {
 		return Color{}, err
 	}
-	b, err := arr[2].Int64()
+	b, err := parseChannel(arr[2])
 	if err != nil {
 		return Color{}, err
 	}
@@ -96,7 +111,7 @@ func fromNumbers(arr []json.Number) (Color, error) {
 			return Color{}, err
 		}
 	}
-	return Color{R: uint8(r), G: uint8(g), B: uint8(b), A: a}, nil
+	return Color{R: r, G: g, B: b, A: a}, nil
 }
 
 // UnmarshalJSON supports four formats:

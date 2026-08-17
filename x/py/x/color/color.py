@@ -11,15 +11,15 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class Color(BaseModel):
     """An RGBA color with 8-bit RGB channels and a float alpha."""
 
-    r: int = 0
-    g: int = 0
-    b: int = 0
+    r: int = Field(default=0, ge=0, le=255)
+    g: int = Field(default=0, ge=0, le=255)
+    b: int = Field(default=0, ge=0, le=255)
     a: float = 1
 
     def __init__(self, __value: object = None, /, **kwargs: object):
@@ -63,12 +63,17 @@ def _coerce(v: object) -> object:
         return _from_hex(v)
     if isinstance(v, (list, tuple)):
         if len(v) == 3:
-            return {"r": int(v[0]), "g": int(v[1]), "b": int(v[2]), "a": 1.0}
+            return {
+                "r": _parse_channel(v[0]),
+                "g": _parse_channel(v[1]),
+                "b": _parse_channel(v[2]),
+                "a": 1.0,
+            }
         if len(v) == 4:
             return {
-                "r": int(v[0]),
-                "g": int(v[1]),
-                "b": int(v[2]),
+                "r": _parse_channel(v[0]),
+                "g": _parse_channel(v[1]),
+                "b": _parse_channel(v[2]),
                 "a": _normalize_alpha(float(v[3])),
             }
         raise ValueError(f"Invalid color array length: {len(v)}")
@@ -81,6 +86,16 @@ def _coerce(v: object) -> object:
             return {**v, "a": _normalize_alpha(float(a))}
         return v
     raise ValueError(f"Cannot parse color from: {v!r}")
+
+
+def _parse_channel(v: object) -> int:
+    """Parse a single RGB channel. A fractional value is rejected rather than
+    truncated. The Color field bounds enforce the 0-255 range."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ValueError(f"Invalid color channel: {v!r}")
+    if isinstance(v, float) and not v.is_integer():
+        raise ValueError(f"Color channel {v} is not a whole number")
+    return int(v)
 
 
 def _normalize_alpha(a: float) -> float:

@@ -154,6 +154,19 @@ var _ = Describe("Color", func() {
 			Entry("object", `{"r":5,"g":5,"b":5,"a":300}`),
 			Entry("rgba255 object", `{"rgba255":[5,5,5,300]}`),
 		)
+
+		DescribeTable("Should reject an RGB channel outside the 0-255 range",
+			func(data string) {
+				var c v0.Color
+				Expect(json.Unmarshal([]byte(data), &c)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("array above the range", `[300, 0, 0, 1]`),
+			Entry("array below the range", `[-1, 0, 0, 1]`),
+			Entry("3-element array above the range", `[0, 256, 0]`),
+			Entry("rgba255 object above the range", `{"rgba255":[300,0,0,255]}`),
+			Entry("rgba255 object below the range", `{"rgba255":[-1,0,0,255]}`),
+		)
 	})
 
 	Describe("MessagePack", func() {

@@ -164,3 +164,27 @@ class TestColor:
     def test_legacy_rgba255_object_with_fractional_alpha(self) -> None:
         c = Color({"rgba255": [122, 44, 38, 0.5]})
         assert c == Color(r=122, g=44, b=38, a=0.5)
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            [300, 0, 0, 1],
+            [-1, 0, 0, 1],
+            [0, 256, 0],
+            {"rgba255": [300, 0, 0, 255]},
+            {"rgba255": [-1, 0, 0, 255]},
+            {"r": 300, "g": 0, "b": 0, "a": 1},
+        ],
+    )
+    def test_channel_outside_range_rejected(self, value: object) -> None:
+        with pytest.raises(ValueError):
+            Color(value)
+
+    def test_channel_outside_range_rejected_on_construction(self) -> None:
+        with pytest.raises(ValueError):
+            Color(r=300, g=0, b=0)
+
+    @pytest.mark.parametrize("value", [[1.7, 0, 0, 1], {"rgba255": [1.7, 0, 0, 255]}])
+    def test_fractional_channel_rejected(self, value: object) -> None:
+        with pytest.raises(ValueError, match="not a whole number"):
+            Color(value)
