@@ -32,13 +32,13 @@ const flameArrestor = createStatic({
 });
 const flameArrestorDetonation = createStatic({
   variant: "flameArrestorDetonation",
-  name: "Detonation-Proof",
+  name: "Detonation-proof",
   label: "Flame arrestor (detonation-proof)",
   Primitive: FlameArrestorDetonation,
 });
 const flameArrestorExplosion = createStatic({
   variant: "flameArrestorExplosion",
-  name: "Explosion-Proof",
+  name: "Explosion-proof",
   label: "Flame arrestor (explosion-proof)",
   Primitive: FlameArrestorExplosion,
 });

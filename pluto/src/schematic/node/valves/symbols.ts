@@ -77,13 +77,13 @@ const breather = createDummyToggle({
 });
 const butterflyOne = createToggle({
   variant: "butterflyValveOne",
-  name: "Butterfly (Remote)",
+  name: "Butterfly (remote)",
   label: "Butterfly valve (remote)",
   Primitive: ButterflyOne,
 });
 const butterflyTwo = createToggle({
   variant: "butterflyValveTwo",
-  name: "Butterfly (Manual)",
+  name: "Butterfly (manual)",
   label: "Butterfly valve (manual)",
   Primitive: ButterflyTwo,
 });
@@ -95,7 +95,7 @@ const check = createStatic({
 });
 const checkWithArrow = createStatic({
   variant: "checkValveWithArrow",
-  name: "Check (Arrow)",
+  name: "Check (arrow)",
   label: "Check valve",
   Primitive: CheckWithArrow,
 });
