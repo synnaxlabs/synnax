@@ -55,9 +55,7 @@ describe("Schematic.Symbol.useImport", () => {
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "success" &&
-            st.message === "Successfully imported symbol.json",
+          (st) => st.variant === "success" && st.message === "Imported symbol.json",
         ),
       ).toBe(true),
     );

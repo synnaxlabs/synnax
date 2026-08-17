@@ -69,8 +69,7 @@ const renderModal = async () => {
   return { statuses };
 };
 
-const successMessage = (name: string): string =>
-  `Successfully imported symbol group "${name}"`;
+const successMessage = (name: string): string => `Imported symbol group "${name}"`;
 
 const awaitStatus = async (
   statuses: Status.NotificationSpec[],

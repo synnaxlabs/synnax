@@ -19,7 +19,7 @@ class ForceBridgeTable(Analog):
 
     Supported kwargs (in addition to Analog base kwargs):
         force_units (str): "Newtons", "Pounds", "Kilograms", etc.
-        bridge_configuration (str): "Full Bridge", "Half Bridge", "Quarter Bridge"
+        bridge_configuration (str): "Full bridge", "Half bridge", "Quarter bridge"
         resistance (float): Nominal bridge resistance
         excitation_source (str): "Internal", "External", "None"
         excitation_value (float): Voltage excitation value
@@ -41,7 +41,7 @@ class ForceBridgeTable(Analog):
         device: str,
         force_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
         bridge_configuration: (
-            Literal["Full Bridge", "Half Bridge", "Quarter Bridge"] | None
+            Literal["Full bridge", "Half bridge", "Quarter bridge"] | None
         ) = None,
         resistance: float | None = None,
         excitation_source: Literal["Internal", "External", "None"] | None = None,
@@ -54,14 +54,14 @@ class ForceBridgeTable(Analog):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Force Bridge Table",
+            chan_type="Force bridge table",
             **kwargs,
         )
 
-        self._configure_dropdown("Force Units", force_units)
-        self._configure_dropdown("Bridge Configuration", bridge_configuration)
-        self._configure_input("Nominal Bridge Resistance", resistance)
-        self._configure_dropdown("Voltage Excitation Source", excitation_source)
-        self._configure_input("Voltage Excitation Value", excitation_value)
-        self._configure_dropdown("Physical Units", physical_units)
-        self._configure_dropdown("Electrical Units", electrical_units)
+        self._configure_dropdown("Force units", force_units)
+        self._configure_dropdown("Bridge configuration", bridge_configuration)
+        self._configure_input("Nominal bridge resistance", resistance)
+        self._configure_dropdown("Voltage excitation source", excitation_source)
+        self._configure_input("Voltage excitation value", excitation_value)
+        self._configure_dropdown("Physical units", physical_units)
+        self._configure_dropdown("Electrical units", electrical_units)

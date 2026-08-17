@@ -158,7 +158,7 @@ class ChannelClient:
                 data_type = sy.DataType.TIMESTAMP
 
             if i == 0:
-                self.layout.command_palette("Create a channel")
+                self.layout.command_palette("Create channel")
                 self.layout.wait_for_selector_visible(self.layout.MODAL_SELECTOR)
             else:
                 modal = self.layout.locator(self.layout.MODAL_SELECTOR)
@@ -565,13 +565,11 @@ class ChannelClient:
 
     def open_create_modal(self) -> None:
         """Open the Create Channel modal via command palette."""
-        self.layout.open_modal("Create a channel", self.layout.MODAL_SELECTOR)
+        self.layout.open_modal("Create channel", self.layout.MODAL_SELECTOR)
         self.layout.wait_for_selector_visible("input[placeholder='Name']")
 
     def open_create_calculated_modal(self) -> None:
         """Open the Create Calculated Channel modal via command palette."""
-        self.layout.open_modal(
-            "Create a calculated channel", self.layout.MODAL_SELECTOR
-        )
+        self.layout.open_modal("Create calculated channel", self.layout.MODAL_SELECTOR)
         self.layout.wait_for_selector_visible("input[placeholder='Name']")
         self.layout.wait_for_selector_visible(".monaco-editor")

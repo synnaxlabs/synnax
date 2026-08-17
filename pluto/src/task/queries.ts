@@ -15,7 +15,7 @@ import { Flux } from "@/flux";
 import { type Form } from "@/form";
 
 export const RESOURCE_NAME = "task";
-export const PLURAL_RESOURCE_NAME = "tasks";
+const PLURAL_RESOURCE_NAME = "tasks";
 
 export type RetrieveQuery = task.RetrieveSingleParams;
 

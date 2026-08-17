@@ -32,7 +32,7 @@ export const Properties = memo((): ReactElement | null => {
   if (selected.length === 0 || nodes.length === 0)
     return (
       <Status.Summary center variant="disabled" hideIcon>
-        Select an Arc element to configure its properties.
+        Select an Arc element to configure its properties
       </Status.Summary>
     );
   if (selected.length > 1) return <MultiConfig nodes={nodes} />;

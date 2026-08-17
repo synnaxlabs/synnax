@@ -29,7 +29,7 @@ class OffPageReference(Symbol):
             label: Display label for the symbol
             page_name: Name of the target schematic page to navigate to
         """
-        super().__init__(label, symbol_type="Off Page", rotatable=False)
+        super().__init__(label, symbol_type="Off page", rotatable=False)
         self._page_name = page_name
 
     def set_label(self, label: str) -> None:
@@ -71,7 +71,7 @@ class OffPageReference(Symbol):
 
         if page_name is not None:
             # Use specific CSS class selector — click_btn("Page") matches
-            # "Off Page" text elsewhere on the page.
+            # "Off page" text elsewhere on the page.
             page_trigger = self.page.locator(
                 ".pluto-symbol-form__page-field button"
             ).first

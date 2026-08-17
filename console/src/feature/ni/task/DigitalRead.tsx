@@ -72,7 +72,7 @@ const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
 }) => {
   const cfg = digitalReadConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "NI Digital Read Task", type: DIGITAL_READ_TYPE, config: cfg };
+  return { name: "NI digital read task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
@@ -162,7 +162,7 @@ export const useCreateDigitalRead = Task.createUseCreate({
 
 export const DigitalReadSelectable = Selector.createSelectable({
   type: DIGITAL_READ_TYPE,
-  title: "NI Digital Read Task",
+  title: "NI digital read task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalRead,
 });

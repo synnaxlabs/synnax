@@ -32,7 +32,7 @@ export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
     <Select.Button itemKey={NO_SECURITY_MODE}>None</Select.Button>
     <Select.Button itemKey={SIGN_SECURITY_MODE}>Sign</Select.Button>
     <Select.Button itemKey={SIGN_AND_ENCRYPT_SECURITY_MODE}>
-      Sign And Encrypt
+      Sign and encrypt
     </Select.Button>
   </Select.Buttons>
 );

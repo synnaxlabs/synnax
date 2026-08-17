@@ -54,7 +54,7 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
     const imported = await importBundle(client, bundle);
     addStatus({
       variant: "success",
-      message: `Successfully imported symbol group "${imported.name}"`,
+      message: `Imported symbol group "${imported.name}"`,
     });
     close();
   };

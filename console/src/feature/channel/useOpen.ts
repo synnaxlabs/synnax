@@ -72,7 +72,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
           }
           const selectedRange = getSelectedRange() ?? Session.Range.RECENT_KEY;
           const { key } = await client.lineplots.create(project, {
-            name: "Line Plot",
+            name: "Line plot",
             channels: { y1: [channelKey] },
             ranges: { x1: [selectedRange] },
           });

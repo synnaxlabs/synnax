@@ -185,7 +185,7 @@ const RemoteSymbolListContextMenu = ({
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
   const confirmDelete = Modals.useConfirmDelete({
     type: "Symbol",
-    title: "Schematic.Symbols.Delete",
+    title: "Schematic.Symbol.Delete",
     icon: "Schematic",
   });
   const openEdit = Symbol.Edit.useModal();
@@ -236,7 +236,7 @@ const RemoteListEmptyContent = ({
   const createSymbol = useCreateSymbol(groupKey);
   return (
     <Empty.Action
-      message="No symbols found."
+      message="No symbols found"
       action="Create symbol"
       onClick={createSymbol}
     />
@@ -340,7 +340,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
       const result = await rename({
         initialValue: "",
         allowEmpty: false,
-        title: "Schematic.Symbols.Group.Create",
+        title: "Schematic.Symbol.Group.Create",
         icon: <Icon.Group />,
       });
       if (result == null || result.length === 0) return;

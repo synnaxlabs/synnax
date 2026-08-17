@@ -111,7 +111,7 @@ describe("Schematic toolbar Symbols", () => {
     const { grp } = await createRemoteSymbolGroup([]);
     await renderSymbolsToolbar();
     fireEvent.click(await screen.findByText(grp.name));
-    await screen.findByText("No symbols found.");
+    await screen.findByText("No symbols found");
     fireEvent.click(screen.getByText("Create symbol"));
     expect(await screen.findByText(SYMBOL_FILE_DROP_PROMPT)).toBeDefined();
   });

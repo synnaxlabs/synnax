@@ -45,7 +45,7 @@ const createChannel = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.CounterReadSchemas> = {
-  name: "NI Counter Read Task",
+  name: "NI counter read task",
   type: NI.Task.COUNTER_READ_TYPE,
   config: NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
 };
@@ -73,17 +73,17 @@ const createConfig = (channels: NI.Task.CIChannel[]) => ({
 describe("CounterRead", () => {
   it("should render the detail form for every channel type as it is selected", async () => {
     const cases: [NI.Task.CIChannelType, string][] = [
-      ["ci_frequency", "Measurement Method"],
-      ["ci_edge_count", "Count Direction"],
-      ["ci_period", "Measurement Method"],
-      ["ci_pulse_width", "Starting Edge"],
-      ["ci_semi_period", "Scaled Units"],
+      ["ci_frequency", "Measurement method"],
+      ["ci_edge_count", "Count direction"],
+      ["ci_period", "Measurement method"],
+      ["ci_pulse_width", "Starting edge"],
+      ["ci_semi_period", "Scaled units"],
       ["ci_two_edge_sep", "Edge 1"],
       ["ci_velocity_linear", "Distance / Pulse"],
       ["ci_velocity_angular", "Pulses / Rev"],
-      ["ci_position_linear", "Z Index Enable"],
-      ["ci_position_angular", "Initial Angle"],
-      ["ci_duty_cycle", "Active Edge"],
+      ["ci_position_linear", "Z index enable"],
+      ["ci_position_angular", "Initial angle"],
+      ["ci_duty_cycle", "Active edge"],
     ];
     await renderCounterRead(
       createConfig(
@@ -107,7 +107,7 @@ describe("CounterRead", () => {
     await renderCounterRead(
       createConfig([createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr" })]),
     );
-    await waitFor(() => expect(screen.getByText("Measurement Time (s)")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Measurement time (s)")).toBeTruthy());
     expect(screen.queryByText("Divisor")).toBeNull();
   });
 
@@ -116,15 +116,15 @@ describe("CounterRead", () => {
       createConfig([createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr" })]),
     );
     await waitFor(() => expect(screen.getByText("Divisor")).toBeTruthy());
-    expect(screen.queryByText("Measurement Time (s)")).toBeNull();
+    expect(screen.queryByText("Measurement time (s)")).toBeNull();
   });
 
   it("should swap the channel to the newly selected type", async () => {
     await renderCounterRead(createConfig([createChannel("ci_frequency", 0)]));
-    await screen.findByText("Measurement Method");
-    await selectFromDropdown("Frequency", "Edge Count");
-    await waitFor(() => expect(screen.getByText("Count Direction")).toBeTruthy());
-    expect(screen.queryByText("Measurement Method")).toBeNull();
+    await screen.findByText("Measurement method");
+    await selectFromDropdown("Frequency", "Edge count");
+    await waitFor(() => expect(screen.getByText("Count direction")).toBeTruthy());
+    expect(screen.queryByText("Measurement method")).toBeNull();
   });
 
   describe("deploying against a live cluster", () => {
@@ -170,10 +170,7 @@ describe("CounterRead", () => {
     it("should surface an error when the task has no channels", async () => {
       const { statuses, container } = await renderCounterRead(createConfig([]));
       await clickDeploy(container);
-      await awaitStatusDescription(
-        statuses,
-        /No device selected in task configuration/,
-      );
+      await awaitStatusDescription(statuses, /No device selected/);
     });
 
     it("should surface an error when channels span devices on different racks", async () => {

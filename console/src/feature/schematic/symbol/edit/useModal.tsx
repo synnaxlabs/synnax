@@ -47,9 +47,6 @@ export interface ModalParams {
   createKey?: string;
 }
 
-const CREATE_NAME = "Schematic.Symbols.Create";
-const EDIT_NAME = "Schematic.Symbols.Edit";
-
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
 const DEFAULT_REGION_KEY = "default";
@@ -164,7 +161,7 @@ export const useModal = Modals.create<ModalParams>(
           background={1}
         >
           <Modals.Header icon={<Icon.Schematic />}>
-            {isCreate ? CREATE_NAME : EDIT_NAME}
+            {isCreate ? "Schematic.Symbol.Create" : "Schematic.Symbol.Edit"}
           </Modals.Header>
           <Modals.Body full>
             <Flex.Box x grow>

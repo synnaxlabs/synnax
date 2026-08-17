@@ -55,7 +55,7 @@ class DevicesToolbar(ConsoleCase):
             name="NI 9205",
             make="NI",
             model="NI 9205",
-            location="Analog Input",
+            location="Analog input",
             parent=self.chassis_a.key,
             properties={"is_simulated": True, "resource_name": "cDAQ1Mod1"},
         )
@@ -142,7 +142,7 @@ class DevicesToolbar(ConsoleCase):
         )
         self.http_dev = self._create_device(
             key="http",
-            name="HTTP Server",
+            name="HTTP server",
             make="http",
             model="REST API",
             location="http://localhost:8080",

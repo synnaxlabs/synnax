@@ -438,14 +438,14 @@ export type Action = z.infer<typeof actionZ>;
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
   create: zod.parse(createPayloadZ, payload, {
-    label: "LinePlot create action payload",
+    label: "line plot create action payload",
   }),
 });
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
-    label: "LinePlot rename action payload",
+    label: "line plot rename action payload",
   }),
 });
 
@@ -454,7 +454,7 @@ export const setTitleVisible = (
 ): Action => ({
   type: "set_title_visible",
   setTitleVisible: zod.parse(setTitleVisiblePayloadZ, payload, {
-    label: "LinePlot set_title_visible action payload",
+    label: "line plot set_title_visible action payload",
   }),
 });
 
@@ -463,7 +463,7 @@ export const setTitleLevel = (
 ): Action => ({
   type: "set_title_level",
   setTitleLevel: zod.parse(setTitleLevelPayloadZ, payload, {
-    label: "LinePlot set_title_level action payload",
+    label: "line plot set_title_level action payload",
   }),
 });
 
@@ -472,7 +472,7 @@ export const setLegendHidden = (
 ): Action => ({
   type: "set_legend_hidden",
   setLegendHidden: zod.parse(setLegendHiddenPayloadZ, payload, {
-    label: "LinePlot set_legend_hidden action payload",
+    label: "line plot set_legend_hidden action payload",
   }),
 });
 
@@ -481,14 +481,14 @@ export const setLegendPosition = (
 ): Action => ({
   type: "set_legend_position",
   setLegendPosition: zod.parse(setLegendPositionPayloadZ, payload, {
-    label: "LinePlot set_legend_position action payload",
+    label: "line plot set_legend_position action payload",
   }),
 });
 
 export const addChannel = (payload: z.input<typeof addChannelPayloadZ>): Action => ({
   type: "add_channel",
   addChannel: zod.parse(addChannelPayloadZ, payload, {
-    label: "LinePlot add_channel action payload",
+    label: "line plot add_channel action payload",
   }),
 });
 
@@ -497,42 +497,42 @@ export const removeChannel = (
 ): Action => ({
   type: "remove_channel",
   removeChannel: zod.parse(removeChannelPayloadZ, payload, {
-    label: "LinePlot remove_channel action payload",
+    label: "line plot remove_channel action payload",
   }),
 });
 
 export const setChannels = (payload: z.input<typeof setChannelsPayloadZ>): Action => ({
   type: "set_channels",
   setChannels: zod.parse(setChannelsPayloadZ, payload, {
-    label: "LinePlot set_channels action payload",
+    label: "line plot set_channels action payload",
   }),
 });
 
 export const setXChannel = (payload: z.input<typeof setXChannelPayloadZ>): Action => ({
   type: "set_x_channel",
   setXChannel: zod.parse(setXChannelPayloadZ, payload, {
-    label: "LinePlot set_x_channel action payload",
+    label: "line plot set_x_channel action payload",
   }),
 });
 
 export const addRange = (payload: z.input<typeof addRangePayloadZ>): Action => ({
   type: "add_range",
   addRange: zod.parse(addRangePayloadZ, payload, {
-    label: "LinePlot add_range action payload",
+    label: "line plot add_range action payload",
   }),
 });
 
 export const removeRange = (payload: z.input<typeof removeRangePayloadZ>): Action => ({
   type: "remove_range",
   removeRange: zod.parse(removeRangePayloadZ, payload, {
-    label: "LinePlot remove_range action payload",
+    label: "line plot remove_range action payload",
   }),
 });
 
 export const setRanges = (payload: z.input<typeof setRangesPayloadZ>): Action => ({
   type: "set_ranges",
   setRanges: zod.parse(setRangesPayloadZ, payload, {
-    label: "LinePlot set_ranges action payload",
+    label: "line plot set_ranges action payload",
   }),
 });
 
@@ -541,7 +541,7 @@ export const setAxisLabel = (
 ): Action => ({
   type: "set_axis_label",
   setAxisLabel: zod.parse(setAxisLabelPayloadZ, payload, {
-    label: "LinePlot set_axis_label action payload",
+    label: "line plot set_axis_label action payload",
   }),
 });
 
@@ -550,7 +550,7 @@ export const setAxisLabelDirection = (
 ): Action => ({
   type: "set_axis_label_direction",
   setAxisLabelDirection: zod.parse(setAxisLabelDirectionPayloadZ, payload, {
-    label: "LinePlot set_axis_label_direction action payload",
+    label: "line plot set_axis_label_direction action payload",
   }),
 });
 
@@ -559,7 +559,7 @@ export const setAxisLabelLevel = (
 ): Action => ({
   type: "set_axis_label_level",
   setAxisLabelLevel: zod.parse(setAxisLabelLevelPayloadZ, payload, {
-    label: "LinePlot set_axis_label_level action payload",
+    label: "line plot set_axis_label_level action payload",
   }),
 });
 
@@ -568,7 +568,7 @@ export const setAxisBounds = (
 ): Action => ({
   type: "set_axis_bounds",
   setAxisBounds: zod.parse(setAxisBoundsPayloadZ, payload, {
-    label: "LinePlot set_axis_bounds action payload",
+    label: "line plot set_axis_bounds action payload",
   }),
 });
 
@@ -577,14 +577,14 @@ export const setAxisTickSpacing = (
 ): Action => ({
   type: "set_axis_tick_spacing",
   setAxisTickSpacing: zod.parse(setAxisTickSpacingPayloadZ, payload, {
-    label: "LinePlot set_axis_tick_spacing action payload",
+    label: "line plot set_axis_tick_spacing action payload",
   }),
 });
 
 export const setAxisType = (payload: z.input<typeof setAxisTypePayloadZ>): Action => ({
   type: "set_axis_type",
   setAxisType: zod.parse(setAxisTypePayloadZ, payload, {
-    label: "LinePlot set_axis_type action payload",
+    label: "line plot set_axis_type action payload",
   }),
 });
 
@@ -593,7 +593,7 @@ export const setLineLabel = (
 ): Action => ({
   type: "set_line_label",
   setLineLabel: zod.parse(setLineLabelPayloadZ, payload, {
-    label: "LinePlot set_line_label action payload",
+    label: "line plot set_line_label action payload",
   }),
 });
 
@@ -602,7 +602,7 @@ export const setLineColor = (
 ): Action => ({
   type: "set_line_color",
   setLineColor: zod.parse(setLineColorPayloadZ, payload, {
-    label: "LinePlot set_line_color action payload",
+    label: "line plot set_line_color action payload",
   }),
 });
 
@@ -611,7 +611,7 @@ export const setLineStrokeWidth = (
 ): Action => ({
   type: "set_line_stroke_width",
   setLineStrokeWidth: zod.parse(setLineStrokeWidthPayloadZ, payload, {
-    label: "LinePlot set_line_stroke_width action payload",
+    label: "line plot set_line_stroke_width action payload",
   }),
 });
 
@@ -620,7 +620,7 @@ export const setLineDownsample = (
 ): Action => ({
   type: "set_line_downsample",
   setLineDownsample: zod.parse(setLineDownsamplePayloadZ, payload, {
-    label: "LinePlot set_line_downsample action payload",
+    label: "line plot set_line_downsample action payload",
   }),
 });
 
@@ -629,21 +629,21 @@ export const setLineDownsampleMode = (
 ): Action => ({
   type: "set_line_downsample_mode",
   setLineDownsampleMode: zod.parse(setLineDownsampleModePayloadZ, payload, {
-    label: "LinePlot set_line_downsample_mode action payload",
+    label: "line plot set_line_downsample_mode action payload",
   }),
 });
 
 export const setLine = (payload: z.input<typeof setLinePayloadZ>): Action => ({
   type: "set_line",
   setLine: zod.parse(setLinePayloadZ, payload, {
-    label: "LinePlot set_line action payload",
+    label: "line plot set_line action payload",
   }),
 });
 
 export const setRule = (payload: z.input<typeof setRulePayloadZ>): Action => ({
   type: "set_rule",
   setRule: zod.parse(setRulePayloadZ, payload, {
-    label: "LinePlot set_rule action payload",
+    label: "line plot set_rule action payload",
   }),
 });
 
@@ -652,7 +652,7 @@ export const setRuleLabel = (
 ): Action => ({
   type: "set_rule_label",
   setRuleLabel: zod.parse(setRuleLabelPayloadZ, payload, {
-    label: "LinePlot set_rule_label action payload",
+    label: "line plot set_rule_label action payload",
   }),
 });
 
@@ -661,14 +661,14 @@ export const setRuleColor = (
 ): Action => ({
   type: "set_rule_color",
   setRuleColor: zod.parse(setRuleColorPayloadZ, payload, {
-    label: "LinePlot set_rule_color action payload",
+    label: "line plot set_rule_color action payload",
   }),
 });
 
 export const setRuleAxis = (payload: z.input<typeof setRuleAxisPayloadZ>): Action => ({
   type: "set_rule_axis",
   setRuleAxis: zod.parse(setRuleAxisPayloadZ, payload, {
-    label: "LinePlot set_rule_axis action payload",
+    label: "line plot set_rule_axis action payload",
   }),
 });
 
@@ -677,7 +677,7 @@ export const setRuleLineWidth = (
 ): Action => ({
   type: "set_rule_line_width",
   setRuleLineWidth: zod.parse(setRuleLineWidthPayloadZ, payload, {
-    label: "LinePlot set_rule_line_width action payload",
+    label: "line plot set_rule_line_width action payload",
   }),
 });
 
@@ -686,7 +686,7 @@ export const setRuleLineDash = (
 ): Action => ({
   type: "set_rule_line_dash",
   setRuleLineDash: zod.parse(setRuleLineDashPayloadZ, payload, {
-    label: "LinePlot set_rule_line_dash action payload",
+    label: "line plot set_rule_line_dash action payload",
   }),
 });
 
@@ -695,7 +695,7 @@ export const setRuleUnits = (
 ): Action => ({
   type: "set_rule_units",
   setRuleUnits: zod.parse(setRuleUnitsPayloadZ, payload, {
-    label: "LinePlot set_rule_units action payload",
+    label: "line plot set_rule_units action payload",
   }),
 });
 
@@ -704,14 +704,14 @@ export const setRulePosition = (
 ): Action => ({
   type: "set_rule_position",
   setRulePosition: zod.parse(setRulePositionPayloadZ, payload, {
-    label: "LinePlot set_rule_position action payload",
+    label: "line plot set_rule_position action payload",
   }),
 });
 
 export const removeRule = (payload: z.input<typeof removeRulePayloadZ>): Action => ({
   type: "remove_rule",
   removeRule: zod.parse(removeRulePayloadZ, payload, {
-    label: "LinePlot remove_rule action payload",
+    label: "line plot remove_rule action payload",
   }),
 });
 

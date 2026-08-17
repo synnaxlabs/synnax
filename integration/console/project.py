@@ -109,13 +109,7 @@ class ProjectClient:
         """
         self.layout.close_left_toolbar()
 
-        vowels = ["A", "E", "I", "O", "U"]
-        article = (
-            "an"
-            if page_type[0].upper() in vowels or page_type.startswith("NI")
-            else "a"
-        )
-        self.layout.command_palette(f"Create {article} {page_type}")
+        self.layout.command_palette(f"Create {page_type}")
         return self._handle_new_page(page_type, page_name)
 
     def _handle_new_page(
@@ -146,7 +140,7 @@ class ProjectClient:
 
         pluto_labels = {
             "Log": ".pluto-log",
-            "Line Plot": ".pluto-line-plot",
+            "Line plot": ".pluto-line-plot",
             "Schematic": ".pluto-schematic",
             "Table": ".pluto-table",
         }
@@ -571,7 +565,7 @@ class ProjectClient:
             return result
 
     def import_page(self, json_path: str, name: str) -> None:
-        """Import a component via the real "Import component(s)" command palette flow.
+        """Import a component via the real "Import components" command palette flow.
 
         The import pipeline derives the tab name from the chosen filename (via
         trimFileName), so we copy ``json_path`` into a temp file named
@@ -593,7 +587,7 @@ class ProjectClient:
             tmp_path = os.path.join(tmp_dir, f"{name}.json")
             shutil.copyfile(json_path, tmp_path)
             with self.layout.page.expect_file_chooser() as fc_info:
-                self.layout.command_palette("Import component(s)")
+                self.layout.command_palette("Import components")
             fc_info.value.set_files(tmp_path)
             self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
             if not self.page_exists(name):
@@ -603,7 +597,7 @@ class ProjectClient:
             self.layout.close_left_toolbar()
 
     def import_project_from_directory(self, directory_path: str) -> None:
-        """Import a project via the real "Import a project" command flow.
+        """Import a project via the real "Import project" command flow.
 
         Opens the command palette, fulfills the resulting directory chooser with
         ``directory_path`` (Playwright walks it and uploads each file with its
@@ -618,7 +612,7 @@ class ProjectClient:
             with open(manifest_path, "r", encoding="utf-8") as f:
                 expected_name = json.load(f).get("name") or expected_name
         with self.layout.page.expect_file_chooser() as fc_info:
-            self.layout.command_palette("Import a project")
+            self.layout.command_palette("Import project")
         fc_info.value.set_files(directory_path)
         self.layout.page.get_by_role("button").filter(has_text=expected_name).wait_for(
             state="visible", timeout=10000
@@ -722,7 +716,7 @@ class ProjectClient:
             return False
 
         if random.choice([True, False]):
-            self.layout.command_palette("Create a project")
+            self.layout.command_palette("Create project")
         else:
             self.layout.close_left_toolbar()
             selector = (
@@ -735,7 +729,7 @@ class ProjectClient:
                 timeout=5000
             )
 
-        name_input = self.layout.page.locator("input[placeholder='Project Name']")
+        name_input = self.layout.page.locator("input[placeholder='Project name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.layout.page.get_by_role("button", name="Create", exact=True).click(
@@ -957,7 +951,7 @@ class ProjectClient:
         Returns:
             Plot instance wrapping the created UI page
         """
-        return self._create_and_initialize_page("Line Plot", name, Plot)
+        return self._create_and_initialize_page("Line plot", name, Plot)
 
     def create_log(self, name: str) -> Log:
         """Create a new log page in the UI and return a wrapper.
@@ -1029,7 +1023,7 @@ class ProjectClient:
             has=self.layout.page.locator("[aria-label='Close']")
         )
         tab_count = tabs.count()
-        actual_tab_name = "Line Plot"
+        actual_tab_name = "Line plot"
         if tab_count > 0:
             last_tab = tabs.nth(tab_count - 1)
             actual_tab_name = last_tab.inner_text().strip()
@@ -1115,17 +1109,17 @@ class ProjectClient:
 
     @overload
     def create_task(
-        self, task_type: Literal["NI Analog Read Task"], name: str
+        self, task_type: Literal["NI analog read task"], name: str
     ) -> AnalogRead: ...
 
     @overload
     def create_task(
-        self, task_type: Literal["NI Analog Write Task"], name: str
+        self, task_type: Literal["NI analog write task"], name: str
     ) -> AnalogWrite: ...
 
     @overload
     def create_task(
-        self, task_type: Literal["NI Counter Read Task"], name: str
+        self, task_type: Literal["NI counter read task"], name: str
     ) -> CounterRead: ...
 
     def create_task(self, task_type: PageType, name: str) -> TaskPage:
@@ -1162,15 +1156,15 @@ class ProjectClient:
         """
         # Map task types to their corresponding classes
         task_class_map: dict[str, type[TaskPage]] = {
-            "NI Analog Read Task": AnalogRead,
-            "NI Analog Write Task": AnalogWrite,
-            "NI Counter Read Task": CounterRead,
-            # "NI Digital Read Task": DigitalRead,
-            # "NI Digital Write Task": DigitalWrite,
-            # "LabJack Read Task": LabJackRead,
-            # "LabJack Write Task": LabJackWrite,
-            # "OPC UA Read Task": OPCUARead,
-            # "OPC UA Write Task": OPCUAWrite,
+            "NI analog read task": AnalogRead,
+            "NI analog write task": AnalogWrite,
+            "NI counter read task": CounterRead,
+            # "NI digital read task": DigitalRead,
+            # "NI digital write task": DigitalWrite,
+            # "LabJack read task": LabJackRead,
+            # "LabJack write task": LabJackWrite,
+            # "OPC UA read task": OPCUARead,
+            # "OPC UA write task": OPCUAWrite,
         }
 
         if task_type not in task_class_map:

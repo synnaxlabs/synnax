@@ -99,7 +99,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
       [rangeKey],
     );
 
-    const saveName = "Save to Synnax";
+    const saveName = "Save to Core";
 
     return (
       <Modals.Frame className={CSS.B("range-create-layout")}>
@@ -112,7 +112,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
                   autoFocus
                   level="h2"
                   variant="text"
-                  placeholder="Range Name"
+                  placeholder="Name"
                   {...p}
                 />
               )}

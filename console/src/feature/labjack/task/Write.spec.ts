@@ -42,7 +42,7 @@ const createConfig = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<LabJack.Task.WriteSchemas> = {
-  name: "LabJack Write Task",
+  name: "LabJack write task",
   type: LabJack.Task.WRITE_TYPE,
   config: LabJack.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -86,7 +86,7 @@ describe("LabJack Write", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig(dev.key, []));
     const { container } = await renderWrite({ client, taskKey: draft.key });
-    await waitFor(() => expect(screen.getByText("No channels in task.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
     fireEvent.click(getIconButton(container, "add"));
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
   });

@@ -121,7 +121,7 @@ describe("ErrorDiagnostics", () => {
   it("replaces the crash page when a flux read failed on an unreachable Core", async () => {
     const store = await createTestStore();
     void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
-    const error = new Error("Failed to retrieve Channel Group", {
+    const error = new Error("Failed to retrieve channel group", {
       cause: new Unreachable(),
     });
     await renderBoundary(store, <Throw error={error} />);
@@ -134,7 +134,7 @@ describe("ErrorDiagnostics", () => {
     const store = await createTestStore();
     void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
     const error = status.toError(
-      status.fromException(new Unreachable(), "Failed to retrieve Channel Group"),
+      status.fromException(new Unreachable(), "Failed to retrieve channel group"),
     );
     await renderBoundary(store, <Throw error={error} />);
     expect(screen.getByText("Local")).toBeTruthy();

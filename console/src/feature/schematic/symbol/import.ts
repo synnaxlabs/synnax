@@ -41,7 +41,7 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
               });
               addStatus({
                 variant: "success",
-                message: `Successfully imported ${file.name}`,
+                message: `Imported ${file.name}`,
               });
             } catch (e) {
               handleError(e, `Failed to import symbol from ${file.name}`);

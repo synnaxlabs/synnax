@@ -13,7 +13,7 @@ import { verbs } from "@synnaxlabs/x";
 import { Flux } from "@/flux";
 
 export const RESOURCE_NAME = "group";
-export const PLURAL_RESOURCE_NAME = "groups";
+const PLURAL_RESOURCE_NAME = "groups";
 
 export interface CreateParams extends group.CreateParams {}
 
