@@ -10,6 +10,7 @@
 import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
+import { caseconv } from "@/caseconv";
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { type CrudeSeries, isCrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
@@ -1019,6 +1020,21 @@ describe("Series", () => {
       const s = new Series({ data: new ArrayBuffer(0), dataType: DataType.JSON });
       expect(s.length).toEqual(0);
       expect(Array.from(s)).toEqual([]);
+    });
+
+    it("should preserve record keys marked with preserveCase", () => {
+      const schema = z.object({
+        cells: caseconv.preserveCase(z.record(z.string(), z.number())),
+      });
+      const raw = new TextEncoder().encode(
+        JSON.stringify({ cells: { UnSv19BHjPB: 1, x5kWGi0DZha: 2 } }),
+      );
+      const buf = new ArrayBuffer(4 + raw.byteLength);
+      new DataView(buf).setUint32(0, raw.byteLength, true);
+      new Uint8Array(buf).set(raw, 4);
+      const s = new Series({ data: buf, dataType: DataType.JSON });
+      const out = s.parseJSON(schema);
+      expect(Object.keys(out[0].cells)).toEqual(["UnSv19BHjPB", "x5kWGi0DZha"]);
     });
   });
 

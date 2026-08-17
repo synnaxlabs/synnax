@@ -277,7 +277,9 @@ export class Writer {
     authority?: AuthorityParams[1],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
-    const parsed = authorityParamsZ.parse([value, authority]);
+    const parsed = zod.parse(authorityParamsZ, [value, authority], {
+      label: "authority params",
+    });
     const config = {
       keys: await this.adapter.adaptParams(parsed.keys),
       authorities: parsed.authorities,

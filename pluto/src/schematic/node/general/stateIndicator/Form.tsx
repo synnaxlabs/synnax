@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -23,9 +24,13 @@ import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator"
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
     Base.useField<Omit<BaseStateIndicator.UseProps, "aetherKey">>(path);
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
+  const sourceP = zod.parse(telem.sourcePipelinePropsZ, value.source?.props, {
+    label: "source pipeline",
+  });
+  const source = zod.parse(
+    telem.streamChannelValuePropsZ,
     sourceP.segments.valueStream.props,
+    { label: "value stream source" },
   );
 
   const handleSourceChange = (v: channel.Key | null): void => {

@@ -40,6 +40,13 @@
     "vite": "catalog:",
     "vitest": "catalog:"
   },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!dist/eslint.config.*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

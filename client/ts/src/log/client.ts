@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, type destructor, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -121,7 +121,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     opts: query.WriteOptions<Log[]> = {},
   ): Promise<Log | Log[]> {
     const isMany = Array.isArray(logs);
-    const optimistic = array.toArray(logs).map((l) => logZ.parse(l));
+    const optimistic = array
+      .toArray(logs)
+      .map((l) => zod.parse(logZ, l, { label: "log" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),

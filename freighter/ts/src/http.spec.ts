@@ -47,6 +47,13 @@ describe("http", () => {
     );
   });
 
+  test("response parse failures name the target", async () => {
+    const mismatchedZ = z.object({ id: z.string() });
+    await expect(
+      client.send("/echo", { id: 1, message: "hello" }, messageZ, mismatchedZ),
+    ).rejects.toThrow("Failed to parse /echo response");
+  });
+
   test("middleware", async () => {
     client.use(async (md, next) => {
       md.params.Test = "test";

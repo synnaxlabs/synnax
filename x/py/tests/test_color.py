@@ -108,13 +108,83 @@ class TestColor:
         assert Color(r=255, g=0, b=0, a=1.0) != 42
 
     def test_invalid_hex(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid hex color"):
             Color("#xyz")
 
     def test_invalid_array_length(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid color array length: 2"):
             Color([1, 2])
 
     def test_default_alpha_is_opaque(self) -> None:
         c = Color(r=255, g=0, b=0)
         assert c.a == 1.0
+
+    def test_legacy_alpha_255_in_array(self) -> None:
+        c = Color([28, 28, 28, 255])
+        assert c == Color(r=28, g=28, b=28, a=1.0)
+
+    def test_legacy_alpha_mid_range_in_array(self) -> None:
+        c = Color([255, 0, 0, 128])
+        assert abs(c.a - 128 / 255) < 0.001
+
+    def test_legacy_alpha_just_above_1_clamps_to_opaque(self) -> None:
+        c = Color([255, 0, 0, 1.5])
+        assert c.a == 1.0
+
+    def test_legacy_alpha_at_clamp_boundary(self) -> None:
+        c = Color([255, 0, 0, 2])
+        assert c.a == 1.0
+
+    def test_legacy_alpha_just_above_clamp_boundary_divides(self) -> None:
+        c = Color([255, 0, 0, 2.01])
+        assert abs(c.a - 2.01 / 255) < 0.001
+
+    def test_alpha_above_255_rejected(self) -> None:
+        with pytest.raises(ValueError, match="above the 0-255 scale"):
+            Color([255, 0, 0, 300])
+        with pytest.raises(ValueError, match="above the 0-255 scale"):
+            Color({"r": 5, "g": 5, "b": 5, "a": 300})
+
+    def test_alpha_1_stays_opaque(self) -> None:
+        c = Color([255, 0, 0, 1])
+        assert c.a == 1.0
+
+    def test_fractional_alpha_untouched(self) -> None:
+        c = Color([255, 0, 0, 0.25])
+        assert c.a == 0.25
+
+    def test_legacy_alpha_255_in_dict(self) -> None:
+        c = Color({"r": 5, "g": 5, "b": 5, "a": 255})
+        assert c == Color(r=5, g=5, b=5, a=1.0)
+
+    def test_legacy_rgba255_object(self) -> None:
+        c = Color({"rgba255": [5, 5, 5, 255]})
+        assert c == Color(r=5, g=5, b=5, a=1.0)
+
+    def test_legacy_rgba255_object_with_fractional_alpha(self) -> None:
+        c = Color({"rgba255": [122, 44, 38, 0.5]})
+        assert c == Color(r=122, g=44, b=38, a=0.5)
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            [300, 0, 0, 1],
+            [-1, 0, 0, 1],
+            [0, 256, 0],
+            {"rgba255": [300, 0, 0, 255]},
+            {"rgba255": [-1, 0, 0, 255]},
+            {"r": 300, "g": 0, "b": 0, "a": 1},
+        ],
+    )
+    def test_channel_outside_range_rejected(self, value: object) -> None:
+        with pytest.raises(ValueError):
+            Color(value)
+
+    def test_channel_outside_range_rejected_on_construction(self) -> None:
+        with pytest.raises(ValueError):
+            Color(r=300, g=0, b=0)
+
+    @pytest.mark.parametrize("value", [[1.7, 0, 0, 1], {"rgba255": [1.7, 0, 0, 255]}])
+    def test_fractional_channel_rejected(self, value: object) -> None:
+        with pytest.raises(ValueError, match="not a whole number"):
+            Color(value)

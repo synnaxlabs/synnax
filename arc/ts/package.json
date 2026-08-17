@@ -1,6 +1,7 @@
 {
   "name": "@synnaxlabs/arc",
   "private": true,
+  "version": "0.56.2",
   "type": "module",
   "description": "TypeScript/JavaScript utilities for the Arc language",
   "exports": {
