@@ -9,6 +9,7 @@
 
 import { type panel, type Synnax as Client } from "@synnaxlabs/client";
 import {
+  type BuiltInRole,
   createPanelParent,
   createTestClient,
   RoleClients,
@@ -478,7 +479,7 @@ describe("Panel.Mosaic empty state permissions", () => {
     await screen.findByText("No panels open.");
   };
 
-  it.each(["Viewer", "Operator"])(
+  it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should withhold the create action from a %s",
     async (role) => {
       await renderEmpty(await roles.get(role));

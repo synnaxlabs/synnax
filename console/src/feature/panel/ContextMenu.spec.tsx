@@ -14,7 +14,11 @@ import {
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  type BuiltInRole,
+  createTestClient,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -342,7 +346,7 @@ describe("Panel.TabMenuItems permissions", () => {
   });
 
   // An operator runs the console but does not restructure it: no rename, no moves.
-  it.each(["Viewer", "Operator"])(
+  it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should withhold rename and both moves from a %s",
     async (role) => {
       const tab = resourceTab();

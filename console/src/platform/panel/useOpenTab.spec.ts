@@ -13,7 +13,11 @@ import {
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  type BuiltInRole,
+  createTestClient,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -456,7 +460,7 @@ describe("Panel.useCanOpenTab", () => {
   };
 
   // With a panel in scope, opening a tab rewrites it; with none, it mints one.
-  it.each(["Viewer", "Operator"])("should refuse both to a %s", async (role) => {
+  it.each<BuiltInRole>(["Viewer", "Operator"])("should refuse both to a %s", async (role) => {
     const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
     const { result } = await renderCan(await roles.get(role), existing.key);
     await waitFor(() => expect(result.current.edit).toBe(false));
