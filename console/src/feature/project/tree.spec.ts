@@ -63,7 +63,7 @@ describe("project ontology service", () => {
     expect(screen.getByText("Create log")).toBeTruthy();
     expect(screen.getByText("Create table")).toBeTruthy();
     expect(screen.getByText("Create schematic")).toBeTruthy();
-    expect(screen.getByText("Import component(s)")).toBeTruthy();
+    expect(screen.getByText("Import components")).toBeTruthy();
     expect(screen.getByText("Export")).toBeTruthy();
     expect(screen.getByText("Copy link")).toBeTruthy();
   });
