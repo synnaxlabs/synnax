@@ -7,36 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
-import { screen, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { renderPalette } from "@/feature/command/testutil";
-import { Label } from "@/feature/label";
+import { Channel } from "@/feature/channel";
 import { findCommand } from "@/platform/command/testutil";
+import { assertDefined, renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-import { assertDefined, renderHookWithConsole } from "@/testutil";
+const NAMES = ["Create a channel", "Create a calculated channel"];
 
-describe("Label Commands", () => {
-  it("should open the label edit modal when the command is selected", async () => {
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: Label.COMMANDS,
-      client,
-    });
-    await openCommandPalette();
-    await selectCommand("Edit labels");
-    expect(await screen.findByPlaceholderText("Search labels...")).toBeTruthy();
-  });
-});
-
-describe("Label Commands permissions", () => {
-  it("should offer Edit labels to an engineer", async () => {
-    const gate = findCommand(Label.COMMANDS, "Edit labels").useVisible;
+describe("Channel Commands", () => {
+  it.each(NAMES)("should offer %s to an engineer", async (name) => {
+    const gate = findCommand(Channel.COMMANDS, name).useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Engineer"),
@@ -44,15 +32,16 @@ describe("Label Commands permissions", () => {
     await waitFor(() => expect(result.current).toBe(true));
   });
 
-  it("should withhold Edit labels from a viewer", async () => {
-    const gate = findCommand(Label.COMMANDS, "Edit labels").useVisible;
+  it.each(NAMES)("should withhold %s from a viewer", async (name) => {
+    const gate = findCommand(Channel.COMMANDS, name).useVisible;
     assertDefined(gate);
+    const viewer = await roles.get("Viewer");
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(label.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
       }),
-      { client: await roles.get("Viewer") },
+      { client: viewer },
     );
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.visible).toBe(false);

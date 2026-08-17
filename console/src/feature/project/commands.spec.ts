@@ -7,21 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Project } from "@/feature/project";
+import { findCommand } from "@/platform/command/testutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   installPickedDirectory,
   interceptFilePicker,
   removeFilePickers,
+  renderHookWithConsole,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 describe("Project Commands", () => {
   afterEach(() => {
@@ -70,5 +74,60 @@ describe("Project Commands", () => {
     await openCommandPalette();
     await selectCommand("Export current project");
     await waitFor(() => expect(writes.has(Project.PANELS_FILE_NAME)).toBe(true));
+  });
+});
+
+describe("Project Commands permissions", () => {
+  it("should offer Create a project to an owner", async () => {
+    const gate = findCommand(Project.COMMANDS, "Create a project").useVisible;
+    assertDefined(gate);
+    const { result } = await renderHookWithConsole(gate, {
+      client: await roles.get("Owner"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should offer Import a project to an owner", async () => {
+    const gate = findCommand(Project.COMMANDS, "Import a project").useVisible;
+    assertDefined(gate);
+    const { result } = await renderHookWithConsole(gate, {
+      client: await roles.get("Owner"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should withhold Create a project from a viewer", async () => {
+    const gate = findCommand(Project.COMMANDS, "Create a project").useVisible;
+    assertDefined(gate);
+    const read = findCommand(Project.COMMANDS, "Export current project").useVisible;
+    assertDefined(read);
+    const { result } = await renderHookWithConsole(
+      () => ({ visible: gate(), readable: read() }),
+      { client: await roles.get("Viewer") },
+    );
+    await waitFor(() => expect(result.current.readable).toBe(true));
+    expect(result.current.visible).toBe(false);
+  });
+
+  it("should withhold Import a project from a viewer", async () => {
+    const gate = findCommand(Project.COMMANDS, "Import a project").useVisible;
+    assertDefined(gate);
+    const read = findCommand(Project.COMMANDS, "Export current project").useVisible;
+    assertDefined(read);
+    const { result } = await renderHookWithConsole(
+      () => ({ visible: gate(), readable: read() }),
+      { client: await roles.get("Viewer") },
+    );
+    await waitFor(() => expect(result.current.readable).toBe(true));
+    expect(result.current.visible).toBe(false);
+  });
+
+  it("should still offer Export current project to a viewer", async () => {
+    const gate = findCommand(Project.COMMANDS, "Export current project").useVisible;
+    assertDefined(gate);
+    const { result } = await renderHookWithConsole(gate, {
+      client: await roles.get("Viewer"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
   });
 });
