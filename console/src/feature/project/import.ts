@@ -11,6 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import {
   arc,
   DisconnectedError,
+  group,
   lineplot,
   log,
   type ontology,
@@ -19,18 +20,27 @@ import {
   schematic,
   type Synnax,
   table,
+  ValidationError,
 } from "@synnaxlabs/client";
 import { Access, type Status } from "@synnaxlabs/pluto";
-import { uuid, zod } from "@synnaxlabs/x";
+import { errors, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { PANELS_FILE_NAME } from "@/feature/project/export";
 import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
+// TEMPORARY: this entire file is an interim, client-side stand-in for server-side
+// project import, which replaces it before release. None of it hardens: each ingest
+// path runs a sequence of client calls with no transaction, so a failure mid-import
+// leaves a partial project behind. That is accepted for the interim; the server-side
+// path imports atomically.
+
 /** The tiling file inside a legacy (layout-slice era) project export directory. */
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
+
+/** The manifest file at the root of a project bundle written by the Core. */
+export const MANIFEST_FILE_NAME = "manifest.json";
 
 const legacyLayoutZ = z.object({
   key: z.string(),
@@ -38,51 +48,13 @@ const legacyLayoutZ = z.object({
   name: z.string(),
 });
 
-// Legacy console-state exports carried the full layout slice; only the layout
-// records are needed to locate and type each component file.
+// Legacy console-state exports carried the full layout slice; only the layout records
+// are needed to locate and type each component file.
 const legacySliceZ = z.object({
   layouts: z.record(z.string(), legacyLayoutZ),
 });
 
-// Rewrites every panel-tab reference to an imported component's original key with
-// the ontology ID of the resource actually created for it. Without it the imported
-// panels' tabs resolve to resources that only exist in the source cluster.
-const remapNode = (node: panel.Node, remap: Map<string, ontology.ID>): panel.Node => {
-  if (node.variant === "leaf")
-    return {
-      ...node,
-      tabs: node.tabs.map((tab) => {
-        if (tab.variant !== "resource") return tab;
-        const next = remap.get(tab.resource.key);
-        return next == null ? tab : { ...tab, resource: next };
-      }),
-    };
-  return {
-    ...node,
-    first: remapNode(node.first, remap),
-    last: remapNode(node.last, remap),
-  };
-};
-
 type ComponentContext = Omit<Import.FileIngesterContext, "fileName">;
-
-const ingestComponents = async (
-  files: Import.File[],
-  ctx: ComponentContext,
-): Promise<Map<string, ontology.ID>> => {
-  const remap = new Map<string, ontology.ID>();
-  for (const file of files) {
-    const { data } = file;
-    if (typeof data !== "object" || data == null || !("type" in data)) continue;
-    if (typeof data.type !== "string") continue;
-    // TEMPORARY: a type the Core cannot import fails the whole directory, where it was
-    // skipped before. Server-side project import replaces this loop before release.
-    const id = await Import.ingestServer(data, { ...ctx, fileName: file.name });
-    if (id != null && "key" in data && typeof data.key === "string")
-      remap.set(data.key, id);
-  }
-  return remap;
-};
 
 // Visualization layout types found in legacy (layout-slice era) project exports. Their
 // component files are typeless legacy Console states, importable only through the
@@ -144,6 +116,151 @@ const ingestLegacy = async (
   // recreates the visualization documents.
 };
 
+const bundleManifestZ = z.object({
+  version: z.number(),
+  type: z.string(),
+  name: z.string().optional(),
+});
+
+// A bundle panel envelope: the panel tree with each resource tab holding the target
+// member's path from the bundle root instead of an ontology ID.
+const bundlePanelZ = z.object({
+  name: z.string().optional(),
+  root: z.unknown(),
+});
+
+const pathOf = (file: { name: string; path?: string }): string =>
+  file.path ?? file.name;
+
+const parentDirOf = (path: string): string =>
+  path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+
+const baseNameOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
+
+const trimJSONExtension = (name: string): string =>
+  name.endsWith(".json") ? name.slice(0, -".json".length) : name;
+
+// A member is every .json file in the bundle except the root manifest, the sole
+// reserved name. A root LAYOUT.json marks a legacy directory only when no manifest is
+// present; in a bundle it is a normal member.
+const isMember = (path: string): boolean =>
+  path.endsWith(".json") && path !== MANIFEST_FILE_NAME;
+
+// Rewrites each resource tab's bundle path to the ontology ID minted for that member,
+// leaving every other field for panelZ to validate on create. Tabs referencing a
+// skipped member are dropped.
+const resolveNode = (
+  node: unknown,
+  refs: Map<string, ontology.ID>,
+  skipped: Set<string>,
+  panelName: string,
+): unknown => {
+  const n = z.record(z.string(), z.unknown()).parse(node);
+  if (n.variant !== "leaf")
+    return {
+      ...n,
+      first: resolveNode(n.first, refs, skipped, panelName),
+      last: resolveNode(n.last, refs, skipped, panelName),
+    };
+  const tabs = z.array(z.record(z.string(), z.unknown())).parse(n.tabs ?? []);
+  return {
+    ...n,
+    tabs: tabs.flatMap((tab) => {
+      if (tab.variant !== "resource") return [tab];
+      const path = z.string().parse(tab.resource);
+      if (skipped.has(path)) return [];
+      const id = refs.get(path);
+      if (id == null)
+        throw new Error(
+          `Panel ${panelName} references ${path}, which is not in the bundle`,
+        );
+      return [{ ...tab, resource: id }];
+    }),
+  };
+};
+
+// TEMPORARY: client-side ingest of the Core-written bundle format, so an exported
+// project round-trips until server-side project import replaces this whole file. Not
+// atomic: a failure partway leaves the project and already-imported members behind.
+const ingestBundle = async (
+  manifestData: unknown,
+  directoryName: string,
+  files: Import.File[],
+  { client, store }: { client: Synnax; store: Store },
+): Promise<void> => {
+  const manifest = bundleManifestZ.parse(manifestData);
+  if (manifest.type !== "project")
+    throw new Error(`Cannot import a ${manifest.type} bundle as a project`);
+  if (manifest.version !== 1)
+    throw new Error(`Unsupported project bundle version ${manifest.version}`);
+  const projectKey = uuid.create();
+  await client.projects.create({
+    key: projectKey,
+    name: manifest.name || directoryName,
+    layout: {},
+  });
+  const projectID = project.ontologyID(projectKey);
+  // Each bundle directory becomes a group. Documents import under the project first,
+  // because leaf importers require a project parent, then move into their group.
+  const groupIDs = new Map<string, ontology.ID>([["", projectID]]);
+  const groupFor = async (dir: string): Promise<ontology.ID> => {
+    const existing = groupIDs.get(dir);
+    if (existing != null) return existing;
+    const parent = await groupFor(parentDirOf(dir));
+    const created = await client.groups.create({ parent, name: baseNameOf(dir) });
+    const id = group.ontologyID(created.key);
+    groupIDs.set(dir, id);
+    return id;
+  };
+  const members = files.filter((file) => isMember(pathOf(file)));
+  const isPanelEnvelope = (data: unknown): boolean =>
+    typeof data === "object" && data != null && "type" in data && data.type === "panel";
+  const refs = new Map<string, ontology.ID>();
+  // HACK: the Core exports members it cannot yet import back (tasks register only an
+  // exporter), so a member rejected for a missing importer is skipped and every panel
+  // tab referencing it is dropped. Server-side project import removes this.
+  const skipped = new Set<string>();
+  // Minted IDs accumulate per directory so each group receives one moveChildren call
+  // instead of one per document.
+  const moves = new Map<string, ontology.ID[]>();
+  for (const member of members.filter(({ data }) => !isPanelEnvelope(data))) {
+    const path = pathOf(member);
+    let id: ontology.ID;
+    try {
+      id = await client.imex.import(JSON.stringify(member.data), {
+        encoding: "JSON",
+        fileName: baseNameOf(path),
+        parent: projectID,
+      });
+    } catch (error) {
+      if (
+        !ValidationError.matches(error) ||
+        !String(error).includes("no importer registered")
+      )
+        throw errors.fromUnknown(error);
+      skipped.add(path);
+      continue;
+    }
+    refs.set(path, id);
+    const dir = parentDirOf(path);
+    if (dir !== "") moves.set(dir, [...(moves.get(dir) ?? []), id]);
+  }
+  for (const [dir, ids] of moves)
+    await client.ontology.moveChildren(projectID, await groupFor(dir), ...ids);
+  for (const member of members.filter(({ data }) => isPanelEnvelope(data))) {
+    const path = pathOf(member);
+    const envelope = bundlePanelZ.parse(member.data);
+    const name = envelope.name ?? trimJSONExtension(baseNameOf(path));
+    await client.panels.create({
+      key: uuid.create(),
+      name,
+      root: panel.nodeZ.parse(resolveNode(envelope.root, refs, skipped, name)),
+      parent: await groupFor(parentDirOf(path)),
+    });
+  }
+  store.dispatch(Session.Project.select(projectKey));
+};
+
 export const ingest: Import.DirectoryIngester = async (
   name,
   files,
@@ -152,33 +269,15 @@ export const ingest: Import.DirectoryIngester = async (
   if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import projects");
   if (client == null) throw new DisconnectedError();
-  const panelsFile = files.find((file) => file.name === PANELS_FILE_NAME);
+  const manifestFile = files.find((file) => pathOf(file) === MANIFEST_FILE_NAME);
+  if (manifestFile != null)
+    return await ingestBundle(manifestFile.data, name, files, { client, store });
   const legacyFile = files.find((file) => file.name === LAYOUT_FILE_NAME);
-  if (panelsFile == null && legacyFile == null)
-    throw new Error(`${PANELS_FILE_NAME} not found`);
+  if (legacyFile == null) throw new Error(`${MANIFEST_FILE_NAME} not found`);
   const projectKey = uuid.create();
-  // Create the project first so imported components can be parented to it; its
-  // panels are created below once the components' real keys are known.
+  // Create the project first so imported components can be parented to it.
   await client.projects.create({ key: projectKey, name, layout: {} });
-  const ctx: ComponentContext = { client, projectKey };
-  if (panelsFile != null) {
-    const panels = zod.parse(panel.panelZ.array(), panelsFile.data, {
-      label: "panels file",
-    });
-    const remap = await ingestComponents(
-      files.filter((file) => file.name !== PANELS_FILE_NAME),
-      ctx,
-    );
-    if (panels.length > 0)
-      await client.panels.create(
-        panels.map((p) => ({
-          ...p,
-          key: uuid.create(),
-          root: remapNode(p.root, remap),
-          parent: project.ontologyID(projectKey),
-        })),
-      );
-  } else if (legacyFile != null) await ingestLegacy(legacyFile.data, files, ctx);
+  await ingestLegacy(legacyFile.data, files, { client, projectKey });
   store.dispatch(Session.Project.select(projectKey));
 };
 
@@ -195,10 +294,13 @@ export const import_ = ({ handleError, client, store }: IngestContext) => {
     if (directory == null) return;
     name = directory.name;
     const fileData = await Promise.all(
-      directory.files.map(async (file): Promise<Import.File> => ({
-        name: file.name,
-        data: JSON.parse(await file.read()),
-      })),
+      directory.files
+        .filter((file) => Import.canParseFile(pathOf(file)))
+        .map(async (file): Promise<Import.File> => ({
+          name: file.name,
+          path: file.path,
+          data: JSON.parse(await file.read()),
+        })),
     );
     await ingest(name, fileData, { client, store });
   }, `Failed to import ${name}`);

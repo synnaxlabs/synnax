@@ -44,7 +44,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = Export.use();
+  const handleExport = Export.useResource();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const hasDeletePermission = Access.useDeleteGranted(ids);

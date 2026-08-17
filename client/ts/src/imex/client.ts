@@ -70,7 +70,7 @@ export interface ImportOptions extends Options {
  * - Browser: `import(fileInput.files[0], opts)` and pipe the export into a
  *   showSaveFilePicker writable (or buffer it with `new Response(stream).blob()`).
  * - Tauri/Console: read the picked file into a Blob to import, and hand the export
- *   stream to the Console's downloadStream helper.
+ *   stream to the Console's download hook.
  */
 export interface ClientConfig {
   file: FileTransport;

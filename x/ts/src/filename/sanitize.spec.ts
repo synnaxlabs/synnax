@@ -51,6 +51,11 @@ describe("sanitize", () => {
     expect(sanitize("aux.tar")).toEqual("_aux.tar");
   });
 
+  it("prefixes an underscore to a name starting with a dot", () => {
+    expect(sanitize(".hidden")).toEqual("_.hidden");
+    expect(sanitize(".env", ".json")).toEqual("_.env.json");
+  });
+
   it("leaves a name that only starts with a device name alone", () => {
     expect(sanitize("console")).toEqual("console");
     expect(sanitize("com10")).toEqual("com10");

@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/encoding"
@@ -29,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // errEncode is the failure failEncoder reports.
@@ -42,7 +42,7 @@ type failEncoder struct{ onManifest bool }
 var _ encoding.FileEncoder = failEncoder{}
 
 func (e failEncoder) refuses(value any) bool {
-	_, isManifest := value.(symbol.GroupManifest)
+	_, isManifest := value.(imex.Manifest)
 	return isManifest == e.onManifest
 }
 
@@ -97,9 +97,9 @@ var _ = Describe("ExportGroup", func() {
 	fileNames := func(files zip.Files) []string {
 		return slices.Collect(maps.Keys(files))
 	}
-	manifestOf := func(files zip.Files) symbol.GroupManifest {
+	manifestOf := func(files zip.Files) imex.Manifest {
 		GinkgoHelper()
-		var m symbol.GroupManifest
+		var m imex.Manifest
 		Expect(json.Unmarshal(files["manifest.json"], &m)).To(Succeed())
 		return m
 	}
@@ -115,7 +115,7 @@ var _ = Describe("ExportGroup", func() {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
 		Expect(manifestOf(exportFiles(ctx, g.Key))).To(Equal(
-			symbol.GroupManifest{Version: 2, Type: "symbol_group", Name: "Valves"},
+			imex.Manifest{Version: 2, Type: "symbol_group", Name: "Valves"},
 		))
 	})
 	It("Should write each member as its leaf export envelope", func(ctx SpecContext) {
@@ -175,34 +175,34 @@ var _ = Describe("ExportGroup", func() {
 		Expect(fileNames(files)).To(ConsistOf("manifest.json", "Ball Valve.json"))
 		Expect(members).To(ConsistOf(symbol.OntologyID(sym.Key)))
 	})
-	DescribeTable("Should reject two symbols that take one file name",
-		func(ctx SpecContext, first, second string) {
+	DescribeTable("Should suffix the second of two symbols taking one file name",
+		func(ctx SpecContext, first, second, firstFile, secondFile string) {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, first)
 			createSymbol(ctx, g, second)
-			Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("both export to")),
-			))
+			files, _ := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+			Expect(fileNames(files)).
+				To(ConsistOf("manifest.json", firstFile, secondFile))
 		},
-		Entry("identical names", "Inlet", "Inlet"),
+		Entry("identical names", "Inlet", "Inlet", "Inlet.json", "Inlet (1).json"),
 		Entry("differing past the file name limit",
-			strings.Repeat("a", 300)+"one", strings.Repeat("a", 300)+"two"),
-		Entry("differing only in case", "Inlet", "inlet"),
-		Entry("sanitized to the same name", "in/let", `in\let`),
-		Entry("sanitized to nothing", "...", "   "),
+			strings.Repeat("a", 300)+"one", strings.Repeat("a", 300)+"two",
+			strings.Repeat("a", 250)+".json", strings.Repeat("a", 246)+" (1).json"),
+		Entry("differing only in case", "Inlet", "inlet",
+			"Inlet.json", "inlet (1).json"),
+		Entry("sanitized to the same name", "in/let", `in\let`,
+			"in_let.json", "in_let (1).json"),
+		Entry("sanitized to nothing", "...", "   ", "_.json", "_ (1).json"),
 	)
-	DescribeTable("Should reject a symbol taking a reserved file name",
-		func(ctx SpecContext, name string) {
+	DescribeTable("Should suffix a symbol taking a reserved file name",
+		func(ctx SpecContext, name, file string) {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, name)
-			Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("reserved file name")),
-			))
+			files, _ := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+			Expect(fileNames(files)).To(ConsistOf("manifest.json", file))
 		},
-		Entry("manifest", "manifest"),
-		Entry("MANIFEST", "MANIFEST"),
+		Entry("manifest", "manifest", "manifest (1).json"),
+		Entry("MANIFEST", "MANIFEST", "MANIFEST (1).json"),
 	)
 	It("Should return the encoder's error when a symbol fails to encode", func(
 		ctx SpecContext,

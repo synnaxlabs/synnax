@@ -52,7 +52,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = Export.use();
+  const handleExport = Export.useResource();
   const snap = useRangeSnapshot();
   const range = Session.Range.useSelectState();
   const group = Group.useCreateFromSelection();

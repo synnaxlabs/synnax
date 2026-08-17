@@ -202,13 +202,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
 
   /**
    * Exports every symbol in the group as a bundle: a zip archive holding one JSON file
-   * per symbol beside a manifest.json naming the group. The caller pipes the stream
-   * wherever it likes without the client buffering the whole archive.
+   * per symbol beside a manifest.json naming the group. Two symbols that take the same
+   * file name keep distinct names through a numeric suffix, and children that are not
+   * symbols are skipped. The caller pipes the stream wherever it likes without the
+   * client buffering the whole archive.
    *
    * @param key - the key of the group to export.
    * @returns the bundle as a stream of zip bytes.
-   * @throws {ValidationError} if the group holds a resource that is not a symbol, or if
-   * two symbols take the same file name.
    */
   async exportGroup(key: group.Key): Promise<ReadableStream<Uint8Array>> {
     return await this.cfg.file.download(
