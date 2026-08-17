@@ -39,6 +39,7 @@ const (
 	tokenTypeStringRaw         = uint32(20)
 	tokenTypeStringPlaceholder = uint32(21)
 	tokenTypeChannelVariable   = uint32(22)
+	tokenTypeBoolean           = uint32(23)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -243,11 +244,12 @@ var _ = Describe("Semantic Tokens", func() {
 		)
 
 		It(
-			"routes bool literals to the keyword token type, not number",
+			"routes bool literals to the boolean token type, not keyword or number",
 			func(ctx SpecContext) {
 				OpenArcDocument(server, ctx, uri, `x := true && !false`)
 				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-				Expect(filterByType(tokens, tokenTypeKeyword)).To(HaveLen(2))
+				Expect(filterByType(tokens, tokenTypeBoolean)).To(HaveLen(2))
+				Expect(filterByType(tokens, tokenTypeKeyword)).To(BeEmpty())
 				Expect(filterByType(tokens, tokenTypeNumber)).To(BeEmpty())
 			},
 		)
@@ -830,8 +832,8 @@ func cat() {
 			legend := provider.Legend
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
 			n := len(legend.TokenTypes)
-			Expect(legend.TokenTypes[n-1]).To(Equal("channelVariable"))
-			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelVariable))
+			Expect(legend.TokenTypes[n-1]).To(Equal("boolean"))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeBoolean))
 		})
 	})
 })

@@ -21,7 +21,6 @@ export const tokens = {
       "keyword.control.arc",
       "keyword.other.arc",
       "keyword.operator.word.arc",
-      "constant.language.boolean.arc",
       "constant.language.null.arc",
     ],
   },
@@ -70,6 +69,11 @@ export const tokens = {
     dark: "#98C379",
     light: "#0A7D00",
     scopes: ["constant.numeric"],
+  },
+  boolean: {
+    dark: "#98C379",
+    light: "#0A7D00",
+    scopes: ["constant.language.boolean.arc"],
   },
   type: {
     dark: "#4EC9B0",
