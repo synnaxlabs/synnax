@@ -10,7 +10,9 @@
 import "schemas/synnax/versions/ontology/v0"
 import "schemas/x/versions/spatial/v0"
 
-TabKey = uuid
+TabKey = uuid {
+    @doc value "uniquely identifies a tab within a panel."
+}
 
 TabBase struct {
     key TabKey = create {
@@ -138,7 +140,7 @@ Panel struct {
         @go marshal omit
     }
 
-    @doc value  "is a project-owned tab holding a tree of visualization tabs."
+    @doc value  "is a project-owned tree of visualization tabs."
     @go marshal
     @go migrate
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// TabKey uniquely identifies a tab within a panel.
 type TabKey = uuid.UUID
 
 // TabBase carries the identity shared by every tab variant.
@@ -303,7 +304,7 @@ func (u Node) Validate() error {
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
 
-// Panel is a project-owned tab holding a tree of visualization tabs.
+// Panel is a project-owned tree of visualization tabs.
 type Panel struct {
 	// Key is the unique identifier for this panel.
 	Key Key `json:"key" msgpack:"key"`

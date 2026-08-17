@@ -75,7 +75,7 @@ Schematic struct {
         @validate required
     }
     snapshot bool = false {
-        @doc value "indicates whether this schematic represents a saved snapshot state."
+        @doc value "is true if this schematic is an immutable snapshot copy."
     }
     nodes    Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."

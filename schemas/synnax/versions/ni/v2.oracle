@@ -42,7 +42,7 @@ Units enum {
     inch_ounces               = "InchOunces"
     foot_pounds               = "FootPounds"
 
-    @doc value "enumerates the engineering units an NI analog channel can report."
+    @doc value "enumerates the engineering units for NI analog channel values."
 }
 
 AccelSensitivityUnits enum {
@@ -617,7 +617,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "is the nominal gauge resistance, in Ohms."
         }
         poisson_ratio           float64 = 0 {
-            @doc value "is the Poisson ratio of the gauge material."
+            @doc value "is the Poisson ratio of the measured material."
         }
         lead_wire_resistance    float64 = 0 {
             @doc value "is the resistance of the lead wires, in Ohms."
@@ -852,7 +852,7 @@ CIFreqUnits enum {
     seconds = "Seconds"
     ticks   = "Ticks"
 
-    @doc value "are the units of a frequency measurement."
+    @doc value "are the unit options for a counter frequency channel."
 }
 
 CITimeUnits enum {
@@ -926,7 +926,7 @@ ZIndex struct {
         @doc value "is true when the encoder's Z index resets the count."
     }
     z_index_val    float64 = 0 {
-        @doc value "is the count value the Z index resets to."
+        @doc value "is the value the measurement resets to when the Z index is active."
     }
     z_index_phase  ZIndexPhase = a_high_b_high {
         @doc value "selects the A/B states at which the Z index is active."
@@ -1013,10 +1013,10 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_period extends CustomScale {
         min_val       float64 = 0.000001 {
-            @doc value "is the minimum expected period, in seconds."
+            @doc value "is the minimum expected period, in the selected units."
         }
         max_val       float64 = 0.1 {
-            @doc value "is the maximum expected period, in seconds."
+            @doc value "is the maximum expected period, in the selected units."
         }
         units         CITimeUnits = seconds {
             @doc value "are the units of the period measurement."
@@ -1043,10 +1043,10 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_pulse_width extends CustomScale {
         min_val       float64 = 0.000001 {
-            @doc value "is the minimum expected pulse width, in seconds."
+            @doc value "is the minimum expected pulse width, in the selected units."
         }
         max_val       float64 = 0.1 {
-            @doc value "is the maximum expected pulse width, in seconds."
+            @doc value "is the maximum expected pulse width, in the selected units."
         }
         units         CITimeUnits = seconds {
             @doc value "are the units of the pulse-width measurement."
@@ -1062,10 +1062,10 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_semi_period extends CustomScale {
         min_val  float64 = 0.000001 {
-            @doc value "is the minimum expected semi-period, in seconds."
+            @doc value "is the minimum expected semi-period, in the selected units."
         }
         max_val  float64 = 0.1 {
-            @doc value "is the maximum expected semi-period, in seconds."
+            @doc value "is the maximum expected semi-period, in the selected units."
         }
         units    CITimeUnits = seconds {
             @doc value "are the units of the semi-period measurement."
@@ -1078,10 +1078,10 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_two_edge_sep extends CustomScale {
         min_val         float64 = 0.000001 {
-            @doc value "is the minimum expected separation, in seconds."
+            @doc value "is the minimum expected separation, in the selected units."
         }
         max_val         float64 = 1 {
-            @doc value "is the maximum expected separation, in seconds."
+            @doc value "is the maximum expected separation, in the selected units."
         }
         units           CITimeUnits = seconds {
             @doc value "are the units of the two-edge-separation measurement."

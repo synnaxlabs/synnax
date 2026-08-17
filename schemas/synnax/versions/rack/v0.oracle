@@ -45,13 +45,13 @@ Rack struct {
         """
     }
     embedded     bool = false {
-        @doc value "is true when the rack runs the node's embedded driver."
+        @doc value "is true when the rack runs the node's embedded Driver."
     }
     status       Status?  {
         @doc value "is the last known status of the rack, if any."
     }
     integrations string[] = [] {
-        @doc value "are the driver integrations the rack supports."
+        @doc value "are the Driver integrations the rack supports."
     }
 
     @doc value  "is a manager for a collection of tasks deployed on a node."

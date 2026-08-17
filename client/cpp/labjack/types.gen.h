@@ -249,11 +249,11 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     std::vector<ReadChannel> channels;
     /// @brief device_scan_backlog_warn_on_count is the device-side scan backlog above
     /// which
-    /// the task reports a skew warning. Zero lets the driver pick two seconds of scans.
+    /// the task reports a skew warning. Zero lets the Driver pick two seconds of scans.
     std::uint32_t device_scan_backlog_warn_on_count = 0;
     /// @brief ljm_scan_backlog_warn_on_count is the LJM-side scan backlog above which
     /// the
-    /// task reports a skew warning. Zero lets the driver pick one second of scans.
+    /// task reports a skew warning. Zero lets the Driver pick one second of scans.
     std::uint32_t ljm_scan_backlog_warn_on_count = 0;
 
     static ReadConfig parse(x::json::Parser parser);

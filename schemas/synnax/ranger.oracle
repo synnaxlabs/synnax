@@ -80,7 +80,7 @@ Range struct {
 New struct extends Range {
     -labels
     parent Range? {
-        @doc value "references the parent range by key."
+        @doc value "references the parent range."
         @ts pick   key
     }
     key?

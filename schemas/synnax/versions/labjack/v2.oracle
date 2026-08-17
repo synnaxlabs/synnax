@@ -115,7 +115,9 @@ ReadChannel union on type extends BaseReadChannel {
         @doc value "reads a digital input line."
     }
     thermocouple {
-        port              string = "AIN0"
+        port              string = "AIN0" {
+            @doc value "is unused; the read port is derived from pos_chan."
+        }
         thermocouple_type ThermocoupleType = k {
             @doc value "selects the thermocouple alloy type."
         }
@@ -214,13 +216,13 @@ ReadConfig struct extends task.ReadConfig {
     device_scan_backlog_warn_on_count uint32 = 0 {
         @doc value """
             is the device-side scan backlog above which the task reports a skew warning.
-            Zero lets the driver pick two seconds of scans.
+            Zero lets the Driver pick two seconds of scans.
         """
     }
     ljm_scan_backlog_warn_on_count    uint32 = 0 {
         @doc value """
             is the LJM-side scan backlog above which the task reports a skew warning.
-            Zero lets the driver pick one second of scans.
+            Zero lets the Driver pick one second of scans.
         """
     }
 

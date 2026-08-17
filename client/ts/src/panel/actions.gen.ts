@@ -68,7 +68,7 @@ export type InsertTabsPayload = z.infer<typeof insertTabsPayloadZ>;
  * and has a sibling, the reducer collapses the parent split.
  */
 export const removeTabPayloadZ = z.object({
-  key: z.uuid(),
+  key: tabKeyZ,
 });
 
 export type RemoveTabPayload = z.infer<typeof removeTabPayloadZ>;
@@ -82,7 +82,7 @@ export type RemoveTabPayload = z.infer<typeof removeTabPayloadZ>;
  * dispatches; not atomic).
  */
 export const moveTabPayloadZ = z.object({
-  key: z.uuid(),
+  key: tabKeyZ,
   targetLeaf: z.int32(),
   index: z.int32().optional(),
   location: spatial.locationZ.optional(),
@@ -97,7 +97,7 @@ export type MoveTabPayload = z.infer<typeof moveTabPayloadZ>;
  * tab in a leaf is a no-op.
  */
 export const splitTabPayloadZ = z.object({
-  key: z.uuid(),
+  key: tabKeyZ,
   direction: spatial.directionZ,
 });
 
@@ -119,7 +119,7 @@ export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;
  * visualization.
  */
 export const setTabResourcePayloadZ = z.object({
-  key: z.uuid(),
+  key: tabKeyZ,
   resource: ontology.idZ,
 });
 
@@ -131,7 +131,7 @@ export type SetTabResourcePayload = z.infer<typeof setTabResourcePayloadZ>;
  * the tab.
  */
 export const setTabViewPayloadZ = z.object({
-  key: z.uuid(),
+  key: tabKeyZ,
   view: viewZ,
 });
 

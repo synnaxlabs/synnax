@@ -590,7 +590,7 @@ class ZIndex(BaseModel):
 
     Attributes:
         z_index_enable: Is true when the encoder's Z index resets the count.
-        z_index_val: Is the count value the Z index resets to.
+        z_index_val: Is the value the measurement resets to when the Z index is active.
         z_index_phase: Selects the A/B states at which the Z index is active.
         terminal_z: Is the terminal the Z index signal is wired to.
     """

@@ -97,10 +97,11 @@ type Operation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// type is the aggregation operation type: min, max, avg, derivative, or none.
 	Type OperationType `protobuf:"varint,1,opt,name=type,proto3,enum=service.channel.pb.OperationType" json:"type,omitempty"`
-	// reset_channel is the channel key that triggers reset of the aggregation. If 0,
-	// duration-based reset is used.
+	// reset_channel is the key of a channel that resets the aggregation when it receives
+	// a sample. If 0, no reset channel is used.
 	ResetChannel uint32 `protobuf:"varint,2,opt,name=reset_channel,json=resetChannel,proto3" json:"reset_channel,omitempty"`
-	// duration is the time window for aggregation when reset_channel is 0.
+	// duration is the interval at which the aggregation resets. If 0, the aggregation is
+	// not reset on a timer.
 	Duration      int64 `protobuf:"varint,3,opt,name=duration,proto3" json:"duration,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

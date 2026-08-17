@@ -600,7 +600,8 @@ struct Resistance {
 struct ZIndex {
     /// @brief z_index_enable is true when the encoder's Z index resets the count.
     bool z_index_enable = false;
-    /// @brief z_index_val is the count value the Z index resets to.
+    /// @brief z_index_val is the value the measurement resets to when the Z index is
+    /// active.
     double z_index_val = 0;
     /// @brief z_index_phase selects the A/B states at which the Z index is active.
     std::string z_index_phase = Z_INDEX_PHASE_A_HIGH_B_HIGH;
@@ -834,7 +835,7 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
     double initial_bridge_voltage = 0;
     /// @brief nominal_gage_resistance is the nominal gauge resistance, in Ohms.
     double nominal_gage_resistance = 0;
-    /// @brief poisson_ratio is the Poisson ratio of the gauge material.
+    /// @brief poisson_ratio is the Poisson ratio of the measured material.
     double poisson_ratio = 0;
     /// @brief lead_wire_resistance is the resistance of the lead wires, in Ohms.
     double lead_wire_resistance = 0;
@@ -1214,9 +1215,9 @@ struct CIEdgeCountChannel : public BaseCIChannel {
 /// @brief CIPeriodChannel measures signal period.
 struct CIPeriodChannel : public BaseCIChannel, public CustomScale {
     std::string type = "ci_period";
-    /// @brief min_val is the minimum expected period, in seconds.
+    /// @brief min_val is the minimum expected period, in the selected units.
     double min_val = 0.000001;
-    /// @brief max_val is the maximum expected period, in seconds.
+    /// @brief max_val is the maximum expected period, in the selected units.
     double max_val = 0.100000;
     /// @brief units are the units of the period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
@@ -1239,9 +1240,9 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale {
 /// @brief CIPulseWidthChannel measures pulse width.
 struct CIPulseWidthChannel : public BaseCIChannel, public CustomScale {
     std::string type = "ci_pulse_width";
-    /// @brief min_val is the minimum expected pulse width, in seconds.
+    /// @brief min_val is the minimum expected pulse width, in the selected units.
     double min_val = 0.000001;
-    /// @brief max_val is the maximum expected pulse width, in seconds.
+    /// @brief max_val is the maximum expected pulse width, in the selected units.
     double max_val = 0.100000;
     /// @brief units are the units of the pulse-width measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
@@ -1257,9 +1258,9 @@ struct CIPulseWidthChannel : public BaseCIChannel, public CustomScale {
 /// @brief CISemiPeriodChannel measures semi-period.
 struct CISemiPeriodChannel : public BaseCIChannel, public CustomScale {
     std::string type = "ci_semi_period";
-    /// @brief min_val is the minimum expected semi-period, in seconds.
+    /// @brief min_val is the minimum expected semi-period, in the selected units.
     double min_val = 0.000001;
-    /// @brief max_val is the maximum expected semi-period, in seconds.
+    /// @brief max_val is the maximum expected semi-period, in the selected units.
     double max_val = 0.100000;
     /// @brief units are the units of the semi-period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
@@ -1273,9 +1274,9 @@ struct CISemiPeriodChannel : public BaseCIChannel, public CustomScale {
 /// @brief CITwoEdgeSepChannel measures the separation between two edges.
 struct CITwoEdgeSepChannel : public BaseCIChannel, public CustomScale {
     std::string type = "ci_two_edge_sep";
-    /// @brief min_val is the minimum expected separation, in seconds.
+    /// @brief min_val is the minimum expected separation, in the selected units.
     double min_val = 0.000001;
-    /// @brief max_val is the maximum expected separation, in seconds.
+    /// @brief max_val is the maximum expected separation, in the selected units.
     double max_val = 1;
     /// @brief units are the units of the two-edge-separation measurement.
     std::string units = CI_TIME_UNITS_SECONDS;

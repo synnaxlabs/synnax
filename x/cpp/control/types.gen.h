@@ -75,9 +75,7 @@ struct State {
 };
 
 /// @brief Transfer represents a transfer of control over a resource. It is represented
-/// as a transition from one state to another over the same resource. A transfer between
-/// resources that are different will result in a panic when any transfer methods are
-/// called.
+/// as a transition from one state to another over the same resource.
 ///
 /// If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
 /// resource is uncontrolled after the transfer.

@@ -47,8 +47,8 @@ type Channel struct {
 	// leaseholder is the node that holds the lease for this channel. Mostly for internal
 	// use.
 	Leaseholder uint32 `protobuf:"varint,3,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
-	// data_type is the data type of samples stored in this channel (e.g., Float64, Int32,
-	// TimeStamp).
+	// data_type is the data type of samples stored in this channel (e.g., float64, int32,
+	// timestamp).
 	DataType string `protobuf:"bytes,4,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
 	// is_index is true if this is an index channel. Index channels must have int64 values
 	// (TIMESTAMP data type) written in ascending order, and are most commonly Unix

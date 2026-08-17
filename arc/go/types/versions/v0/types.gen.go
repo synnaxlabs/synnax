@@ -71,9 +71,11 @@ type Type struct {
 	FunctionProperties
 	// Kind is the type category (primitive, compound, or meta-type).
 	Kind Kind `json:"kind" msgpack:"kind"`
-	// Name is the type name for variables and user-defined types.
+	// Name is the type-variable name for variables and the referenced node key for
+	// var_ref types.
 	Name string `json:"name" msgpack:"name"`
-	// Elem is the element type for compound types (chan, series).
+	// Elem is the element type for compound types (chan, series) and the value type of
+	// var_ref types.
 	Elem *Type `json:"elem,omitempty" msgpack:"elem,omitempty"`
 	// Unit is the physical unit metadata for dimensional analysis.
 	Unit *Unit `json:"unit,omitempty" msgpack:"unit,omitempty"`

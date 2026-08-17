@@ -67,10 +67,16 @@ Type struct extends FunctionProperties {
         @doc value "is the type category (primitive, compound, or meta-type)."
     }
     name           string        {
-        @doc value "is the type name for variables and user-defined types."
+        @doc value """
+            is the type-variable name for variables and the referenced node key for
+            var_ref types.
+        """
     }
     elem           Type?         {
-        @doc value "is the element type for compound types (chan, series)."
+        @doc value """
+            is the element type for compound types (chan, series) and the value type of
+            var_ref types.
+        """
     }
     unit           Unit?         {
         @doc value "is the physical unit metadata for dimensional analysis."

@@ -73,7 +73,7 @@ type Spec struct {
 	SVG string `json:"svg" msgpack:"svg"`
 	// States contains available visual states with regional styling configurations.
 	States []State `json:"states,omitzero" msgpack:"states,omitzero"`
-	// Variant is the symbol variant or category identifier (e.g., 'sensor', 'valve').
+	// Variant is the symbol variant: 'static' or 'actuator'.
 	Variant string `json:"variant" msgpack:"variant"`
 	// Handles contains connection points for linking to other diagram elements.
 	Handles []Handle `json:"handles,omitzero" msgpack:"handles,omitzero"`

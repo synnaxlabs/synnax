@@ -355,7 +355,7 @@ export interface BaseAIChannel extends z.infer<typeof baseAIChannelZ> {}
 export const zIndexZ = z.object({
   /** zIndexEnable is true when the encoder's Z index resets the count. */
   zIndexEnable: z.boolean().default(false),
-  /** zIndexVal is the count value the Z index resets to. */
+  /** zIndexVal is the value the measurement resets to when the Z index is active. */
   zIndexVal: z.number().default(0),
   /** zIndexPhase selects the A/B states at which the Z index is active. */
   zIndexPhase: zIndexPhaseZ.default("AHighBHigh"),
@@ -828,7 +828,7 @@ export const aiStrainGaugeChannelZ = baseAIChannelZ
     initialBridgeVoltage: z.number().default(0),
     /** nominalGageResistance is the nominal gauge resistance, in Ohms. */
     nominalGageResistance: z.number().default(0),
-    /** poissonRatio is the Poisson ratio of the gauge material. */
+    /** poissonRatio is the Poisson ratio of the measured material. */
     poissonRatio: z.number().default(0),
     /** leadWireResistance is the resistance of the lead wires, in Ohms. */
     leadWireResistance: z.number().default(0),
@@ -1312,9 +1312,9 @@ export interface CIEdgeCountChannel extends z.infer<typeof ciEdgeCountChannelZ> 
 /** CIPeriodChannel measures signal period. */
 export const ciPeriodChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
   type: z.literal("ci_period"),
-  /** minVal is the minimum expected period, in seconds. */
+  /** minVal is the minimum expected period, in the selected units. */
   minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected period, in seconds. */
+  /** maxVal is the maximum expected period, in the selected units. */
   maxVal: z.number().default(0.1),
   /** units are the units of the period measurement. */
   units: ciTimeUnitsZ.default("Seconds"),
@@ -1334,9 +1334,9 @@ export interface CIPeriodChannel extends z.infer<typeof ciPeriodChannelZ> {}
 /** CIPulseWidthChannel measures pulse width. */
 export const ciPulseWidthChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
   type: z.literal("ci_pulse_width"),
-  /** minVal is the minimum expected pulse width, in seconds. */
+  /** minVal is the minimum expected pulse width, in the selected units. */
   minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected pulse width, in seconds. */
+  /** maxVal is the maximum expected pulse width, in the selected units. */
   maxVal: z.number().default(0.1),
   /** units are the units of the pulse-width measurement. */
   units: ciTimeUnitsZ.default("Seconds"),
@@ -1350,9 +1350,9 @@ export interface CIPulseWidthChannel extends z.infer<typeof ciPulseWidthChannelZ
 /** CISemiPeriodChannel measures semi-period. */
 export const ciSemiPeriodChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
   type: z.literal("ci_semi_period"),
-  /** minVal is the minimum expected semi-period, in seconds. */
+  /** minVal is the minimum expected semi-period, in the selected units. */
   minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected semi-period, in seconds. */
+  /** maxVal is the maximum expected semi-period, in the selected units. */
   maxVal: z.number().default(0.1),
   /** units are the units of the semi-period measurement. */
   units: ciTimeUnitsZ.default("Seconds"),
@@ -1364,9 +1364,9 @@ export interface CISemiPeriodChannel extends z.infer<typeof ciSemiPeriodChannelZ
 /** CITwoEdgeSepChannel measures the separation between two edges. */
 export const ciTwoEdgeSepChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
   type: z.literal("ci_two_edge_sep"),
-  /** minVal is the minimum expected separation, in seconds. */
+  /** minVal is the minimum expected separation, in the selected units. */
   minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected separation, in seconds. */
+  /** maxVal is the maximum expected separation, in the selected units. */
   maxVal: z.number().default(1),
   /** units are the units of the two-edge-separation measurement. */
   units: ciTimeUnitsZ.default("Seconds"),

@@ -54,10 +54,11 @@ func (o OperationType) IsValid() bool {
 type Operation struct {
 	// Type is the aggregation operation type: min, max, avg, derivative, or none.
 	Type OperationType `json:"type" msgpack:"type"`
-	// ResetChannel is the channel key that triggers reset of the aggregation. If 0,
-	// duration-based reset is used.
+	// ResetChannel is the key of a channel that resets the aggregation when it receives
+	// a sample. If 0, no reset channel is used.
 	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
-	// Duration is the time window for aggregation when reset_channel is 0.
+	// Duration is the interval at which the aggregation resets. If 0, the aggregation
+	// is not reset on a timer.
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 }
 

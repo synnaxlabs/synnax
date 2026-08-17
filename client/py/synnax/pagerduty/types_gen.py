@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from synnax import status as status_
 from synnax import task
 
 
@@ -33,7 +34,7 @@ class Alert(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     key: str = ""
-    status: str = ""
+    status: status_.Key = ""
     treat_error_as_critical: bool = False
     component: str = ""
     group: str = ""

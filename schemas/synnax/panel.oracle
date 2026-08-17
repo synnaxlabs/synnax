@@ -13,7 +13,9 @@ import "schemas/x/spatial"
 @go output "core/pkg/service/panel"
 @ts output "client/ts/src/panel"
 
-TabKey = uuid
+TabKey = uuid {
+    @doc value "uniquely identifies a tab within a panel."
+}
 
 TabBase struct {
     key TabKey = create {
@@ -191,7 +193,7 @@ Panel struct {
     }
 
     action RemoveTab {
-        key uuid
+        key TabKey
 
         @doc value """
             removes the tab with the given key. If the containing leaf becomes empty and
@@ -200,7 +202,7 @@ Panel struct {
     }
 
     action MoveTab {
-        key         uuid
+        key         TabKey
         target_leaf int32
         index       int32?
         location    spatial.Location?
@@ -216,7 +218,7 @@ Panel struct {
     }
 
     action SplitTab {
-        key       uuid
+        key       TabKey
         direction spatial.Direction
 
         @doc value """
@@ -235,7 +237,7 @@ Panel struct {
     }
 
     action SetTabResource {
-        key      uuid
+        key      TabKey
         resource ontology.ID
 
         @doc value """
@@ -248,7 +250,7 @@ Panel struct {
     }
 
     action SetTabView {
-        key  uuid
+        key  TabKey
         view View
 
         @doc value """
@@ -259,7 +261,7 @@ Panel struct {
     }
 
     @create
-    @doc value     "is a project-owned tab holding a tree of visualization tabs."
+    @doc value     "is a project-owned tree of visualization tabs."
     @go marshal
     @go migrate
     @ontology type "panel"

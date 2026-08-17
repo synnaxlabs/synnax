@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/status"
 import "schemas/synnax/versions/task/v2"
 
 Alert struct {
@@ -14,7 +15,7 @@ Alert struct {
         @doc value "uniquely identifies the alert within the task."
         @key
     }
-    status                  string = "" {
+    status                  status.Key = "" {
         @doc value "is the key of the Synnax status the alert watches."
     }
     treat_error_as_critical bool = false {

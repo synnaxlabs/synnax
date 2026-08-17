@@ -47,9 +47,10 @@ class Operation(BaseModel):
 
     Attributes:
         type: Is the aggregation operation type: min, max, avg, derivative, or none.
-        reset_channel: Is the channel key that triggers reset of the aggregation. If 0,
-            duration-based reset is used.
-        duration: Is the time window for aggregation when reset_channel is 0.
+        reset_channel: Is the key of a channel that resets the aggregation when it
+            receives a sample. If 0, no reset channel is used.
+        duration: Is the interval at which the aggregation resets. If 0, the aggregation
+            is not reset on a timer.
     """
 
     type: OperationType
@@ -70,8 +71,8 @@ class Payload(BaseModel):
         name: Is the human-readable channel name.
         leaseholder: Is the node that holds the lease for this channel. Mostly for
             internal use.
-        data_type: Is the data type of samples stored in this channel (e.g., Float64,
-            Int32, TimeStamp).
+        data_type: Is the data type of samples stored in this channel (e.g., float64,
+            int32, timestamp).
         is_index: Is true if this is an index channel. Index channels must have int64
             values (TIMESTAMP data type) written in ascending order, and are most
             commonly Unix nanosecond timestamps.

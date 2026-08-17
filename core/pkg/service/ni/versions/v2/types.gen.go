@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Units enumerates the engineering units an NI analog channel can report.
+// Units enumerates the engineering units for NI analog channel values.
 type Units string
 
 const (
@@ -1653,7 +1653,7 @@ type AIStrainGaugeChannel struct {
 	InitialBridgeVoltage float64 `json:"initial_bridge_voltage" msgpack:"initial_bridge_voltage"`
 	// NominalGageResistance is the nominal gauge resistance, in Ohms.
 	NominalGageResistance float64 `json:"nominal_gage_resistance" msgpack:"nominal_gage_resistance"`
-	// PoissonRatio is the Poisson ratio of the gauge material.
+	// PoissonRatio is the Poisson ratio of the measured material.
 	PoissonRatio float64 `json:"poisson_ratio" msgpack:"poisson_ratio"`
 	// LeadWireResistance is the resistance of the lead wires, in Ohms.
 	LeadWireResistance float64 `json:"lead_wire_resistance" msgpack:"lead_wire_resistance"`
@@ -2855,7 +2855,7 @@ func (c CIMeasMethod) IsValid() bool {
 	}
 }
 
-// CIFreqUnits are the units of a frequency measurement.
+// CIFreqUnits are the unit options for a counter frequency channel.
 type CIFreqUnits string
 
 const (
@@ -3039,7 +3039,7 @@ func (z ZIndexPhase) IsValid() bool {
 type ZIndex struct {
 	// ZIndexEnable is true when the encoder's Z index resets the count.
 	ZIndexEnable bool `json:"z_index_enable" msgpack:"z_index_enable"`
-	// ZIndexVal is the count value the Z index resets to.
+	// ZIndexVal is the value the measurement resets to when the Z index is active.
 	ZIndexVal float64 `json:"z_index_val" msgpack:"z_index_val"`
 	// ZIndexPhase selects the A/B states at which the Z index is active.
 	ZIndexPhase ZIndexPhase `json:"z_index_phase" msgpack:"z_index_phase"`
@@ -3197,9 +3197,9 @@ func (c CIEdgeCountChannel) Validate() error {
 type CIPeriodChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected period, in seconds.
+	// MinVal is the minimum expected period, in the selected units.
 	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected period, in seconds.
+	// MaxVal is the maximum expected period, in the selected units.
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
@@ -3258,9 +3258,9 @@ func (c CIPeriodChannel) Validate() error {
 type CIPulseWidthChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected pulse width, in seconds.
+	// MinVal is the minimum expected pulse width, in the selected units.
 	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected pulse width, in seconds.
+	// MaxVal is the maximum expected pulse width, in the selected units.
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the pulse-width measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
@@ -3303,9 +3303,9 @@ func (c CIPulseWidthChannel) Validate() error {
 type CISemiPeriodChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected semi-period, in seconds.
+	// MinVal is the minimum expected semi-period, in the selected units.
 	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected semi-period, in seconds.
+	// MaxVal is the maximum expected semi-period, in the selected units.
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the semi-period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
@@ -3342,9 +3342,9 @@ func (c CISemiPeriodChannel) Validate() error {
 type CITwoEdgeSepChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected separation, in seconds.
+	// MinVal is the minimum expected separation, in the selected units.
 	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected separation, in seconds.
+	// MaxVal is the maximum expected separation, in the selected units.
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the two-edge-separation measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`

@@ -37,8 +37,8 @@ type Channel struct {
 	// Leaseholder is the node that holds the lease for this channel. Mostly for
 	// internal use.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
-	// DataType is the data type of samples stored in this channel (e.g., Float64,
-	// Int32, TimeStamp).
+	// DataType is the data type of samples stored in this channel (e.g., float64,
+	// int32, timestamp).
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this is an index channel. Index channels must have int64
 	// values (TIMESTAMP data type) written in ascending order, and are most commonly

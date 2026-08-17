@@ -36,10 +36,10 @@ type Rack struct {
 	// TaskCounter is the number of tasks ever created on the rack, used to issue
 	// sequential local task keys.
 	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
-	// Embedded is true when the rack runs the node's embedded driver.
+	// Embedded is true when the rack runs the node's embedded Driver.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
 	// Status is the last known status of the rack, if any.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
-	// Integrations are the driver integrations the rack supports.
+	// Integrations are the Driver integrations the rack supports.
 	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
 }

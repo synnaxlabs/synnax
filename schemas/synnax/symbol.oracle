@@ -86,9 +86,7 @@ Spec struct {
         """
     }
     variant          string            {
-        @doc value           """
-            is the symbol variant or category identifier (e.g., 'sensor', 'valve').
-        """
+        @doc value           "is the symbol variant: 'static' or 'actuator'."
         @validate min_length 1
     }
     handles          Handle[]          {
