@@ -9,9 +9,10 @@
 
 import "@/feature/panel/Mosaic.css";
 
-import { NotFoundError, ontology, type panel } from "@synnaxlabs/client";
+import { NotFoundError, ontology, panel } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
+  Access,
   Button,
   Component,
   Errors,
@@ -239,6 +240,7 @@ const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
 // tab in the scoped panel through the mosaic's regular create flow.
 const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
   const openTab = PlatformPanel.useOpenTab();
+  const canEdit = Panel.useCanEdit({});
   const handleCreate = useCallback(
     () => openTab(onCreateTab()),
     [onCreateTab, openTab],
@@ -251,7 +253,7 @@ const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
         className={CSS.BE("mosaic", "empty-action")}
         level="h5"
         message="No components open."
-        action="Create a new component"
+        action={canEdit ? "Create a new component" : undefined}
         onClick={handleCreate}
       />
     </Flex.Box>
@@ -302,6 +304,7 @@ interface EmptyContentProps extends Pick<MosaicProps, "onFileDrop"> {}
 // same framed L0 surface instead of collapsing to bare window background.
 const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
   const createPanel = useCreate();
+  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
   const [over, setOver] = useState(false);
   const acceptsFiles = onFileDrop != null;
   const canDrop: Haul.CanDrop = useCallback(
@@ -350,7 +353,7 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
           className={CSS.BE("mosaic", "empty-action")}
           level="h5"
           message="No panels open."
-          action="Create a new panel"
+          action={canCreate ? "Create a new panel" : undefined}
           onClick={createPanel}
         />
       </Flex.Box>

@@ -19,6 +19,7 @@ import { array, compare, deep, type optional, type record, verbs } from "@synnax
 import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
+import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Scope, TabScope } from "@/panel/scope";
 import { Synnax } from "@/synnax";
@@ -69,6 +70,15 @@ export const { use: useKeysByProject } = Flux.createRetrieve<
 export interface KeyParams {
   key: panel.Key;
 }
+
+/**
+ * Reports whether the subject may restructure the panel. Every mosaic gesture, from
+ * closing a tab to resizing a split, reduces to one dispatch against the panel
+ * document, so a single update grant answers all of them.
+ */
+export const useCanEdit = Scope.bindHook(({ key }: KeyParams): boolean =>
+  Access.useUpdateGranted(panel.ontologyID(key)),
+);
 
 export interface TabContentParams {
   key: panel.Key;

@@ -10,12 +10,18 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Selector as AppSelector } from "@/app/selector";
+import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
-export const useSelectorVisible = (): boolean =>
+export const useSelectorVisible = (): boolean => {
   // It's safe to call hooks in map since VIS_SELECTABLES is a module-level constant
   // and never changes between renders, ensuring consistent hook order.
-  AppSelector.VIS_SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
+  const anySelectable = AppSelector.VIS_SELECTABLES.map(
+    (s) => s.useVisible?.() ?? true,
+  ).some(Boolean);
+  // The selector itself opens in a tab, which a viewer cannot write.
+  return Panel.useCanOpenTab() && anySelectable;
+};
 
 export const Selector = Base.create({
   selectables: AppSelector.VIS_SELECTABLES,

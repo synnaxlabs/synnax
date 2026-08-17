@@ -115,11 +115,18 @@ const renderLiveTriggers = async (panelKey: panel.Key) => {
   const { result } = renderHook(
     () => {
       Triggers.use();
-      return useSelectorVisible();
+      return {
+        canCreateTab: useSelectorVisible(),
+        canEditPanel: PlatformPanel.useCanEditActive(),
+      };
     },
     { wrapper: Wrapper },
   );
-  return { store, canCreateTab: () => result.current };
+  return {
+    store,
+    canCreateTab: () => result.current.canCreateTab,
+    canEditPanel: () => result.current.canEditPanel,
+  };
 };
 
 const viewTab = (key: panel.TabKey = uuid.create()): panel.Tab => ({
@@ -257,8 +264,10 @@ describe("app/triggers", () => {
         variant: "leaf",
         tabs: [closed, kept],
       });
-      const { store } = await renderLiveTriggers(pan.key);
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key);
       focusTab(store, pan.key, closed.key);
+      // The shortcut is gated on being able to restructure the panel.
+      await waitFor(() => expect(canEditPanel()).toBe(true));
       act(() => press(CONTROL, "KeyW"));
       await waitFor(async () => expect(await leafTabs(pan.key)).toEqual([kept]));
     });

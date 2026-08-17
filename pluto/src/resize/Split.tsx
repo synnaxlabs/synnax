@@ -49,6 +49,11 @@ export interface SplitProps extends Omit<
    * callback to persist the new ratio to the source of truth.
    */
   onResizeEnd?: (size: number) => void;
+  /**
+   * Removes the drag handle, so the ratio can only change through `size`. Use where the
+   * viewer may not persist a new ratio; the divider between the panes stays.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -82,6 +87,7 @@ export const Split = ({
   x,
   y,
   pack,
+  disabled = false,
   ...rest
 }: SplitProps): ReactElement => {
   const dir = Flex.parseDirection(propsDirection, x, y, pack) ?? "x";
@@ -150,6 +156,7 @@ export const Split = ({
         location={loc}
         size={rendered + offset}
         decimal
+        disabled={disabled}
         onPointerDown={handleDragStart}
       >
         {first}

@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { access, panel, project, user } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { Haul, Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
 import { fireDragEvent } from "@synnaxlabs/pluto/testutil";
 import { uuid } from "@synnaxlabs/x";
@@ -482,6 +485,37 @@ describe("Panel.Selector", () => {
       await waitFor(() =>
         expect(Session.Panel.selectSelected(store.getState())).toEqual(row[1].key),
       );
+    });
+  });
+
+  // A subject without panel create cannot mint one, so the strip offers no way to.
+  describe("without create permission", () => {
+    it("should offer no create button", async () => {
+      const proj = await client.projects.create({
+        name: uniqueName("project"),
+        layout: {},
+      });
+      const pan = await createProjectPanel(proj.key, { name: "alpha" });
+      const viewer = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          panel.TYPE_ONTOLOGY_ID,
+          project.TYPE_ONTOLOGY_ID,
+          user.TYPE_ONTOLOGY_ID,
+          access.role.TYPE_ONTOLOGY_ID,
+          access.policy.TYPE_ONTOLOGY_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      const { wrapper } = await createPanelWrapper({
+        client: viewer,
+        project: proj.key,
+      });
+      await act(async () => {
+        render(<Selector />, { wrapper });
+      });
+      await waitFor(() => expect(screen.getByText(pan.name)).toBeTruthy());
+      expect(screen.queryByRole("button")).toBeNull();
     });
   });
 

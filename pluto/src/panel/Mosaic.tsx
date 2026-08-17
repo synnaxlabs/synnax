@@ -29,6 +29,7 @@ import { Menu } from "@/menu";
 import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
 import {
+  useCanEdit,
   useLeafNode,
   useMoveTabToPanel,
   useNodeVariant,
@@ -71,9 +72,10 @@ export interface MosaicProps extends Omit<
 interface TabProps extends Pick<MosaicProps, "tabName"> {
   tabKey: panel.TabKey;
   onClose: (tabKey: panel.TabKey) => void;
+  canEdit: boolean;
 }
 
-const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
+const Tab = ({ tabKey, tabName, onClose, canEdit }: TabProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
   const key = Scope.use();
   const client = Synnax.use();
@@ -92,19 +94,22 @@ const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
     <Tabs.Tab
       key={tabKey}
       itemKey={tabKey}
-      draggable
+      draggable={canEdit}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClose={handleClose}
+      // Tabs.Tab binds Delete to onClose, so withholding it also closes that route.
+      onClose={canEdit ? handleClose : undefined}
     >
       <TabScope.Provider value={tabKey}>{tabName?.({})}</TabScope.Provider>
-      <Tabs.Close onClick={handleClose} />
+      {canEdit && <Tabs.Close onClick={handleClose} />}
     </Tabs.Tab>
   );
 };
 
 interface NodeProps
-  extends Pick<Base.LeafProps, "nodeKey">, Pick<TabProps, "tabName" | "onClose"> {
+  extends
+    Pick<Base.LeafProps, "nodeKey">,
+    Pick<TabProps, "tabName" | "onClose" | "canEdit"> {
   onAdd: (nodeKey: number) => void;
   onContextMenu: Menu.ContextMenuOpen;
   emptyContent?: ReactNode;
@@ -116,6 +121,7 @@ const Leaf = memo(
     onAdd,
     onContextMenu,
     emptyContent,
+    canEdit,
     ...rest
   }: NodeProps): ReactElement => {
     const { tabs } = useLeafNode({ nodeKey });
@@ -136,23 +142,25 @@ const Leaf = memo(
             onContextMenu={onContextMenu}
           >
             {tabs.map((tabKey) => (
-              <Tab key={tabKey} tabKey={tabKey} {...rest} />
+              <Tab key={tabKey} tabKey={tabKey} canEdit={canEdit} {...rest} />
             ))}
             <Flex.Box grow />
-            <Flex.Box
-              align="center"
-              justify="center"
-              className={CSS.BE("panel-mosaic", "cap")}
-            >
-              <Button.Button
-                variant="text"
-                size="small"
-                onClick={handleAdd}
-                className={CSS.BE("panel-mosaic", "create")}
+            {canEdit && (
+              <Flex.Box
+                align="center"
+                justify="center"
+                className={CSS.BE("panel-mosaic", "cap")}
               >
-                <Icon.Add color={9} />
-              </Button.Button>
-            </Flex.Box>
+                <Button.Button
+                  variant="text"
+                  size="small"
+                  onClick={handleAdd}
+                  className={CSS.BE("panel-mosaic", "create")}
+                >
+                  <Icon.Add color={9} />
+                </Button.Button>
+              </Flex.Box>
+            )}
           </Tabs.Selector>
           <Tabs.Content grow>
             {selected != null ? (
@@ -194,7 +202,7 @@ Node.displayName = "Panel.Mosaic.Node";
  * shown on the overlaid leaf's exit affordances. */
 export const OVERLAY_TRIGGER: Triggers.Trigger = ["Control", "L"];
 
-interface OverlaidLeafProps extends Pick<TabProps, "tabName" | "onClose"> {
+interface OverlaidLeafProps extends Pick<TabProps, "tabName" | "onClose" | "canEdit"> {
   overlaid: panel.TabKey;
   onStopOverlay?: () => void;
   onContextMenu: Menu.ContextMenuOpen;
@@ -234,15 +242,17 @@ const OverlaidLeaf = ({
 /** Closes the focused tab. Bound by the embedding app; shown on the close menu item. */
 export const CLOSE_TRIGGER: Triggers.Trigger = ["Control", "W"];
 
-/** CloseTabMenuItem closes the context menu's tab. Must render inside the tab
- * context menu passed to {@link Mosaic}. */
-export const CloseTabMenuItem = (): ReactElement => {
+/** CloseTabMenuItem closes the context menu's tab. Hidden from a viewer who cannot
+ * write the panel. Must render inside the tab context menu passed to {@link Mosaic}. */
+export const CloseTabMenuItem = (): ReactElement | null => {
   const tabKey = TabScope.use();
   const dispatch = useSingleDispatch();
+  const canEdit = useCanEdit({});
   const handleClose = useCallback(
     () => dispatch(panel.removeTab({ key: tabKey })),
     [dispatch, tabKey],
   );
+  if (!canEdit) return null;
   return (
     <Menu.Item itemKey="close" onClick={handleClose} triggerIndicator={CLOSE_TRIGGER}>
       <Icon.Close />
@@ -252,18 +262,19 @@ export const CloseTabMenuItem = (): ReactElement => {
 };
 
 /** SplitTabMenuItems splits the context menu's tab horizontally or vertically.
- * Hidden when the tab cannot be split. Must render inside the tab context menu
- * passed to {@link Mosaic}. */
+ * Hidden when the tab cannot be split, or from a viewer who cannot write the panel.
+ * Must render inside the tab context menu passed to {@link Mosaic}. */
 export const SplitTabMenuItems = (): ReactElement | null => {
   const tabKey = TabScope.use();
   const dispatch = useSingleDispatch();
   const root = useRoot({});
+  const canEdit = useCanEdit({});
   const handleSplit = useCallback(
     (direction: direction.Direction) =>
       dispatch(panel.splitTab({ key: tabKey, direction })),
     [dispatch, tabKey],
   );
-  if (!panel.canSplitTab(root, tabKey)) return null;
+  if (!canEdit || !panel.canSplitTab(root, tabKey)) return null;
   return (
     <>
       <Menu.Item itemKey="splitX" onClick={() => handleSplit("x")}>
@@ -331,6 +342,7 @@ export const Mosaic = ({
   const dispatch = useSingleDispatch();
   const key = Scope.use();
   const client = Synnax.use();
+  const canEdit = useCanEdit({});
 
   const moveToPanel = useMoveTabToPanel();
 
@@ -422,6 +434,7 @@ export const Mosaic = ({
             onDrop={handleDrop}
             onCreate={handleCreate}
             onResize={handleResize}
+            disabled={!canEdit}
             className={CSS(
               className,
               overlaid != null && CSS.BM("panel-mosaic", "overlaid"),
@@ -436,6 +449,7 @@ export const Mosaic = ({
                 onContextMenu={menuProps.open}
                 tabName={tabName}
                 emptyContent={emptyContent}
+                canEdit={canEdit}
               />
             ) : (
               <OverlaidLeaf
@@ -444,6 +458,7 @@ export const Mosaic = ({
                 onClose={handleClose}
                 onStopOverlay={onStopOverlay}
                 onContextMenu={menuProps.open}
+                canEdit={canEdit}
               />
             )}
           </Base.Frame>

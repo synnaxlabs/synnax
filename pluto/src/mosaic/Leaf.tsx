@@ -94,7 +94,7 @@ export const Leaf = ({
   ref,
   ...rest
 }: LeafProps): ReactElement => {
-  const { onDrop, onCreate, onFileDrop } = useContext("Mosaic.Leaf");
+  const { onDrop, onCreate, onFileDrop, disabled } = useContext("Mosaic.Leaf");
   const internalRef = useRef<HTMLDivElement | null>(null);
   const combinedRef = useCombinedRefs(ref, internalRef);
   const [mask, setMask] = useState<location.Location | null>(null);
@@ -102,6 +102,7 @@ export const Leaf = ({
   const hasFileDrop = onFileDrop != null;
   const canDrop: Haul.CanDrop = useCallback(
     ({ items }) => {
+      if (disabled === true) return false;
       const hasFiles = Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
       if (hasFiles && hasFileDrop) return true;
       if (filterTabCreateHaulItems(items).length > 0) return true;
@@ -112,7 +113,7 @@ export const Leaf = ({
       const keys = leafTabKeys(el);
       return keys.length === 0 || keys.some((key) => !dropped.includes(key));
     },
-    [hasFileDrop],
+    [hasFileDrop, disabled],
   );
 
   const handleDrop = useCallback(
