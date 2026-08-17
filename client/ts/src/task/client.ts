@@ -251,15 +251,28 @@ export class Task<S extends Schemas = Schemas> {
   /**
    * Starts the task, runs fn, and stops the task.
    * @throws {ConfigurationError} if the task failed to start, or ended in an error
-   * state. A task that dies while fn runs surfaces its cause on stop.
+   * state. A task that dies while fn runs surfaces its cause on stop, with whatever
+   * fn threw attached as the cause.
    */
   async run<T>(fn: () => Promise<T>): Promise<T> {
     await this.start();
+    let value: T;
     try {
-      return await fn();
-    } finally {
-      await this.stop();
+      value = await fn();
+    } catch (error) {
+      const fnError =
+        error instanceof Error ? error : new Error(String(error), { cause: error });
+      try {
+        await this.stop();
+      } catch (stopError) {
+        if (!(stopError instanceof Error)) throw fnError;
+        stopError.cause ??= fnError;
+        throw stopError;
+      }
+      throw fnError;
     }
+    await this.stop();
+    return value;
   }
 
   async snapshottedTo(): Promise<ontology.Resource | null> {

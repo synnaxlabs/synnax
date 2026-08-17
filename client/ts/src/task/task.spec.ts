@@ -603,6 +603,30 @@ describe("Task", async () => {
         streamer.close();
       }
     });
+
+    it("should keep the callback error as the cause when stop also fails", async () => {
+      const t = await testRack.createTask({
+        name: "lifecycle-run-both-error-test",
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const callbackError = new Error("callback blew up");
+        const ran = t.run(async () => {
+          throw callbackError;
+        });
+        const settled = ran.catch((error: unknown) => error);
+        await ackNextCommand(streamer, t.key, "success", "Task started successfully");
+        await ackNextCommand(streamer, t.key, "error", "device disconnected");
+        const error = await settled;
+        expect(error).toBeInstanceOf(ConfigurationError);
+        expect((error as Error).message).toContain("device disconnected");
+        expect((error as Error).cause).toBe(callbackError);
+      } finally {
+        streamer.close();
+      }
+    });
   });
 
   describe("executeCommand", () => {
