@@ -24,6 +24,8 @@ export interface BarProps extends Flex.BoxProps {
   drifted?: boolean;
   /** Hides the action row entirely. */
   snapshot?: boolean;
+  /** Hides the action row for a viewer who cannot command the task. */
+  readOnly?: boolean;
   /** Disables the deploy and start/stop actions. */
   disabled?: boolean;
   /** Shown when the status message is empty. */
@@ -45,6 +47,7 @@ export const Bar = ({
   running,
   drifted = false,
   snapshot = false,
+  readOnly = false,
   disabled = false,
   fallbackMessage,
   startStopVariant,
@@ -68,7 +71,7 @@ export const Bar = ({
         onToggle={handleToggle}
         fallbackMessage={fallbackMessage}
       />
-      {!snapshot && (
+      {!snapshot && !readOnly && (
         <Actions>
           {extraActions}
           <RedeployButton

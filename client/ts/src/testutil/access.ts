@@ -14,6 +14,7 @@ import { role } from "@/access/role";
 import type Synnax from "@/client";
 import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
+import { user } from "@/user";
 
 /**
  * Reports whether the error, or any error it wraps, is an access denial.
@@ -27,16 +28,21 @@ const isDenial = (err: unknown): boolean =>
 /**
  * Connects as a new user, tolerating the change-stream refusal a restricted subject
  * gets. The Core refuses that stream by design; logging the refusal prints after
- * teardown, which vitest counts as an unhandled error.
+ * teardown, which vitest counts as an unhandled error. The returned client already
+ * holds the subject's policies, so a guard reading them answers on its first render
+ * rather than reporting a pending read as a denial.
  */
-const connectAs = async (username: string) =>
-  await createTestClient({
+const connectAs = async (username: string, key: user.Key) => {
+  const client = await createTestClient({
     username,
     password: "test",
     onInternalError: (err) => {
       if (!isDenial(err)) console.error(err);
     },
   });
+  await client.access.policies.retrieveForSubject(user.ontologyID(key));
+  return client;
+};
 
 const createUser = async (client: Synnax) => {
   const username = id.create();
@@ -58,7 +64,7 @@ export const createTestClientWithPolicy = async (client: Synnax, pol: policy.New
   });
   await client.ontology.addChildren(role.ontologyID(r.key), policy.ontologyID(p.key));
   await client.access.roles.assign({ user: u.key, role: r.key });
-  return await connectAs(u.username);
+  return await connectAs(u.username, u.key);
 };
 
 /** The roles the Core provisions on startup. */
@@ -87,7 +93,7 @@ export const createTestClientWithRole = async (
   if (r == null) throw new NotFoundError(`no built-in role named ${name}`);
   const u = await createUser(client);
   await client.access.roles.assign({ user: u.key, role: r.key });
-  return await connectAs(u.username);
+  return await connectAs(u.username, u.key);
 };
 
 /**

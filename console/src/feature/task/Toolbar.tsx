@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { task } from "@synnaxlabs/client";
+import { framer, task } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -229,6 +229,8 @@ const TaskListItem = ({
   const { getIcon, parseType } = PlatformTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
+  // Start and stop write a command through the framer, never the task itself.
+  const canControl = Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
   const details = task_?.status?.details;
   let variant = task_?.status?.variant;
   const icon = getIcon(task_?.type ?? "");
@@ -282,7 +284,7 @@ const TaskListItem = ({
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
-      {hasUpdatePermission && (
+      {canControl && (
         <Button.Button
           variant="outlined"
           size="small"
@@ -325,6 +327,7 @@ const ContextMenu = ({
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const canControl = Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,
@@ -378,7 +381,7 @@ const ContextMenu = ({
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
     <PlatformContextMenu.Menu>
-      {hasUpdatePermission && (
+      {canControl && (
         <>
           {canStart && (
             <Menu.Item itemKey="start" onClick={() => onStart(keys)}>

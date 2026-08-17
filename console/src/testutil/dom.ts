@@ -80,6 +80,12 @@ export const getIconButton = (
   return button;
 };
 
+/** Like getIconButton, but waits for the button to appear. */
+export const findIconButton = async (
+  container: ParentNode,
+  icon: string,
+): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
+
 /**
  * Returns the pluto toggle button in container. Toggles carry no accessible name, and
  * their icon is decoration that changes with the design, so the toggle class is the

@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type panel, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  NotFoundError,
+  type panel,
+  type Synnax as Client,
+  task,
+} from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
@@ -32,6 +40,7 @@ import {
   createConsoleWrapper,
   getIconButton,
   openContextMenu,
+  queryIconButton,
   uniqueName,
 } from "@/testutil";
 
@@ -88,8 +97,8 @@ const createTask = async ({
   return t;
 };
 
-const renderToolbar = async () => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+const renderToolbar = async (as: Client = client) => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   const created = await createSelectedPanel(store, client);
   render(
     <Task.RegistryProvider registry={Task.REGISTRY}>
@@ -306,6 +315,22 @@ describe("task/Toolbar", () => {
         });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
+    });
+  });
+
+  describe("without permission to command tasks", () => {
+    it("withholds the start/stop button and its context menu items", async () => {
+      // A stopped task is what makes Start eligible, so its absence reads as the
+      // permission gate rather than the status gate.
+      const t = await createTask({ running: false });
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      await renderToolbar(viewer);
+      await screen.findByText(t.name);
+      expect(queryIconButton(document.body, "play")).toBeNull();
+      expect(queryIconButton(document.body, "stop")).toBeNull();
+      await openContextMenu(t.name);
+      expect(screen.queryByText("Start")).toBeNull();
+      expect(screen.queryByText("Stop")).toBeNull();
     });
   });
 });

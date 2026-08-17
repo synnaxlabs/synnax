@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/client";
-import { type Flex, Form } from "@synnaxlabs/pluto";
+import { framer, status } from "@synnaxlabs/client";
+import { Access, type Flex, Form } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Bar } from "@/platform/task/controls/Bar";
@@ -29,6 +29,8 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
+  // Deploy, stop, and redeploy all write a command through the framer.
+  const canControl = Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
 
   const handleDeploy = useCallback(() => {
     if (key == null) return;
@@ -45,6 +47,7 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
       running={taskStatus.details.running}
       drifted={drifted}
       snapshot={isSnapshot}
+      readOnly={!canControl}
       startStopVariant={status.keepVariants(taskStatus.variant, "loading")}
       onDeploy={handleDeploy}
       onStop={handleStop}

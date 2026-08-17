@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Control, Diagram, Flex, Icon, Schematic } from "@synnaxlabs/pluto";
+import { framer } from "@synnaxlabs/client";
+import {
+  Access,
+  Button,
+  Control,
+  Diagram,
+  Flex,
+  Icon,
+  Schematic,
+} from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback } from "react";
 
@@ -39,13 +48,15 @@ export const Controls = memo((): ReactElement => {
   const isSnapshot = Schematic.useIsSnapshot();
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
   const { canEdit, isCurrentlyEditable } = Session.Schematic.useSelectEditable();
+  // Control writes commands through the framer, so the grant is read there.
+  const canControl = Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
   return (
     <Vis.Controls x>
       {isCurrentlyEditable && <Diagram.Controls.SelectViewportMode />}
       <Diagram.Controls.FitView />
       <Flex.Box x pack className={CSS(isAcquired && Vis.CONTROLS_PINNED_CLASS)}>
         {canEdit && <Diagram.Controls.ToggleEdit disabled={isAcquired} />}
-        {!isSnapshot && <ControlToggleButton />}
+        {!isSnapshot && canControl && <ControlToggleButton />}
       </Flex.Box>
     </Vis.Controls>
   );
