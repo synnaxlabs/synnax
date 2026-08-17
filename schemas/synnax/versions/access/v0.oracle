@@ -14,7 +14,7 @@ Action enum {
     update   = "update"
 
     @doc value """
-        is a fundamental operation controlled by the permission system. Actions
-        define what operations a subject can perform on resources.
+        is a fundamental operation controlled by the permission system. Actions define
+        what operations a subject can perform on resources.
     """
 }
