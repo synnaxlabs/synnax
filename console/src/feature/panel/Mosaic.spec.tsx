@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { type panel, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  createPanelParent,
+  createTestClient,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Haul, Icon, Panel as PPanel, Text, Triggers } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -53,6 +57,7 @@ const hydrated = (key: panel.Key): ConsolePreloadedState => ({
 });
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const mounts: panel.Key[] = [];
 const unmounts: panel.Key[] = [];
@@ -123,12 +128,13 @@ const probePanel = async (): Promise<panel.Panel> =>
 
 const setup = async (
   preloadedState?: ConsolePreloadedState,
+  as: Client = client,
 ): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
   const { wrapper: Console, store } = await createConsoleWrapper({
-    client,
+    client: as,
     preloadedState,
   });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -462,5 +468,26 @@ describe("Panel.Mosaic trigger scope", () => {
     );
     pressTrigger();
     expect(triggerFires).toEqual([tabA.key]);
+  });
+});
+
+describe("Panel.Mosaic empty state permissions", () => {
+  const renderEmpty = async (as: Client) => {
+    const { wrapper } = await setup(undefined, as);
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    await screen.findByText("No panels open.");
+  };
+
+  it.each(["Viewer", "Operator"])(
+    "should withhold the create action from a %s",
+    async (role) => {
+      await renderEmpty(await roles.get(role));
+      expect(screen.queryByText("Create a new panel")).toBeNull();
+    },
+  );
+
+  it("should offer the create action to an engineer", async () => {
+    await renderEmpty(await roles.get("Engineer"));
+    expect(await screen.findByText("Create a new panel")).toBeTruthy();
   });
 });

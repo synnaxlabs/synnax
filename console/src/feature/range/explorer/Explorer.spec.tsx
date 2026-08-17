@@ -7,7 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ranger } from "@synnaxlabs/client";
+import {
+  group,
+  label,
+  NotFoundError,
+  type ontology,
+  panel,
+  project,
+  ranger,
+  type Synnax as Client,
+  view,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,6 +30,9 @@ import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
+  createTestClientWithGrants,
+  getBySelector,
+  queryIconButton,
   resolveFocusedTab,
   selectTestProject,
   type TestStore,
@@ -35,8 +48,8 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
   expect(tab.resource.key).toBe(key);
 };
 
-const renderExplorer = async (): Promise<{ store: TestStore }> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }> => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   await selectTestProject(store, client);
   render(
     <>
@@ -206,5 +219,44 @@ describe("range/Explorer", () => {
         );
       });
     });
+  });
+});
+
+describe("range/Explorer permissions", () => {
+  // Editing the view is what puts the toolbar on screen, so the subject needs the view
+  // grants before the range grant it is under test for can matter. The view create
+  // button sits outside the toolbar and answers to the same policy read, so waiting for
+  // it proves the reads have resolved before the toolbar is judged empty.
+  const createEditor = async (creatable: ontology.ID[] = []) =>
+    await createTestClientWithGrants(client, {
+      retrieve: [
+        ranger.TYPE_ONTOLOGY_ID,
+        view.TYPE_ONTOLOGY_ID,
+        label.TYPE_ONTOLOGY_ID,
+        group.TYPE_ONTOLOGY_ID,
+        project.TYPE_ONTOLOGY_ID,
+        panel.TYPE_ONTOLOGY_ID,
+      ],
+      update: [view.TYPE_ONTOLOGY_ID],
+      create: [view.TYPE_ONTOLOGY_ID, ...creatable],
+    });
+
+  it("should withhold the create button from a subject who cannot create ranges", async () => {
+    await renderExplorer(await createEditor());
+    await enableEditing();
+    await waitFor(() =>
+      expect(
+        queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+      ).toBeTruthy(),
+    );
+    expect(
+      queryIconButton(getBySelector(document.body, ".console-view__toolbar"), "add"),
+    ).toBeNull();
+  });
+
+  it("should offer the create button to a subject who may create ranges", async () => {
+    await renderExplorer(await createEditor([ranger.TYPE_ONTOLOGY_ID]));
+    await enableEditing();
+    expect(await findToolbarIconButton("add")).toBeTruthy();
   });
 });

@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  group,
+  ontology,
+  ranger,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -19,6 +24,7 @@ import { Group } from "@/platform/group";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const parentID = group.ontologyID(id.create());
 const childID = ranger.ontologyID(id.create());
@@ -113,5 +119,25 @@ describe("Group.ContextMenuItem", () => {
       />,
     );
     await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
+  });
+});
+
+describe("Group.ContextMenuItem permissions", () => {
+  const renderAs = async (as: Client) => {
+    const { wrapper } = await createConsoleWrapper({ client: as });
+    return render(
+      <Group.ContextMenuItem ids={[childID]} rootID={ontology.ROOT_ID} shape={shape} />,
+      { wrapper },
+    );
+  };
+
+  it("should withhold the group item from a viewer", async () => {
+    const { container } = await renderAs(await roles.get("Viewer"));
+    await waitFor(() => expect(container.textContent).toBe(""));
+  });
+
+  it("should offer the group item to an engineer", async () => {
+    const { container } = await renderAs(await roles.get("Engineer"));
+    await waitFor(() => expect(container.textContent).toContain("Group selection"));
   });
 });
