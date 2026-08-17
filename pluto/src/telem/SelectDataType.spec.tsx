@@ -50,7 +50,7 @@ describe("SelectDataType", () => {
 
   it("should display the boolean data type as Boolean", () => {
     const c = render(<SelectWrapper />);
-    fireEvent.click(c.getByText("Select a data type"));
+    fireEvent.click(c.getByText("Select data type"));
     expect(c.getByText("Boolean")).toBeTruthy();
     expect(c.queryByText("boolean")).toBeNull();
   });
