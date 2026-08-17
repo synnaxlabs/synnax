@@ -93,6 +93,10 @@
     position: relative;
 }
 
+.pluto-panel-mosaic__overlaid-leaf {
+    height: 100%;
+}
+
 /* Spares WebKit a level of per-frame flex re-measurement while a pane resizes. */
 .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__content,
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__content {
