@@ -17,6 +17,13 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 
+CONTAINER = ".pluto-tree"
+VIRTUALIZER = ".pluto-list__virtualizer"
+SCROLL_STEP = 200
+# Rows for a new offset mount on a later frame, and a page the tree has not fetched
+# yet needs a round-trip.
+SCROLL_SETTLE_MS = 150
+
 
 class Tree:
     """Utility class for working with ontology tree elements in Console UI.
@@ -46,28 +53,50 @@ class Tree:
         elements = locator.all()
         return [el for el in elements if el.is_visible()]
 
+    def _match(self, prefix: str, name: str, *, exact: bool) -> Locator | None:
+        if exact:
+            for element in self.find_by_prefix(prefix):
+                if element.inner_text().strip() == name:
+                    return element
+            return None
+        items = self.page.locator(f"div[id^='{prefix}']").filter(has_text=name)
+        if items.count() == 0:
+            return None
+        return items.first
+
+    def _scroll_to(self, offset: int) -> None:
+        self.page.locator(CONTAINER).first.evaluate(
+            "(el, top) => { el.scrollTop = top; }", offset
+        )
+        self.page.wait_for_timeout(SCROLL_SETTLE_MS)
+
     def find_by_name(
         self, prefix: str, name: str, *, exact: bool = True
     ) -> Locator | None:
         """Find a tree item by its ID prefix and display name.
+
+        The tree is windowed, so an item reaches the DOM only once scrolled to. Scrolls
+        the tree from the top until the item mounts.
 
         :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
         :param name: The display name of the item.
         :param exact: If True, match full text exactly. If False, use substring match.
         :returns: The Locator if found, None otherwise.
         """
-        if exact:
-            elements = self.find_by_prefix(prefix)
-            for element in elements:
-                text = element.inner_text().strip()
-                if text == name:
-                    return element
+        found = self._match(prefix, name, exact=exact)
+        if found is not None:
+            return found
+        virtualizer = self.page.locator(f"{CONTAINER} {VIRTUALIZER}").first
+        if virtualizer.count() == 0:
             return None
-        else:
-            items = self.page.locator(f"div[id^='{prefix}']").filter(has_text=name)
-            if items.count() == 0:
-                return None
-            return items.first
+        total = virtualizer.evaluate("(el) => el.scrollHeight")
+        for offset in range(0, int(total), SCROLL_STEP):
+            self._scroll_to(offset)
+            found = self._match(prefix, name, exact=exact)
+            if found is not None:
+                return found
+        self._scroll_to(0)
+        return None
 
     def wait_for_removal(self, prefix: str, name: str, *, exact: bool = True) -> None:
         """Wait for a tree item to be removed.

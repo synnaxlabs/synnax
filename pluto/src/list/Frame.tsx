@@ -262,6 +262,8 @@ const useIntersectionFetchMore = (
   return { containerRef, sentinelRef };
 };
 
+const INITIAL_WINDOW_HEIGHT = 800;
+
 const VirtualFrame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -281,6 +283,10 @@ const VirtualFrame = <
     count: data.length,
     getScrollElement: () => ref.current,
     estimateSize: () => itemHeight,
+    getItemKey: useCallback((index: number) => data[index] ?? index, [data]),
+    // The container has no measured rect until an effect runs, and an unmeasured
+    // window renders nothing. Assuming one keeps the mount commit from painting empty.
+    initialRect: { width: 0, height: INITIAL_WINDOW_HEIGHT },
     overscan,
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {

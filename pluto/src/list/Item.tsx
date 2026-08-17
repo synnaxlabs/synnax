@@ -71,8 +71,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
 }: ItemProps<K, E>): ReactElement => {
   const itemStyle = useMemo(
     () => ({
-      position: translate != null ? ("absolute" as const) : ("relative" as const),
-      transform: `translateY(${translate}px)`,
+      transform: translate != null ? `translateY(${translate}px)` : undefined,
       ...style,
     }),
     [translate, style],

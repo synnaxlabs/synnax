@@ -52,6 +52,7 @@ const BaseItems = <
   let content = emptyContent;
   const hasItems = data.length > 0;
   const totalSize = getTotalSize();
+  const isVirtual = totalSize != null;
   const virtualizerStyle = useMemo(() => ({ minHeight: totalSize }), [totalSize]);
   if (hasItems)
     content = (
@@ -71,10 +72,16 @@ const BaseItems = <
 
   let minHeight: number | undefined;
   if (itemHeight != null && displayItems != null && isFinite(displayItems) && hasItems)
-    minHeight =
-      Math.min(displayItems, visibleData.length) * itemHeight + VERTICAL_PADDING + 1;
+    minHeight = Math.min(displayItems, data.length) * itemHeight + VERTICAL_PADDING + 1;
 
-  const boxStyle = useMemo(() => ({ height: minHeight, ...style }), [minHeight, style]);
+  const boxStyle = useMemo(
+    () => ({
+      height: minHeight,
+      [CSS.var("list-item-height")]: itemHeight != null ? `${itemHeight}px` : undefined,
+      ...style,
+    }),
+    [minHeight, itemHeight, style],
+  );
 
   const parsedDirection = Flex.parseDirection(direction, x, y);
   return (
@@ -84,6 +91,7 @@ const BaseItems = <
       className={CSS(
         className,
         CSS.BE("list", "items"),
+        isVirtual && CSS.BEM("list", "items", "virtual"),
         !hasItems && CSS.BEM("list", "items", "empty"),
       )}
       style={boxStyle}

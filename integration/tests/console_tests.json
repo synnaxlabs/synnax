@@ -55,7 +55,8 @@
           "case": "console/channel/calc_channel_stress",
           "parameters": { "rate": [10, 100, 1000] }
         },
-        { "case": "console/channel/calc_type_cascade" }
+        { "case": "console/channel/calc_type_cascade" },
+        { "case": "console/channel/tree_virtualization" }
       ]
     },
     {

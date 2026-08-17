@@ -17,7 +17,7 @@ import {
   useLayoutEffect,
   useState,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
 import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
@@ -61,9 +61,13 @@ describe("Tree.Tree", () => {
   });
 
   it("should load a group's children when it is expanded", async () => {
+    const root = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("root"),
+    });
     const groupName = uniqueName("parent");
     const created = await client.groups.create({
-      parent: ontology.ROOT_ID,
+      parent: group.ontologyID(root.key),
       name: groupName,
     });
     const childName = uniqueName("child");
@@ -71,7 +75,7 @@ describe("Tree.Tree", () => {
       parent: group.ontologyID(created.key),
       name: childName,
     });
-    await renderTree(ontology.ROOT_ID);
+    await renderTree(group.ontologyID(root.key));
     await screen.findByText(groupName);
     expandTreeRow(groupName);
     await waitFor(() => expect(screen.getByText(childName)).toBeTruthy());
@@ -336,11 +340,67 @@ describe("Tree.Tree", () => {
     });
   });
 
+  describe("large trees", () => {
+    const CHILD_COUNT = 150;
+    const ITEM_HEIGHT = 27;
+    let parentID: ontology.ID;
+    let names: string[];
+
+    beforeAll(async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("populated"),
+      });
+      parentID = group.ontologyID(parent.key);
+      names = Array.from({ length: CHILD_COUNT }, (_, i) =>
+        // Zero padded so the tree's alphabetical sort matches creation order.
+        uniqueName(`child-${String(i).padStart(3, "0")}`),
+      );
+      for (const name of names) await client.groups.create({ parent: parentID, name });
+    });
+
+    it("should render only the rows inside the window", async () => {
+      const { container } = await renderTree(parentID);
+      await screen.findByText(names[0]);
+      const rendered = container.querySelectorAll(".pluto-tree__item");
+      expect(rendered.length).toBeGreaterThan(0);
+      expect(rendered.length).toBeLessThan(CHILD_COUNT);
+      expect(screen.queryByText(names[CHILD_COUNT - 1])).toBeNull();
+    });
+
+    it("should reveal a row outside the window when scrolled to it", async () => {
+      const { container } = await renderTree(parentID);
+      await screen.findByText(names[0]);
+      const last = names[CHILD_COUNT - 1];
+      expect(screen.queryByText(last)).toBeNull();
+      const scroller = container.querySelector<HTMLElement>(".pluto-list__items");
+      if (scroller == null) throw new Error("list scroll container not found");
+      scroller.scrollTop = CHILD_COUNT * ITEM_HEIGHT;
+      fireEvent.scroll(scroller);
+      await waitFor(() => expect(screen.getByText(last)).toBeTruthy());
+    });
+
+    it("should hold every row at the same height", async () => {
+      const { container } = await renderTree(parentID);
+      await screen.findByText(names[0]);
+      const offsets = Array.from(
+        container.querySelectorAll<HTMLElement>(".pluto-tree__item"),
+      ).map((row) => row.style.transform);
+      offsets.forEach((transform, index) =>
+        expect(transform).toBe(`translateY(${index * ITEM_HEIGHT}px)`),
+      );
+    });
+  });
+
   describe("context menu", () => {
     it("should render the default context menu when right-clicking empty space", async () => {
+      const root = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("root"),
+      });
       const name = uniqueName("grp");
-      await client.groups.create({ parent: ontology.ROOT_ID, name });
-      const { container } = await renderTree(ontology.ROOT_ID);
+      await client.groups.create({ parent: group.ontologyID(root.key), name });
+      const { container } = await renderTree(group.ontologyID(root.key));
       await screen.findByText(name);
       const tree = container.querySelector(".pluto-tree");
       expect(tree).not.toBeNull();
@@ -587,12 +647,16 @@ describe("Tree.Tree", () => {
   });
 
   it("should remove a node when its resource is deleted after render", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
     const name = uniqueName("grp");
     const created = await client.groups.create({
-      parent: ontology.ROOT_ID,
+      parent: group.ontologyID(container.key),
       name,
     });
-    await renderTree(ontology.ROOT_ID);
+    await renderTree(group.ontologyID(container.key));
     await screen.findByText(name);
     await client.groups.delete(created.key);
     await waitFor(() => expect(screen.queryByText(name)).toBeNull());
