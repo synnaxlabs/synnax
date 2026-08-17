@@ -56,13 +56,11 @@ describe("Export.useResource", () => {
       run: Export.useResource(),
       notifications: Status.useNotifications(),
     }));
-    act(() =>
-      result.current.run({ id: lineplot.ontologyID("plot-1"), name: "My Plot" }),
-    );
+    act(() => result.current.run(lineplot.ontologyID("plot-1")));
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (s) => s.variant === "error" && s.message === "Failed to export My Plot",
+          (s) => s.variant === "error" && s.message === "Failed to export resource",
         ),
       ).toBe(true),
     );

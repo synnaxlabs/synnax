@@ -27,8 +27,8 @@ export interface Params {
 }
 
 /**
- * Returns a callback that exports a resource, streaming the Core-serialized form the
- * given fetcher retrieves to a file the user picks.
+ * Returns a callback that exports something to a file, streaming the Core-serialized
+ * data to a file the user picks.
  */
 export const use = (): ((params: Params) => void) => {
   const client = Synnax.use();
@@ -45,25 +45,26 @@ export const use = (): ((params: Params) => void) => {
   );
 };
 
-export interface ResourceParams {
-  id: ontology.ID;
-  /** The resource name. It names the exported file. */
-  name: string;
-}
-
 /**
  * Returns a callback that exports the resource identified by the given ontology ID,
- * streaming its Core-serialized JSON envelope to a file the user picks.
+ * streaming its Core-serialized JSON envelope to a file named after the resource.
  */
-export const useResource = (): ((params: ResourceParams) => void) => {
+export const useResource = (): ((id: ontology.ID) => void) => {
+  const client = Synnax.use();
   const export_ = use();
+  const handleError = Status.useErrorHandler();
   return useCallback(
-    ({ id, name }: ResourceParams) =>
-      export_({
-        stream: async (client) => await client.imex.export(id, { encoding: "JSON" }),
-        name,
-        extension: "json",
-      }),
-    [export_],
+    (id: ontology.ID) => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const { name } = await client.ontology.retrieve(id);
+        export_({
+          stream: async (client) => await client.imex.export(id, { encoding: "JSON" }),
+          name,
+          extension: "json",
+        });
+      }, "Failed to export resource");
+    },
+    [client, export_, handleError],
   );
 };

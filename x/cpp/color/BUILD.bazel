@@ -15,8 +15,6 @@ cc_library(
     srcs = ["color.cpp"],
     hdrs = [
         "color.h",
-        "json.gen.h",
-        "proto.gen.h",
         "types.gen.h",
     ],
     # GCC's libstdc++ <regex> trips a false-positive maybe-uninitialized warning when

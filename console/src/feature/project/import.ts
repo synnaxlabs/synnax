@@ -23,7 +23,7 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import { Access, type Status } from "@synnaxlabs/pluto";
-import { errors, uuid } from "@synnaxlabs/x";
+import { errors, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Import } from "@/platform/import";
@@ -93,7 +93,9 @@ const ingestLegacy = async (
   files: Import.File[],
   ctx: ComponentContext,
 ): Promise<void> => {
-  const { layouts } = legacySliceZ.parse(legacyData);
+  const { layouts } = zod.parse(legacySliceZ, legacyData, {
+    label: "legacy layout file",
+  });
   for (const [key, layout] of Object.entries(layouts)) {
     if (!LEGACY_COMPONENT_TYPES.has(layout.type) && !LEGACY_TASK_TYPES.has(layout.type))
       continue;
@@ -293,7 +295,7 @@ export const import_ = ({ handleError, client, store }: IngestContext) => {
     name = directory.name;
     const fileData = await Promise.all(
       directory.files
-        .filter((file) => Import.isParsableFile(pathOf(file)))
+        .filter((file) => Import.canParseFile(pathOf(file)))
         .map(async (file): Promise<Import.File> => ({
           name: file.name,
           path: file.path,

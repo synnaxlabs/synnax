@@ -12,6 +12,7 @@ import {
   DataType,
   MultiSeries,
   Series,
+  sleep,
   type TimeRange,
   TimeSpan,
   TimeStamp,
@@ -269,6 +270,33 @@ describe("StaticReadCache", () => {
         }),
       ]);
 
+    it("should return streamed entries without letting them claim coverage", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      c.write(streamed(tr, [1, 2]), true);
+      const { series, gaps } = c.dirtyRead(tr);
+      expect(series.series).toHaveLength(1);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(tr)).toBe(true);
+    });
+
+    it("should compute gaps from fetched entries around a streamed one", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(16)), [1, 2]),
+        true,
+      );
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(12)), [1, 2]));
+      const { series, gaps } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(2);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(TimeStamp.seconds(12).range(TimeStamp.seconds(20)))).toBe(
+        true,
+      );
+    });
+
     it("should evict a streamed entry when a fetched write overlaps it", () => {
       const c = new Static({});
       const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
@@ -280,7 +308,9 @@ describe("StaticReadCache", () => {
       expect(gaps).toHaveLength(0);
     });
 
-    it("should evict a streamed entry on partial time overlap", () => {
+    it("should keep a streamed entry a fetched write only partially covers", () => {
+      // The fetch may be stamped wider than the committed data it returned, so a
+      // partial cover must not drop the streamed samples it did not replace.
       const c = new Static({});
       c.write(
         streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(20)), [1, 2]),
@@ -290,8 +320,7 @@ describe("StaticReadCache", () => {
       const { series } = c.dirtyRead(
         TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
       );
-      expect(series.series).toHaveLength(1);
-      expect(series.series[0].alignment).toEqual(0n);
+      expect(series.series).toHaveLength(2);
     });
 
     it("should keep streamed entries that do not overlap the write", () => {
@@ -332,6 +361,21 @@ describe("StaticReadCache", () => {
         TimeStamp.seconds(10).range(TimeStamp.seconds(40)),
       );
       expect(series.series).toHaveLength(2);
+    });
+
+    // Streamed entries arrive continuously, so a collector that misses them leaks.
+    it("should garbage collect streamed entries alongside fetched ones", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const streamedTR = TimeStamp.seconds(30).range(TimeStamp.seconds(40));
+      const fetchedTR = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      c.write(streamed(streamedTR, [3, 4]), true);
+      c.write(fetched(fetchedTR, [1, 2]));
+      const read = () =>
+        c.dirtyRead(TimeStamp.seconds(10).range(TimeStamp.seconds(40))).series.series;
+      expect(read()).toHaveLength(2);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(c.gc().purgedSeries).toEqual(2);
+      expect(read()).toHaveLength(0);
     });
   });
 

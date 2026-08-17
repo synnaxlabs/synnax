@@ -21,10 +21,8 @@
     "madge": "madge --circular src",
     "stylelint": "stylelint \"src/**/*.css\""
   },
-  "dependencies": {
-    "clsx": "catalog:",
-    "react": "catalog:",
-    "react-icons": "catalog:"
+  "peerDependencies": {
+    "react": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
@@ -35,13 +33,20 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "clsx": "catalog:",
     "eslint": "catalog:",
+    "react": "catalog:",
+    "react-icons": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!dist/eslint.config.*"
   ],
   "exports": {
     ".": {

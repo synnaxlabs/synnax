@@ -14,22 +14,19 @@ import { describe, expect, it, vi } from "vitest";
 import { Export } from "@/platform/export";
 import { renderWithConsole } from "@/testutil";
 
-const getParams = (): Export.ResourceParams => ({
-  id: log.ontologyID("k"),
-  name: "My Log",
-});
+const getID = () => log.ontologyID("k");
 
 describe("Export.ToolbarButton", () => {
-  it("resolves the resource to export when clicked", async () => {
-    const resolve = vi.fn(getParams);
-    await renderWithConsole(<Export.ToolbarButton getParams={resolve} />);
+  it("resolves the ID to export when clicked", async () => {
+    const resolve = vi.fn(getID);
+    await renderWithConsole(<Export.ToolbarButton getID={resolve} />);
     fireEvent.click(screen.getByRole("button"));
     expect(resolve).toHaveBeenCalledTimes(1);
   });
 
   it("forwards the disabled prop, suppressing the click", async () => {
-    const resolve = vi.fn(getParams);
-    await renderWithConsole(<Export.ToolbarButton getParams={resolve} disabled />);
+    const resolve = vi.fn(getID);
+    await renderWithConsole(<Export.ToolbarButton getID={resolve} disabled />);
     fireEvent.click(screen.getByRole("button"));
     expect(resolve).not.toHaveBeenCalled();
   });

@@ -448,6 +448,39 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					})
 					Describe("Auto Span", func() {
 						Specify(
+							"Single Domain - Last chunk view ends at the data",
+							func(ctx SpecContext) {
+								Expect(unary.Write(
+									ctx,
+									indexDB,
+									10*telem.SecondTS,
+									telem.NewSeriesSecondsTSV(10, 11, 12),
+								)).To(Succeed())
+								Expect(unary.Write(
+									ctx,
+									db,
+									10*telem.SecondTS,
+									telem.NewSeriesV[int64](1, 2, 3),
+								)).To(Succeed())
+								iter := MustSucceed(
+									db.OpenIterator(unary.IteratorConfig{
+										Bounds: telem.TimeStamp(0).
+											Range(telem.TimeStampMax),
+										AutoChunkSize: 2,
+									}),
+								)
+								Expect(iter.SeekFirst(ctx)).To(BeTrue())
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(iter.View()).To(Equal(
+									(12 * telem.SecondTS).Range(
+										12*telem.SecondTS + 1,
+									),
+								))
+								Expect(iter.Close()).To(Succeed())
+							},
+						)
+						Specify(
 							"Single Domain - Leftover chunk",
 							func(ctx SpecContext) {
 								Expect(

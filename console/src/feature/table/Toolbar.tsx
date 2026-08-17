@@ -66,9 +66,7 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton
-            getParams={() => ({ id: table.ontologyID(key), name })}
-          />
+          <Export.ToolbarButton getID={() => table.ontologyID(key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(key)}
