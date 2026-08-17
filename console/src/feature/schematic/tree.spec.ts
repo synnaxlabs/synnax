@@ -91,8 +91,7 @@ describe("Schematic.useRangeSnapshot", () => {
       expect(
         result.current.notifications.statuses.some(
           (st) =>
-            st.variant === "error" &&
-            st.message === "Cannot snapshot schematics without an active range",
+            st.variant === "error" && st.message === "Failed to snapshot schematics",
         ),
       ).toBe(true),
     );
