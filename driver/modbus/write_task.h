@@ -221,14 +221,30 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 class WriteTaskSink final : public common::Sink {
     /// @brief the configuration for the task.
     const WriteTaskConfig config;
-    /// @brief the device to write to.
+    /// @brief creates the device connection on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the device to write to. Populated on start.
     std::shared_ptr<device::Device> dev;
 
 public:
-    WriteTaskSink(const std::shared_ptr<device::Device> &dev, WriteTaskConfig cfg):
+    WriteTaskSink(const std::shared_ptr<device::Manager> &devs, WriteTaskConfig cfg):
         Sink(x::telem::Rate(0), {}, {}, cfg.cmd_keys(), cfg.data_saving_disabled),
         config(std::move(cfg)),
-        dev(dev) {}
+        devs(devs) {}
+
+    /// @brief connects on every start so a server restart between runs cannot
+    /// leave the task writing to a dead socket.
+    x::errors::Error start() override {
+        auto [d, err] = this->devs->acquire(this->config.conn);
+        if (err) return err;
+        this->dev = std::move(d);
+        return x::errors::NIL;
+    }
+
+    x::errors::Error stop() override {
+        this->dev.reset();
+        return x::errors::NIL;
+    }
 
     x::errors::Error write(x::telem::Frame &frame) override {
         for (const auto &writer: config.writers)

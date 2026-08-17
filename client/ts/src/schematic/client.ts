@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, type destructor, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -149,7 +149,9 @@ export class Client extends query.Retriever<
     opts: query.WriteOptions<Schematic[]> = {},
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
-    const optimistic = array.toArray(schematics).map((s) => schematicZ.parse(s));
+    const optimistic = array
+      .toArray(schematics)
+      .map((s) => zod.parse(schematicZ, s, { label: "schematic" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),

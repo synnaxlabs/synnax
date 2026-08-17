@@ -18,6 +18,7 @@ import {
   direction,
   location,
   xy,
+  zod,
 } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -75,7 +76,7 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
   const { key } = meta;
   useEffectCompare(
     () => {
-      location.outerZ.parse(meta.loc);
+      zod.parse(location.outerZ, meta.loc, { label: "axis location" });
       setGridEntry(meta);
     },
     ([a], [b]) => deep.equal(a, b),

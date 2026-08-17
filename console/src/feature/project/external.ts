@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/project/commands";
-export * from "@/feature/project/export";
 export * from "@/feature/project/Guard";
 export * from "@/feature/project/import";
 export * from "@/feature/project/link";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { type breaker, DataType, errors } from "@synnaxlabs/x";
+import { type breaker, DataType, errors, zod } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
@@ -156,11 +156,12 @@ export const createStreamer = ({
           const series = frame.get(name);
           const listeners = listenersForChannels.get(name);
           if (listeners == null) continue;
+          const parseOpts = { label: `${name} sample` };
           for (const { onChange, schema } of listeners) {
             let parsed: z.output<typeof schema>[];
             try {
               if (!series.dataType.equals(DataType.JSON))
-                parsed = Array.from(series).map((s) => schema.parse(s));
+                parsed = Array.from(series).map((s) => zod.parse(schema, s, parseOpts));
               else parsed = series.parseJSON(schema);
             } catch (exc) {
               report(exc, `failed to parse streamer change for ${name}`);
