@@ -32,7 +32,7 @@ describe("arc/Selectable", () => {
       </>,
       { wrapper },
     );
-    fireEvent.click(await screen.findByText("Arc Automation"));
-    expect(await screen.findByPlaceholderText("Automation Name")).toBeTruthy();
+    fireEvent.click(await screen.findByText("Arc automation"));
+    expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
   });
 });

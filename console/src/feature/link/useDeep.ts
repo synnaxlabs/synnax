@@ -66,7 +66,7 @@ export const useDeep = (
         throw new Error(`Resource type "${resource}" is unknown to Synnax`);
       await handle({ client, key: resourceKey });
     } catch (e) {
-      handleError(e, `Failed to open ${(strings.naturalLanguageJoin(urls), "link")}`);
+      handleError(e, `Failed to open ${strings.naturalLanguageJoin(urls, "link")}`);
     }
   };
 

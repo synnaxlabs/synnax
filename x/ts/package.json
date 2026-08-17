@@ -23,8 +23,6 @@
   },
   "dependencies": {
     "async-mutex": "catalog:",
-    "nanoid": "^6.0.1",
-    "uuid": "^14.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -35,10 +33,20 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "nanoid": "^6.0.1",
     "typescript": "catalog:",
+    "uuid": "^14.0.1",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!**/mock/**",
+    "!dist/eslint.config.*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

@@ -41,7 +41,7 @@ describe("useCreate", () => {
 
     await waitFor(async () => {
       const doc = await client.panels.retrieve(selected);
-      expect(doc.name).toEqual("New Panel");
+      expect(doc.name).toEqual("New panel");
     });
     const children = await client.panels.retrieve({
       parent: project.ontologyID(proj.key),
@@ -69,7 +69,7 @@ describe("useCreate", () => {
     if (second == null) throw new Error("no panel selected after second create");
     await waitFor(async () => {
       const doc = await client.panels.retrieve(second);
-      expect(doc.name).toEqual("New Panel");
+      expect(doc.name).toEqual("New panel");
     });
   });
 });

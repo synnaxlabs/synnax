@@ -182,7 +182,7 @@ class RangeLifecycle(ConsoleCase):
         """Test opening the Range Explorer."""
         self.log("Testing: Open Range Explorer")
         self.console.ranges.open_explorer()
-        all_ranges_header = self.page.get_by_text("All Ranges")
+        all_ranges_header = self.page.get_by_text("All ranges")
         assert all_ranges_header.is_visible(), "Range Explorer should show 'All Ranges'"
 
     def test_range_exists_in_explorer(self) -> None:
@@ -343,7 +343,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
         self.console.ranges.wait_for_overview(self.labeled_range_name)
 
-        self.console.ranges.set_stage_in_overview("In Progress")
+        self.console.ranges.set_stage_in_overview("In progress")
         self.assert_range_spans_now(self.labeled_range_name)
 
     def test_add_label_in_overview(self) -> None:
@@ -552,5 +552,5 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.open_overview_from_explorer(self.staged_range_name)
         self.console.ranges.wait_for_overview(self.staged_range_name)
 
-        self.console.ranges.set_child_range_stage(self.child_range_name, "In Progress")
+        self.console.ranges.set_child_range_stage(self.child_range_name, "In progress")
         self.assert_range_spans_now(self.child_range_name)

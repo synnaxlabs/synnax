@@ -29,7 +29,7 @@ class NICounterReadForms(NIRackCase):
         device_name = "CI_E103"
 
         self.log("Creating NI Counter Read Task")
-        ni_ci = console.project.create_task("NI Counter Read Task", "CI_Test_task")
+        ni_ci = console.project.create_task("NI counter read task", "CI_Test_task")
 
         ni_ci.set_parameters(
             task_name="CI_Test_task",
@@ -73,14 +73,14 @@ class NICounterReadForms(NIRackCase):
     def verify_edge_count_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Edge Count inputs"""
         self.log("Configuring channels of type Edge Count")
-        channel_type = "Edge Count"
+        channel_type = "Edge count"
 
         ni_ci.add_channel(
             name="EdgeCount_1",
             chan_type=channel_type,
             device=device_name,
             active_edge="Rising",
-            count_direction="Count Up",
+            count_direction="Count up",
             terminal="PFI0",
             initial_count=10,
         )
@@ -89,13 +89,13 @@ class NICounterReadForms(NIRackCase):
             chan_type=channel_type,
             device=device_name,
             active_edge="Falling",
-            count_direction="Count Down",
+            count_direction="Count down",
         )
         ni_ci.add_channel(
             name="EdgeCount_3",
             chan_type=channel_type,
             device=device_name,
-            count_direction="Externally Controlled",
+            count_direction="Externally controlled",
         )
 
     def verify_frequency_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
@@ -111,7 +111,7 @@ class NICounterReadForms(NIRackCase):
             max_val=1000,
             edge="Rising",
             units="Hz",
-            meas_method="One Counter (Low Frequency)",
+            meas_method="One counter (low frequency)",
         )
         ni_ci.add_channel(
             name="Frequency_2",
@@ -119,13 +119,13 @@ class NICounterReadForms(NIRackCase):
             device=device_name,
             edge="Falling",
             units="Ticks",
-            meas_method="Two Counters (High Frequency)",
+            meas_method="Two counters (high frequency)",
         )
         ni_ci.add_channel(
             name="Frequency_3",
             chan_type=channel_type,
             device=device_name,
-            meas_method="Two Counters (Large Range)",
+            meas_method="Two counters (large range)",
         )
 
     def verify_period_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
@@ -142,7 +142,7 @@ class NICounterReadForms(NIRackCase):
             starting_edge="Rising",
             units="Seconds",
             terminal="PFI1",
-            meas_method="One Counter (Low Frequency)",
+            meas_method="One counter (low frequency)",
         )
         ni_ci.add_channel(
             name="Period_2",
@@ -150,26 +150,26 @@ class NICounterReadForms(NIRackCase):
             device=device_name,
             starting_edge="Falling",
             units="Ticks",
-            meas_method="Two Counters (High Frequency)",
+            meas_method="Two counters (high frequency)",
         )
         ni_ci.add_channel(
             name="Period_3",
             chan_type=channel_type,
             device=device_name,
             units="Seconds",
-            meas_method="Two Counters (Large Range)",
+            meas_method="Two counters (large range)",
         )
         ni_ci.add_channel(
             name="Period_4",
             chan_type=channel_type,
             device=device_name,
-            meas_method="Dynamic Averaging",
+            meas_method="Dynamic averaging",
         )
 
     def verify_pulse_width_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Pulse Width inputs"""
         self.log("Configuring channels of type Pulse Width")
-        channel_type = "Pulse Width"
+        channel_type = "Pulse width"
 
         ni_ci.add_channel(
             name="PulseWidth_1",
@@ -198,7 +198,7 @@ class NICounterReadForms(NIRackCase):
     def verify_semi_period_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Semi Period inputs"""
         self.log("Configuring channels of type Semi Period")
-        channel_type = "Semi Period"
+        channel_type = "Semi period"
 
         ni_ci.add_channel(
             name="SemiPeriod_1",
@@ -224,7 +224,7 @@ class NICounterReadForms(NIRackCase):
     def verify_two_edge_sep_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Two Edge Separation inputs"""
         self.log("Configuring channels of type Two Edge Separation")
-        channel_type = "Two Edge Separation"
+        channel_type = "Two edge separation"
 
         ni_ci.add_channel(
             name="TwoEdgeSep_1",
@@ -250,7 +250,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Linear Velocity inputs"""
         self.log("Configuring channels of type Velocity Linear")
-        channel_type = "Velocity Linear"
+        channel_type = "Velocity linear"
 
         ni_ci.add_channel(
             name="LinearVelocity_1",
@@ -284,7 +284,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Angular Velocity inputs"""
         self.log("Configuring channels of type Velocity Angular")
-        channel_type = "Velocity Angular"
+        channel_type = "Velocity angular"
 
         ni_ci.add_channel(
             name="AngularVelocity_1",
@@ -309,7 +309,7 @@ class NICounterReadForms(NIRackCase):
             chan_type=channel_type,
             device=device_name,
             units="Degrees/s",
-            decoding_type="Two Pulse",
+            decoding_type="Two pulse",
             pulses_per_rev=360,
         )
 
@@ -318,7 +318,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Linear Position inputs"""
         self.log("Configuring channels of type Position Linear")
-        channel_type = "Position Linear"
+        channel_type = "Position linear"
 
         ni_ci.add_channel(
             name="LinearPosition_1",
@@ -330,7 +330,7 @@ class NICounterReadForms(NIRackCase):
             initial_pos=0,
             z_index_enable=True,
             z_index_val=0,
-            z_index_phase="A High B High",
+            z_index_phase="A high B high",
         )
         ni_ci.add_channel(
             name="LinearPosition_2",
@@ -351,7 +351,7 @@ class NICounterReadForms(NIRackCase):
             dist_per_pulse=0.005,
             z_index_enable=True,
             z_index_val=10,
-            z_index_phase="A Low B Low",
+            z_index_phase="A low B low",
         )
 
     def verify_angular_position_inputs(
@@ -359,7 +359,7 @@ class NICounterReadForms(NIRackCase):
     ) -> None:
         """Validate Angular Position inputs"""
         self.log("Configuring channels of type Position Angular")
-        channel_type = "Position Angular"
+        channel_type = "Position angular"
 
         ni_ci.add_channel(
             name="AngularPosition_1",
@@ -371,7 +371,7 @@ class NICounterReadForms(NIRackCase):
             initial_angle=0,
             z_index_enable=True,
             z_index_val=0,
-            z_index_phase="A High B High",
+            z_index_phase="A high B high",
         )
         ni_ci.add_channel(
             name="AngularPosition_2",
@@ -388,17 +388,17 @@ class NICounterReadForms(NIRackCase):
             chan_type=channel_type,
             device=device_name,
             units="Ticks",
-            decoding_type="Two Pulse",
+            decoding_type="Two pulse",
             pulses_per_rev=360,
             z_index_enable=True,
             z_index_val=90,
-            z_index_phase="A High B Low",
+            z_index_phase="A high B low",
         )
 
     def verify_duty_cycle_inputs(self, ni_ci: CounterRead, device_name: str) -> None:
         """Validate Duty Cycle inputs"""
         self.log("Configuring channels of type Duty Cycle")
-        channel_type = "Duty Cycle"
+        channel_type = "Duty cycle"
 
         ni_ci.add_channel(
             name="DutyCycle_1",

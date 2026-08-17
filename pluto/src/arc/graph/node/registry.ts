@@ -85,7 +85,7 @@ export const GROUPS: Group[] = [
   },
   {
     key: "flow_control",
-    name: "Flow Control",
+    name: "Flow control",
     Icon: Icon.Select,
     symbols: [...keysOf(Select.REGISTRY), ...keysOf(StableFor.REGISTRY)],
   },

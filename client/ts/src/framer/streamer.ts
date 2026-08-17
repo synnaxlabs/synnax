@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { errors, Rate } from "@synnaxlabs/x";
+import { errors, Rate, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -107,7 +107,7 @@ export interface StreamOpener {
 export const createStreamOpener =
   (retrieveChannels: ChannelRetriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
-    const cfg = streamerConfigZ.parse(config);
+    const cfg = zod.parse(streamerConfigZ, config, { label: "streamer config" });
     const adapter = await ReadAdapter.open(retrieveChannels, cfg.channels);
     client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream("/frame/stream", reqZ, resZ);

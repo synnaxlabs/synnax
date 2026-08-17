@@ -69,7 +69,7 @@ export const ContextMenu = ({
       return addStatus({
         variant: "error",
         message: "Failed to open Arc editor",
-        description: `Arc with key ${keys[0]} not found`,
+        description: "The Arc no longer exists.",
       });
     openTab({ variant: "resource", resource: arc.ontologyID(retrieved.key) });
   };

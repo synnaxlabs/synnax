@@ -145,16 +145,16 @@ class ReadTaskConsoleVerify(ConsoleCase):
 
         layout = console.layout
         assert layout.get_input_field("Name") == self.task_name, "Task name mismatch"
-        assert layout.get_toggle("Data Saving") is True, "Data saving should be on"
-        assert layout.get_toggle("Auto Start") is False, "Auto start should be off"
+        assert layout.get_toggle("Data saving") is True, "Data saving should be on"
+        assert layout.get_toggle("Auto start") is False, "Auto start should be off"
 
         if self.expected_sample_rate is not None:
-            actual = layout.get_input_field("Sample Rate")
+            actual = layout.get_input_field("Sample rate")
             assert actual == self.expected_sample_rate, (
                 f"Sample rate: expected {self.expected_sample_rate}, got {actual}"
             )
         if self.expected_stream_rate is not None:
-            actual = layout.get_input_field("Stream Rate")
+            actual = layout.get_input_field("Stream rate")
             assert actual == self.expected_stream_rate, (
                 f"Stream rate: expected {self.expected_stream_rate}, got {actual}"
             )

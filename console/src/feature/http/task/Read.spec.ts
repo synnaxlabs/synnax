@@ -25,7 +25,7 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(HTTP.Task.Read, { task: ZERO_DRAFT, ...options });
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add an endpoint"));
+  fireEvent.click(await screen.findByText("Add endpoint"));
   await screen.findByText("Timing mode");
 };
 
@@ -51,7 +51,7 @@ const createReadConfig = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<HTTP.Task.ReadSchemas> = {
-  name: "HTTP Read Task",
+  name: "HTTP read task",
   type: HTTP.Task.READ_TYPE,
   config: HTTP.Task.READ_SCHEMAS.config.parse({}),
 };
@@ -63,14 +63,14 @@ describe("HTTP Read form", () => {
   it("should show the empty state and add + select an endpoint", async () => {
     await renderRead();
     await screen.findByText("Select an endpoint to configure");
-    await screen.findByText("No endpoints.");
+    await screen.findByText("No endpoints");
     await addEndpoint();
     expect(screen.getByRole("button", { name: "GET" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "POST" })).toBeTruthy();
     expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
     expect(screen.getByText("Headers")).toBeTruthy();
     expect(screen.getByText("Query parameters")).toBeTruthy();
-    expect(screen.getByText("No fields.")).toBeTruthy();
+    expect(screen.getByText("No fields")).toBeTruthy();
     expect(screen.queryByText("Select an endpoint to configure")).toBeNull();
   });
 
@@ -92,7 +92,7 @@ describe("HTTP Read form", () => {
     fireEvent.click(screen.getByRole("button", { name: "Value" }));
     await screen.findByText("Timestamp pointer");
     expect(screen.getByText("Format")).toBeTruthy();
-    expect(screen.getByText("No fields.")).toBeTruthy();
+    expect(screen.getByText("No fields")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Software" }));
     await waitFor(() => expect(screen.queryByText("Timestamp pointer")).toBeNull());
   });
@@ -100,7 +100,7 @@ describe("HTTP Read form", () => {
   it("should add a field, select it, and show the enum mapping editor", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByText("Add a field"));
+    fireEvent.click(screen.getByText("Add field"));
     await screen.findByPlaceholderText("/temperature");
     await screen.findByText("Enum mapping");
   });
@@ -108,7 +108,7 @@ describe("HTTP Read form", () => {
   it("should copy the previous field's settings when adding another field", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByText("Add a field"));
+    fireEvent.click(screen.getByText("Add field"));
     const pointer = await screen.findByPlaceholderText("/temperature");
     fireEvent.change(pointer, { target: { value: "/a" } });
     fireEvent.blur(pointer);

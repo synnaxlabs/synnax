@@ -9,36 +9,27 @@
 
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { Errors } from "@/errors";
+import { resolveStack } from "@/errors/resolveStack";
 
-// stacktrace-js fetches source maps over the network; stub it at the library boundary
-// so Fallback's resolution effect is deterministic. Stacks containing the
-// RESOLVABLE_STACK / RESOLVABLE_COMPONENT tokens resolve; anything else throws so we
-// can verify the graceful-degradation path.
-vi.mock("stacktrace-js", () => ({
-  default: {
-    fromError: async (err: Error) => {
-      if (err.stack?.includes("RESOLVABLE_STACK"))
-        return [
-          {
-            functionName: "resolvedFn",
-            fileName: "src/resolved.ts",
-            lineNumber: 99,
-            columnNumber: 4,
-          },
-        ];
-      if (err.stack?.includes("RESOLVABLE_COMPONENT"))
-        return [
-          {
-            functionName: "ResolvedComponent",
-            fileName: "src/Resolved.tsx",
-            lineNumber: 12,
-          },
-        ];
-      throw new Error("no maps in test env");
-    },
-  },
+// Resolution fetches scripts and source maps over the network; stub the resolveStack
+// module so Fallback's resolution effect is deterministic. Stacks containing the
+// RESOLVABLE_STACK / RESOLVABLE_COMPONENT tokens resolve; anything else degrades to
+// its raw input, mirroring the real module's never-rejecting contract. Rejection
+// itself is exercised via mockRejectedValueOnce in the dedicated failure test.
+vi.mock("@/errors/resolveStack", () => ({
+  resolveStack: vi.fn(async (error: Error, componentStack: string | null) => ({
+    stack:
+      error.stack === "RESOLVABLE_STACK"
+        ? "  at resolvedFn (src/resolved.ts:99:4)"
+        : (error.stack ?? ""),
+    componentStack:
+      componentStack === "RESOLVABLE_COMPONENT"
+        ? "  at ResolvedComponent (src/Resolved.tsx:12)"
+        : componentStack,
+  })),
 }));
 
 describe("Fallback", () => {
@@ -106,6 +97,62 @@ describe("Fallback", () => {
       <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
     );
     expect(c.container.querySelector(".synnax-logo")).toBeTruthy();
+  });
+
+  describe("message formatting", () => {
+    const schema = z.object({
+      nodes: z.array(z.object({ color: z.tuple([z.number(), z.number().max(1)]) })),
+    });
+    const zodError = schema.safeParse({ nodes: [{ color: [0, 255] }] }).error!;
+
+    it("should render a prettified zod error instead of the raw issues JSON", () => {
+      const c = render(
+        <Errors.Fallback
+          error={zodError as unknown as Error}
+          resetErrorBoundary={mockReset}
+        />,
+      );
+      const message = c.container.querySelector(".pluto-error-fallback__message");
+      expect(message?.textContent).toContain("at nodes[0].color[1]");
+      expect(message?.textContent).not.toContain('"code"');
+    });
+
+    it("should mark a multiline message so it renders as a scrollable block", () => {
+      const c = render(
+        <Errors.Fallback
+          error={zodError as unknown as Error}
+          resetErrorBoundary={mockReset}
+        />,
+      );
+      expect(
+        c.container.querySelector(".pluto-error-fallback__message--multiline"),
+      ).toBeTruthy();
+    });
+
+    it("should not mark a single-line message as multiline", () => {
+      const c = render(
+        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
+      );
+      expect(
+        c.container.querySelector(".pluto-error-fallback__message--multiline"),
+      ).toBeFalsy();
+    });
+
+    it("should keep the raw zod message in copy diagnostics", async () => {
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText: writeTextMock } });
+      const c = render(
+        <Errors.Fallback
+          error={zodError as unknown as Error}
+          resetErrorBoundary={mockReset}
+        />,
+      );
+      fireEvent.click(c.getByText("Copy diagnostics"));
+      await waitFor(() => {
+        expect(writeTextMock).toHaveBeenCalled();
+      });
+      expect(writeTextMock.mock.calls[0][0]).toContain('"code"');
+    });
   });
 
   describe("component stack", () => {
@@ -191,7 +238,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copiedText = writeTextMock.mock.calls[0][0];
-      expect(copiedText).toContain("Stack Trace:");
+      expect(copiedText).toContain("Stack trace:");
       expect(copiedText).toContain("at TestFunction");
     });
 
@@ -208,7 +255,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copiedText = writeTextMock.mock.calls[0][0];
-      expect(copiedText).toContain("Component Stack:");
+      expect(copiedText).toContain("Component stack:");
       expect(copiedText).toContain("at MyComponent");
     });
 
@@ -225,7 +272,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copiedText = writeTextMock.mock.calls[0][0];
-      expect(copiedText).toContain("Additional Info:");
+      expect(copiedText).toContain("Additional info:");
       expect(copiedText).toContain('"version": "1.0.0"');
       expect(copiedText).toContain('"userId": "123"');
     });
@@ -243,7 +290,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copiedText = writeTextMock.mock.calls[0][0];
-      expect(copiedText).not.toContain("Additional Info:");
+      expect(copiedText).not.toContain("Additional info:");
     });
 
     it("should show check icon after copying", async () => {
@@ -309,7 +356,8 @@ describe("Fallback", () => {
       expect(warnSpy).not.toHaveBeenCalled();
     });
 
-    it("should keep raw stack when resolution fails and warn about it", async () => {
+    it("should keep the raw stack and warn when resolution rejects", async () => {
+      vi.mocked(resolveStack).mockRejectedValueOnce(new Error("no maps in test env"));
       const errorWithStack = new Error("Boom");
       errorWithStack.stack = "Error: Boom\n    at unresolvable (x.js:1:1)";
       const c = render(
@@ -319,16 +367,15 @@ describe("Fallback", () => {
           resetErrorBoundary={mockReset}
         />,
       );
-      // Resolution throws for non-RESOLVABLE_ tokens; raw stack stays and the failure
-      // is surfaced via console.warn so deploys with broken maps are visible.
-      await waitFor(() => {
-        expect(c.container.textContent).toContain("at unresolvable (x.js:1:1)");
-      });
+      // resolveStack never rejects in production; an unexpected rejection keeps the
+      // raw stack and is surfaced via console.warn rather than crashing the crash
+      // screen.
       await waitFor(() => {
         expect(warnSpy).toHaveBeenCalledTimes(1);
       });
+      expect(c.container.textContent).toContain("at unresolvable (x.js:1:1)");
       const [message, cause] = warnSpy.mock.calls[0];
-      expect(message).toBe("resolveStack: failed to resolve error stack");
+      expect(message).toBe("Unexpected source-map resolution failure");
       expect(cause).toBeInstanceOf(Error);
       expect((cause as Error).message).toBe("no maps in test env");
     });
@@ -348,7 +395,7 @@ describe("Fallback", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
       const copied = writeTextMock.mock.calls[0][0];
-      expect(copied).toContain("Stack Trace:\n  at resolvedFn (src/resolved.ts:99:4)");
+      expect(copied).toContain("Stack trace:\n  at resolvedFn (src/resolved.ts:99:4)");
       expect(copied).not.toContain("RESOLVABLE_STACK");
       expect(warnSpy).not.toHaveBeenCalled();
     });

@@ -73,7 +73,7 @@ describe("Label.useEditModal", () => {
     );
     fireEvent.click(getAddButton());
     const name = uniqueName("label");
-    const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Label Name");
+    const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Name");
     fireEvent.change(nameInput, { target: { value: name } });
     fireEvent.click(getIconButton(document.body, "check"));
     await waitFor(async () => {

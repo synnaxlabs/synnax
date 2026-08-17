@@ -153,7 +153,6 @@ class TaskClient:
         item.wait_for(state="visible", timeout=5000)
         item.click()
         self.ctx_menu.open_on(item)
-        self.layout.page.evaluate("delete window.showSaveFilePicker")
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
         download = download_info.value

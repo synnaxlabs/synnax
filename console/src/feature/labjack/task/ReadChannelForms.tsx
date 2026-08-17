@@ -25,7 +25,7 @@ import {
 
 const MaxVoltageField = PForm.buildNumericField({
   fieldKey: "range",
-  fieldProps: { label: "Max Voltage" },
+  fieldProps: { label: "Max voltage" },
   inputProps: { endContent: "V" },
 });
 
@@ -70,18 +70,18 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       <Flex.Box x>
         <PForm.NumericField
           path={`${prefix}.preScaledMin`}
-          label="Pre-Scaled Min"
+          label="Pre-scaled min"
           grow
         />
         <PForm.NumericField
           path={`${prefix}.preScaledMax`}
-          label="Pre-Scaled Max"
+          label="Pre-scaled max"
           grow
         />
       </Flex.Box>
       <Flex.Box x>
-        <PForm.NumericField path={`${prefix}.scaledMin`} label="Scaled Min" grow />
-        <PForm.NumericField path={`${prefix}.scaledMax`} label="Scaled Max" grow />
+        <PForm.NumericField path={`${prefix}.scaledMin`} label="Scaled min" grow />
+        <PForm.NumericField path={`${prefix}.scaledMax`} label="Scaled max" grow />
       </Flex.Box>
     </>
   ),
@@ -109,7 +109,7 @@ const ThermocoupleTypeField = PForm.buildSelectField<
   record.KeyedNamed<ThermocoupleType>
 >({
   fieldKey: "thermocoupleType",
-  fieldProps: { label: "Thermocouple Type" },
+  fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
     data: [
@@ -131,7 +131,7 @@ const TemperatureUnitsField = PForm.buildSelectField<
   record.KeyedNamed<TemperatureUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Temperature Units" },
+  fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
     data: [
@@ -196,13 +196,13 @@ export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
         <PForm.NumericField
           fieldKey="posChan"
           path={path}
-          label="Positive Channel"
+          label="Positive channel"
           grow
         />
         <PForm.NumericField
           fieldKey="negChan"
           path={path}
-          label="Negative Channel"
+          label="Negative channel"
           grow
         />
       </Flex.Box>
@@ -211,7 +211,7 @@ export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
           path={`${path}.cjcSource`}
           grow
           hideIfNull
-          label="CJC Source"
+          label="CJC source"
         >
           {({ value, onChange }) => (
             <SelectCJCSourceField
@@ -221,8 +221,8 @@ export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
             />
           )}
         </PForm.Field>
-        <PForm.NumericField fieldKey="cjcSlope" path={path} label="CJC Slope" grow />
-        <PForm.NumericField fieldKey="cjcOffset" path={path} label="CJC Offset" grow />
+        <PForm.NumericField fieldKey="cjcSlope" path={path} label="CJC slope" grow />
+        <PForm.NumericField fieldKey="cjcOffset" path={path} label="CJC offset" grow />
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={path} />

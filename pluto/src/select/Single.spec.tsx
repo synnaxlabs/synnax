@@ -91,13 +91,13 @@ describe("Select.Single", () => {
   it("should render a selection trigger", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    expect(c.getByText("Select a Test Item")).toBeTruthy();
+    expect(c.getByText("Select Test Item")).toBeTruthy();
   });
 
   it("should open the selection dialog when the trigger is clicked", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     expect(c.getByText("First Item Option")).toBeTruthy();
     expect(c.getByText("Second Item Option")).toBeTruthy();
     expect(c.getByText("Third Item Option")).toBeTruthy();
@@ -106,15 +106,15 @@ describe("Select.Single", () => {
   it("should close the selection dialog when the user clicks on the trigger", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select a Test Item"));
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     expect(c.queryByText("First Item Option")).toBeNull();
   });
 
   it("should call onChange when an item is selected", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(onChange).toHaveBeenCalledWith("1");
   });
@@ -122,7 +122,7 @@ describe("Select.Single", () => {
   it("should close the dialog when an item is selected", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(c.queryByText("First Item Option")).toBeNull();
     expect(c.queryByText("Second Item Option")).toBeNull();
@@ -132,17 +132,17 @@ describe("Select.Single", () => {
   it("should display the selected item name in the trigger", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(c.getByText("First Item")).toBeTruthy();
-    expect(c.queryByText("Select a Test Item")).toBeNull();
+    expect(c.queryByText("Select Test Item")).toBeNull();
   });
 
   it("should allow the user to change selection", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle />);
 
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(onChange).toHaveBeenCalledWith("1");
 
@@ -156,19 +156,19 @@ describe("Select.Single", () => {
   it("should allow the user to deselect an item when allowNone is true", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle allowNone />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
 
     fireEvent.click(c.getByText("First Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(onChange).toHaveBeenLastCalledWith(null);
-    expect(c.getByText("Select a Test Item")).toBeTruthy();
+    expect(c.getByText("Select Test Item")).toBeTruthy();
   });
 
   it("should not allow the user to deselect when allowNone is false", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle allowNone={false} />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
 
     fireEvent.click(c.getByText("First Item"));
@@ -180,7 +180,7 @@ describe("Select.Single", () => {
   it("should allow the caller to search for an item", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
       target: { value: "First" },
     });
@@ -211,14 +211,14 @@ describe("Select.Single", () => {
     };
     const c = render(<SelectSingle />);
     expect(c.getByText("Second Item")).toBeTruthy();
-    expect(c.queryByText("Select a Test Item")).toBeNull();
+    expect(c.queryByText("Select Test Item")).toBeNull();
   });
 
   describe("preview", () => {
     it("should mark the trigger as a preview", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle preview />);
-      expect(c.getByText("Select a Test Item").closest("button")?.classList).toContain(
+      expect(c.getByText("Select Test Item").closest("button")?.classList).toContain(
         "pluto-btn--preview",
       );
     });
@@ -226,7 +226,7 @@ describe("Select.Single", () => {
     it("should not open the dialog while previewing", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle preview />);
-      fireEvent.click(c.getByText("Select a Test Item"));
+      fireEvent.click(c.getByText("Select Test Item"));
       expect(c.queryByText("First Item Option")).toBeNull();
     });
   });

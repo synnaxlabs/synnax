@@ -44,7 +44,7 @@ class KeyboardShortcuts(ConsoleCase):
 
         # Create a page
         page_name = "Close Me"
-        console.project.create_page("Line Plot", page_name)
+        console.project.create_page("Line plot", page_name)
         self._cleanup_pages.append(page_name)
 
         # Verify tab exists
@@ -73,7 +73,7 @@ class KeyboardShortcuts(ConsoleCase):
 
         # Create a page
         original_name = "Rename Via Shortcut"
-        console.project.create_page("Line Plot", original_name)
+        console.project.create_page("Line plot", original_name)
         self._cleanup_pages.append(original_name)
 
         # Verify tab exists

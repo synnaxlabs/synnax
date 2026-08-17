@@ -53,6 +53,7 @@ import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
+const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
@@ -238,7 +239,7 @@ const Internal = (): ReactElement => {
           }),
         );
     },
-    TimeSpan.milliseconds(100),
+    VIEWPORT_DEBOUNCE,
     [dispatch, key],
   );
 

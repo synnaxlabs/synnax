@@ -350,7 +350,7 @@ class Schematic(ConsolePage):
         An edge must be selected first (see select_edge).
 
         Args:
-            variant: The display name of the edge variant (e.g. "Electric Signal").
+            variant: The display name of the edge variant (e.g. "Electric signal").
         """
         self.layout.show_visualization_toolbar()
         self.page.get_by_text("Properties", exact=True).first.click()

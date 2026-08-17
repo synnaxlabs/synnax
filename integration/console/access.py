@@ -107,7 +107,7 @@ class AccessClient:
 
         # The button's trailing arrow icon pollutes its accessible name, so exact
         # name matching fails; substring matching still isolates it.
-        self.layout.page.get_by_role("button", name="Log In").click()
+        self.layout.page.get_by_role("button", name="Log in").click()
 
         for _ in range(20):
             sy.sleep(0.5)
@@ -195,7 +195,7 @@ class AccessClient:
         """
         self.notifications.close_all()
 
-        self.layout.command_palette("Register a User")
+        self.layout.command_palette("Register user")
 
         sy.sleep(0.3)
 

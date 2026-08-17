@@ -59,9 +59,7 @@ describe("Schematic.Symbol.useImport", () => {
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "success" &&
-            st.message === `Successfully imported symbol: ${name}`,
+          (st) => st.variant === "success" && st.message === `Imported ${name}`,
         ),
       ).toBe(true),
     );
@@ -152,7 +150,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
         result.current.notifications.statuses.some(
           (st) =>
             st.variant === "success" &&
-            st.message === `Successfully imported 1 symbols into group "${groupName}"`,
+            st.message === `Imported 1 symbols into ${groupName}`,
         ),
       ).toBe(true),
     );
@@ -243,7 +241,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
         result.current.notifications.statuses.some(
           (st) =>
             st.variant === "success" &&
-            st.message === `Successfully imported 1 symbols into group "${groupName}"`,
+            st.message === `Imported 1 symbols into ${groupName}`,
         ),
       ).toBe(true),
     );

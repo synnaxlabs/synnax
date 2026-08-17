@@ -71,7 +71,7 @@ const NIScannerItem = ({ rackKey }: NIScannerItemProps): ReactElement | null => 
   return (
     <Menu.Item itemKey="toggleNIScanner" onClick={toggleScanner}>
       <Icon.Logo.NI />
-      Toggle NI Device Scanner
+      Toggle NI device scanner
     </Menu.Item>
   );
 };

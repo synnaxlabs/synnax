@@ -37,7 +37,7 @@ export const createOPCDevice = async (
       rack: rack.key,
       location: "opc.tcp://localhost:4840",
       make: MAKE,
-      model: "OPC UA Server",
+      model: "OPC UA server",
       configured,
       properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
     },

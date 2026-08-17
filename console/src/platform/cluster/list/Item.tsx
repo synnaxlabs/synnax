@@ -27,7 +27,7 @@ const LABELS: Record<connection.Status["variant"], string> = {
   info: "Connected",
   loading: "Connecting",
   warning: "Reconnecting",
-  error: "Failed",
+  error: "Unreachable",
   disabled: "Disconnected",
 };
 
@@ -47,7 +47,6 @@ const Base = ({
     host: item.host,
     port: item.port,
     secure: item.secure,
-    retry: { maxRetries: 0 },
   });
   let statusVariant = status?.variant ?? "disabled";
   let statusMessage = LABELS[statusVariant];

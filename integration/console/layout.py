@@ -683,7 +683,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        self.ctx_menu.action(tab, "Split Horizontally", exact=False)
+        self.ctx_menu.action(tab, "Split horizontally", exact=False)
 
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
@@ -692,7 +692,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        self.ctx_menu.action(tab, "Split Vertically", exact=False)
+        self.ctx_menu.action(tab, "Split vertically", exact=False)
 
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.

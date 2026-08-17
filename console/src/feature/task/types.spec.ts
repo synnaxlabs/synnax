@@ -14,23 +14,23 @@ import { Task } from "@/feature/task";
 
 describe("parseType", () => {
   it.each([
-    ["ethercat_read", "EtherCAT Read Task"],
-    ["http_scan", "HTTP Scan Task"],
-    ["labjack_read", "LabJack Read Task"],
-    ["modbus_read", "Modbus Read Task"],
-    ["ni_analog_read", "NI Analog Read Task"],
-    ["opc_read", "OPC UA Read Task"],
-    ["pagerduty_alert", "PagerDuty Alert Task"],
+    ["ethercat_read", "EtherCAT read task"],
+    ["http_scan", "HTTP scan task"],
+    ["labjack_read", "LabJack read task"],
+    ["modbus_read", "Modbus read task"],
+    ["ni_analog_read", "NI analog read task"],
+    ["opc_read", "OPC UA read task"],
+    ["pagerduty_alert", "PagerDuty alert task"],
   ])("should map the vendor prefix of %s to %s", (type, expected) => {
     expect(Task.parseType(type)).toBe(expected);
   });
 
-  it("should capitalize an unprefixed single-word type", () => {
-    expect(Task.parseType("sequence")).toBe("Sequence Task");
+  it("should capitalize the first word of an unprefixed type", () => {
+    expect(Task.parseType("sequence")).toBe("Sequence task");
   });
 
-  it("should capitalize every word of an unprefixed multi-word type", () => {
-    expect(Task.parseType("my_custom_type")).toBe("My Custom Type Task");
+  it("should sentence-case an unprefixed multi-word type", () => {
+    expect(Task.parseType("my_custom_type")).toBe("My custom type task");
   });
 });
 

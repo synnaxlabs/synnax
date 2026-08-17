@@ -113,7 +113,7 @@ describe("range/overview/Overview", () => {
     const rng = await createTestRange(client);
     await renderOverview(rng.key);
     expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
-    expect(await screen.findByText("Child Ranges")).toBeTruthy();
+    expect(await screen.findByText("Child ranges")).toBeTruthy();
     expect(await screen.findByText("Snapshots")).toBeTruthy();
   });
 
@@ -137,7 +137,7 @@ describe("range/overview/Overview", () => {
   it("opens the create modal for a new child range", async () => {
     const rng = await createTestRange(client);
     await renderOverview(rng.key);
-    await screen.findByText("Child Ranges");
+    await screen.findByText("Child ranges");
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
     expect(await screen.findByText("Save locally")).toBeTruthy();
   });
@@ -181,7 +181,7 @@ describe("range/overview tab", () => {
     expect(await screen.findByText(`deleted-${rng.name}`)).toBeTruthy();
     // The whole tab tombstones. A section left behind would render its own
     // inline "failed to retrieve" state next to the tombstone.
-    expect(screen.queryByText("Child Ranges")).toBeNull();
+    expect(screen.queryByText("Child ranges")).toBeNull();
     expect(screen.queryByText("Snapshots")).toBeNull();
   });
 

@@ -80,8 +80,8 @@ const renderToolbar = async ({
 describe("range/Toolbar", () => {
   it("shows the empty state and opens the Range Explorer from it", async () => {
     const { store } = await renderToolbar();
-    expect(await screen.findByText("No favorited ranges.")).toBeTruthy();
-    fireEvent.click(await screen.findByText("Open Range Explorer"));
+    expect(await screen.findByText("No favorited ranges")).toBeTruthy();
+    fireEvent.click(await screen.findByText("Open range explorer"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "view")
       throw new Error("focused tab is not the range explorer view");
@@ -150,11 +150,11 @@ describe("range/Toolbar", () => {
       expect((await client.ranges.retrieve(created.key)).name).toBe(rng.name);
     });
 
-    it("persists a local range to the cluster via Save to Synnax", async () => {
+    it("persists a local range to the cluster via Save to Core", async () => {
       const local = createLocalRangeState(uniqueRangeName("save"));
       const { store } = await renderToolbar({ ranges: [local] });
       await openContextMenu(local.name);
-      fireEvent.click(await screen.findByText("Save to Synnax"));
+      fireEvent.click(await screen.findByText("Save to Core"));
       await waitFor(() =>
         expect(Session.Range.selectState(store.getState(), local.key)?.persisted).toBe(
           true,

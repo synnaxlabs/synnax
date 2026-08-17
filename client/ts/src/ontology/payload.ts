@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type change, primitive, record } from "@synnaxlabs/x";
+import { array, type change, primitive, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { RESOURCE_TYPES, type ResourceType, resourceTypeZ } from "@/ontology/types.gen";
@@ -61,12 +61,19 @@ export interface IDToString {
 }
 
 export const idToString = ((id: ID | string | (ID | string)[]) => {
-  if (typeof id === "string") id = stringIDZ.parse(id);
+  if (typeof id === "string") id = zod.parse(stringIDZ, id, { label: "ontology ID" });
   if (Array.isArray(id)) return id.map((id) => idToString(id));
   return `${id.type}:${id.key}`;
 }) as IDToString;
 
 export const idsEqual = (a: ID, b: ID) => a.type === b.type && a.key === b.key;
+
+/**
+ * Parses a crude ID (an object or a "type:key" string) into an ID.
+ * @throws {zod.ParseError} if the value is not a valid ontology ID.
+ */
+export const parseID = (id: unknown): ID =>
+  zod.parse(idZ, id, { label: "ontology ID" });
 
 export const parseIDs = (
   ids: ID | string | Resource | (ID | string | Resource)[],
@@ -75,7 +82,7 @@ export const parseIDs = (
   if (arr.length === 0) return [];
   if (typeof arr[0] === "object" && "id" in arr[0])
     return (arr as Resource[]).map(({ id }) => id);
-  return arr.map((id) => idZ.parse(id));
+  return arr.map(parseID);
 };
 
 export const resourceZ = z
