@@ -18,8 +18,7 @@ export interface HeaderProps extends Omit<
   Nav.BarProps,
   "location" | "size" | "children"
 > {
-  /** Dotted breadcrumb name, or pre-split segments for names that may contain
-   * dots. */
+  /** Dotted breadcrumb name, or pre-split segments for names that may contain dots. */
   children: string | string[];
   icon?: Icon.ReactElement;
   hideClose?: boolean;
@@ -28,8 +27,8 @@ export interface HeaderProps extends Omit<
 /**
  * Header renders a modal's top title bar: a breadcrumb of the given name, an optional
  * leading icon, and a close button wired to dismiss the modal. Modal renderers render
- * their own Header so that title and icon stay static presentation owned by the renderer
- * rather than dynamic state on the open-modal entry.
+ * their own Header so that title and icon stay static presentation owned by the
+ * renderer rather than dynamic state on the open-modal entry.
  */
 export const Header = ({
   icon,
