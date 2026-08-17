@@ -20,6 +20,8 @@ F64_INDEX = f"viewer_perm_f64_idx_{random_name()}"
 VALVE_CHANNEL = f"viewer_perm_vlv_{random_name()}"
 VALVE_INDEX = f"viewer_perm_vlv_idx_{random_name()}"
 SCHEMATIC_NAME = "viewer_perm_schematic"
+PLOT_NAME = "viewer_perm_plot"
+TABLE_NAME = "viewer_perm_table"
 
 PASSWORD = "testpassword123"
 FIRST_NAME = "Viewer"
@@ -61,10 +63,16 @@ class RoleViewerPermissions(ConsoleCase):
         self.management_surfaces_are_hidden()
         self.creation_commands_are_hidden()
         self.mosaic_is_static()
+        self.tab_menu_offers_no_writes()
+        self.visualizations_are_read_only()
         self.viewer_cannot_actuate()
 
     def owner_creates_and_actuates(self) -> None:
-        """As Owner: build the schematic, prove control works, leave the tab open."""
+        """As Owner: build the pages, prove control works, leave the tabs open."""
+        table = self.console.project.create_table(TABLE_NAME)
+        self._cleanup_pages.append(table.page_name)
+        plot = self.console.project.create_plot(PLOT_NAME)
+        self._cleanup_pages.append(plot.page_name)
         schematic = self.console.project.create_schematic(SCHEMATIC_NAME)
         self._cleanup_pages.append(schematic.page_name)
 
@@ -138,6 +146,27 @@ class RoleViewerPermissions(ConsoleCase):
         assert self.console.layout.mosaic_is_static(), (
             "mosaic offers a structural write to a Viewer"
         )
+
+    def tab_menu_offers_no_writes(self) -> None:
+        """Renaming or moving a tab rewrites the panel, which a Viewer cannot."""
+        for option in ("Rename", "Move to panel", "Move to new window"):
+            assert not self.console.layout.tab_menu_has_option(
+                SCHEMATIC_NAME, option
+            ), f"tab menu offers {option!r} to a Viewer, who cannot write the panel"
+
+    def visualizations_are_read_only(self) -> None:
+        """Editing a plot or a table is a write on it, which a Viewer cannot."""
+        self.console.layout.select_tab(PLOT_NAME)
+        self.console.layout.show_visualization_toolbar()
+        assert self.console.layout.get_by_text("Axes", exact=True).count() == 0, (
+            "line plot offers its editing tabs to a Viewer, who cannot write it"
+        )
+        self.console.layout.select_tab(TABLE_NAME)
+        self.console.layout.get_by_text(f"{TABLE_NAME} is not editable.").wait_for(
+            state="visible", timeout=10000
+        )
+        self.console.layout.hide_visualization_toolbar()
+        self.console.layout.select_tab(SCHEMATIC_NAME)
 
     def viewer_cannot_actuate(self) -> None:
         """A Viewer holds no framer create, so control affordances are gone."""

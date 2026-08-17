@@ -20,6 +20,8 @@ F64_INDEX = f"operator_perm_f64_idx_{random_name()}"
 VALVE_CHANNEL = f"operator_perm_vlv_{random_name()}"
 VALVE_INDEX = f"operator_perm_vlv_idx_{random_name()}"
 SCHEMATIC_NAME = "operator_perm_schematic"
+PLOT_NAME = "operator_perm_plot"
+TABLE_NAME = "operator_perm_table"
 
 PASSWORD = "testpassword123"
 FIRST_NAME = "Operator"
@@ -55,20 +57,26 @@ class RoleOperatorPermissions(ConsoleCase):
         super().setup()
 
     def run(self) -> None:
-        self.owner_creates_schematic()
+        self.owner_creates_pages()
         self.log_in_as_operator()
         self.badge_names_the_role()
         self.management_surfaces_are_hidden()
         self.creation_commands_are_hidden()
         self.mosaic_is_static()
+        self.tab_menu_offers_no_writes()
+        self.visualizations_are_read_only()
         self.operator_can_actuate()
 
-    def owner_creates_schematic(self) -> None:
-        """As Owner: build the schematic and leave its tab open.
+    def owner_creates_pages(self) -> None:
+        """As Owner: build the pages and leave their tabs open.
 
         An Operator cannot open a tab, so anything they view has to already be
         open in a panel an Engineer or Owner built.
         """
+        table = self.console.project.create_table(TABLE_NAME)
+        self._cleanup_pages.append(table.page_name)
+        plot = self.console.project.create_plot(PLOT_NAME)
+        self._cleanup_pages.append(plot.page_name)
         schematic = self.console.project.create_schematic(SCHEMATIC_NAME)
         self._cleanup_pages.append(schematic.page_name)
 
@@ -133,6 +141,27 @@ class RoleOperatorPermissions(ConsoleCase):
         assert self.console.layout.mosaic_is_static(), (
             "mosaic offers a structural write to an Operator"
         )
+
+    def tab_menu_offers_no_writes(self) -> None:
+        """Renaming or moving a tab rewrites the panel, which an Operator cannot."""
+        for option in ("Rename", "Move to panel", "Move to new window"):
+            assert not self.console.layout.tab_menu_has_option(
+                SCHEMATIC_NAME, option
+            ), f"tab menu offers {option!r} to an Operator, who cannot write the panel"
+
+    def visualizations_are_read_only(self) -> None:
+        """Editing a plot or a table is a write on it, which an Operator cannot."""
+        self.console.layout.select_tab(PLOT_NAME)
+        self.console.layout.show_visualization_toolbar()
+        assert self.console.layout.get_by_text("Axes", exact=True).count() == 0, (
+            "line plot offers its editing tabs to an Operator, who cannot write it"
+        )
+        self.console.layout.select_tab(TABLE_NAME)
+        self.console.layout.get_by_text(f"{TABLE_NAME} is not editable.").wait_for(
+            state="visible", timeout=10000
+        )
+        self.console.layout.hide_visualization_toolbar()
+        self.console.layout.select_tab(SCHEMATIC_NAME)
 
     def operator_can_actuate(self) -> None:
         """Schematic control is a framer write, which Operator holds in full."""

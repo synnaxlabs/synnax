@@ -574,6 +574,29 @@ class LayoutClient:
         tab.wait_for(state="visible", timeout=5000)
         return tab.get_by_label("Close", exact=True).count() > 0
 
+    def tab_menu_has_option(self, name: str, option: str) -> bool:
+        """Report whether the named tab's context menu offers the option.
+
+        :param name: The name/title of the tab whose menu to open.
+        :param option: The menu option text to look for.
+        """
+        tab = self.get_read_only_tab(name)
+        tab.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.open_on(tab)
+        try:
+            return self.ctx_menu.has_option(option)
+        finally:
+            self.ctx_menu.close()
+
+    def select_tab(self, name: str) -> None:
+        """Bring the named tab to the front without requiring a close button.
+
+        :param name: The name/title of the tab to select.
+        """
+        tab = self.get_read_only_tab(name)
+        tab.wait_for(state="visible", timeout=5000)
+        tab.click()
+
     def mosaic_is_static(self) -> bool:
         """Report whether the mosaic withholds every structural write.
 

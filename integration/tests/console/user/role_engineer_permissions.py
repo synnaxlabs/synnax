@@ -15,6 +15,8 @@ from x import random_name
 PASSWORD = "testpassword123"
 FIRST_NAME = "Engineer"
 SCHEMATIC_NAME = "engineer_perm_schematic"
+PLOT_NAME = "engineer_perm_plot"
+TABLE_NAME = "engineer_perm_table"
 
 
 class RoleEngineerPermissions(ConsoleCase):
@@ -26,6 +28,8 @@ class RoleEngineerPermissions(ConsoleCase):
         self.user_management_is_hidden()
         self.creation_commands_are_offered()
         self.mosaic_is_interactive()
+        self.tab_menu_offers_the_writes()
+        self.visualizations_are_editable()
 
     def log_in_as_engineer(self) -> None:
         self._username = f"engineer_{random_name()}"
@@ -74,3 +78,24 @@ class RoleEngineerPermissions(ConsoleCase):
         assert not self.console.layout.mosaic_is_static(), (
             "mosaic withholds structural writes from an Engineer"
         )
+
+    def tab_menu_offers_the_writes(self) -> None:
+        for option in ("Rename", "Move to panel"):
+            assert self.console.layout.tab_menu_has_option(SCHEMATIC_NAME, option), (
+                f"tab menu withholds {option!r} from an Engineer, who writes the panel"
+            )
+
+    def visualizations_are_editable(self) -> None:
+        """An Engineer writes plots and tables, so both offer their editing surface."""
+        plot = self.console.project.create_plot(PLOT_NAME)
+        self._cleanup_pages.append(plot.page_name)
+        self.console.layout.show_visualization_toolbar()
+        self.console.layout.get_by_text("Axes", exact=True).wait_for(
+            state="visible", timeout=10000
+        )
+        table = self.console.project.create_table(TABLE_NAME)
+        self._cleanup_pages.append(table.page_name)
+        self.console.layout.get_by_text("enable editing.").wait_for(
+            state="visible", timeout=10000
+        )
+        self.console.layout.hide_visualization_toolbar()
