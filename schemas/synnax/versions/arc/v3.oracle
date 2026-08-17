@@ -67,7 +67,7 @@ ExecutionMode enum {
     @doc value "selects how the Arc runtime loop schedules execution."
 }
 
-TaskConfig struct extends task.BasePersistConfig {
+TaskConfig struct extends task.PersistConfig {
     arc_key        Key           {
         @doc value "is the key of the Arc module the task executes."
     }

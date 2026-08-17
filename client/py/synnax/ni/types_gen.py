@@ -699,7 +699,7 @@ class DOChannel(BaseModel):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(task.WriteConfig):
     """Carries the configuration fields shared by NI write tasks.
 
     Attributes:
@@ -712,7 +712,7 @@ class WriteConfig(task.BaseWriteConfig):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures the NI device scanner task.
 
     Attributes:
@@ -808,7 +808,7 @@ Scale = Annotated[
 ]
 
 
-class DigitalReadConfig(task.BaseReadConfig):
+class DigitalReadConfig(task.ReadConfig):
     """Configures an NI digital read task.
 
     Attributes:
@@ -1354,7 +1354,7 @@ AOChannel = Annotated[
 ]
 
 
-class AnalogReadConfig(task.BaseReadConfig):
+class AnalogReadConfig(task.ReadConfig):
     """Configures an NI analog read task. Each channel carries its own device.
 
     Attributes:
@@ -1367,7 +1367,7 @@ class AnalogReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class CounterReadConfig(task.BaseReadConfig):
+class CounterReadConfig(task.ReadConfig):
     """Configures an NI counter read task. Each channel carries its own device.
 
     Attributes:

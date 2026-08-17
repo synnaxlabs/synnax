@@ -69,7 +69,7 @@ func (w *WriteChannel) ApplyDefaults() {
 
 // ReadConfig configures an OPC UA read task.
 type ReadConfig struct {
-	task.BaseReadConfig
+	task.ReadConfig
 	// Device is the key of the device representing the OPC UA server.
 	Device device.Key `json:"device" msgpack:"device"`
 	// ArrayMode is true when each read returns an array of samples per node.
@@ -91,7 +91,7 @@ func (r *ReadConfig) ApplyDefaults() {
 	if r.ArraySize == 0 {
 		r.ArraySize = 1
 	}
-	r.BaseReadConfig.ApplyDefaults()
+	r.ReadConfig.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -99,7 +99,7 @@ func (r *ReadConfig) ApplyDefaults() {
 
 // WriteConfig configures an OPC UA write task.
 type WriteConfig struct {
-	task.BaseWriteConfig
+	task.WriteConfig
 	// Channels are the OPC UA nodes the task drives.
 	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
@@ -113,10 +113,10 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig struct {
-	task.BaseScanConfig
+	task.ScanConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
-	s.BaseScanConfig.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
 }

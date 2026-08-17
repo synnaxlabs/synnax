@@ -67,7 +67,7 @@ export const baseWriteChannelZ = z.object({
 });
 export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
-export const scanConfigZ = task.baseScanConfigZ.extend({
+export const scanConfigZ = task.scanConfigZ.extend({
   tcpScanMultiplier: z.int32().default(10),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
@@ -236,13 +236,13 @@ export const READ_CHANNEL_SCHEMAS: {
   thermocouple: thermocoupleReadChannelZ,
 };
 
-export const writeConfigZ = task.baseWriteConfigZ.extend({
+export const writeConfigZ = task.writeConfigZ.extend({
   stateRate: z.number().default(10),
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-export const readConfigZ = task.baseReadConfigZ.extend({
+export const readConfigZ = task.readConfigZ.extend({
   device: device.keyZ.default(""),
   channels: readChannelZ.array().default(() => []),
   deviceScanBacklogWarnOnCount: z.uint32().default(0),

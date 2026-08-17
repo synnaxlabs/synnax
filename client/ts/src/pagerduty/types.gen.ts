@@ -34,7 +34,7 @@ export const alertZ = z.object({
 });
 export interface Alert extends z.infer<typeof alertZ> {}
 
-export const taskConfigZ = task.baseStartConfigZ.extend({
+export const taskConfigZ = task.startConfigZ.extend({
   routingKey: z.string().default(""),
   alerts: alertZ.array().default(() => []),
 });

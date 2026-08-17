@@ -44,7 +44,7 @@ class Alert(BaseModel):
         return hash(self.key)
 
 
-class TaskConfig(task.BaseStartConfig):
+class TaskConfig(task.StartConfig):
     """Configures a PagerDuty alert task, which forwards Synnax status changes to
     PagerDuty as events.
 

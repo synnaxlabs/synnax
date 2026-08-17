@@ -64,7 +64,7 @@ struct StatusDetails {
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief TaskConfig configures an Arc task, which runs a compiled Arc module.
-struct TaskConfig : public ::synnax::task::BasePersistConfig {
+struct TaskConfig : public ::synnax::task::PersistConfig {
     /// @brief arc_key is the key of the Arc module the task executes.
     Key arc_key;
     /// @brief hash is the semantic hash of the Arc module at deploy time.

@@ -337,7 +337,7 @@ struct DOChannel {
 };
 
 /// @brief WriteConfig carries the configuration fields shared by NI write tasks.
-struct WriteConfig : public ::synnax::task::BaseWriteConfig {
+struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(10);
@@ -347,7 +347,7 @@ struct WriteConfig : public ::synnax::task::BaseWriteConfig {
 };
 
 /// @brief ScanConfig configures the NI device scanner task.
-struct ScanConfig : public ::synnax::task::BaseScanConfig {
+struct ScanConfig : public ::synnax::task::ScanConfig {
     /// @brief ignored_models are regex patterns matching the device models the scan
     /// skips.
     std::vector<std::string> ignored_models = {"^cRIO.*", "^nown.*"};
@@ -392,7 +392,7 @@ CJC parse_cjc(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const CJC &value);
 
 /// @brief DigitalReadConfig configures an NI digital read task.
-struct DigitalReadConfig : public ::synnax::task::BaseReadConfig {
+struct DigitalReadConfig : public ::synnax::task::ReadConfig {
     /// @brief device is the key of the device the task acquires from.
     ::synnax::device::Key device = "";
     /// @brief channels are the digital input channels the task acquires.
@@ -1460,7 +1460,7 @@ AOChannel parse_ao_channel(x::json::Parser parser);
 
 /// @brief AnalogReadConfig configures an NI analog read task. Each channel carries its
 /// own device.
-struct AnalogReadConfig : public ::synnax::task::BaseReadConfig {
+struct AnalogReadConfig : public ::synnax::task::ReadConfig {
     /// @brief channels are the analog input channels the task acquires.
     std::vector<AIChannel> channels;
 
@@ -1470,7 +1470,7 @@ struct AnalogReadConfig : public ::synnax::task::BaseReadConfig {
 
 /// @brief CounterReadConfig configures an NI counter read task. Each channel carries
 /// its own device.
-struct CounterReadConfig : public ::synnax::task::BaseReadConfig {
+struct CounterReadConfig : public ::synnax::task::ReadConfig {
     /// @brief channels are the counter input channels the task acquires.
     std::vector<CIChannel> channels;
 

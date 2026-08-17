@@ -85,7 +85,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures an EtherCAT scan task."""
 
     def __hash__(self) -> int:
@@ -134,7 +134,7 @@ WriteChannel = Annotated[
 ]
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(task.ReadConfig):
     """Configures an EtherCAT read task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
 
@@ -148,7 +148,7 @@ class ReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BasePersistConfig):
+class WriteConfig(task.PersistConfig):
     """Configures an EtherCAT write task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
 

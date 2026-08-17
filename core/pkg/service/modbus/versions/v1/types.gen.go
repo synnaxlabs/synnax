@@ -329,7 +329,7 @@ func (u *WriteChannel) ApplyDefaults() {
 
 // ReadConfig configures a Modbus read task.
 type ReadConfig struct {
-	task.BaseReadConfig
+	task.ReadConfig
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the channels the task acquires.
@@ -338,7 +338,7 @@ type ReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
-	r.BaseReadConfig.ApplyDefaults()
+	r.ReadConfig.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -346,7 +346,7 @@ func (r *ReadConfig) ApplyDefaults() {
 
 // WriteConfig configures a Modbus write task.
 type WriteConfig struct {
-	task.BaseWriteConfig
+	task.WriteConfig
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
@@ -360,10 +360,10 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig struct {
-	task.BaseScanConfig
+	task.ScanConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
-	s.BaseScanConfig.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
 }

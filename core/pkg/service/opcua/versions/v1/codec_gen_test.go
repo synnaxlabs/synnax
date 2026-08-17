@@ -105,9 +105,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.ReadConfig{
-				BaseReadConfig: task.BaseReadConfig{
-					BasePersistConfig: task.BasePersistConfig{
-						BaseStartConfig: task.BaseStartConfig{
+				ReadConfig: task.ReadConfig{
+					PersistConfig: task.PersistConfig{
+						StartConfig: task.StartConfig{
 							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 							AutoStart:   false,
 						},
@@ -135,12 +135,9 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v1.ReadConfig{
-				BaseReadConfig: task.BaseReadConfig{
-					BasePersistConfig: task.BasePersistConfig{
-						BaseStartConfig: task.BaseStartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-							AutoStart:   false,
-						},
+				ReadConfig: task.ReadConfig{
+					PersistConfig: task.PersistConfig{
+						StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
 						DataSavingDisabled: false,
 					},
 					SampleRate: telem.Rate(0),
@@ -152,9 +149,9 @@ var _ = Describe("Codec", func() {
 				Channels:  nil,
 			}),
 			Entry("empty collections", v1.ReadConfig{
-				BaseReadConfig: task.BaseReadConfig{
-					BasePersistConfig: task.BasePersistConfig{
-						BaseStartConfig: task.BaseStartConfig{
+				ReadConfig: task.ReadConfig{
+					PersistConfig: task.PersistConfig{
+						StartConfig: task.StartConfig{
 							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 							AutoStart:   false,
 						},
@@ -182,14 +179,14 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.ScanConfig{
-				BaseScanConfig: task.BaseScanConfig{
+				ScanConfig: task.ScanConfig{
 					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 					Rate:        telem.Rate(2.5),
 					Disabled:    true,
 				},
 			}),
 			Entry("zero values", v1.ScanConfig{
-				BaseScanConfig: task.BaseScanConfig{
+				ScanConfig: task.ScanConfig{
 					KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
 					Rate:        telem.Rate(0),
 					Disabled:    false,
@@ -244,9 +241,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.WriteConfig{
-				BaseWriteConfig: task.BaseWriteConfig{
-					BasePersistConfig: task.BasePersistConfig{
-						BaseStartConfig: task.BaseStartConfig{
+				WriteConfig: task.WriteConfig{
+					PersistConfig: task.PersistConfig{
+						StartConfig: task.StartConfig{
 							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 							AutoStart:   false,
 						},
@@ -269,12 +266,9 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v1.WriteConfig{
-				BaseWriteConfig: task.BaseWriteConfig{
-					BasePersistConfig: task.BasePersistConfig{
-						BaseStartConfig: task.BaseStartConfig{
-							KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-							AutoStart:   false,
-						},
+				WriteConfig: task.WriteConfig{
+					PersistConfig: task.PersistConfig{
+						StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
 						DataSavingDisabled: false,
 					},
 					Device: "",
@@ -282,9 +276,9 @@ var _ = Describe("Codec", func() {
 				Channels: nil,
 			}),
 			Entry("empty collections", v1.WriteConfig{
-				BaseWriteConfig: task.BaseWriteConfig{
-					BasePersistConfig: task.BasePersistConfig{
-						BaseStartConfig: task.BaseStartConfig{
+				WriteConfig: task.WriteConfig{
+					PersistConfig: task.PersistConfig{
+						StartConfig: task.StartConfig{
 							KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 							AutoStart:   false,
 						},
@@ -352,9 +346,9 @@ func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 
 func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	seed := v1.ReadConfig{
-		BaseReadConfig: task.BaseReadConfig{
-			BasePersistConfig: task.BasePersistConfig{
-				BaseStartConfig: task.BaseStartConfig{
+		ReadConfig: task.ReadConfig{
+			PersistConfig: task.PersistConfig{
+				StartConfig: task.StartConfig{
 					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 					AutoStart:   false,
 				},
@@ -398,7 +392,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 	seed := v1.ScanConfig{
-		BaseScanConfig: task.BaseScanConfig{
+		ScanConfig: task.ScanConfig{
 			KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 			Rate:        telem.Rate(2.5),
 			Disabled:    true,
@@ -448,9 +442,9 @@ func BenchmarkEncodeDecodeWriteChannel(b *testing.B) {
 
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v1.WriteConfig{
-		BaseWriteConfig: task.BaseWriteConfig{
-			BasePersistConfig: task.BasePersistConfig{
-				BaseStartConfig: task.BaseStartConfig{
+		WriteConfig: task.WriteConfig{
+			PersistConfig: task.PersistConfig{
+				StartConfig: task.StartConfig{
 					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 					AutoStart:   false,
 				},
@@ -604,9 +598,9 @@ func FuzzDecodeReadChannel(f *testing.F) {
 func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v1.ReadConfig{
-			BaseReadConfig: task.BaseReadConfig{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
+			ReadConfig: task.ReadConfig{
+				PersistConfig: task.PersistConfig{
+					StartConfig: task.StartConfig{
 						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 						AutoStart:   false,
 					},
@@ -641,12 +635,9 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v1.ReadConfig{
-			BaseReadConfig: task.BaseReadConfig{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-						AutoStart:   false,
-					},
+			ReadConfig: task.ReadConfig{
+				PersistConfig: task.PersistConfig{
+					StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
 					DataSavingDisabled: false,
 				},
 				SampleRate: telem.Rate(0),
@@ -665,9 +656,9 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v1.ReadConfig{
-			BaseReadConfig: task.BaseReadConfig{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
+			ReadConfig: task.ReadConfig{
+				PersistConfig: task.PersistConfig{
+					StartConfig: task.StartConfig{
 						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 						AutoStart:   false,
 					},
@@ -712,7 +703,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 func FuzzDecodeScanConfig(f *testing.F) {
 	{
 		seed := v1.ScanConfig{
-			BaseScanConfig: task.BaseScanConfig{
+			ScanConfig: task.ScanConfig{
 				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 				Rate:        telem.Rate(2.5),
 				Disabled:    true,
@@ -726,7 +717,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v1.ScanConfig{
-			BaseScanConfig: task.BaseScanConfig{
+			ScanConfig: task.ScanConfig{
 				KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
 				Rate:        telem.Rate(0),
 				Disabled:    false,
@@ -822,9 +813,9 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v1.WriteConfig{
-			BaseWriteConfig: task.BaseWriteConfig{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
+			WriteConfig: task.WriteConfig{
+				PersistConfig: task.PersistConfig{
+					StartConfig: task.StartConfig{
 						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 						AutoStart:   false,
 					},
@@ -854,12 +845,9 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v1.WriteConfig{
-			BaseWriteConfig: task.BaseWriteConfig{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-						AutoStart:   false,
-					},
+			WriteConfig: task.WriteConfig{
+				PersistConfig: task.PersistConfig{
+					StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
 					DataSavingDisabled: false,
 				},
 				Device: "",
@@ -874,9 +862,9 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v1.WriteConfig{
-			BaseWriteConfig: task.BaseWriteConfig{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
+			WriteConfig: task.WriteConfig{
+				PersistConfig: task.PersistConfig{
+					StartConfig: task.StartConfig{
 						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 						AutoStart:   false,
 					},

@@ -58,7 +58,7 @@ WriteChannel struct extends BaseChannel {
     @go marshal
 }
 
-ReadConfig struct extends task.BaseReadConfig {
+ReadConfig struct extends task.ReadConfig {
     sample_rate = 50
     stream_rate = 25
     device      device.Key = "" {
@@ -79,7 +79,7 @@ ReadConfig struct extends task.BaseReadConfig {
     @go migrate
 }
 
-WriteConfig struct extends task.BaseWriteConfig {
+WriteConfig struct extends task.WriteConfig {
     channels WriteChannel[] {
         @doc value "are the OPC UA nodes the task drives."
     }
@@ -89,7 +89,7 @@ WriteConfig struct extends task.BaseWriteConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an OPC UA scan task."
     @go marshal
     @go migrate

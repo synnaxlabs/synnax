@@ -476,8 +476,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-auto-start",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersistConfig: task.BasePersistConfig{
-							BaseStartConfig: task.BaseStartConfig{AutoStart: true},
+						PersistConfig: task.PersistConfig{
+							StartConfig: task.StartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -511,8 +511,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-silent-stop",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersistConfig: task.BasePersistConfig{
-							BaseStartConfig: task.BaseStartConfig{AutoStart: true},
+						PersistConfig: task.PersistConfig{
+							StartConfig: task.StartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -596,8 +596,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-boot-auto-start-failure",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersistConfig: task.BasePersistConfig{
-							BaseStartConfig: task.BaseStartConfig{AutoStart: true},
+						PersistConfig: task.PersistConfig{
+							StartConfig: task.StartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -653,8 +653,8 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "test-boot-auto-start",
 				Type: arctask.Type,
 				Config: configToMap(arctask.Config{
-					BasePersistConfig: task.BasePersistConfig{
-						BaseStartConfig: task.BaseStartConfig{AutoStart: true},
+					PersistConfig: task.PersistConfig{
+						StartConfig: task.StartConfig{AutoStart: true},
 					},
 					ArcKey: uuid.New(),
 				}),

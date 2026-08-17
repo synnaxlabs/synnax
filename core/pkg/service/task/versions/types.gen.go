@@ -31,18 +31,17 @@ type Task = v2.Task
 // KeyedConfig is the base for every stored task configuration record.
 type KeyedConfig = v2.KeyedConfig
 
-// BaseStartConfig carries the configuration fields shared by every task.
-type BaseStartConfig = v2.BaseStartConfig
+// StartConfig carries the configuration fields shared by every task.
+type StartConfig = v2.StartConfig
 
-// BasePersistConfig carries the configuration fields shared by tasks that write
-// telemetry.
-type BasePersistConfig = v2.BasePersistConfig
+// PersistConfig carries the configuration fields shared by tasks that write telemetry.
+type PersistConfig = v2.PersistConfig
 
-// BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
-type BaseReadConfig = v2.BaseReadConfig
+// ReadConfig carries the configuration fields shared by hardware acquisition tasks.
+type ReadConfig = v2.ReadConfig
 
-// BaseWriteConfig carries the configuration fields shared by hardware control tasks.
-type BaseWriteConfig = v2.BaseWriteConfig
+// WriteConfig carries the configuration fields shared by hardware control tasks.
+type WriteConfig = v2.WriteConfig
 
-// BaseScanConfig carries the fields shared by every scan task configuration.
-type BaseScanConfig = v2.BaseScanConfig
+// ScanConfig carries the fields shared by every scan task configuration.
+type ScanConfig = v2.ScanConfig

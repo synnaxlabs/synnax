@@ -97,7 +97,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures a LabJack scan task.
 
     Attributes:
@@ -203,7 +203,7 @@ ReadChannel = Annotated[
 ]
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(task.WriteConfig):
     """Configures a LabJack write task.
 
     Attributes:
@@ -218,7 +218,7 @@ class WriteConfig(task.BaseWriteConfig):
         return hash(self.key)
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(task.ReadConfig):
     """Configures a LabJack read task.
 
     Attributes:

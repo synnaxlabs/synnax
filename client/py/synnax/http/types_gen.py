@@ -125,7 +125,7 @@ class BaseWriteField(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures an HTTP scan task."""
 
     def __hash__(self) -> int:
@@ -265,7 +265,7 @@ class WriteEndpoint(BaseModel):
         return hash(self.key)
 
 
-class ReadConfig(task.BasePersistConfig):
+class ReadConfig(task.PersistConfig):
     """Configures an HTTP read task, which polls one or more endpoints on an HTTP server
     device and writes extracted JSON values to Synnax channels.
 
@@ -283,7 +283,7 @@ class ReadConfig(task.BasePersistConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseStartConfig):
+class WriteConfig(task.StartConfig):
     """Configures an HTTP write task, which sends an HTTP request whenever a value is
     written to an endpoint's command channel.
 

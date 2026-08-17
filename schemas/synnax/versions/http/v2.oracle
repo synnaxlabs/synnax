@@ -143,7 +143,7 @@ ReadEndpoint struct {
     @go marshal
 }
 
-ReadConfig struct extends task.BasePersistConfig {
+ReadConfig struct extends task.PersistConfig {
     device    device.Key = "" {
         @doc value "is the key of the HTTP server device to poll."
     }
@@ -289,7 +289,7 @@ WriteEndpoint struct {
     @go marshal
 }
 
-WriteConfig struct extends task.BaseStartConfig {
+WriteConfig struct extends task.StartConfig {
     device    device.Key = "" {
         @doc value "is the key of the HTTP server device to write to."
     }
@@ -305,7 +305,7 @@ WriteConfig struct extends task.BaseStartConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an HTTP scan task."
     @go marshal
     @go migrate

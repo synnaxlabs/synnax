@@ -37,8 +37,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v3.Config{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
+				PersistConfig: task.PersistConfig{
+					StartConfig: task.StartConfig{
 						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 						AutoStart:   false,
 					},
@@ -52,11 +52,8 @@ var _ = Describe("Codec", func() {
 				LockMemory:    true,
 			}),
 			Entry("zero values", v3.Config{
-				BasePersistConfig: task.BasePersistConfig{
-					BaseStartConfig: task.BaseStartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-						AutoStart:   false,
-					},
+				PersistConfig: task.PersistConfig{
+					StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
 					DataSavingDisabled: false,
 				},
 				ArcKey:        uuid.Nil,
@@ -72,8 +69,8 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeConfig(b *testing.B) {
 	seed := v3.Config{
-		BasePersistConfig: task.BasePersistConfig{
-			BaseStartConfig: task.BaseStartConfig{
+		PersistConfig: task.PersistConfig{
+			StartConfig: task.StartConfig{
 				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 				AutoStart:   false,
 			},
@@ -104,8 +101,8 @@ func BenchmarkEncodeDecodeConfig(b *testing.B) {
 func FuzzDecodeConfig(f *testing.F) {
 	{
 		seed := v3.Config{
-			BasePersistConfig: task.BasePersistConfig{
-				BaseStartConfig: task.BaseStartConfig{
+			PersistConfig: task.PersistConfig{
+				StartConfig: task.StartConfig{
 					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 					AutoStart:   false,
 				},
@@ -126,11 +123,8 @@ func FuzzDecodeConfig(f *testing.F) {
 	}
 	{
 		seed := v3.Config{
-			BasePersistConfig: task.BasePersistConfig{
-				BaseStartConfig: task.BaseStartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.Nil},
-					AutoStart:   false,
-				},
+			PersistConfig: task.PersistConfig{
+				StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
 				DataSavingDisabled: false,
 			},
 			ArcKey:        uuid.Nil,

@@ -204,7 +204,7 @@ WriteChannel union on type extends BaseWriteChannel {
     @go marshal
 }
 
-ReadConfig struct extends task.BaseReadConfig {
+ReadConfig struct extends task.ReadConfig {
     device                            device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
@@ -229,7 +229,7 @@ ReadConfig struct extends task.BaseReadConfig {
     @go migrate
 }
 
-WriteConfig struct extends task.BaseWriteConfig {
+WriteConfig struct extends task.WriteConfig {
     state_rate telem.Rate = 10 {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
     }
@@ -242,7 +242,7 @@ WriteConfig struct extends task.BaseWriteConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task.ScanConfig {
     tcp_scan_multiplier int32 = 10 {
         @doc value """
             is the number of scan cycles between TCP device scans. USB devices scan

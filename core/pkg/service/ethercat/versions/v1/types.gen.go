@@ -300,14 +300,14 @@ func (u *WriteChannel) ApplyDefaults() {
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type ReadConfig struct {
-	task.BaseReadConfig
+	task.ReadConfig
 	// Channels are the channels the task acquires.
 	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
-	r.BaseReadConfig.ApplyDefaults()
+	r.ReadConfig.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -316,7 +316,7 @@ func (r *ReadConfig) ApplyDefaults() {
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type WriteConfig struct {
-	task.BasePersistConfig
+	task.PersistConfig
 	// StateRate is the rate at which output state is reported to Synnax, in hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 	// ExecutionRate is the rate at which commands are applied to the bus, in hertz.
@@ -340,10 +340,10 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig struct {
-	task.BaseScanConfig
+	task.ScanConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
-	s.BaseScanConfig.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
 }

@@ -121,7 +121,7 @@ WriteChannel union on type extends BaseWriteChannel {
     @go marshal
 }
 
-ReadConfig struct extends task.BaseReadConfig {
+ReadConfig struct extends task.ReadConfig {
     channels ReadChannel[] {
         @doc value "are the channels the task acquires."
     }
@@ -134,7 +134,7 @@ ReadConfig struct extends task.BaseReadConfig {
     @go migrate
 }
 
-WriteConfig struct extends task.BasePersistConfig {
+WriteConfig struct extends task.PersistConfig {
     state_rate     telem.Rate = 25 {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
     }
@@ -153,7 +153,7 @@ WriteConfig struct extends task.BasePersistConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an EtherCAT scan task."
     @go marshal
     @go migrate

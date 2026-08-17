@@ -161,7 +161,7 @@ KeyedConfig struct {
     @pb omit
 }
 
-BaseStartConfig struct extends KeyedConfig {
+StartConfig struct extends KeyedConfig {
     auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
@@ -170,7 +170,7 @@ BaseStartConfig struct extends KeyedConfig {
     @pb omit
 }
 
-BasePersistConfig struct extends BaseStartConfig {
+PersistConfig struct extends StartConfig {
     data_saving_disabled bool = false {
         @doc value "is true when task telemetry is not persisted to disk."
     }
@@ -179,7 +179,7 @@ BasePersistConfig struct extends BaseStartConfig {
     @pb omit
 }
 
-BaseReadConfig struct extends BasePersistConfig {
+ReadConfig struct extends PersistConfig {
     sample_rate telem.Rate = 10 {
         @doc value "is the per-channel hardware sample rate, in hertz."
         @ts type   "number"
@@ -193,7 +193,7 @@ BaseReadConfig struct extends BasePersistConfig {
     @pb omit
 }
 
-BaseWriteConfig struct extends BasePersistConfig {
+WriteConfig struct extends PersistConfig {
     device device.Key = "" {
         @doc value "is the key of the device the task writes to."
     }
@@ -202,7 +202,7 @@ BaseWriteConfig struct extends BasePersistConfig {
     @pb omit
 }
 
-BaseScanConfig struct extends KeyedConfig {
+ScanConfig struct extends KeyedConfig {
     rate     telem.Rate = 0.2 {
         @doc value "is the rate at which the scan runs, in hertz."
         @ts type   "number"

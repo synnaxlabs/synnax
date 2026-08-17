@@ -109,7 +109,7 @@ KeyedConfig struct {
     @doc value "is the base for every stored task configuration record."
 }
 
-BaseStartConfig struct extends KeyedConfig {
+StartConfig struct extends KeyedConfig {
     auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
@@ -117,7 +117,7 @@ BaseStartConfig struct extends KeyedConfig {
     @doc value "carries the configuration fields shared by every task."
 }
 
-BasePersistConfig struct extends BaseStartConfig {
+PersistConfig struct extends StartConfig {
     data_saving_disabled bool = false {
         @doc value "is true when task telemetry is not persisted to disk."
     }
@@ -125,7 +125,7 @@ BasePersistConfig struct extends BaseStartConfig {
     @doc value "carries the configuration fields shared by tasks that write telemetry."
 }
 
-BaseReadConfig struct extends BasePersistConfig {
+ReadConfig struct extends PersistConfig {
     sample_rate telem.Rate = 10 {
         @doc value "is the per-channel hardware sample rate, in hertz."
     }
@@ -136,7 +136,7 @@ BaseReadConfig struct extends BasePersistConfig {
     @doc value "carries the configuration fields shared by hardware acquisition tasks."
 }
 
-BaseWriteConfig struct extends BasePersistConfig {
+WriteConfig struct extends PersistConfig {
     device device.Key = "" {
         @doc value "is the key of the device the task writes to."
     }
@@ -144,7 +144,7 @@ BaseWriteConfig struct extends BasePersistConfig {
     @doc value "carries the configuration fields shared by hardware control tasks."
 }
 
-BaseScanConfig struct extends KeyedConfig {
+ScanConfig struct extends KeyedConfig {
     rate     telem.Rate = 0.2 {
         @doc value "is the rate at which the scan runs, in hertz."
     }

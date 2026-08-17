@@ -115,7 +115,7 @@ WriteChannel union on type extends BaseWriteChannel {
     @go marshal
 }
 
-ReadConfig struct extends task.BaseReadConfig {
+ReadConfig struct extends task.ReadConfig {
     device   device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
@@ -128,7 +128,7 @@ ReadConfig struct extends task.BaseReadConfig {
     @go migrate
 }
 
-WriteConfig struct extends task.BaseWriteConfig {
+WriteConfig struct extends task.WriteConfig {
     channels WriteChannel[] {
         @doc value "are the channels the task drives."
     }
@@ -138,7 +138,7 @@ WriteConfig struct extends task.BaseWriteConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task.ScanConfig {
     @doc value  "configures a Modbus scan task."
     @go marshal
     @go migrate

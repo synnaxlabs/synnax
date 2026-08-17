@@ -587,7 +587,7 @@ func (u *WriteChannel) ApplyDefaults() {
 
 // ReadConfig configures a LabJack read task.
 type ReadConfig struct {
-	task.BaseReadConfig
+	task.ReadConfig
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the channels the task acquires.
@@ -602,7 +602,7 @@ type ReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
-	r.BaseReadConfig.ApplyDefaults()
+	r.ReadConfig.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -620,7 +620,7 @@ func (r ReadConfig) Validate() error {
 
 // WriteConfig configures a LabJack write task.
 type WriteConfig struct {
-	task.BaseWriteConfig
+	task.WriteConfig
 	// StateRate is the rate at which output state is reported to Synnax, in hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 	// Channels are the channels the task drives.
@@ -639,7 +639,7 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures a LabJack scan task.
 type ScanConfig struct {
-	task.BaseScanConfig
+	task.ScanConfig
 	// TCPScanMultiplier is the number of scan cycles between TCP device scans. USB
 	// devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
 	TCPScanMultiplier int32 `json:"tcp_scan_multiplier" msgpack:"tcp_scan_multiplier"`
@@ -650,5 +650,5 @@ func (s *ScanConfig) ApplyDefaults() {
 	if s.TCPScanMultiplier == 0 {
 		s.TCPScanMultiplier = 10
 	}
-	s.BaseScanConfig.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
 }

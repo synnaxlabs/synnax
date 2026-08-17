@@ -796,7 +796,7 @@ func buildExtendsExpr(
 	baseName := getPyName(parent)
 
 	// A base class defined in another schema module must be imported and
-	// referenced through its module alias (e.g. task_.BaseReadConfig).
+	// referenced through its module alias (e.g. task_.ReadConfig).
 	if parent.Namespace != data.Namespace {
 		outputPath := output.GetPath(parent, "py")
 		if outputPath == "" {

@@ -31,11 +31,11 @@ namespace synnax::task {
 
 struct KeyedConfig;
 struct Command;
-struct BaseStartConfig;
-struct BaseScanConfig;
-struct BasePersistConfig;
-struct BaseReadConfig;
-struct BaseWriteConfig;
+struct StartConfig;
+struct ScanConfig;
+struct PersistConfig;
+struct ReadConfig;
+struct WriteConfig;
 
 using Key = x::uuid::UUID;
 
@@ -100,37 +100,37 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
-/// @brief BaseStartConfig carries the configuration fields shared by every task.
-struct BaseStartConfig : public KeyedConfig {
+/// @brief StartConfig carries the configuration fields shared by every task.
+struct StartConfig : public KeyedConfig {
     /// @brief auto_start is true when the task should start as soon as it is
     /// configured.
     bool auto_start = false;
 
-    static BaseStartConfig parse(x::json::Parser parser);
+    static StartConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseScanConfig carries the fields shared by every scan task configuration.
-struct BaseScanConfig : public KeyedConfig {
+/// @brief ScanConfig carries the fields shared by every scan task configuration.
+struct ScanConfig : public KeyedConfig {
     /// @brief rate is the rate at which the scan runs, in hertz.
     ::x::telem::Rate rate = ::x::telem::Rate(0.200000);
     /// @brief disabled is true when scanning is paused.
     bool disabled = false;
 
-    static BaseScanConfig parse(x::json::Parser parser);
+    static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
-/// @brief BasePersistConfig carries the configuration fields shared by tasks that write
+/// @brief PersistConfig carries the configuration fields shared by tasks that write
 /// telemetry.
-struct BasePersistConfig : public BaseStartConfig {
+struct PersistConfig : public StartConfig {
     /// @brief data_saving_disabled is true when task telemetry is not persisted to
     /// disk.
     bool data_saving_disabled = false;
 
-    static BasePersistConfig parse(x::json::Parser parser);
+    static PersistConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -174,26 +174,26 @@ struct Task {
     from_proto(const ::service::task::pb::Task &pb);
 };
 
-/// @brief BaseReadConfig carries the configuration fields shared by hardware
-/// acquisition tasks.
-struct BaseReadConfig : public BasePersistConfig {
+/// @brief ReadConfig carries the configuration fields shared by hardware acquisition
+/// tasks.
+struct ReadConfig : public PersistConfig {
     /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
     ::x::telem::Rate sample_rate = ::x::telem::Rate(10);
     /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
     /// hertz.
     ::x::telem::Rate stream_rate = ::x::telem::Rate(5);
 
-    static BaseReadConfig parse(x::json::Parser parser);
+    static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseWriteConfig carries the configuration fields shared by hardware control
+/// @brief WriteConfig carries the configuration fields shared by hardware control
 /// tasks.
-struct BaseWriteConfig : public BasePersistConfig {
+struct WriteConfig : public PersistConfig {
     /// @brief device is the key of the device the task writes to.
     ::synnax::device::Key device = "";
 
-    static BaseWriteConfig parse(x::json::Parser parser);
+    static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

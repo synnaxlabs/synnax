@@ -80,24 +80,23 @@ type KeyedConfig struct {
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
-// BaseStartConfig carries the configuration fields shared by every task.
-type BaseStartConfig struct {
+// StartConfig carries the configuration fields shared by every task.
+type StartConfig struct {
 	KeyedConfig
 	// AutoStart is true when the task should start as soon as it is configured.
 	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
 }
 
-// BasePersistConfig carries the configuration fields shared by tasks that write
-// telemetry.
-type BasePersistConfig struct {
-	BaseStartConfig
+// PersistConfig carries the configuration fields shared by tasks that write telemetry.
+type PersistConfig struct {
+	StartConfig
 	// DataSavingDisabled is true when task telemetry is not persisted to disk.
 	DataSavingDisabled bool `json:"data_saving_disabled" msgpack:"data_saving_disabled"`
 }
 
-// BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
-type BaseReadConfig struct {
-	BasePersistConfig
+// ReadConfig carries the configuration fields shared by hardware acquisition tasks.
+type ReadConfig struct {
+	PersistConfig
 	// SampleRate is the per-channel hardware sample rate, in hertz.
 	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
 	// StreamRate is the rate at which samples are streamed to Synnax, in hertz.
@@ -105,24 +104,24 @@ type BaseReadConfig struct {
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseReadConfig) ApplyDefaults() {
-	if b.SampleRate == 0 {
-		b.SampleRate = 10
+func (r *ReadConfig) ApplyDefaults() {
+	if r.SampleRate == 0 {
+		r.SampleRate = 10
 	}
-	if b.StreamRate == 0 {
-		b.StreamRate = 5
+	if r.StreamRate == 0 {
+		r.StreamRate = 5
 	}
 }
 
-// BaseWriteConfig carries the configuration fields shared by hardware control tasks.
-type BaseWriteConfig struct {
-	BasePersistConfig
+// WriteConfig carries the configuration fields shared by hardware control tasks.
+type WriteConfig struct {
+	PersistConfig
 	// Device is the key of the device the task writes to.
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
-// BaseScanConfig carries the fields shared by every scan task configuration.
-type BaseScanConfig struct {
+// ScanConfig carries the fields shared by every scan task configuration.
+type ScanConfig struct {
 	KeyedConfig
 	// Rate is the rate at which the scan runs, in hertz.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
@@ -131,8 +130,8 @@ type BaseScanConfig struct {
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseScanConfig) ApplyDefaults() {
-	if b.Rate == 0 {
-		b.Rate = 0.2
+func (s *ScanConfig) ApplyDefaults() {
+	if s.Rate == 0 {
+		s.Rate = 0.2
 	}
 }

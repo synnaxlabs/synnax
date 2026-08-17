@@ -79,7 +79,7 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
-class BaseStartConfig(KeyedConfig):
+class StartConfig(KeyedConfig):
     """Carries the configuration fields shared by every task.
 
     Attributes:
@@ -92,7 +92,7 @@ class BaseStartConfig(KeyedConfig):
         return hash(self.key)
 
 
-class BaseScanConfig(KeyedConfig):
+class ScanConfig(KeyedConfig):
     """Carries the fields shared by every scan task configuration.
 
     Attributes:
@@ -110,7 +110,7 @@ class BaseScanConfig(KeyedConfig):
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
-class BasePersistConfig(BaseStartConfig):
+class PersistConfig(StartConfig):
     """Carries the configuration fields shared by tasks that write telemetry.
 
     Attributes:
@@ -159,7 +159,7 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-class BaseReadConfig(BasePersistConfig):
+class ReadConfig(PersistConfig):
     """Carries the configuration fields shared by hardware acquisition tasks.
 
     Attributes:
@@ -174,7 +174,7 @@ class BaseReadConfig(BasePersistConfig):
         return hash(self.key)
 
 
-class BaseWriteConfig(BasePersistConfig):
+class WriteConfig(PersistConfig):
     """Carries the configuration fields shared by hardware control tasks.
 
     Attributes:
