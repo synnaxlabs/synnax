@@ -15,7 +15,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 This page walks you through what channels are, their important properties, and how to
-use them when in your Core.
+use them in your Core.
 
 If you’re looking for a practical guide on creating or retrieving channels, visit the
 respective pages for the [Python](/reference/python-client/channels) and
@@ -30,9 +30,9 @@ This source is typically a sensor, although channels can also hold actuator comm
 post-processed results, or any other time-ordered data.
 
 Channels are used for both **data storage** and **real-time communication**. A sensor
-recording samples 25 times per second (or 25Hz) would write data to a channel in order
-to store it permanently within Synnax, while at the same time streaming the data for
-live consumption.
+recording samples 25 times per second (25 Hz) would write data to a channel in order to
+store it permanently within Synnax, while at the same time streaming the data for live
+consumption.
 
 The following diagram shows a sensor writing samples to a channel, which are then stored
 and forwarded to a visualization tool and analysis script.
@@ -125,7 +125,7 @@ type of `timestamp`. Data channels can have any of the following types:
 
 | Data Type   | Description                                                                  | Size     |
 | ----------- | ---------------------------------------------------------------------------- | -------- |
-| `bool`      | Boolean value                                                                | 1 byte   |
+| `boolean`   | Boolean value                                                                | 1 byte   |
 | `int8`      | Signed 8-bit integer                                                         | 1 byte   |
 | `int16`     | Signed 16-bit integer                                                        | 2 bytes  |
 | `int32`     | Signed 32-bit integer                                                        | 4 bytes  |
