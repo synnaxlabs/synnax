@@ -82,27 +82,9 @@ bool_flow_trigger -> stage {
     bool_flow_trigger or bool_or_11_b -> bool_or_11_out
 }
 
-// ─────────────────────── symbol aliases (!, &&, ||) ─────────────────
-
-func do_symbols(a bool) {
-    bool_bang_out = !a
-    bool_andand_out = a && bool_andand_b
-    bool_oror_out = a || bool_oror_b
-}
-bool_a1_trigger -> do_symbols{}
-
-bool_flow_trigger -> stage {
-    !bool_flow_trigger -> bool_bang_out
-    bool_flow_trigger && bool_andand_b -> bool_andand_out
-    bool_flow_trigger || bool_oror_b -> bool_oror_out
-}
-
 // ─────────────────────── bitwise operators (i64) ────────────────────
 
 func do_bitwise_i64(a i64) {
-    bool_xor_kw_out = a xor bool_xor_kw_b
-    bool_xor_kw_zero_out = a xor bool_xor_kw_zero_b
-    bool_xor_kw_self_out = a xor bool_xor_kw_self_b
     bool_xor_sym_out = a ^ bool_xor_sym_b
     bool_xor_sym_zero_out = a ^ bool_xor_sym_zero_b
     bool_xor_sym_self_out = a ^ bool_xor_sym_self_b
@@ -114,9 +96,6 @@ func do_bitwise_i64(a i64) {
 bool_i64_trigger -> do_bitwise_i64{}
 
 bool_i64_flow_trigger -> stage {
-    bool_i64_flow_trigger xor bool_xor_kw_b -> bool_xor_kw_out
-    bool_i64_flow_trigger xor bool_xor_kw_zero_b -> bool_xor_kw_zero_out
-    bool_i64_flow_trigger xor bool_xor_kw_self_b -> bool_xor_kw_self_out
     bool_i64_flow_trigger ^ bool_xor_sym_b -> bool_xor_sym_out
     bool_i64_flow_trigger ^ bool_xor_sym_zero_b -> bool_xor_sym_zero_out
     bool_i64_flow_trigger ^ bool_xor_sym_self_b -> bool_xor_sym_self_out
@@ -129,7 +108,6 @@ bool_i64_flow_trigger -> stage {
 // ─────────────────────── bitwise operators (i32) ────────────────────
 
 func do_bitwise_i32(a i32) {
-    bool_xor_kw_i32_out = a xor bool_xor_kw_i32_b
     bool_xor_sym_i32_out = a ^ bool_xor_sym_i32_b
     bool_amp_out = a & bool_amp_b
     bool_pipe_out = a | bool_pipe_b
@@ -137,7 +115,6 @@ func do_bitwise_i32(a i32) {
 bool_i32_trigger -> do_bitwise_i32{}
 
 bool_i32_flow_trigger -> stage {
-    bool_i32_flow_trigger xor bool_xor_kw_i32_b -> bool_xor_kw_i32_out
     bool_i32_flow_trigger ^ bool_xor_sym_i32_b -> bool_xor_sym_i32_out
     bool_i32_flow_trigger & bool_amp_b -> bool_amp_out
     bool_i32_flow_trigger | bool_pipe_b -> bool_pipe_out
@@ -281,23 +258,10 @@ LOGICAL_A1 = Section(
     ],
 )
 
-SYMBOLS = Section(
-    BOOL,
-    a_val=1,
-    cases=[
-        Case("bang", expected=0),
-        Case("andand", b_val=1, expected=1),
-        Case("oror", b_val=0, expected=1),
-    ],
-)
-
 BITWISE_I64 = Section(
     INT64,
     a_val=12,
     cases=[
-        Case("xor_kw", b_val=10, expected=6),
-        Case("xor_kw_zero", b_val=0, expected=12),
-        Case("xor_kw_self", b_val=12, expected=0),
         Case("xor_sym", b_val=10, expected=6),
         Case("xor_sym_zero", b_val=0, expected=12),
         Case("xor_sym_self", b_val=12, expected=0),
@@ -312,7 +276,6 @@ BITWISE_I32 = Section(
     INT32,
     a_val=12,
     cases=[
-        Case("xor_kw_i32", b_val=10, expected=6),
         Case("xor_sym_i32", b_val=10, expected=6),
         Case("amp", b_val=10, expected=8),
         Case("pipe", b_val=10, expected=14),
@@ -352,7 +315,6 @@ SECTIONS = [
     LITERALS,
     LOGICAL_A0,
     LOGICAL_A1,
-    SYMBOLS,
     BITWISE_I64,
     BITWISE_I32,
     COMPARE,
@@ -470,10 +432,6 @@ class Boolean(ArcCase):
         self.log("=== logical operators (a = 1) ===")
         self._drive_func(LOGICAL_A1)
         self._drive_flow(LOGICAL_A1)
-
-        self.log("=== symbol aliases (!, &&, ||) ===")
-        self._drive_func(SYMBOLS)
-        self._drive_flow(SYMBOLS)
 
         self.log("=== bitwise operators (i64) ===")
         self._drive_func(BITWISE_I64)

@@ -38,7 +38,6 @@ var _ = Describe("Formatter", func() {
 			"x and y or z",
 			"x and y or z\n",
 		),
-		Entry("should preserve spaces around xor", "x xor y", "x xor y\n"),
 		Entry("should add spaces around flow operators", "a->b=>c", "a -> b => c\n"),
 		Entry(
 			"should add spaces around compound assignment operators",
@@ -53,7 +52,6 @@ var _ = Describe("Formatter", func() {
 		Entry("power operator", "x := 2 ** 3", "x := 2 ** 3\n"),
 		Entry("chained power", "x := a ** b ** c", "x := a ** b ** c\n"),
 		Entry("power with multiply", "x := 2 ** 3 * 4", "x := 2 ** 3 * 4\n"),
-		Entry("symbolic logical operators", "x:=a&&b||!c", "x := a && b || !c\n"),
 		Entry("bitwise operators", "x:=a&b|c^d", "x := a & b | c ^ d\n"),
 	)
 
@@ -414,9 +412,8 @@ var _ = Describe("Formatter", func() {
 		Entry("double not", "x := not not y", "x := not not y\n"),
 		Entry("not with and", "x := not a and b", "x := not a and b\n"),
 		Entry("and with not", "x := a and not b", "x := a and not b\n"),
-		Entry("negation after xor", "x := a xor -b", "x := a xor -b\n"),
+		Entry("negation after xor", "x := a ^ -b", "x := a ^ -b\n"),
 		Entry("negation after bitwise and", "x := a & -b", "x := a & -b\n"),
-		Entry("negation after logical and", "x := a && -b", "x := a && -b\n"),
 		Entry("bitwise not", "x:=~y", "x := ~y\n"),
 	)
 

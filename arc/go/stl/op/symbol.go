@@ -132,7 +132,7 @@ var (
 				"otherwise.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "and(a, b)  // equivalent to: a && b"),
+		doc.Code("arc", "and(a, b)  // equivalent to: a and b"),
 	)
 	orDoc = doc.New(
 		doc.Paragraph(
@@ -140,14 +140,14 @@ var (
 				"otherwise.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "or(a, b)  // equivalent to: a || b"),
+		doc.Code("arc", "or(a, b)  // equivalent to: a or b"),
 	)
 	notDoc = doc.New(
 		doc.Paragraph(
 			"Logical NOT. Returns `true` if the input is `false`, `false` otherwise.",
 		),
 		doc.Divider(),
-		doc.Code("arc", "not(a)  // equivalent to: !a"),
+		doc.Code("arc", "not(a)  // equivalent to: not a"),
 	)
 )
 

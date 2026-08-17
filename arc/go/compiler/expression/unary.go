@@ -57,7 +57,7 @@ func compileUnary(
 		return innerType, nil
 	}
 
-	if ctx.AST.NOT() != nil || ctx.AST.BANG() != nil {
+	if ctx.AST.NOT() != nil {
 		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err

@@ -150,7 +150,7 @@
         },
         {
           "name": "keyword.operator.word.arc",
-          "match": "\\b(and|or|not|xor)\\b"
+          "match": "\\b(and|or|not)\\b"
         },
         {
           "name": "constant.language.boolean.arc",
@@ -241,7 +241,7 @@
         },
         {
           "name": "keyword.operator.symbol.arc",
-          "match": "&&|\\|\\||!(?!=)|[&|^~]"
+          "match": "[&|^~]"
         },
         {
           "name": "keyword.operator.assignment.declare.arc",

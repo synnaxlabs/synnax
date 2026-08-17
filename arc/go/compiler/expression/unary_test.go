@@ -130,18 +130,6 @@ var _ = Describe("Unary Operations", func() {
 		),
 
 		Entry(
-			"! of comparison",
-			"!(i32(5) > i32(3))",
-			types.Bool(),
-			OpI32Const,
-			int32(5),
-			OpI32Const,
-			int32(3),
-			OpI32GtS,
-			OpI32Eqz,
-		),
-
-		Entry(
 			"NOT of equality",
 			"not (i32(10) == i32(10))",
 			types.Bool(),
@@ -154,33 +142,8 @@ var _ = Describe("Unary Operations", func() {
 		),
 
 		Entry(
-			"! of equality",
-			"!(i32(10) == i32(10))",
-			types.Bool(),
-			OpI32Const,
-			int32(10),
-			OpI32Const,
-			int32(10),
-			OpI32Eq,
-			OpI32Eqz,
-		),
-
-		Entry(
 			"double NOT",
 			"not not (i32(5) < i32(10))",
-			types.Bool(),
-			OpI32Const,
-			int32(5),
-			OpI32Const,
-			int32(10),
-			OpI32LtS,
-			OpI32Eqz,
-			OpI32Eqz,
-		),
-
-		Entry(
-			"double !",
-			"!!(i32(5) < i32(10))",
 			types.Bool(),
 			OpI32Const,
 			int32(5),
@@ -207,40 +170,10 @@ var _ = Describe("Unary Operations", func() {
 			OpI32Eqz,
 		),
 
-		Entry(
-			"! with arithmetic comparison",
-			"!((i32(2) + i32(3)) > i32(4))",
-			types.Bool(),
-			OpI32Const,
-			int32(2),
-			OpI32Const,
-			int32(3),
-			OpI32Add,
-			OpI32Const,
-			int32(4),
-			OpI32GtS,
-			OpI32Eqz,
-		),
-
 		// Mixed Unary Operations
 		Entry(
 			"negation and NOT in same expression",
 			"not (-i32(5) < i32(0))",
-			types.Bool(),
-			OpI32Const,
-			int32(5),
-			OpI32Const,
-			int32(-1),
-			OpI32Mul,
-			OpI32Const,
-			int32(0),
-			OpI32LtS,
-			OpI32Eqz,
-		),
-
-		Entry(
-			"negation and ! in same expression",
-			"!(-i32(5) < i32(0))",
 			types.Bool(),
 			OpI32Const,
 			int32(5),
@@ -351,11 +284,6 @@ var _ = Describe("Unary Operations", func() {
 			OpLocalGet, 0, OpCall, uint32(0),
 		),
 
-		Entry("! bool series", "!a",
-			[]symbol.Symbol{seriesSymbol("a", types.Bool(), 0)},
-			types.Series(types.Bool()),
-			OpLocalGet, 0, OpCall, uint32(0),
-		),
 		Entry("negate signed series", "-a",
 			[]symbol.Symbol{seriesSymbol("a", types.I32(), 0)},
 			types.Series(types.I32()),

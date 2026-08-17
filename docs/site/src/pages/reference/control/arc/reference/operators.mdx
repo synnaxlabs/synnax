@@ -81,11 +81,11 @@ in_range := pressure >= 100 and pressure <= 500
 Logical operators require `bool` operands, use short-circuit evaluation, and return
 `bool`.
 
-| Operator | Alias | Name        | Example          | Result  |
-| -------- | ----- | ----------- | ---------------- | ------- |
-| `&&`     | `and` | Logical AND | `true and false` | `false` |
-| `\|\|`   | `or`  | Logical OR  | `false or true`  | `true`  |
-| `!`      | `not` | Logical NOT | `not true`       | `false` |
+| Operator | Name        | Example          | Result  |
+| -------- | ----------- | ---------------- | ------- |
+| `and`    | Logical AND | `true and false` | `false` |
+| `or`     | Logical OR  | `false or true`  | `true`  |
+| `not`    | Logical NOT | `not true`       | `false` |
 
 ### Short-Circuit Evaluation
 
@@ -101,16 +101,14 @@ safe := b != 0 and (a / b) > 10
 
 ## Bitwise Operators
 
-Bitwise operators take integer operands and return the operand type. `xor` is the
-keyword alias of `^`.
+Bitwise operators take integer operands and return the operand type.
 
-| Operator | Name        | Example     | Result |
-| -------- | ----------- | ----------- | ------ |
-| `&`      | Bitwise AND | `12 & 10`   | `8`    |
-| `\|`     | Bitwise OR  | `12 \| 10`  | `14`   |
-| `~`      | Bitwise NOT | `~12`       | `-13`  |
-| `^`      | Bitwise XOR | `12 ^ 10`   | `6`    |
-| `xor`    | Bitwise XOR | `12 xor 10` | `6`    |
+| Operator | Name        | Example    | Result |
+| -------- | ----------- | ---------- | ------ |
+| `&`      | Bitwise AND | `12 & 10`  | `8`    |
+| `\|`     | Bitwise OR  | `12 \| 10` | `14`   |
+| `~`      | Bitwise NOT | `~12`      | `-13`  |
+| `^`      | Bitwise XOR | `12 ^ 10`  | `6`    |
 
 Bitwise operators are not supported on series.
 
@@ -122,7 +120,6 @@ Bitwise operators are not supported on series.
 | -------- | ----------- | ---------- | ------------- |
 | `-`      | Negation    | `-5`       | `-5`          |
 | `~`      | Bitwise NOT | `~12`      | `-13` (`i64`) |
-| `!`      | Logical NOT | `!true`    | `false`       |
 | `not`    | Logical NOT | `not true` | `false`       |
 
 Unary minus applies to numeric values:
@@ -158,19 +155,19 @@ y := -x // -5
 
 Operators listed from highest to lowest precedence.
 
-| Precedence  | Operators                    | Associativity |
-| ----------- | ---------------------------- | ------------- |
-| 1 (highest) | `-` (unary), `not`, `!`, `~` | Right         |
-| 2           | `**`                         | Right         |
-| 3           | `*`, `/`, `%`                | Left          |
-| 4           | `+`, `-`                     | Left          |
-| 5           | `<`, `>`, `<=`, `>=`         | Left          |
-| 6           | `==`, `!=`                   | Left          |
-| 7           | `&`                          | Left          |
-| 8           | `^`, `xor`                   | Left          |
-| 9           | `\|`                         | Left          |
-| 10          | `and`, `&&`                  | Left          |
-| 11 (lowest) | `or`, `\|\|`                 | Left          |
+| Precedence  | Operators               | Associativity |
+| ----------- | ----------------------- | ------------- |
+| 1 (highest) | `-` (unary), `not`, `~` | Right         |
+| 2           | `**`                    | Right         |
+| 3           | `*`, `/`, `%`           | Left          |
+| 4           | `+`, `-`                | Left          |
+| 5           | `<`, `>`, `<=`, `>=`    | Left          |
+| 6           | `==`, `!=`              | Left          |
+| 7           | `&`                     | Left          |
+| 8           | `^`                     | Left          |
+| 9           | `\|`                    | Left          |
+| 10          | `and`                   | Left          |
+| 11 (lowest) | `or`                    | Left          |
 
 ### Precedence Examples
 

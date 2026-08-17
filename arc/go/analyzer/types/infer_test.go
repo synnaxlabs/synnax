@@ -229,17 +229,6 @@ var _ = Describe("Type Inference", func() {
 			Entry("logical and", "temp_sensor > 100 and pressure < 50", types.KindBool),
 			Entry("logical or", "temp_sensor > 100 or pressure < 50", types.KindBool),
 			Entry("logical not", "not (temp_sensor > 100)", types.KindBool),
-			Entry(
-				"symbolic logical and",
-				"temp_sensor > 100 && pressure < 50",
-				types.KindBool,
-			),
-			Entry(
-				"symbolic logical or",
-				"temp_sensor > 100 || pressure < 50",
-				types.KindBool,
-			),
-			Entry("symbolic logical not", "!(temp_sensor > 100)", types.KindBool),
 		)
 
 		DescribeTable("bitwise expressions",
@@ -250,7 +239,6 @@ var _ = Describe("Type Inference", func() {
 			Entry("bitwise and", "i32_ch & 12", types.KindI32),
 			Entry("bitwise or", "i32_ch | 12", types.KindI32),
 			Entry("bitwise xor", "i32_ch ^ 12", types.KindI32),
-			Entry("bitwise xor keyword", "i32_ch xor 12", types.KindI32),
 			Entry("bitwise and i64", "i64_ch & 255", types.KindI64),
 			Entry("bitwise or i64", "i64_ch | 255", types.KindI64),
 			Entry("bitwise xor i64", "i64_ch ^ 255", types.KindI64),
@@ -273,12 +261,6 @@ var _ = Describe("Type Inference", func() {
 				"data_series > 100 or data_series < 200", types.KindBool),
 			Entry("series and scalar", "(data_series > 100) and true", types.KindBool),
 			Entry("not series", "not (data_series > 100)", types.KindBool),
-			Entry("series && series",
-				"data_series > 100 && data_series < 200", types.KindBool),
-			Entry("series || series",
-				"data_series > 100 || data_series < 200", types.KindBool),
-			Entry("series && scalar", "(data_series > 100) && true", types.KindBool),
-			Entry("! series", "!(data_series > 100)", types.KindBool),
 			Entry("negate series", "-data_series", types.KindI64),
 		)
 

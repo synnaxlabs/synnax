@@ -216,12 +216,6 @@ var _ = Describe("Parser", func() {
 				unary := getPowerExpression(expr).UnaryExpression()
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
-
-			It("Should parse logical NOT with !", func() {
-				expr := mustParseExpression("!true")
-				unary := getPowerExpression(expr).UnaryExpression()
-				Expect(unary.BANG()).NotTo(BeNil())
-			})
 		})
 
 		Context("Series", func() {
@@ -954,28 +948,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(rightAnd.AND(0)).NotTo(BeNil())
 			})
 
-			It("Should parse complex logical expressions with symbols", func() {
-				// !a && b || c && !d
-				// Should be: ((!a) && b) || (c && (!d))
-				expr := mustParseExpression("!a && b || c && !d")
-
-				// Top level is OR
-				logicalOr := expr.LogicalOrExpression()
-				Expect(logicalOr.AllLogicalAndExpression()).To(HaveLen(2))
-				Expect(logicalOr.PIPEPIPE(0)).NotTo(BeNil())
-
-				// Left side: !a && b
-				leftAnd := logicalOr.LogicalAndExpression(0)
-				Expect(leftAnd.AllBitwiseOrExpression()).To(HaveLen(2))
-				Expect(leftAnd.AMPAMP(0)).NotTo(BeNil())
-
-				// Right side: c && !d
-				rightAnd := logicalOr.LogicalAndExpression(1)
-				Expect(rightAnd.AllBitwiseOrExpression()).To(HaveLen(2))
-				Expect(rightAnd.AMPAMP(0)).NotTo(BeNil())
-			})
-
-			It("Should parse bitwise xor with ^ and xor", func() {
+			It("Should parse bitwise xor with ^", func() {
 				// a & b ^ c | d
 				// Should be: ((a & b) ^ c) | d
 				expr := mustParseExpression("a & b ^ c | d")
@@ -989,14 +962,6 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				bitwiseXor := bitwiseOr.BitwiseXorExpression(0)
 				Expect(bitwiseXor.AllBitwiseAndExpression()).To(HaveLen(2))
 				Expect(bitwiseXor.CARET(0)).NotTo(BeNil())
-
-				keyword := mustParseExpression("a xor b").
-					LogicalOrExpression().
-					LogicalAndExpression(0).
-					BitwiseOrExpression(0).
-					BitwiseXorExpression(0)
-				Expect(keyword.AllBitwiseAndExpression()).To(HaveLen(2))
-				Expect(keyword.XOR(0)).NotTo(BeNil())
 			})
 		})
 
@@ -1091,10 +1056,10 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should report error for repeated bitwise operators", func() {
-				// '&&&' lexes as AMPAMP + AMP and fails at the parser rather than
+				// '&&' lexes as two AMP tokens and fails at the parser rather than
 				// the lexer.
 				Expect(
-					parser.ParseExpression("a &&& b"),
+					parser.ParseExpression("a && b"),
 				).Error().
 					To(MatchError(ContainSubstring("extraneous input '&'")))
 			})

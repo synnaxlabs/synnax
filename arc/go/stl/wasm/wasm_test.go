@@ -3354,7 +3354,7 @@ trigger_ch -> emit_period{period=1s}
 
 				// Original example: func count_rising{counter chan f32}(input u8) {
 				//     prev u8 $= input
-				//     if input != 0 && prev == 0 { counter = counter + 1.0 }
+				//     if input != 0 and prev == 0 { counter = counter + 1.0 }
 				//     prev = input
 				// }
 				g := arc.Graph{

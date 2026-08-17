@@ -15,8 +15,8 @@ functions. Language spec: `arc/docs/spec.md`.
 
 ## Language Gotchas
 
-- Logical operators (`&&`/`||`/`!`, keywords `and`/`or`/`not`) take `bool` only. Bitwise
-  (`&`/`|`/`^`/`~`, keyword `xor`) take integers only; `^` is xor, not exponentiation.
+- Logical operators (`and`/`or`/`not`) take `bool` only. Bitwise (`&`/`|`/`^`/`~`) take
+  integers only; `^` is xor, not exponentiation.
 - Stage flows run concurrently each cycle; no same-tick read-after-write; first truthy
   `=>` transition in line order wins; stage entry ignores pre-activation channel writes.
   Details + test patterns: `docs/claude/integration-test.md`.

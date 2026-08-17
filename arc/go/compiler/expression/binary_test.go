@@ -1410,14 +1410,6 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Xor,
 		),
 		Entry(
-			"i32 bitwise xor keyword",
-			"i32(12) xor i32(10)",
-			types.I32(),
-			OpI32Const, int32(12),
-			OpI32Const, int32(10),
-			OpI32Xor,
-		),
-		Entry(
 			"i64 bitwise xor",
 			"100 ^ 200",
 			types.I64(),

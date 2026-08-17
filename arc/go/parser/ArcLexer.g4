@@ -93,16 +93,12 @@ GEQ         : '>=';
 AND         : 'and';
 OR          : 'or';
 NOT         : 'not';
-AMPAMP      : '&&';
-PIPEPIPE    : '||';
-BANG        : '!';
 
 // Bitwise
 AMP         : '&';
 PIPE        : '|';
 TILDE       : '~';
 CARET       : '^';
-XOR         : 'xor';
 
 // =============================================================================
 // Delimiters

@@ -108,20 +108,6 @@ var _ = Describe("Expressions", func() {
 					c := a or b
 				}
 			`),
-			Entry("symbolic logical AND on booleans", `
-				func testFunc() {
-					a bool := false
-					b bool := true
-					c := a && b
-				}
-			`),
-			Entry("symbolic logical OR on booleans", `
-				func testFunc() {
-					a bool := false
-					b bool := true
-					c := a || b
-				}
-			`),
 			Entry("bitwise AND on integers", `
 				func testFunc() {
 					a i32 := 12
@@ -143,21 +129,9 @@ var _ = Describe("Expressions", func() {
 					c := a ^ b
 				}
 			`),
-			Entry("bitwise XOR keyword on integers", `
-				func testFunc() {
-					a i32 := 12
-					b i32 := 10
-					c := a xor b
-				}
-			`),
 			Entry("bitwise AND on untyped integer constants", `
 				func testFunc() {
 					c := 12 & 10
-				}
-			`),
-			Entry("bitwise XOR keyword on untyped integer constants", `
-				func testFunc() {
-					c := 12 xor 10
 				}
 			`),
 			Entry("multiple additions", `
@@ -300,34 +274,6 @@ var _ = Describe("Expressions", func() {
 					z := x or y
 				}
 			`, "i32", "or"),
-			Entry("&& on i32", `
-				func testFunc() {
-					x i32 := 10
-					y i32 := 20
-					z := x && y
-				}
-			`, "i32", "and"),
-			Entry("|| on i32", `
-				func testFunc() {
-					x i32 := 10
-					y i32 := 20
-					z := x || y
-				}
-			`, "i32", "or"),
-			Entry("&& on i32 series", `
-				func testFunc() {
-					x series i32 := [1, 2, 3]
-					y series i32 := [4, 5, 6]
-					z := x && y
-				}
-			`, "i32", "and"),
-			Entry("|| on i32 series", `
-				func testFunc() {
-					x series i32 := [1, 2, 3]
-					y series i32 := [4, 5, 6]
-					z := x || y
-				}
-			`, "i32", "or"),
 			Entry("AND on untyped integer constants", `
 				func testFunc() {
 					z := 1 and 0
@@ -338,16 +284,6 @@ var _ = Describe("Expressions", func() {
 					z := 1 or 0
 				}
 			`, "integer", "or"),
-			Entry("&& on untyped integer constants", `
-				func testFunc() {
-					z := 1 && 0
-				}
-			`, "integer", "&&"),
-			Entry("|| on untyped integer constants", `
-				func testFunc() {
-					z := 1 || 0
-				}
-			`, "integer", "||"),
 		)
 
 		DescribeTable("invalid bitwise operations on non-integers",
@@ -389,13 +325,6 @@ var _ = Describe("Expressions", func() {
 					z := x ^ y
 				}
 			`, "bool", "^"),
-			Entry("XOR keyword on bool", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x xor y
-				}
-			`, "bool", "xor"),
 			Entry("XOR on f64", `
 				func testFunc() {
 					x f64 := 1.0
@@ -606,32 +535,6 @@ var _ = Describe("Expressions", func() {
 						c := not (a > 3.0)
 					}
 				`),
-				Entry("series && series", `
-					func testFunc() {
-						a series f64 := [1.0, 5.0, 10.0]
-						b series f64 := [3.0, 3.0, 3.0]
-						c := (a > b) && (a < 20.0)
-					}
-				`),
-				Entry("series || series", `
-					func testFunc() {
-						a series f64 := [1.0, 5.0, 10.0]
-						b series f64 := [3.0, 3.0, 3.0]
-						c := (a > b) || (a < b)
-					}
-				`),
-				Entry("series && scalar", `
-					func testFunc() {
-						a series f64 := [1.0, 5.0, 10.0]
-						c := (a > 3.0) && true
-					}
-				`),
-				Entry("! series", `
-					func testFunc() {
-						a series f64 := [1.0, 5.0, 10.0]
-						c := !(a > 3.0)
-					}
-				`),
 			)
 		})
 	})
@@ -657,12 +560,6 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`),
-			Entry("symbolic logical not on boolean", `
-				func testFunc() {
-					x bool := true
-					y := !x
-				}
-			`),
 			Entry("double negation", `
 				func testFunc() {
 					x i32 := 5
@@ -680,12 +577,6 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					x bool := true
 					y := not not x
-				}
-			`),
-			Entry("symbolic double not", `
-				func testFunc() {
-					x bool := true
-					y := !!x
 				}
 			`),
 			Entry("negation of function call result", `
@@ -707,12 +598,6 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					a series f64 := [1.0, 5.0, 10.0]
 					y := not (a > 3.0)
-				}
-			`),
-			Entry("symbolic logical not on bool series", `
-				func testFunc() {
-					a series f64 := [1.0, 5.0, 10.0]
-					y := !(a > 3.0)
 				}
 			`),
 			Entry("negation on signed series", `
@@ -774,24 +659,6 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`, "operator 'not' requires boolean operand"),
-			Entry("! on non-boolean", `
-				func testFunc() {
-					x i32 := 10
-					y := !x
-				}
-			`, "operator ! requires boolean operand"),
-			Entry("! on string", `
-				func testFunc() {
-					x str := "hello"
-					y := !x
-				}
-			`, "boolean operand"),
-			Entry("! on non-bool series", `
-				func testFunc() {
-					x series i64 := [1, 2, 3]
-					y := !x
-				}
-			`, "operator ! requires boolean operand"),
 			Entry("bitwise not on bool", `
 				func testFunc() {
 					x bool := true
@@ -907,15 +774,6 @@ var _ = Describe("Expressions", func() {
 					c bool := true
 					result := a and b or c
 					result2 := a or b and c
-				}
-			`),
-			Entry("chained symbolic logical operations", `
-				func testFunc() {
-					a bool := true
-					b bool := false
-					c bool := true
-					result := a && b || c
-					result2 := a || b && c
 				}
 			`),
 			Entry("complex mixed expressions", `
@@ -1519,23 +1377,6 @@ var _ = Describe("Expressions", func() {
 			},
 		)
 
-		It(
-			"Should reject channel type mismatch in symbolic logical operation",
-			func(ctx SpecContext) {
-				resolver := []symbol.Symbol{{
-					Kind: symbol.KindChannel,
-					Name: "sensor",
-					Type: types.Chan(types.F32()),
-					ID:   20012,
-				}}
-				expectFailure(ctx, `
-				func testFunc() u8 {
-					return sensor && 1
-				}
-			`, resolver, "cannot use f32 in && operation: && takes bool operands.")
-			},
-		)
-
 		DescribeTable("counterpart operator suggestions",
 			func(ctx SpecContext, code, expectedMsg string) {
 				expectFailure(ctx, code, nil, expectedMsg)
@@ -1548,14 +1389,6 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "cannot use u8 in and operation: and takes bool operands. "+
 				"Did you mean & (bitwise and)?"),
-			Entry("integer in &&", `
-				func testFunc() {
-					x u8 := 1
-					y u8 := 2
-					z := x && y
-				}
-			`, "cannot use u8 in && operation: && takes bool operands. "+
-				"Did you mean & (bitwise and)?"),
 			Entry("integer in or", `
 				func testFunc() {
 					x u8 := 1
@@ -1564,14 +1397,6 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "cannot use u8 in or operation: or takes bool operands. "+
 				"Did you mean | (bitwise or)?"),
-			Entry("integer in ||", `
-				func testFunc() {
-					x u8 := 1
-					y u8 := 2
-					z := x || y
-				}
-			`, "cannot use u8 in || operation: || takes bool operands. "+
-				"Did you mean | (bitwise or)?"),
 			Entry("bool in &", `
 				func testFunc() {
 					x bool := true
@@ -1579,7 +1404,7 @@ var _ = Describe("Expressions", func() {
 					z := x & y
 				}
 			`, "cannot use bool in & operation: & takes integer operands. "+
-				"Did you mean && (logical and)?"),
+				"Did you mean and (logical and)?"),
 			Entry("bool in |", `
 				func testFunc() {
 					x bool := true
@@ -1587,7 +1412,7 @@ var _ = Describe("Expressions", func() {
 					z := x | y
 				}
 			`, "cannot use bool in | operation: | takes integer operands. "+
-				"Did you mean || (logical or)?"),
+				"Did you mean or (logical or)?"),
 			Entry("bool in ^", `
 				func testFunc() {
 					x bool := true
@@ -1595,13 +1420,6 @@ var _ = Describe("Expressions", func() {
 					z := x ^ y
 				}
 			`, "cannot use bool in ^ operation: ^ takes integer operands."),
-			Entry("bool in xor", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x xor y
-				}
-			`, "cannot use bool in xor operation: xor takes integer operands."),
 		)
 	})
 
@@ -1627,11 +1445,9 @@ var _ = Describe("Expressions", func() {
 			Entry("binary expression", `1 + 2 -> out`, false),
 			Entry("negated literal", `-1 -> out`, true),
 			Entry("logical not expression", `not 1 -> out`, false),
-			Entry("symbolic logical not expression", `!1 -> out`, false),
 			Entry("parenthesized expression", `(42) -> out`, false),
 			Entry("comparison expression", `1 > 0 -> out`, false),
 			Entry("logical expression", `1 and 0 -> out`, false),
-			Entry("symbolic logical expression", `1 && 0 -> out`, false),
 			Entry("bitwise not expression", `~1 -> out`, false),
 			Entry("bitwise expression", `1 & 0 -> out`, false),
 			Entry("bitwise xor expression", `1 ^ 0 -> out`, false),

@@ -129,41 +129,23 @@ func Analyze(ctx context.Context[parser.IExpressionContext]) {
 	}
 }
 
-func getLogicalOrOperator(ctx antlr.ParserRuleContext) string {
-	if orCtx, ok := ctx.(parser.ILogicalOrExpressionContext); ok {
-		if len(orCtx.AllPIPEPIPE()) > 0 {
-			return "||"
-		}
-	}
-	return "or"
-}
-
-func getLogicalAndOperator(ctx antlr.ParserRuleContext) string {
-	if andCtx, ok := ctx.(parser.ILogicalAndExpressionContext); ok {
-		if len(andCtx.AllAMPAMP()) > 0 {
-			return "&&"
-		}
-	}
-	return "and"
-}
-
 // operatorOperands returns the operand family op takes and its counterpart in the
 // other family ("" when none). ok is false for operators outside the table.
 func operatorOperands(op string) (wants, counterpart string, ok bool) {
 	switch op {
-	case "&&", "and":
+	case "and":
 		return "bool", "& (bitwise and)", true
-	case "||", "or":
+	case "or":
 		return "bool", "| (bitwise or)", true
-	case "!", "not":
+	case "not":
 		return "bool", "~ (bitwise not)", true
 	case "&":
-		return "integer", "&& (logical and)", true
+		return "integer", "and (logical and)", true
 	case "|":
-		return "integer", "|| (logical or)", true
+		return "integer", "or (logical or)", true
 	case "~":
-		return "integer", "! (logical not)", true
-	case "^", "xor":
+		return "integer", "not (logical not)", true
+	case "^":
 		return "integer", "", true
 	}
 	return "", "", false
@@ -198,15 +180,6 @@ func operatorHint(op string, t basetypes.Type) string {
 // channel, or an untyped integer constant.
 func isBitwiseNotOperand(t basetypes.Type) bool {
 	return isInteger(resolveConstraint(t.UnwrapChan()))
-}
-
-func getBitwiseXorOperator(ctx antlr.ParserRuleContext) string {
-	if xorCtx, ok := ctx.(parser.IBitwiseXorExpressionContext); ok {
-		if len(xorCtx.AllXOR()) > 0 {
-			return "xor"
-		}
-	}
-	return "^"
 }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
@@ -362,7 +335,7 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 	validateType(
 		ctx,
 		logicalAnds,
-		getLogicalOrOperator(ctx.AST),
+		"or",
 		types.InferLogicalAnd,
 		func(t basetypes.Type) bool { return t.IsBool() },
 	)
@@ -373,13 +346,7 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 	for _, bitwiseOr := range bitwiseOrs {
 		analyzeBitwiseOr(context.Child(ctx, bitwiseOr))
 	}
-	validateType(
-		ctx,
-		bitwiseOrs,
-		getLogicalAndOperator(ctx.AST),
-		types.InferBitwiseOr,
-		isBool,
-	)
+	validateType(ctx, bitwiseOrs, "and", types.InferBitwiseOr, isBool)
 }
 
 func analyzeBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) {
@@ -395,13 +362,7 @@ func analyzeBitwiseXor(ctx context.Context[parser.IBitwiseXorExpressionContext])
 	for _, bitwiseAnd := range bitwiseAnds {
 		analyzeBitwiseAnd(context.Child(ctx, bitwiseAnd))
 	}
-	validateType(
-		ctx,
-		bitwiseAnds,
-		getBitwiseXorOperator(ctx.AST),
-		types.InferBitwiseAnd,
-		isInteger,
-	)
+	validateType(ctx, bitwiseAnds, "^", types.InferBitwiseAnd, isInteger)
 }
 
 func analyzeBitwiseAnd(ctx context.Context[parser.IBitwiseAndExpressionContext]) {
@@ -526,18 +487,6 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 						"operator 'not' requires boolean operand, received %s%s",
 						operandType,
 						operatorSuggestion("not", operandType),
-					),
-				)
-				return
-			}
-		} else if ctx.AST.BANG() != nil {
-			if !operandType.IsBool() {
-				ctx.Diagnostics.Add(
-					diagnostics.Errorf(
-						ctx.AST,
-						"operator ! requires boolean operand, received %s%s",
-						operandType,
-						operatorSuggestion("!", operandType),
 					),
 				)
 				return

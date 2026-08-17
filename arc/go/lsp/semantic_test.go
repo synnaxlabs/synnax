@@ -246,7 +246,7 @@ var _ = Describe("Semantic Tokens", func() {
 		It(
 			"routes bool literals to the boolean token type, not keyword or number",
 			func(ctx SpecContext) {
-				OpenArcDocument(server, ctx, uri, `x := true && !false`)
+				OpenArcDocument(server, ctx, uri, `x := true == false`)
 				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 				Expect(filterByType(tokens, tokenTypeBoolean)).To(HaveLen(2))
 				Expect(filterByType(tokens, tokenTypeKeyword)).To(BeEmpty())
@@ -255,7 +255,7 @@ var _ = Describe("Semantic Tokens", func() {
 		)
 
 		It(
-			"routes symbol logical and bitwise operators to the operator token type",
+			"routes bitwise operators to the operator token type",
 			func(ctx SpecContext) {
 				OpenArcDocument(server, ctx, uri, `x := 12 & ~10 | 3 ^ 1`)
 				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
@@ -686,26 +686,6 @@ func cat() {
 					uint32(2), // as
 					uint32(9), // authority
 					uint32(4), // func
-				))
-			},
-		)
-
-		It(
-			"routes xor alongside func and return to the keyword token type",
-			func(ctx SpecContext) {
-				OpenArcDocument(server, ctx, uri, `func cat(a i32, b i32) i32 {
-    return a xor b
-}
-`)
-				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-				lengths := make([]uint32, 0)
-				for _, tok := range filterByType(tokens, tokenTypeKeyword) {
-					lengths = append(lengths, tok.Length)
-				}
-				Expect(lengths).To(ConsistOf(
-					uint32(4), // func
-					uint32(6), // return
-					uint32(3), // xor
 				))
 			},
 		)

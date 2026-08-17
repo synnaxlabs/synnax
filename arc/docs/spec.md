@@ -32,9 +32,9 @@ FloatType ::= 'f32' | 'f64'
 
 ### Boolean Semantics
 
-Comparisons and logical operators return `bool`. Logical operators (`&&`/`||`/`!`,
-keywords `and`/`or`/`not`) take `bool` only. No implicit `bool`/numeric conversion; `if`
-and `=>` also accept numerics (non-zero is true) and strings (non-empty is true).
+Comparisons and logical operators return `bool`. Logical operators (`and`/`or`/`not`)
+take `bool` only. No implicit `bool`/numeric conversion; `if` and `=>` also accept
+numerics (non-zero is true) and strings (non-empty is true).
 
 ```arc
 ready := true
@@ -246,27 +246,27 @@ initializer.
 ```
 Expression ::= UnaryExpression | BinaryExpression | PrimaryExpression
 
-UnaryOperator ::= '-' | 'not' | '!' | '~'
+UnaryOperator ::= '-' | 'not' | '~'
 BinaryOperator ::= ArithmeticOp | ComparisonOp | LogicalOp | BitwiseOp
 ArithmeticOp ::= '+' | '-' | '*' | '/' | '%' | '**'
 ComparisonOp ::= '==' | '!=' | '<' | '>' | '<=' | '>='
-LogicalOp ::= 'and' | '&&' | 'or' | '||'
-BitwiseOp ::= '&' | '|' | '^' | 'xor'
+LogicalOp ::= 'and' | 'or'
+BitwiseOp ::= '&' | '|' | '^'
 ```
 
 **Precedence** (highest to lowest):
 
-1. `-`, `not`, `!`, `~` (unary, right-associative)
+1. `-`, `not`, `~` (unary, right-associative)
 2. `**` (right-associative)
 3. `*`, `/`, `%` (left-associative)
 4. `+`, `-` (left-associative)
 5. `<`, `>`, `<=`, `>=`
 6. `==`, `!=`
 7. `&` (bitwise and)
-8. `^`, `xor` (bitwise xor)
+8. `^` (bitwise xor)
 9. `|` (bitwise or)
-10. `and`, `&&` (short-circuit)
-11. `or`, `||` (short-circuit)
+10. `and` (short-circuit)
+11. `or` (short-circuit)
 
 Bitwise operators take integer operands.
 
@@ -278,11 +278,11 @@ func example{}(){
     neg := -2 ** 2 // 4: parses as (-2) ** 2
     remainder := 10 % 3 // 1
     in_range := temp >= 20 and temp <= 30 // bool
-    ready := in_range && !fault // aliases of and, not
+    ready := in_range and not fault
     a := 12
     b := 10
     masked := a & b // 8
-    flipped := a xor b // 6 (same as a ^ b)
+    flipped := a ^ b // 6
     inverted := ~a // -13
     is_set := (a & b) == 8 // true; & binds looser than ==, so parenthesize
 }
