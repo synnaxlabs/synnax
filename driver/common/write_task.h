@@ -252,9 +252,10 @@ public:
     /// @param propagate_state whether the task will be reconfigured after it was
     /// stopped.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        const auto write_pipe_stopped = this->cmd_write_pipe.stop();
-        const auto state_pipe_stopped = this->state_write_pipe.stop();
-        const auto stopped = write_pipe_stopped && state_pipe_stopped;
+        // The state pipe never starts without state channels, so only the command
+        // pipe records whether the sink holds hardware.
+        const auto stopped = this->cmd_write_pipe.stop();
+        this->state_write_pipe.stop();
         if (stopped) this->state.error(this->sink->internal->stop());
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
