@@ -17,10 +17,8 @@
            ornament. */
         &.pluto--selected {
             &::after {
-                top: 0.5rem;
-                height: calc(100% - 1rem);
+                transform: scaleY(1);
                 opacity: 1;
-                transition: all 0.15s;
             }
         }
         &::after {
@@ -28,10 +26,14 @@
             position: absolute;
             width: 0.5rem;
             background: var(--pluto-primary-z);
-            top: 50%;
+            top: 0.5rem;
+            height: calc(100% - 1rem);
             opacity: 0;
-            height: 0;
-            transition: all 0.15s;
+            /* Scales from the centre, so the bar grows outward without layout. */
+            transform: scaleY(0);
+            transition:
+                transform 0.15s,
+                opacity 0.15s;
         }
     }
 
