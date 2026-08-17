@@ -113,7 +113,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                   <Form.Field<TimeSpan>
                     path="operations.0.duration"
                     label="Window"
-                    helpText="The value will be reset after this duration. If zero, the value will never be reset."
+                    helpText="Resets the value after this duration. Zero disables the reset."
                     className={CSS.BE("operations", "window")}
                   >
                     {({ value, onChange }) => (
@@ -126,8 +126,8 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                   </Form.Field>
                   <Form.Field<channel.Key>
                     path="operations.0.resetChannel"
-                    label="Reset Channel"
-                    helpText="When this channel is triggered, the calculation will be reset."
+                    label="Reset channel"
+                    helpText="Resets the calculation when this channel is triggered."
                     grow
                   >
                     {({ value, onChange }) => (
@@ -156,7 +156,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
             {isEdit && (
               <Flex.Box x align="center" gap="small">
                 <Input.Switch value={createMore} onChange={setCreateMore} />
-                <Text.Text color={9}>Create More</Text.Text>
+                <Text.Text color={9}>Create more</Text.Text>
               </Flex.Box>
             )}
             <Flex.Box x align="center">

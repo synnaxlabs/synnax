@@ -9,10 +9,13 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
+import { type Triggers } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Session } from "@/session";
+
+export const OPEN_WINDOW_TRIGGER: Triggers.Trigger = ["Control", "O"];
 
 export interface OpenWindow {
   (key?: panel.Key, props?: Omit<Drift.WindowProps, "key">): void;

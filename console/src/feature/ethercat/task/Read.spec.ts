@@ -38,7 +38,7 @@ beforeAll(async () => {
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<EtherCAT.Task.ReadSchemas> = {
-  name: "EtherCAT Read Task",
+  name: "EtherCAT read task",
   type: EtherCAT.Task.READ_TYPE,
   config: EtherCAT.Task.READ_SCHEMAS.config.parse({}),
 };
@@ -105,7 +105,7 @@ describe("EtherCAT Read", () => {
       channels: [createAutoReadChannel(slave.key, "Status")],
     });
     fireEvent.click((await screen.findAllByText("Status"))[0]);
-    await waitFor(() => expect(screen.getByText("Slave Device")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Slave device")).toBeTruthy());
     expect(screen.getByText("Mode")).toBeTruthy();
     expect(screen.getByText("PDO")).toBeTruthy();
     expect(screen.queryByText("Index (hex)")).toBeNull();
@@ -124,8 +124,8 @@ describe("EtherCAT Read", () => {
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
     expect(screen.getByText("Subindex")).toBeTruthy();
     expect(screen.getByDisplayValue("7")).toBeTruthy();
-    expect(screen.getByText("Bit Length")).toBeTruthy();
-    expect(screen.getByText("Data Type")).toBeTruthy();
+    expect(screen.getByText("Bit length")).toBeTruthy();
+    expect(screen.getByText("Data type")).toBeTruthy();
     expect(screen.queryByText("PDO")).toBeNull();
   });
 

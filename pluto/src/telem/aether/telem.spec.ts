@@ -7,11 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { telem } from "@/telem/aether";
 
+class InvalidPropsSource extends telem.AbstractSource<z.ZodNumber> {
+  schema = z.number();
+  async value(): Promise<number> {
+    return this.props;
+  }
+}
+
 describe("telem", () => {
+  it("throws a ParseError when props fail their schema", () => {
+    const source = new InvalidPropsSource("nan");
+    expect(() => source.props).toThrow(zod.ParseError);
+  });
+
   it("pipeline", async () => {
     const s1 = telem.fixedNumber(20);
     const s2 = telem.fixedNumber(9);

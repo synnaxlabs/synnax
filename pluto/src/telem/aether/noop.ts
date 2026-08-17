@@ -160,7 +160,7 @@ class NoopSeries extends Noop implements SeriesSource {
   static readonly TYPE = "noop-series";
 
   value(): [bounds.Bounds, MultiSeries] {
-    return [bounds.ZERO, new MultiSeries([])];
+    return [bounds.INVALID, new MultiSeries([])];
   }
 }
 

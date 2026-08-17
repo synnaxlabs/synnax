@@ -48,7 +48,7 @@ const client = createTestClient();
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.AnalogReadSchemas> = {
-  name: "NI Analog Read Task",
+  name: "NI analog read task",
   type: NI.Task.ANALOG_READ_TYPE,
   config: NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
 };
@@ -95,13 +95,13 @@ const renderWithScale = async (customScale: NI.Task.Scale) => {
 describe("CustomScaleForm", () => {
   it("should swap the scale fields when a different scale type is selected", async () => {
     await renderWithScale(NI.Task.createScale("none"));
-    await screen.findByText("Custom Scaling");
+    await screen.findByText("Custom scaling");
     expect(screen.queryByText("Slope")).toBeNull();
     await selectFromDropdown("None", "Linear");
     await waitFor(() => expect(screen.getByText("Slope")).toBeTruthy());
     expect(screen.getByText("Y-Intercept")).toBeTruthy();
     await selectFromDropdown("Linear", "Map");
-    await waitFor(() => expect(screen.getByText("Pre-Scaled Min")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Pre-scaled min")).toBeTruthy());
     expect(screen.queryByText("Slope")).toBeNull();
   });
 

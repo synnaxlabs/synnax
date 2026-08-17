@@ -30,7 +30,7 @@ export const useRangeSnapshot = () => {
       ({ data }: Flux.AfterSuccessParams<Task.SnapshotParams>) =>
         addStatus({
           variant: "success",
-          message: `Successfully snapshotted ${buildMessage(data)}`,
+          message: `Snapshotted ${buildMessage(data)}`,
         }),
       [buildMessage, addStatus],
     ),
@@ -41,7 +41,8 @@ export const useRangeSnapshot = () => {
     if (rng == null)
       return addStatus({
         variant: "error",
-        message: "Cannot snapshot schematics without an active range",
+        message: "Failed to snapshot tasks",
+        description: "No range is active.",
       });
     const parentID = ranger.ontologyID(rng.key);
     update({ tasks, parentID });

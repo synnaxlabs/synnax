@@ -121,7 +121,32 @@ describe("Import.useFileDrop", () => {
     await waitFor(() => expect(ingestDirectory).toHaveBeenCalledTimes(1));
     expect(ingestDirectory.mock.calls[0][0]).toBe("my-directory");
     expect(ingestDirectory.mock.calls[0][1]).toEqual([
-      { name: "a.json", data: { type: "log" } },
+      { name: "a.json", path: "a.json", data: { type: "log" } },
+    ]);
+  });
+
+  it("walks nested directories and skips files that are not plain JSON", async () => {
+    const ingestDirectory = vi.fn();
+    const { result } = await renderFileDrop({ ingestDirectory });
+    act(() =>
+      result.current({
+        nodeKey: panel.ROOT_NODE_KEY,
+        location: "center",
+        event: fakeFileDropEvent([
+          fakeDirectoryEntry("my-directory", [
+            createJSONFile("a.json", { type: "log" }),
+            // Binary junk Finder writes into browsed directories; parsing it would
+            // throw.
+            new File(["\x00\x01"], ".DS_Store"),
+            fakeDirectoryEntry("nested", [createJSONFile("b.json", { type: "log" })]),
+          ]),
+        ]),
+      }),
+    );
+    await waitFor(() => expect(ingestDirectory).toHaveBeenCalledTimes(1));
+    expect(ingestDirectory.mock.calls[0][1]).toEqual([
+      { name: "a.json", path: "a.json", data: { type: "log" } },
+      { name: "b.json", path: "nested/b.json", data: { type: "log" } },
     ]);
   });
 
@@ -178,7 +203,7 @@ describe("Import.useFileDrop", () => {
         nodeKey: panel.ROOT_NODE_KEY,
         location: "center",
         event: fakeFileDropEvent([
-          fakeDirectoryEntry("my-project", [createJSONFile("panels.json", [])]),
+          fakeDirectoryEntry("my-project", [createJSONFile("manifest.json", [])]),
           fakeFileEntry(createJSONFile("Pinned.json", LEGACY_LOG_STATE), held),
         ]),
       }),

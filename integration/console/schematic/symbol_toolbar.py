@@ -209,8 +209,6 @@ class SymbolToolbar:
         symbol = self.get_symbol(name)
         self.ctx_menu.open_on(symbol)
 
-        self.page.evaluate("delete window.showSaveFilePicker")
-
         with self.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
 

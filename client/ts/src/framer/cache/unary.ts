@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type MultiSeries, type Series, TimeRange } from "@synnaxlabs/x";
+import { MultiSeries, type Series, type TimeRange } from "@synnaxlabs/x";
 
 import { UnexpectedError } from "@/errors";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
@@ -53,6 +53,18 @@ export class Unary {
     return this.dynamic.leadingBuffer;
   }
 
+  /**
+   * Flushes the live leading buffer into the static cache with its real end time,
+   * so reads treat the span after it as a gap to fetch. Call when streaming for
+   * the channel stops.
+   */
+  flushDynamic(): void {
+    this.checkOpen("flushDynamic");
+    const flushed = this.dynamic.flush();
+    if (flushed != null && flushed.length > 0)
+      this.static.write(new MultiSeries([flushed]), true);
+  }
+
   writeStatic(series: MultiSeries): void {
     this.checkOpen("writeStatic");
     this.static.write(series);
@@ -60,8 +72,10 @@ export class Unary {
 
   /**
    * Reads cached data overlapping the given time range. The result includes the
-   * live leading buffer when it overlaps, and its gaps are clipped at the buffer's
-   * start so a fetch never re-reads data the stream already delivered.
+   * live leading buffer when it overlaps, but the buffer never claims coverage:
+   * its samples carry provisional leading alignments that cannot pair with fetched
+   * data on another channel, so its span is still reported as a gap to fetch. A
+   * span may therefore return in both its streamed and fetched representation.
    */
   read(tr: TimeRange): DirtyReadResult {
     this.checkOpen("read");
@@ -69,12 +83,6 @@ export class Unary {
     const buf = this.dynamic.leadingBuffer;
     if (buf == null || buf.length === 0 || !buf.timeRange.overlapsWith(tr)) return res;
     res.series.push(buf);
-    const bufStart = buf.timeRange.start;
-    res.gaps = res.gaps.flatMap((gap) => {
-      if (gap.start.afterEq(bufStart)) return [];
-      if (gap.end.after(bufStart)) return [new TimeRange(gap.start, bufStart)];
-      return [gap];
-    });
     return res;
   }
 

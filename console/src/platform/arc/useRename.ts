@@ -27,7 +27,7 @@ export const useRename = (
         if (tsk?.status?.details.running === true) {
           const confirmed = await confirm({
             message: `Are you sure you want to rename ${a.name} to ${name}?`,
-            description: `This will cause ${a.name} to stop and be reconfigured.`,
+            description: `${a.name} will stop and be reconfigured.`,
             cancel: { label: "Cancel" },
             confirm: { label: "Rename", variant: "error" },
           });

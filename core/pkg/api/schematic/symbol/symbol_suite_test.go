@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package symbol
+package symbol_test
 
 import (
 	"testing"
@@ -15,7 +15,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/api/config"
+	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -24,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -44,7 +48,7 @@ var (
 	groupSvc  *group.Service
 	symbolSvc *symbol.Service
 	userSvc   *user.Service
-	apiSvc    *Service
+	apiSvc    *apisymbol.Service
 	author    user.User
 )
 
@@ -81,20 +85,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		ImEx:     imex.NewService(),
 	}))
-	apiSvc = &Service{internal: symbolSvc, access: rbacSvc}
+	apiSvc = MustSucceed(apisymbol.NewService(config.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service: &service.Layer{
+			Schematic: &schematic.Service{Symbol: symbolSvc},
+			RBAC:      rbacSvc,
+		},
+	}))
 	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",
 	}))
 })
-
-// authedCtx returns a freighter.Context derived from ctx with the given user installed
-// as the request subject, so auth.GetSubject succeeds inside the api service.
-func authedCtx(ctx SpecContext, u user.User) freighter.Context {
-	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
-	return fctx
-}
 
 // createGroup creates a group under the ontology root. It writes outside a transaction
 // so the api enforcers, which read committed state, observe the new resource.

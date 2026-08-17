@@ -67,7 +67,7 @@ describe("status toolbar", () => {
     });
     const store = await renderToolbar();
     store.dispatch(Session.Project.select(proj.key));
-    fireEvent.click(await screen.findByText("Open Status Explorer"));
+    fireEvent.click(await screen.findByText("Open status explorer"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "view") throw new Error("expected a view tab");
     expect(tab.type).toBe(Status.Explorer.TAB_TYPE);

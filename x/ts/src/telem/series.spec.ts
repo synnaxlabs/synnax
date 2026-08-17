@@ -10,6 +10,7 @@
 import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
+import { caseconv } from "@/caseconv";
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { type CrudeSeries, isCrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
@@ -798,12 +799,12 @@ describe("Series", () => {
       expect(series.data[0]).toEqual(42);
     });
 
-    it("should keep typed-array-backed data insulated from source mutation", () => {
+    it("should share typed-array-backed data with the source without copying", () => {
       const src = new Float32Array([1, 2]);
       const series = new Series({ data: src });
       const first = series.data;
       src[0] = 99;
-      expect(first[0]).toEqual(1);
+      expect(first[0]).toEqual(99);
       expect(series.data[0]).toEqual(99);
     });
 
@@ -1019,6 +1020,21 @@ describe("Series", () => {
       const s = new Series({ data: new ArrayBuffer(0), dataType: DataType.JSON });
       expect(s.length).toEqual(0);
       expect(Array.from(s)).toEqual([]);
+    });
+
+    it("should preserve record keys marked with preserveCase", () => {
+      const schema = z.object({
+        cells: caseconv.preserveCase(z.record(z.string(), z.number())),
+      });
+      const raw = new TextEncoder().encode(
+        JSON.stringify({ cells: { UnSv19BHjPB: 1, x5kWGi0DZha: 2 } }),
+      );
+      const buf = new ArrayBuffer(4 + raw.byteLength);
+      new DataView(buf).setUint32(0, raw.byteLength, true);
+      new Uint8Array(buf).set(raw, 4);
+      const s = new Series({ data: buf, dataType: DataType.JSON });
+      const out = s.parseJSON(schema);
+      expect(Object.keys(out[0].cells)).toEqual(["UnSv19BHjPB", "x5kWGi0DZha"]);
     });
   });
 
@@ -1859,6 +1875,74 @@ describe("Series", () => {
         dataType: DataType.FLOAT32,
       });
       expect(series.bounds).toEqual({ lower: Infinity, upper: -Infinity });
+    });
+  });
+
+  describe("boundsFor", () => {
+    it("should bound only the samples in the index range", () => {
+      const series = new Series({ data: new Float32Array([9999, -3, -2, -1, 9999]) });
+      expect(series.boundsFor(1, 4)).toStrictEqual({ lower: -3, upper: -1 });
+    });
+
+    it("should clamp out-of-range indices", () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      expect(series.boundsFor(-5, 100)).toStrictEqual({ lower: 1, upper: 3 });
+    });
+
+    // Exercises the bigint samples against the number Infinity sentinels in both the
+    // block-build and tail scans.
+    it("should compute bounds for bigint-backed series", () => {
+      const data = new BigInt64Array(5000);
+      for (let i = 0; i < data.length; i++) data[i] = BigInt(i);
+      const series = new Series({ data, dataType: DataType.INT64 });
+      expect(series.boundsFor(1, 4999)).toStrictEqual({ lower: 1, upper: 4998 });
+    });
+
+    it("should return invalid bounds for an empty range", () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      const b = series.boundsFor(2, 2);
+      expect(b.lower).toBeGreaterThan(b.upper);
+    });
+
+    it("should apply the sample offset", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        sampleOffset: 10,
+      });
+      expect(series.boundsFor(0, 2)).toStrictEqual({ lower: 11, upper: 12 });
+    });
+
+    it("should throw on variable length data types", () => {
+      const series = new Series({ data: ["a", "b"] });
+      expect(() => series.boundsFor(0, 1)).toThrow(
+        "cannot calculate bounds on a variable length data type",
+      );
+    });
+
+    it("should answer queries that mix cached blocks and raw edges", () => {
+      // 10k samples spans two complete 4096-sample blocks plus a raw tail.
+      const data = new Float32Array(10_000).fill(5);
+      data[1] = -500;
+      data[9_999] = 900;
+      const series = new Series({ data });
+      expect(series.boundsFor(0, 10_000)).toStrictEqual({ lower: -500, upper: 900 });
+      // Repeats hit the now-warm block summaries.
+      expect(series.boundsFor(0, 10_000)).toStrictEqual({ lower: -500, upper: 900 });
+      // The partial first block is scanned raw, so the outlier at index 1 is
+      // excluded once the range starts past it.
+      expect(series.boundsFor(2, 10_000)).toStrictEqual({ lower: 5, upper: 900 });
+    });
+
+    it("should include samples appended after blocks were cached", () => {
+      const series = Series.alloc({ capacity: 10_000, dataType: DataType.FLOAT32 });
+      series.write(new Series({ data: new Float32Array(6_000).fill(5) }));
+      // A sub-range query, so the completed first block gets summarized rather
+      // than hitting the whole-series fast path.
+      expect(series.boundsFor(1, 6_000)).toStrictEqual({ lower: 5, upper: 5 });
+      const next = new Float32Array(4_000).fill(5);
+      next[3_999] = -900;
+      series.write(new Series({ data: next }));
+      expect(series.boundsFor(2, 10_000)).toStrictEqual({ lower: -900, upper: 5 });
     });
   });
 

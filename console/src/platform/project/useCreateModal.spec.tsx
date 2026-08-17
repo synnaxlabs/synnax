@@ -36,9 +36,7 @@ describe("Project.useCreateModal", () => {
       </>,
     );
     fireEvent.click(screen.getByRole("button", { name: "open" }));
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("Project Name")).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByPlaceholderText("Name")).toBeTruthy());
     const createBtn = await waitFor(() =>
       screen.getByRole("button", { name: "Create" }),
     );
@@ -55,12 +53,10 @@ describe("Project.useCreateModal", () => {
       { wrapper },
     );
     fireEvent.click(screen.getByRole("button", { name: "open" }));
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("Project Name")).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByPlaceholderText("Name")).toBeTruthy());
 
     const name = `proj-${id.create()}`;
-    fireEvent.change(screen.getByPlaceholderText("Project Name"), {
+    fireEvent.change(screen.getByPlaceholderText("Name"), {
       target: { value: name },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -69,9 +65,7 @@ describe("Project.useCreateModal", () => {
       const active = Session.Project.selectOptionalSelected(store.getState());
       expect(active).not.toBeUndefined();
     });
-    await waitFor(() =>
-      expect(screen.queryByPlaceholderText("Project Name")).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByPlaceholderText("Name")).toBeNull());
 
     const active = Session.Project.selectSelected(store.getState());
     const created = await client.projects.retrieve(active);
@@ -88,10 +82,8 @@ describe("Project.useCreateModal", () => {
       { wrapper },
     );
     fireEvent.click(screen.getByRole("button", { name: "open" }));
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("Project Name")).toBeTruthy(),
-    );
-    fireEvent.change(screen.getByPlaceholderText("Project Name"), {
+    await waitFor(() => expect(screen.getByPlaceholderText("Name")).toBeTruthy());
+    fireEvent.change(screen.getByPlaceholderText("Name"), {
       target: { value: `proj-${id.create()}` },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -111,7 +103,7 @@ describe("Project.useCreateModal", () => {
     const [pan] = await client.panels.retrieve({
       parent: project.ontologyID(active),
     });
-    expect(pan.name).toBe("New Panel");
+    expect(pan.name).toBe("New panel");
     if (pan.root.variant !== "leaf") throw new Error("expected a leaf root");
     expect(pan.root.tabs).toHaveLength(1);
     const [tab] = pan.root.tabs;

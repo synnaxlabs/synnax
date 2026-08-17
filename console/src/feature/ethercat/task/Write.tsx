@@ -38,7 +38,7 @@ const Properties = () => (
   <Flex.Box x grow>
     <PForm.NumericField
       path="config.executionRate"
-      label="Execution Rate"
+      label="Execution rate"
       inputProps={EXECUTION_RATE_INPUT_PROPS}
     />
     <Task.Fields.StateUpdateRate />
@@ -82,7 +82,7 @@ const Form: FC = () => (
 );
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
-  name: "EtherCAT Write Task",
+  name: "EtherCAT write task",
   type: WRITE_TYPE,
   config: WRITE_SCHEMAS.config.parse(config ?? {}),
 });
@@ -190,7 +190,7 @@ export const useCreateWrite = Task.createUseCreate({
 
 export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  title: "EtherCAT Write Task",
+  title: "EtherCAT write task",
   icon: <Icon.Logo.EtherCAT />,
   useOnSelect: useCreateWrite,
 });

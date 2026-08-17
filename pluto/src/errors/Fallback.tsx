@@ -18,6 +18,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { z } from "zod";
 
 import { Breadcrumb } from "@/breadcrumb";
 import { Button } from "@/button";
@@ -55,8 +56,8 @@ export interface FallbackProps extends PropsWithChildren {
  * @example
  * // With custom actions
  * <Fallback error={error} resetErrorBoundary={reset} icon={<Logo />}>
- *   <Button onClick={reset}>Try Again</Button>
- *   <Button onClick={clear}>Clear Storage</Button>
+ *   <Button onClick={reset}>Try again</Button>
+ *   <Button onClick={clear}>Clear storage</Button>
  * </Fallback>
  */
 export const Fallback = ({
@@ -84,15 +85,21 @@ export const Fallback = ({
   const displayStack = resolved?.stack || error.stack || null;
   const displayComponentStack = resolved?.componentStack || componentStack || null;
 
+  // A raw ZodError's message is its entire issues array as JSON; prettify it for
+  // display. Copy diagnostics keeps the raw message for full fidelity.
+  const message =
+    error instanceof z.core.$ZodError ? z.prettifyError(error) : error.message;
+  const multiline = message.includes("\n");
+
   const getCopyText = useCallback(() => {
     const sections: string[] = [];
     sections.push(`Error: ${error.name}`);
     sections.push(`Message: ${error.message}`);
-    if (displayStack) sections.push(`\nStack Trace:\n${displayStack}\n`);
+    if (displayStack) sections.push(`\nStack trace:\n${displayStack}\n`);
     if (displayComponentStack)
-      sections.push(`\nComponent Stack:\n${displayComponentStack}`);
+      sections.push(`\nComponent stack:\n${displayComponentStack}`);
     if (extraInfo && Object.keys(extraInfo).length > 0)
-      sections.push(`\nAdditional Info:\n${JSON.stringify(extraInfo, null, 2)}`);
+      sections.push(`\nAdditional info:\n${JSON.stringify(extraInfo, null, 2)}`);
     return sections.join("\n");
   }, [error, displayStack, displayComponentStack, extraInfo]);
 
@@ -135,11 +142,15 @@ export const Fallback = ({
               {error.name}
             </Text.Text>
             <Text.Text
-              level="h5"
+              level={multiline ? "small" : "h5"}
+              variant={multiline ? "code" : undefined}
               color={10}
-              className={CSS.BE("error-fallback", "message")}
+              className={CSS(
+                CSS.BE("error-fallback", "message"),
+                multiline && CSS.BEM("error-fallback", "message", "multiline"),
+              )}
             >
-              {error.message}
+              {message}
             </Text.Text>
           </Flex.Box>
           <Divider.Divider x />

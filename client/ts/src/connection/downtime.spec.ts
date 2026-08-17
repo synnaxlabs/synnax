@@ -14,16 +14,11 @@ import Synnax from "@/client";
 import { DisconnectedError, isConnectionError } from "@/errors";
 import {
   createSeverableProxy,
+  FAST_RETRY,
   type SeverableProxy,
   TEST_CLIENT_PARAMS,
   waitForStatus,
 } from "@/testutil";
-
-const FAST_RETRY: breaker.Config = {
-  baseInterval: TimeSpan.milliseconds(10),
-  maxInterval: TimeSpan.milliseconds(50),
-  scale: 1.5,
-};
 
 interface ProxiedClient {
   proxy: SeverableProxy;

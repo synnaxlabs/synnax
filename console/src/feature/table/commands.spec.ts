@@ -26,7 +26,7 @@ describe("Table Commands", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     await openCommandPalette();
-    await selectCommand("Create a table");
+    await selectCommand("Create table");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);

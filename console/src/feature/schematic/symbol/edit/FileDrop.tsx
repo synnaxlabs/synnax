@@ -65,7 +65,7 @@ export const FileDrop = ({
   const handleFileSelect = () =>
     handleError(async () => {
       const files = await Runtime.pickFiles({
-        filters: [{ name: "SVG Files", extensions: ["svg"] }],
+        filters: [{ name: "SVG files", extensions: ["svg"] }],
       });
       if (files == null) return;
       const [file] = files;

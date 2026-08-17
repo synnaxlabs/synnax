@@ -14,7 +14,14 @@ import { fireDragEvent } from "@synnaxlabs/pluto/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Selector } from "@/feature/panel/Selector";
 import { Modals } from "@/platform/modals";
@@ -137,6 +144,10 @@ const fireDrop = (el: Element): void => fireDragEvent(el, "drop", CURSOR);
 const fireDragOver = (el: Element): void => fireDragEvent(el, "dragOver", CURSOR);
 
 describe("Panel.Selector", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+  });
+
   it("should select a newly created panel", async () => {
     const { wrapper, store } = await createPanelWrapper({ client });
     await act(async () => {
@@ -151,7 +162,7 @@ describe("Panel.Selector", () => {
     });
     const selected = Session.Panel.selectSelected(store.getState());
     expect(selected).toBeDefined();
-    await waitFor(() => expect(screen.getByText("New Panel")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("New panel")).toBeTruthy());
   });
 
   // The membership query answers in an order the user never chose; the session's
@@ -471,6 +482,60 @@ describe("Panel.Selector", () => {
       await waitFor(() =>
         expect(Session.Panel.selectSelected(store.getState())).toEqual(row[1].key),
       );
+    });
+  });
+
+  describe("open in new window", () => {
+    // Waits on Delete so the menu is proven open before the window item is missed.
+    const openPillMenu = async (): Promise<void> => {
+      const { key: projectKey } = await client.projects.create({
+        name: uniqueName("project"),
+        layout: {},
+      });
+      const pan = await createProjectPanel(projectKey);
+      await renderStrip([pan], projectKey);
+      fireEvent.contextMenu(screen.getByText(pan.name));
+      await screen.findByText("Delete");
+    };
+
+    it("should offer the panel in a second window in the tauri engine", async () => {
+      mocks.engine = "tauri";
+      await openPillMenu();
+      expect(screen.getByText("Open in new window")).toBeTruthy();
+    });
+
+    it("should hide the item in the browser, which cannot open a window", async () => {
+      await openPillMenu();
+      expect(screen.queryByText("Open in new window")).toBeNull();
+    });
+
+    const openPillMenuBeside = async (onSelected: boolean): Promise<void> => {
+      const { key: projectKey } = await client.projects.create({
+        name: uniqueName("project"),
+        layout: {},
+      });
+      const panels = [
+        await createProjectPanel(projectKey, { name: "alpha" }),
+        await createProjectPanel(projectKey, { name: "bravo" }),
+      ];
+      const { row } = await renderStrip(panels, projectKey);
+      await act(async () => {
+        fireEvent.click(screen.getByText(row[0].name));
+      });
+      fireEvent.contextMenu(screen.getByText(row[onSelected ? 0 : 1].name));
+      await screen.findByText("Open in new window");
+    };
+
+    it("should show the shortcut on the selected pill", async () => {
+      mocks.engine = "tauri";
+      await openPillMenuBeside(true);
+      expect(screen.queryByLabelText("trigger-indicator")).not.toBeNull();
+    });
+
+    it("should hide the shortcut on a pill that is not selected", async () => {
+      mocks.engine = "tauri";
+      await openPillMenuBeside(false);
+      expect(screen.queryByLabelText("trigger-indicator")).toBeNull();
     });
   });
 });

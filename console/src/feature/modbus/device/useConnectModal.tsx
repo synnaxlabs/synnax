@@ -37,9 +37,11 @@ import { Triggers } from "@/platform/triggers";
 
 const useForm = PDevice.createForm(SCHEMAS);
 
+const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
+
 const INITIAL_VALUES: Device = {
   key: "",
-  name: "Modbus Server",
+  name: "Modbus server",
   make: "Modbus",
   model: "Modbus",
   location: "",
@@ -70,7 +72,7 @@ const beforeSave = async ({
   });
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
-    timeout: TimeSpan.seconds(10),
+    timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
   if (state.variant === "error") throw new Error(state.message);
@@ -109,7 +111,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
         <Flex.Box className={CSS.B("content")} grow size="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-            <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
+            <Form.Field<rack.Key> path="rack" label="Connect from" required>
               {selectRackRenderProp}
             </Form.Field>
             <Flex.Box x justify="between">
@@ -126,11 +128,11 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             <Flex.Box x justify="start">
               <Form.SwitchField
                 path="properties.connection.swapBytes"
-                label="Swap Bytes"
+                label="Swap bytes"
               />
               <Form.SwitchField
                 path="properties.connection.swapWords"
-                label="Swap Words"
+                label="Swap words"
               />
             </Flex.Box>
           </Form.Form>
@@ -169,7 +171,7 @@ const selectRackRenderProp = Component.renderProp(
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "Modbus Server",
+  placeholder: "Modbus server",
 } as const;
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;

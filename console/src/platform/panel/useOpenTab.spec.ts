@@ -329,7 +329,7 @@ describe("Panel.useOpenTab", () => {
       const panelKey = Session.Panel.selectSelected(store.getState());
       if (panelKey == null) throw new Error("no panel selected after create");
       const doc = await client.panels.retrieve(panelKey);
-      expect(doc.name).toBe("New Panel");
+      expect(doc.name).toBe("New panel");
       expect(panel.findTab(doc.root, tabKey)).toBeDefined();
     });
 

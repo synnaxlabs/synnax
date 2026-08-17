@@ -20,7 +20,6 @@ import {
   TimeSpan,
   TimeStamp,
   url,
-  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -74,7 +73,6 @@ export interface CheckParams {
   secure?: boolean;
   /** Human-readable cluster name for status messages. */
   name?: string;
-  retry?: breaker.Config;
 }
 
 /**
@@ -83,10 +81,9 @@ export interface CheckParams {
  * returned status.
  */
 export const check = async (params: CheckParams): Promise<Status> => {
-  const { host, port, secure = false, name, retry } = params;
-  const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
+  const { host, port, secure = false, name } = params;
   const endpoint = new url.URL({ host, port: Number(port) });
-  const transport = new Transport(endpoint, retryConfig, secure);
+  const transport = new Transport(endpoint, {}, secure);
   transport.use(errorsMiddleware);
   const cfg: Config = {
     clientVersion: __VERSION__,
@@ -97,7 +94,7 @@ export const check = async (params: CheckParams): Promise<Status> => {
   };
   const initial = createInitialStatus(cfg);
   try {
-    const info = await sendCheck(transport.unary);
+    const info = await sendCheck(transport.unaryNoRetry);
     return reduce(initial, { type: "check.success", info }, cfg);
   } catch (err) {
     const error = errors.fromUnknown(err);

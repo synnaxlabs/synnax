@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { type MultiSeries, Series, sleep, TimeSpan } from "@synnaxlabs/x";
+import { type MultiSeries, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
@@ -79,6 +79,29 @@ const pendingStreamer = (keys: channel.Key[]): MockStreamer => {
   let closed = false;
   let resolve: ((r: IteratorResult<framer.Frame>) => void) | null = null;
   const ms = new MockStreamer(keys, async () => {
+    if (closed) return { done: true, value: undefined };
+    return await new Promise<IteratorResult<framer.Frame>>((r) => (resolve = r));
+  });
+  const origClose = ms.close.bind(ms);
+  ms.close = () => {
+    closed = true;
+    resolve?.({ done: true, value: undefined });
+    origClose();
+  };
+  return ms;
+};
+
+/** A streamer that delivers one frame, then blocks until close() like
+ * {@link pendingStreamer}. */
+const oneFrameStreamer = (keys: channel.Key[], frame: framer.Frame): MockStreamer => {
+  let sent = false;
+  let closed = false;
+  let resolve: ((r: IteratorResult<framer.Frame>) => void) | null = null;
+  const ms = new MockStreamer(keys, async () => {
+    if (!sent) {
+      sent = true;
+      return { done: false, value: frame };
+    }
     if (closed) return { done: true, value: undefined };
     return await new Promise<IteratorResult<framer.Frame>>((r) => (resolve = r));
   });
@@ -584,6 +607,136 @@ describe("MultiplexedStreamer", () => {
       expect(sub.status(1).variant).toEqual("success");
       expect(transitions).toEqual(["success", "warning", "success"]);
       sub.close();
+    });
+  });
+
+  describe("buffer flushing", () => {
+    const stampedSeries = (): Series =>
+      new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 0n,
+        timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(13)),
+      });
+
+    it("should flush a channel's buffer when its demand ends", async () => {
+      const cache = new Cache();
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([
+          oneFrameStreamer([1], new Frame({ 1: stampedSeries() })),
+        ]),
+        removalDelay: TimeSpan.milliseconds(50),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(cache.get(1).leadingBuffer).not.toBeNull();
+
+      sub.close();
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(cache.get(1).leadingBuffer).toBeNull();
+      // The flushed samples stay readable but claim no coverage, so the whole
+      // range remains a gap to fetch.
+      const { series, gaps } = cache
+        .get(1)
+        .read(TimeStamp.seconds(10).range(TimeStamp.seconds(20)));
+      expect(Array.from(series)).toEqual([1, 2, 3]);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(TimeStamp.seconds(10).range(TimeStamp.seconds(20)))).toBe(
+        true,
+      );
+      await streamer.close();
+    });
+
+    it("should flush only the keys that left the stream", async () => {
+      const cache = new Cache();
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([
+          oneFrameStreamer(
+            [1, 2],
+            new Frame([1, 2], [stampedSeries(), stampedSeries()]),
+          ),
+        ]),
+        removalDelay: TimeSpan.milliseconds(50),
+      });
+      const sub1 = streamer.stream(() => {}, [1]);
+      const sub2 = streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(cache.get(1).leadingBuffer).not.toBeNull();
+      expect(cache.get(2).leadingBuffer).not.toBeNull();
+
+      sub2.close();
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(cache.get(1).leadingBuffer).not.toBeNull();
+      expect(cache.get(2).leadingBuffer).toBeNull();
+      sub1.close();
+      await streamer.close();
+    });
+
+    it("should flush buffers when the stream drops", async () => {
+      const cache = new Cache();
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener(
+          [oneFrameStreamer([1], new Frame({ 1: stampedSeries() }))],
+          hooks,
+        ),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(cache.get(1).leadingBuffer).not.toBeNull();
+
+      hooks[0].onDrop(new Error("conn lost"));
+
+      expect(cache.get(1).leadingBuffer).toBeNull();
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should flush buffers when the run loop dies", async () => {
+      const cache = new Cache();
+      const dying = new MockStreamer([1], undefined, [
+        new Frame({ 1: stampedSeries() }),
+      ]);
+      const replacement = pendingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([dying, replacement]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(replacement.iteratorVi).toHaveBeenCalled();
+      expect(cache.get(1).leadingBuffer).toBeNull();
+      const { series } = cache
+        .get(1)
+        .read(TimeStamp.seconds(10).range(TimeStamp.seconds(13)));
+      expect(Array.from(series)).toEqual([1, 2, 3]);
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should flush a frame for a key with no demand", async () => {
+      const cache = new Cache();
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([
+          oneFrameStreamer([1], new Frame({ 2: stampedSeries() })),
+        ]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+
+      expect(cache.get(2).leadingBuffer).toBeNull();
+      const { series } = cache
+        .get(2)
+        .read(TimeStamp.seconds(10).range(TimeStamp.seconds(13)));
+      expect(Array.from(series)).toEqual([1, 2, 3]);
+      sub.close();
+      await streamer.close();
     });
   });
 

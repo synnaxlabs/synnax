@@ -28,6 +28,7 @@ const ConcentricSVG: Icon.SVGFC = ({ color, style, ...rest }) => (
     {...rest}
   >
     <circle
+      className={CSS.BE("status-indicator", "track")}
       cx="6.5"
       cy="6.5"
       r="5.5"
@@ -36,7 +37,7 @@ const ConcentricSVG: Icon.SVGFC = ({ color, style, ...rest }) => (
       strokeWidth="1"
       opacity="0.45"
     />
-    <circle cx="6.5" cy="6.5" r="3" />
+    <circle className={CSS.BE("status-indicator", "core")} cx="6.5" cy="6.5" r="3" />
   </svg>
 );
 

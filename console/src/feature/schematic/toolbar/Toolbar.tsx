@@ -39,13 +39,12 @@ const NotEditableContent = (): ReactElement => {
   const name = Schematic.useName();
   return (
     <Empty.Action
-      x
-      message={`${name} is not editable.${canEdit ? " To make changes," : ""}`}
+      message={`${name} is not editable`}
       action={
         canEdit
           ? controlState === "acquired"
-            ? "release control and enable editing."
-            : "enable editing."
+            ? "Release control and enable editing"
+            : "Enable editing"
           : undefined
       }
       onClick={() => {

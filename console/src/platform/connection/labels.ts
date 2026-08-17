@@ -7,4 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as CSV from "@/platform/csv/external";
+import { type connection } from "@synnaxlabs/client";
+
+/** How each connection variant reads to the user. */
+export const STATUS_LABELS: Record<connection.Status["variant"], string> = {
+  success: "Connected",
+  info: "Connected",
+  loading: "Connecting",
+  warning: "Reconnecting",
+  error: "Unreachable",
+  disabled: "Disconnected",
+};

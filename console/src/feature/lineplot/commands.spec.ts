@@ -26,12 +26,12 @@ describe("LinePlot Commands", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     await openCommandPalette();
-    await selectCommand("Create a line plot");
+    await selectCommand("Create line plot");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource")
       throw new Error("focused tab is not a line plot resource");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
     const created = await client.lineplots.retrieve(tab.resource.key);
-    expect(created.name).toBe("Line Plot");
+    expect(created.name).toBe("Line plot");
   });
 });

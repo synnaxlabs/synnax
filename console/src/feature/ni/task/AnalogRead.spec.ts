@@ -50,7 +50,7 @@ const createChannel = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.AnalogReadSchemas> = {
-  name: "NI Analog Read Task",
+  name: "NI analog read task",
   type: NI.Task.ANALOG_READ_TYPE,
   config: NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
 };
@@ -77,43 +77,43 @@ describe("AnalogRead", () => {
       channels: [createChannel("ai_voltage", 0, { device: dev.key })],
     });
     await waitFor(() =>
-      expect(screen.getByText("Terminal Configuration")).toBeTruthy(),
+      expect(screen.getByText("Terminal configuration")).toBeTruthy(),
     );
     await findDialogTriggerByText(dev.name);
   });
 
   it("should render the detail form for every channel type as it is selected", async () => {
     const cases: [NI.Task.AIChannelType, string][] = [
-      ["ai_accel", "Current Excitation Source"],
-      ["ai_accel_4_wire_dc_voltage", "Use Excitation for Scaling"],
-      ["ai_accel_charge", "Acceleration Units"],
-      ["ai_bridge", "Nominal Bridge Resistance"],
-      ["ai_charge", "Charge Units"],
-      ["ai_current", "Shunt Resistor Location"],
-      ["ai_current_rms", "Shunt Resistor Location"],
-      ["ai_force_bridge_polynomial", "Forward Coefficients"],
-      ["ai_force_bridge_table", "Force Units"],
-      ["ai_force_bridge_two_point_lin", "Physical Value One"],
-      ["ai_force_iepe", "Current Excitation Source"],
-      ["ai_freq_voltage", "Threshold Level"],
-      ["ai_microphone", "Microphone Sensitivity"],
-      ["ai_pressure_bridge_polynomial", "Reverse Coefficients"],
-      ["ai_pressure_bridge_table", "Pressure Units"],
-      ["ai_pressure_bridge_two_point_lin", "Electrical Value Two"],
-      ["ai_resistance", "Resistance Configuration"],
-      ["ai_rtd", "RTD Type"],
-      ["ai_strain_gauge", "Gage Factor"],
-      ["ai_temp_builtin", "Temperature Units"],
+      ["ai_accel", "Current excitation source"],
+      ["ai_accel_4_wire_dc_voltage", "Use excitation for scaling"],
+      ["ai_accel_charge", "Acceleration units"],
+      ["ai_bridge", "Nominal bridge resistance"],
+      ["ai_charge", "Charge units"],
+      ["ai_current", "Shunt resistor location"],
+      ["ai_current_rms", "Shunt resistor location"],
+      ["ai_force_bridge_polynomial", "Forward coefficients"],
+      ["ai_force_bridge_table", "Force units"],
+      ["ai_force_bridge_two_point_lin", "Physical value one"],
+      ["ai_force_iepe", "Current excitation source"],
+      ["ai_freq_voltage", "Threshold level"],
+      ["ai_microphone", "Microphone sensitivity"],
+      ["ai_pressure_bridge_polynomial", "Reverse coefficients"],
+      ["ai_pressure_bridge_table", "Pressure units"],
+      ["ai_pressure_bridge_two_point_lin", "Electrical value two"],
+      ["ai_resistance", "Resistance configuration"],
+      ["ai_rtd", "RTD type"],
+      ["ai_strain_gauge", "Gage factor"],
+      ["ai_temp_builtin", "Temperature units"],
       ["ai_thermistor_iex", "Steinhart-Hart A"],
-      ["ai_thermistor_vex", "Reference Resistor"],
-      ["ai_thermocouple", "Thermocouple Type"],
-      ["ai_torque_bridge_polynomial", "Forward Coefficients"],
-      ["ai_torque_bridge_table", "Torque Units"],
-      ["ai_torque_bridge_two_point_lin", "Electrical Value One"],
-      ["ai_velocity_iepe", "Velocity Units"],
-      ["ai_voltage", "Terminal Configuration"],
-      ["ai_voltage_rms", "Terminal Configuration"],
-      ["ai_voltage_with_excit", "Use Excitation for Scaling"],
+      ["ai_thermistor_vex", "Reference resistor"],
+      ["ai_thermocouple", "Thermocouple type"],
+      ["ai_torque_bridge_polynomial", "Forward coefficients"],
+      ["ai_torque_bridge_table", "Torque units"],
+      ["ai_torque_bridge_two_point_lin", "Electrical value one"],
+      ["ai_velocity_iepe", "Velocity units"],
+      ["ai_voltage", "Terminal configuration"],
+      ["ai_voltage_rms", "Terminal configuration"],
+      ["ai_voltage_with_excit", "Use excitation for scaling"],
     ];
     // A generated type without a case here is a type the console cannot edit.
     expect(new Set(cases.map(([type]) => type))).toEqual(
@@ -141,8 +141,8 @@ describe("AnalogRead", () => {
   it("should render the scale form matching each channel's custom scale", async () => {
     const cases = [
       ["linear", "Slope"],
-      ["map", "Pre-Scaled Min"],
-      ["polynomial", "Forward Coefficients"],
+      ["map", "Pre-scaled min"],
+      ["polynomial", "Forward coefficients"],
       ["table", "Table CSV"],
     ] as const;
     await renderAnalogRead({
@@ -174,19 +174,19 @@ describe("AnalogRead", () => {
         }),
       ],
     });
-    await screen.findByText("CJC Source");
-    expect(getLabeledInput("CJC Value").value).toBe("5");
-    expect(screen.queryByText("CJC Port")).toBeNull();
-    await selectFromDropdown("Constant Value", "Channel");
-    await waitFor(() => expect(getLabeledInput("CJC Port").value).toBe("0"));
-    expect(screen.queryByText("CJC Value")).toBeNull();
+    await screen.findByText("CJC source");
+    expect(getLabeledInput("CJC value").value).toBe("5");
+    expect(screen.queryByText("CJC port")).toBeNull();
+    await selectFromDropdown("Constant value", "Channel");
+    await waitFor(() => expect(getLabeledInput("CJC port").value).toBe("0"));
+    expect(screen.queryByText("CJC value")).toBeNull();
     // Switching back must re-seed the value to 0, not resurface the stale 5.
-    await selectFromDropdown("Channel", "Constant Value");
-    await waitFor(() => expect(getLabeledInput("CJC Value").value).toBe("0"));
-    expect(screen.queryByText("CJC Port")).toBeNull();
-    await selectFromDropdown("Constant Value", "Built In");
-    await waitFor(() => expect(screen.queryByText("CJC Value")).toBeNull());
-    expect(screen.queryByText("CJC Port")).toBeNull();
+    await selectFromDropdown("Channel", "Constant value");
+    await waitFor(() => expect(getLabeledInput("CJC value").value).toBe("0"));
+    expect(screen.queryByText("CJC port")).toBeNull();
+    await selectFromDropdown("Constant value", "Built in");
+    await waitFor(() => expect(screen.queryByText("CJC value")).toBeNull());
+    expect(screen.queryByText("CJC port")).toBeNull();
   });
 
   it("should swap the channel to the newly selected type and keep its port", async () => {
@@ -196,8 +196,8 @@ describe("AnalogRead", () => {
     });
     fireEvent.click(await findDialogTriggerByText("Voltage"));
     fireEvent.click(await screen.findByText("Thermocouple"));
-    await waitFor(() => expect(screen.getByText("Thermocouple Type")).toBeTruthy());
-    expect(screen.queryByText("Terminal Configuration")).toBeNull();
+    await waitFor(() => expect(screen.getByText("Thermocouple type")).toBeTruthy());
+    expect(screen.queryByText("Terminal configuration")).toBeNull();
     const port = screen.getByDisplayValue("3");
     expect(port).toBeTruthy();
   });
@@ -255,18 +255,18 @@ describe("AnalogRead", () => {
           }),
         ],
       });
-      await screen.findByText("Forward Coefficients");
-      const forward = getCoefficientsField("Forward Coefficients");
+      await screen.findByText("Forward coefficients");
+      const forward = getCoefficientsField("Forward coefficients");
       expect(forward.rows).toHaveLength(3);
       fireEvent.click(getIconButton(forward.rows[1], "close"));
       await waitFor(() =>
-        expect(getCoefficientsField("Forward Coefficients").rows).toHaveLength(2),
+        expect(getCoefficientsField("Forward coefficients").rows).toHaveLength(2),
       );
-      fireEvent.click(getCoefficientsField("Reverse Coefficients").add);
+      fireEvent.click(getCoefficientsField("Reverse coefficients").add);
       await waitFor(() =>
-        expect(getCoefficientsField("Reverse Coefficients").rows).toHaveLength(1),
+        expect(getCoefficientsField("Reverse coefficients").rows).toHaveLength(1),
       );
-      const [reverseRow] = getCoefficientsField("Reverse Coefficients").rows;
+      const [reverseRow] = getCoefficientsField("Reverse coefficients").rows;
       commitFieldInput(getCoefficientInput(reverseRow), "7.5");
 
       await deployAndAwaitTask(client, container, draft.key);
@@ -334,10 +334,7 @@ describe("AnalogRead", () => {
         channels: [],
       });
       await clickDeploy(container);
-      await awaitStatusDescription(
-        statuses,
-        /No devices selected in task configuration/,
-      );
+      await awaitStatusDescription(statuses, /No devices selected/);
     });
   });
 });

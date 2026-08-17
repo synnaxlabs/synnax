@@ -26,7 +26,7 @@ export type SelectCIChannelTypeFieldProps = Form.SelectFieldProps<CIChannelType,
 export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Entry>({
   fieldKey: "type",
   fieldProps: {
-    label: "Channel Type",
+    label: "Channel type",
     onChange: (value, { get, set, path }) => {
       const prevType = get<CIChannelType>(path).value;
       if (prevType === value) return;
@@ -44,7 +44,7 @@ export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Ent
     },
   },
   inputProps: {
-    resourceName: "Channel Type",
+    resourceName: "channel type",
     data: Object.keys(CI_CHANNEL_TYPE_NAMES).map((key) => {
       const type = key as CIChannelType;
       const Icon = CI_CHANNEL_TYPE_ICONS[type];

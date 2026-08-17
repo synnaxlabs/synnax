@@ -142,19 +142,22 @@ export class Channel {
     operations = [],
     concurrency = control.Concurrency.exclusive,
   }: New & { frameClient?: framer.Client }) {
-    this.key = keyZ.parse(key);
+    this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
     this.dataType = new DataType(dataType);
     this.leaseholder = leaseholder;
-    this.index = keyZ.parse(index);
+    this.index = zod.parse(keyZ, index, { label: "channel index" });
     this.isIndex = isIndex;
     this.internal = internal;
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.operations = operationZ.array().parse(operations);
+    this.operations = zod.parse(operationZ.array(), operations, {
+      label: "channel operations",
+    });
     this.concurrency = concurrency;
-    if (argsStatus != null) this.status = statusZ.parse(argsStatus);
+    if (argsStatus != null)
+      this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
   }
 
@@ -170,20 +173,24 @@ export class Channel {
    * network transportation, but also provided to you as a convenience.
    */
   get payload(): Payload {
-    return payloadZ.parse({
-      key: this.key,
-      name: this.name,
-      dataType: this.dataType.valueOf(),
-      leaseholder: this.leaseholder,
-      index: this.index,
-      isIndex: this.isIndex,
-      internal: this.internal,
-      virtual: this.virtual,
-      expression: this.expression,
-      status: this.status,
-      operations: this.operations,
-      concurrency: this.concurrency,
-    });
+    return zod.parse(
+      payloadZ,
+      {
+        key: this.key,
+        name: this.name,
+        dataType: this.dataType.valueOf(),
+        leaseholder: this.leaseholder,
+        index: this.index,
+        isIndex: this.isIndex,
+        internal: this.internal,
+        virtual: this.virtual,
+        expression: this.expression,
+        status: this.status,
+        operations: this.operations,
+        concurrency: this.concurrency,
+      },
+      { label: "channel payload" },
+    );
   }
 
   get isCalculated(): boolean {
@@ -620,7 +627,11 @@ export class Client extends query.Retriever<
         rangeKey: options?.rangeKey,
       });
     const res = await super.retrieve(
-      retrieveRequestZ.parse({ [variant]: normalized, ...options }),
+      zod.parse(
+        retrieveRequestZ,
+        { [variant]: normalized, ...options },
+        { label: "channel retrieve request" },
+      ),
     );
     checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
     return isSingle ? res[0] : res;

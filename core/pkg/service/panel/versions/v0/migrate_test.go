@@ -47,7 +47,19 @@ var _ = Describe("Project layout to panel migration", func() {
 		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
 				DB:         db,
-				Migrations: v0.Migrations[:len(v0.Migrations)-1],
+				Migrations: v0.Migrations[:2],
+			},
+		))
+	}
+	// openPreStripTable opens the table with the chain as it existed before the
+	// resource-tab whitelist, so specs can seed panels holding tabs it rejects.
+	openPreStripTable := func(
+		ctx context.Context, db *gorp.DB,
+	) *gorp.Table[v0.Key, v0.Panel] {
+		return MustOpen(gorp.OpenTable(
+			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
+				DB:         db,
+				Migrations: v0.Migrations[:3],
 			},
 		))
 	}
@@ -432,6 +444,47 @@ var _ = Describe("Project layout to panel migration", func() {
 		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
+
+	It(
+		"Should strip resource tabs the type whitelist rejects",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			preTable := openPreStripTable(ctx, db)
+			logKey, userKey := uuid.NewString(), uuid.NewString()
+			p := v0.Panel{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Root: v0.Node{Variant: v0.SplitNode{
+					Direction: spatial.DirectionX,
+					Size:      0.5,
+					First:     *leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
+					Last:      *leaf(resourceTab(ontology.ResourceTypeUser, userKey)),
+				}},
+			}
+			Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
+
+			openPanelTable(ctx, db)
+			var got v0.Panel
+			Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
+				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
+				Entry(&got).
+				Exec(ctx, db)).To(Succeed())
+			split, ok := got.Root.Variant.(v0.SplitNode)
+			Expect(ok).To(BeTrue())
+			first, ok := split.First.Variant.(v0.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(first.Tabs).To(HaveLen(1))
+			kept, ok := first.Tabs[0].Variant.(v0.ResourceTab)
+			Expect(ok).To(BeTrue())
+			Expect(kept.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeLog,
+				Key:  logKey,
+			}))
+			last, ok := split.Last.Variant.(v0.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(last.Tabs).To(BeEmpty())
+		},
+	)
 
 	It(
 		"Should convert legacy-keyed task view tabs into resource tabs",

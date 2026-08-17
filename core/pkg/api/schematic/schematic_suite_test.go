@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package schematic
+package schematic_test
 
 import (
 	"testing"
@@ -15,7 +15,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -24,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -45,7 +49,7 @@ var (
 	otg          *ontology.Ontology
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
-	apiSvc       *Service
+	apiSvc       *apischematic.Service
 	proj         project.Project
 	author       user.User
 )
@@ -69,11 +73,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:            authSvc,
 		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 	}))
+	panelSvc := MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Search:   searchIdx,
+		ImEx:     imex.NewService(),
+		Panel:    panelSvc,
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
@@ -89,22 +100,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		ImEx:     imex.NewService(),
 	}))
-	apiSvc = &Service{internal: schematicSvc, access: rbacSvc}
+	apiSvc = MustSucceed(apischematic.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service:      &service.Layer{Schematic: schematicSvc, RBAC: rbacSvc},
+	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",
 	}))
 	proj.Name = "test-project"
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
-
-// authedCtx returns a freighter.Context derived from ctx with the given user
-// installed as the request subject. Callers must pass the returned Context as
-// the ctx argument to api.Service methods so auth.GetSubject succeeds.
-func authedCtx(ctx SpecContext, u user.User) freighter.Context {
-	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
-	return fctx
-}
 
 // grantOn creates a policy granting the given action on the given objects to a
 // fresh role and assigns the role to the given subject. Writes commit directly

@@ -177,3 +177,20 @@ var _ = Describe("Import", func() {
 			))
 	})
 })
+
+var _ = Describe("ResolveEncoding", func() {
+	It("Should return a pretty JSON encoder for the JSON encoding", func(
+		ctx SpecContext,
+	) {
+		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
+		Expect(enc.Extension()).To(Equal(".json"))
+		b := MustSucceed(enc.Encode(ctx, map[string]int{"value": 1}))
+		Expect(string(b)).To(Equal("{\n  \"value\": 1\n}\n"))
+	})
+	It("Should reject an unsupported encoding", func() {
+		Expect(apiimex.ResolveEncoding("YAML")).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("encoding")),
+			MatchError(ContainSubstring("YAML")),
+		))
+	})
+})
