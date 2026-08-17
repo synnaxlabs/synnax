@@ -16,7 +16,7 @@ export interface ToolbarButtonProps extends Omit<
   Button.ButtonProps,
   "onClick" | "children"
 > {
-  /** Resolves the resource to export, evaluated when the button is clicked. */
+  /** Resolves the ontology ID to export, evaluated when the button is clicked. */
   getID: () => ontology.ID;
 }
 

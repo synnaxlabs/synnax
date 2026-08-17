@@ -17,7 +17,7 @@ import { renderWithConsole } from "@/testutil";
 const getID = () => log.ontologyID("k");
 
 describe("Export.ToolbarButton", () => {
-  it("resolves the resource to export when clicked", async () => {
+  it("resolves the ID to export when clicked", async () => {
     const resolve = vi.fn(getID);
     await renderWithConsole(<Export.ToolbarButton getID={resolve} />);
     fireEvent.click(screen.getByRole("button"));

@@ -27,8 +27,8 @@ export interface Params {
 }
 
 /**
- * Returns a callback that exports a resource, streaming the Core-serialized form the
- * given fetcher retrieves to a file the user picks.
+ * Returns a callback that exports something to a file, streaming the Core-serialized
+ * data to a file the user picks.
  */
 export const use = (): ((params: Params) => void) => {
   const client = Synnax.use();
