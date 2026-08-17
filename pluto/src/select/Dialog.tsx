@@ -54,7 +54,7 @@ const LIST_BUDGET = 220;
  * what lets its growth animate.
  */
 const useDisplayItems = (): number => {
-  const { itemHeight } = List.useData();
+  const itemHeight = List.useItemHeight();
   return useMemo(
     () => (itemHeight == null ? 1 : Math.max(1, Math.floor(LIST_BUDGET / itemHeight))),
     [itemHeight],
