@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/ImportGroupModal.css";
+
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Button, Flex, Haul, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { zipSync } from "fflate";
 import { type ReactElement, useState } from "react";
 
+import { CSS } from "@/platform/css";
 import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
@@ -124,7 +127,7 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
   });
 
   return (
-    <Modals.Frame>
+    <Modals.Frame className={CSS.BE("schematic", "symbol-import-group")}>
       <Modals.Header icon={<Icon.Import />}>
         Schematic.Symbols.Group.Import
       </Modals.Header>
@@ -140,7 +143,7 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
           borderColor={draggingOver ? 9 : 6}
           onDragLeave={() => setDraggingOver(false)}
           onClick={handlePickZip}
-          style={{ minHeight: 200, cursor: "pointer" }}
+          style={{ minHeight: 300, cursor: "pointer" }}
           {...dropProps}
         >
           <Text.Text level="h1" color={9}>
