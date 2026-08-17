@@ -53,7 +53,7 @@ describe("lineplot/toolbar/Toolbar", () => {
     const { name, result } = await renderToolbar();
     await screen.findByText("Data");
     fireEvent.click(getIconButton(result.container, "csv"));
-    expect(await screen.findByText(`Download data for ${name} to a CSV`)).toBeDefined();
+    expect(await screen.findByText(`Download data for ${name} as CSV`)).toBeDefined();
   });
 
   it("renames the plot from the properties tab", async () => {

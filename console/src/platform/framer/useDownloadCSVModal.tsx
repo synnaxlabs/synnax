@@ -82,7 +82,7 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
           <Modals.Header icon={icon}>CSV.Download</Modals.Header>
           <Modals.Body gap="huge">
             <Text.Text level="h3" weight={450}>
-              Download data for {name} to a CSV
+              Download data for {name} as CSV
             </Text.Text>
             <Flex.Box y full="x" gap="medium">
               <Flex.Box x gap="medium">

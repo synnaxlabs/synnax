@@ -133,7 +133,7 @@ describe("useDownloadCSVModal", () => {
       ]);
 
       await waitFor(() =>
-        expect(screen.queryByText("Download data for export to a CSV")).toBeNull(),
+        expect(screen.queryByText("Download data for export as CSV")).toBeNull(),
       );
     });
   });
