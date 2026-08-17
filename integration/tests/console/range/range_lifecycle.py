@@ -534,7 +534,7 @@ class RangeLifecycle(ConsoleCase):
             f"input[placeholder='{self.console.ranges.NAME_INPUT_PLACEHOLDER}']"
         )
         name_input.fill(self.new_child_range_name)
-        save_button = self.page.get_by_role("button", name="Save to Synnax")
+        save_button = self.page.get_by_role("button", name="Save to Core")
         save_button.click(timeout=2000)
         modal = self.page.locator(self.console.ranges.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="hidden", timeout=5000)

@@ -359,7 +359,7 @@ class Plot(ConsolePage):
             state="visible", timeout=5000
         )
         self.page.get_by_role("textbox", name="Name").fill(range_name)
-        self.page.get_by_role("button", name="Save to Synnax").click()
+        self.page.get_by_role("button", name="Save to Core").click()
 
     def get_annotation_toggle(self) -> Locator:
         """Return the range-annotation visibility toggle button.

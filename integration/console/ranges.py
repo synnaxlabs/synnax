@@ -334,7 +334,7 @@ class RangesClient:
             self.layout.press_escape()
 
         if persisted:
-            save_button = self.layout.page.get_by_role("button", name="Save to Synnax")
+            save_button = self.layout.page.get_by_role("button", name="Save to Core")
         else:
             save_button = self.layout.page.get_by_role("button", name="Save locally")
 
@@ -385,7 +385,7 @@ class RangesClient:
 
     def save_to_synnax_from_toolbar(self, name: str) -> None:
         """Save a local range to Synnax via context menu in the toolbar."""
-        self._toolbar_ctx_menu_action(name, "Save to Synnax")
+        self._toolbar_ctx_menu_action(name, "Save to Core")
 
     def add_to_new_plot_from_toolbar(self, name: str) -> None:
         """Add a range to a new line plot via context menu in the toolbar."""
