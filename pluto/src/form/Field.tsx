@@ -56,7 +56,7 @@ export const Field = <I = string | number, O = I>({
   const ctx = useContext(undefined, `Field(${path})`);
   if (field == null) return null;
   if (path == null) throw new Error("No path provided to form field");
-  label ??= caseconv.capitalize(deep.element(path, -1));
+  label ??= caseconv.toSentence(deep.element(path, -1));
   visible = typeof visible === "function" ? visible(field, ctx) : visible;
   if (!visible) return null;
   const helpText = field.status.message;

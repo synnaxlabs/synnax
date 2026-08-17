@@ -26,9 +26,7 @@ describe("arc useCreate", () => {
   it("should reject an empty name with a validation error", async () => {
     await renderArc(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("Name")).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByPlaceholderText("Name")).toBeTruthy());
     const create = await screen.findByRole("button", { name: "Create" });
     await act(async () => {
       fireEvent.click(create);
