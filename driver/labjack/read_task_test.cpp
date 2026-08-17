@@ -15,6 +15,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/test/test.h"
 
+#include "driver/labjack/device/mock.h"
 #include "driver/labjack/read_task.h"
 
 namespace driver::labjack {
@@ -341,5 +342,176 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+class SourceClaimTest : public ::testing::Test {
+protected:
+    std::unique_ptr<ReadTaskConfig> cfg;
+    std::shared_ptr<device::MockManager> devs;
+
+    /// @brief parses a single-channel config. A thermocouple channel selects the
+    /// UnarySource path; an analog channel selects the StreamSource path.
+    void parse_config(const bool thermocouple) {
+        auto client = std::make_shared<synnax::Synnax>(new_test_client());
+        auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+        auto dev = synnax::device::Device{
+            .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "labjack",
+            .model = "T7",
+            .name = "my_device",
+        };
+        ASSERT_NIL(client->devices.create(dev));
+        auto ch = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("claim_channel"),
+            x::telem::FLOAT64_T,
+            true
+        ));
+        auto j = basic_read_task_config();
+        if (thermocouple)
+            j["channels"] = x::json::json::array(
+                {{{"port", "AIN0"},
+                  {"disabled", false},
+                  {"key", "8hYJO9zt6eS"},
+                  {"channel", ch.key},
+                  {"type", "thermocouple"},
+                  {"range", 0},
+                  {"scale", {{"type", "none"}}},
+                  {"thermocouple_type", "K"},
+                  {"pos_chan", 0},
+                  {"neg_chan", 199},
+                  {"units", "K"},
+                  {"cjc_source", "TEMPERATURE_DEVICE_K"},
+                  {"cjc_slope", 1},
+                  {"cjc_offset", 0}}}
+            );
+        else
+            j["channels"] = x::json::json::array(
+                {{{"port", "AIN0"},
+                  {"disabled", false},
+                  {"key", "8hYJO9zt6eS"},
+                  {"channel", ch.key},
+                  {"type", "analog"},
+                  {"range", 5},
+                  {"scale", {{"type", "none"}}}}}
+            );
+        auto p = x::json::Parser(j);
+        this->cfg = std::make_unique<ReadTaskConfig>(client, p);
+        ASSERT_NIL(p.error());
+        this->devs = std::make_shared<device::MockManager>();
+    }
+};
+
+/// @brief it should claim the device on start and release it on stop, so a device
+/// that disconnects and returns between runs gets a fresh handle on the next start.
+TEST_F(SourceClaimTest, testUnarySourceClaimsDeviceOnStart) {
+    parse_config(true);
+    UnarySource source(devs, std::move(*cfg));
+    EXPECT_EQ(devs->acquire_call_count, 0);
+    EXPECT_EQ(devs->dev.use_count(), 1);
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(devs->acquire_call_count, 1);
+    EXPECT_EQ(devs->dev.use_count(), 2);
+    ASSERT_NIL(source.stop());
+    EXPECT_EQ(devs->dev.use_count(), 1);
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should surface an acquire failure on start and retry the acquisition
+/// on the next start.
+TEST_F(SourceClaimTest, testUnarySourceAcquireFailureRetriesOnNextStart) {
+    parse_config(true);
+    devs->acquire_errors = {x::errors::Error(ljm::CRITICAL_ERROR, "device not found")};
+    UnarySource source(devs, std::move(*cfg));
+    ASSERT_OCCURRED_AS(source.start(), ljm::CRITICAL_ERROR);
+    EXPECT_EQ(devs->dev.use_count(), 1);
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should claim the device on start and release it on stop.
+TEST_F(SourceClaimTest, testStreamSourceClaimsDeviceOnStart) {
+    parse_config(false);
+    StreamSource source(devs, std::move(*cfg));
+    EXPECT_EQ(devs->acquire_call_count, 0);
+    EXPECT_EQ(devs->dev.use_count(), 1);
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(devs->acquire_call_count, 1);
+    EXPECT_EQ(devs->dev.use_count(), 2);
+    ASSERT_NIL(source.stop());
+    EXPECT_EQ(devs->dev.use_count(), 1);
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should surface an acquire failure on start and retry the acquisition
+/// on the next start.
+TEST_F(SourceClaimTest, testStreamSourceAcquireFailureRetriesOnNextStart) {
+    parse_config(false);
+    devs->acquire_errors = {x::errors::Error(ljm::CRITICAL_ERROR, "device not found")};
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_OCCURRED_AS(source.start(), ljm::CRITICAL_ERROR);
+    EXPECT_EQ(devs->dev.use_count(), 1);
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should claim the device again on restart.
+TEST_F(SourceClaimTest, testStreamSourceRestartReclaimsDevice) {
+    parse_config(false);
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(devs->acquire_call_count, 1);
+    ASSERT_NIL(source.restart(false));
+    EXPECT_EQ(devs->acquire_call_count, 2);
+    EXPECT_EQ(devs->dev.use_count(), 2);
+    ASSERT_NIL(source.stop());
+    EXPECT_EQ(devs->dev.use_count(), 1);
+}
+
+/// @brief a restart must drop its claim before acquiring. The manager shares one
+/// handle per device while a holder is alive, so a source that keeps the old claim
+/// across the acquire gets the dead handle back instead of a reopened one.
+TEST_F(SourceClaimTest, testStreamSourceRestartOpensAFreshHandle) {
+    parse_config(false);
+    size_t opens = 0;
+    devs->open = [&opens] {
+        ++opens;
+        return std::make_shared<device::Mock>();
+    };
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(opens, 1);
+    ASSERT_NIL(source.restart(true));
+    EXPECT_EQ(opens, 2);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief a read after a restart that failed to acquire must claim the device again
+/// instead of dereferencing a released one.
+TEST_F(SourceClaimTest, testStreamSourceReadReclaimsAfterFailedRestart) {
+    parse_config(false);
+    devs->acquire_errors = {
+        x::errors::NIL,
+        x::errors::Error(ljm::CRITICAL_ERROR, "device not found")
+    };
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    ASSERT_OCCURRED_AS(source.restart(true), ljm::CRITICAL_ERROR);
+
+    x::breaker::Breaker breaker(x::breaker::default_config("read"));
+    breaker.start();
+    x::telem::Frame fr(0);
+    const auto res = source.read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(devs->acquire_call_count, 3);
+    ASSERT_NIL(source.stop());
 }
 }

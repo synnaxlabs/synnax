@@ -28,13 +28,11 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task, timing_cfg);
     if (err) return {std::move(result), err};
-    auto [dev, d_err] = devs->acquire(cfg.device_key);
-    if (d_err) return {std::move(result), d_err};
     std::unique_ptr<common::Source> source;
     if (cfg.has_thermocouples())
-        source = std::make_unique<UnarySource>(dev, std::move(cfg));
+        source = std::make_unique<UnarySource>(devs, std::move(cfg));
     else
-        source = std::make_unique<StreamSource>(dev, std::move(cfg));
+        source = std::make_unique<StreamSource>(devs, std::move(cfg));
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
@@ -53,14 +51,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
-    auto [dev, d_err] = devs->acquire(cfg.device);
-    if (d_err) return {std::move(result), d_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteSink>(dev, std::move(cfg))
+        std::make_unique<WriteSink>(devs, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
 }
@@ -127,7 +123,7 @@ std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {
     auto [ljm, ljm_err] = ljm::API::load();
     if (ljm_err) LOG(WARNING) << ljm_err;
     return std::make_unique<Factory>(
-        ljm != nullptr ? std::make_shared<device::Manager>(ljm) : nullptr,
+        ljm != nullptr ? std::make_shared<device::LJMManager>(ljm) : nullptr,
         timing_cfg
     );
 }
