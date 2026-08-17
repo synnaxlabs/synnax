@@ -13,6 +13,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"io"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -233,6 +234,25 @@ var _ = Describe("Codec", func() {
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(xzip.Files{"valve.json": []byte("1")}))
+		})
+		It("Should reject contents decompressing past MaxDecodedSize", func(
+			ctx SpecContext,
+		) {
+			// Two half-budget entries plus one byte: small compressed, over the cap
+			// decompressed, and neither entry alone crosses it.
+			half := strings.Repeat("0", xzip.MaxDecodedSize/2)
+			b := write([2]string{"a.json", half}, [2]string{"b.json", half + "0"})
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("decompress past")),
+			))
+		})
+		It("Should decode contents exactly at MaxDecodedSize", func(ctx SpecContext) {
+			b := write([2]string{"a.json", strings.Repeat("0", xzip.MaxDecodedSize)})
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+			Expect(decoded["a.json"]).To(HaveLen(xzip.MaxDecodedSize))
 		})
 		It("Should skip a directory entry", func(ctx SpecContext) {
 			b := write([2]string{"nested/", ""}, [2]string{"valve.json", "1"})

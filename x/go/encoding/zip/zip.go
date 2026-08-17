@@ -30,13 +30,19 @@ import (
 // and no nesting: every name is a leaf, which the Codec enforces.
 type Files = map[string][]byte
 
+// MaxDecodedSize caps the total decompressed size of an archive Decode accepts,
+// guarding against zip bombs. Enforced while reading, so a lying size header cannot
+// bypass it.
+const MaxDecodedSize = 64 << 20
+
 // Codec encodes a Files value into a zip archive with one entry per file and decodes
 // such an archive back into a *Files. Entries are written in sorted name order, so
 // equal Files always encode to equal bytes. Decode tolerates archives re-zipped by
 // desktop archivers: it skips directory entries and macOS metadata (__MACOSX trees,
 // ._* files, .DS_Store) and unwraps root directories all entries share. A value of
-// another type fails, and a remaining name that is not a leaf, or two entries under
-// one name, returns an error wrapping validate.ErrValidation.
+// another type fails, and a remaining name that is not a leaf, two entries under one
+// name, or contents decompressing past MaxDecodedSize, returns an error wrapping
+// validate.ErrValidation.
 var Codec http.Codec = codec{}
 
 type codec struct{}
@@ -102,6 +108,7 @@ func (codec) Decode(_ context.Context, data []byte, value any) error {
 	stripSharedRoot(names)
 	decoded := make(Files, len(entries))
 	seen := make(set.Set[string], len(entries))
+	remaining := int64(MaxDecodedSize)
 	for i, f := range entries {
 		name := names[i]
 		if err := validateLeaf(name); err != nil {
@@ -117,7 +124,9 @@ func (codec) Decode(_ context.Context, data []byte, value any) error {
 		if err != nil {
 			return encoding.SugarDecodingError(data, value, err)
 		}
-		contents, err := io.ReadAll(rc)
+		// The extra byte past the budget distinguishes an archive exactly at the limit
+		// from one over it.
+		contents, err := io.ReadAll(io.LimitReader(rc, remaining+1))
 		if err != nil {
 			err = errors.Combine(err, rc.Close())
 			return encoding.SugarDecodingError(data, value, err)
@@ -125,6 +134,13 @@ func (codec) Decode(_ context.Context, data []byte, value any) error {
 		if err := rc.Close(); err != nil {
 			return encoding.SugarDecodingError(data, value, err)
 		}
+		if int64(len(contents)) > remaining {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"archive contents decompress past the %d byte limit", MaxDecodedSize,
+			)
+		}
+		remaining -= int64(len(contents))
 		decoded[name] = contents
 	}
 	*files = decoded
