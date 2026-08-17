@@ -10,5 +10,5 @@
 export * from "@/platform/import/import";
 export * from "@/platform/import/ingestBatch";
 export * from "@/platform/import/ingester";
-export * from "@/platform/import/parsableFile";
+export * from "@/platform/import/canParseFile";
 export * from "@/platform/import/useFileDrop";

@@ -295,7 +295,7 @@ export const import_ = ({ handleError, client, store }: IngestContext) => {
     name = directory.name;
     const fileData = await Promise.all(
       directory.files
-        .filter((file) => Import.isParsableFile(pathOf(file)))
+        .filter((file) => Import.canParseFile(pathOf(file)))
         .map(async (file): Promise<Import.File> => ({
           name: file.name,
           path: file.path,

@@ -13,7 +13,7 @@
 // project import owns decoding.
 
 /** Reports whether the file at path is a plain .json file worth parsing. */
-export const isParsableFile = (path: string): boolean => {
+export const canParseFile = (path: string): boolean => {
   const base = path.slice(path.lastIndexOf("/") + 1);
   return base.endsWith(".json") && !base.startsWith(".");
 };

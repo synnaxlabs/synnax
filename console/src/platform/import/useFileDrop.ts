@@ -15,7 +15,7 @@ import { useCallback } from "react";
 import { ingestServer } from "@/platform/import/import";
 import { ingestBatch } from "@/platform/import/ingestBatch";
 import { type DirectoryIngester } from "@/platform/import/ingester";
-import { isParsableFile } from "@/platform/import/parsableFile";
+import { canParseFile } from "@/platform/import/canParseFile";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
@@ -82,7 +82,7 @@ const ingestEntry = async (
     const files = await readDirectory(entry);
     const parsed = await Promise.all(
       files
-        .filter(({ path }) => isParsableFile(path))
+        .filter(({ path }) => canParseFile(path))
         .map(async ({ file, path }) => ({
           name: file.name,
           path,
