@@ -37,8 +37,6 @@
 }
 
 .pluto-mosaic .pluto-resize {
-    display: block;
-
     > .pluto-resize-split {
         width: 100%;
         height: 100%;
