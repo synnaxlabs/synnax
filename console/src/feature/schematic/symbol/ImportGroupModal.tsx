@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/schematic/symbol/ImportGroupModal.css";
-
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Button, Flex, Haul, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { zipSync } from "fflate";
