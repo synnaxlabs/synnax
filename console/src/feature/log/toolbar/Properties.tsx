@@ -44,14 +44,14 @@ export const Properties = (): ReactElement => {
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
-      <Input.Item label="Show Receipt Timestamp">
+      <Input.Item label="Show receipt timestamp">
         <Input.Switch
           value={!hideReceiptTimestamp}
           onChange={handleShowReceiptTimestampChange}
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Receipt Timestamp Precision">
+      <Input.Item label="Receipt timestamp precision">
         <Input.Numeric
           value={timestampPrecision}
           onChange={handlePrecisionChange}
@@ -60,7 +60,7 @@ export const Properties = (): ReactElement => {
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Show Channel Names">
+      <Input.Item label="Show channel names">
         <Input.Switch
           value={!hideChannelNames}
           onChange={handleShowChannelNamesChange}

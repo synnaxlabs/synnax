@@ -15,11 +15,13 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -145,6 +147,56 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, eErr
 	}
 	return res, err
+}
+
+type (
+	// ExportRequest names the project to export.
+	ExportRequest struct {
+		// Key identifies the project to export.
+		Key project.Key `json:"key" msgpack:"key"`
+		// Encoding names the serialization member files are written in. "JSON" is the
+		// only supported value.
+		Encoding string `json:"encoding" msgpack:"encoding"`
+	}
+	// ExportResponse holds the bundle's contents keyed by path from the bundle root.
+	// The HTTP transport encodes it as a zip archive.
+	ExportResponse = zip.Files
+)
+
+// Export exports the project and its ontology descendants as a bundle. It requires
+// retrieve access on the project, which it enforces before it reads a member, and on
+// every document, panel, and group the bundle carries.
+func (s *Service) Export(
+	ctx context.Context,
+	req ExportRequest,
+) (ExportResponse, error) {
+	encoder, err := imex.ResolveEncoding(req.Encoding)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		enforcer = s.access.NewEnforcer(nil)
+		subject  = auth.GetSubject(ctx)
+	)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionRetrieve,
+		Objects: []ontology.ID{project.OntologyID(req.Key)},
+	}); err != nil {
+		return nil, err
+	}
+	files, members, err := s.internal.Export(ctx, req.Key, encoder)
+	if err != nil {
+		return nil, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionRetrieve,
+		Objects: members,
+	}); err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 type DeleteRequest struct {

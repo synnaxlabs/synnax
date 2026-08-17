@@ -22,7 +22,7 @@ class LinearVelocity(Counter):
         min_val (float): Minimum value
         max_val (float): Maximum value
         units (str): "m/s" or "in/s"
-        decoding_type (str): "X1", "X2", "X4", or "Two Pulse"
+        decoding_type (str): "X1", "X2", "X4", or "Two pulse"
         dist_per_pulse (float): Distance per pulse
         terminal_a (str): Input Terminal A
         terminal_b (str): Input Terminal B
@@ -34,7 +34,7 @@ class LinearVelocity(Counter):
         name: str,
         device: str,
         units: Literal["m/s", "in/s"] | None = None,
-        decoding_type: Literal["X1", "X2", "X4", "Two Pulse"] | None = None,
+        decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         dist_per_pulse: float | None = None,
         terminal_a: str | None = None,
         terminal_b: str | None = None,
@@ -45,12 +45,12 @@ class LinearVelocity(Counter):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Velocity Linear",
+            chan_type="Velocity linear",
             **kwargs,
         )
 
-        self._configure_dropdown("Scaled Units", units)
+        self._configure_dropdown("Scaled units", units)
         self._configure_input("Distance / Pulse", dist_per_pulse)
-        self._configure_dropdown("Decoding Type", decoding_type)
-        self._configure_dropdown("Input Terminal A", terminal_a)
-        self._configure_dropdown("Input Terminal B", terminal_b)
+        self._configure_dropdown("Decoding type", decoding_type)
+        self._configure_dropdown("Input terminal A", terminal_a)
+        self._configure_dropdown("Input terminal B", terminal_b)

@@ -27,7 +27,9 @@ Color struct {
         @doc value "is the alpha component (0-1)."
     }
 
-    @doc value  "is an RGBA color with RGB as 0-255 and alpha as 0-1."
+    @cpp hand
+    @cpp include "x/cpp/color/color.h"
+    @doc value   "is an RGBA color with RGB as 0-255 and alpha as 0-1."
     @go marshal
     @py hand
     @ts hand

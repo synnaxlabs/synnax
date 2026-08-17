@@ -51,7 +51,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Conrad",
 							Key:      2,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						Instrumentation: PanicLogger(),
@@ -179,11 +179,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Key:      index,
 							Name:     "Cayley",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						FileSize: telem.Size(
-							10*telem.TimeStampT.Density(),
+							10*telem.TimestampT.Density(),
 						) * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
@@ -820,7 +820,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Frederick",
 							Key:      2,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						Instrumentation: PanicLogger(),
@@ -940,7 +940,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Key:      key,
 							Name:     "gauss",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						Instrumentation: PanicLogger(),

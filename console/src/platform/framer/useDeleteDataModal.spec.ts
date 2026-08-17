@@ -31,7 +31,7 @@ const SAMPLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const openModal = async (c: Synnax | null = null): Promise<ModalOpenerHandle<void>> => {
   const handle = await renderModalOpener(Framer.useDeleteDataModal, [], { client: c });
-  await screen.findByText("Delete Data");
+  await screen.findByText("Delete data");
   return handle;
 };
 
@@ -121,7 +121,7 @@ describe("DeleteModal", () => {
       await act(async () => {
         fireEvent.click(findButton("Back"));
       });
-      await screen.findByText("Delete Data");
+      await screen.findByText("Delete data");
       expect(screen.getByText(data.name)).toBeTruthy();
       expect(findButton("Next").className).not.toContain("pluto--disabled");
 

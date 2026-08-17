@@ -17,7 +17,7 @@ export const useCopy = (): ((text: string, name: string) => void) => {
     (text: string, name: string) => {
       handleError(async () => {
         await navigator.clipboard.writeText(text);
-        addStatus({ variant: "success", message: `Copied ${name} to clipboard.` });
+        addStatus({ variant: "success", message: `Copied ${name} to clipboard` });
       }, `Failed to copy ${name} to clipboard`);
     },
     [addStatus, handleError],

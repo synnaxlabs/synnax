@@ -16,9 +16,9 @@ describe("breaker", () => {
   it("should allow first attempt without sleeping", async () => {
     const mockSleep = vi.fn();
     const brk = new breaker.Breaker({ sleepFn: mockSleep });
-    const canRetry = await brk.wait();
+    const waited = await brk.wait();
 
-    expect(canRetry).toBe(true);
+    expect(waited).toBe(true);
     expect(mockSleep).toHaveBeenCalled();
   });
 
@@ -119,5 +119,35 @@ describe("breaker", () => {
     });
 
     for (let i = 0; i < 50; i++) expect(await brk.wait()).toBe(true);
+  });
+
+  describe("canRetry", () => {
+    it("should be false when the breaker is configured for no retries", () => {
+      expect(new breaker.Breaker({ maxRetries: 0 }).canRetry).toBe(false);
+    });
+
+    it("should turn false once the waits are exhausted", async () => {
+      const brk = new breaker.Breaker({ maxRetries: 2, sleepFn: vi.fn() });
+      expect(brk.canRetry).toBe(true);
+      expect(await brk.wait()).toBe(true);
+      expect(brk.canRetry).toBe(true);
+      expect(await brk.wait()).toBe(true);
+      expect(brk.canRetry).toBe(false);
+      expect(await brk.wait()).toBe(false);
+    });
+
+    it("should stay true for unbounded retries", async () => {
+      const brk = new breaker.Breaker({ maxRetries: Infinity, sleepFn: vi.fn() });
+      for (let i = 0; i < 50; i++) await brk.wait();
+      expect(brk.canRetry).toBe(true);
+    });
+
+    it("should be restored by reset", async () => {
+      const brk = new breaker.Breaker({ maxRetries: 1, sleepFn: vi.fn() });
+      await brk.wait();
+      expect(brk.canRetry).toBe(false);
+      brk.reset();
+      expect(brk.canRetry).toBe(true);
+    });
   });
 });

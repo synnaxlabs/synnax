@@ -11,6 +11,7 @@ import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { Errors, Synnax } from "@synnaxlabs/pluto";
 import { type ComponentType, type ReactElement, useCallback } from "react";
 
+import { Disconnected, isConnectionError } from "@/platform/errors/Disconnected";
 import { Session } from "@/session";
 
 export interface ErrorDiagnosticsProps extends Errors.FallbackProps {
@@ -29,7 +30,8 @@ const panelLine = (client: Client | null, panelKey?: string): string | null => {
 };
 
 // Annotates any caught error with the connected Core and, for a crashed panel, its name
-// and key, so a crash screenshot is triageable.
+// and key, so a crash screenshot is triageable. An unreachable Core is not a crash, so
+// it gets the connection surface instead.
 export const ErrorDiagnostics = ({
   panelKey,
   error,
@@ -39,6 +41,7 @@ export const ErrorDiagnostics = ({
   const core =
     cluster != null ? `${cluster.name} (${cluster.host}:${cluster.port})` : "none";
   const client = Synnax.use();
+  if (isConnectionError(error)) return <Disconnected />;
   const message = [error.message, `Core: ${core}`, panelLine(client, panelKey)]
     .filter((line): line is string => line != null)
     .join("\n");

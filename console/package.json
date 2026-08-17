@@ -22,7 +22,6 @@
   "dependencies": {
     "@fontsource/inter": "catalog:",
     "@reduxjs/toolkit": "catalog:",
-    "@synnaxlabs/arc": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/drift": "workspace:^",
     "@synnaxlabs/freighter": "workspace:^",

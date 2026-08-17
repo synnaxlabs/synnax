@@ -226,9 +226,9 @@ TEST(CodecTests, OnlyOneChannelPresent) {
 /// @brief it should correctly round-trip a BoolT series of one sample.
 TEST(CodecTests, BoolSingleSample) {
     const std::vector<channel::Key> channels = {1};
-    const std::vector data_types = {x::telem::BOOL_T};
+    const std::vector data_types = {x::telem::BOOLEAN_T};
     uint8_t one = 1;
-    auto frame = x::telem::Frame(1, x::telem::Series(&one, 1, x::telem::BOOL_T));
+    auto frame = x::telem::Frame(1, x::telem::Series(&one, 1, x::telem::BOOLEAN_T));
     std::vector<uint8_t> encoded;
     Codec codec(channels, data_types);
     ASSERT_NIL(codec.encode(frame, encoded));
@@ -239,11 +239,11 @@ TEST(CodecTests, BoolSingleSample) {
 /// @brief it should correctly round-trip a BoolT series at an exact byte boundary.
 TEST(CodecTests, BoolExactByteBoundary) {
     const std::vector<channel::Key> channels = {1};
-    const std::vector data_types = {x::telem::BOOL_T};
+    const std::vector data_types = {x::telem::BOOLEAN_T};
     const std::vector<uint8_t> samples = {1, 0, 1, 0, 1, 0, 1, 0};
     auto frame = x::telem::Frame(
         1,
-        x::telem::Series(samples.data(), samples.size(), x::telem::BOOL_T)
+        x::telem::Series(samples.data(), samples.size(), x::telem::BOOLEAN_T)
     );
     std::vector<uint8_t> encoded;
     Codec codec(channels, data_types);
@@ -256,11 +256,11 @@ TEST(CodecTests, BoolExactByteBoundary) {
 /// boundary, exercising partial-last-byte handling.
 TEST(CodecTests, BoolOnePastByteBoundary) {
     const std::vector<channel::Key> channels = {1};
-    const std::vector data_types = {x::telem::BOOL_T};
+    const std::vector data_types = {x::telem::BOOLEAN_T};
     const std::vector<uint8_t> samples = {1, 0, 1, 0, 1, 0, 1, 0, 1};
     auto frame = x::telem::Frame(
         1,
-        x::telem::Series(samples.data(), samples.size(), x::telem::BOOL_T)
+        x::telem::Series(samples.data(), samples.size(), x::telem::BOOLEAN_T)
     );
     std::vector<uint8_t> encoded;
     Codec codec(channels, data_types);
@@ -273,7 +273,7 @@ TEST(CodecTests, BoolOnePastByteBoundary) {
 TEST(CodecTests, BoolMixedWithOtherTypes) {
     const std::vector<channel::Key> channels = {1, 2, 3};
     const std::vector data_types = {
-        x::telem::BOOL_T,
+        x::telem::BOOLEAN_T,
         x::telem::FLOAT32_T,
         x::telem::UINT8_T
     };
@@ -282,7 +282,7 @@ TEST(CodecTests, BoolMixedWithOtherTypes) {
     frame.reserve(3);
     frame.emplace(
         1,
-        x::telem::Series(bool_samples.data(), bool_samples.size(), x::telem::BOOL_T)
+        x::telem::Series(bool_samples.data(), bool_samples.size(), x::telem::BOOLEAN_T)
     );
     frame.emplace(2, x::telem::Series(std::vector<float>{1.5f, 2.5f, 3.5f}));
     frame.emplace(3, x::telem::Series(std::vector<uint8_t>{7, 8, 9}));
@@ -483,7 +483,7 @@ TEST(CodecTests, EncodeMismatchedDataType) {
 }
 
 /// @brief it should accept an int64 series for a timestamp channel, mirroring the
-/// Int64T <-> TimeStampT equivalence applied by the server-side writer validator
+/// Int64T <-> TimestampT equivalence applied by the server-side writer validator
 /// and frame codec.
 TEST(CodecTests, EncodeInt64SeriesForTimestampChannel) {
     const std::vector data_types = {x::telem::TIMESTAMP_T};
@@ -502,7 +502,7 @@ TEST(CodecTests, EncodeInt64SeriesForTimestampChannel) {
 }
 
 /// @brief it should accept a timestamp series for an int64 channel, mirroring the
-/// Int64T <-> TimeStampT equivalence applied by the server-side writer validator
+/// Int64T <-> TimestampT equivalence applied by the server-side writer validator
 /// and frame codec.
 TEST(CodecTests, EncodeTimestampSeriesForInt64Channel) {
     const std::vector data_types = {x::telem::INT64_T};

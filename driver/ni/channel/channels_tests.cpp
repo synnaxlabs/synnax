@@ -373,7 +373,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
         {"resistance_config", "2Wire"},
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0},
-        {"rtd_type", "Pt3750"},
+        {"rtd_type", "Pt3851"},
         {"r0", 0},
         {"units", "DegC"},
         {"device", "cdaq1Mod2"}
@@ -393,7 +393,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
     EXPECT_EQ(call["args"]["resistanceConfig"], DAQmx_Val_2Wire);
     EXPECT_EQ(call["args"]["minVal"], 0);
     EXPECT_EQ(call["args"]["maxVal"], 1);
-    EXPECT_EQ(call["args"]["rtdType"], DAQmx_Val_Pt3750);
+    EXPECT_EQ(call["args"]["rtdType"], DAQmx_Val_Pt3851);
     EXPECT_EQ(call["args"]["r0"], 0);
 }
 

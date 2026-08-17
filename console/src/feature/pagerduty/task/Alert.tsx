@@ -129,7 +129,7 @@ interface EmptyActionContentProps {
 }
 
 const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => (
-  <Empty.Action message="No alerts." action="Add an alert" onClick={onAdd} />
+  <Empty.Action message="No alerts" action="Add alert" onClick={onAdd} />
 );
 
 const AlertListItem = (props: List.ItemProps<string>) => {
@@ -284,7 +284,7 @@ const Form: FC = () => {
         {selected.length > 0 ? (
           <AlertDetails itemKey={selected[0]} />
         ) : (
-          <Empty.Action message="No alert selected." grow />
+          <Empty.Action message="No alert selected" grow />
         )}
       </Flex.Box>
     </Flex.Box>
@@ -294,7 +294,7 @@ const Form: FC = () => {
 const getInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {
   const parsed = ALERT_SCHEMAS.config.safeParse(config ?? {});
   return {
-    name: "PagerDuty Alert Task",
+    name: "PagerDuty alert task",
     type: ALERT_TYPE,
     config: parsed.success ? parsed.data : ALERT_SCHEMAS.config.parse({}),
   };
@@ -321,7 +321,7 @@ export const useCreateAlert = Task.createUseCreate({
 
 export const AlertSelectable = Selector.createSelectable({
   type: ALERT_TYPE,
-  title: "PagerDuty Alert",
+  title: "PagerDuty alert task",
   icon: <Icon.Logo.PagerDuty />,
   useOnSelect: useCreateAlert,
 });

@@ -51,8 +51,8 @@ const EmptyContent = () => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No existing tasks."
-      action={hasCreatePermission ? "Create a task" : undefined}
+      message="No tasks"
+      action={hasCreatePermission ? "Create task" : undefined}
       onClick={() => openSelector()}
     />
   );
@@ -360,7 +360,7 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = Export.use();
+  const handleExport = Export.useResource();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -368,7 +368,7 @@ const ContextMenu = ({
         return addStatus({
           variant: "error",
           message: "Failed to copy link",
-          description: `Task with key ${key} not found`,
+          description: "The task no longer exists.",
         });
       copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
     },

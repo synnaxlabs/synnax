@@ -29,7 +29,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "Custom Scaling",
+    label: "Custom scaling",
     onChange: (value, { get, set, path }) => {
       const prevType = get<ScaleType>(path).value;
       if (prevType === value) return;
@@ -107,8 +107,8 @@ export interface CustomScaleFormProps {
 
 const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
   <Flex.Box x>
-    <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} grow />
-    <Form.TextField fieldKey="scaledUnits" label="Scaled Units" path={prefix} grow />
+    <UnitsField fieldKey="preScaledUnits" label="Prescaled units" path={prefix} grow />
+    <Form.TextField fieldKey="scaledUnits" label="Scaled units" path={prefix} grow />
   </Flex.Box>
 );
 
@@ -133,19 +133,19 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       <Flex.Box x>
         <Form.NumericField
           fieldKey="preScaledMin"
-          label="Pre-Scaled Min"
+          label="Pre-scaled min"
           path={prefix}
           grow
         />
         <Form.NumericField
           fieldKey="preScaledMax"
-          label="Pre-Scaled Max"
+          label="Pre-scaled max"
           path={prefix}
         />
       </Flex.Box>
       <Flex.Box x>
-        <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
-        <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
+        <Form.NumericField fieldKey="scaledMin" label="Scaled min" path={prefix} grow />
+        <Form.NumericField fieldKey="scaledMax" label="Scaled max" path={prefix} />
       </Flex.Box>
     </>
   ),
@@ -154,11 +154,11 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       <CustomScaleUnitsFields prefix={prefix} />
       <CoefficientsField
         path={`${prefix}.forwardCoeffs`}
-        label="Forward Coefficients"
+        label="Forward coefficients"
       />
       <CoefficientsField
         path={`${prefix}.reverseCoeffs`}
-        label="Reverse Coefficients"
+        label="Reverse coefficients"
       />
     </>
   ),
@@ -233,7 +233,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           />
         </Input.Item>
         <Flex.Box x>
-          <Input.Item label="Raw Column" padHelpText grow>
+          <Input.Item label="Raw column" padHelpText grow>
             <Select.Static
               resourceName="raw column"
               value={rawCol}
@@ -241,7 +241,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
               data={colOptions}
             />
           </Input.Item>
-          <Input.Item label="Scaled Column" padHelpText grow>
+          <Input.Item label="Scaled column" padHelpText grow>
             <Select.Static
               resourceName="scaled column"
               value={scaledCol}

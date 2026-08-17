@@ -12,6 +12,7 @@ import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { canParseFile } from "@/platform/import/canParseFile";
 import { ingestServer } from "@/platform/import/import";
 import { ingestBatch } from "@/platform/import/ingestBatch";
 import { type DirectoryIngester } from "@/platform/import/ingester";
@@ -36,15 +37,28 @@ const isDirectory = (entry: FileSystemEntry): entry is FileSystemDirectoryEntry 
 const readFile = async (entry: FileSystemFileEntry): Promise<File> =>
   await new Promise((resolve, reject) => entry.file(resolve, reject));
 
-const readDirectory = async (entry: FileSystemDirectoryEntry): Promise<File[]> => {
+interface DirectoryFile {
+  file: File;
+  /** The file's path relative to the dropped directory, forward-slash form. */
+  path: string;
+}
+
+const readDirectory = async (
+  entry: FileSystemDirectoryEntry,
+  prefix: string = "",
+): Promise<DirectoryFile[]> => {
   const reader = entry.createReader();
-  const files: File[] = [];
+  const files: DirectoryFile[] = [];
   while (true) {
     const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
       reader.readEntries(resolve, reject);
     });
     if (entries.length === 0) break;
-    for (const child of entries) if (isFile(child)) files.push(await readFile(child));
+    for (const child of entries) {
+      const path = prefix === "" ? child.name : `${prefix}/${child.name}`;
+      if (isDirectory(child)) files.push(...(await readDirectory(child, path)));
+      else if (isFile(child)) files.push({ file: await readFile(child), path });
+    }
   }
   return files;
 };
@@ -67,7 +81,13 @@ const ingestEntry = async (
   if (isDirectory(entry)) {
     const files = await readDirectory(entry);
     const parsed = await Promise.all(
-      files.map(async (file) => ({ name: file.name, data: await readJSON(file) })),
+      files
+        .filter(({ path }) => canParseFile(path))
+        .map(async ({ file, path }) => ({
+          name: file.name,
+          path,
+          data: await readJSON(file),
+        })),
     );
     return await ingestDirectory(entry.name, parsed, { client, store });
   }

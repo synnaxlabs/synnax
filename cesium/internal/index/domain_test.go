@@ -303,7 +303,7 @@ var _ = Describe("Domain", func() {
 						db2 = MustSucceed(domain.Open(domain.Config{
 							FS:              fs,
 							Instrumentation: PanicLogger(),
-							FileSize:        telem.TimeStampT.Density().Size(3),
+							FileSize:        telem.TimestampT.Density().Size(3),
 						}))
 
 						w := MustSucceed(

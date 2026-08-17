@@ -33,20 +33,20 @@ class OpenClose(ConsoleCase):
 
         PROJECT_PAGES: list[tuple[PageType, str]] = [
             ("Schematic", f"Sch_{suffix}"),
-            ("Line Plot", f"LinePlt_{suffix}"),
+            ("Line plot", f"LinePlt_{suffix}"),
             ("Log", f"LogPg_{suffix}"),
             ("Table", f"TablePg_{suffix}"),
         ]
 
         TASK_PAGES: list[tuple[PageType, str]] = [
-            ("NI Analog Read Task", f"NIAR_{suffix}"),
-            ("NI Analog Write Task", f"NIAW_{suffix}"),
-            ("NI Digital Read Task", f"NIDR_{suffix}"),
-            ("NI Digital Write Task", f"NIDW_{suffix}"),
-            ("LabJack Read Task", f"LJRead_{suffix}"),
-            ("LabJack Write Task", f"LJWrite_{suffix}"),
-            ("OPC UA Read Task", f"OPCRead_{suffix}"),
-            ("OPC UA Write Task", f"OPCWrite_{suffix}"),
+            ("NI analog read task", f"NIAR_{suffix}"),
+            ("NI analog write task", f"NIAW_{suffix}"),
+            ("NI digital read task", f"NIDR_{suffix}"),
+            ("NI digital write task", f"NIDW_{suffix}"),
+            ("LabJack read task", f"LJRead_{suffix}"),
+            ("LabJack write task", f"LJWrite_{suffix}"),
+            ("OPC UA read task", f"OPCRead_{suffix}"),
+            ("OPC UA write task", f"OPCWrite_{suffix}"),
         ]
 
         self.log("(1/2) Create pages by cmd palette")
@@ -54,7 +54,7 @@ class OpenClose(ConsoleCase):
 
         for page_type, page_name in all_pages:
             console.project.create_page_by_command_palette(page_type, page_name)
-            if page_type in ("Schematic", "Line Plot", "Log", "Table"):
+            if page_type in ("Schematic", "Line plot", "Log", "Table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
             console.project.close_page(page_name)
@@ -62,7 +62,7 @@ class OpenClose(ConsoleCase):
         self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in all_pages:
             console.project.create_page_by_new_page_button(page_type, page_name)
-            if page_type in ("Schematic", "Line Plot", "Log", "Table"):
+            if page_type in ("Schematic", "Line plot", "Log", "Table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
             console.project.close_page(page_name)

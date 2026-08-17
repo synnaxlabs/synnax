@@ -27,12 +27,12 @@ import { Vacuum } from "@/schematic/node/pumps/Vacuum";
 const cavity = createToggle({
   variant: "cavityPump",
   name: "Cavity",
-  label: "Cavity Pump",
+  label: "Cavity pump",
   Primitive: Cavity,
 });
 const centrifugal = createToggle({
   variant: "centrifugalCompressor",
-  name: "Centrifugal Compressor",
+  name: "Centrifugal compressor",
   Primitive: Centrifugal,
 });
 const compressor = createToggle({
@@ -42,52 +42,52 @@ const compressor = createToggle({
 });
 const diaphragm = createToggle({
   variant: "diaphragmPump",
-  name: "Diaphragm Pump",
+  name: "Diaphragm pump",
   Primitive: Diaphragm,
 });
 const ejection = createToggle({
   variant: "ejectionPump",
   name: "Ejection",
-  label: "Ejection Pump",
+  label: "Ejection pump",
   Primitive: Ejection,
 });
 const ejector = createToggle({
   variant: "ejectorCompressor",
-  name: "Ejector Compressor",
+  name: "Ejector compressor",
   Primitive: Ejector,
 });
 const liquidRing = createToggle({
   variant: "liquidRingCompressor",
-  name: "Liquid Ring Compressor",
+  name: "Liquid ring compressor",
   Primitive: LiquidRing,
 });
 const piston = createToggle({
   variant: "pistonPump",
   name: "Piston",
-  label: "Piston Pump",
+  label: "Piston pump",
   Primitive: Piston,
 });
 const pump = createToggle({ variant: "pump", name: "Pump", Primitive: Pump });
 const rollerVane = createToggle({
   variant: "rollerVaneCompressor",
-  name: "Roller Vane Compressor",
+  name: "Roller vane compressor",
   Primitive: RollerVane,
 });
 const screw = createToggle({
   variant: "screwPump",
   name: "Screw",
-  label: "Screw Pump",
+  label: "Screw pump",
   Primitive: Screw,
 });
 const turbo = createToggle({
   variant: "turboCompressor",
-  name: "Turbo Compressor",
+  name: "Turbo compressor",
   Primitive: Turbo,
 });
 const vacuum = createToggle({
   variant: "vacuumPump",
   name: "Vacuum",
-  label: "Vacuum Pump",
+  label: "Vacuum pump",
   Primitive: Vacuum,
 });
 

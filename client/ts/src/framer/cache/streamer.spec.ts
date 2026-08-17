@@ -635,13 +635,14 @@ describe("MultiplexedStreamer", () => {
       await vi.advanceTimersByTimeAsync(300);
 
       expect(cache.get(1).leadingBuffer).toBeNull();
-      // The flushed samples stay readable, with a true gap after their end.
+      // The flushed samples stay readable but claim no coverage, so the whole
+      // range remains a gap to fetch.
       const { series, gaps } = cache
         .get(1)
         .read(TimeStamp.seconds(10).range(TimeStamp.seconds(20)));
       expect(Array.from(series)).toEqual([1, 2, 3]);
       expect(gaps).toHaveLength(1);
-      expect(gaps[0].equals(TimeStamp.seconds(13).range(TimeStamp.seconds(20)))).toBe(
+      expect(gaps[0].equals(TimeStamp.seconds(10).range(TimeStamp.seconds(20)))).toBe(
         true,
       );
       await streamer.close();

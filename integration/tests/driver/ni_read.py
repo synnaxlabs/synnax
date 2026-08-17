@@ -281,7 +281,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
     E101Mod8 (NI 9219) — RTD:
         Port 0: Pt3920, 3-wire, DegR
         Port 1: Pt3928, 3-wire, DegC
-        Port 2: Pt3850, 4-wire, DegF
+        Port 2: Pt3851, 4-wire, DegF
     """
 
     task_name = "NI Temperature + Resistance Read"
@@ -609,12 +609,12 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 port=2,
                 channel=create_channel(
                     client,
-                    name="ni_rtd_pt3850_4w",
+                    name="ni_rtd_pt3851_4w",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
                 units="DegF",
-                rtd_type="Pt3850",
+                rtd_type="Pt3851",
                 resistance_config="4Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.001,

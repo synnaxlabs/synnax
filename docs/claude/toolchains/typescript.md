@@ -166,6 +166,65 @@ errors here are invisible at runtime.
 `dist/src/index.d.ts`). Standard scripts: `build` = `tsc --noEmit && vite build`, plus
 `check-types`, `test`, `lint`, `fix`, `madge`.
 
+## Bundling and publishing
+
+Every dependency is either **external** (the import survives in `dist/`, and the
+consumer's installer supplies the code) or **bundled** (the code is copied into
+`dist/`). The choice belongs in the package's `vite.config.ts`
+`rolldownOptions.external` array.
+
+> **Externalize what appears in your public API surface, or what must exist exactly
+> once. Bundle everything else.**
+
+A bundled package is duplicated per consumer and frozen at build time. The decisive cost
+is identity: two copies of a class are two different classes, so `instanceof` returns
+false across them. `Series`, `TimeStamp`, and the React element type all depend on
+identity.
+
+### The four tiers
+
+| Tier                 | Packages                                                    | Decision        |
+| -------------------- | ----------------------------------------------------------- | --------------- |
+| 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,media,drift,pluto}` | Always external |
+| 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`     | External, peer  |
+| 3. Shared vocabulary | `zod`                                                       | External        |
+| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`        | Bundle          |
+
+Tiers 1 to 3 cross a package boundary: a `Series` from the Client must satisfy
+`instanceof Series` in Pluto, and a Zod schema from the Client must compose with a
+consumer's schemas. Tier 4 never leaves the package that bundles it. `@synnaxlabs/arc`
+is tier 4 because Pluto uses only its grammar constants, never its types.
+
+Tier 2 holds anything that keeps hidden module state the app and the library must share.
+React owns the hook dispatcher; `react-redux` owns the store context that Drift's
+`Provider` writes and its `useSelector` reads. A second copy gives the library its own
+empty context, so a peer range that fails loudly at install beats a duplicate that fails
+at runtime.
+
+### Declaring the result
+
+| Situation                                                 | Field              |
+| --------------------------------------------------------- | ------------------ |
+| External, and the app owns the version and needs one copy | `peerDependencies` |
+| External, and we own the version                          | `dependencies`     |
+| Bundled                                                   | `devDependencies`  |
+
+A `.d.ts` reference counts as public surface. When `dist/**/*.d.ts` names a package, a
+consumer's typecheck resolves it, so it must be external and declared, even when nothing
+imports it at runtime.
+
+Verify against the built output, not the source: read the bare imports in `dist/**/*.js`
+and the `from "..."` references in `dist/**/*.d.ts`, then compare with the manifest.
+Anything imported but not declared breaks the consumer's install. Anything declared but
+never imported is bundled machinery in the wrong field.
+
+### Source maps
+
+`configs/vite`'s `lib` plugin emits maps from every package. Production builds use
+`sourcemap: "hidden"` when the package sets `publishSourcemaps: false`, so the map lands
+on disk for the Console build to chain but no `sourceMappingURL` points a consumer at a
+file the tarball omits. Pluto is the only opt-out; its maps are 17MB gzipped.
+
 ## Gotchas
 
 - pnpm catalog: shared versions in `pnpm-workspace.yaml`; use `catalog:` prefix in

@@ -410,6 +410,17 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("ExporterRegistered", func() {
+		It("Should report whether an exporter is registered for a type", func() {
+			s := imex.NewService()
+			Expect(
+				s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog}),
+			).To(Succeed())
+			Expect(s.ExporterRegistered(ontology.ResourceTypeLog)).To(BeTrue())
+			Expect(s.ExporterRegistered(ontology.ResourceTypeRange)).To(BeFalse())
+		})
+	})
+
 	Describe("Duplicate registration", func() {
 		It("Should reject a second importer for a type", func() {
 			s := imex.NewService()

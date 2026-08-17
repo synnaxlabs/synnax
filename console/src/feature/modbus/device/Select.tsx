@@ -19,8 +19,8 @@ const EmptyContent = () => {
   const { close: closeDialog } = Dialog.useContext();
   return (
     <Empty.Action
-      message="No Modbus servers connected."
-      action="Connect a new server"
+      message="No Modbus servers connected"
+      action="Connect server"
       onClick={() => {
         connect();
         closeDialog();
@@ -35,7 +35,7 @@ export const Select = () => {
     <Device.Select
       onConfigure={(deviceKey) => connect({ deviceKey })}
       emptyContent={<EmptyContent />}
-      label="Modbus Server"
+      label="Modbus server"
       make={MAKE}
     />
   );

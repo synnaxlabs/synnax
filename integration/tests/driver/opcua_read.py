@@ -50,7 +50,7 @@ class OPCUAReadBool(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={13 + i}",
-                data_type="bool",
+                data_type="boolean",
             )
             for i in range(2)
         ]
@@ -141,7 +141,7 @@ class OPCUAReadMixed(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={13 + i}",
-                data_type="bool",
+                data_type="boolean",
             )
             for i in range(2)
         ]

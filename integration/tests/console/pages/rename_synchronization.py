@@ -19,7 +19,7 @@ class RenameSynchronization(ConsoleCase):
     """
 
     def run(self) -> None:
-        page_types: list[PageType] = ["Schematic", "Line Plot", "Log", "Table"]
+        page_types: list[PageType] = ["Schematic", "Line plot", "Log", "Table"]
         for page_type in page_types:
             self.test_tree_to_tab(page_type)
             self.test_tab_to_tree(page_type)

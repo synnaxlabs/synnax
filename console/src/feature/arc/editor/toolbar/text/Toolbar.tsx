@@ -36,7 +36,7 @@ export const Toolbar = (): ReactElement => {
         </Flex.Box>
       </Base.Header>
       <Flex.Box center>
-        <Text.Text status="disabled">No Content</Text.Text>
+        <Text.Text status="disabled">No content</Text.Text>
       </Flex.Box>
     </>
   );

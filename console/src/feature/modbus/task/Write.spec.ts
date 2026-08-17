@@ -25,7 +25,7 @@ const client = createTestClient();
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<Modbus.Task.WriteSchemas> = {
-  name: "Modbus Write Task",
+  name: "Modbus write task",
   type: Modbus.Task.WRITE_TYPE,
   config: Modbus.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -54,8 +54,8 @@ describe("Modbus.Write", () => {
     await waitFor(() => expect(screen.getAllByText("Coil")).toHaveLength(2));
 
     fireEvent.click(screen.getAllByText("Coil")[1]);
-    fireEvent.click(await screen.findByText("Holding Register"));
-    await screen.findByText("Holding Register");
+    fireEvent.click(await screen.findByText("Holding register"));
+    await screen.findByText("Holding register");
 
     const created = await deployAndAwaitTask(
       client,

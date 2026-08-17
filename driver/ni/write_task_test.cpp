@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <atomic>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -127,21 +129,107 @@ protected:
         mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
+    std::shared_ptr<hardware::mock::Writer<double>> mock_hw;
+    std::size_t make_hw_calls = 0;
+
     std::unique_ptr<common::WriteTask>
-    create_task(std::unique_ptr<hardware::mock::Writer<double>> mock_hw) {
+    create_task(std::unique_ptr<hardware::mock::Writer<double>> hw) {
+        this->mock_hw = std::move(hw);
+        WriteTaskSink<double>::MakeHardware make_hw = [this](const WriteTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Writer<double>>, x::errors::Error> {
+            ++this->make_hw_calls;
+            return {
+                std::make_unique<hardware::mock::SharedWriter<double>>(this->mock_hw),
+                x::errors::NIL
+            };
+        };
         return std::make_unique<common::WriteTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
             std::make_unique<WriteTaskSink<double>>(
                 std::move(*cfg),
-                std::move(mock_hw)
+                std::move(make_hw)
             ),
             mock_writer_factory,
             mock_streamer_factory
         );
     }
 };
+
+/// @brief every start should claim fresh hardware and every stop should release
+/// it, so a device that disconnects and returns between runs gets a new DAQmx
+/// task on the next start.
+TEST_F(SingleChannelAnalogWriteTest, testStartClaimsFreshHardware) {
+    parse_config();
+    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        {cmd_ch_2.key},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>());
+
+    wt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(make_hw_calls, 1);
+    // The fixture and the running sink both hold the mock.
+    EXPECT_EQ(mock_hw.use_count(), 2);
+
+    wt->stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    // The stop released the sink's claim on the hardware.
+    EXPECT_EQ(mock_hw.use_count(), 1);
+
+    wt->start("start_cmd_2");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
+    EXPECT_EQ(make_hw_calls, 2);
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    wt->stop("stop_cmd_2", true);
+}
+
+/// @brief a writer that counts the instances currently alive.
+template<typename T>
+class CountingWriter final : public hardware::Writer<T> {
+    std::shared_ptr<std::atomic<int>> live;
+
+public:
+    explicit CountingWriter(std::shared_ptr<std::atomic<int>> live):
+        live(std::move(live)) {
+        this->live->fetch_add(1);
+    }
+
+    ~CountingWriter() { this->live->fetch_sub(1); }
+
+    x::errors::Error start() override { return x::errors::NIL; }
+    x::errors::Error stop() override { return x::errors::NIL; }
+    x::errors::Error write(const std::vector<T> &) override { return x::errors::NIL; }
+};
+
+/// @brief a start must never build hardware over a live claim: DAQmx names each task
+/// after the Synnax task and rejects a duplicate name.
+TEST_F(SingleChannelAnalogWriteTest, testStartNeverBuildsOverALiveClaim) {
+    parse_config();
+    const auto live = std::make_shared<std::atomic<int>>(0);
+    size_t builds = 0;
+    int live_at_build = 0;
+    const std::unique_ptr<common::Sink> sink = std::make_unique<WriteTaskSink<double>>(
+        std::move(*cfg),
+        [&](const WriteTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Writer<double>>, x::errors::Error> {
+            ++builds;
+            live_at_build = std::max(live_at_build, live->load());
+            return {std::make_unique<CountingWriter<double>>(live), x::errors::NIL};
+        }
+    );
+
+    ASSERT_NIL(sink->start());
+    EXPECT_EQ(live->load(), 1);
+    ASSERT_NIL(sink->start());
+    EXPECT_EQ(builds, 2);
+    EXPECT_EQ(live_at_build, 0);
+    EXPECT_EQ(live->load(), 1);
+    ASSERT_NIL(sink->stop());
+    EXPECT_EQ(live->load(), 0);
+}
 
 /// @brief it should write analog values and update state channels correctly.
 TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
