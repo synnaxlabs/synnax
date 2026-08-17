@@ -7,10 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createTestClient,
-  createTestClientWithRole,
-} from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +21,7 @@ import {
 import { findIconButton, queryIconButton } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const CONFIG = { channels: [] };
 // The server assigns config hashes; overrides.configHash is what the driver reports
@@ -142,9 +140,9 @@ describe("Controls.Controls", () => {
     await waitFor(() => expect(screen.queryByText("Copy diagnostics")).toBeNull());
   });
 
-  describe("without permission to command the task", () => {
-    it("should show the status without any action", async () => {
-      const viewer = await createTestClientWithRole(client, "Viewer");
+  describe("permission to command the task", () => {
+    it("should show a viewer the status without any action", async () => {
+      const viewer = await roles.get("Viewer");
       const { container } = await renderInTaskFormWithClient(
         <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
         { client: viewer, values: runningValues({ configHash: "stale" }) },
@@ -153,6 +151,18 @@ describe("Controls.Controls", () => {
       expect(queryIconButton(container, "stop")).toBeNull();
       expect(queryIconButton(container, "play")).toBeNull();
       expect(screen.queryByText("Redeploy")).toBeNull();
+    });
+
+    // An Operator holds every framer action but only retrieve on the task, so this
+    // fails the moment the gate is read on the task instead of the framer.
+    it("should offer an operator the full action row", async () => {
+      const operator = await roles.get("Operator");
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client: operator, values: runningValues({ configHash: "stale" }) },
+      );
+      await findIconButton(container, "stop");
+      await waitFor(() => expect(isRedeployHidden()).toBe(false));
     });
   });
 });
