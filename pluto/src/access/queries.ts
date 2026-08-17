@@ -132,7 +132,6 @@ export type LoadPermissionsQuery = {
  * the settled failure throws again on the next render.
  */
 export const {
-  useResult: useLoadPermissions,
   useEnsure: useEnsurePermissions,
   useInvalidate: useInvalidatePermissions,
 } = Flux.createRetrieve<LoadPermissionsQuery, access.policy.Policy[]>({

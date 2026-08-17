@@ -230,12 +230,7 @@ const CreateButton = (): ReactElement | null => {
   const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
   const handleCreate = useCreate();
   const moveToNewPanel = useMoveTabToNewPanel();
-  const { className, ...dropProps } = useTabDrop(
-    undefined,
-    moveToNewPanel,
-    undefined,
-    canCreate,
-  );
+  const { className, ...dropProps } = useTabDrop(undefined, moveToNewPanel);
   if (!canCreate) return null;
   return (
     <Button.Button

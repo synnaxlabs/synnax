@@ -9,12 +9,13 @@
 
 import "@/feature/arc/editor/TaskControls.css";
 
-import { framer, type rack } from "@synnaxlabs/client";
-import { Access, Arc, Rack } from "@synnaxlabs/pluto";
+import { type rack } from "@synnaxlabs/client";
+import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/platform/css";
+import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
@@ -27,8 +28,7 @@ export const TaskControls = () => {
     name,
   );
   const drifted = Arc.useDrifted({ arcKey: key });
-  // Start and stop write a command through the framer, never the arc itself.
-  const canControl = Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
+  const canControl = Framer.useCanCommand();
   const { update: setRack } = Arc.useSetRack();
 
   const handleRackChange = useCallback(
@@ -42,7 +42,7 @@ export const TaskControls = () => {
       status={taskStatus}
       running={running}
       drifted={drifted}
-      readOnly={!canControl}
+      hideActions={!canControl}
       disabled={!primitive.isNonZero(taskRack)}
       onDeploy={onStart}
       onStop={onStop}

@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { framer, task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -37,6 +37,7 @@ import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
+import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
@@ -229,8 +230,7 @@ const TaskListItem = ({
   const { getIcon, parseType } = PlatformTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
-  // Start and stop write a command through the framer, never the task itself.
-  const canControl = Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
+  const canControl = Framer.useCanCommand();
   const details = task_?.status?.details;
   let variant = task_?.status?.variant;
   const icon = getIcon(task_?.type ?? "");
@@ -327,7 +327,7 @@ const ContextMenu = ({
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
-  const canControl = Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
+  const canControl = Framer.useCanCommand();
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,

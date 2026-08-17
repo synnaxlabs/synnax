@@ -111,7 +111,7 @@ export const createTestClientWithRole = async (
 
 /**
  * Caches one client per built-in role, so a spec covering many roles pays the user
- * creation cost once each. Construct one per spec file; the clients close with it.
+ * creation cost once each. Construct one per spec file.
  */
 export class RoleClients {
   private readonly client: Synnax;

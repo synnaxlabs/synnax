@@ -102,7 +102,7 @@ export const Leaf = ({
   const hasFileDrop = onFileDrop != null;
   const canDrop: Haul.CanDrop = useCallback(
     ({ items }) => {
-      if (disabled === true) return false;
+      if (disabled) return false;
       const hasFiles = Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
       if (hasFiles && hasFileDrop) return true;
       if (filterTabCreateHaulItems(items).length > 0) return true;

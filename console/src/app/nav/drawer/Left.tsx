@@ -16,7 +16,10 @@ import { Session } from "@/session";
 export const Left = (): ReactElement => {
   const { selected, hover, size } = Session.Nav.useSelectLeft();
   const dispatch = Session.useDispatch();
-  const item = Toolbars.LEFT.find((i) => i.key === selected);
+  // A toolbar the subject may not open cannot stay open behind its hidden bar item,
+  // which is where a session that changes users leaves it.
+  const visible = Nav.useVisibleKeys(Toolbars.LEFT);
+  const item = Toolbars.LEFT.find((i) => i.key === selected && visible.has(i.key));
   const handleResizeEnd = useCallback(
     (size: number) => dispatch(Session.Nav.resizeLeft({ size })),
     [dispatch],

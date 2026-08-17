@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError, type status } from "@synnaxlabs/client";
 import {
+  type channel,
+  channel as clientChannel,
+  NotFoundError,
+  type status,
+} from "@synnaxlabs/client";
+import {
+  Access,
   Channel,
   Errors,
   Flex,
@@ -42,6 +48,10 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   // populated. Eventually we should strongly type the Form so we don't need to worry
   // about this.
   const onChange = Form.useField<string>(namePath, { optional: true })?.onChange;
+  // Roles carry channel update across the whole type, so the grant is read there.
+  // A form in preview mode has nothing to write into for a channel not yet created.
+  const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
+  const { mode } = Form.useContext();
   const { update } = Channel.useRename();
   const handleRename = useCallback(
     (name: string) => {
@@ -56,6 +66,7 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
       level="small"
       value={name}
       onChange={handleRename}
+      disabled={mode === "preview" || (channel !== 0 && !canRename)}
       allowDoubleClick={false}
       overflow="ellipsis"
       {...rest}

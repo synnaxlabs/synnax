@@ -142,6 +142,33 @@ describe("range/list/List permissions", () => {
     });
   };
 
+  // A range spanning now sits in the in-progress stage, so its selector carries that
+  // icon. Editing the stage rewrites the range's time range.
+  const showRange = async (container: HTMLElement): Promise<void> => {
+    const rng = await createTestRange(client);
+    const input = await waitFor(() =>
+      getInputByNodePlaceholder(container, "Search Ranges..."),
+    );
+    fireEvent.change(input, { target: { value: rng.name } });
+    await within(container).findByText(rng.name);
+  };
+
+  it("should freeze the stage selector for a viewer", async () => {
+    const container = await renderList(await roles.get("Viewer"));
+    await showRange(container);
+    expect(getIconButton(container, "in-progress").getAttribute("aria-disabled")).toBe(
+      "true",
+    );
+  });
+
+  it("should leave the stage selector live for an operator", async () => {
+    const container = await renderList(await roles.get("Operator"));
+    await showRange(container);
+    expect(
+      getIconButton(container, "in-progress").getAttribute("aria-disabled"),
+    ).toBeNull();
+  });
+
   it("should withhold both create affordances from a viewer", async () => {
     const container = await renderList(await roles.get("Viewer"));
     await showEmptyState(container);

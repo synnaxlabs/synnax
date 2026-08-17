@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { framer, status } from "@synnaxlabs/client";
-import { Access, type Flex, Form } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/client";
+import { type Flex, Form } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useKey } from "@/platform/task/useKey";
@@ -29,8 +30,7 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
-  // Deploy, stop, and redeploy all write a command through the framer.
-  const canControl = Access.useCreateGranted(framer.TYPE_ONTOLOGY_ID);
+  const canControl = Framer.useCanCommand();
 
   const handleDeploy = useCallback(() => {
     if (key == null) return;
@@ -46,8 +46,7 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
       status={taskStatus}
       running={taskStatus.details.running}
       drifted={drifted}
-      snapshot={isSnapshot}
-      readOnly={!canControl}
+      hideActions={isSnapshot || !canControl}
       startStopVariant={status.keepVariants(taskStatus.variant, "loading")}
       onDeploy={handleDeploy}
       onStop={handleStop}

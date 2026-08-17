@@ -155,7 +155,9 @@ export const useOpenTab = (): OpenTab => {
 
 // The panel a gesture in this window acts on: the scoped one, else the selected one.
 const useActiveID = (): ontology.ID | null => {
-  const key = Panel.useOptionalKey() ?? Session.Panel.useSelectSelected();
+  const scoped = Panel.useOptionalKey();
+  const selected = Session.Panel.useSelectSelected();
+  const key = scoped ?? selected;
   return key != null ? panel.ontologyID(key) : null;
 };
 

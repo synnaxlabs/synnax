@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type ontology } from "@synnaxlabs/client";
+import { device, type ontology, type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,14 +16,21 @@ import { Device } from "@/platform/device";
 import { renderMenuItem } from "@/platform/device/testutil";
 import { createSelection } from "@/platform/tree/testutil";
 
+const client = createTestClient();
+
 const idFor = (key: string) => device.ontologyID(key);
 
-const renderItem = async (ids: ontology.ID[], onConfigure = vi.fn()) => {
+const renderItem = async (
+  ids: ontology.ID[],
+  itemClient: Synnax | null = client,
+  onConfigure = vi.fn(),
+) => {
   await renderMenuItem(
     <Device.EditConnectionMenuItem
       selection={createSelection({ ids })}
       onConfigure={onConfigure}
     />,
+    { client: itemClient },
   );
   return onConfigure;
 };
@@ -38,9 +46,14 @@ describe("EditConnectionMenuItem", () => {
     expect(screen.queryByText("Edit connection")).toBeNull();
   });
 
+  it("should render nothing without update permission", async () => {
+    await renderItem([idFor("dev_42")], null);
+    expect(screen.queryByText("Edit connection")).toBeNull();
+  });
+
   it("should invoke onConfigure with the selected device key when clicked", async () => {
     const onConfigure = await renderItem([idFor("dev_42")]);
-    fireEvent.click(screen.getByText("Edit connection"));
+    fireEvent.click(await screen.findByText("Edit connection"));
     expect(onConfigure).toHaveBeenCalledWith("dev_42");
   });
 });

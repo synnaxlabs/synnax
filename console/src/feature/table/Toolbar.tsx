@@ -39,6 +39,8 @@ const Internal = (): ReactElement => {
   const key = Table.useKey();
   const name = Table.useName();
   const editable = Session.Table.useSelectEditable();
+  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const canEdit = hasUpdatePermission && editable;
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
   const cellsByKey = Table.useCells({ cellKeys: selectedCellKeys });
   const liveCellCount = cellsByKey.size;
@@ -74,7 +76,7 @@ const Internal = (): ReactElement => {
         </Flex.Box>
       </Base.Header>
       <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
-        {!editable ? (
+        {!canEdit ? (
           <NotEditableContent name={name} />
         ) : liveCellCount === 0 ? (
           <EmptyContent />

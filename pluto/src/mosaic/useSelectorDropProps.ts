@@ -47,7 +47,7 @@ export const useSelectorDropProps = ({
   const { onDrop, onCreate, disabled } = useContext("Mosaic.useSelectorDropProps");
   const canDrop: Haul.CanDrop = useCallback(
     ({ items }) => {
-      if (disabled === true) return false;
+      if (disabled) return false;
       if (filterTabCreateHaulItems(items).length > 0) return true;
       const dropped = filterTabDropHaulItems(items).map(({ key }) => key);
       if (dropped.length === 0) return false;

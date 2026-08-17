@@ -57,11 +57,24 @@ describe("User.Badge", () => {
     const { container } = render(<User.Badge />, { wrapper });
     fireEvent.click(getTrigger(container));
     const role = await waitFor(() => {
-      const el = document.body.querySelector(".console-user-badge__role");
+      const el = document.body.querySelector(".console-user-badge__roles");
       if (el == null) throw new Error("role not rendered");
       return el;
     });
     expect(role.textContent).toContain("Viewer");
+  });
+
+  it("should show the subject's full name and username in the dialog", async () => {
+    const root = createTestClient();
+    const other = await createTestClientWithRole(root, "Viewer");
+    const { wrapper } = await createConsoleWrapper({
+      client: other,
+      preloadedState: createStateWithUser("fallback_user"),
+    });
+    const { container } = render(<User.Badge />, { wrapper });
+    fireEvent.click(getTrigger(container));
+    expect(await screen.findByText("test test")).toBeTruthy();
+    expect(await screen.findByText(other.auth?.user?.username ?? "")).toBeTruthy();
   });
 
   it("should log out of the active cluster when Log out is clicked", async () => {
