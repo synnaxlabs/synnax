@@ -52,8 +52,7 @@ OperationType enum {
 Operation struct {
     type          OperationType  {
         @doc value """
-            is the aggregation operation type: min, max, avg, derivative, or
-            none.
+            is the aggregation operation type: min, max, avg, derivative, or none.
         """
     }
     reset_channel Key = 0 {
