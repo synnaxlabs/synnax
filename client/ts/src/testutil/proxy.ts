@@ -9,7 +9,21 @@
 
 import { connect, createServer, type Socket } from "node:net";
 
+import { type breaker, TimeSpan } from "@synnaxlabs/x";
+
 const DEFAULT_TARGET = { host: "localhost", port: 9090 };
+
+/**
+ * Retry policy for a client pointed at a severable proxy. A spec drives its own
+ * retries, so the client's must finish well inside one assertion budget: the
+ * default policy waits seconds per request and outlasts a single `expect.poll`
+ * attempt, which reports as a timeout rather than the real answer.
+ */
+export const FAST_RETRY: breaker.Config = {
+  baseInterval: TimeSpan.milliseconds(10),
+  maxInterval: TimeSpan.milliseconds(50),
+  scale: 1.5,
+};
 
 export interface SeverableProxyTarget {
   host?: string;

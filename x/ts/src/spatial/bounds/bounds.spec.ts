@@ -146,6 +146,14 @@ describe("Bounds", () => {
       expect(bound.lower).toEqual(-1);
       expect(bound.upper).toEqual(2);
     });
+    it("should treat INVALID as the union identity", () => {
+      const bound = bounds.max([[-250, -100], bounds.INVALID]);
+      expect(bound).toStrictEqual({ lower: -250, upper: -100 });
+    });
+    it("should preserve a reversed member instead of reordering it", () => {
+      const bound = bounds.max([{ lower: 20, upper: 10 }]);
+      expect(bound).toStrictEqual({ lower: 20, upper: 10 });
+    });
   });
   describe("min", () => {
     it("should return the bound with the minimum possible span", () => {
@@ -157,6 +165,17 @@ describe("Bounds", () => {
       expect(bound.lower).toEqual(1);
       expect(bound.upper).toEqual(1);
     });
+    it("should treat INVALID as absorbing", () => {
+      const bound = bounds.min([[-250, -100], bounds.INVALID]);
+      expect(bound).toStrictEqual(bounds.INVALID);
+    });
+    it("should produce reversed bounds for disjoint inputs", () => {
+      const bound = bounds.min([
+        [0, 10],
+        [20, 30],
+      ]);
+      expect(bound).toStrictEqual({ lower: 20, upper: 10 });
+    });
   });
   describe("isFinite", () => {
     it("should return false if either bound is infinite", () => {
@@ -166,6 +185,9 @@ describe("Bounds", () => {
     it("should return true if both bounds are finite", () => {
       const b = bounds.construct([1, 2]);
       expect(bounds.isFinite(b)).toEqual(true);
+    });
+    it("should return false for INVALID", () => {
+      expect(bounds.isFinite(bounds.INVALID)).toEqual(false);
     });
   });
   describe("overlapsWith", () => {

@@ -9,8 +9,9 @@
 
 import { NotFoundError, panel, status } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { Unreachable } from "@synnaxlabs/freighter";
 import { Errors } from "@synnaxlabs/pluto";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { act, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -115,6 +116,39 @@ describe("ErrorDiagnostics", () => {
       `"fridge_schem" (${doc.key})`,
     ].join("\n");
     expect(messageText()).toBe(expected);
+  });
+
+  it("replaces the crash page when a flux read failed on an unreachable Core", async () => {
+    const store = await createTestStore();
+    void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
+    const error = new Error("Failed to retrieve Channel Group", {
+      cause: new Unreachable(),
+    });
+    await renderBoundary(store, <Throw error={error} />);
+    expect(screen.getByText("Local")).toBeTruthy();
+    expect(screen.getByText("localhost:9090")).toBeTruthy();
+    expect(messageText()).toBeNull();
+  });
+
+  it("finds an unreachable Core nested under a status-shaped cause", async () => {
+    const store = await createTestStore();
+    void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
+    const error = status.toError(
+      status.fromException(new Unreachable(), "Failed to retrieve Channel Group"),
+    );
+    await renderBoundary(store, <Throw error={error} />);
+    expect(screen.getByText("Local")).toBeTruthy();
+    expect(messageText()).toBeNull();
+  });
+
+  it("keeps the crash page for a failure the Core answered", async () => {
+    const store = await createTestStore();
+    void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
+    await renderBoundary(store, <Throw error={retrieveNotFoundError()} />);
+    expect(screen.queryByText("localhost:9090")).toBeNull();
+    expect(messageText()).toBe(
+      "Failed to retrieve schematic\nCore: Local (localhost:9090)",
+    );
   });
 
   it("omits the name when the crashed panel isn't cached", async () => {
