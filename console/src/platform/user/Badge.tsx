@@ -9,11 +9,29 @@
 
 import "@/platform/user/Badge.css";
 
-import { Button, Dialog, Icon, User } from "@synnaxlabs/pluto";
+import { Access, Button, Dialog, Flex, Icon, Text, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
+
+// The subject's roles name what they can do, which is the first thing a user checks
+// when a surface they expected is missing.
+const Roles = (): ReactElement | null => {
+  const { data: key } = User.useResultKey({});
+  const { data: roles } = Access.Role.useResultForUser(
+    key != null ? { user: key } : null,
+  );
+  if (roles == null || roles.length === 0) return null;
+  return (
+    <Flex.Box x gap="small" className={CSS.BE("user-badge", "role")} align="center">
+      <Icon.Role />
+      <Text.Text level="small" color={9}>
+        {roles.map(({ name }) => name).join(", ")}
+      </Text.Text>
+    </Flex.Box>
+  );
+};
 
 export const Badge = (): ReactElement | null => {
   const { data: remoteUsername } = User.useResultUsername({});
@@ -33,6 +51,7 @@ export const Badge = (): ReactElement | null => {
         borderColor={7}
         className={CSS.BE("user-badge", "dialog")}
       >
+        <Roles />
         <Button.Button onClick={handleLogout} variant="text" full="x">
           <Icon.Logout />
           Log out

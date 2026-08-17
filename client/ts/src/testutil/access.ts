@@ -33,7 +33,7 @@ const isDenial = (err: unknown): boolean =>
  * rather than reporting a pending read as a denial.
  */
 const connectAs = async (username: string, key: user.Key) => {
-  const client = await createTestClient({
+  const client = createTestClient({
     username,
     password: "test",
     onInternalError: (err) => {

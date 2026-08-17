@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { access, type Synnax, user } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
+import { id, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -34,6 +37,29 @@ describe("project/Splash", () => {
     it("should report why the list is empty when it never loaded", async () => {
       await renderWithConsole(<Project.Splash />);
       expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
+      expect(screen.queryByText("No projects created.")).toBeNull();
+    });
+
+    // The Core refuses the list read, so the splash must blame the missing grant rather
+    // than report an empty cluster.
+    it("should name the denial when the list read is refused", async () => {
+      await client.projects.create({ name: uniqueName("argon"), layout: {} });
+      const denied = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          user.TYPE_ONTOLOGY_ID,
+          access.role.TYPE_ONTOLOGY_ID,
+          access.policy.TYPE_ONTOLOGY_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      const { wrapper } = await createConsoleWrapper({ client: denied });
+      render(<Project.Splash />, { wrapper });
+      expect(
+        await screen.findByText(
+          "Failed to retrieve projects: You do not have permission to do that",
+        ),
+      ).toBeDefined();
       expect(screen.queryByText("No projects created.")).toBeNull();
     });
   });

@@ -34,3 +34,7 @@
     padding: 1rem;
     width: 200px;
 }
+
+.console-user-badge__role {
+    padding: 0 1.5rem 1rem 1.5rem;
+}
