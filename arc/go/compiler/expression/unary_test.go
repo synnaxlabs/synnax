@@ -289,6 +289,12 @@ var _ = Describe("Unary Operations", func() {
 			types.Series(types.I32()),
 			OpLocalGet, 0, OpCall, uint32(0),
 		),
+
+		Entry("bitwise not integer series", "~a",
+			[]symbol.Symbol{seriesSymbol("a", types.I64(), 0)},
+			types.Series(types.I64()),
+			OpLocalGet, 0, OpCall, uint32(0),
+		),
 	)
 
 	DescribeTable(
@@ -306,8 +312,8 @@ var _ = Describe("Unary Operations", func() {
 		),
 		Entry(
 			"~ operand compile error propagates",
-			"~(s & 1)",
-			"bitwise operators are not supported on series",
+			"~(f & 1.0)",
+			"bitwise operators require integer series elements",
 		),
 	)
 })

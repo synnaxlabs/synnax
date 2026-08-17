@@ -83,6 +83,17 @@ func compileUnary(
 		if err != nil {
 			return types.Type{}, err
 		}
+		if innerType.Kind == types.KindSeries {
+			elemType := innerType.Unwrap()
+			if !elemType.IsInteger() {
+				return types.Type{}, errors.Newf(
+					"operator ~ on series requires an integer element type, got %s",
+					elemType,
+				)
+			}
+			ctx.Resolver.EmitSeriesBitNot(ctx.Writer, ctx.WriterID, elemType)
+			return innerType, nil
+		}
 		switch innerType.Kind {
 		case types.KindI8,
 			types.KindI16,

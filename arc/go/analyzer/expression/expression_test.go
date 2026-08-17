@@ -389,6 +389,20 @@ var _ = Describe("Expressions", func() {
 					z := 1.5 << 2.5
 				}
 			`, "float", "<<"),
+			Entry("AND on f64 series", `
+				func testFunc() {
+					x series f64 := [1.0, 2.0]
+					y series f64 := [3.0, 4.0]
+					z := x & y
+				}
+			`, "f64", "&"),
+			Entry("left shift on f64 series", `
+				func testFunc() {
+					x series f64 := [1.0, 2.0]
+					y series f64 := [3.0, 4.0]
+					z := x << y
+				}
+			`, "f64", "<<"),
 		)
 
 		DescribeTable("type mismatch errors",
@@ -588,6 +602,48 @@ var _ = Describe("Expressions", func() {
 					}
 				`),
 			)
+
+			DescribeTable("valid series bitwise operations",
+				func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
+				Entry("series and series", `
+					func testFunc() {
+						a series i64 := [12, 10]
+						b series i64 := [10, 6]
+						c := a & b
+					}
+				`),
+				Entry("series or scalar", `
+					func testFunc() {
+						a series i64 := [12, 10]
+						c := a | 1
+					}
+				`),
+				Entry("scalar xor series", `
+					func testFunc() {
+						a series i64 := [12, 10]
+						c := 3 ^ a
+					}
+				`),
+				Entry("series left shift series", `
+					func testFunc() {
+						a series i64 := [1, 2]
+						b series i64 := [4, 3]
+						c := a << b
+					}
+				`),
+				Entry("series right shift scalar", `
+					func testFunc() {
+						a series i64 := [16, 8]
+						c := a >> 2
+					}
+				`),
+				Entry("bitwise not series", `
+					func testFunc() {
+						a series i64 := [12, 10]
+						c := ~a
+					}
+				`),
+			)
 		})
 	})
 
@@ -714,6 +770,12 @@ var _ = Describe("Expressions", func() {
 			Entry("bitwise not on bool", `
 				func testFunc() {
 					x bool := true
+					y := ~x
+				}
+			`, "operator ~ requires integer operand"),
+			Entry("bitwise not on f64 series", `
+				func testFunc() {
+					x series f64 := [1.0, 2.0]
 					y := ~x
 				}
 			`, "operator ~ requires integer operand"),

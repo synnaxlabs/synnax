@@ -1512,7 +1512,7 @@ var _ = Describe("Binary Operations", func() {
 	)
 
 	DescribeTable(
-		"should reject series operands in bitwise expressions",
+		"should compile series operands in bitwise expressions to a series",
 		func(bCtx SpecContext, source string) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
@@ -1521,10 +1521,9 @@ var _ = Describe("Binary Operations", func() {
 				Type: types.Series(types.I64()),
 			}))
 			expr := MustSucceed(parser.ParseExpression(source))
-			Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
-				To(MatchError(ContainSubstring(
-					"bitwise operators are not supported on series",
-				)))
+			t := MustSucceed(expression.Compile(ccontext.Child(ctx, expr)))
+			Expect(t.Kind).To(Equal(types.KindSeries))
+			Expect(t.Unwrap()).To(Equal(types.I64()))
 		},
 		Entry("series on the left of |", "s | 1"),
 		Entry("series on the right of |", "1 | s"),
@@ -1532,18 +1531,44 @@ var _ = Describe("Binary Operations", func() {
 		Entry("series on the right of ^", "1 ^ s"),
 		Entry("series on the left of &", "s & 1"),
 		Entry("series on the right of &", "1 & s"),
-		Entry("series error propagates from the left of |", "(s & 1) | 1"),
-		Entry("series error propagates from the right of |", "1 | (s & 1)"),
-		Entry("series error propagates from the left of ^", "(s & 1) ^ 1"),
-		Entry("series error propagates from the right of ^", "1 ^ (s & 1)"),
-		Entry("series error propagates from the left of &", "(s | 1) & 1"),
-		Entry("series error propagates from the right of &", "1 & (s | 1)"),
+		Entry("series on both sides of |", "(s & 1) | s"),
+		Entry("series on both sides of ^", "s ^ (s | 1)"),
 		Entry("series on the left of <<", "s << 1"),
 		Entry("series on the right of <<", "1 << s"),
 		Entry("series on the left of >>", "s >> 1"),
 		Entry("series on the right of >>", "1 >> s"),
-		Entry("series error propagates from the left of <<", "(s & 1) << 1"),
-		Entry("series error propagates from the right of >>", "1 >> (s & 1)"),
+		Entry("series on both sides of <<", "(s & 1) << s"),
+		Entry("series bitwise not", "~s"),
+	)
+
+	DescribeTable(
+		"should reject float series operands in bitwise expressions",
+		func(bCtx SpecContext, source, errSubstring string) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "f",
+				Kind: symbol.KindVariable,
+				Type: types.Series(types.F64()),
+			}))
+			expr := MustSucceed(parser.ParseExpression(source))
+			Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+				To(MatchError(ContainSubstring(errSubstring)))
+		},
+		Entry(
+			"& on an f64 series",
+			"f & 1.0",
+			"bitwise operators require integer series elements",
+		),
+		Entry(
+			"<< on an f64 series",
+			"f << 1.0",
+			"bitwise operators require integer series elements",
+		),
+		Entry(
+			"~ on an f64 series",
+			"~f",
+			"operator ~ on series requires an integer element type",
+		),
 	)
 
 	Describe("String Equality", func() {

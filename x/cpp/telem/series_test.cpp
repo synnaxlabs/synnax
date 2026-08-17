@@ -1688,6 +1688,140 @@ TEST(SeriesOperators, DoubleBitwiseNot) {
     ASSERT_EQ(result.at<uint8_t>(2), 0xAA);
 }
 
+/// @brief Tests Series & Series bitwise AND operator.
+TEST(SeriesOperators, BitwiseAndSameLength) {
+    auto a = Series(std::vector<int64_t>{12, 10, 0xFF});
+    auto b = Series(std::vector<int64_t>{10, 6, 0x0F});
+    auto result = a & b;
+    ASSERT_EQ(result.data_type(), INT64_T);
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_EQ(result.at<int64_t>(0), 8);
+    ASSERT_EQ(result.at<int64_t>(1), 2);
+    ASSERT_EQ(result.at<int64_t>(2), 0x0F);
+}
+
+/// @brief Tests Series | Series bitwise OR operator.
+TEST(SeriesOperators, BitwiseOrSameLength) {
+    auto a = Series(std::vector<int64_t>{12, 10, 0xF0});
+    auto b = Series(std::vector<int64_t>{10, 6, 0x0F});
+    auto result = a | b;
+    ASSERT_EQ(result.data_type(), INT64_T);
+    ASSERT_EQ(result.at<int64_t>(0), 14);
+    ASSERT_EQ(result.at<int64_t>(1), 14);
+    ASSERT_EQ(result.at<int64_t>(2), 0xFF);
+}
+
+/// @brief Tests Series ^ Series bitwise XOR operator.
+TEST(SeriesOperators, BitwiseXorSameLength) {
+    auto a = Series(std::vector<int64_t>{12, 10, 0xFF});
+    auto b = Series(std::vector<int64_t>{10, 6, 0xFF});
+    auto result = a ^ b;
+    ASSERT_EQ(result.data_type(), INT64_T);
+    ASSERT_EQ(result.at<int64_t>(0), 6);
+    ASSERT_EQ(result.at<int64_t>(1), 12);
+    ASSERT_EQ(result.at<int64_t>(2), 0);
+}
+
+/// @brief Tests Series << Series left shift operator.
+TEST(SeriesOperators, LeftShiftSameLength) {
+    auto a = Series(std::vector<int64_t>{1, 2, 3});
+    auto b = Series(std::vector<int64_t>{4, 3, 1});
+    auto result = a << b;
+    ASSERT_EQ(result.data_type(), INT64_T);
+    ASSERT_EQ(result.at<int64_t>(0), 16);
+    ASSERT_EQ(result.at<int64_t>(1), 16);
+    ASSERT_EQ(result.at<int64_t>(2), 6);
+}
+
+/// @brief Tests Series >> Series right shift operator.
+TEST(SeriesOperators, RightShiftSameLength) {
+    auto a = Series(std::vector<int64_t>{16, 8, -8});
+    auto b = Series(std::vector<int64_t>{2, 3, 1});
+    auto result = a >> b;
+    ASSERT_EQ(result.data_type(), INT64_T);
+    ASSERT_EQ(result.at<int64_t>(0), 4);
+    ASSERT_EQ(result.at<int64_t>(1), 1);
+    ASSERT_EQ(result.at<int64_t>(2), -4);
+}
+
+/// @brief Tests Series >> Series shifts unsigned values logically.
+TEST(SeriesOperators, RightShiftUnsignedIsLogical) {
+    auto a = Series(std::vector<uint32_t>{0x80000000u, 16});
+    auto b = Series(std::vector<uint32_t>{31, 2});
+    auto result = a >> b;
+    ASSERT_EQ(result.data_type(), UINT32_T);
+    ASSERT_EQ(result.at<uint32_t>(0), 1u);
+    ASSERT_EQ(result.at<uint32_t>(1), 4u);
+}
+
+/// @brief Tests Series & scalar operator.
+TEST(SeriesOperators, ScalarBitwiseAnd) {
+    auto a = Series(std::vector<int64_t>{12, 10, 7});
+    auto result = a & static_cast<int64_t>(8);
+    ASSERT_EQ(result.at<int64_t>(0), 8);
+    ASSERT_EQ(result.at<int64_t>(1), 8);
+    ASSERT_EQ(result.at<int64_t>(2), 0);
+}
+
+/// @brief Tests scalar | Series operator (commutative).
+TEST(SeriesOperators, ScalarOnLeftBitwiseOr) {
+    auto a = Series(std::vector<int64_t>{12, 10});
+    auto result = static_cast<int64_t>(1) | a;
+    ASSERT_EQ(result.at<int64_t>(0), 13);
+    ASSERT_EQ(result.at<int64_t>(1), 11);
+}
+
+/// @brief Tests Series ^ scalar operator.
+TEST(SeriesOperators, ScalarBitwiseXor) {
+    auto a = Series(std::vector<int64_t>{12, 10});
+    auto result = a ^ static_cast<int64_t>(0xF);
+    ASSERT_EQ(result.at<int64_t>(0), 3);
+    ASSERT_EQ(result.at<int64_t>(1), 5);
+}
+
+/// @brief Tests Series << scalar operator.
+TEST(SeriesOperators, ScalarLeftShift) {
+    auto a = Series(std::vector<int64_t>{1, 2});
+    auto result = a << static_cast<int64_t>(3);
+    ASSERT_EQ(result.at<int64_t>(0), 8);
+    ASSERT_EQ(result.at<int64_t>(1), 16);
+}
+
+/// @brief Tests scalar << Series operator (scalar shifted by each element).
+TEST(SeriesOperators, ScalarOnLeftLeftShift) {
+    auto a = Series(std::vector<int64_t>{1, 3});
+    auto result = static_cast<int64_t>(2) << a;
+    ASSERT_EQ(result.at<int64_t>(0), 4);
+    ASSERT_EQ(result.at<int64_t>(1), 16);
+}
+
+/// @brief Tests scalar >> Series operator (scalar shifted by each element).
+TEST(SeriesOperators, ScalarOnLeftRightShift) {
+    auto a = Series(std::vector<int64_t>{1, 3});
+    auto result = static_cast<int64_t>(16) >> a;
+    ASSERT_EQ(result.at<int64_t>(0), 8);
+    ASSERT_EQ(result.at<int64_t>(1), 2);
+}
+
+/// @brief Tests bitwise binary operators throw for floating-point series.
+TEST(SeriesOperators, BitwiseFloatThrows) {
+    auto a = Series(std::vector<double>{1.0, 2.0});
+    auto b = Series(std::vector<double>{3.0, 4.0});
+    ASSERT_THROW(a & b, std::runtime_error);
+    ASSERT_THROW(a | b, std::runtime_error);
+    ASSERT_THROW(a ^ b, std::runtime_error);
+    ASSERT_THROW(a << b, std::runtime_error);
+    ASSERT_THROW(a >> b, std::runtime_error);
+}
+
+/// @brief Tests bitwise operators throw for length-mismatched series.
+TEST(SeriesOperators, BitwiseLengthMismatchThrows) {
+    auto a = Series(std::vector<int64_t>{1, 2, 3});
+    auto b = Series(std::vector<int64_t>{4, 5});
+    ASSERT_THROW(a & b, std::runtime_error);
+    ASSERT_THROW(a << b, std::runtime_error);
+}
+
 /// @brief Tests logical NOT with uint8 (0 -> 1, non-zero -> 0).
 TEST(SeriesOperators, LogicalNotUint8) {
     auto a = Series(std::vector<uint8_t>{0, 1, 255, 0, 42});

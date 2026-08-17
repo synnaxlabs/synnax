@@ -216,6 +216,16 @@ private:
             apply_numeric_op<uint8_t, T>(rhs, op);
     }
 
+    /// @brief throws when the series holds floating-point values, which the
+    /// bitwise operators cannot accept.
+    void check_bitwise(const char *op_name) const {
+        const auto dt = this->data_type();
+        if (dt == FLOAT32_T || dt == FLOAT64_T)
+            throw std::runtime_error(
+                std::string(op_name) + " not supported for floating-point types"
+            );
+    }
+
     template<typename T, typename Op>
     void apply_binary_op_typed(const Series &other, Series &result, Op op) const {
         auto *lhs = reinterpret_cast<const T *>(this->data_.get());
@@ -1411,6 +1421,167 @@ public:
                 return std::fmod(a, b);
             });
         }
+    }
+
+    /// @brief Series-Series bitwise AND. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types or length mismatch.
+    Series operator&(const Series &other) const {
+        this->check_bitwise("bitwise AND");
+        return apply_binary_op(other, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a & b);
+            } else {
+                return a;
+            }
+        });
+    }
+
+    /// @brief Series-Series bitwise OR. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types or length mismatch.
+    Series operator|(const Series &other) const {
+        this->check_bitwise("bitwise OR");
+        return apply_binary_op(other, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a | b);
+            } else {
+                return a;
+            }
+        });
+    }
+
+    /// @brief Series-Series bitwise XOR. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types or length mismatch.
+    Series operator^(const Series &other) const {
+        this->check_bitwise("bitwise XOR");
+        return apply_binary_op(other, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a ^ b);
+            } else {
+                return a;
+            }
+        });
+    }
+
+    /// @brief Series-Series left shift. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types or length mismatch.
+    Series operator<<(const Series &other) const {
+        this->check_bitwise("left shift");
+        return apply_binary_op(other, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a << b);
+            } else {
+                return a;
+            }
+        });
+    }
+
+    /// @brief Series-Series right shift. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types or length mismatch.
+    Series operator>>(const Series &other) const {
+        this->check_bitwise("right shift");
+        return apply_binary_op(other, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a >> b);
+            } else {
+                return a;
+            }
+        });
+    }
+
+    /// @brief Series & scalar operator. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    Series operator&(T scalar) const {
+        this->check_bitwise("bitwise AND");
+        return apply_scalar_op(scalar, std::bit_and<T>());
+    }
+
+    /// @brief Series | scalar operator. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    Series operator|(T scalar) const {
+        this->check_bitwise("bitwise OR");
+        return apply_scalar_op(scalar, std::bit_or<T>());
+    }
+
+    /// @brief Series ^ scalar operator. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    Series operator^(T scalar) const {
+        this->check_bitwise("bitwise XOR");
+        return apply_scalar_op(scalar, std::bit_xor<T>());
+    }
+
+    /// @brief Series << scalar operator. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    Series operator<<(T scalar) const {
+        this->check_bitwise("left shift");
+        return apply_scalar_op(scalar, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a << b);
+            } else {
+                return a;
+            }
+        });
+    }
+
+    /// @brief Series >> scalar operator. Returns a new Series.
+    /// @throws std::runtime_error on floating-point types.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    Series operator>>(T scalar) const {
+        this->check_bitwise("right shift");
+        return apply_scalar_op(scalar, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a >> b);
+            } else {
+                return a;
+            }
+        });
+    }
+
+    /// @brief scalar & Series operator (commutative). Returns a new Series.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    friend Series operator&(T scalar, const Series &s) {
+        return s & scalar;
+    }
+
+    /// @brief scalar | Series operator (commutative). Returns a new Series.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    friend Series operator|(T scalar, const Series &s) {
+        return s | scalar;
+    }
+
+    /// @brief scalar ^ Series operator (commutative). Returns a new Series.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    friend Series operator^(T scalar, const Series &s) {
+        return s ^ scalar;
+    }
+
+    /// @brief scalar << Series operator. Computes (scalar << element) per element.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    friend Series operator<<(T scalar, const Series &s) {
+        s.check_bitwise("left shift");
+        return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a << b);
+            } else {
+                return a;
+            }
+        });
+    }
+
+    /// @brief scalar >> Series operator. Computes (scalar >> element) per element.
+    template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+    friend Series operator>>(T scalar, const Series &s) {
+        s.check_bitwise("right shift");
+        return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(a >> b);
+            } else {
+                return a;
+            }
+        });
     }
 
     /// @brief Series > Series comparison. Returns BOOL_T Series with 0/1 values.

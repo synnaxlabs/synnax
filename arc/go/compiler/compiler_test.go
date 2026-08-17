@@ -2446,6 +2446,72 @@ var _ = Describe("Compiler", func() {
 				r := -x
 				return r[1]
 			}`, float64(-2.0)),
+			// Element-wise bitwise operators on integer series
+			Entry("series bitwise and", `{
+				a series i64 := [12, 10]
+				b series i64 := [10, 6]
+				r := a & b
+				return r[1]
+			}`, int64(2)),
+			Entry("series bitwise or", `{
+				a series i64 := [12, 10]
+				b series i64 := [10, 6]
+				r := a | b
+				return r[0]
+			}`, int64(14)),
+			Entry("series bitwise xor", `{
+				a series i64 := [12, 10]
+				b series i64 := [10, 6]
+				r := a ^ b
+				return r[1]
+			}`, int64(12)),
+			Entry("series left shift", `{
+				a series i64 := [1, 2]
+				b series i64 := [4, 3]
+				r := a << b
+				return r[0]
+			}`, int64(16)),
+			Entry("series right shift", `{
+				a series i64 := [16, 8]
+				b series i64 := [2, 3]
+				r := a >> b
+				return r[1]
+			}`, int64(1)),
+			Entry("series bitwise and scalar", `{
+				a series i64 := [12, 10]
+				r := a & 8
+				return r[0]
+			}`, int64(8)),
+			Entry("scalar bitwise or series", `{
+				a series i64 := [12, 10]
+				r := 1 | a
+				return r[1]
+			}`, int64(11)),
+			Entry("series left shift scalar", `{
+				a series i64 := [1, 2]
+				r := a << 3
+				return r[1]
+			}`, int64(16)),
+			Entry("scalar left shift series", `{
+				a series i64 := [1, 3]
+				r := 2 << a
+				return r[1]
+			}`, int64(16)),
+			Entry("scalar right shift series", `{
+				a series i64 := [1, 3]
+				r := 16 >> a
+				return r[1]
+			}`, int64(2)),
+			Entry("series bitwise not", `{
+				a series i64 := [12, 10]
+				r := ~a
+				return r[0]
+			}`, int64(-13)),
+			Entry("series bitwise not i32", `{
+				a series i32 := [12, 10]
+				r := ~a
+				return r[1]
+			}`, int32(-11)),
 		)
 	})
 

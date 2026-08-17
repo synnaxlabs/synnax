@@ -176,10 +176,10 @@ func operatorHint(op string, t basetypes.Type) string {
 	return ": " + op + " takes " + wants + " operands." + operatorSuggestion(op, t)
 }
 
-// isBitwiseNotOperand reports whether t is a valid ~ operand: an integer, an integer
-// channel, or an untyped integer constant.
+// isBitwiseNotOperand reports whether t is a valid ~ operand: an integer, an
+// integer channel or series, or an untyped integer constant.
 func isBitwiseNotOperand(t basetypes.Type) bool {
-	return isInteger(resolveConstraint(t.UnwrapChan()))
+	return isInteger(resolveConstraint(t.UnwrapChan().Unwrap()))
 }
 
 func getShiftOperator(ctx antlr.ParserRuleContext) string {

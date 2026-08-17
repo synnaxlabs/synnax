@@ -112,8 +112,6 @@ Bitwise operators take integer operands and return the operand type.
 | `<<`     | Left shift  | `1 << 4`   | `16`   |
 | `>>`     | Right shift | `16 >> 4`  | `1`    |
 
-Bitwise operators are not supported on series.
-
 <Divider.Divider x />
 
 ## Unary Operators
@@ -195,8 +193,8 @@ is_set := (flags & 4) == 4
 
 ## Series Operators
 
-Arithmetic, comparison, and logical operators work element-wise on series. Bitwise
-operators are not supported on series.
+Arithmetic, comparison, and logical operators work element-wise on series, as do
+bitwise operators on integer series.
 
 ```arc
 data := [1.0, 2.0, 3.0]

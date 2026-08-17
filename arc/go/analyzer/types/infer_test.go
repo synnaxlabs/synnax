@@ -267,6 +267,10 @@ var _ = Describe("Type Inference", func() {
 			Entry("series and scalar", "(data_series > 100) and true", types.KindBool),
 			Entry("not series", "not (data_series > 100)", types.KindBool),
 			Entry("negate series", "-data_series", types.KindI64),
+			Entry("series bitwise and scalar", "data_series & 12", types.KindI64),
+			Entry("scalar bitwise or series", "1 | data_series", types.KindI64),
+			Entry("series left shift scalar", "data_series << 2", types.KindI64),
+			Entry("series bitwise not", "~data_series", types.KindI64),
 		)
 
 		DescribeTable(

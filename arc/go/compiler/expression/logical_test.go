@@ -308,33 +308,33 @@ var _ = Describe("Logical Operations", func() {
 		expectCompileError,
 		Entry(
 			"first or operand fails",
-			"(s | 1) or true",
-			"bitwise operators are not supported on series",
+			"(f & 1.0) or true",
+			"bitwise operators require integer series elements",
 		),
 		Entry(
 			"first and operand fails",
-			"(s | 1) and true",
-			"bitwise operators are not supported on series",
+			"(f & 1.0) and true",
+			"bitwise operators require integer series elements",
 		),
 		Entry(
 			"series or right operand fails",
-			"b or (s & 1)",
-			"bitwise operators are not supported on series",
+			"b or (f & 1.0)",
+			"bitwise operators require integer series elements",
 		),
 		Entry(
 			"series and right operand fails",
-			"b and (s & 1)",
-			"bitwise operators are not supported on series",
+			"b and (f & 1.0)",
+			"bitwise operators require integer series elements",
 		),
 		Entry(
 			"short-circuit and right operand fails",
-			"true and (s & 1)",
-			"bitwise operators are not supported on series",
+			"true and (f & 1.0)",
+			"bitwise operators require integer series elements",
 		),
 		Entry(
 			"short-circuit or right operand fails",
-			"false or (s & 1)",
-			"bitwise operators are not supported on series",
+			"false or (f & 1.0)",
+			"bitwise operators require integer series elements",
 		),
 	)
 })
