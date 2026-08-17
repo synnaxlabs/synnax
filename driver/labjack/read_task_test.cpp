@@ -509,6 +509,7 @@ TEST_F(SourceClaimTest, testStreamSourceReadReclaimsAfterFailedRestart) {
     breaker.start();
     x::telem::Frame fr(0);
     const auto res = source.read(breaker, fr);
+    breaker.stop();
     ASSERT_NIL(res.error);
     EXPECT_EQ(devs->acquire_call_count, 3);
     ASSERT_NIL(source.stop());
