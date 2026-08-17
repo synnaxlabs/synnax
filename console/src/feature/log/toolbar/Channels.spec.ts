@@ -39,7 +39,7 @@ const rowsIn = (result: { container: HTMLElement }) =>
 describe("log/toolbar/Channels", () => {
   it("renders only the add-channel row when there are no channels", async () => {
     const { result } = await renderChannels();
-    expect(await screen.findByText("Add channel...")).toBeDefined();
+    expect(await screen.findByText("Add channel")).toBeDefined();
     await waitFor(() => expect(rowsIn(result)).toHaveLength(1));
   });
 
