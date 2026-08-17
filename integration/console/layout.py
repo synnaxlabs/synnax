@@ -550,6 +550,40 @@ class LayoutClient:
             .first
         )
 
+    def get_read_only_tab(self, name: str) -> Locator:
+        """Get a tab locator by name without requiring a close button.
+
+        A user who cannot write the panel gets no close button, so get_tab's
+        filter never matches for them.
+
+        :param name: The name/title of the tab to find.
+        :returns: Locator for the tab element.
+        """
+        return (
+            self.page.locator(self.TAB_SELECTOR)
+            .filter(has_text=re.compile(f"^{re.escape(name)}$"))
+            .first
+        )
+
+    def tab_is_closable(self, name: str) -> bool:
+        """Report whether the named tab offers a close button.
+
+        :param name: The name/title of the tab to check.
+        """
+        tab = self.get_read_only_tab(name)
+        tab.wait_for(state="visible", timeout=5000)
+        return tab.get_by_label("Close", exact=True).count() > 0
+
+    def mosaic_is_static(self) -> bool:
+        """Report whether the mosaic withholds every structural write.
+
+        :returns: True when no tab offers a close button and no leaf offers an
+            add button.
+        """
+        closes = self.page.locator(f"{self.TAB_SELECTOR} [aria-label='Close']")
+        adds = self.page.locator(".pluto-panel-mosaic__create")
+        return closes.count() == 0 and adds.count() == 0
+
     def get_tombstone(self, name: str) -> Locator:
         """Get the tombstone a deleted resource's tab shows in place of content.
 

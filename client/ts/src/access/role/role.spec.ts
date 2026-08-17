@@ -8,12 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { type Action } from "@/access/action/types.gen";
 import { type role } from "@/access/role";
+import { channel } from "@/channel";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive } from "@/testutil";
+import {
+  type BuiltInRole,
+  createTestClient,
+  createTestClientWithRole,
+  expectDeleted,
+  expectLive,
+  RoleClients,
+} from "@/testutil";
+import { user } from "@/user";
 
 const client = createTestClient();
 
@@ -92,6 +102,37 @@ describe("role", () => {
         user: u.key,
         role: role.key,
       });
+    });
+  });
+
+  describe("built-in roles", () => {
+    it("should connect a client holding a built-in role's permissions", async () => {
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      await viewer.connect();
+      assert(viewer.auth?.user != null);
+      const subject = user.ontologyID(viewer.auth.user.key);
+      const granted = async (action: Action) =>
+        await viewer.access.granted.retrieve(subject, {
+          objects: channel.TYPE_ONTOLOGY_ID,
+          action,
+        });
+      await expect(granted("create")).resolves.toBe(false);
+      await expect(granted("retrieve")).resolves.toBe(true);
+    });
+
+    it("should return the same client for a role it already created", async () => {
+      const roles = new RoleClients(client);
+      const [first, second] = await Promise.all([
+        roles.get("Operator"),
+        roles.get("Operator"),
+      ]);
+      expect(first).toBe(second);
+    });
+
+    it("should throw when no built-in role carries the name", async () => {
+      await expect(
+        createTestClientWithRole(client, "Nobody" as BuiltInRole),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

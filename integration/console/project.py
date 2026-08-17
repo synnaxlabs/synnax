@@ -989,6 +989,26 @@ class ProjectClient:
             self.layout, self.client, actual_name, pane_locator=pane.first
         )
 
+    def bind_open_page(self, page_class: type[T], name: str) -> T:
+        """Bind a wrapper to a tab that is already open, without opening one.
+
+        Opening a page writes the panel document, so a user without panel write
+        can only reach a view someone else left open. This focuses that tab and
+        wraps its pane.
+
+        Args:
+            page_class: The page class to instantiate
+            name: Name of the already-open tab
+
+        Returns:
+            Instance of the specified page class
+        """
+        self.layout.get_read_only_tab(name).wait_for(state="visible", timeout=10000)
+        self.layout.focus(name)
+        pane = self.layout.page.locator(page_class.pluto_label)
+        pane.first.wait_for(state="visible", timeout=5000)
+        return page_class(self.layout, self.client, name, pane_locator=pane.first)
+
     def create_plot(self, name: str) -> Plot:
         """Create a new plot page in the UI and return a wrapper.
 
