@@ -62,6 +62,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/labjack",
+        "//driver/labjack/device:mock",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
