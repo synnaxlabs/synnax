@@ -50,7 +50,7 @@ class LabelClient:
             color_swatch = create_form.locator(".pluto-color-swatch").first
             self._set_color_via_picker(color_swatch, color)
 
-        name_input = create_form.locator("input[placeholder='Label Name']")
+        name_input = create_form.locator("input[placeholder='Name']")
         name_input.fill(name)
 
         save_button = create_form.locator("button:has(svg.pluto-icon--check)")
@@ -82,7 +82,7 @@ class LabelClient:
         for item in items_locator.all():
             if not item.is_visible():
                 continue
-            name_input = item.locator("input[placeholder='Label Name']").first
+            name_input = item.locator("input[placeholder='Name']").first
             if name_input.count() == 0:
                 continue
             if name_input.input_value().strip() == name.strip():
@@ -122,7 +122,7 @@ class LabelClient:
         if label_item is None:
             raise ValueError(f"Label '{old_name}' not found")
 
-        name_input = label_item.locator("input[placeholder='Label Name']").first
+        name_input = label_item.locator("input[placeholder='Name']").first
 
         name_input.click()
         self.layout.select_all_and_type(new_name)
@@ -183,7 +183,7 @@ class LabelClient:
         items = self._find_label_items()
         for item in items:
             if item.is_visible():
-                name_input = item.locator("input[placeholder='Label Name']").first
+                name_input = item.locator("input[placeholder='Name']").first
                 if name_input.count() > 0:
                     name = name_input.input_value()
                     if name:
@@ -226,7 +226,7 @@ class LabelClient:
         color_picker.wait_for(state="hidden", timeout=2000)
 
     def _open_edit_modal(self) -> None:
-        self.layout.open_modal("Edit Labels", _MODAL_SELECTOR)
+        self.layout.open_modal("Edit labels", _MODAL_SELECTOR)
 
     def _close_edit_modal(self) -> None:
         self.layout.close_modal(_MODAL_SELECTOR)
@@ -240,9 +240,7 @@ class LabelClient:
         except PlaywrightTimeoutError:
             return None
         item = items_locator.filter(
-            has=self.layout.page.locator(
-                f"input[placeholder='Label Name'][value='{name}']"
-            )
+            has=self.layout.page.locator(f"input[placeholder='Name'][value='{name}']")
         ).first
         try:
             item.wait_for(state="visible", timeout=5000)
@@ -270,7 +268,7 @@ class LabelClient:
         all_names = []
         for item in items:
             if item.is_visible():
-                inp = item.locator("input[placeholder='Label Name']").first
+                inp = item.locator("input[placeholder='Name']").first
                 if inp.count() > 0:
                     current_name = inp.input_value()
                     if current_name:

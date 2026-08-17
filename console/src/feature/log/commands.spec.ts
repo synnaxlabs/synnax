@@ -32,7 +32,7 @@ describe("Log Commands", () => {
       },
     });
     await openCommandPalette();
-    await selectCommand("Create a log");
+    await selectCommand("Create log");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(log.TYPE_ONTOLOGY_ID.type);

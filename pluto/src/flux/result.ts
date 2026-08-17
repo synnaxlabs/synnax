@@ -138,7 +138,7 @@ export const successResult = (<
   variant: "success",
   status: status.create<StatusDetails, "success">({
     variant: "success",
-    message: `Successfully ${op}`,
+    message: caseconv.capitalize(op),
     details: statusDetails,
   }),
   data,
@@ -169,7 +169,7 @@ export const nullClientResult = (<
   status: status.create<StatusDetails, "disabled">({
     variant: "disabled",
     message: `Failed to ${op}`,
-    description: `Cannot ${op} because no Core is connected.`,
+    description: "No Core is connected.",
     details: statusDetails as z.output<StatusDetails>,
   }),
   data: undefined,

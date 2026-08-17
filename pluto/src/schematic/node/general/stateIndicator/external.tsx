@@ -27,7 +27,7 @@ export const defaultConfig = (): Config => ({
   color: color.ZERO,
   inlineSize: 100,
   options: [],
-  label: Label.defaultConfig("State Indicator"),
+  label: Label.defaultConfig("State indicator"),
   ...Staleness.ZERO_CONFIG,
   source: telem.sourcePipeline("number", {
     connections: [],
@@ -46,7 +46,7 @@ const Preview = ({ color }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "State Indicator",
+  name: "State indicator",
   Form: StateIndicatorForm,
   Node: Symbol,
   Preview,

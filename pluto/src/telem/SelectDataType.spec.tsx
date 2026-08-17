@@ -31,12 +31,12 @@ describe("SelectDataType", () => {
 
   it("should render a selection trigger", () => {
     const c = render(<SelectWrapper />);
-    expect(c.getByText("Select a data type")).toBeTruthy();
+    expect(c.getByText("Select data type")).toBeTruthy();
   });
 
   it("should display data types when opened", () => {
     const c = render(<SelectWrapper />);
-    fireEvent.click(c.getByText("Select a data type"));
+    fireEvent.click(c.getByText("Select data type"));
     expect(c.getByText("float64")).toBeTruthy();
     expect(c.getByText("int32")).toBeTruthy();
     expect(c.getByText("Timestamp")).toBeTruthy();
@@ -44,13 +44,13 @@ describe("SelectDataType", () => {
 
   it("should not display the UNKNOWN data type", () => {
     const c = render(<SelectWrapper />);
-    fireEvent.click(c.getByText("Select a data type"));
+    fireEvent.click(c.getByText("Select data type"));
     expect(c.queryByText("Unknown")).toBeNull();
   });
 
   it("should display UUID and JSON in all caps", () => {
     const c = render(<SelectWrapper />);
-    fireEvent.click(c.getByText("Select a data type"));
+    fireEvent.click(c.getByText("Select data type"));
     expect(c.getByText("UUID")).toBeTruthy();
     expect(c.getByText("JSON")).toBeTruthy();
   });
@@ -58,14 +58,14 @@ describe("SelectDataType", () => {
   it("should call onChange when a data type is selected", () => {
     onChange.mockClear();
     const c = render(<SelectWrapper />);
-    fireEvent.click(c.getByText("Select a data type"));
+    fireEvent.click(c.getByText("Select data type"));
     fireEvent.click(c.getByText("float32"));
     expect(onChange).toHaveBeenCalledWith("float32");
   });
 
   it("should hide variable density types when hideVariableDensity is true", () => {
     const c = render(<SelectWrapper hideVariableDensity />);
-    fireEvent.click(c.getByText("Select a data type"));
+    fireEvent.click(c.getByText("Select data type"));
     expect(c.queryByText("String")).toBeNull();
     expect(c.queryByText("JSON")).toBeNull();
     expect(c.getByText("float64")).toBeTruthy();
@@ -75,7 +75,7 @@ describe("SelectDataType", () => {
     const c = render(
       <SelectWrapper hideDataTypes={[DataType.FLOAT32, DataType.INT64]} />,
     );
-    fireEvent.click(c.getByText("Select a data type"));
+    fireEvent.click(c.getByText("Select data type"));
     expect(c.queryByText("float32")).toBeNull();
     expect(c.queryByText("int64")).toBeNull();
     expect(c.getByText("float64")).toBeTruthy();

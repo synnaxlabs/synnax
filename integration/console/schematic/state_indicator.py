@@ -31,7 +31,7 @@ class StateIndicator(Symbol):
             channel_name: Channel name for the state input
             options: List of option dicts with "name", "value", and optional "color" keys
         """
-        super().__init__(label, symbol_type="State Indicator", rotatable=False)
+        super().__init__(label, symbol_type="State indicator", rotatable=False)
         self.channel_name = channel_name
         self.options = options or []
 

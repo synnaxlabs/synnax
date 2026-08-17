@@ -45,7 +45,7 @@ describe("useConnectModal", () => {
 
   it("should reveal the token field for bearer auth", async () => {
     await renderConnectModal();
-    clickAuthButton("Bearer Token");
+    clickAuthButton("Bearer token");
     await screen.findByPlaceholderText(/eyJhbGciOi/);
     clickAuthButton("None");
     await waitFor(() => expect(screen.queryByPlaceholderText(/eyJhbGciOi/)).toBeNull());
@@ -53,10 +53,10 @@ describe("useConnectModal", () => {
 
   it("should switch API key auth between header and query parameter delivery", async () => {
     await renderConnectModal();
-    clickAuthButton("API Key");
+    clickAuthButton("API key");
     await screen.findByPlaceholderText("X-API-Key");
     expect(screen.getByPlaceholderText(/sk_live/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Query Parameter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Query parameter" }));
     await screen.findByPlaceholderText("key");
     expect(screen.queryByPlaceholderText("X-API-Key")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Header" }));

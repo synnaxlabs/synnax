@@ -68,15 +68,15 @@ export const AliasInput = ({
   const setAliasTooltip =
     channel === 0 ? (
       <Text.Text level="small">
-        Select a channel to enable alias syncing with this label
+        Select a channel to sync its alias with this label
       </Text.Text>
     ) : setAlias == null ? (
       <Text.Text level="small">
-        Select a range to enable alias syncing with this label
+        Select a range to sync the alias with this label
       </Text.Text>
     ) : value.length === 0 ? (
       <Text.Text level="small">
-        Enter a value to enable alias syncing with this label
+        Enter a value to sync the alias with this label
       </Text.Text>
     ) : alias === value ? (
       <Text.Text level="small">Alias synced with this label</Text.Text>

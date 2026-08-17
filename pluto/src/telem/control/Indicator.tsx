@@ -42,7 +42,7 @@ export const Indicator = ({
       status: {
         key: "no_chip",
         variant: "warning",
-        message: "No chip connected.",
+        message: "No chip connected",
         time: TimeStamp.now(),
         details: { color: undefined },
       },

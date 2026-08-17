@@ -26,7 +26,7 @@ describe("Status Commands", () => {
       client,
     });
     await openCommandPalette();
-    await selectCommand("Create a status");
+    await selectCommand("Create status");
     await screen.findByRole("dialog");
     expect(findModalButton("Create")).toBeTruthy();
   });
@@ -42,7 +42,7 @@ describe("Status Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
-    await selectCommand("Open the Status Explorer");
+    await selectCommand("Open status explorer");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "view") throw new Error("expected a view tab");
     expect(tab.type).toBe(Status.Explorer.TAB_TYPE);

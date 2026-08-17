@@ -105,7 +105,7 @@ class AccessClient:
         password_input = self.layout.page.locator(".pluto-field__password input").first
         password_input.fill(password)
 
-        self.layout.page.get_by_role("button", name="Log In", exact=True).click()
+        self.layout.page.get_by_role("button", name="Log in", exact=True).click()
 
         for _ in range(20):
             sy.sleep(0.5)
@@ -193,7 +193,7 @@ class AccessClient:
         """
         self.notifications.close_all()
 
-        self.layout.command_palette("Register a User")
+        self.layout.command_palette("Register user")
 
         sy.sleep(0.3)
 

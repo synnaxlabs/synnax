@@ -27,7 +27,7 @@ const CreateButton = () => {
   const onClick = useAdd();
   return (
     <Button.CreateListItem size="small" onClick={onClick}>
-      New Label
+      New label
     </Button.CreateListItem>
   );
 };

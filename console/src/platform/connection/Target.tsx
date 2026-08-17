@@ -34,7 +34,7 @@ export const Target = (): ReactElement => {
     >
       <Indicator />
       <Text.Text color={10} weight={500} overflow="ellipsis">
-        {cluster?.name ?? "Cluster"}
+        {cluster?.name ?? "Core"}
       </Text.Text>
       {cluster != null && (
         <Text.Text color={9} overflow="ellipsis">

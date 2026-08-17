@@ -24,7 +24,7 @@ Axis = Literal["Y1", "Y2", "X1"]
 class Plot(ConsolePage):
     """Plot page management interface"""
 
-    page_type: str = "Line Plot"
+    page_type: str = "Line plot"
     pluto_label: str = ".pluto-line-plot"
 
     def __init__(
@@ -130,11 +130,11 @@ class Plot(ConsolePage):
     def _set_axis_property(self, key: str, value: Any) -> None:
         """Set a single axis property."""
         try:
-            if key in {"Lower Bound", "Upper Bound", "Tick Spacing", "Label"}:
+            if key in {"Lower bound", "Upper bound", "Tick spacing", "Label"}:
                 self._set_input_field(key, value)
-            elif key == "Label Direction":
+            elif key == "Label direction":
                 self._set_label_direction(value)
-            elif key == "Label Size":
+            elif key == "Label size":
                 self._set_label_size(value)
             else:
                 self.page.locator(key).fill(str(value), timeout=5000)
@@ -170,13 +170,13 @@ class Plot(ConsolePage):
         icon_direction: Literal["arrow-up", "arrow-right"] = (
             "arrow-up" if direction == "vertical" else "arrow-right"
         )
-        selector = f"label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--{icon_direction}'])"
+        selector = f"label:has-text('Label direction') + div button:has([aria-label='pluto-icon--{icon_direction}'])"
         self.page.locator(selector).click(timeout=5000)
 
     def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:
         """Set label size button."""
 
-        selector = f"label:has-text('Label Size') + div button:has-text('{size}')"
+        selector = f"label:has-text('Label size') + div button:has-text('{size}')"
         self.page.locator(selector).click(timeout=5000)
 
     def set_title(self, title: str) -> None:

@@ -75,7 +75,7 @@ const Form: FC = () => (
 );
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => ({
-  name: "EtherCAT Read Task",
+  name: "EtherCAT read task",
   type: READ_TYPE,
   config: READ_SCHEMAS.config.parse(config ?? {}),
 });
@@ -149,7 +149,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  title: "EtherCAT Read Task",
+  title: "EtherCAT read task",
   icon: <Icon.Logo.EtherCAT />,
   useOnSelect: useCreateRead,
 });

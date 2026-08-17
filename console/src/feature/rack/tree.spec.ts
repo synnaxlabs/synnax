@@ -87,20 +87,20 @@ describe("rack ontology service", () => {
     const r = await createRack();
     await renderMenu([r]);
     fireEvent.click(await screen.findByText("Create Arc automation"));
-    expect(await screen.findByText("Create Automation")).toBeTruthy();
+    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
   });
 
   it("should hide the toggle scanner item for a rack without the NI integration", async () => {
     const r = await createRack();
     await renderMenu([r]);
     await screen.findByText("Rename");
-    expect(screen.queryByText("Toggle NI Device Scanner")).toBeNull();
+    expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
   it("should toggle the NI scanner's disabled flag from the rack context menu", async () => {
     const { rack: r, scanTask } = await createNIRackWithScanner();
     await renderMenu([r]);
-    fireEvent.click(await screen.findByText("Toggle NI Device Scanner"));
+    fireEvent.click(await screen.findByText("Toggle NI device scanner"));
     await waitFor(async () => {
       const after = await client.tasks.retrieve({
         key: scanTask.key,

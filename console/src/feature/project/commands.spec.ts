@@ -61,7 +61,7 @@ describe("Project Commands", () => {
       client,
     });
     await openCommandPalette();
-    await selectCommand("Create a project");
+    await selectCommand("Create project");
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 
@@ -72,7 +72,7 @@ describe("Project Commands", () => {
     });
     const picker = interceptFilePicker();
     await openCommandPalette();
-    const item = await screen.findByText("Import a project");
+    const item = await screen.findByText("Import project");
     // The picker interceptor swallows the select frame's synthetic click, so fire the
     // detail-0 click that invokes onSelect directly.
     await act(async () => {

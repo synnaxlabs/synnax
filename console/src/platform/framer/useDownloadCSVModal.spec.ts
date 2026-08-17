@@ -85,7 +85,7 @@ describe("useDownloadCSVModal", () => {
       vi.restoreAllMocks();
     });
 
-    it("reads the selected channels, downloads their data as a CSV, and closes", async () => {
+    it("reads the selected channels, downloads their data as CSV, and closes", async () => {
       const client = createTestClient();
       const suffix = id.create().replace(/-/g, "_");
       const indexCh = await client.channels.create({
@@ -133,7 +133,7 @@ describe("useDownloadCSVModal", () => {
       ]);
 
       await waitFor(() =>
-        expect(screen.queryByText("Download data for export to a CSV")).toBeNull(),
+        expect(screen.queryByText("Download data for export as CSV")).toBeNull(),
       );
     });
   });

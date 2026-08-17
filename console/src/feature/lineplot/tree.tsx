@@ -21,7 +21,7 @@ import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
-  type: "Line Plot",
+  type: "Line plot",
   icon: "LinePlot",
   query: Base.useDelete,
   convertKey: String,

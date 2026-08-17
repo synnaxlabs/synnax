@@ -21,5 +21,5 @@ export const Selector = Base.create({
   selectables: AppSelector.VIS_SELECTABLES,
   icon: <Icon.Visualize />,
   tabTitle: "Create visualization",
-  text: "Create a visualization",
+  text: "Create visualization",
 });

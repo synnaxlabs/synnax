@@ -36,7 +36,7 @@ const createChannel = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.DigitalWriteSchemas> = {
-  name: "NI Digital Write Task",
+  name: "NI digital write task",
   type: NI.Task.DIGITAL_WRITE_TYPE,
   config: NI.Task.DIGITAL_WRITE_SCHEMAS.config.parse({}),
 };

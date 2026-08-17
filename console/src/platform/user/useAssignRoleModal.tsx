@@ -16,7 +16,7 @@ import { Modals } from "@/platform/modals";
 export interface AssignRoleModalParams {
   /** Key of the user whose role is being assigned. */
   userKey: Access.Role.ChangeRoleFormQuery["key"];
-  title?: string;
+  title?: string | string[];
 }
 
 export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
@@ -29,7 +29,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
     return (
       <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
         <Modals.Frame>
-          <Modals.Header icon={<Icon.User />}>{title ?? "Assign Role"}</Modals.Header>
+          <Modals.Header icon={<Icon.User />}>{title ?? "Role.Assign"}</Modals.Header>
           <Modals.Body>
             <Form.Field<access.role.Key> path="role" label="Role">
               {(props) => <Access.Role.Select {...props} />}

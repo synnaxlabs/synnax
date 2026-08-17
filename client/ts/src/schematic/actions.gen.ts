@@ -109,14 +109,14 @@ export type Action = z.infer<typeof actionZ>;
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
   create: zod.parse(createPayloadZ, payload, {
-    label: "Schematic create action payload",
+    label: "schematic create action payload",
   }),
 });
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: zod.parse(renamePayloadZ, payload, {
-    label: "Schematic rename action payload",
+    label: "schematic rename action payload",
   }),
 });
 
@@ -125,42 +125,42 @@ export const setNodePosition = (
 ): Action => ({
   type: "set_node_position",
   setNodePosition: zod.parse(setNodePositionPayloadZ, payload, {
-    label: "Schematic set_node_position action payload",
+    label: "schematic set_node_position action payload",
   }),
 });
 
 export const setNode = (payload: z.input<typeof setNodePayloadZ>): Action => ({
   type: "set_node",
   setNode: zod.parse(setNodePayloadZ, payload, {
-    label: "Schematic set_node action payload",
+    label: "schematic set_node action payload",
   }),
 });
 
 export const removeNode = (payload: z.input<typeof removeNodePayloadZ>): Action => ({
   type: "remove_node",
   removeNode: zod.parse(removeNodePayloadZ, payload, {
-    label: "Schematic remove_node action payload",
+    label: "schematic remove_node action payload",
   }),
 });
 
 export const addEdge = (payload: z.input<typeof addEdgePayloadZ>): Action => ({
   type: "add_edge",
   addEdge: zod.parse(addEdgePayloadZ, payload, {
-    label: "Schematic add_edge action payload",
+    label: "schematic add_edge action payload",
   }),
 });
 
 export const removeEdge = (payload: z.input<typeof removeEdgePayloadZ>): Action => ({
   type: "remove_edge",
   removeEdge: zod.parse(removeEdgePayloadZ, payload, {
-    label: "Schematic remove_edge action payload",
+    label: "schematic remove_edge action payload",
   }),
 });
 
 export const setConfig = (payload: z.input<typeof setConfigPayloadZ>): Action => ({
   type: "set_config",
   setConfig: zod.parse(setConfigPayloadZ, payload, {
-    label: "Schematic set_config action payload",
+    label: "schematic set_config action payload",
   }),
 });
 

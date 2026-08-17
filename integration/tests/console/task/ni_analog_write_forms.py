@@ -31,7 +31,7 @@ class NIAnalogWriteForms(NIRackCase):
         device_name = "E203"
 
         self.log("Creating NI Analog Write Task")
-        ni_ao = console.project.create_task("NI Analog Write Task", "AO_Test_task")
+        ni_ao = console.project.create_task("NI analog write task", "AO_Test_task")
 
         # Check simple functionality
         ni_ao.set_parameters(

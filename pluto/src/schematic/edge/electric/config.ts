@@ -12,7 +12,7 @@ import { type z } from "zod";
 import { Segmented } from "@/schematic/edge/common/segmented";
 
 export const VARIANT = "electric" as const;
-export const NAME = "Electric Signal";
+export const NAME = "Electric signal";
 export const configZ = Segmented.createConfigZ(VARIANT);
 export type Config = z.infer<typeof configZ>;
 export const defaultConfig = (): Config => Segmented.createDefaultConfig(VARIANT);

@@ -138,7 +138,7 @@ class RoleViewerPermissions(ConsoleCase):
         palette_input.fill(">Create a project", timeout=2000)
         sy.sleep(0.3)
 
-        project_cmd = self.page.get_by_text("Create a project", exact=True)
+        project_cmd = self.page.get_by_text("Create project", exact=True)
         project_cmd_exists = project_cmd.count() > 0
 
         self.console.layout.press_escape()
@@ -160,7 +160,7 @@ class RoleViewerPermissions(ConsoleCase):
         palette_input.fill(">Create a line plot", timeout=2000)
         sy.sleep(0.3)
 
-        lineplot_cmd = self.page.get_by_text("Create a line plot", exact=True)
+        lineplot_cmd = self.page.get_by_text("Create line plot", exact=True)
         lineplot_cmd_exists = lineplot_cmd.count() > 0
 
         self.console.layout.press_escape()
@@ -182,7 +182,7 @@ class RoleViewerPermissions(ConsoleCase):
         palette_input.fill(">Create a channel", timeout=2000)
         sy.sleep(0.3)
 
-        channel_cmd = self.page.get_by_text("Create a channel", exact=True)
+        channel_cmd = self.page.get_by_text("Create channel", exact=True)
         channel_cmd_exists = channel_cmd.count() > 0
 
         self.console.layout.press_escape()

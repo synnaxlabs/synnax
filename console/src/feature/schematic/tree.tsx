@@ -85,7 +85,7 @@ export const useRangeSnapshot = () => {
       ({ data }: Flux.AfterSuccessParams<Base.SnapshotParams>) =>
         addStatus({
           variant: "success",
-          message: `Successfully snapshotted ${buildMessage(data)}`,
+          message: `Snapshotted ${buildMessage(data)}`,
         }),
       [buildMessage, addStatus],
     ),
@@ -96,7 +96,8 @@ export const useRangeSnapshot = () => {
     if (rng == null)
       return addStatus({
         variant: "error",
-        message: "Cannot snapshot schematics without an active range",
+        message: "Failed to snapshot schematics",
+        description: "No range is active.",
       });
     const schematics = ids.map((id) => ({
       key: id.key,

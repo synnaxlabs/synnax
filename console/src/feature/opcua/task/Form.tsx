@@ -62,9 +62,9 @@ const ChannelListItem = <C extends Channel>({
   const item = PForm.useFieldValue<C>(path);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
-  const opcNode = nodeId.length > 0 ? nodeId : "No Node Selected";
+  const opcNode = nodeId.length > 0 ? nodeId : "No node selected";
   let opcNodeColor;
-  if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
+  if (opcNode === "No node selected") opcNodeColor = "var(--pluto-warning-z)";
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
     <Select.ListItem {...rest} justify="between" align="center" rightAligned>

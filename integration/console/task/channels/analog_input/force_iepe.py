@@ -54,10 +54,10 @@ class ForceIEPE(Analog):
             **kwargs,
         )
 
-        self._configure_dropdown("Force Units", force_units)
+        self._configure_dropdown("Force units", force_units)
         self._configure_input("Sensitivity", sensitivity)
 
         self._configure_symbol_dropdown("V/", sensitivity_units)
 
-        self._configure_dropdown("Current Excitation Source", current_excitation_source)
-        self._configure_input("Current Excitation Value", current_excitation_value)
+        self._configure_dropdown("Current excitation source", current_excitation_source)
+        self._configure_input("Current excitation value", current_excitation_value)
