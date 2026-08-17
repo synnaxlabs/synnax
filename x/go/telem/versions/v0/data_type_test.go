@@ -35,7 +35,7 @@ var _ = Describe("DataType", func() {
 		Entry("string", v0.StringT, v0.UnknownDensity),
 		Entry("bytes", v0.BytesT, v0.UnknownDensity),
 		Entry("json", v0.JSONT, v0.UnknownDensity),
-		Entry("bool", v0.BoolT, v0.Bit8),
+		Entry("boolean", v0.BooleanT, v0.Bit8),
 	)
 
 	DescribeTable("IsVariable", func(dataType v0.DataType, expected bool) {
@@ -57,6 +57,6 @@ var _ = Describe("DataType", func() {
 		Entry("string", v0.StringT, true),
 		Entry("bytes", v0.BytesT, true),
 		Entry("json", v0.JSONT, true),
-		Entry("bool", v0.BoolT, false),
+		Entry("boolean", v0.BooleanT, false),
 	)
 })

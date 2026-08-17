@@ -113,7 +113,7 @@ var _ = Describe("SeriesFactory", func() {
 			)
 			Specify(
 				"bool",
-				newFixedSeriesRoundtripTest([]bool{true, false, true}, telem.BoolT),
+				newFixedSeriesRoundtripTest([]bool{true, false, true}, telem.BooleanT),
 			)
 			Specify("empty", newFixedSeriesRoundtripTest([]int64{}, telem.Int64T))
 			Specify("nil", func() {
@@ -666,29 +666,34 @@ var _ = Describe("SeriesFactory", func() {
 				MustSucceed(telem.NewJSONSeriesV(42)),
 			),
 			// bool
-			Entry("bool true → BoolT", true, telem.BoolT, telem.NewSeriesV(true)),
-			Entry("bool false → BoolT", false, telem.BoolT, telem.NewSeriesV(false)),
-			Entry("int 1 → BoolT", 1, telem.BoolT, telem.NewSeriesV(true)),
-			Entry("int 0 → BoolT", 0, telem.BoolT, telem.NewSeriesV(false)),
+			Entry("bool true → BooleanT", true, telem.BooleanT, telem.NewSeriesV(true)),
 			Entry(
-				"int 42 → BoolT (normalizes nonzero)",
+				"bool false → BooleanT",
+				false,
+				telem.BooleanT,
+				telem.NewSeriesV(false),
+			),
+			Entry("int 1 → BooleanT", 1, telem.BooleanT, telem.NewSeriesV(true)),
+			Entry("int 0 → BooleanT", 0, telem.BooleanT, telem.NewSeriesV(false)),
+			Entry(
+				"int 42 → BooleanT (normalizes nonzero)",
 				42,
-				telem.BoolT,
+				telem.BooleanT,
 				telem.NewSeriesV(true),
 			),
 			Entry(
-				"int -3 → BoolT (normalizes nonzero)",
+				"int -3 → BooleanT (normalizes nonzero)",
 				-3,
-				telem.BoolT,
+				telem.BooleanT,
 				telem.NewSeriesV(true),
 			),
 			Entry(
-				"float 1.5 → BoolT (normalizes nonzero)",
+				"float 1.5 → BooleanT (normalizes nonzero)",
 				1.5,
-				telem.BoolT,
+				telem.BooleanT,
 				telem.NewSeriesV(true),
 			),
-			Entry("float 0.0 → BoolT", 0.0, telem.BoolT, telem.NewSeriesV(false)),
+			Entry("float 0.0 → BooleanT", 0.0, telem.BooleanT, telem.NewSeriesV(false)),
 			Entry("bool true → Uint8T", true, telem.Uint8T, telem.NewSeriesV(uint8(1))),
 			Entry(
 				"bool false → Uint8T",

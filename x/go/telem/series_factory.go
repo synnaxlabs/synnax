@@ -276,7 +276,7 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 		return NewSeriesV(CastNumeric[float64](value))
 	case TimeStampT:
 		return NewSeriesV(CastNumeric[TimeStamp](value))
-	case BoolT:
+	case BooleanT:
 		return NewSeriesV(castToBool(value))
 	case UUIDT:
 		return NewSeriesV(castToUUID(value))

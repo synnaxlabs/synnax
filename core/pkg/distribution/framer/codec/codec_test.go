@@ -265,7 +265,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool Single Sample",
 			channel.Keys{1},
-			[]telem.DataType{telem.BoolT},
+			[]telem.DataType{telem.BooleanT},
 			frame.NewMulti(
 				channel.Keys{1},
 				[]telem.Series{telem.NewSeriesV(true)},
@@ -273,7 +273,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool Exact Byte Boundary",
 			channel.Keys{1},
-			[]telem.DataType{telem.BoolT},
+			[]telem.DataType{telem.BooleanT},
 			frame.NewMulti(
 				channel.Keys{1},
 				[]telem.Series{
@@ -292,7 +292,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool One Past Byte Boundary",
 			channel.Keys{1},
-			[]telem.DataType{telem.BoolT},
+			[]telem.DataType{telem.BooleanT},
 			frame.NewMulti(
 				channel.Keys{1},
 				[]telem.Series{
@@ -312,7 +312,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool Seven Samples (Partial Last Byte)",
 			channel.Keys{1},
-			[]telem.DataType{telem.BoolT},
+			[]telem.DataType{telem.BooleanT},
 			frame.NewMulti(
 				channel.Keys{1},
 				[]telem.Series{
@@ -322,7 +322,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool Mixed With Other Types",
 			channel.Keys{1, 2, 3},
-			[]telem.DataType{telem.BoolT, telem.Float32T, telem.Uint8T},
+			[]telem.DataType{telem.BooleanT, telem.Float32T, telem.Uint8T},
 			frame.NewMulti(
 				channel.Keys{1, 2, 3},
 				[]telem.Series{

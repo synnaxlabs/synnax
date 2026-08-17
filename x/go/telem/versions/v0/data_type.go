@@ -19,7 +19,7 @@ func (dt DataType) Density() Density {
 		return Bit32
 	case Int16T, Uint16T:
 		return Bit16
-	case Int8T, Uint8T, BoolT:
+	case Int8T, Uint8T, BooleanT:
 		return Bit8
 	case UUIDT:
 		return Bit128
@@ -67,7 +67,7 @@ const (
 	BytesT DataType = "bytes"
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
 	JSONT DataType = "json"
-	// BoolT is a data type for a boolean value. Samples are a single byte with
+	// BooleanT is a data type for a boolean value. Samples are a single byte with
 	// canonical values 0x00 (false) and 0x01 (true).
-	BoolT DataType = "bool"
+	BooleanT DataType = "boolean"
 )
