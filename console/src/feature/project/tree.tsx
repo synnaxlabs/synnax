@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  imex,
   lineplot,
   log,
   type ontology,
@@ -146,7 +147,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
             onClick={() =>
               handleExport({
                 stream: (client) =>
-                  client.projects.export(first.id.key, { encoding: "JSON" }),
+                  client.projects.export(first.id.key, imex.JSON_OPTIONS),
                 name: first.name,
                 extension: "zip",
               })

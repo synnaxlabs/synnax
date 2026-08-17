@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology, schematic } from "@synnaxlabs/client";
+import { group, imex, type ontology, schematic } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -432,7 +432,7 @@ const GroupListContextMenu = ({
           if (item != null)
             exportGroup({
               stream: (client) =>
-                client.schematics.symbols.exportGroup(item.key, { encoding: "JSON" }),
+                client.schematics.symbols.exportGroup(item.key, imex.JSON_OPTIONS),
               name: item.name,
               extension: "zip",
             });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, project } from "@synnaxlabs/client";
+import { DisconnectedError, imex, project } from "@synnaxlabs/client";
 import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -61,7 +61,7 @@ const ExportProjectCommand = Command.create({
         const p = await client.projects.retrieve(getSelected());
         name = p.name;
         handleExport({
-          stream: (client) => client.projects.export(p.key, { encoding: "JSON" }),
+          stream: (client) => client.projects.export(p.key, imex.JSON_OPTIONS),
           name,
           extension: "zip",
         });

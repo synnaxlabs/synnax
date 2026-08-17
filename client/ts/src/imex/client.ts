@@ -30,6 +30,9 @@ export interface Options {
   encoding: Encoding;
 }
 
+/** The standard options for a JSON import or export. */
+export const JSON_OPTIONS: Options = { encoding: "JSON" };
+
 /** The wire shape of the per-import request params. Both fields are required. */
 const importParamsZ = z.object({
   fileName: z.string().min(1),
