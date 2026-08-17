@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <atomic>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -182,6 +184,51 @@ TEST_F(SingleChannelAnalogWriteTest, testStartClaimsFreshHardware) {
     EXPECT_EQ(make_hw_calls, 2);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
     wt->stop("stop_cmd_2", true);
+}
+
+/// @brief a writer that counts the instances currently alive.
+template<typename T>
+class CountingWriter final : public hardware::Writer<T> {
+    std::shared_ptr<std::atomic<int>> live;
+
+public:
+    explicit CountingWriter(std::shared_ptr<std::atomic<int>> live):
+        live(std::move(live)) {
+        this->live->fetch_add(1);
+    }
+
+    ~CountingWriter() { this->live->fetch_sub(1); }
+
+    x::errors::Error start() override { return x::errors::NIL; }
+    x::errors::Error stop() override { return x::errors::NIL; }
+    x::errors::Error write(const std::vector<T> &) override { return x::errors::NIL; }
+};
+
+/// @brief a start must never build hardware over a live claim: DAQmx names each task
+/// after the Synnax task and rejects a duplicate name.
+TEST_F(SingleChannelAnalogWriteTest, testStartNeverBuildsOverALiveClaim) {
+    parse_config();
+    const auto live = std::make_shared<std::atomic<int>>(0);
+    size_t builds = 0;
+    int live_at_build = 0;
+    const std::unique_ptr<common::Sink> sink = std::make_unique<WriteTaskSink<double>>(
+        std::move(*cfg),
+        [&](const WriteTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Writer<double>>, x::errors::Error> {
+            ++builds;
+            live_at_build = std::max(live_at_build, live->load());
+            return {std::make_unique<CountingWriter<double>>(live), x::errors::NIL};
+        }
+    );
+
+    ASSERT_NIL(sink->start());
+    EXPECT_EQ(live->load(), 1);
+    ASSERT_NIL(sink->start());
+    EXPECT_EQ(builds, 2);
+    EXPECT_EQ(live_at_build, 0);
+    EXPECT_EQ(live->load(), 1);
+    ASSERT_NIL(sink->stop());
+    EXPECT_EQ(live->load(), 0);
 }
 
 /// @brief it should write analog values and update state channels correctly.

@@ -294,6 +294,8 @@ private:
     }
 
     x::errors::Error start() override {
+        // DAQmx rejects a second task with a live task's name.
+        this->hw_reader.reset();
         auto [hw, err] = this->make_hw(this->cfg);
         if (err) return err;
         this->hw_reader = std::move(hw);

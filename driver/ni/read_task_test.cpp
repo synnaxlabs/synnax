@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <atomic>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -637,6 +639,56 @@ TEST_F(AnalogReadTest, testFailedInLoopRestartReclaimsOnNextRead) {
         std::chrono::milliseconds(10)
     );
     rt->stop("stop_cmd", true);
+}
+
+/// @brief a reader that counts the instances currently alive.
+template<typename T>
+class CountingReader final : public hardware::Reader<T> {
+    std::shared_ptr<std::atomic<int>> live;
+
+public:
+    explicit CountingReader(std::shared_ptr<std::atomic<int>> live):
+        live(std::move(live)) {
+        this->live->fetch_add(1);
+    }
+
+    ~CountingReader() { this->live->fetch_sub(1); }
+
+    x::errors::Error start() override { return x::errors::NIL; }
+    x::errors::Error stop() override { return x::errors::NIL; }
+
+    hardware::ReadResult read(size_t, std::vector<T> &) override {
+        hardware::ReadResult res;
+        return res;
+    }
+};
+
+/// @brief a start must never build hardware over a live claim: DAQmx names each task
+/// after the Synnax task and rejects a duplicate name.
+TEST_F(AnalogReadTest, testStartNeverBuildsOverALiveClaim) {
+    parse_config();
+    const auto live = std::make_shared<std::atomic<int>>(0);
+    size_t builds = 0;
+    int live_at_build = 0;
+    const std::unique_ptr<common::Source> source = std::make_unique<
+        ni::ReadTaskSource<double>>(
+        std::move(*cfg),
+        [&](const ni::ReadTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            ++builds;
+            live_at_build = std::max(live_at_build, live->load());
+            return {std::make_unique<CountingReader<double>>(live), x::errors::NIL};
+        }
+    );
+
+    ASSERT_NIL(source->start());
+    EXPECT_EQ(live->load(), 1);
+    ASSERT_NIL(source->start());
+    EXPECT_EQ(builds, 2);
+    EXPECT_EQ(live_at_build, 0);
+    EXPECT_EQ(live->load(), 1);
+    ASSERT_NIL(source->stop());
+    EXPECT_EQ(live->load(), 0);
 }
 
 class DigitalReadTest : public ::testing::Test {
