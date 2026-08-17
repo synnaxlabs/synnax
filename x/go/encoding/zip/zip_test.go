@@ -93,7 +93,15 @@ var _ = Describe("Codec", func() {
 			Entry("a string map", map[string]string{"a.json": "1"}),
 			Entry("a byte slice", []byte("valve")),
 		)
-		DescribeTable("Should reject a file name that is not a leaf",
+		It("Should encode nested entry paths", func(ctx SpecContext) {
+			files := xzip.Files{
+				"manifest.json":                  []byte(`{"version":1}`),
+				"propulsion/pressurization.json": []byte(`{"name":"press"}`),
+				"propulsion/tanks/lox.json":      []byte(`{"name":"lox"}`),
+			}
+			Expect(read(MustSucceed(xzip.Codec.Encode(ctx, files)))).To(Equal(files))
+		})
+		DescribeTable("Should reject an invalid entry name",
 			func(ctx SpecContext, name, reason string) {
 				Expect(xzip.Codec.Encode(ctx, xzip.Files{name: []byte("1")})).Error().
 					To(SatisfyAll(
@@ -102,11 +110,18 @@ var _ = Describe("Codec", func() {
 					))
 			},
 			Entry("an empty name", "", "file name is empty"),
-			Entry("a forward slash", "nested/valve.json", "holds a path separator"),
-			Entry("a backslash", `nested\valve.json`, "holds a path separator"),
-			Entry("a leading slash", "/valve.json", "holds a path separator"),
-			Entry("the current directory", ".", "addresses a directory"),
-			Entry("the parent directory", "..", "addresses a directory"),
+			Entry("a backslash", `nested\valve.json`, "holds a backslash"),
+			Entry("a leading slash", "/valve.json", "not a valid relative path"),
+			Entry("a trailing slash", "nested/", "not a valid relative path"),
+			Entry("a doubled slash", "nested//valve.json", "not a valid relative path"),
+			Entry("the current directory", ".", "not a valid relative path"),
+			Entry("the parent directory", "..", "not a valid relative path"),
+			Entry(
+				"a parent segment",
+				"nested/../valve.json",
+				"not a valid relative path",
+			),
+			Entry("a current segment", "./valve.json", "not a valid relative path"),
 		)
 	})
 	Describe("EncodeStream", func() {
@@ -121,10 +136,10 @@ var _ = Describe("Codec", func() {
 			Expect(xzip.Codec.EncodeStream(ctx, &buf, "valve")).
 				To(MatchError(ContainSubstring("failed to encode")))
 		})
-		It("Should write nothing when a file name is not a leaf", func(
+		It("Should write nothing when an entry name is invalid", func(
 			ctx SpecContext,
 		) {
-			files := xzip.Files{"a.json": []byte("1"), "nested/b.json": []byte("2")}
+			files := xzip.Files{"a.json": []byte("1"), `nested\b.json`: []byte("2")}
 			var buf bytes.Buffer
 			Expect(xzip.Codec.EncodeStream(ctx, &buf, files)).
 				To(MatchError(validate.ErrValidation))
@@ -184,7 +199,7 @@ var _ = Describe("Codec", func() {
 				MatchError(ContainSubstring("repeats an earlier entry")),
 			))
 		})
-		DescribeTable("Should reject an entry name that is not a leaf",
+		DescribeTable("Should reject an invalid entry name",
 			func(ctx SpecContext, name, reason string) {
 				var decoded xzip.Files
 				Expect(xzip.Codec.Decode(ctx, write([2]string{name, "1"}), &decoded)).
@@ -194,17 +209,30 @@ var _ = Describe("Codec", func() {
 					))
 			},
 			Entry("an empty name", "", "file name is empty"),
-			Entry("a backslash", `nested\valve.json`, "holds a path separator"),
-			Entry("the current directory", ".", "addresses a directory"),
-			Entry("the parent directory", "..", "addresses a directory"),
+			Entry("a backslash", `nested\valve.json`, "holds a backslash"),
+			Entry("the parent directory", "..", "not a valid relative path"),
 		)
-		It("Should reject a nested entry beside a root entry", func(ctx SpecContext) {
-			b := write([2]string{"a.json", "1"}, [2]string{"nested/b.json", "2"})
+		It("Should reject a parent segment beside a root entry", func(
+			ctx SpecContext,
+		) {
+			b := write(
+				[2]string{"nested/../valve.json", "1"},
+				[2]string{"other.json", "2"},
+			)
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("holds a path separator")),
+				MatchError(ContainSubstring("not a valid relative path")),
 			))
+		})
+		It("Should decode a nested entry beside a root entry", func(ctx SpecContext) {
+			b := write([2]string{"a.json", "1"}, [2]string{"nested/b.json", "2"})
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(xzip.Files{
+				"a.json":        []byte("1"),
+				"nested/b.json": []byte("2"),
+			}))
 		})
 		It("Should unwrap a root directory all entries share", func(ctx SpecContext) {
 			b := write(

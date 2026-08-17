@@ -111,6 +111,7 @@ type Transport struct {
 	ProjectDelete    freighter.UnaryServer[project.DeleteRequest, types.Nil]
 	ProjectRename    freighter.UnaryServer[project.RenameRequest, types.Nil]
 	ProjectSetLayout freighter.UnaryServer[project.SetLayoutRequest, types.Nil]
+	ProjectExport    freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -312,6 +313,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ProjectRetrieve,
 		t.ProjectRename,
 		t.ProjectSetLayout,
+		t.ProjectExport,
 
 		// SCHEMATIC
 		t.SchematicCreate,
@@ -483,6 +485,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Delete))
 	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
 	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
+	t.ProjectExport.BindHandler(l.Project.Export)
 	t.ProjectSetLayout.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout),
 	)

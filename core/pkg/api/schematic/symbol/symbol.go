@@ -15,13 +15,13 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -212,6 +212,9 @@ type (
 	ExportGroupRequest struct {
 		// Key identifies the group to export.
 		Key group.Key `json:"key" msgpack:"key"`
+		// Encoding names the serialization member files are written in. "JSON" is the
+		// only supported value.
+		Encoding string `json:"encoding" msgpack:"encoding"`
 	}
 	// ExportGroupResponse holds the bundle's contents keyed by file name. The HTTP
 	// transport encodes it as a zip archive.
@@ -225,6 +228,10 @@ func (s *Service) ExportGroup(
 	ctx context.Context,
 	req ExportGroupRequest,
 ) (ExportGroupResponse, error) {
+	encoder, err := imex.ResolveEncoding(req.Encoding)
+	if err != nil {
+		return nil, err
+	}
 	var (
 		enforcer = s.access.NewEnforcer(nil)
 		subject  = auth.GetSubject(ctx)
@@ -236,7 +243,7 @@ func (s *Service) ExportGroup(
 	}); err != nil {
 		return nil, err
 	}
-	files, members, err := s.internal.ExportGroup(ctx, req.Key, json.Codec)
+	files, members, err := s.internal.ExportGroup(ctx, req.Key, encoder)
 	if err != nil {
 		return nil, err
 	}

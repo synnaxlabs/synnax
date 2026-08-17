@@ -14,10 +14,9 @@ import { Import } from "@/platform/import";
 
 export const ImportCommand = Command.create({
   key: "import",
-  name: "Import component(s)",
+  name: "Import components",
   icon: <Icon.Import />,
   useOnSelect: Import.useImport,
-  sortOrder: -1,
 });
 
 export const COMMANDS = [ImportCommand];

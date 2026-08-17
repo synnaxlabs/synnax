@@ -9,74 +9,63 @@
 
 import {
   DisconnectedError,
+  imex,
   type ontology,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { zod } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { z } from "zod";
 
 import { Runtime } from "@/platform/runtime";
 
-const FILTERS: Runtime.FileFilter[] = [{ name: "JSON", extensions: ["json"] }];
-
-const envelopeZ = z.object({ name: z.string() });
-
-/** A serialized resource ready to be written to disk. */
-export interface FileData {
-  data: string;
+export interface Params {
+  /** Retrieves the resource's export stream from the Core. */
+  stream: (client: Client) => Promise<ReadableStream<Uint8Array>>;
+  /** The resource name. It names the exported file and the failure status. */
   name: string;
+  /** The extension of the exported file, without a leading dot. */
+  extension: string;
 }
 
 /**
- * Streams the Core-serialized envelope for the resource identified by id and returns
- * its bytes together with the resource name promoted from the envelope. The Core owns
- * serialization and versioning, so the returned bytes are exactly the file's contents.
+ * Returns a callback that exports something to a file, streaming the Core-serialized
+ * data to a file the user picks.
  */
-export const fetchFileData = async (
-  client: Client,
-  id: ontology.ID,
-): Promise<FileData> => {
-  const stream = await client.imex.export(id, { encoding: "JSON" });
-  const data = await new Response(stream).text();
-  return {
-    data,
-    name: zod.parse(envelopeZ, JSON.parse(data), { label: "export data" }).name,
-  };
+export const use = (): ((params: Params) => void) => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const download = Runtime.useDownload();
+  return useCallback(
+    ({ stream, name, extension }: Params) => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        await download({ stream: await stream(client), name, extension });
+      }, `Failed to export ${name}`);
+    },
+    [client, handleError, download],
+  );
 };
 
 /**
  * Returns a callback that exports the resource identified by the given ontology ID,
- * streaming its Core-serialized envelope to a file the user picks.
+ * streaming its Core-serialized JSON envelope to a file named after the resource.
  */
-export const use = (): ((id: ontology.ID) => void) => {
+export const useResource = (): ((id: ontology.ID) => void) => {
   const client = Synnax.use();
+  const export_ = use();
   const handleError = Status.useErrorHandler();
-  const addStatus = Status.useAdder();
   return useCallback(
     (id: ontology.ID) => {
-      let name: string | undefined;
-      handleError(
-        async () => {
-          if (client == null) throw new DisconnectedError();
-          const file = await fetchFileData(client, id);
-          name = file.name;
-          const location = await Runtime.saveFile({
-            title: `Export ${name}`,
-            defaultName: `${name}.json`,
-            filters: FILTERS,
-            contents: file.data,
-          });
-          if (location == null) return;
-          addStatus({
-            variant: "success",
-            message: `Exported ${name} to ${location}`,
-          });
-        },
-        `Failed to export ${name ?? id.type}`,
-      );
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const { name } = await client.ontology.retrieve(id);
+        export_({
+          stream: async (client) => await client.imex.export(id, imex.JSON_OPTIONS),
+          name,
+          extension: "json",
+        });
+      }, "Failed to export resource");
     },
-    [client, handleError, addStatus],
+    [client, export_, handleError],
   );
 };

@@ -12,6 +12,7 @@ import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { canParseFile } from "@/platform/import/canParseFile";
 import {
   captureEntries,
   isDirectoryEntry,
@@ -43,7 +44,13 @@ const ingestEntry = async (
   if (isDirectoryEntry(entry)) {
     const files = await readDirectoryFiles(entry);
     const parsed = await Promise.all(
-      files.map(async (file) => ({ name: file.name, data: await readJSON(file) })),
+      files
+        .filter(({ path }) => canParseFile(path))
+        .map(async ({ file, path }) => ({
+          name: file.name,
+          path,
+          data: await readJSON(file),
+        })),
     );
     return await ingestDirectory(entry.name, parsed, { client, store });
   }

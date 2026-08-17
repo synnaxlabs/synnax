@@ -13,6 +13,7 @@ import random
 import re
 import shutil
 import tempfile
+import zipfile
 from typing import Any, Literal, TypeVar, overload
 
 from playwright.sync_api import Locator
@@ -38,39 +39,6 @@ from framework.run_dir import resolve_results_path
 __all__ = ["ProjectClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
-
-# Playwright has expect_file_chooser for <input type="file"> but no analogue
-# for the File System Access API's showDirectoryPicker, which is what the real
-# browser-mode export uses. This snippet installs an in-memory mock that
-# captures writes into window.__synnaxExportedFiles as
-# { "relativePath": "contents" }; production export code runs unchanged. The
-# Python side reads the map back and materializes a real on-disk directory the
-# import test can consume verbatim.
-_INSTALL_DIRECTORY_PICKER_MOCK_JS = """
-window.__synnaxExportedFiles = {};
-window.showDirectoryPicker = async () => ({
-    name: '__synnaxExportMock',
-    getDirectoryHandle: async (subdir, opts) => {
-        if (!opts || !opts.create)
-            throw new DOMException('Not found', 'NotFoundError');
-        return {
-            name: subdir,
-            getFileHandle: async (name) => ({
-                name,
-                createWritable: async () => ({
-                    write: async (data) => {
-                        const text = typeof data === 'string'
-                            ? data
-                            : await new Response(data).text();
-                        window.__synnaxExportedFiles[subdir + '/' + name] = text;
-                    },
-                    close: async () => {},
-                }),
-            }),
-        };
-    },
-});
-"""
 
 
 class ProjectClient:
@@ -329,15 +297,16 @@ class ProjectClient:
             container.wait_for(state="attached", timeout=2000)
         except PlaywrightTimeoutError:
             return False
-        prev_scroll = -1
+        # The list is virtualized, so the wheel is the only way to reach detached rows.
+        # The rendered text stops changing once the list hits bottom.
+        container.hover()
+        prev_rows: str | None = None
         for _ in range(50):
-            curr_scroll = container.evaluate(
-                "el => ({ top: el.scrollTop, height: el.scrollHeight })"
-            )
-            if prev_scroll != -1 and curr_scroll["top"] == prev_scroll:
+            curr_rows = container.inner_text()
+            if prev_rows is not None and curr_rows == prev_rows:
                 break
-            prev_scroll = curr_scroll["top"]
-            container.evaluate("el => el.scrollTop += 200")
+            prev_rows = curr_rows
+            self.layout.page.mouse.wheel(0, 200)
             self.layout.page.wait_for_timeout(100)
             try:
                 page_item.wait_for(state="attached", timeout=300)
@@ -588,7 +557,6 @@ class ProjectClient:
         """
         page_item = self._find_page(name)
         self.ctx_menu.open_on(page_item)
-        self.layout.page.evaluate("delete window.showSaveFilePicker")
 
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
@@ -601,18 +569,6 @@ class ProjectClient:
         with open(save_path, "r", encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
             return result
-
-    def _install_directory_picker_mock(self) -> None:
-        """Replace window.showDirectoryPicker with an in-memory capture."""
-        self.layout.page.evaluate(_INSTALL_DIRECTORY_PICKER_MOCK_JS)
-
-    def _drain_exported_files(self) -> dict[str, str]:
-        """Read and clear files captured by the showDirectoryPicker mock."""
-        files: dict[str, str] = self.layout.page.evaluate(
-            "() => { const f = window.__synnaxExportedFiles || {};"
-            " window.__synnaxExportedFiles = {}; return f; }"
-        )
-        return files
 
     def import_page(self, json_path: str, name: str) -> None:
         """Import a component via the real "Import component(s)" command palette flow.
@@ -649,17 +605,21 @@ class ProjectClient:
     def import_project_from_directory(self, directory_path: str) -> None:
         """Import a project via the real "Import a project" command flow.
 
-        Opens the command palette, fulfills the resulting directory chooser
-        with ``directory_path`` (Playwright walks it and uploads each file
-        with its webkitRelativePath set), then waits for the project
-        selector to display the directory's basename. The directory must
-        contain ``LAYOUT.json`` and one ``{component_name}.json`` file per
-        layout entry, matching the Console export format.
+        Opens the command palette, fulfills the resulting directory chooser with
+        ``directory_path`` (Playwright walks it and uploads each file with its
+        webkitRelativePath set), then waits for the project selector to display the
+        imported project's name. A bundle directory holds a ``manifest.json`` whose
+        ``name`` names the project; a legacy directory holds ``LAYOUT.json`` and names
+        the project after its basename.
         """
+        expected_name = os.path.basename(directory_path.rstrip(os.sep))
+        manifest_path = os.path.join(directory_path, "manifest.json")
+        if os.path.isfile(manifest_path):
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                expected_name = json.load(f).get("name") or expected_name
         with self.layout.page.expect_file_chooser() as fc_info:
             self.layout.command_palette("Import a project")
         fc_info.value.set_files(directory_path)
-        expected_name = os.path.basename(directory_path.rstrip(os.sep))
         self.layout.page.get_by_role("button").filter(has_text=expected_name).wait_for(
             state="visible", timeout=10000
         )
@@ -667,34 +627,29 @@ class ProjectClient:
     def export_project(self, name: str) -> str:
         """Export a project via the real Export context menu action.
 
-        Installs an in-memory mock of ``window.showDirectoryPicker`` so the
-        real export code path runs unchanged but writes captured into a JS
-        Map instead of touching the OS file picker. Waits for the production
-        "Exported {name} to ..." success notification, which fires only
-        after every file write completes, then drains the map and
-        materializes the captured files into a real directory under the
-        results dir.
+        The browser runs without the File System Access pickers (see the case launch
+        args), so the export falls back to a plain download, which Playwright captures.
+        Saves the bundle zip under the results dir and extracts it into a real directory
+        the import test can consume.
         """
-        self._install_directory_picker_mock()
         self.layout.show_resource_toolbar("project")
         project_item = self.get_item(name)
         project_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(project_item, "Export")
+        with self.layout.page.expect_download(timeout=10000) as download_info:
+            self.ctx_menu.action(project_item, "Export")
+        zip_path = resolve_results_path(f"{name}_export.zip")
+        download_info.value.save_as(zip_path)
 
-        if not self.notifications.wait_for(f"Exported {name}"):
+        if not self.notifications.wait_for(f"Downloaded {name}"):
             raise AssertionError(
                 f"Export of project {name!r} did not emit a success notification"
             )
-        files = self._drain_exported_files()
-
         export_dir = resolve_results_path(f"{name}_export")
         if os.path.isdir(export_dir):
             shutil.rmtree(export_dir)
         os.makedirs(export_dir)
-        for rel_path, contents in files.items():
-            basename = os.path.basename(rel_path)
-            with open(os.path.join(export_dir, basename), "w", encoding="utf-8") as f:
-                f.write(contents)
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(export_dir)
 
         self.notifications.close_all()
         self.layout.close_left_toolbar()

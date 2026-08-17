@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   caseconv,
@@ -18,6 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { imex } from "@/imex";
 import { type ontology } from "@/ontology";
 import {
   type Key,
@@ -48,6 +49,7 @@ const setLayoutReqZ = z.object({
   layout: caseconv.preserveCase(record.unknownZ()),
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
+const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
 
 const retrieveResZ = z.object({ projects: projectZ.array().default(() => []) });
 const createResZ = z.object({ projects: projectZ.array() });
@@ -66,6 +68,7 @@ const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
 
 export interface ClientConfig {
   unary: UnaryClient;
+  file: FileTransport;
   cache: query.Cache;
   ontology: ontology.Client;
 }
@@ -183,6 +186,27 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
         ),
     });
     drop();
+  }
+
+  /**
+   * Exports the project and its contents as a bundle: a zip archive holding one JSON
+   * file per document and panel, group children as directories, and a manifest.json
+   * naming the project. Two members of one directory that take the same file name keep
+   * distinct names through a numeric suffix. The caller pipes the stream wherever it
+   * likes without the client buffering the whole archive.
+   *
+   * @param key - the key of the project to export.
+   * @param options - the export options, including the serialization member files are
+   * written in.
+   * @returns the bundle as a stream of zip bytes.
+   */
+  async export(key: Key, options: imex.Options): Promise<ReadableStream<Uint8Array>> {
+    return await this.cfg.file.download(
+      "/project/export",
+      { key, encoding: options.encoding },
+      exportReqZ,
+      { encoding: "ZIP" },
+    );
   }
 
   /** Subscribes to every project delete delivered to the cache. */

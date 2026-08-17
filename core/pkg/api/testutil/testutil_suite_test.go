@@ -7,4 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/csv/useDownloadModal";
+package testutil_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestTestutil(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "API Testutil Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

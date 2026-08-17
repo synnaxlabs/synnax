@@ -282,7 +282,9 @@ describe("Symbol Client", () => {
     // Zip entry names are stored uncompressed, so the raw archive names the bundle's
     // files without the spec needing a zip reader.
     const download = async (key: group.Key): Promise<string> => {
-      const stream = await client.schematics.symbols.exportGroup(key);
+      const stream = await client.schematics.symbols.exportGroup(key, {
+        encoding: "JSON",
+      });
       return new TextDecoder().decode(await new Response(stream).arrayBuffer());
     };
 
@@ -332,7 +334,9 @@ describe("Symbol Client", () => {
         data: SYMBOL_DATA,
         parent: group.ontologyID(exported.key),
       });
-      const stream = await client.schematics.symbols.exportGroup(exported.key);
+      const stream = await client.schematics.symbols.exportGroup(exported.key, {
+        encoding: "JSON",
+      });
       const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
       const imported = await client.schematics.symbols.importGroup(bundle);
       expect(imported.key).not.toEqual(exported.key);
@@ -349,7 +353,9 @@ describe("Symbol Client", () => {
         parent: ontology.ROOT_ID,
         name: `symbol-import-${id.create()}`,
       });
-      const stream = await client.schematics.symbols.exportGroup(exported.key);
+      const stream = await client.schematics.symbols.exportGroup(exported.key, {
+        encoding: "JSON",
+      });
       const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
       const imported = await client.schematics.symbols.importGroup(bundle);
       const permanent = await client.schematics.symbols.retrieveGroup();

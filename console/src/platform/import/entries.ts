@@ -30,19 +30,31 @@ export const isDirectoryEntry = (
 export const readEntryFile = async (entry: FileSystemFileEntry): Promise<File> =>
   await new Promise((resolve, reject) => entry.file(resolve, reject));
 
-/** Reads a dropped directory entry's top-level files, skipping subdirectories. */
+export interface DirectoryFile {
+  file: File;
+  /** The file's path relative to the dropped directory, forward-slash form. */
+  path: string;
+}
+
+/** Reads a dropped directory entry's files recursively, recording each file's path. */
 export const readDirectoryFiles = async (
   entry: FileSystemDirectoryEntry,
-): Promise<File[]> => {
+  prefix: string = "",
+): Promise<DirectoryFile[]> => {
   const reader = entry.createReader();
-  const files: File[] = [];
+  const files: DirectoryFile[] = [];
   while (true) {
     const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
       reader.readEntries(resolve, reject);
     });
     if (entries.length === 0) break;
-    for (const child of entries)
-      if (isFileEntry(child)) files.push(await readEntryFile(child));
+    for (const child of entries) {
+      const path = prefix === "" ? child.name : `${prefix}/${child.name}`;
+      if (isDirectoryEntry(child))
+        files.push(...(await readDirectoryFiles(child, path)));
+      else if (isFileEntry(child))
+        files.push({ file: await readEntryFile(child), path });
+    }
   }
   return files;
 };

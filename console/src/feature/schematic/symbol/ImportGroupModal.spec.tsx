@@ -108,7 +108,9 @@ const createExportedBundle = async () => {
     ...payload,
     parent: group.ontologyID(grp.key),
   });
-  const stream = await client.schematics.symbols.exportGroup(grp.key);
+  const stream = await client.schematics.symbols.exportGroup(grp.key, {
+    encoding: "JSON",
+  });
   const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
   return { groupName: grp.name, sourceKey: grp.key, symbolName: payload.name, bytes };
 };

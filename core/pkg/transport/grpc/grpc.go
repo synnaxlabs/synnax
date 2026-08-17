@@ -100,6 +100,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, types.Nil]{}
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, types.Nil]{}
 	t.ProjectSetLayout = noop.UnaryServer[project.SetLayoutRequest, types.Nil]{}
+	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}

@@ -99,10 +99,12 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
         await importZip(
           zipFiles(
             await Promise.all(
-              files.map(async (file) => ({
-                name: file.name,
-                bytes: new Uint8Array(await file.arrayBuffer()),
-              })),
+              files
+                .filter(({ path }) => !path.includes("/"))
+                .map(async ({ file, path }) => ({
+                  name: path,
+                  bytes: new Uint8Array(await file.arrayBuffer()),
+                })),
             ),
           ),
         );

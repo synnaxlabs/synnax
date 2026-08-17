@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, group } from "@synnaxlabs/client";
+import { DisconnectedError, group, imex } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -35,7 +35,7 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
             try {
               const data = await file.read();
               await client.imex.import(data, {
-                encoding: "JSON",
+                ...imex.JSON_OPTIONS,
                 fileName: file.name,
                 parent: parentID,
               });
