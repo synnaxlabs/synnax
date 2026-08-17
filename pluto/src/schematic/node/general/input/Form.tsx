@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -32,8 +33,12 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
       disabled?: boolean;
     }
   >(path);
-  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
-  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+  const sinkP = zod.parse(telem.sinkPipelinePropsZ, value.sink?.props, {
+    label: "sink pipeline",
+  });
+  const sink = zod.parse(control.setChannelValuePropsZ, sinkP.segments.setter.props, {
+    label: "setter sink",
+  });
 
   const handleSinkChange = (v: channel.Key | null): void => {
     v ??= 0;

@@ -48,7 +48,7 @@ const LabelListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, label.Label>(itemKey);
   const { form, save } = Label.useForm({
-    query: null,
+    query: isCreate ? null : { key: itemKey },
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
@@ -88,15 +88,13 @@ const LabelListItem = ({
     >
       <Flex.Box x gap="small" align="center">
         <Form.Form<typeof Label.formSchema> {...form}>
-          <Form.Field<string>
+          <Form.Field<color.Color>
             hideIfNull
             path="color"
             padHelpText={false}
             showLabel={false}
           >
-            {({ onChange, ...p }) => (
-              <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
-            )}
+            {(p) => <Color.Swatch onlyChangeOnBlur {...p} />}
           </Form.Field>
           <Form.TextField
             showLabel={false}

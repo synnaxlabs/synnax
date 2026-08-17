@@ -21,6 +21,7 @@ import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Session } from "@/session";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
+const CHECK_INTERVAL = TimeSpan.seconds(30);
 
 export const useCheckForUpdates = (): boolean => {
   const addStatus = Status.useAdder();
@@ -42,10 +43,7 @@ export const useCheckForUpdates = (): boolean => {
   useAsyncEffect(async (signal) => {
     await checkForUpdates();
     if (signal.aborted) return;
-    const i = setInterval(
-      () => void checkForUpdates(),
-      TimeSpan.seconds(30).milliseconds,
-    );
+    const i = setInterval(() => void checkForUpdates(), CHECK_INTERVAL.milliseconds);
     return () => clearInterval(i);
   }, []);
 
