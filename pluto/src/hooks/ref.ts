@@ -80,24 +80,25 @@ export const useCombinedRefs = <T>(
     [],
   );
 
+/**
+ * Keeps a piece of state and a ref to it. The ref is assigned by the setter itself, so
+ * it is current as soon as the setter returns, before the re-render it triggers.
+ *
+ * @param initialState - The initial state, or a function that lazily computes it.
+ * @returns a tuple of the state, its setter, and a ref holding the latest value.
+ */
 export const useCombinedStateAndRef = <T extends primitive.Value | object>(
   initialState: state.Initial<T>,
-): [T, state.Setter<T>, React.RefObject<T>] => {
-  const ref = useRef<T | null>(null);
-  const [s, setS] = reactUseState<T>(() => {
-    const s = state.executeInitialSetter<T>(initialState);
-    ref.current = s;
-    return s;
-  });
+): [T, state.Setter<T>, RefObject<T>] => {
+  const ref = useInitializerRef<T>(() => state.executeInitialSetter<T>(initialState));
+  const [s, setS] = reactUseState<T>(() => ref.current);
 
   const setStateAndRef: state.Setter<T> = useCallback((nextState): void => {
-    setS((p) => {
-      ref.current = state.executeSetter<T>(nextState, p);
-      return ref.current;
-    });
+    ref.current = state.executeSetter<T>(nextState, ref.current);
+    setS(ref.current);
   }, []);
 
-  return [s, setStateAndRef, ref as React.RefObject<T>];
+  return [s, setStateAndRef, ref];
 };
 
 export const usePrevious = <T>(value: T): T | undefined => {
