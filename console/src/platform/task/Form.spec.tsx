@@ -126,7 +126,7 @@ describe("wrapForm", () => {
       client,
       taskKey: tsk.key,
     });
-    const input = findNameInput();
+    const input = await waitFor(findNameInput);
     fireEvent.change(input, { target: { value: "Renamed Test Task" } });
     fireEvent.blur(input);
     await waitFor(async () => {

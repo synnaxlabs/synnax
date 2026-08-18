@@ -30,7 +30,9 @@ const isDenial = (err: unknown): boolean =>
  * gets. The Core refuses that stream by design; logging the refusal prints after
  * teardown, which vitest counts as an unhandled error. The returned client already
  * holds the subject's policies, so a guard reading them answers on its first render
- * rather than reporting a pending read as a denial.
+ * rather than reporting a pending read as a denial. A subject whose grants exclude
+ * policy retrieve cannot prime that cache; the denial is theirs to assert, not a
+ * setup failure.
  */
 const connectAs = async (username: string, key: user.Key) => {
   const client = createTestClient({
@@ -40,7 +42,11 @@ const connectAs = async (username: string, key: user.Key) => {
       if (!isDenial(err)) console.error(err);
     },
   });
-  await client.access.policies.retrieveForSubject(user.ontologyID(key));
+  try {
+    await client.access.policies.retrieveForSubject(user.ontologyID(key));
+  } catch (err) {
+    if (!isDenial(err)) throw err;
+  }
   return client;
 };
 

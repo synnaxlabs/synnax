@@ -137,11 +137,11 @@ describe("ChannelList", () => {
       expect(screen.queryByText("Tare")).toBeNull();
     });
 
-    it("should hide all mutating actions for a snapshot task", async () => {
+    it("should hide the edit actions but keep Tare in preview", async () => {
       const onDuplicate = vi.fn();
       await renderInTaskForm(
         <Harness onDuplicate={onDuplicate} onTare={vi.fn()} allowTare={() => true} />,
-        { values: { ...twoChannels, snapshot: true } },
+        { values: twoChannels, mode: "preview" },
       );
       fireEvent.contextMenu(await screen.findByText("item-a"));
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
@@ -149,7 +149,8 @@ describe("ChannelList", () => {
       expect(screen.queryByText("Duplicate")).toBeNull();
       expect(screen.queryByText("Disable")).toBeNull();
       expect(screen.queryByText("Enable")).toBeNull();
-      expect(screen.queryByText("Tare")).toBeNull();
+      // Tare is a command, not an edit, so a read-only subject keeps it.
+      expect(screen.getByText("Tare")).toBeTruthy();
     });
   });
 });

@@ -158,11 +158,12 @@ describe("Range.Details", () => {
       const range = await createRange();
       const viewer = await roles.get("Viewer");
       await renderDetails(range.key, viewer);
-      await waitFor(() =>
-        expect(
-          screen.getByDisplayValue(range.name).closest(".pluto-btn--preview"),
-        ).not.toBeNull(),
-      );
+      // Preview renders the name as static text, so no input carries it.
+      await waitFor(() => {
+        const name = screen.getByText(range.name);
+        expect(name.closest(".pluto-btn--preview")).not.toBeNull();
+      });
+      expect(screen.queryByDisplayValue(range.name)).toBeNull();
     });
   });
 });
