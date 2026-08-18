@@ -20,7 +20,21 @@ the capture rig (hand-authored promo compositions) can feed the same director an
 compositor.
 
 Layering rule: `timeline/` and `director/` are pure and must not import Playwright or
-Remotion. `capture/` owns Playwright; `remotion/` owns compositing; `cli/` glues.
+Remotion. `capture/` owns Playwright; `remotion/` owns compositing; `fixtures/` owns
+environment provisioning (the ephemeral core, telemetry seeding); `cli/` glues. All
+cinematography policy (springs, zoom amounts, motion blur, idle fade) lives in the
+director so it is unit-testable; the compositor mechanically applies director output.
+
+The package exports one namespace per module (`capture`, `director`, `fixtures`,
+`timeline`), matching the monorepo convention. Video scripts consume that surface:
+
+```ts
+import { capture, fixtures } from "@/index";
+
+export default async (session: capture.CaptureSession) => {
+  await capture.login(session, { username: "synnax", password: "seldon" }, project);
+};
+```
 
 ## Usage
 

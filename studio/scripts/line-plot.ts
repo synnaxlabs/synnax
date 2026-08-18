@@ -7,23 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { commandPalette, login } from "@/capture/console";
-import { type CaptureSession } from "@/capture/rig";
+import { capture } from "@/index";
 
 /**
  * Demo flow for the prototype: log in, create a line plot from the command
  * palette, and open its data tab.
  */
-export default async (session: CaptureSession): Promise<void> => {
+export default async (session: capture.CaptureSession): Promise<void> => {
   // A fresh project per capture keeps the workspace empty and the shot clean;
   // prior runs' visualizations persist inside a reused project.
   const project = `Docs Videos ${Date.now().toString(36)}`;
-  await login(session, { username: "synnax", password: "seldon" }, project);
+  await capture.login(session, { username: "synnax", password: "seldon" }, project);
 
   session.startRecording();
   await session.hold(800);
 
-  await commandPalette(session, "Create a Line Plot");
+  await capture.commandPalette(session, "Create a Line Plot");
   await session.waitFor(session.page.locator(".pluto-line-plot").first());
   await session.hold(1200);
 

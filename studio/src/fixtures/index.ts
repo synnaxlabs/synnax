@@ -7,6 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/capture/console";
-export * from "@/capture/plot";
-export * from "@/capture/rig";
+export * from "@/fixtures/core";
+export * from "@/fixtures/telemetry";

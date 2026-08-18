@@ -19,7 +19,7 @@ export interface CursorProps {
   dsf: number;
   kind: CursorKind;
   /** Idle fade opacity in [0, 1]. */
-  opacity?: number;
+  opacity: number;
 }
 
 /** Base cursor height in CSS px before scaling; drawn 1.5x natural size. */
@@ -74,7 +74,7 @@ export const Cursor = ({
   pressed,
   dsf,
   kind,
-  opacity = 1,
+  opacity,
 }: CursorProps): ReactElement => {
   const sprite = SPRITES[kind];
   const [, , vw, vh] = sprite.viewBox.split(" ").map(Number);

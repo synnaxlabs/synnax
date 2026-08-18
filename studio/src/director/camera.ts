@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
+  BLUR_MAX_PX,
+  BLUR_MIN_PX,
+  BLUR_TRAVEL_GAIN,
+  BLUR_ZOOM_GAIN,
   CAMERA_SIM_DT,
   CAMERA_SPRING,
   EDGE_SNAP_RATIO,
@@ -17,7 +21,7 @@ import {
   ZOOM_RECT_MARGIN_PX,
 } from "@/director/constants";
 import { at, at2D, step, step2D } from "@/director/spring";
-import { type Focus, type Segment } from "@/director/zoom";
+import { fitAmount, type Focus, type Segment } from "@/director/zoom";
 import { type Point, type Rect, type Timeline } from "@/timeline";
 
 /**
@@ -72,18 +76,40 @@ export const focusToCenter = (
   return { x: map(focus.x / width, amount), y: map(focus.y / height, amount) };
 };
 
+/** Per-axis gaussian blur radii in output pixels. */
+export interface Blur {
+  x: number;
+  y: number;
+}
+
 /**
- * fitAmount returns the largest zoom at which rect plus the framing margin
- * still fits inside the viewport, floored at 1 (no zoom for oversized rects).
+ * motionBlur returns the blur the compositor should apply for the camera travel
+ * from prev to cur: directional with the crop's per-frame velocity, plus an
+ * isotropic term while the zoom amount changes. Returns null when the travel is
+ * below threshold so settled frames stay tack sharp.
  */
-export const fitAmount = (rect: Rect, width: number, height: number): number =>
-  Math.max(
-    1,
-    Math.min(
-      width / (rect.width + 2 * ZOOM_RECT_MARGIN_PX),
-      height / (rect.height + 2 * ZOOM_RECT_MARGIN_PX),
-    ),
+export const motionBlur = (
+  prev: CameraSample,
+  cur: CameraSample,
+  width: number,
+  height: number,
+  dsf: number,
+): Blur | null => {
+  const a = crop(prev, width, height);
+  const b = crop(cur, width, height);
+  const scale = cur.amount * dsf;
+  const zoom = Math.abs(cur.amount - prev.amount) * BLUR_ZOOM_GAIN * dsf;
+  const x = Math.min(
+    BLUR_MAX_PX * dsf,
+    Math.abs(b.x - a.x) * scale * BLUR_TRAVEL_GAIN + zoom,
   );
+  const y = Math.min(
+    BLUR_MAX_PX * dsf,
+    Math.abs(b.y - a.y) * scale * BLUR_TRAVEL_GAIN + zoom,
+  );
+  if (x <= BLUR_MIN_PX * dsf && y <= BLUR_MIN_PX * dsf) return null;
+  return { x, y };
+};
 
 /**
  * frameRect maps a target rect to the travel-space center that keeps the whole

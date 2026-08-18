@@ -18,13 +18,7 @@ import {
   type Page,
 } from "playwright";
 
-import { fitAmount } from "@/director/camera";
-import {
-  RECT_ZOOM_MAX,
-  TRAVEL_MAX_S,
-  TRAVEL_MIN_S,
-  TRAVEL_SCALE_S,
-} from "@/director/constants";
+import { TRAVEL_MAX_S, TRAVEL_MIN_S, TRAVEL_SCALE_S } from "@/director/constants";
 import {
   type CursorKind,
   type Event,
@@ -109,7 +103,7 @@ export class CaptureSession {
   private cursor: Point;
   private cursorRect: Rect | undefined;
   private origin: Point | null = null;
-  private openZoom: { tick: number; point: Point; rect?: Rect; amount: number } | null =
+  private openZoom: { tick: number; point: Point; rect?: Rect; amount?: number } | null =
     null;
 
   private constructor(
@@ -316,23 +310,16 @@ export class CaptureSession {
 
   /**
    * zoom opens an authored camera override framing the target, superseding
-   * auto-zoom until endZoom (or finish) closes it. When amount is omitted it is
-   * derived from the target's rect: as tight as the framing margin allows,
-   * capped at RECT_ZOOM_MAX.
+   * auto-zoom until endZoom (or finish) closes it. When amount is omitted the
+   * director derives it from the target's rect: as tight as the framing margin
+   * allows, capped at RECT_ZOOM_MAX.
    */
   async zoom(target: Locator | Point, amount?: number): Promise<void> {
     if (this.openZoom != null) this.endZoom();
     const { point, rect } = await this.resolve(target);
-    let resolved = amount;
-    if (resolved == null) {
-      if (rect == null)
-        throw new Error("zoom on a bare point requires an explicit amount");
-      resolved = Math.min(
-        RECT_ZOOM_MAX,
-        fitAmount(rect, this.opts.width, this.opts.height),
-      );
-    }
-    this.openZoom = { tick: this.frame, point, rect, amount: resolved };
+    if (amount == null && rect == null)
+      throw new Error("zoom on a bare point requires an explicit amount");
+    this.openZoom = { tick: this.frame, point, rect, amount };
   }
 
   /** endZoom closes the open authored zoom, returning the camera to auto. */

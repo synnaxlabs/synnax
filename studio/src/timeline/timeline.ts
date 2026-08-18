@@ -82,16 +82,21 @@ export const scrollEventZ = z.object({
  * Authored camera override: forces the camera to the given focus and amount for
  * [tick, endTick], suppressing auto-zoom segments that overlap it.
  */
-export const zoomOverrideEventZ = z.object({
-  type: z.literal("zoom"),
-  tick: z.int().nonnegative(),
-  endTick: z.int().nonnegative(),
-  amount: z.number().min(1),
-  x: z.number(),
-  y: z.number(),
-  /** Rect to frame; when present the camera fits it instead of centering (x, y). */
-  rect: rectZ.optional(),
-});
+export const zoomOverrideEventZ = z
+  .object({
+    type: z.literal("zoom"),
+    tick: z.int().nonnegative(),
+    endTick: z.int().nonnegative(),
+    /** Magnification. When omitted the director derives it from `rect`. */
+    amount: z.number().min(1).optional(),
+    x: z.number(),
+    y: z.number(),
+    /** Rect to frame; when present the camera fits it instead of centering (x, y). */
+    rect: rectZ.optional(),
+  })
+  .refine((e) => e.amount != null || e.rect != null, {
+    message: "zoom override requires an amount, a rect, or both",
+  });
 
 export const eventZ = z.discriminatedUnion("type", [
   moveEventZ,

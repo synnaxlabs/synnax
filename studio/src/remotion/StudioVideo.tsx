@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 import { AbsoluteFill, Img, staticFile, useCurrentFrame } from "remotion";
 
-import { crop } from "@/director/camera";
+import { crop, motionBlur } from "@/director/camera";
 import { type Tracks } from "@/director/director";
 import { Cursor } from "@/remotion/Cursor";
 import { Ripple, RIPPLE_TICKS } from "@/remotion/Ripple";
@@ -42,20 +42,7 @@ export const StudioVideo = ({
   const scale = cam.amount * dsf;
   const name = String(Math.min(frame, meta.frames - 1)).padStart(6, "0");
 
-  // Directional motion blur from per-frame camera travel, plus a light
-  // isotropic term while the zoom amount changes. Sub-threshold blur is
-  // dropped so settled frames stay tack sharp.
-  const cPrev = crop(prev, width, height);
-  const zoomBlur = Math.abs(cam.amount - prev.amount) * 14 * dsf;
-  const blurX = Math.min(
-    12 * dsf,
-    Math.abs(c.x - cPrev.x) * scale * 0.25 + zoomBlur,
-  );
-  const blurY = Math.min(
-    12 * dsf,
-    Math.abs(c.y - cPrev.y) * scale * 0.25 + zoomBlur,
-  );
-  const blurred = blurX > 0.4 * dsf || blurY > 0.4 * dsf;
+  const blur = motionBlur(prev, cam, width, height, dsf);
 
   const toScreen = (x: number, y: number): { left: number; top: number } => ({
     left: (x - c.x) * scale,
@@ -68,10 +55,10 @@ export const StudioVideo = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
-      {blurred && (
+      {blur != null && (
         <svg width={0} height={0} style={{ position: "absolute" }}>
           <filter id="camera-blur">
-            <feGaussianBlur stdDeviation={`${blurX} ${blurY}`} />
+            <feGaussianBlur stdDeviation={`${blur.x} ${blur.y}`} />
           </filter>
         </svg>
       )}
@@ -83,7 +70,7 @@ export const StudioVideo = ({
           height: height * scale,
           left: -c.x * scale,
           top: -c.y * scale,
-          filter: blurred ? "url(#camera-blur)" : undefined,
+          filter: blur != null ? "url(#camera-blur)" : undefined,
         }}
       />
       {ripples.map((e, i) => {
@@ -106,7 +93,7 @@ export const StudioVideo = ({
         pressed={cur.pressed}
         dsf={dsf}
         kind={cur.kind}
-        opacity={cur.opacity ?? 1}
+        opacity={cur.opacity}
       />
     </AbsoluteFill>
   );

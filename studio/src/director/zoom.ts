@@ -9,11 +9,13 @@
 
 import {
   AUTO_ZOOM_AMOUNT,
+  RECT_ZOOM_MAX,
   ZOOM_END_MARGIN_S,
   ZOOM_IGNORE_TAIL_S,
   ZOOM_MERGE_GAP_S,
   ZOOM_POST_S,
   ZOOM_PRE_S,
+  ZOOM_RECT_MARGIN_PX,
 } from "@/director/constants";
 import { clicks, type Point, type Rect, type Timeline } from "@/timeline";
 
@@ -34,12 +36,42 @@ export interface Segment {
 }
 
 /**
+ * fitAmount returns the largest zoom at which rect plus the framing margin
+ * still fits inside the viewport, floored at 1 (no zoom for oversized rects).
+ */
+export const fitAmount = (rect: Rect, width: number, height: number): number =>
+  Math.max(
+    1,
+    Math.min(
+      width / (rect.width + 2 * ZOOM_RECT_MARGIN_PX),
+      height / (rect.height + 2 * ZOOM_RECT_MARGIN_PX),
+    ),
+  );
+
+interface ZoomOverride {
+  amount?: number;
+  rect?: Rect;
+}
+
+/**
+ * overrideAmount resolves an authored override's magnification: the authored
+ * amount when given, otherwise as tight as the framing margin allows for the
+ * rect, capped at RECT_ZOOM_MAX.
+ */
+const overrideAmount = (o: ZoomOverride, width: number, height: number): number => {
+  if (o.amount != null) return o.amount;
+  if (o.rect == null)
+    throw new Error("zoom override without an amount requires a rect");
+  return Math.min(RECT_ZOOM_MAX, fitAmount(o.rect, width, height));
+};
+
+/**
  * plan derives zoom segments from the timeline: one segment per click expanded by
  * the pre/post windows, merged when gaps are small, clamped away from the tail.
  * Authored zoom overrides clip any auto segment they overlap.
  */
 export const plan = (tl: Timeline): Segment[] => {
-  const { fps, frames } = tl.meta;
+  const { fps, frames, width, height } = tl.meta;
   const overrides = tl.events.filter((e) => e.type === "zoom");
   const auto: Segment[] = [];
 
@@ -82,7 +114,7 @@ export const plan = (tl: Timeline): Segment[] => {
     clipped.push({
       start: o.tick,
       end: o.endTick,
-      amount: o.amount,
+      amount: overrideAmount(o, width, height),
       focus: [{ tick: o.tick, point: { x: o.x, y: o.y }, rect: o.rect }],
     });
 

@@ -85,6 +85,18 @@ export const TRAVEL_MIN_S = 0.25;
 export const TRAVEL_SCALE_S = 0.35;
 export const TRAVEL_MAX_S = 1.1;
 
+/** Isotropic blur (px per dsf unit) per unit of zoom-amount change per frame. */
+export const BLUR_ZOOM_GAIN = 14;
+
+/** Directional blur as a fraction of the crop's per-frame travel in output px. */
+export const BLUR_TRAVEL_GAIN = 0.25;
+
+/** Per-axis motion blur ceiling, in output px per dsf unit. */
+export const BLUR_MAX_PX = 12;
+
+/** Blur radii at or below this (output px per dsf unit) are dropped entirely. */
+export const BLUR_MIN_PX = 0.4;
+
 /** Seconds the cursor must be still before it starts fading out. */
 export const IDLE_FADE_DELAY_S = 1.5;
 

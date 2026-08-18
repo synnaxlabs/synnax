@@ -9,9 +9,16 @@
 
 import { describe, expect, it } from "vitest";
 
-import { crop, fitAmount, focusToCenter, frameRect, simulate } from "@/director/camera";
-import { ZOOM_RECT_MARGIN_PX } from "@/director/constants";
-import { plan } from "@/director/zoom";
+import {
+  type CameraSample,
+  crop,
+  focusToCenter,
+  frameRect,
+  motionBlur,
+  simulate,
+} from "@/director/camera";
+import { BLUR_MAX_PX } from "@/director/constants";
+import { fitAmount, plan } from "@/director/zoom";
 import { type Event, type Rect, type Timeline } from "@/timeline";
 
 const FPS = 60;
@@ -43,21 +50,35 @@ describe("focusToCenter", () => {
   });
 });
 
-describe("fitAmount", () => {
-  it("should allow deep zoom for small rects", () => {
-    expect(fitAmount({ x: 0, y: 0, width: 100, height: 40 }, W, H)).toBeGreaterThan(3);
+describe("motionBlur", () => {
+  const sample = (amount: number, cx: number, cy: number): CameraSample => ({
+    amount,
+    cx,
+    cy,
   });
 
-  it("should cap zoom so wide rects fit with margin", () => {
-    const rect: Rect = { x: 300, y: 400, width: 1250, height: 180 };
-    const amount = fitAmount(rect, W, H);
-    expect((rect.width + 2 * ZOOM_RECT_MARGIN_PX) * amount).toBeLessThanOrEqual(
-      W + 1e-6,
-    );
+  it("should return null for a settled camera", () => {
+    expect(motionBlur(sample(2, 0.5, 0.5), sample(2, 0.5, 0.5), W, H, 2)).toBeNull();
   });
 
-  it("should floor at 1 for rects larger than the viewport", () => {
-    expect(fitAmount({ x: 0, y: 0, width: 2500, height: 300 }, W, H)).toEqual(1);
+  it("should blur along the axis of travel", () => {
+    const blur = motionBlur(sample(2, 0.4, 0.5), sample(2, 0.5, 0.5), W, H, 2);
+    expect(blur).not.toBeNull();
+    expect(blur!.x).toBeGreaterThan(blur!.y);
+  });
+
+  it("should blur isotropically while the zoom amount changes", () => {
+    const blur = motionBlur(sample(1.8, 0.5, 0.5), sample(2, 0.5, 0.5), W, H, 2);
+    expect(blur).not.toBeNull();
+    expect(blur!.x).toBeGreaterThan(0);
+    expect(blur!.y).toBeGreaterThan(0);
+  });
+
+  it("should cap each axis at the ceiling", () => {
+    const dsf = 2;
+    const blur = motionBlur(sample(2, 0, 0), sample(2, 1, 1), W, H, dsf);
+    expect(blur!.x).toBeLessThanOrEqual(BLUR_MAX_PX * dsf);
+    expect(blur!.y).toBeLessThanOrEqual(BLUR_MAX_PX * dsf);
   });
 });
 
