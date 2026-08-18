@@ -12,10 +12,10 @@ import "schemas/synnax/device"
 import "schemas/synnax/task"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/ni"
-@py output  "client/py/synnax/ni"
 @cpp output "client/cpp/ni"
 @go output  "core/pkg/service/ni"
+@py output  "client/py/synnax/ni"
+@ts output  "client/ts/src/ni"
 
 Units enum {
     volts                     = "Volts"
@@ -47,16 +47,14 @@ Units enum {
     inch_ounces               = "InchOunces"
     foot_pounds               = "FootPounds"
 
-    @doc value  "enumerates the engineering units an NI analog channel can report."
-    @go version 2
+    @doc value "enumerates the engineering units for NI analog channel values."
 }
 
 AccelSensitivityUnits enum {
     m_volts_per_g = "mVoltsPerG"
     volts_per_g   = "VoltsPerG"
 
-    @doc value  "are the units of an accelerometer's sensitivity rating."
-    @go version 2
+    @doc value "are the units of an accelerometer's sensitivity rating."
 }
 
 AccelUnits enum {
@@ -64,8 +62,7 @@ AccelUnits enum {
     meters_per_second_squared = "MetersPerSecondSquared"
     inches_per_second_squared = "InchesPerSecondSquared"
 
-    @doc value  "are the engineering units for an acceleration measurement."
-    @go version 2
+    @doc value "are the engineering units for an acceleration measurement."
 }
 
 ForceUnits enum {
@@ -73,16 +70,14 @@ ForceUnits enum {
     pounds         = "Pounds"
     kilogram_force = "KilogramForce"
 
-    @doc value  "are the engineering units for a force measurement."
-    @go version 2
+    @doc value "are the engineering units for a force measurement."
 }
 
 ElectricalUnits enum {
     m_volts_per_volt = "mVoltsPerVolt"
     volts_per_volt   = "VoltsPerVolt"
 
-    @doc value  "are the electrical output units of a bridge-based sensor."
-    @go version 2
+    @doc value "are the electrical output units of a bridge-based sensor."
 }
 
 ExcitationSource enum {
@@ -90,8 +85,7 @@ ExcitationSource enum {
     external = "External"
     none     = "None"
 
-    @doc value  "selects the source of a sensor's excitation signal."
-    @go version 2
+    @doc value "selects the source of a sensor's excitation signal."
 }
 
 TerminalConfig enum {
@@ -101,8 +95,7 @@ TerminalConfig enum {
     diff        = "Diff"
     pseudo_diff = "PseudoDiff"
 
-    @doc value  "selects the terminal configuration for an analog input channel."
-    @go version 2
+    @doc value "selects the terminal configuration for an analog input channel."
 }
 
 BridgeConfig enum {
@@ -110,8 +103,7 @@ BridgeConfig enum {
     half_bridge    = "HalfBridge"
     quarter_bridge = "QuarterBridge"
 
-    @doc value  "selects the physical bridge wiring of a bridge-based sensor."
-    @go version 2
+    @doc value "selects the physical bridge wiring of a bridge-based sensor."
 }
 
 ShuntResistorLocation enum {
@@ -119,18 +111,16 @@ ShuntResistorLocation enum {
     internal = "Internal"
     external = "External"
 
-    @doc value  """
+    @doc value """
         selects where the shunt resistor used for current measurement is located.
     """
-    @go version 2
 }
 
 ForceSensitivityUnits enum {
     m_volts_per_newton = "mVoltsPerNewton"
     m_volts_per_pound  = "mVoltsPerPound"
 
-    @doc value  "are the units of a force IEPE sensor's sensitivity rating."
-    @go version 2
+    @doc value "are the units of a force IEPE sensor's sensitivity rating."
 }
 
 PressureUnits enum {
@@ -138,8 +128,7 @@ PressureUnits enum {
     pascals                = "Pascals"
     bar                    = "Bar"
 
-    @doc value  "are the engineering units for a pressure measurement."
-    @go version 2
+    @doc value "are the engineering units for a pressure measurement."
 }
 
 TorqueUnits enum {
@@ -148,8 +137,7 @@ TorqueUnits enum {
     inch_pounds   = "InchPounds"
     foot_pounds   = "FootPounds"
 
-    @doc value  "are the engineering units for a torque measurement."
-    @go version 2
+    @doc value "are the engineering units for a torque measurement."
 }
 
 ResistanceConfig enum {
@@ -157,8 +145,7 @@ ResistanceConfig enum {
     wire_3 = "3Wire"
     wire_4 = "4Wire"
 
-    @doc value  "selects the number of wires used for a resistance measurement."
-    @go version 2
+    @doc value "selects the number of wires used for a resistance measurement."
 }
 
 TemperatureUnits enum {
@@ -167,8 +154,7 @@ TemperatureUnits enum {
     kelvins = "Kelvins"
     deg_r   = "DegR"
 
-    @doc value  "are the engineering units for a temperature measurement."
-    @go version 2
+    @doc value "are the engineering units for a temperature measurement."
 }
 
 RTDType enum {
@@ -179,8 +165,7 @@ RTDType enum {
     pt_3920 = "Pt3920"
     pt_3928 = "Pt3928"
 
-    @doc value  "selects the resistance-temperature curve of an RTD sensor."
-    @go version 2
+    @doc value "selects the resistance-temperature curve of an RTD sensor."
 }
 
 StrainConfig enum {
@@ -192,8 +177,7 @@ StrainConfig enum {
     quarter_bridge_i  = "QuarterBridgeI"
     quarter_bridge_ii = "QuarterBridgeII"
 
-    @doc value  "selects the strain-gauge bridge configuration."
-    @go version 2
+    @doc value "selects the strain-gauge bridge configuration."
 }
 
 ThermocoupleType enum {
@@ -206,8 +190,7 @@ ThermocoupleType enum {
     b = "B"
     e = "E"
 
-    @doc value  "selects the thermocouple alloy type."
-    @go version 2
+    @doc value "selects the thermocouple alloy type."
 }
 
 CJC union on source {
@@ -230,34 +213,31 @@ CJC union on source {
     }
 
     @doc value  """
-        is the cold-junction compensation for a thermocouple. The source selects
-        where the reference temperature comes from.
+        is the cold-junction compensation for a thermocouple. The source selects where
+        the reference temperature comes from.
     """
-    @go version 2
+    @go marshal
 }
 
 VelocityUnits enum {
     meters_per_second = "MetersPerSecond"
     inches_per_second = "InchesPerSecond"
 
-    @doc value  "are the engineering units for a velocity measurement."
-    @go version 2
+    @doc value "are the engineering units for a velocity measurement."
 }
 
 VelocitySensitivityUnits enum {
     m_volts_per_mm_per_second   = "MillivoltsPerMillimeterPerSecond"
     m_volts_per_inch_per_second = "MilliVoltsPerInchPerSecond"
 
-    @doc value  "are the units of a velocity IEPE sensor's sensitivity rating."
-    @go version 2
+    @doc value "are the units of a velocity IEPE sensor's sensitivity rating."
 }
 
 ChargeUnits enum {
     coulombs      = "Coulombs"
     pico_coulombs = "PicoCoulombs"
 
-    @doc value  "are the units of a charge measurement."
-    @go version 2
+    @doc value "are the units of a charge measurement."
 }
 
 Scale union on type {
@@ -336,7 +316,7 @@ Scale union on type {
     }
 
     @doc value  "determines how raw sensor values are transformed to engineering units."
-    @go version 2
+    @go marshal
 }
 
 MinMaxVal struct {
@@ -348,7 +328,7 @@ MinMaxVal struct {
     }
 
     @doc value  "bounds the expected signal range in scaled units."
-    @go version 2
+    @go marshal
 }
 
 Terminal struct {
@@ -357,7 +337,7 @@ Terminal struct {
     }
 
     @doc value  "configures the terminal wiring of an analog input channel."
-    @go version 2
+    @go marshal
 }
 
 Sensitivity struct {
@@ -366,7 +346,7 @@ Sensitivity struct {
     }
 
     @doc value  "specifies a sensor's sensitivity rating."
-    @go version 2
+    @go marshal
 }
 
 CurrentExcitation struct {
@@ -374,11 +354,11 @@ CurrentExcitation struct {
         @doc value "selects the source of the current excitation signal."
     }
     current_excit_val    float64 = 0 {
-        @doc value "is the current excitation level, in amps."
+        @doc value "is the current excitation level, in Amps."
     }
 
     @doc value  "configures the current excitation supplied to a sensor."
-    @go version 2
+    @go marshal
 }
 
 VoltageExcitation struct {
@@ -386,11 +366,11 @@ VoltageExcitation struct {
         @doc value "selects the source of the voltage excitation signal."
     }
     voltage_excit_val    float64 = 0 {
-        @doc value "is the voltage excitation level, in volts."
+        @doc value "is the voltage excitation level, in Volts."
     }
 
     @doc value  "configures the voltage excitation supplied to a sensor."
-    @go version 2
+    @go marshal
 }
 
 Bridge struct {
@@ -398,11 +378,11 @@ Bridge struct {
         @doc value "selects the physical bridge wiring."
     }
     nominal_bridge_resistance float64 = 1 {
-        @doc value "is the nominal resistance of the bridge, in ohms."
+        @doc value "is the nominal resistance of the bridge, in Ohms."
     }
 
     @doc value  "configures the wiring and nominal resistance of a bridge-based sensor."
-    @go version 2
+    @go marshal
 }
 
 BridgePolynomial struct {
@@ -417,7 +397,7 @@ BridgePolynomial struct {
     }
 
     @doc value  "scales bridge electrical output to physical units with a polynomial."
-    @go version 2
+    @go marshal
 }
 
 Resistance struct {
@@ -426,7 +406,7 @@ Resistance struct {
     }
 
     @doc value  "configures the wiring of a resistance measurement."
-    @go version 2
+    @go marshal
 }
 
 Table struct {
@@ -443,7 +423,7 @@ Table struct {
     }
 
     @doc value  "scales bridge electrical output to physical units with a lookup table."
-    @go version 2
+    @go marshal
 }
 
 TwoPointLin struct {
@@ -467,7 +447,7 @@ TwoPointLin struct {
         scales bridge electrical output to physical units between two calibration
         points.
     """
-    @go version 2
+    @go marshal
 }
 
 CustomScale struct {
@@ -476,7 +456,7 @@ CustomScale struct {
     }
 
     @doc value  "applies a user-defined scale to the raw measurement."
-    @go version 2
+    @go marshal
 }
 
 BaseAIChannel struct {
@@ -501,7 +481,7 @@ BaseAIChannel struct {
     }
 
     @doc value  "carries the fields every NI analog input channel shares."
-    @go version 2
+    @go marshal
 }
 
 AIChannel union on type extends BaseAIChannel {
@@ -537,7 +517,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "selects where the shunt resistor is located."
         }
         ext_shunt_resistor_val float64 = 1 {
-            @doc value "is the external shunt resistor value, in ohms."
+            @doc value "is the external shunt resistor value, in Ohms."
         }
 
         @doc value "reads a current."
@@ -620,7 +600,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "selects the RTD resistance-temperature curve."
         }
         r0       float64 = 0 {
-            @doc value "is the sensor resistance at 0 degrees Celsius, in ohms."
+            @doc value "is the sensor resistance at 0 degrees Celsius, in Ohms."
         }
 
         @doc value "reads temperature from an RTD."
@@ -639,13 +619,13 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "is the bridge output voltage in the unloaded state."
         }
         nominal_gage_resistance float64 = 0 {
-            @doc value "is the nominal gauge resistance, in ohms."
+            @doc value "is the nominal gauge resistance, in Ohms."
         }
         poisson_ratio           float64 = 0 {
-            @doc value "is the Poisson ratio of the gauge material."
+            @doc value "is the Poisson ratio of the measured material."
         }
         lead_wire_resistance    float64 = 0 {
-            @doc value "is the resistance of the lead wires, in ohms."
+            @doc value "is the resistance of the lead wires, in Ohms."
         }
 
         @doc value "reads strain from a strain gauge."
@@ -723,7 +703,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "is the sensitivity of the accelerometer."
         }
         sensitivity_units AccelSensitivityUnits = m_volts_per_g {
-            @doc value "are the units of the accelerometer's sensitivity rating."
+            @doc value "are the units of the accelerometer sensitivity."
         }
 
         @doc value "reads acceleration from a charge-mode accelerometer."
@@ -743,7 +723,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "selects where the shunt resistor is located."
         }
         ext_shunt_resistor_val float64 = 1 {
-            @doc value "is the external shunt resistor value, in ohms."
+            @doc value "is the external shunt resistor value, in Ohms."
         }
 
         @doc value "reads RMS current."
@@ -811,7 +791,7 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "is the third Steinhart-Hart coefficient."
         }
         r1    float64 = 0 {
-            @doc value "is the reference resistor value, in ohms."
+            @doc value "is the reference resistor value, in Ohms."
         }
 
         @doc value "reads temperature from a voltage-excited thermistor."
@@ -850,18 +830,17 @@ AIChannel union on type extends BaseAIChannel {
     }
 
     @doc value  """
-        is a single NI analog input channel. The type field selects the
-        measurement mode and the fields that accompany it.
+        is a single NI analog input channel. The type field selects the measurement mode
+        and the fields that accompany it.
     """
-    @go version 2
+    @go marshal
 }
 
 CIEdge enum {
     rising  = "Rising"
     falling = "Falling"
 
-    @doc value  "selects the signal edge a counter responds to."
-    @go version 2
+    @doc value "selects the signal edge a counter responds to."
 }
 
 CIMeasMethod enum {
@@ -870,8 +849,7 @@ CIMeasMethod enum {
     large_rng_2_ctr = "LargeRng2Ctr"
     dynamic_avg     = "DynamicAvg"
 
-    @doc value  "selects the counter measurement method."
-    @go version 2
+    @doc value "selects the counter measurement method."
 }
 
 CIFreqUnits enum {
@@ -879,16 +857,14 @@ CIFreqUnits enum {
     seconds = "Seconds"
     ticks   = "Ticks"
 
-    @doc value  "are the units of a frequency measurement."
-    @go version 2
+    @doc value "are the unit options for a counter frequency channel."
 }
 
 CITimeUnits enum {
     seconds = "Seconds"
     ticks   = "Ticks"
 
-    @doc value  "are the units of a counter time measurement (period, pulse width, ...)."
-    @go version 2
+    @doc value "are the units of a counter time measurement (period, pulse width, ...)."
 }
 
 CICountDirection enum {
@@ -896,8 +872,7 @@ CICountDirection enum {
     count_down            = "CountDown"
     externally_controlled = "ExternallyControlled"
 
-    @doc value  "selects the direction an edge counter counts."
-    @go version 2
+    @doc value "selects the direction an edge counter counts."
 }
 
 CIDecodingType enum {
@@ -906,16 +881,14 @@ CIDecodingType enum {
     x4        = "X4"
     two_pulse = "TwoPulse"
 
-    @doc value  "selects the quadrature decoding type of an encoder."
-    @go version 2
+    @doc value "selects the quadrature decoding type of an encoder."
 }
 
 CILinearVelocityUnits enum {
     m_per_s  = "m/s"
     in_per_s = "in/s"
 
-    @doc value  "are the units of a linear velocity measurement."
-    @go version 2
+    @doc value "are the units of a linear velocity measurement."
 }
 
 CIAngularVelocityUnits enum {
@@ -923,8 +896,7 @@ CIAngularVelocityUnits enum {
     radians_per_second = "Radians/s"
     degrees_per_second = "Degrees/s"
 
-    @doc value  "are the units of an angular velocity measurement."
-    @go version 2
+    @doc value "are the units of an angular velocity measurement."
 }
 
 CILinearPositionUnits enum {
@@ -932,8 +904,7 @@ CILinearPositionUnits enum {
     inches = "Inches"
     ticks  = "Ticks"
 
-    @doc value  "are the units of a linear position measurement."
-    @go version 2
+    @doc value "are the units of a linear position measurement."
 }
 
 CIAngularPositionUnits enum {
@@ -941,8 +912,7 @@ CIAngularPositionUnits enum {
     radians = "Radians"
     ticks   = "Ticks"
 
-    @doc value  "are the units of an angular position measurement."
-    @go version 2
+    @doc value "are the units of an angular position measurement."
 }
 
 ZIndexPhase enum {
@@ -951,10 +921,9 @@ ZIndexPhase enum {
     a_low_b_high  = "ALowBHigh"
     a_low_b_low   = "ALowBLow"
 
-    @doc value  """
+    @doc value """
         selects the encoder channel states at which the Z index resets the count.
     """
-    @go version 2
 }
 
 ZIndex struct {
@@ -962,7 +931,7 @@ ZIndex struct {
         @doc value "is true when the encoder's Z index resets the count."
     }
     z_index_val    float64 = 0 {
-        @doc value "is the count value the Z index resets to."
+        @doc value "is the value the measurement resets to when the Z index is active."
     }
     z_index_phase  ZIndexPhase = a_high_b_high {
         @doc value "selects the A/B states at which the Z index is active."
@@ -972,7 +941,7 @@ ZIndex struct {
     }
 
     @doc value  "configures the Z-index reset behavior of an encoder."
-    @go version 2
+    @go marshal
 }
 
 BaseCIChannel struct {
@@ -997,7 +966,7 @@ BaseCIChannel struct {
     }
 
     @doc value  "carries the fields every NI counter input channel shares."
-    @go version 2
+    @go marshal
 }
 
 CIChannel union on type extends BaseCIChannel {
@@ -1049,10 +1018,10 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_period extends CustomScale {
         min_val       float64 = 0.000001 {
-            @doc value "is the minimum expected period, in seconds."
+            @doc value "is the minimum expected period, in the selected units."
         }
         max_val       float64 = 0.1 {
-            @doc value "is the maximum expected period, in seconds."
+            @doc value "is the maximum expected period, in the selected units."
         }
         units         CITimeUnits = seconds {
             @doc value "are the units of the period measurement."
@@ -1079,10 +1048,10 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_pulse_width extends CustomScale {
         min_val       float64 = 0.000001 {
-            @doc value "is the minimum expected pulse width, in seconds."
+            @doc value "is the minimum expected pulse width, in the selected units."
         }
         max_val       float64 = 0.1 {
-            @doc value "is the maximum expected pulse width, in seconds."
+            @doc value "is the maximum expected pulse width, in the selected units."
         }
         units         CITimeUnits = seconds {
             @doc value "are the units of the pulse-width measurement."
@@ -1098,10 +1067,10 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_semi_period extends CustomScale {
         min_val  float64 = 0.000001 {
-            @doc value "is the minimum expected semi-period, in seconds."
+            @doc value "is the minimum expected semi-period, in the selected units."
         }
         max_val  float64 = 0.1 {
-            @doc value "is the maximum expected semi-period, in seconds."
+            @doc value "is the maximum expected semi-period, in the selected units."
         }
         units    CITimeUnits = seconds {
             @doc value "are the units of the semi-period measurement."
@@ -1114,10 +1083,10 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_two_edge_sep extends CustomScale {
         min_val         float64 = 0.000001 {
-            @doc value "is the minimum expected separation, in seconds."
+            @doc value "is the minimum expected separation, in the selected units."
         }
         max_val         float64 = 1 {
-            @doc value "is the maximum expected separation, in seconds."
+            @doc value "is the maximum expected separation, in the selected units."
         }
         units           CITimeUnits = seconds {
             @doc value "are the units of the two-edge-separation measurement."
@@ -1249,10 +1218,10 @@ CIChannel union on type extends BaseCIChannel {
     }
 
     @doc value  """
-        is a single NI counter input channel. The type field selects the
-        measurement mode and the fields that accompany it.
+        is a single NI counter input channel. The type field selects the measurement
+        mode and the fields that accompany it.
     """
-    @go version 2
+    @go marshal
 }
 
 WaveType enum {
@@ -1261,8 +1230,7 @@ WaveType enum {
     square   = "Square"
     sawtooth = "Sawtooth"
 
-    @doc value  "selects the waveform a function generator produces."
-    @go version 2
+    @doc value "selects the waveform a function generator produces."
 }
 
 BaseAOChannel struct {
@@ -1290,7 +1258,7 @@ BaseAOChannel struct {
     }
 
     @doc value  "carries the fields every NI analog output channel shares."
-    @go version 2
+    @go marshal
 }
 
 AOChannel union on type extends BaseAOChannel {
@@ -1306,7 +1274,7 @@ AOChannel union on type extends BaseAOChannel {
             @doc value "selects the waveform to generate."
         }
         frequency float64 = 0 {
-            @doc value "is the waveform frequency, in hertz."
+            @doc value "is the waveform frequency, in Hertz."
         }
         amplitude float64 = 0 {
             @doc value "is the waveform amplitude."
@@ -1326,10 +1294,10 @@ AOChannel union on type extends BaseAOChannel {
     }
 
     @doc value  """
-        is a single NI analog output channel. The type field selects the
-        output mode and the fields that accompany it.
+        is a single NI analog output channel. The type field selects the output mode and
+        the fields that accompany it.
     """
-    @go version 2
+    @go marshal
 }
 
 DIChannel struct {
@@ -1354,7 +1322,7 @@ DIChannel struct {
     }
 
     @doc value  "is a digital input channel the task acquires from."
-    @go version 2
+    @go marshal
 }
 
 DOChannel struct {
@@ -1385,21 +1353,22 @@ DOChannel struct {
     }
 
     @doc value  "is a digital output channel the task drives."
-    @go version 2
+    @go marshal
 }
 
-AnalogReadConfig struct extends task.BaseReadConfig {
+AnalogReadConfig struct extends task.ReadConfig {
     channels AIChannel[] {
         @doc value "are the analog input channels the task acquires."
     }
 
-    @doc value  "configures an NI analog read task. Each channel carries its own device."
-    @go version 2
+    @doc value  """
+        configures an NI analog read task. Each channel carries its own device.
+    """
     @go marshal
     @go migrate
 }
 
-CounterReadConfig struct extends task.BaseReadConfig {
+CounterReadConfig struct extends task.ReadConfig {
     channels CIChannel[] {
         @doc value "are the counter input channels the task acquires."
     }
@@ -1407,19 +1376,18 @@ CounterReadConfig struct extends task.BaseReadConfig {
     @doc value  """
         configures an NI counter read task. Each channel carries its own device.
     """
-    @go version 2
     @go marshal
     @go migrate
 }
 
-WriteConfig struct extends task.BaseWriteConfig {
+WriteConfig struct extends task.WriteConfig {
     state_rate telem.Rate = 10 {
-        @doc value "is the rate at which output state is reported to Synnax, in hertz."
+        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
         @ts type   "number"
     }
 
     @doc value  "carries the configuration fields shared by NI write tasks."
-    @go version 2
+    @go marshal
 }
 
 AnalogWriteConfig struct extends WriteConfig {
@@ -1428,12 +1396,11 @@ AnalogWriteConfig struct extends WriteConfig {
     }
 
     @doc value  "configures an NI analog write task."
-    @go version 2
     @go marshal
     @go migrate
 }
 
-DigitalReadConfig struct extends task.BaseReadConfig {
+DigitalReadConfig struct extends task.ReadConfig {
     device   device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
@@ -1442,7 +1409,6 @@ DigitalReadConfig struct extends task.BaseReadConfig {
     }
 
     @doc value  "configures an NI digital read task."
-    @go version 2
     @go marshal
     @go migrate
 }
@@ -1453,18 +1419,16 @@ DigitalWriteConfig struct extends WriteConfig {
     }
 
     @doc value  "configures an NI digital write task."
-    @go version 2
     @go marshal
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task.ScanConfig {
     ignored_models string[] = ["^cRIO.*", "^nown.*"] {
         @doc value "are regex patterns matching the device models the scan skips."
     }
 
     @doc value  "configures the NI device scanner task."
-    @go version 2
     @go marshal
     @go migrate
 }

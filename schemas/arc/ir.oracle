@@ -9,11 +9,11 @@
 
 import "schemas/arc/types"
 
-@ts output  "client/ts/src/arc/ir"
-@py output  "client/py/synnax/arc/ir"
-@go output  "arc/go/ir"
 @cpp output "arc/cpp/ir"
+@go output  "arc/go/ir"
 @pb
+@py output  "client/py/synnax/arc/ir"
+@ts output  "client/ts/src/arc/ir"
 
 Handle struct {
     node  string {
@@ -23,9 +23,11 @@ Handle struct {
         @doc value "is the parameter name (input or output)."
     }
 
-    @go version  1
-    @doc value   "is a reference to a specific parameter on a specific node in the dataflow graph."
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Handle& h)"
+    @doc value   """
+        is a reference to a specific parameter on a specific node in the dataflow graph.
+    """
+    @go marshal
 }
 
 EdgeKind enum {
@@ -33,8 +35,7 @@ EdgeKind enum {
     continuous  = 1
     conditional = 2
 
-    @go version 1
-    @doc value  "defines execution semantics for dataflow edges between nodes."
+    @doc value "defines execution semantics for dataflow edges between nodes."
 }
 
 Edge struct {
@@ -48,9 +49,9 @@ Edge struct {
         @doc value "defines execution semantics for this connection."
     }
 
-    @go version  1
-    @doc value   "is a dataflow connection between node parameters in the Arc graph."
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Edge& e)"
+    @doc value   "is a dataflow connection between node parameters in the Arc graph."
+    @go marshal
 }
 
 Edges Edge[] {
@@ -79,33 +80,32 @@ Transition struct {
     }
     targetKey string? {
         @doc value """
-            is the sibling step key to activate. Null when the transition
-            exits the scope, yielding to the parent.
+            is the sibling step key to activate. Null when the transition exits the
+            scope, yielding to the parent.
         """
     }
 
-    @doc value   "is a declarative state-transition rule on a sequential Scope."
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Transition& t)"
+    @doc value   "is a declarative state-transition rule on a sequential Scope."
 }
 
 Member struct {
     nodeKey string? {
         @doc value """
-            is the key of the referenced node in IR.nodes. Null when this
-            member is a nested scope.
+            is the key of the referenced node in IR.nodes. Null when this member is a
+            nested scope.
         """
     }
     scope   Scope?  {
         @doc value "is set when this member is a nested scope."
     }
 
-    @doc value   """
-        is a tagged union representing a single child of a Scope. Exactly one
-        of nodeKey or scope is set. The member's lookup key (used as the
-        target of `=> name` transitions) is derived from the set variant via
-        Member.key().
-    """
     @cpp methods "[[nodiscard]] const std::string& key() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
+    @doc value   """
+        is a tagged union representing a single child of a Scope. Exactly one of nodeKey
+        or scope is set. The member's lookup key (used as the target of `=> name`
+        transitions) is derived from the set variant via Member.key().
+    """
 }
 
 Members = Member[] {
@@ -120,33 +120,42 @@ Scope struct {
         @doc value "defines whether this scope runs steps in parallel or sequentially."
     }
     liveness    Liveness     {
-        @doc value "defines whether this scope is continuously active or must be activated."
+        @doc value """
+            defines whether this scope is continuously active or must be activated.
+        """
     }
     activation  Handle?      {
-        @doc value "is the handle whose truthy value activates a gated scope. Unset for always-live scopes."
+        @doc value """
+            is the handle whose truthy value activates a gated scope. Unset for
+            always-live scopes.
+        """
     }
     strata      Members[]    {
         @doc value """
-            contains stratified execution layers for parallel scopes. On
-            sequential scopes, strata hold variable nodes that run every
-            pass alongside the active step. Stratum N depends only on
-            strata 0 to N-1.
+            contains stratified execution layers for parallel scopes. On sequential
+            scopes, strata hold variable nodes that run every pass alongside the active
+            step. Stratum N depends only on strata 0 to N-1.
         """
     }
     steps       Members      {
-        @doc value "contains ordered steps for sequential scopes. Empty for parallel scopes."
+        @doc value """
+            contains ordered steps for sequential scopes. Empty for parallel scopes.
+        """
     }
     transitions Transition[] {
-        @doc value "contains state-transition rules for sequential scopes. Empty for parallel scopes."
+        @doc value """
+            contains state-transition rules for sequential scopes. Empty for parallel
+            scopes.
+        """
     }
 
-    @doc value   """
-        is the unified Layer 2 execution primitive. Parameterized by mode
-        (parallel or sequential) and liveness (always-live or gated). Parallel
-        scopes organize members into strata; sequential scopes run one step
-        at a time and advance via transitions.
-    """
     @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Scope& s)"
+    @doc value   """
+        is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
+        sequential) and liveness (always-live or gated). Parallel scopes organize
+        members into strata; sequential scopes run one step at a time and advance via
+        transitions.
+    """
 }
 
 Body struct {
@@ -154,10 +163,10 @@ Body struct {
         @doc value "is the raw source code text."
     }
 
-    @go version 1
     @doc value  "is raw function body source code with optional parsed AST."
     @go fields  "AST antlr.ParserRuleContext `json:\"-\"`"
     @go imports "github.com/antlr4-go/antlr/v4"
+    @go marshal
 }
 
 Function struct {
@@ -177,17 +186,16 @@ Function struct {
         @doc value "contains channel read/write declarations."
     }
 
-    @go version  1
-    @doc value   """
-        is a function template definition with typed parameters, serving as a
-        blueprint for node instantiation.
-    """
     @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Function& f)"
+    @doc value   """
+        is a function template definition with typed parameters, serving as a blueprint
+        for node instantiation.
+    """
+    @go marshal
 }
 
 Functions Function[] {
-    @go version 1
-    @doc value  "is a collection of function definitions in an Arc module."
+    @doc value "is a collection of function definitions in an Arc module."
 }
 
 Node struct {
@@ -207,10 +215,10 @@ Node struct {
         @doc value "contains channel read/write mappings."
     }
 
+    @cpp methods "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
     @doc value   """
         is a concrete instantiation of a function with typed parameters and values.
     """
-    @cpp methods "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
 }
 
 Nodes Node[] {
@@ -219,7 +227,9 @@ Nodes Node[] {
 
 Authorities struct {
     default  uint8?             {
-        @doc value "is the default authority for all write channels not explicitly listed."
+        @doc value """
+            is the default authority for all write channels not explicitly listed.
+        """
     }
     channels map<uint32, uint8> {
         @doc value "maps channel keys to their specific authority values."
@@ -243,19 +253,18 @@ IR struct {
     }
     root        Scope       {
         @doc value """
-            is the top-level execution context. The root is always a
-            parallel, always-live Scope whose strata mix module-scope
-            reactive flow with top-level gated scopes.
+            is the top-level execution context. The root is always a parallel,
+            always-live Scope whose strata mix module-scope reactive flow with top-level
+            gated scopes.
         """
     }
 
+    @cpp methods         "[[nodiscard]] const Node& node(const std::string& key) const" "[[nodiscard]] const Function& function(const std::string& key) const" "[[nodiscard]] std::optional<Edge> edge_to(const Handle& target) const" "[[nodiscard]] std::unordered_map<std::string, std::vector<Edge>> edges_from(const std::string& node_key) const" "[[nodiscard]] std::vector<Edge> edges_to(const std::string& node_key) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const IR& ir)"
+    @cpp system_includes "optional" "unordered_map" "ostream"
     @doc value           """
-        is the intermediate representation of an Arc program as a dataflow graph
-        with stratified execution, bridging semantic analysis and WebAssembly
-        compilation.
+        is the intermediate representation of an Arc program as a dataflow graph with
+        stratified execution, bridging semantic analysis and WebAssembly compilation.
     """
     @go fields           "Symbols *symbol.Symbol `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
     @go imports          "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"
-    @cpp methods         "[[nodiscard]] const Node& node(const std::string& key) const" "[[nodiscard]] const Function& function(const std::string& key) const" "[[nodiscard]] std::optional<Edge> edge_to(const Handle& target) const" "[[nodiscard]] std::unordered_map<std::string, std::vector<Edge>> edges_from(const std::string& node_key) const" "[[nodiscard]] std::vector<Edge> edges_to(const std::string& node_key) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const IR& ir)"
-    @cpp system_includes "optional" "unordered_map" "ostream"
 }

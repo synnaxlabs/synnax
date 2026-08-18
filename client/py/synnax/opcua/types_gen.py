@@ -26,7 +26,7 @@ class BaseChannel(BaseModel):
         key: Uniquely identifies the channel within the task.
         name: Is the human-readable channel name.
         disabled: Is true when the channel is excluded from the task.
-        node_id: Is the OPC UA node id the channel is bound to.
+        node_id: Is the OPC UA node ID the channel is bound to.
         node_name: Is the browse name of the OPC UA node.
         data_type: Is the data type of the Synnax channel.
     """
@@ -42,7 +42,7 @@ class BaseChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures an OPC UA scan task."""
 
     def __hash__(self) -> int:
@@ -77,12 +77,12 @@ class WriteChannel(BaseChannel):
         return hash(self.key)
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(task.ReadConfig):
     """Configures an OPC UA read task.
 
     Attributes:
-        sample_rate: Is the per-channel hardware sample rate, in hertz.
-        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
         device: Is the key of the device representing the OPC UA server.
         array_mode: Is true when each read returns an array of samples per node.
         array_size: Is the number of samples in each array when array_mode is true.
@@ -100,7 +100,7 @@ class ReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(task.WriteConfig):
     """Configures an OPC UA write task.
 
     Attributes:

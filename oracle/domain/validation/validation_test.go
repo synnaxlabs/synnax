@@ -25,6 +25,14 @@ var _ = Describe("Parse", func() {
 		Expect(rules.Required).To(BeTrue())
 	})
 
+	It("should parse skip expression", func() {
+		domain := resolution.Domain{
+			Expressions: []resolution.Expression{{Name: "skip"}},
+		}
+		rules := validation.Parse(domain)
+		Expect(rules.Skip).To(BeTrue())
+	})
+
 	It("should parse min_length expression", func() {
 		domain := resolution.Domain{
 			Expressions: []resolution.Expression{{

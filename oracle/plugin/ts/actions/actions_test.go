@@ -47,10 +47,6 @@ var _ = Describe("TS Actions Plugin", func() {
 		It("Should require ts/types", func() {
 			Expect(p.Requires()).To(Equal([]string{"ts/types"}))
 		})
-
-		It("Should have a no-op Check", func() {
-			Expect(p.Check(nil)).To(Succeed())
-		})
 	})
 
 	Describe("Generate", func() {

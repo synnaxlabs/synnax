@@ -12,10 +12,10 @@ import "schemas/synnax/device"
 import "schemas/synnax/task"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/modbus"
-@py output  "client/py/synnax/modbus"
 @cpp output "client/cpp/modbus"
 @go output  "core/pkg/service/modbus"
+@py output  "client/py/synnax/modbus"
+@ts output  "client/ts/src/modbus"
 
 RegisterValue struct {
     data_type  telem.DataType = "uint8" {
@@ -30,7 +30,7 @@ RegisterValue struct {
     }
 
     @doc value  "interprets one or more 16-bit registers as a single typed value."
-    @go version 1
+    @go marshal
 }
 
 BaseReadChannel struct {
@@ -52,7 +52,7 @@ BaseReadChannel struct {
     }
 
     @doc value  "carries the fields every Modbus read channel shares."
-    @go version 1
+    @go marshal
 }
 
 ReadChannel union on type extends BaseReadChannel {
@@ -78,10 +78,10 @@ ReadChannel union on type extends BaseReadChannel {
     }
 
     @doc value  """
-        is a single Modbus read channel. The type field selects the register
-        space the channel reads from and the fields that accompany it.
+        is a single Modbus read channel. The type field selects the register space the
+        channel reads from and the fields that accompany it.
     """
-    @go version 1
+    @go marshal
 }
 
 BaseWriteChannel struct {
@@ -103,7 +103,7 @@ BaseWriteChannel struct {
     }
 
     @doc value  "carries the fields every Modbus write channel shares."
-    @go version 1
+    @go marshal
 }
 
 WriteChannel union on type extends BaseWriteChannel {
@@ -115,13 +115,13 @@ WriteChannel union on type extends BaseWriteChannel {
     }
 
     @doc value  """
-        is a single Modbus write channel. The type field selects the register
-        space the channel writes to and the fields that accompany it.
+        is a single Modbus write channel. The type field selects the register space the
+        channel writes to and the fields that accompany it.
     """
-    @go version 1
+    @go marshal
 }
 
-ReadConfig struct extends task.BaseReadConfig {
+ReadConfig struct extends task.ReadConfig {
     device   device.Key = "" {
         @doc value "is the key of the device the task acquires from."
     }
@@ -130,25 +130,22 @@ ReadConfig struct extends task.BaseReadConfig {
     }
 
     @doc value  "configures a Modbus read task."
-    @go version 1
     @go marshal
     @go migrate
 }
 
-WriteConfig struct extends task.BaseWriteConfig {
+WriteConfig struct extends task.WriteConfig {
     channels WriteChannel[] {
         @doc value "are the channels the task drives."
     }
 
     @doc value  "configures a Modbus write task."
-    @go version 1
     @go marshal
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task.ScanConfig {
     @doc value  "configures a Modbus scan task."
-    @go version 1
     @go marshal
     @go migrate
 }

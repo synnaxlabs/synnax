@@ -52,7 +52,7 @@ type alertTask struct {
 	status     *driver.StatusHandler
 	disconnect observe.Disconnect
 	// alertsByStatus maps status keys to their enabled Alert for O(1) lookup.
-	alertsByStatus map[string]Alert
+	alertsByStatus map[status.Key]Alert
 }
 
 var _ driver.Task = (*alertTask)(nil)
@@ -75,7 +75,7 @@ func (t *alertTask) start(ctx context.Context, cmdKey string) error {
 		t.ackCurrent(ctx, cmdKey, true)
 		return nil
 	}
-	t.alertsByStatus = make(map[string]Alert, len(t.cfg.Alerts))
+	t.alertsByStatus = make(map[status.Key]Alert, len(t.cfg.Alerts))
 	for _, a := range t.cfg.Alerts {
 		if !a.Disabled {
 			t.alertsByStatus[a.Status] = a
@@ -131,7 +131,7 @@ func (t *alertTask) ackCurrent(ctx context.Context, cmdKey string, running bool)
 
 func (t *alertTask) handleStatusChange(
 	ctx context.Context,
-	reader gorp.TxReader[string, status.Status[any]],
+	reader gorp.TxReader[status.Key, status.Status[any]],
 ) {
 	for ch := range reader {
 		if ch.Variant == change.VariantDelete {
@@ -181,7 +181,7 @@ func (t *alertTask) buildTriggerEvent(
 	}
 }
 
-func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
+func (t *alertTask) buildResolveEvent(statusKey status.Key) pagerduty.V2Event {
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "resolve",

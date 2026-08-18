@@ -20,11 +20,12 @@ func _() {
 	_ = x[ChanDirectionNone-0]
 	_ = x[ChanDirectionRead-1]
 	_ = x[ChanDirectionWrite-2]
+	_ = x[ChanDirectionReadWrite-3]
 }
 
-const _ChanDirection_name = "ChanDirectionNoneChanDirectionReadChanDirectionWrite"
+const _ChanDirection_name = "ChanDirectionNoneChanDirectionReadChanDirectionWriteChanDirectionReadWrite"
 
-var _ChanDirection_index = [...]uint8{0, 17, 34, 52}
+var _ChanDirection_index = [...]uint8{0, 17, 34, 52, 74}
 
 func (i ChanDirection) String() string {
 	idx := int(i) - 0

@@ -17,7 +17,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -244,7 +244,7 @@ type ReadChannelVariant interface {
 // AnalogReadChannel reads a voltage from an analog input port.
 type AnalogReadChannel struct {
 	BaseReadChannel
-	// Range is the upper bound of the voltage input range, in volts.
+	// Range is the upper bound of the voltage input range, in Volts.
 	Range float64 `json:"range" msgpack:"range"`
 	// NegChan is the negative channel for differential readings on T7 devices. 199
 	// selects single-ended.
@@ -300,9 +300,9 @@ type ThermocoupleReadChannel struct {
 	// ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN port (e.g.
 	// 'AIN2').
 	CjcSource string `json:"cjc_source" msgpack:"cjc_source"`
-	// CjcSlope is the CJC voltage-to-temperature slope, in kelvin per volt.
+	// CjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
 	CjcSlope float64 `json:"cjc_slope" msgpack:"cjc_slope"`
-	// CjcOffset is the CJC temperature offset, in kelvins.
+	// CjcOffset is the CJC temperature offset, in Kelvins.
 	CjcOffset float64 `json:"cjc_offset" msgpack:"cjc_offset"`
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`
@@ -587,22 +587,22 @@ func (u *WriteChannel) ApplyDefaults() {
 
 // ReadConfig configures a LabJack read task.
 type ReadConfig struct {
-	config.BaseRead
+	task.ReadConfig
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the channels the task acquires.
 	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 	// DeviceScanBacklogWarnOnCount is the device-side scan backlog above which the task
-	// reports a skew warning. Zero lets the driver pick two seconds of scans.
+	// reports a skew warning. Zero lets the Driver pick two seconds of scans.
 	DeviceScanBacklogWarnOnCount uint32 `json:"device_scan_backlog_warn_on_count" msgpack:"device_scan_backlog_warn_on_count"`
 	// LjmScanBacklogWarnOnCount is the LJM-side scan backlog above which the task
-	// reports a skew warning. Zero lets the driver pick one second of scans.
+	// reports a skew warning. Zero lets the Driver pick one second of scans.
 	LjmScanBacklogWarnOnCount uint32 `json:"ljm_scan_backlog_warn_on_count" msgpack:"ljm_scan_backlog_warn_on_count"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
-	r.BaseRead.ApplyDefaults()
+	r.ReadConfig.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -620,8 +620,8 @@ func (r ReadConfig) Validate() error {
 
 // WriteConfig configures a LabJack write task.
 type WriteConfig struct {
-	config.BaseWrite
-	// StateRate is the rate at which output state is reported to Synnax, in hertz.
+	task.WriteConfig
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
@@ -639,7 +639,7 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures a LabJack scan task.
 type ScanConfig struct {
-	config.BaseScan
+	task.ScanConfig
 	// TCPScanMultiplier is the number of scan cycles between TCP device scans. USB
 	// devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
 	TCPScanMultiplier int32 `json:"tcp_scan_multiplier" msgpack:"tcp_scan_multiplier"`
@@ -650,5 +650,5 @@ func (s *ScanConfig) ApplyDefaults() {
 	if s.TCPScanMultiplier == 0 {
 		s.TCPScanMultiplier = 10
 	}
-	s.BaseScan.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
 }

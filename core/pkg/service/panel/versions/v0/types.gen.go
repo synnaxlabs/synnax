@@ -17,12 +17,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// TabKey uniquely identifies a tab within a panel.
 type TabKey = uuid.UUID
 
 // TabBase carries the identity shared by every tab variant.
@@ -61,7 +63,7 @@ type ResourceTab struct {
 	TabBase
 	// Resource is the visualization resource displayed by this tab, set via
 	// SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource ontologyv0.ID `json:"resource" msgpack:"resource"`
 }
 
 func (ResourceTab) isTabVariant() {}
@@ -302,7 +304,7 @@ func (u Node) Validate() error {
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
 
-// Panel is a project-owned tab holding a tree of visualization tabs.
+// Panel is a project-owned tree of visualization tabs.
 type Panel struct {
 	// Key is the unique identifier for this panel.
 	Key Key `json:"key" msgpack:"key"`

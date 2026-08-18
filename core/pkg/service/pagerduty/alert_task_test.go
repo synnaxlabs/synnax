@@ -56,7 +56,7 @@ var _ = Describe("AlertTask", func() {
 
 	setStatus := func(
 		ctx context.Context,
-		key string,
+		key status.Key,
 		variant status.Variant,
 		message string,
 		details any,

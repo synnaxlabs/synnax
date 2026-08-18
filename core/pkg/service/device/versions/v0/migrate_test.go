@@ -72,7 +72,7 @@ var _ = Describe("Migration", func() {
 				Location: "loc",
 				Name:     "Migration Test Device",
 			}
-			Expect(gorp.NewCreate[string, v0.Device]().
+			Expect(gorp.NewCreate[v0.Key, v0.Device]().
 				Entry(&d).
 				Exec(ctx, db)).To(Succeed())
 
@@ -103,7 +103,7 @@ var _ = Describe("Migration", func() {
 				Make:     "Test Make",
 				Model:    "Test Model",
 			}
-			Expect(gorp.NewCreate[string, v0.Device]().
+			Expect(gorp.NewCreate[v0.Key, v0.Device]().
 				Entry(&d).
 				Exec(ctx, db)).To(Succeed())
 			existing := status.Status[v0.StatusDetails]{

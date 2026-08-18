@@ -12,36 +12,32 @@ import "schemas/x/color"
 import "schemas/x/spatial"
 import "schemas/x/text"
 
-@ts output "client/ts/src/lineplot"
 @go output "core/pkg/service/lineplot"
+@ts output "client/ts/src/lineplot"
 
 Key = uuid {
-    @go version 5
-    @doc value  "is a unique identifier for a line plot, represented as a UUID."
+    @doc value "is a unique identifier for a line plot, represented as a UUID."
 }
 
 TickType enum {
     linear = "linear"
     time   = "time"
 
-    @go version 5
-    @doc value  "selects how an axis renders its tick labels."
+    @doc value "selects how an axis renders its tick labels."
 }
 
 DownsampleMode enum {
     average  = "average"
     decimate = "decimate"
 
-    @go version 5
-    @doc value  "selects how a line condenses samples that map to the same pixel."
+    @doc value "selects how a line condenses samples that map to the same pixel."
 }
 
 XAxisKey enum {
     x1 = "x1"
     x2 = "x2"
 
-    @go version 5
-    @doc value  "names one of the two x-axes. X-axes carry a single channel each."
+    @doc value "names one of the two x-axes. X-axes carry a single channel each."
 }
 
 YAxisKey enum {
@@ -50,13 +46,18 @@ YAxisKey enum {
     y3 = "y3"
     y4 = "y4"
 
-    @go version 5
-    @doc value  "names one of the four y-axes. Y-axes carry zero or more channels each."
+    @doc value "names one of the four y-axes. Y-axes carry zero or more channels each."
 }
 
 AxisKey enum extends XAxisKey, YAxisKey {
-    @go version 5
-    @doc value  "names one of the six fixed plot axes."
+    x1 = "x1"
+    x2 = "x2"
+    y1 = "y1"
+    y2 = "y2"
+    y3 = "y3"
+    y4 = "y4"
+
+    @doc value "names one of the six fixed plot axes."
 }
 
 Title struct {
@@ -67,13 +68,16 @@ Title struct {
         @doc value "is whether the title is shown above the plot."
     }
 
-    @go version 5
     @doc value  "is the plot title configuration."
+    @go marshal
 }
 
 Legend struct {
     hidden   bool = false {
-        @doc value "is whether the legend is hidden. When false (the default), the legend is shown."
+        @doc value """
+            is whether the legend is hidden. When false (the default), the legend is
+            shown.
+        """
     }
     position spatial.StickyXY = {
         x = 50,
@@ -84,8 +88,8 @@ Legend struct {
         @doc value "is the anchor position of the legend within the plot container."
     }
 
-    @go version 5
     @doc value  "is the plot legend configuration."
+    @go marshal
 }
 
 Channels struct {
@@ -108,47 +112,49 @@ Channels struct {
         @doc value "are the channels rendered on the y4 axis."
     }
 
-    @go version 5
     @doc value  """
-        binds channel keys to each axis. x1 and x2 are single-channel; y1
-        through y4 carry zero or more channels each.
+        binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
+        carry zero or more channels each.
     """
+    @go marshal
 }
 
 Ranges struct {
     x1 string[] {
         @doc value """
-            are the range keys plotted against the x1 axis. Range keys are
-            opaque strings rather than UUIDs because the console layers
-            synthetic rolling-window ranges (e.g. "recent", "rolling1m")
-            alongside persisted ranges; the server stores whatever the
-            client sends.
+            are the range keys plotted against the x1 axis. Range keys are opaque
+            strings rather than UUIDs because the console layers synthetic
+            rolling-window ranges (e.g. "recent", "rolling1m") alongside persisted
+            ranges; the server stores whatever the client sends.
         """
     }
     x2 string[] {
         @doc value "are the range keys plotted against the x2 axis."
     }
 
-    @go version 5
     @doc value  "binds range keys to each x-axis."
+    @go marshal
 }
 
 ManualBounds struct {
     lower bool = false {
-        @doc value "is whether the lower bound is set manually rather than computed from data."
+        @doc value """
+            is whether the lower bound is set manually rather than computed from data.
+        """
     }
     upper bool = false {
-        @doc value "is whether the upper bound is set manually rather than computed from data."
+        @doc value """
+            is whether the upper bound is set manually rather than computed from data.
+        """
     }
 
-    @go version 5
     @doc value  """
-        controls whether an axis uses a manually-set bound on each side
-        independently. When a side is false (the default), the corresponding
-        entry in Axis.bounds is recomputed locally from the rendered data
-        window and never broadcast to the server; when true, Axis.bounds holds
-        the user-set value.
+        controls whether an axis uses a manually-set bound on each side independently.
+        When a side is false (the default), the corresponding entry in Axis.bounds is
+        recomputed locally from the rendered data window and never broadcast to the
+        server; when true, Axis.bounds holds the user-set value.
     """
+    @go marshal
 }
 
 Axis struct {
@@ -167,8 +173,8 @@ Axis struct {
     bounds          spatial.Bounds = { lower = 0, upper = 0 } {
         @doc value """
             is the value-space window of the axis. When the matching entry in
-            manual_bounds is false the field is overwritten locally on every
-            render; otherwise it is the user-set fixed bound.
+            manual_bounds is false the field is overwritten locally on every render;
+            otherwise it is the user-set fixed bound.
         """
     }
     manual_bounds   ManualBounds = {} {
@@ -179,13 +185,13 @@ Axis struct {
     }
     type            TickType?         {
         @doc value """
-            selects the tick label style. Null means default (linear).
-            X-axes typically carry "time" when bound to a timestamp channel.
+            selects the tick label style. Null means default (linear). X-axes typically
+            carry "time" when bound to a timestamp channel.
         """
     }
 
-    @go version 5
     @doc value  "is the configuration for a single plot axis."
+    @go marshal
 }
 
 Axes struct {
@@ -208,28 +214,28 @@ Axes struct {
         @doc value "is the y4 axis configuration."
     }
 
-    @go version 5
     @doc value  "bundles configuration for all six fixed plot axes."
+    @go marshal
 }
 
 Line struct {
     key             string         {
         @doc value """
-            is the line identifier derived from its channel and range
-            assignment. Format is internal to the client and stable across
-            re-renders so styling overrides persist.
+            is the line identifier derived from its channel and range assignment. Format
+            is internal to the client and stable across re-renders so styling overrides
+            persist.
         """
     }
     label           string?        {
         @doc value """
-            is the user-specified line label. Null means derive from the
-            channel name at render time; non-null is an override.
+            is the user-specified line label. Null means derive from the channel name at
+            render time; non-null is an override.
         """
     }
     color           color.Color?   {
         @doc value """
-            is the line color. When null, the Console assigns one from the
-            visualization palette at render time.
+            is the line color. When null, the Console assigns one from the visualization
+            palette at render time.
         """
     }
     stroke_width    float64 = 2 {
@@ -237,16 +243,16 @@ Line struct {
     }
     downsample      uint32 = 1 {
         @doc value """
-            is the downsample factor applied before rendering. 1 means render
-            every sample; higher values render every Nth sample.
+            is the downsample factor applied before rendering. 1 means render every
+            sample; higher values render every Nth sample.
         """
     }
     downsample_mode DownsampleMode = DownsampleModeDecimate {
         @doc value "selects how the downsample factor is applied."
     }
 
-    @go version 5
     @doc value  "is the per-line styling and downsampling configuration."
+    @go marshal
 }
 
 Rule struct {
@@ -257,7 +263,10 @@ Rule struct {
         @doc value "is the human-readable label rendered alongside the rule."
     }
     color      color.Color? {
-        @doc value "is the display color of the rule. When null, the Console assigns a default at render time."
+        @doc value """
+            is the display color of the rule. When null, the Console assigns a default
+            at render time.
+        """
     }
     axis       AxisKey      {
         @doc value "is the axis the rule is anchored to."
@@ -275,8 +284,8 @@ Rule struct {
         @doc value "is the value-space position of the rule along its anchored axis."
     }
 
-    @go version 5
     @doc value  "is a horizontal or vertical annotation line drawn over the plot."
+    @go marshal
 }
 
 LinePlot struct {
@@ -306,8 +315,8 @@ LinePlot struct {
     lines    Line[]   {
         @doc value """
             holds per-line styling and downsampling configuration. Each entry
-            corresponds to one channel and range combination produced by the
-            channels and ranges bindings.
+            corresponds to one channel and range combination produced by the channels
+            and ranges bindings.
         """
     }
     rules    Rule[]   {
@@ -358,8 +367,8 @@ LinePlot struct {
         channel  channel.Key
 
         @doc value """
-            appends the channel to the channels array bound to the y-axis
-            named by axis_key. No-op when the channel is already present.
+            appends the channel to the channels array bound to the y-axis named by
+            axis_key. No-op when the channel is already present.
         """
     }
 
@@ -368,8 +377,8 @@ LinePlot struct {
         channel  channel.Key
 
         @doc value """
-            removes the channel from the y-axis named by axis_key. No-op
-            when the channel is not present.
+            removes the channel from the y-axis named by axis_key. No-op when the
+            channel is not present.
         """
     }
 
@@ -378,10 +387,10 @@ LinePlot struct {
         channels channel.Key[]
 
         @doc value """
-            replaces the entire set of channels bound to the y-axis named by
-            axis_key with channels. Channels absent from the new set are
-            removed and their lines dropped; channels not previously present
-            are added. Existing channels keep their line styling.
+            replaces the entire set of channels bound to the y-axis named by axis_key
+            with channels. Channels absent from the new set are removed and their lines
+            dropped; channels not previously present are added. Existing channels keep
+            their line styling.
         """
     }
 
@@ -389,10 +398,7 @@ LinePlot struct {
         axis_key XAxisKey
         channel  channel.Key
 
-        @doc value """
-            replaces the single channel bound to the x-axis named by
-            axis_key.
-        """
+        @doc value "replaces the single channel bound to the x-axis named by axis_key."
     }
 
     action AddRange {
@@ -400,8 +406,8 @@ LinePlot struct {
         range    string
 
         @doc value """
-            appends the range key to the ranges array bound to the x-axis
-            named by axis_key. No-op when the range is already present.
+            appends the range key to the ranges array bound to the x-axis named by
+            axis_key. No-op when the range is already present.
         """
     }
 
@@ -410,8 +416,8 @@ LinePlot struct {
         range    string
 
         @doc value """
-            removes the range key from the x-axis named by axis_key. No-op
-            when the range is not present.
+            removes the range key from the x-axis named by axis_key. No-op when the
+            range is not present.
         """
     }
 
@@ -420,10 +426,10 @@ LinePlot struct {
         ranges   string[]
 
         @doc value """
-            replaces the entire set of range keys bound to the x-axis named by
-            axis_key with ranges. Ranges absent from the new set are removed
-            and their lines dropped; ranges not previously present are added.
-            Existing ranges keep their line styling.
+            replaces the entire set of range keys bound to the x-axis named by axis_key
+            with ranges. Ranges absent from the new set are removed and their lines
+            dropped; ranges not previously present are added. Existing ranges keep their
+            line styling.
         """
     }
 
@@ -454,9 +460,9 @@ LinePlot struct {
         manual_bounds ManualBounds
 
         @doc value """
-            sets the axis value-space window together with its per-edge manual
-            override flags. The two travel together: fixing a bound enables the
-            manual override for that edge, so callers set both at once.
+            sets the axis value-space window together with its per-edge manual override
+            flags. The two travel together: fixing a bound enables the manual override
+            for that edge, so callers set both at once.
         """
     }
 
@@ -472,9 +478,9 @@ LinePlot struct {
         type TickType?
 
         @doc value """
-            sets the axis tick label style. Null resets it to the default,
-            which the Console derives (linear, or time for a timestamp-bound
-            x-axis) at render time.
+            sets the axis tick label style. Null resets it to the default, which the
+            Console derives (linear, or time for a timestamp-bound x-axis) at render
+            time.
         """
     }
 
@@ -483,8 +489,8 @@ LinePlot struct {
         label string?
 
         @doc value """
-            sets the label of the line identified by key. Null resets it to
-            derive from the channel name at render time.
+            sets the label of the line identified by key. Null resets it to derive from
+            the channel name at render time.
         """
     }
 
@@ -493,8 +499,8 @@ LinePlot struct {
         color color.Color?
 
         @doc value """
-            sets the color of the line identified by key. Null resets it to a
-            palette color assigned at render time.
+            sets the color of the line identified by key. Null resets it to a palette
+            color assigned at render time.
         """
     }
 
@@ -516,16 +522,18 @@ LinePlot struct {
         key             string
         downsample_mode DownsampleMode
 
-        @doc value "sets how the downsample factor is applied for the line identified by key."
+        @doc value """
+            sets how the downsample factor is applied for the line identified by key.
+        """
     }
 
     action SetLine {
         line Line
 
         @doc value """
-            replaces the line with line.key in place, inserting it when no such
-            line exists. The fine-grained setLine* actions cover per-field edits;
-            this full-object form restores a line dropped by reconciliation.
+            replaces the line with line.key in place, inserting it when no such line
+            exists. The fine-grained setLine* actions cover per-field edits; this
+            full-object form restores a line dropped by reconciliation.
         """
     }
 
@@ -533,10 +541,10 @@ LinePlot struct {
         rule Rule
 
         @doc value """
-            inserts the rule if no rule with rule.key exists, otherwise
-            replaces the existing entry in place. The fine-grained setRule*
-            actions cover per-field edits; this full-object form creates a rule
-            or restores one removed by another action's inverse.
+            inserts the rule if no rule with rule.key exists, otherwise replaces the
+            existing entry in place. The fine-grained setRule* actions cover per-field
+            edits; this full-object form creates a rule or restores one removed by
+            another action's inverse.
         """
     }
 
@@ -552,8 +560,8 @@ LinePlot struct {
         color color.Color?
 
         @doc value """
-            sets the color of the rule identified by key. Null resets it to a
-            default color assigned at render time.
+            sets the color of the rule identified by key. Null resets it to a default
+            color assigned at render time.
         """
     }
 
@@ -598,16 +606,15 @@ LinePlot struct {
         @doc value "removes the rule with the given key, if present."
     }
 
-    @go version    5
-    @doc value     """
-        is a time-series visualization component for plotting telemetry data.
-        Line plots support multiple channels, real-time streaming, and
-        historical data display with zoom and pan capabilities.
-    """
-    @ontology type "lineplot"
     @create
-    @retrieve
+    @doc value     """
+        is a time-series visualization component for plotting telemetry data. Line plots
+        support multiple channels, real-time streaming, and historical data display with
+        zoom and pan capabilities.
+    """
+    @go imex
     @go marshal
     @go migrate
-    @go imex
+    @ontology type "lineplot"
+    @retrieve
 }

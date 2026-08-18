@@ -13,9 +13,12 @@ package v2
 
 import (
 	"github.com/google/uuid"
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // Key is a unique identifier for a task.
@@ -50,7 +53,7 @@ type Task struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack this task deploys to. Zero for a draft that has not
 	// been assigned a rack; required to start.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
+	Rack rackv2.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the task.
 	Name string `json:"name" msgpack:"name"`
 	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
@@ -65,8 +68,70 @@ type Task struct {
 	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
 	// Internal is true if this is an internal system task.
 	Internal bool `json:"internal" msgpack:"internal"`
-	// Snapshot indicates whether to persist this task's configuration.
+	// Snapshot is true if this task is an immutable snapshot copy of another task.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+}
+
+// KeyedConfig is the base for every stored task configuration record.
+type KeyedConfig struct {
+	// Key is the unique identifier for the stored configuration record.
+	Key uuid.UUID `json:"key" msgpack:"key"`
+}
+
+// StartConfig carries the configuration fields shared by every task.
+type StartConfig struct {
+	KeyedConfig
+	// AutoStart is true when the task should start as soon as it is configured.
+	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
+}
+
+// PersistConfig carries the configuration fields shared by tasks that write telemetry.
+type PersistConfig struct {
+	StartConfig
+	// DataSavingDisabled is true when task telemetry is not persisted to disk.
+	DataSavingDisabled bool `json:"data_saving_disabled" msgpack:"data_saving_disabled"`
+}
+
+// ReadConfig carries the configuration fields shared by hardware acquisition tasks.
+type ReadConfig struct {
+	PersistConfig
+	// SampleRate is the per-channel hardware sample rate, in Hertz.
+	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
+	// StreamRate is the rate at which samples are streamed to Synnax, in Hertz.
+	StreamRate telem.Rate `json:"stream_rate" msgpack:"stream_rate"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadConfig) ApplyDefaults() {
+	if r.SampleRate == 0 {
+		r.SampleRate = 10
+	}
+	if r.StreamRate == 0 {
+		r.StreamRate = 5
+	}
+}
+
+// WriteConfig carries the configuration fields shared by hardware control tasks.
+type WriteConfig struct {
+	PersistConfig
+	// Device is the key of the device the task writes to.
+	Device device.Key `json:"device" msgpack:"device"`
+}
+
+// ScanConfig carries the fields shared by every scan task configuration.
+type ScanConfig struct {
+	KeyedConfig
+	// Rate is the rate at which the scan runs, in Hertz.
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Disabled is true when scanning is paused.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *ScanConfig) ApplyDefaults() {
+	if s.Rate == 0 {
+		s.Rate = 0.2
+	}
 }

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -29,7 +30,10 @@ func globOracleSchemas(repoRoot string) ([]string, error) {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == "snapshots" && filepath.Dir(path) == root {
+			// Version chains under schemas/<domain>/versions/ are analyzed per-chain by
+			// the versions package, never as live schemas.
+			if d.Name() == paths.VersionsDirName &&
+				filepath.Dir(filepath.Dir(path)) == root {
 				return filepath.SkipDir
 			}
 			return nil

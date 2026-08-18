@@ -12,7 +12,6 @@ package analyzer
 import (
 	"context"
 	"maps"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/parser"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
@@ -71,7 +71,7 @@ func Analyze(
 			loader:      loader,
 			ast:         ast,
 			filePath:    filePath,
-			namespace:   DeriveNamespace(filePath),
+			namespace:   paths.DeriveNamespace(filePath),
 			fileDomains: make(map[string]resolution.Domain),
 		}
 		analyze(c)
@@ -116,9 +116,44 @@ func AnalyzeSource(
 	return table, diag
 }
 
-// usedQualifiers collects the package qualifiers the file references: every
-// identifier immediately followed by a dot, in any position (type references,
-// extends clauses, domain expressions).
+// AnalyzeSeeded analyzes source into an existing table under an explicit namespace.
+// Callers pre-register the namespaces the source resolves against (sibling schema
+// versions, pinned dependency surfaces) and mark their import paths on the table so the
+// import walk does not re-load them.
+func AnalyzeSeeded(
+	ctx context.Context,
+	source, filePath, namespace string,
+	loader FileLoader,
+	table *resolution.Table,
+) *diagnostics.Files {
+	diag := diagnostics.NewFiles()
+	ast, parseDiag := parser.Parse(source)
+	if parseDiag != nil && !parseDiag.Ok() {
+		diag.MergeFile(filePath, *parseDiag)
+		return diag
+	}
+	c := &analysisCtx{
+		Context:     ctx,
+		diag:        diag,
+		table:       table,
+		loader:      loader,
+		ast:         ast,
+		filePath:    filePath,
+		namespace:   namespace,
+		fileDomains: make(map[string]resolution.Domain),
+	}
+	analyze(c)
+	if !diag.Ok() {
+		return diag
+	}
+	detectRecursiveTypes(table)
+	validateDomainOmits(table, diag)
+	return diag
+}
+
+// usedQualifiers collects the package qualifiers the file references: every identifier
+// immediately followed by a dot, in any position (type references, extends clauses,
+// domain expressions).
 func usedQualifiers(ast parser.ISchemaContext) set.Set[string] {
 	used := make(set.Set[string])
 	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
@@ -138,6 +173,90 @@ func usedQualifiers(ast parser.ISchemaContext) set.Set[string] {
 		}
 	}
 	return used
+}
+
+// usedQualifiedNames collects every qualified reference in the file as a
+// "qualifier.member" string: an identifier, a dot, and an identifier, in any position.
+func usedQualifiedNames(ast parser.ISchemaContext) set.Set[string] {
+	used := make(set.Set[string])
+	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
+	if !ok {
+		return used
+	}
+	var defaultChan []antlr.Token
+	for _, tok := range stream.GetAllTokens() {
+		if tok.GetChannel() == antlr.TokenDefaultChannel {
+			defaultChan = append(defaultChan, tok)
+		}
+	}
+	for i := 0; i+2 < len(defaultChan); i++ {
+		if defaultChan[i].GetTokenType() == parser.OracleLexerIDENT &&
+			defaultChan[i+1].GetTokenType() == parser.OracleLexerDOT &&
+			defaultChan[i+2].GetTokenType() == parser.OracleLexerIDENT {
+			used.Add(defaultChan[i].GetText() + "." + defaultChan[i+2].GetText())
+		}
+	}
+	return used
+}
+
+// importUse records one import statement for the post-analysis usage check.
+type importUse struct {
+	stmt   parser.IImportStmtContext
+	path   string
+	failed bool
+}
+
+// reportUnusedImports flags imports whose content the file never references. The check
+// is namespace-keyed, except when several imports bind the same namespace: there each
+// import must itself declare a referenced name, which catches a stale import hiding
+// behind a used sibling. Runs after imports load, so provenance comes from the table's
+// declared file paths.
+func reportUnusedImports(c *analysisCtx, imports []importUse) {
+	qualifiers := usedQualifiers(c.ast)
+	names := usedQualifiedNames(c.ast)
+	byNS := make(map[string][]importUse)
+	for _, iu := range imports {
+		ns := paths.DeriveNamespace(iu.path)
+		byNS[ns] = append(byNS[ns], iu)
+	}
+	for ns, group := range byNS {
+		if !qualifiers.Contains(ns) {
+			for _, iu := range group {
+				c.report(diagnostics.Errorf(iu.stmt, "unused import %q", iu.path))
+			}
+			continue
+		}
+		if len(group) == 1 {
+			continue
+		}
+		matched := make([]bool, len(group))
+		var anyMatch bool
+		for name := range names {
+			if !strings.HasPrefix(name, ns+".") {
+				continue
+			}
+			t, ok := c.table.Get(name)
+			if !ok {
+				continue
+			}
+			for i, iu := range group {
+				if t.FilePath == paths.EnsureOracleExtension(iu.path) {
+					matched[i] = true
+					anyMatch = true
+				}
+			}
+		}
+		// No referenced name traces to any import in the group: provenance is
+		// unavailable (e.g. seeded tables), so stay silent rather than guess.
+		if !anyMatch {
+			continue
+		}
+		for i, iu := range group {
+			if !matched[i] && !iu.failed {
+				c.report(diagnostics.Errorf(iu.stmt, "unused import %q", iu.path))
+			}
+		}
+	}
 }
 
 func analyze(c *analysisCtx) {
@@ -169,24 +288,27 @@ func analyze(c *analysisCtx) {
 		}
 	}
 
-	used := usedQualifiers(c.ast)
+	var imports []importUse
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
-		if !used.Contains(filepath.Base(path)) {
-			c.report(diagnostics.Errorf(imp, "unused import %q", path))
-		}
+		iu := importUse{stmt: imp, path: path}
 		if c.table.IsImported(path) {
+			imports = append(imports, iu)
 			continue
 		}
 		c.table.MarkImported(path)
 		source, filePath, err := c.loader.Load(path)
 		if err != nil {
 			c.report(diagnostics.Errorf(imp, "failed to import %s: %v", path, err))
+			iu.failed = true
+			imports = append(imports, iu)
 			continue
 		}
 		ast, parseDiag := parser.Parse(source)
 		if parseDiag != nil && !parseDiag.Ok() {
 			c.diag.MergeFile(filePath, *parseDiag)
+			iu.failed = true
+			imports = append(imports, iu)
 			continue
 		}
 		ic := &analysisCtx{
@@ -196,11 +318,13 @@ func analyze(c *analysisCtx) {
 			loader:      c.loader,
 			ast:         ast,
 			filePath:    filePath,
-			namespace:   DeriveNamespace(filePath),
+			namespace:   paths.DeriveNamespace(filePath),
 			fileDomains: make(map[string]resolution.Domain),
 		}
 		analyze(ic)
+		imports = append(imports, iu)
 	}
+	reportUnusedImports(c, imports)
 
 	types := c.table.TypesInNamespace(c.namespace)
 	for i := range types {
@@ -208,9 +332,10 @@ func analyze(c *analysisCtx) {
 		resolveTypeRefs(c, typ)
 	}
 	validateDeadOutputs(c, types)
-	validateFileVersion(c)
-	validateVersionArgs(c, types)
+	validateNoVersionTag(c, types)
 	validateImex(c, types)
+	validateImportPlacement(c)
+	validateNoVersionFileActions(c)
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {
@@ -240,15 +365,14 @@ func analyze(c *analysisCtx) {
 	synthesizeCreateTypes(c)
 }
 
-// desugarPartialOverrides rewrites each struct's typeless override fields into
-// complete fields, resolving the inherited type, optionality, (when omitted)
-// default, and domains from the parent. The field's own domains win on a name
-// conflict, matching mergeOverrideField. After this pass a typeless override
-// (key?) is indistinguishable from a full restatement (key Key?), so the code
-// generators make the same embed-vs-flatten decision and emit identical output.
-// Domain removal (-@domain) is intentionally left for the generators to handle,
-// since it has no full-restatement equivalent and cannot be expressed through
-// embedding.
+// desugarPartialOverrides rewrites each struct's typeless override fields into complete
+// fields, resolving the inherited type, optionality, (when omitted) default, and
+// domains from the parent. The field's own domains win on a name conflict, matching
+// mergeOverrideField. After this pass a typeless override (key?) is indistinguishable
+// from a full restatement (key Key?), so the code generators make the same
+// embed-vs-flatten decision and emit identical output. Domain removal (-@domain) is
+// intentionally left for the generators to handle, since it has no full-restatement
+// equivalent and cannot be expressed through embedding.
 func desugarPartialOverrides(c *analysisCtx) {
 	for i := range c.table.Types {
 		typ := c.table.Types[i]
@@ -265,7 +389,7 @@ func desugarPartialOverrides(c *analysisCtx) {
 		parents := resolvedParentFields(c, form)
 		fields := make([]resolution.Field, len(form.Fields))
 		copy(fields, form.Fields)
-		changed := false
+		var changed bool
 		for j := range fields {
 			f := &fields[j]
 			if f.HasType() {
@@ -342,17 +466,17 @@ func resolvedParentFields(
 	return out
 }
 
-// validateFieldOverrides reports partial-override syntax that cannot resolve: a
-// field that omits its type, or removes a domain with `-@domain`, must name a
-// field inherited from a parent struct to inherit from. Outside an extends
-// chain, or naming no parent field, there is nothing to inherit.
+// validateFieldOverrides reports partial-override syntax that cannot resolve: a field
+// that omits its type, or removes a domain with `-@domain`, must name a field inherited
+// from a parent struct to inherit from. Outside an extends chain, or naming no parent
+// field, there is nothing to inherit.
 func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
 		return
 	}
-	// Resolving parent fields walks the extends chain; a cycle (already reported
-	// by validateExtends) would recur without bound, so skip it here.
+	// Resolving parent fields walks the extends chain; a cycle (already reported by
+	// validateExtends) would recur without bound, so skip it here.
 	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 		return
 	}
@@ -388,11 +512,11 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// finalizeEnumExtensions expands each extending enum's members to the union of
-// the enums it extends plus its own declared members, reporting unresolved
-// parents, non-enum parents, mismatched value kinds, and conflicting member
-// values. It mutates the table in place so downstream plugins read a fully
-// populated member list just like a plain enum's.
+// finalizeEnumExtensions expands each extending enum's members to the union of the
+// enums it extends plus its own declared members, reporting unresolved parents,
+// non-enum parents, mismatched value kinds, and conflicting member values. It mutates
+// the table in place so downstream plugins read a fully populated member list just like
+// a plain enum's.
 func finalizeEnumExtensions(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		form, ok := typ.Form.(resolution.EnumForm)
@@ -415,18 +539,17 @@ func finalizeEnumExtensions(c *analysisCtx) {
 	}
 }
 
-// addTypeDiag records an error diagnostic attributed to the file that
-// declares typ.
+// addTypeDiag records an error diagnostic attributed to the file that declares typ.
 func addTypeDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
 	d := diagnostics.Errorf(nil, format, args...)
 	c.diag.Report(typ.FilePath, d)
 }
 
 // effectiveEnumValues returns an enum's fully-resolved members: the union of the
-// members of every enum it extends (recursively), followed by its own declared
-// members. visited guards against cycles. The returned bool is the int/string
-// kind; the final bool is false when the enum or a parent is malformed (a
-// diagnostic is added in that case).
+// members of every enum it extends (recursively), followed by its own declared members.
+// visited guards against cycles. The returned bool is the int/string kind; the final
+// bool is false when the enum or a parent is malformed (a diagnostic is added in that
+// case).
 func effectiveEnumValues(
 	c *analysisCtx, typ resolution.Type, visited set.Set[string],
 ) ([]resolution.EnumValue, bool, bool) {
@@ -488,9 +611,9 @@ func effectiveEnumValues(
 			)
 			return nil, false, false
 		}
-		// Each branch gets its own copy so visited tracks the ancestor path,
-		// not every node seen. A shared set would falsely flag a diamond
-		// (two parents extending a common ancestor) as a cyclic chain.
+		// Each branch gets its own copy so visited tracks the ancestor path, not every
+		// node seen. A shared set would falsely flag a diamond (two parents extending a
+		// common ancestor) as a cyclic chain.
 		pVals, pInt, ok := effectiveEnumValues(c, parent, visited.Copy())
 		if !ok {
 			return nil, false, false
@@ -528,12 +651,12 @@ func effectiveEnumValues(
 	return merged, isInt, true
 }
 
-// finalizeUnionExtensions resolves each union whose extends targets are other
-// unions into a flat variant list: the variants of every extended union
-// (recursively), followed by the union's own declared variants. Extends
-// targets that are structs keep the shared-base-field semantics and are left
-// untouched; mixing the two in one declaration is an error. The table is
-// mutated in place so downstream plugins read a plain, fully populated union.
+// finalizeUnionExtensions resolves each union whose extends targets are other unions
+// into a flat variant list: the variants of every extended union (recursively),
+// followed by the union's own declared variants. Extends targets that are structs keep
+// the shared-base-field semantics and are left untouched; mixing the two in one
+// declaration is an error. The table is mutated in place so downstream plugins read a
+// plain, fully populated union.
 func finalizeUnionExtensions(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		form, ok := typ.Form.(resolution.UnionForm)
@@ -559,8 +682,8 @@ func finalizeUnionExtensions(c *analysisCtx) {
 	}
 }
 
-// hasUnionBases reports whether any of a union's extends targets resolves to
-// another union.
+// hasUnionBases reports whether any of a union's extends targets resolves to another
+// union.
 func hasUnionBases(form resolution.UnionForm, table *resolution.Table) bool {
 	for _, ref := range form.Extends {
 		if base, ok := ref.Resolve(table); ok {
@@ -572,10 +695,10 @@ func hasUnionBases(form resolution.UnionForm, table *resolution.Table) bool {
 	return false
 }
 
-// effectiveUnionVariants returns a union's fully-resolved variant list: the
-// variants of every union it extends (recursively), followed by its own
-// declared variants. visited guards against cycles. The bool is false when the
-// union or a parent is malformed (a diagnostic is added in that case).
+// effectiveUnionVariants returns a union's fully-resolved variant list: the variants of
+// every union it extends (recursively), followed by its own declared variants. visited
+// guards against cycles. The bool is false when the union or a parent is malformed (a
+// diagnostic is added in that case).
 func effectiveUnionVariants(
 	c *analysisCtx, typ resolution.Type, visited set.Set[string],
 ) ([]resolution.UnionVariant, bool) {
@@ -651,8 +774,8 @@ func effectiveUnionVariants(
 					typ.QualifiedName, parent.QualifiedName)
 				return nil, false
 			}
-			// Each branch gets its own copy so visited tracks the ancestor
-			// path, not every node seen, matching effectiveEnumValues.
+			// Each branch gets its own copy so visited tracks the ancestor path, not
+			// every node seen, matching effectiveEnumValues.
 			if pVars, ok = effectiveUnionVariants(c, parent, visited.Copy()); !ok {
 				return nil, false
 			}
@@ -707,7 +830,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			field := collectField(c, f, form.TypeParams, &form.HasKeyDomain)
+			field := collectField(f, form.TypeParams)
 			form.Fields = append(form.Fields, field)
 		}
 		for _, fo := range body.AllFieldOmit() {
@@ -738,9 +861,9 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	}))
 }
 
-// collectAction translates a parsed action block into a resolution.Action,
-// reusing collectField for payload fields so action-field semantics match
-// struct-field semantics (optionality, validation, type refs).
+// collectAction translates a parsed action block into a resolution.Action, reusing
+// collectField for payload fields so action-field semantics match struct-field
+// semantics (optionality, validation, type refs).
 func collectAction(
 	c *analysisCtx,
 	def parser.IActionDefContext,
@@ -762,9 +885,8 @@ func collectAction(
 	if body == nil {
 		return action
 	}
-	hasKeyDomain := false
 	for _, f := range body.AllFieldDef() {
-		field := collectField(c, f, typeParams, &hasKeyDomain)
+		field := collectField(f, typeParams)
 		if !field.HasType() {
 			d := diagnostics.Errorf(
 				f,
@@ -920,10 +1042,8 @@ func collectMapTypeRef(
 }
 
 func collectField(
-	c *analysisCtx,
 	def parser.IFieldDefContext,
 	typeParams []resolution.TypeParam,
-	hasKeyDomain *bool,
 ) resolution.Field {
 	field := resolution.Field{
 		Name:    def.IDENT().GetText(),
@@ -931,12 +1051,12 @@ func collectField(
 		AST:     def,
 	}
 
-	// A field may omit its type to partially override an inherited field, in
-	// which case the type and optionality are resolved from the parent later.
+	// A field may omit its type to partially override an inherited field, in which case
+	// the type and optionality are resolved from the parent later.
 	if tr := def.TypeRef(); tr != nil {
 		normalCtx, isNormal := tr.(*parser.TypeRefNormalContext)
 		mapCtx, isMap := tr.(*parser.TypeRefMapContext)
-		isArray := false
+		var isArray bool
 		var arraySize *int64
 
 		if isNormal {
@@ -974,9 +1094,10 @@ func collectField(
 
 	for _, inl := range def.AllInlineDomain() {
 		de := collectInlineDomain(inl)
-		field.Domains[de.Name] = de
-		if de.Name == "key" {
-			*hasKeyDomain = true
+		if existing, ok := field.Domains[de.Name]; ok {
+			field.Domains[de.Name] = de.Merge(existing)
+		} else {
+			field.Domains[de.Name] = de
 		}
 	}
 	for _, om := range def.AllDomainOmit() {
@@ -986,9 +1107,10 @@ func collectField(
 	if fb := def.FieldBody(); fb != nil {
 		for _, d := range fb.AllDomain() {
 			de := collectDomain(d)
-			field.Domains[de.Name] = de
-			if de.Name == "key" {
-				*hasKeyDomain = true
+			if existing, ok := field.Domains[de.Name]; ok {
+				field.Domains[de.Name] = de.Merge(existing)
+			} else {
+				field.Domains[de.Name] = de
 			}
 		}
 		for _, om := range fb.AllDomainOmit() {
@@ -1058,8 +1180,8 @@ func collectFieldDefault(fd parser.IFieldDefaultContext) resolution.ExpressionVa
 	return resolution.ExpressionValue{}
 }
 
-// collectDefaultValue collects a default value in a nested position (an array
-// element or a struct field), recursing into arrays and structs.
+// collectDefaultValue collects a default value in a nested position (an array element
+// or a struct field), recursing into arrays and structs.
 func collectDefaultValue(dv parser.IDefaultValueContext) resolution.ExpressionValue {
 	if ev := dv.ExpressionValue(); ev != nil {
 		return collectValue(ev)
@@ -1230,10 +1352,10 @@ func collectUnionVariant(
 	}
 }
 
-// collectInlineVariant desugars an inline variant body into a Synthetic
-// struct type registered in the table, so the variant resolves and validates
-// like a named payload while generators flatten its fields into the variant
-// member instead of emitting a standalone type.
+// collectInlineVariant desugars an inline variant body into a Synthetic struct type
+// registered in the table, so the variant resolves and validates like a named payload
+// while generators flatten its fields into the variant member instead of emitting a
+// standalone type.
 func collectInlineVariant(
 	c *analysisCtx, unionName string, def *parser.InlineVariantContext,
 ) resolution.UnionVariant {
@@ -1257,7 +1379,7 @@ func collectInlineVariant(
 		for _, f := range body.AllFieldDef() {
 			form.Fields = append(
 				form.Fields,
-				collectField(c, f, nil, &form.HasKeyDomain),
+				collectField(f, nil),
 			)
 		}
 		for _, fo := range body.AllFieldOmit() {
@@ -1313,8 +1435,8 @@ func collectInlineVariant(
 	return variant
 }
 
-// pascalIdent converts a snake_case variant name to PascalCase for the
-// synthesized payload type name.
+// pascalIdent converts a snake_case variant name to PascalCase for the synthesized
+// payload type name.
 func pascalIdent(s string) string {
 	parts := strings.Split(s, "_")
 	var b strings.Builder
@@ -1322,7 +1444,8 @@ func pascalIdent(s string) string {
 		if p == "" {
 			continue
 		}
-		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+		b.WriteString(strings.ToUpper(p[:1]))
+		b.WriteString(p[1:])
 	}
 	return b.String()
 }
@@ -1579,8 +1702,8 @@ func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 }
 
 // modifiersFrom reports whether an optionality modifier context marks the field
-// optional. A trailing `?` makes the field optional; `??` is a grammar error
-// and is rejected by the parser before this function is reached.
+// optional. A trailing `?` makes the field optional; `??` is a grammar error and is
+// rejected by the parser before this function is reached.
 func modifiersFrom(mods parser.ITypeModifiersContext) (optional bool) {
 	if mods == nil {
 		return false
@@ -1699,9 +1822,9 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// validateActionExtends checks that every action's extends clause names a
-// struct type, mirroring validateExtends. A generic parent must be supplied
-// with enough type arguments to bind its required parameters.
+// validateActionExtends checks that every action's extends clause names a struct type,
+// mirroring validateExtends. A generic parent must be supplied with enough type
+// arguments to bind its required parameters.
 func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
@@ -1746,9 +1869,9 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// finalizeActionExtends flattens each action's extends clause, prepending the
-// inherited struct fields to the action's own fields. After this pass
-// Action.Fields holds the unified list, so code generators consume it unchanged.
+// finalizeActionExtends flattens each action's extends clause, prepending the inherited
+// struct fields to the action's own fields. After this pass Action.Fields holds the
+// unified list, so code generators consume it unchanged.
 func finalizeActionExtends(c *analysisCtx) {
 	for i := range c.table.Types {
 		typ := c.table.Types[i]
@@ -1759,7 +1882,7 @@ func finalizeActionExtends(c *analysisCtx) {
 		if !ok {
 			continue
 		}
-		changed := false
+		var changed bool
 		for ai := range form.Actions {
 			if len(form.Actions[ai].Extends) == 0 {
 				continue
@@ -1774,10 +1897,10 @@ func finalizeActionExtends(c *analysisCtx) {
 	}
 }
 
-// unifyActionFields returns the action's payload fields with inherited struct
-// fields prepended. Parents are walked left-to-right (first wins on a name
-// conflict between parents) and an action's own field overrides any inherited
-// field of the same name, keeping its declared position.
+// unifyActionFields returns the action's payload fields with inherited struct fields
+// prepended. Parents are walked left-to-right (first wins on a name conflict between
+// parents) and an action's own field overrides any inherited field of the same name,
+// keeping its declared position.
 func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Field {
 	own := make(set.Set[string])
 	for _, f := range action.Fields {
@@ -1868,9 +1991,9 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 //   - Neither the base structs nor the variant structs redeclare the
 //     discriminator field; the union declaration owns it exclusively.
 //
-// Generic variant/base types are permitted but not yet type-checked: an open
-// question for a follow-up that introduces unions parameterized by a type
-// argument applied to every variant.
+// Generic variant/base types are permitted but not yet type-checked: an open question
+// for a follow-up that introduces unions parameterized by a type argument applied to
+// every variant.
 func validateUnion(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.UnionForm)
 	if !ok {
@@ -2014,9 +2137,9 @@ func hasCircularInheritance(
 	return false
 }
 
-// dedent removes leading indentation from a multi-line string.
-// It finds the minimum indentation (ignoring empty lines) and removes that
-// amount from each line. Leading/trailing empty lines are also trimmed.
+// dedent removes leading indentation from a multi-line string. It finds the minimum
+// indentation (ignoring empty lines) and removes that amount from each line.
+// Leading/trailing empty lines are also trimmed.
 func dedent(s string) string {
 	lines := strings.Split(s, "\n")
 
