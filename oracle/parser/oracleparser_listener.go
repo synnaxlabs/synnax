@@ -55,6 +55,9 @@ type OracleParserListener interface {
 	// EnterFieldOmit is called when entering the fieldOmit production.
 	EnterFieldOmit(c *FieldOmitContext)
 
+	// EnterDomainOmit is called when entering the domainOmit production.
+	EnterDomainOmit(c *DomainOmitContext)
+
 	// EnterActionDef is called when entering the actionDef production.
 	EnterActionDef(c *ActionDefContext)
 
@@ -63,6 +66,21 @@ type OracleParserListener interface {
 
 	// EnterFieldDef is called when entering the fieldDef production.
 	EnterFieldDef(c *FieldDefContext)
+
+	// EnterFieldDefault is called when entering the fieldDefault production.
+	EnterFieldDefault(c *FieldDefaultContext)
+
+	// EnterDefaultValue is called when entering the defaultValue production.
+	EnterDefaultValue(c *DefaultValueContext)
+
+	// EnterArrayDefault is called when entering the arrayDefault production.
+	EnterArrayDefault(c *ArrayDefaultContext)
+
+	// EnterStructDefault is called when entering the structDefault production.
+	EnterStructDefault(c *StructDefaultContext)
+
+	// EnterStructFieldDefault is called when entering the structFieldDefault production.
+	EnterStructFieldDefault(c *StructFieldDefaultContext)
 
 	// EnterInlineDomain is called when entering the inlineDomain production.
 	EnterInlineDomain(c *InlineDomainContext)
@@ -124,6 +142,24 @@ type OracleParserListener interface {
 	// EnterTypeDefBody is called when entering the typeDefBody production.
 	EnterTypeDefBody(c *TypeDefBodyContext)
 
+	// EnterUnionDef is called when entering the unionDef production.
+	EnterUnionDef(c *UnionDefContext)
+
+	// EnterUnionBody is called when entering the unionBody production.
+	EnterUnionBody(c *UnionBodyContext)
+
+	// EnterNamedVariant is called when entering the NamedVariant production.
+	EnterNamedVariant(c *NamedVariantContext)
+
+	// EnterInlineVariant is called when entering the InlineVariant production.
+	EnterInlineVariant(c *InlineVariantContext)
+
+	// EnterVariantName is called when entering the variantName production.
+	EnterVariantName(c *VariantNameContext)
+
+	// EnterUnionVariantBody is called when entering the unionVariantBody production.
+	EnterUnionVariantBody(c *UnionVariantBodyContext)
+
 	// ExitSchema is called when exiting the schema production.
 	ExitSchema(c *SchemaContext)
 
@@ -163,6 +199,9 @@ type OracleParserListener interface {
 	// ExitFieldOmit is called when exiting the fieldOmit production.
 	ExitFieldOmit(c *FieldOmitContext)
 
+	// ExitDomainOmit is called when exiting the domainOmit production.
+	ExitDomainOmit(c *DomainOmitContext)
+
 	// ExitActionDef is called when exiting the actionDef production.
 	ExitActionDef(c *ActionDefContext)
 
@@ -171,6 +210,21 @@ type OracleParserListener interface {
 
 	// ExitFieldDef is called when exiting the fieldDef production.
 	ExitFieldDef(c *FieldDefContext)
+
+	// ExitFieldDefault is called when exiting the fieldDefault production.
+	ExitFieldDefault(c *FieldDefaultContext)
+
+	// ExitDefaultValue is called when exiting the defaultValue production.
+	ExitDefaultValue(c *DefaultValueContext)
+
+	// ExitArrayDefault is called when exiting the arrayDefault production.
+	ExitArrayDefault(c *ArrayDefaultContext)
+
+	// ExitStructDefault is called when exiting the structDefault production.
+	ExitStructDefault(c *StructDefaultContext)
+
+	// ExitStructFieldDefault is called when exiting the structFieldDefault production.
+	ExitStructFieldDefault(c *StructFieldDefaultContext)
 
 	// ExitInlineDomain is called when exiting the inlineDomain production.
 	ExitInlineDomain(c *InlineDomainContext)
@@ -231,4 +285,22 @@ type OracleParserListener interface {
 
 	// ExitTypeDefBody is called when exiting the typeDefBody production.
 	ExitTypeDefBody(c *TypeDefBodyContext)
+
+	// ExitUnionDef is called when exiting the unionDef production.
+	ExitUnionDef(c *UnionDefContext)
+
+	// ExitUnionBody is called when exiting the unionBody production.
+	ExitUnionBody(c *UnionBodyContext)
+
+	// ExitNamedVariant is called when exiting the NamedVariant production.
+	ExitNamedVariant(c *NamedVariantContext)
+
+	// ExitInlineVariant is called when exiting the InlineVariant production.
+	ExitInlineVariant(c *InlineVariantContext)
+
+	// ExitVariantName is called when exiting the variantName production.
+	ExitVariantName(c *VariantNameContext)
+
+	// ExitUnionVariantBody is called when exiting the unionVariantBody production.
+	ExitUnionVariantBody(c *UnionVariantBodyContext)
 }

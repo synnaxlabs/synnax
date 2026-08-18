@@ -46,7 +46,6 @@ class Microphone(Analog):
         current_excitation_value: float | None = None,
         **kwargs: Any,
     ) -> None:
-
         super().__init__(
             layout=layout,
             name=name,
@@ -55,8 +54,8 @@ class Microphone(Analog):
             **kwargs,
         )
 
-        self._configure_dropdown("Sound Pressure Units", sound_pressure_units)
-        self._configure_input("Microphone Sensitivity", sensitivity)
-        self._configure_input("Max Sound Pressure Level", max_sound_pressure_level)
-        self._configure_dropdown("Current Excitation Source", current_excitation_source)
-        self._configure_input("Current Excitation Value", current_excitation_value)
+        self._configure_dropdown("Sound pressure units", sound_pressure_units)
+        self._configure_input("Microphone sensitivity", sensitivity)
+        self._configure_input("Max sound pressure level", max_sound_pressure_level)
+        self._configure_dropdown("Current excitation source", current_excitation_source)
+        self._configure_input("Current excitation value", current_excitation_value)

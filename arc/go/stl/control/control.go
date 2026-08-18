@@ -29,7 +29,9 @@ const (
 
 var (
 	memberDoc = doc.New(
-		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
+		doc.Paragraph(
+			"Dynamically changes the control authority of write channels at runtime.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "control.set_authority{value=255}"),
 		doc.Divider(),
@@ -37,21 +39,27 @@ var (
 		doc.Divider(),
 		doc.Code("arc", "control.set_authority{value=255, channel=valve_cmd}"),
 		doc.Divider(),
-		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
+		doc.Paragraph(
+			"Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel.",
+		),
 	)
 	moduleDoc = doc.New(
-		doc.Paragraph("Runtime control over write authority — promote or release writes targeting shared channels."),
+		doc.Paragraph(
+			"Runtime control over write authority — promote or release writes targeting shared channels.",
+		),
 	)
 )
 
 func newSymbolProps() types.Type {
 	return types.Function(types.FunctionProperties{
-		Config: types.Params{
-			{Name: "value", Type: types.U8()},
-			{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
-		},
 		Inputs: types.Params{
 			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
+			{Name: "value", Type: types.U8()},
+			{
+				Name:  "channel",
+				Type:  types.WriteChan(types.Variable("T", nil)),
+				Value: uint32(0),
+			},
 		},
 	})
 }
@@ -61,11 +69,12 @@ func newSymbolProps() types.Type {
 // (set_authority) whose Deprecated field points at the canonical member.
 func NewSymbols() []*symbol.Symbol {
 	member := &symbol.Symbol{
-		Name: symbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: newSymbolProps(),
-		Doc:  memberDoc,
+		Name:    symbolName,
+		Kind:    symbol.KindFunction,
+		Exec:    symbol.ExecFlow,
+		Type:    newSymbolProps(),
+		Trigger: symbol.TriggerInput(ir.DefaultOutputParam),
+		Doc:     memberDoc,
 	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(member)
@@ -91,19 +100,10 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg nodeConfig
-	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
-		return nil, errors.Wrap(err, "control.set_authority config")
+	if err := schema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
+		return nil, errors.Wrap(err, "control.set_authority inputs")
 	}
-	var channelKey *uint32
-	if nodeCfg.Channel != 0 {
-		channelKey = &nodeCfg.Channel
-	}
-	return &setAuthority{
-		auth:       h.auth,
-		authority:  nodeCfg.Value,
-		channelKey: channelKey,
-	}, nil
+	return &setAuthority{State: cfg.State, auth: h.auth}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -111,19 +111,17 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Number().Uint32(),
 })
 
-type nodeConfig struct {
-	Value   uint8  `json:"value"`
-	Channel uint32 `json:"channel"`
-}
-
 type setAuthority struct {
+	*node.State
 	auth        *ProgramState
-	authority   uint8
-	channelKey  *uint32
 	initialized bool
 }
 
-func (s *setAuthority) Reset()                  { s.initialized = false }
+func (s *setAuthority) Reset() {
+	s.State.Reset()
+	s.initialized = false
+}
+
 func (s *setAuthority) IsOutputTruthy(int) bool { return false }
 
 func (s *setAuthority) Next(node.Context) {
@@ -131,5 +129,9 @@ func (s *setAuthority) Next(node.Context) {
 		return
 	}
 	s.initialized = true
-	s.auth.Set(s.channelKey, s.authority)
+	var channelKey *uint32
+	if key := node.NumericInput[uint32](s.State, "channel"); key != 0 {
+		channelKey = &key
+	}
+	s.auth.Set(channelKey, node.NumericInput[uint8](s.State, "value"))
 }

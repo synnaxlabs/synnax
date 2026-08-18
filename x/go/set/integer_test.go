@@ -46,7 +46,7 @@ var _ = Describe("Integer", func() {
 		It("Should handle empty input", func() {
 			s := set.NewInteger([]int{})
 			Expect(s.Size()).To(Equal(0))
-			Expect(*s).To(HaveLen(0))
+			Expect(*s).To(BeEmpty())
 		})
 
 		It("Should handle a single element", func() {
@@ -191,22 +191,28 @@ var _ = Describe("Integer", func() {
 			Expect(s.Contains(11)).To(BeTrue())
 		})
 
-		It("Should handle inserting a range fully contained in an existing interval", func() {
-			s.Insert(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-			s.Insert(4, 5, 6)
-			Expect(s).To(HaveLen(1))
-			Expect(s.Size()).To(Equal(10))
-		})
+		It(
+			"Should handle inserting a range fully contained in an existing interval",
+			func() {
+				s.Insert(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+				s.Insert(4, 5, 6)
+				Expect(s).To(HaveLen(1))
+				Expect(s.Size()).To(Equal(10))
+			},
+		)
 
-		It("Should handle inserting a range that spans multiple existing intervals", func() {
-			s.Insert(0, 1, 2)
-			s.Insert(5, 6, 7)
-			s.Insert(10, 11, 12)
-			Expect(s).To(HaveLen(3))
-			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
-			Expect(s).To(HaveLen(1))
-			Expect(s.Size()).To(Equal(13))
-		})
+		It(
+			"Should handle inserting a range that spans multiple existing intervals",
+			func() {
+				s.Insert(0, 1, 2)
+				s.Insert(5, 6, 7)
+				s.Insert(10, 11, 12)
+				Expect(s).To(HaveLen(3))
+				s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+				Expect(s).To(HaveLen(1))
+				Expect(s.Size()).To(Equal(13))
+			},
+		)
 
 		It("Should handle zero", func() {
 			s.Insert(0)
@@ -287,7 +293,7 @@ var _ = Describe("Integer", func() {
 
 		It("Should be a no-op on an empty set", func() {
 			s.Remove(1, 2, 3)
-			Expect(s).To(HaveLen(0))
+			Expect(s).To(BeEmpty())
 		})
 
 		It("Should be a no-op with no arguments", func() {
@@ -299,7 +305,7 @@ var _ = Describe("Integer", func() {
 		It("Should remove all elements", func() {
 			s.Insert(0, 1, 2, 3, 4)
 			s.Remove(0, 1, 2, 3, 4)
-			Expect(s).To(HaveLen(0))
+			Expect(s).To(BeEmpty())
 			Expect(s.Size()).To(Equal(0))
 		})
 

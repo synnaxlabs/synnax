@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type SynnaxParams } from "@synnaxlabs/client";
-import { Canvas, Channel, Pluto } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import { Canvas, LinePlot, Pluto, telem } from "@synnaxlabs/pluto";
+import { color, TimeRange, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import WorkerURL from "@/components/pluto/worker?worker&url";
@@ -33,52 +33,47 @@ const providerProps: Pluto.ProviderProps = {
   connParams,
 };
 
-const AXES: Channel.AxisProps[] = [
-  { key: "x", label: "Time", location: "bottom", type: "time" },
-  { key: "y", label: "Value", location: "left" },
-];
+const X_CHANNEL = "stream_write_example_time";
+const Y_CHANNEL = "stream_write_example_data_1";
 
-const LINES: Channel.BaseLineProps[] = [
-  {
-    key: "line1",
-    axes: { x: "x", y: "y" },
-    channels: { x: "stream_write_example_time", y: "stream_write_example_data_1" },
-    color: "#3774d0",
-    label: "Line 1",
-    strokeWidth: 3,
-  },
-];
+type Source = ReturnType<typeof telem.channelData>;
 
 // eslint-disable-next-line react/display-name
-export const factory = (props: Channel.LinePlotProps) => (): ReactElement => (
+const factory = (x: Source, y: Source) => (): ReactElement => (
   <Pluto.Provider workerURL={WorkerURL} {...providerProps}>
     <Canvas.Canvas style={{ width: "100%", height: 500 }}>
-      <Channel.LinePlot
+      <LinePlot.Frame
         style={{ width: "calc(100% - 3rem)", height: 500 }}
         clearOverScan={xy.ZERO}
-        {...props}
-      />
+      >
+        <LinePlot.XAxis axisKey="x1" location="bottom" label="Time" type="time">
+          <LinePlot.YAxis axisKey="y1" location="left" label="Value">
+            <LinePlot.Line
+              x={x}
+              y={y}
+              color={color.construct("#3774d0")}
+              label="Line 1"
+              strokeWidth={3}
+              legendGroup="Value"
+            />
+          </LinePlot.YAxis>
+        </LinePlot.XAxis>
+      </LinePlot.Frame>
     </Canvas.Canvas>
   </Pluto.Provider>
 );
 
-export const RealTimePlot = factory({
-  axes: AXES,
-  lines: LINES.map((line) => ({
-    ...line,
-    variant: "dynamic",
-    timeSpan: TimeSpan.seconds(30),
-  })),
+export const RealTimePlot = factory(
+  telem.streamChannelData({ timeSpan: TimeSpan.seconds(30), channel: X_CHANNEL }),
+  telem.streamChannelData({ timeSpan: TimeSpan.seconds(30), channel: Y_CHANNEL }),
+);
+
+const historicalRange = new TimeRange({
+  start: TimeStamp.now().sub(TimeSpan.seconds(30)),
+  end: TimeStamp.now(),
 });
 
-export const HistoricalPlot = factory({
-  axes: AXES,
-  lines: LINES.map((line) => ({
-    ...line,
-    variant: "static",
-    timeRange: new TimeRange({
-      start: TimeStamp.now().sub(TimeSpan.seconds(30)),
-      end: TimeStamp.now(),
-    }),
-  })),
-});
+export const HistoricalPlot = factory(
+  telem.channelData({ timeRange: historicalRange, channel: X_CHANNEL }),
+  telem.channelData({ timeRange: historicalRange, channel: Y_CHANNEL }),
+);

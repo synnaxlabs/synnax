@@ -9,11 +9,13 @@
 
 import "@/dialog/Dialog.css";
 
+import { useMemo } from "react";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
+import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
 import { getRootElement } from "@/util/rootElement";
 
@@ -26,19 +28,21 @@ export const Dialog = ({
   background = 0,
   className,
   bordered = true,
-  rounded = 1,
+  rounded = "small",
   passthrough = false,
   children,
   ...rest
 }: DialogProps) => {
   const {
     ref,
+    id,
     targetCorner,
     dialogCorner,
     style: ctxStyle,
     modalPosition,
   } = useInternalContext("Dialog.Dialog");
   const { visible, variant } = useContext();
+  const dialogStyle = useMemo(() => ({ ...ctxStyle, ...style }), [ctxStyle, style]);
   if (!visible && !passthrough) return null;
   const actuallyVisible =
     visible && (Object.keys(ctxStyle).length > 0 || variant === "modal");
@@ -66,8 +70,9 @@ export const Dialog = ({
       empty
       bordered={bordered}
       align="stretch"
-      style={{ ...ctxStyle, ...style }}
+      style={dialogStyle}
       {...rest}
+      {...{ [PORTAL_OWNER_ATTR]: id }}
     >
       {children}
     </Flex.Box>

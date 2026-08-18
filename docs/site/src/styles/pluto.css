@@ -22,7 +22,7 @@
 }
 
 /* Tabs selector */
-.pluto-tabs-selector__btn {
+.pluto-tabs__tab {
     padding: 0 3rem;
 
     .pluto-text-icon {
@@ -32,16 +32,22 @@
     .pluto-text {
         margin: 0;
     }
+
+    /* Arc context tabs render the icon to the right of the label. */
+    .pluto-icon--arc-flow,
+    .pluto-icon--arc-func {
+        order: 1;
+    }
 }
 
 @media (max-width: 800px) {
-    .pluto-tabs-selector__btn {
+    .pluto-tabs__tab {
         padding: 0 1rem;
     }
 }
 
 @media (max-width: 600px) {
-    .pluto-tabs-selector__tabs {
+    .pluto-tabs__selector {
         justify-content: center;
     }
 }
@@ -153,6 +159,22 @@
 /* Prevent type tokens like `i64 ns` from wrapping mid-token in reference tables. */
 article table code {
     white-space: nowrap;
+}
+
+/* Let code chips follow the state colors of the item that holds them. */
+.pluto-tree code,
+.pluto-breadcrumb code,
+.on-this-page-item code {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+}
+
+/* The page nav already sits on gray-l2, so the default chip vanishes into it. */
+.pluto-tree code {
+    background: var(--pluto-gray-l3);
+    border-color: var(--pluto-gray-l4);
 }
 
 /* Note component - override base layer text colors */

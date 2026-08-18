@@ -38,8 +38,8 @@ export const Actuator = ({
   stateOverrides,
   ...rest
 }: ActuatorProps): ReactElement => {
-  const result = Symbol.useRetrieve({ key: specKey }, { addStatusOnFailure: false });
-  const spec = result.variant === "success" ? result.data.data : undefined;
+  const { symbol, missing } = Symbol.useResolved(specKey);
+  const spec = symbol?.data;
   const setContainer = Custom.useRender({
     orientation,
     activeState: enabled ? "active" : "base",
@@ -47,12 +47,12 @@ export const Actuator = ({
     spec,
     stateOverrides,
   });
-  if (Symbol.isMissing(result))
+  if (missing)
     return (
       <Note.Note variant="warning" className={className}>
         <Text.Text level="p" status="warning">
           <Icon.Warning />
-          Missing Custom Symbol
+          Missing custom symbol
         </Text.Text>
       </Note.Note>
     );

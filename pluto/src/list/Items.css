@@ -13,7 +13,24 @@
     user-select: none;
     overflow: auto;
     -webkit-user-select: none;
-    transition: height 0.1s ease;
+
+    /* Rows mount and unmount on every scroll frame. Never `size`: the select dialog
+       sizes this box from its contents. */
+    contain: layout paint;
+
+    /* Opt-in: a list sized by its container would lag behind every pane drag. */
+    &.pluto-list__items--animate-height {
+        transition: height 0.1s ease;
+    }
+
+    &:not(.pluto--direction-x) {
+        padding: 1rem;
+    }
+
+    &.pluto-list__items--empty {
+        justify-content: center;
+        align-items: center;
+    }
 
     & > .pluto-list__virtualizer {
         width: 100%;
@@ -33,7 +50,7 @@
         }
 
         &::-webkit-scrollbar-thumb:hover {
-            background: var(--pluto-gray-l6);
+            background: var(--pluto-gray-l7);
         }
         & > .pluto-list__virtualizer {
             display: flex;

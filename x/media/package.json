@@ -21,36 +21,37 @@
     "madge": "madge --circular src",
     "stylelint": "stylelint \"src/**/*.css\""
   },
-  "dependencies": {
-    "clsx": "catalog:",
-    "react": "catalog:",
-    "react-icons": "catalog:"
+  "peerDependencies": {
+    "react": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "clsx": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
+    "react": "catalog:",
+    "react-icons": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!dist/eslint.config.*"
   ],
-  "main": "./dist/media.cjs",
-  "module": "./dist/media.js",
-  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/media.js",
-      "require": "./dist/media.cjs"
+      "default": "./dist/media.js"
     },
     "./dist/*": "./dist/*"
   }

@@ -51,7 +51,11 @@ func NewGeneratedGate(formatters *format.Registry, workers int) *GeneratedGate {
 
 func (GeneratedGate) Name() string { return "generated" }
 
-func (g GeneratedGate) Run(ctx context.Context, p *pipeline.Result, env Env) GateReport {
+func (g GeneratedGate) Run(
+	ctx context.Context,
+	p *pipeline.Result,
+	env Env,
+) GateReport {
 	start := time.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 
@@ -116,7 +120,11 @@ func (g GeneratedGate) Run(ctx context.Context, p *pipeline.Result, env Env) Gat
 // next run; for a CI gate the right thing is to attribute the failure
 // to the file that triggered it and keep going so the user sees every
 // failing file at once.
-func (g GeneratedGate) checkOne(ctx context.Context, env Env, f plugin.File) (Finding, bool) {
+func (g GeneratedGate) checkOne(
+	ctx context.Context,
+	env Env,
+	f plugin.File,
+) (Finding, bool) {
 	abs := paths.Resolve(f.Path, env.RepoRoot)
 	canonical, err := g.formatters.Format(ctx, f.Content, abs)
 	if err != nil {

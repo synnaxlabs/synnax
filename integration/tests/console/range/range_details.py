@@ -49,7 +49,7 @@ class RangeDetails(ConsoleCase):
         self.console.ranges.create(self.parent_range_name, persisted=True)
 
         # Create a schematic for the first snapshot.
-        schematic = self.console.workspace.create_schematic(self.schematic_name)
+        schematic = self.console.project.create_schematic(self.schematic_name)
         schematic.close()
 
         # Create a sim task directly in Synnax
@@ -68,7 +68,7 @@ class RangeDetails(ConsoleCase):
         self.console.ranges.snapshot_to_active_range(
             self.task_name, self.parent_range_name
         )
-        self.console.workspace.delete_page(self.schematic_name)
+        self.console.project.delete_page(self.schematic_name)
         self.schematic_snapshot_name = f"{self.schematic_name} (Snapshot)"
         self.task_snapshot_name = f"{self.task_name} (Snapshot)"
         self.console.notifications.close_all()

@@ -20,7 +20,10 @@ import (
 // to the same namespace as the referencing structs. Cross-namespace enums are
 // excluded because they should be imported rather than generated locally.
 // Returns a deduplicated slice of enum types based on QualifiedName.
-func CollectReferenced(structs []resolution.Type, table *resolution.Table) []resolution.Type {
+func CollectReferenced(
+	structs []resolution.Type,
+	table *resolution.Table,
+) []resolution.Type {
 	seen := make(set.Set[string])
 	var enums []resolution.Type
 	namespaces := make(set.Set[string])
@@ -41,7 +44,13 @@ func CollectReferenced(structs []resolution.Type, table *resolution.Table) []res
 
 // collectEnumsFromTypeRef recursively collects enums from a type reference,
 // filtering to only include enums whose namespace is in the allowed set.
-func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, seen set.Set[string], enums *[]resolution.Type, namespaces set.Set[string]) {
+func collectEnumsFromTypeRef(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	seen set.Set[string],
+	enums *[]resolution.Type,
+	namespaces set.Set[string],
+) {
 	// Check type args first (for generic types like Array<EnumType>)
 	for _, arg := range ref.TypeArgs {
 		collectEnumsFromTypeRef(arg, table, seen, enums, namespaces)
@@ -60,7 +69,8 @@ func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, se
 		return
 	}
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		if !seen.Contains(resolved.QualifiedName) && namespaces.Contains(resolved.Namespace) {
+		if !seen.Contains(resolved.QualifiedName) &&
+			namespaces.Contains(resolved.Namespace) {
 			seen.Add(resolved.QualifiedName)
 			*enums = append(*enums, resolved)
 		}
@@ -74,7 +84,11 @@ type PathFunc func(typ resolution.Type, table *resolution.Table) string
 // First checks if the enum has its own output domain, then falls back to
 // searching for a struct in the same namespace that has an output domain.
 // domainName specifies which domain to look up (e.g., "ts", "py").
-func FindOutputPath(e resolution.Type, table *resolution.Table, domainName string) string {
+func FindOutputPath(
+	e resolution.Type,
+	table *resolution.Table,
+	domainName string,
+) string {
 	if path := output.GetPath(e, domainName); path != "" {
 		return path
 	}
@@ -102,7 +116,10 @@ func MakePathFunc(domainName string) PathFunc {
 
 // CollectWithOwnOutput collects enum types that have their own output domain defined.
 // These are standalone enums not just referenced by structs.
-func CollectWithOwnOutput(allEnums []resolution.Type, domainName string) []resolution.Type {
+func CollectWithOwnOutput(
+	allEnums []resolution.Type,
+	domainName string,
+) []resolution.Type {
 	var result []resolution.Type
 	for _, e := range allEnums {
 		if output.GetPath(e, domainName) != "" && !output.IsOmitted(e, domainName) {
@@ -146,7 +163,12 @@ func FindPBOutputPath(e resolution.Type, table *resolution.Table) string {
 // - Deduplicates by QualifiedName
 //
 // If pathFunc is nil, uses the default FindOutputPath for the given domain.
-func CollectNamespaceEnums(namespace, outputPath string, table *resolution.Table, domainName string, pathFunc PathFunc) []resolution.Type {
+func CollectNamespaceEnums(
+	namespace, outputPath string,
+	table *resolution.Table,
+	domainName string,
+	pathFunc PathFunc,
+) []resolution.Type {
 	if pathFunc == nil {
 		pathFunc = MakePathFunc(domainName)
 	}

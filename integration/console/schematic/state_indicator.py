@@ -31,7 +31,7 @@ class StateIndicator(Symbol):
             channel_name: Channel name for the state input
             options: List of option dicts with "name", "value", and optional "color" keys
         """
-        super().__init__(label, symbol_type="State Indicator", rotatable=False)
+        super().__init__(label, symbol_type="State indicator", rotatable=False)
         self.channel_name = channel_name
         self.options = options or []
 
@@ -51,7 +51,7 @@ class StateIndicator(Symbol):
             self.set_label(channel_name)
             self.page.get_by_text("Properties").click()
             self.page.get_by_text("Telemetry").click()
-            self.set_channel(input_field="Input channel", channel_name=channel_name)
+            self.set_channel(input_field="Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if options is not None and len(options) > 0:

@@ -51,7 +51,7 @@ channel, providing acknowledgment that the command was executed.
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Output ([`AO`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Output ([`analog`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
 
 Writes analog voltage to a specified output terminal (DAC).
 
@@ -64,7 +64,7 @@ Writes analog voltage to a specified output terminal (DAC).
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Output ([`DO`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Output ([`digital`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
 Writes digital state (0 or 1) to a specified digital I/O line.
 
@@ -164,14 +164,12 @@ task = labjack.WriteTask(
     state_rate=sy.Rate.HZ * 20,
     data_saving=True,
     channels=[
-        labjack.OutputChan(
-            type="AO",
+        labjack.AnalogWriteChannel(
             cmd_channel=ao_0_cmd.key,
             state_channel=ao_0_state.key,
             port="DAC0",
         ),
-        labjack.OutputChan(
-            type="DO",
+        labjack.DigitalWriteChannel(
             cmd_channel=do_4_cmd.key,
             state_channel=do_4_state.key,
             port="DIO4",
@@ -295,13 +293,13 @@ const task = await client.tasks.create({
     data_saving: true,
     channels: [
       {
-        type: "AO",
+        type: "analog",
         cmd_channel: ao0Cmd.key,
         state_channel: ao0State.key,
         port: "DAC0",
       },
       {
-        type: "DO",
+        type: "digital",
         cmd_channel: do4Cmd.key,
         state_channel: do4State.key,
         port: "DIO4",

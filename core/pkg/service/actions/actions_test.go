@@ -78,9 +78,11 @@ var _ = Describe("State", func() {
 	It("Should hand out a usable Dispatcher", func(ctx SpecContext) {
 		state := actions.NewState[uuid.UUID, testAction]()
 		received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-		state.OnAction(func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-			received <- sa
-		})
+		state.OnAction(
+			func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
+				received <- sa
+			},
+		)
 		key := uuid.New()
 		state.Dispatcher().Notify(ctx, key, "dk", []testAction{{Type: "ping"}})
 		var got actions.Scoped[uuid.UUID, testAction]
@@ -91,54 +93,66 @@ var _ = Describe("State", func() {
 		Expect(got.Actions).To(HaveLen(1))
 	})
 
-	It("Should stamp a monotonically increasing Seq across dispatches", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction]()
-		seqs := make(chan uint64, 3)
-		state.OnAction(func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-			seqs <- sa.Seq
-		})
-		d := state.Dispatcher()
-		key := uuid.New()
-		for range 3 {
-			d.Notify(ctx, key, "", nil)
-		}
-		var got [3]uint64
-		for i := range got {
-			Eventually(seqs).Should(Receive(&got[i]))
-		}
-		Expect(got).To(Equal([3]uint64{1, 2, 3}))
-	})
-
-	It("Should share the Seq counter across Dispatchers handed out by the same State", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction]()
-		var maxSeq atomic.Uint64
-		state.OnAction(func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-			for {
-				prev := maxSeq.Load()
-				if sa.Seq <= prev || maxSeq.CompareAndSwap(prev, sa.Seq) {
-					break
-				}
+	It(
+		"Should stamp a monotonically increasing Seq across dispatches",
+		func(ctx SpecContext) {
+			state := actions.NewState[uuid.UUID, testAction]()
+			seqs := make(chan uint64, 3)
+			state.OnAction(
+				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
+					seqs <- sa.Seq
+				},
+			)
+			d := state.Dispatcher()
+			key := uuid.New()
+			for range 3 {
+				d.Notify(ctx, key, "", nil)
 			}
-		})
-		d1 := state.Dispatcher()
-		d2 := state.Dispatcher()
-		key := uuid.New()
-		d1.Notify(ctx, key, "", nil)
-		d2.Notify(ctx, key, "", nil)
-		d1.Notify(ctx, key, "", nil)
-		Eventually(maxSeq.Load).Should(Equal(uint64(3)))
-	})
+			var got [3]uint64
+			for i := range got {
+				Eventually(seqs).Should(Receive(&got[i]))
+			}
+			Expect(got).To(Equal([3]uint64{1, 2, 3}))
+		},
+	)
+
+	It(
+		"Should share the Seq counter across Dispatchers handed out by the same State",
+		func(ctx SpecContext) {
+			state := actions.NewState[uuid.UUID, testAction]()
+			var maxSeq atomic.Uint64
+			state.OnAction(
+				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
+					for {
+						prev := maxSeq.Load()
+						if sa.Seq <= prev || maxSeq.CompareAndSwap(prev, sa.Seq) {
+							break
+						}
+					}
+				},
+			)
+			d1 := state.Dispatcher()
+			d2 := state.Dispatcher()
+			key := uuid.New()
+			d1.Notify(ctx, key, "", nil)
+			d2.Notify(ctx, key, "", nil)
+			d1.Notify(ctx, key, "", nil)
+			Eventually(maxSeq.Load).Should(Equal(uint64(3)))
+		},
+	)
 
 	It("Should serialize Seq under concurrent Notify", func(ctx SpecContext) {
 		state := actions.NewState[uuid.UUID, testAction]()
 		const N = 200
 		var mu sync.Mutex
 		seen := make([]uint64, 0, N)
-		state.OnAction(func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-			mu.Lock()
-			seen = append(seen, sa.Seq)
-			mu.Unlock()
-		})
+		state.OnAction(
+			func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
+				mu.Lock()
+				seen = append(seen, sa.Seq)
+				mu.Unlock()
+			},
+		)
 		d := state.Dispatcher()
 		var wg sync.WaitGroup
 		wg.Add(N)
@@ -163,23 +177,32 @@ var _ = Describe("State", func() {
 		Expect(maxSeq).To(Equal(uint64(N)))
 	})
 
-	It("Should fan out to every subscriber registered via OnAction", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction]()
-		a := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-		b := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-		state.OnAction(func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { a <- sa })
-		state.OnAction(func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { b <- sa })
-		state.Dispatcher().Notify(ctx, uuid.New(), "", []testAction{{Type: "fan"}})
-		Eventually(a).Should(Receive())
-		Eventually(b).Should(Receive())
-	})
+	It(
+		"Should fan out to every subscriber registered via OnAction",
+		func(ctx SpecContext) {
+			state := actions.NewState[uuid.UUID, testAction]()
+			a := make(chan actions.Scoped[uuid.UUID, testAction], 1)
+			b := make(chan actions.Scoped[uuid.UUID, testAction], 1)
+			state.OnAction(
+				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { a <- sa },
+			)
+			state.OnAction(
+				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { b <- sa },
+			)
+			state.Dispatcher().Notify(ctx, uuid.New(), "", []testAction{{Type: "fan"}})
+			Eventually(a).Should(Receive())
+			Eventually(b).Should(Receive())
+		},
+	)
 
 	It("Should stop notifying a subscriber after Disconnect", func(ctx SpecContext) {
 		state := actions.NewState[uuid.UUID, testAction]()
 		var hits atomic.Uint64
-		disconnect := state.OnAction(func(_ context.Context, _ actions.Scoped[uuid.UUID, testAction]) {
-			hits.Add(1)
-		})
+		disconnect := state.OnAction(
+			func(_ context.Context, _ actions.Scoped[uuid.UUID, testAction]) {
+				hits.Add(1)
+			},
+		)
 		key := uuid.New()
 		state.Dispatcher().Notify(ctx, key, "", nil)
 		Eventually(hits.Load).Should(Equal(uint64(1)))
@@ -188,20 +211,25 @@ var _ = Describe("State", func() {
 		Consistently(hits.Load).Should(Equal(uint64(1)))
 	})
 
-	It("Should carry the action sequence verbatim onto the Scoped envelope", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction]()
-		received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-		state.OnAction(func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-			received <- sa
-		})
-		actionSeq := []testAction{
-			{Type: "a", Payload: "1"},
-			{Type: "b", Payload: "2"},
-			{Type: "c", Payload: "3"},
-		}
-		state.Dispatcher().Notify(ctx, uuid.New(), "dk", actionSeq)
-		var got actions.Scoped[uuid.UUID, testAction]
-		Eventually(received).Should(Receive(&got))
-		Expect(got.Actions).To(Equal(actionSeq))
-	})
+	It(
+		"Should carry the action sequence verbatim onto the Scoped envelope",
+		func(ctx SpecContext) {
+			state := actions.NewState[uuid.UUID, testAction]()
+			received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
+			state.OnAction(
+				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
+					received <- sa
+				},
+			)
+			actionSeq := []testAction{
+				{Type: "a", Payload: "1"},
+				{Type: "b", Payload: "2"},
+				{Type: "c", Payload: "3"},
+			}
+			state.Dispatcher().Notify(ctx, uuid.New(), "dk", actionSeq)
+			var got actions.Scoped[uuid.UUID, testAction]
+			Eventually(received).Should(Receive(&got))
+			Expect(got.Actions).To(Equal(actionSeq))
+		},
+	)
 })

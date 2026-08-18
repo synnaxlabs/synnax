@@ -18,16 +18,16 @@ import (
 var _ = Describe("GRPC", func() {
 	Describe("Bind", func() {
 		It("Should return one bindable transport per gRPC service", func() {
-			transports := grpc.Bind(apiLayer, dist.Channel)
-			Expect(transports).To(HaveLen(13))
+			transports := grpc.Bind(apiLayer)
+			Expect(transports).To(HaveLen(14))
 			for _, t := range transports {
 				Expect(t).ToNot(BeNil())
 			}
 		})
 
 		It("Should return the same set of transports when bound repeatedly", func() {
-			Expect(grpc.Bind(apiLayer, dist.Channel)).To(HaveLen(13))
-			Expect(grpc.Bind(apiLayer, dist.Channel)).To(HaveLen(13))
+			Expect(grpc.Bind(apiLayer)).To(HaveLen(14))
+			Expect(grpc.Bind(apiLayer)).To(HaveLen(14))
 		})
 	})
 })

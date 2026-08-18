@@ -137,7 +137,10 @@ func ResolveLeafPrimitive(
 	case resolution.DistinctForm:
 		base, ok := form.Base.Resolve(table)
 		if !ok {
-			return "", "", errors.Newf("cannot resolve distinct base %s", form.Base.Name)
+			return "", "", errors.Newf(
+				"cannot resolve distinct base %s",
+				form.Base.Name,
+			)
 		}
 		basePrim, _, err := ResolveLeafPrimitive(base, table, goTypeNameFn)
 		if err != nil {
@@ -160,7 +163,10 @@ func ResolveLeafPrimitive(
 	case resolution.AliasForm:
 		target, ok := form.Target.Resolve(table)
 		if !ok {
-			return "", "", errors.Newf("cannot resolve alias target %s", form.Target.Name)
+			return "", "", errors.Newf(
+				"cannot resolve alias target %s",
+				form.Target.Name,
+			)
 		}
 		basePrim, baseCast, err := ResolveLeafPrimitive(target, table, goTypeNameFn)
 		if err != nil {
@@ -175,12 +181,23 @@ func ResolveLeafPrimitive(
 		}
 		return basePrim, "", nil
 	default:
-		return "", "", errors.Newf("unsupported type form for leaf: %T (%s)", form, typ.QualifiedName)
+		return "", "", errors.Newf(
+			"unsupported type form for leaf: %T (%s)",
+			form,
+			typ.QualifiedName,
+		)
 	}
 }
 
-// ResolveGoSliceElemType resolves through alias/distinct chains to find the
-// Go type string for a slice element. Handles nested arrays (e.g., [][]string).
+// ResolveGoSliceElemType resolves through alias chains to find the Go type
+// string for a slice element. Handles nested arrays (e.g., [][]string).
+//
+// Distinct types are NOT unwrapped past their declared name: a distinct
+// channel.Key over uint32 resolves as "channel.Key", because `make([]X, n)`
+// must be assignable to the field's slice type and the field uses the distinct
+// name. The one exception is when a distinct type wraps an Array directly
+// (e.g., `type Tags = string[]` distinct), where we still recurse into the
+// element so nested arrays decode correctly.
 func ResolveGoSliceElemType(
 	typ resolution.Type, table *resolution.Table,
 	goTypeNameFn func(resolution.Type) (string, error),
@@ -188,11 +205,13 @@ func ResolveGoSliceElemType(
 	actual := typ
 	for {
 		var baseRef resolution.TypeRef
+		isDistinct := false
 		switch form := actual.Form.(type) {
 		case resolution.AliasForm:
 			baseRef = form.Target
 		case resolution.DistinctForm:
 			baseRef = form.Base
+			isDistinct = true
 		default:
 			return goTypeNameFn(actual)
 		}
@@ -200,10 +219,15 @@ func ResolveGoSliceElemType(
 		if !ok {
 			return "", errors.Newf("cannot resolve type %s", baseRef.Name)
 		}
-		if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok && bg.Name == "Array" && len(baseRef.TypeArgs) > 0 {
+		if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok &&
+			bg.Name == "Array" &&
+			len(baseRef.TypeArgs) > 0 {
 			innerElem, ok := baseRef.TypeArgs[0].Resolve(table)
 			if !ok {
-				return "", errors.Newf("cannot resolve array element %s", baseRef.TypeArgs[0].Name)
+				return "", errors.Newf(
+					"cannot resolve array element %s",
+					baseRef.TypeArgs[0].Name,
+				)
 			}
 			innerGoType, err := ResolveGoSliceElemType(innerElem, table, goTypeNameFn)
 			if err != nil {
@@ -211,6 +235,18 @@ func ResolveGoSliceElemType(
 			}
 			return "[]" + innerGoType, nil
 		}
+		if isDistinct {
+			return goTypeNameFn(actual)
+		}
 		actual = target
 	}
+}
+
+// TypeParamConstraint renders a type parameter's Go constraint: the builtin
+// constraint name when one is declared, any otherwise.
+func TypeParamConstraint(tp resolution.TypeParam) string {
+	if tp.Constraint != nil && resolution.IsConstraint(tp.Constraint.Name) {
+		return tp.Constraint.Name
+	}
+	return "any"
 }

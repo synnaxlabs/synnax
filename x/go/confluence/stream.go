@@ -11,17 +11,17 @@ package confluence
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/atomic"
 )
 
 // NewStream opens a new Stream with the given buffer capacity.
 func NewStream[V Value](buffer ...int) *Stream[V] {
 	return &Stream[V]{
 		values: make(chan V, parseBuffer(buffer)),
-		c:      &atomic.Int32Counter{},
+		c:      &atomic.Int32{},
 	}
 }
 
@@ -41,7 +41,7 @@ func Attach[I, O Value](seg Segment[I, O], buffer ...int) (Inlet[I], Outlet[O]) 
 // replicates of one another.
 type Stream[V Value] struct {
 	values     chan V
-	c          *atomic.Int32Counter
+	c          *atomic.Int32
 	inletAddr  address.Address
 	outletAddr address.Address
 	once       sync.Once
@@ -60,7 +60,7 @@ func (s *Stream[V]) Acquire(n int32) { s.c.Add(n) }
 
 func (s *Stream[V]) Close() {
 	s.c.Add(-1)
-	if s.c.Value() <= 0 {
+	if s.c.Load() <= 0 {
 		s.once.Do(func() { close(s.values) })
 	}
 }

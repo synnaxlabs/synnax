@@ -4,8 +4,8 @@ title: "Get Started"
 description: "Create and run your first Arc automation"
 prev: "Introduction"
 prevURL: "/reference/control/arc/introduction"
-next: "Sequences and Stages"
-nextURL: "/reference/control/arc/concepts/sequences-and-stages"
+next: "Control Authority"
+nextURL: "/reference/control/arc/concepts/control-authority"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -36,22 +36,23 @@ Choose a name and select **Text** for the editor mode.
 
 Copy this code into the editor:
 
-```arc
+```arc channels="data_channel, data_scaled"
 import time
 
 func scale_reading(value f64) f64 {
     return value * 2.0
 }
 
-func output_reading() {
+func create_reading() {
     count f64 $= 10
     count += 1
-    tank_pressure = count
+    data_channel = count
 }
+// Drive data writes
+time.interval{period=200ms} -> create_reading{}
 
-tank_pressure -> scale_reading{} -> pressure_scaled
-
-time.interval{period=200ms} -> output_reading{}
+// React on every channel write
+data_channel -> scale_reading{} -> data_scaled
 ```
 
 This program has two parts that work together:
@@ -112,11 +113,11 @@ func scale_reading(value f64) f64 {
 
 ### Stateful Variables
 
-```arc
+```arc channels="count_chan"
 func output_reading() {
     count f64 $= 10
     count += 1
-    tank_pressure = count
+    count_chan = count
 }
 ```
 
@@ -128,12 +129,12 @@ Here, `count` starts at 10 the first time `output_reading` runs. Each subsequent
 increments it: 11, 12, 13, and so on. The function then writes this value to
 `tank_pressure`.
 
-For more on stateful variables, see
-[Stateful Variables](/reference/control/arc/concepts/stateful-variables).
+The [Variables](/reference/control/arc/reference/variables#stateful) reference page
+covers persistence and reset behavior in more depth.
 
 ### Flow Statements
 
-```arc
+```arc channels="tank_pressure, pressure_scaled"
 tank_pressure -> scale_reading{} -> pressure_scaled
 ```
 
@@ -182,7 +183,7 @@ You can stop execution at any time with the **Pause** button.
 Here's a more practical example that triggers a notification when pressure exceeds a
 limit. This builds on our previous example by adding alarm logic:
 
-```arc
+```arc channels="tank_pressure"
 import status
 import time
 
@@ -211,8 +212,8 @@ after about one second (when count reaches 16).
 
 New concepts in this example:
 
-- **Config parameter** (`{limit f64}`): A constant set when the function is
-  instantiated. Here, `limit=15.0` sets the threshold
+- **Input parameter** (`{limit f64}`): A constant set when the function is instantiated.
+  Here, `limit=15.0` sets the threshold
 - **Return type `u8`**: An unsigned 8-bit integer. The comparison `reading > limit`
   returns 1 (true) or 0 (false)
 - **Conditional edge** (`=>`) -> fires the target while the source is truthy. Unlike
@@ -241,5 +242,5 @@ Or explore other topics:
   conditional (`=>`) edges
 - **[Channels and Series](/reference/control/arc/concepts/channels-and-series)**: Work
   with telemetry data and array operations
-- **[Stateful Variables](/reference/control/arc/concepts/stateful-variables)**: Persist
+- **[Stateful Variables](/reference/control/arc/reference/variables#stateful)**: Persist
   values across executions for counters and rate-of-change detection

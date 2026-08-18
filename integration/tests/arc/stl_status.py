@@ -11,17 +11,34 @@ from typing import NamedTuple
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 TRIG_SET = "trig_status_set"
 TRIG_DUP_FUNC = "trig_dup_func"
 TRIG_DUP_FLOW = "trig_dup_flow"
+TRIG_SEQ = "trig_status_seq"
 DUP_FUNC_KEY = "dup_func_key"
+SEQ_DONE = "seq_status_done"
 
 DUP_NAME = "duplicate_status_name"
 DUP_KEYS = ("44440001", "44440002")
 DUP_VARIANT = "info"
 DUP_MESSAGE = "some message"
+
+# Each consecutive status.set step in status_seq must set its own row. SEQ_ROWS
+# is (name, key); SEQ_EXPECTED maps name to the (variant, message) it sets.
+SEQ_ROWS = [
+    ("status_seq_a", "33330001"),
+    ("status_seq_b", "33330002"),
+    ("status_seq_c", "33330003"),
+    ("status_seq_d", "33330004"),
+]
+SEQ_EXPECTED = {
+    "status_seq_a": ("info", "seq step a"),
+    "status_seq_b": ("warning", "seq step b"),
+    "status_seq_c": ("error", "seq step c"),
+    "status_seq_d": ("loading", "seq step d"),
+}
 
 ARC_STL_STATUS_SOURCE = """
 import status
@@ -51,6 +68,15 @@ func set_duplicate() {
 }
 trig_dup_func -> set_duplicate{}
 trig_dup_flow -> status.set{"duplicate_status_name", "some message", "info"}
+
+sequence status_seq {
+    status.set{"status_seq_a", "seq step a", "info"},
+    status.set{"status_seq_b", "seq step b", "warning"},
+    status.set{"status_seq_c", "seq step c", "error"},
+    status.set{"status_seq_d", "seq step d", "loading"},
+    1 -> seq_status_done
+}
+trig_status_seq => status_seq
 """
 
 
@@ -102,7 +128,7 @@ CASES: list[Case] = [
 KEY_CHANNELS = [c.key_channel for c in CASES]
 
 
-class StlStatus(ArcConsoleCase):
+class StlStatus(ArcCase):
     """Test status.set over predefined rows, by name and by key.
 
     A single set trigger upserts every row at once. set must return the
@@ -112,13 +138,16 @@ class StlStatus(ArcConsoleCase):
     arc_source = ARC_STL_STATUS_SOURCE
     arc_name_prefix = "ArcStlStatus"
     start_cmd_channel = "start_stl_status_cmd"
-    subscribe_channels = KEY_CHANNELS + [DUP_FUNC_KEY]
+    subscribe_channels = KEY_CHANNELS + [DUP_FUNC_KEY, SEQ_DONE]
+    collect_notifications = True
 
     def setup(self) -> None:
         create_virtual_channel(self.client, TRIG_SET, sy.DataType.UINT8)
         create_virtual_channel(self.client, TRIG_DUP_FUNC, sy.DataType.UINT8)
         create_virtual_channel(self.client, TRIG_DUP_FLOW, sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_SEQ, sy.DataType.UINT8)
         create_virtual_channel(self.client, DUP_FUNC_KEY, sy.DataType.STRING)
+        create_virtual_channel(self.client, SEQ_DONE, sy.DataType.UINT8)
         for ch in KEY_CHANNELS:
             create_virtual_channel(self.client, ch, sy.DataType.STRING)
         for c in CASES:
@@ -139,11 +168,21 @@ class StlStatus(ArcConsoleCase):
                     message="initialized",
                 )
             )
+        for name, key in SEQ_ROWS:
+            self.client.statuses.set(
+                sy.Status(
+                    key=key,
+                    name=name,
+                    variant="disabled",
+                    message="initialized",
+                )
+            )
         super().setup()
 
     def teardown(self) -> None:
-        for c in CASES:
-            keys = [s.key for s in self._rows(c.name)]
+        names = [c.name for c in CASES] + [name for name, _ in SEQ_ROWS]
+        for name in names:
+            keys = [s.key for s in self._rows(name)]
             if keys:
                 self.client.statuses.delete(keys)
         super().teardown()
@@ -156,12 +195,13 @@ class StlStatus(ArcConsoleCase):
     def verify_sequence_execution(self) -> None:
         self._verify_set()
         self._verify_warn_on_duplicate()
+        self._verify_sequence_steps()
 
     def _verify_set(self) -> None:
         self.log("Firing set trigger: every case upserts its predefined row")
         self.writer.write(TRIG_SET, 1)
         for c in CASES:
-            self.wait_for_eq(c.key_channel, c.key, is_virtual=True)
+            self.wait_for_eq(c.key_channel, c.key)
             rows = self._rows(c.name)
             if len(rows) != 1:
                 self.fail(f"{c.name}: expected 1 row after set, got {len(rows)}")
@@ -175,10 +215,8 @@ class StlStatus(ArcConsoleCase):
     def _verify_warn_on_duplicate(self) -> None:
         self.log("Firing set duplicate: warn and set only the first status")
         self.writer.write(TRIG_DUP_FUNC, 1)
-        self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0], is_virtual=True)
-        if not self.console.notifications.wait_for(
-            f'multiple statuses named "{DUP_NAME}"'
-        ):
+        self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0])
+        if not self.wait_for_notification(f'multiple statuses named "{DUP_NAME}"'):
             self.fail("duplicate set did not surface a multi-match warning")
         rows = {s.key: s for s in self._rows(DUP_NAME)}
         first = rows[DUP_KEYS[0]]
@@ -193,3 +231,18 @@ class StlStatus(ArcConsoleCase):
                 f"second match {DUP_KEYS[1]} should be unchanged, "
                 f"got ({second.variant!r}, {second.message!r})"
             )
+
+    def _verify_sequence_steps(self) -> None:
+        self.log("Firing sequence trigger: every status.set step must set its row")
+        self.writer.write(TRIG_SEQ, 1)
+        self.wait_for_eq(SEQ_DONE, 1)
+        for name, (variant, message) in SEQ_EXPECTED.items():
+            rows = self._rows(name)
+            if len(rows) != 1:
+                self.fail(f"{name}: expected 1 row after sequence, got {len(rows)}")
+            row = rows[0]
+            if (row.variant, row.message) != (variant, message):
+                self.fail(
+                    f"{name}: expected step to set ({variant!r}, {message!r}), "
+                    f"got ({row.variant!r}, {row.message!r})"
+                )

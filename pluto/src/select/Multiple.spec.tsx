@@ -172,7 +172,7 @@ describe("Select.Multiple", () => {
     const c = render(<SelectMultiple />);
     fireEvent.click(c.getByText("Select Test Items"));
     fireEvent.click(c.getByText("First Item Option"));
-    fireEvent.click(c.getByLabelText("close"));
+    fireEvent.click(c.getByLabelText("Close"));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
@@ -196,6 +196,52 @@ describe("Select.Multiple", () => {
     fireEvent.keyDown(c.container, { code: "Shift" });
     fireEvent.click(c.getByText("Third Item Option"));
     expect(onChange).toHaveBeenLastCalledWith(["1", "2", "3"]);
+  });
+
+  it("should select a shift range that spans unmounted rows", () => {
+    const onChange = vi.fn();
+    const data: TestEntry[] = Array.from({ length: 300 }, (_, i) => ({
+      key: `${i}`,
+      name: `Item ${i}`,
+    }));
+    const renderItem = renderProp((props: List.ItemProps<string>) => (
+      <Select.ListItem {...props}>
+        <Text.Text>Row {props.itemKey}</Text.Text>
+      </Select.ListItem>
+    ));
+    const Component = () => {
+      const { data: keys, getItem } = List.useStaticData<string, TestEntry>({ data });
+      const [value, setValue] = useState<string[]>([]);
+      return (
+        <Triggers.Provider>
+          <Select.Multiple<string, TestEntry>
+            getItem={getItem}
+            data={keys}
+            value={value}
+            onChange={(next) => {
+              setValue(next);
+              onChange(next);
+            }}
+            resourceName="Row"
+          >
+            {renderItem}
+          </Select.Multiple>
+        </Triggers.Provider>
+      );
+    };
+    const c = render(<Component />);
+    fireEvent.click(c.getByText("Select Rows"));
+    fireEvent.click(c.getByText("Row 0"));
+    // Far enough down that the anchor row has unmounted by the time the range closes.
+    const scroller = document.querySelector<HTMLElement>(".pluto-list__items");
+    scroller!.scrollTop = 200 * 33;
+    fireEvent.scroll(scroller!);
+    fireEvent.keyDown(c.container, { code: "Shift" });
+    expect(c.queryByText("Row 0")).toBeNull();
+    fireEvent.click(c.getByText("Row 205"));
+    expect(onChange).toHaveBeenLastCalledWith(
+      Array.from({ length: 206 }, (_, i) => `${i}`),
+    );
   });
 
   describe("replaceOnSingle", () => {

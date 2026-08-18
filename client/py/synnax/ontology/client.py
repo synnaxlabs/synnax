@@ -7,25 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
-
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax.ontology.payload import ID, CrudeID, Resource
-from x.normalize import normalize
+from synnax.ontology.payload import ID, CrudeID
+from x.lists import normalize
 
 
 class RetrieveReq(BaseModel):
     ids: list[ID]
     children: bool = False
     parents: bool = False
-    include_schema: bool = False
-    exclude_field_data: bool = False
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-    types: list[str] | None = None
+    exclude_field_data: bool = True
 
 
 class AddChildrenReq(BaseModel):
@@ -44,8 +37,12 @@ class MoveChildrenReq(BaseModel):
     children: list[ID]
 
 
+class _Resource(BaseModel):
+    id: ID
+
+
 class RetrieveRes(BaseModel):
-    resources: list[Resource]
+    resources: list[_Resource]
 
 
 class Client:
@@ -54,79 +51,29 @@ class Client:
     def __init__(self, client: UnaryClient) -> None:
         self._client = client
 
-    @overload
-    def retrieve(
-        self,
-        id: CrudeID,
-        *,
-        children: bool = False,
-        parents: bool = False,
-        include_schema: bool = False,
-        exclude_field_data: bool = False,
-    ) -> Resource: ...
-
-    @overload
-    def retrieve(
-        self,
-        id: list[CrudeID],
-        *,
-        children: bool = False,
-        parents: bool = False,
-        include_schema: bool = False,
-        exclude_field_data: bool = False,
-    ) -> list[Resource]: ...
-
-    def retrieve(
-        self,
-        id: CrudeID | list[CrudeID] | None = None,
-        *,
-        children: bool = False,
-        parents: bool = False,
-        include_schema: bool = False,
-        exclude_field_data: bool = False,
-    ) -> Resource | list[Resource]:
-        is_single = False
-        if not isinstance(id, list):
-            if id is None:
-                id = []
-            else:
-                id = [id]
-                is_single = True
-        req = RetrieveReq(
-            ids=[ID(i) for i in id],
-            children=children,
-            parents=parents,
-            include_schema=include_schema,
-            exclude_field_data=exclude_field_data,
-        )
-        resources = self._exec_retrieve(req)
-        if is_single:
-            return resources[0]
-        return resources
-
     def retrieve_children(
         self,
         id: CrudeID | list[CrudeID],
-    ) -> list[Resource]:
+    ) -> list[ID]:
         normalized: list[CrudeID] = normalize(id)
         return self._exec_retrieve(
             RetrieveReq(ids=[ID(i) for i in normalized], children=True)
         )
 
-    def _exec_retrieve(self, req: RetrieveReq) -> list[Resource]:
-        return self._client.send("/ontology/retrieve", req, RetrieveRes).resources
+    def _exec_retrieve(self, req: RetrieveReq) -> list[ID]:
+        res = self._client.send("/ontology/retrieve", req, RetrieveRes)
+        return [r.id for r in res.resources]
 
     def retrieve_parents(
         self,
         id: CrudeID | list[CrudeID],
-    ) -> list[Resource]:
+    ) -> list[ID]:
         normalized: list[CrudeID] = normalize(id)
         return self._exec_retrieve(
             RetrieveReq(ids=[ID(i) for i in normalized], parents=True)
         )
 
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
-
         self._client.send(
             "/ontology/move-children",
             MoveChildrenReq.model_validate(

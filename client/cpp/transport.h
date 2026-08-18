@@ -13,6 +13,7 @@
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/connection/checker.h"
+#include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/rack/rack.h"
@@ -40,6 +41,7 @@ struct Transport {
     std::shared_ptr<channel::RetrieveClient> chan_retrieve;
     std::unique_ptr<ranger::RetrieveClient> range_retrieve;
     std::unique_ptr<ranger::CreateClient> range_create;
+    std::unique_ptr<ranger::SetEndClient> range_set_end;
     std::shared_ptr<ranger::kv::DeleteClient> range_kv_delete;
     std::shared_ptr<ranger::kv::GetClient> range_kv_get;
     std::shared_ptr<ranger::kv::SetClient> range_kv_set;
@@ -63,5 +65,6 @@ struct Transport {
     std::unique_ptr<view::RetrieveClient> view_retrieve;
     std::unique_ptr<view::DeleteClient> view_delete;
     std::unique_ptr<connection::CheckClient> connectivity_check;
+    std::shared_ptr<control::RetrieveClient> control_retrieve;
 };
 }

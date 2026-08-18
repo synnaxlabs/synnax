@@ -411,7 +411,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
     };
     d.status = device::Status{
         .name = "Device status",
-        .variant = x::status::VARIANT_SUCCESS,
+        .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Device is connected",
         .time = x::telem::TimeStamp::now(),
         .details = device::StatusDetails{.rack = r.key, .device = d.key}
@@ -422,7 +422,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
     );
     ASSERT_EQ(d2.name, "device_with_status");
     ASSERT_TRUE(d.status.has_value());
-    ASSERT_EQ(d2.status->variant, x::status::VARIANT_SUCCESS);
+    ASSERT_EQ(d2.status->variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EQ(d2.status->message, "Device is connected");
     ASSERT_EQ(d2.status->details.rack, r.key);
 }
@@ -442,7 +442,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
         .name = "device_1_status",
         .properties = {{"key", "props1"}},
         .status = device::Status{
-            .variant = x::status::VARIANT_SUCCESS,
+            .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Device 1 OK",
             .time = x::telem::TimeStamp::now(),
         }
@@ -456,7 +456,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
         .name = "device_2_status",
         .properties = {{"key", "props2"}},
         .status = device::Status{
-            .variant = x::status::VARIANT_WARNING,
+            .variant = synnax::status::VARIANT_WARNING,
             .message = "Device 2 Warning",
             .time = x::telem::TimeStamp::now(),
         }
@@ -469,9 +469,9 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     );
     ASSERT_EQ(devices.size(), 2);
     auto dm = map_device_keys(devices);
-    ASSERT_EQ(dm[d1.key].status->variant, x::status::VARIANT_SUCCESS);
+    ASSERT_EQ(dm[d1.key].status->variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EQ(dm[d1.key].status->message, "Device 1 OK");
-    ASSERT_EQ(dm[d2.key].status->variant, x::status::VARIANT_WARNING);
+    ASSERT_EQ(dm[d2.key].status->variant, synnax::status::VARIANT_WARNING);
     ASSERT_EQ(dm[d2.key].status->message, "Device 2 Warning");
 }
 

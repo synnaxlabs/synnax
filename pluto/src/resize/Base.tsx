@@ -10,58 +10,64 @@
 import "@/resize/Base.css";
 
 import { direction, location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { Flex } from "@/flex";
-import { preventDefault } from "@/util/event";
 
-export type BaseProps = Omit<
-  Flex.BoxProps<"div">,
+export interface BaseProps extends Omit<
+  Flex.BoxProps,
   "gap" | "size" | "direction" | "x" | "y"
-> & {
+> {
   location: location.Crude;
   size: number;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
-  sizeUnits?: "px" | "%";
-  showHandle?: boolean;
-};
+  decimal?: boolean;
+  hideHandle?: boolean;
+}
 
 export const Base = ({
   ref,
   location: cloc,
-  style,
+  style: propsStyle,
   size,
   className,
   children,
-  onDragStart,
-  sizeUnits = "px",
-  showHandle = true,
+  onPointerDown,
+  decimal = false,
+  hideHandle = false,
   ...rest
 }: BaseProps): ReactElement => {
   const parsedLocation = location.construct(cloc);
   const dir = location.direction(parsedLocation);
-  const dim = direction.dimension(dir);
+  const style = useMemo<CSSProperties>(() => {
+    const dim = direction.dimension(dir);
+    const cssSize = decimal ? `${size * 100}%` : `${size}px`;
+    return { [dim]: cssSize, ...propsStyle };
+  }, [decimal, size, dir, propsStyle]);
   return (
     <Flex.Box
-      className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), className)}
-      style={{ [dim]: `${size}${sizeUnits}`, ...style }}
+      className={CSS(
+        CSS.B("resize"),
+        CSS.loc(parsedLocation),
+        CSS.dir(dir),
+        // The container owns the divider; the handle is a transparent hit target that
+        // only paints while hovered or dragged.
+        !hideHandle && CSS.bordered(location.swap(parsedLocation)),
+        className,
+      )}
+      full={direction.swap(dir)}
+      style={style}
       ref={ref}
       direction={dir}
       empty
       {...rest}
     >
       {children}
-      {showHandle && (
+      {!hideHandle && (
         <div
-          draggable
-          className={CSS(
-            CSS.BE("resize", "handle"),
-            CSS.bordered(location.swap(parsedLocation)),
-          )}
-          onDragStart={onDragStart}
-          onDrag={preventDefault}
-          onDragEnd={preventDefault}
+          className={CSS(CSS.BE("resize", "handle"), Cursor.DRAG_CLASS)}
+          onPointerDown={onPointerDown}
         />
       )}
     </Flex.Box>

@@ -19,10 +19,19 @@ const ERROR_DISCRIMINATOR = "sy_x_error";
  */
 export type Matcher = (e: unknown) => boolean;
 
+/**
+ * A type guard that narrows a value to a {@link Typed} error when its type is exactly
+ * the matcher's type. Unlike {@link Matcher}, an exact match guarantees identity, so it
+ * can soundly narrow. Errors that carry extra structured fields may override their
+ * `matchExact` to narrow to their concrete type.
+ */
+export type ExactMatcher = (e: unknown) => e is Typed;
+
 /** an error type that can match against other errors. */
 export interface Matchable {
   /**
-   * @returns true if the provided error matches the matchable.
+   * @returns true if the provided error matches the matchable by type prefix, message,
+   * or raw string. This is a fuzzy membership test for control flow, not a type guard.
    */
   matches: Matcher;
 }
@@ -54,6 +63,12 @@ export interface TypedClass extends Matchable {
    */
   new (message?: string, options?: ErrorOptions): Typed;
   /**
+   * Narrows a value to this error type when its type is exactly this class's type.
+   * Errors carrying extra structured fields may override this to narrow to their
+   * concrete type.
+   */
+  matchExact: ExactMatcher;
+  /**
    * the type of the error.
    */
   TYPE: string;
@@ -83,6 +98,20 @@ const createTypeMatcher =
   };
 
 /**
+ * @param type - the error type to match exactly.
+ * @returns a type guard that narrows a value to a {@link Typed} error when its type is
+ * exactly the given type.
+ */
+const createExactMatcher =
+  (type: string): ExactMatcher =>
+  (e): e is Typed =>
+    e != null &&
+    typeof e === "object" &&
+    "type" in e &&
+    typeof e.type === "string" &&
+    e.type === type;
+
+/**
  * Creates a new class definition that implements the TypedErrorClass interface.
  * @param type - the type of the error.
  * @returns a new TypedErrorClass.
@@ -101,6 +130,8 @@ export const createTyped = (type: string): TypedClass =>
 
     static readonly matches = createTypeMatcher(type);
     readonly matches: Matcher = Internal.matches;
+
+    static readonly matchExact = createExactMatcher(type);
 
     constructor(message?: string, options?: ErrorOptions) {
       super(message, options);

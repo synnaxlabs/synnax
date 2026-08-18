@@ -10,8 +10,8 @@
 //go:generate antlr4 -Dlanguage=Go -visitor -o . -package parser ArcLexer.g4 ArcParser.g4
 //go:generate go run gen_token_literals.go
 
-// Package parser provides parsing functionality for the Arc programming language.
-// It uses ANTLR4-generated parsers to convert Arc source code into abstract syntax trees.
+// Package parser provides parsing functionality for the Arc programming language. It
+// uses ANTLR4-generated parsers to convert Arc source code into abstract syntax trees.
 //
 // The parser supports parsing complete programs as well as individual expressions,
 // statements, and blocks for interactive use cases like REPLs or inline evaluation.
@@ -37,6 +37,7 @@ package parser
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // Config carries per-parse language settings. Adding a field threads a new setting
@@ -110,7 +111,10 @@ func Parse(source string, cfgs ...Config) (IProgramContext, *diagnostics.Diagnos
 // Example:
 //
 //	expr, err := parser.ParseExpression("(2 + 3) * 4")
-func ParseExpression(source string, cfgs ...Config) (IExpressionContext, *diagnostics.Diagnostics) {
+func ParseExpression(
+	source string,
+	cfgs ...Config,
+) (IExpressionContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Expression)
 }
 
@@ -123,7 +127,10 @@ func ParseExpression(source string, cfgs ...Config) (IExpressionContext, *diagno
 // Example:
 //
 //	stmt, err := parser.ParseStatement("total := total + 1")
-func ParseStatement(source string, cfgs ...Config) (IStatementContext, *diagnostics.Diagnostics) {
+func ParseStatement(
+	source string,
+	cfgs ...Config,
+) (IStatementContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Statement)
 }
 
@@ -135,7 +142,10 @@ func ParseStatement(source string, cfgs ...Config) (IStatementContext, *diagnost
 //	    x := 10
 //	    y := x * 2
 //	}`)
-func ParseBlock(source string, cfgs ...Config) (IBlockContext, *diagnostics.Diagnostics) {
+func ParseBlock(
+	source string,
+	cfgs ...Config,
+) (IBlockContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, ConfigOf(cfgs...), (*ArcParser).Block)
 }
 
@@ -185,19 +195,25 @@ func (e *errorListener) SyntaxError(
 	_ antlr.RecognitionException,
 ) {
 	e.Add(diagnostics.Diagnostic{
-		Severity: diagnostics.SeverityError,
-		Start:    diagnostics.Position{Line: line, Col: column},
-		Message:  msg,
+		Severity: protocol.DiagnosticSeverityError,
+		Range: protocol.Range{
+			Start: protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
+			End: protocol.Position{
+				Line:      uint32(line - 1),
+				Character: uint32(column + 1),
+			},
+		},
+		Message: msg,
 	})
 }
 
-// TokensAdjacent returns true if two tokens are adjacent with no whitespace between them.
-// This is used by the numericLiteral grammar rule to determine if an IDENTIFIER
-// immediately follows a numeric literal (making it a unit suffix like "300ms")
-// versus being separated by whitespace (making them separate tokens).
+// TokensAdjacent returns true if two tokens are adjacent with no whitespace between
+// them. This is used by the numericLiteral grammar rule to determine if an IDENTIFIER
+// immediately follows a numeric literal (making it a unit suffix like "300ms") versus
+// being separated by whitespace (making them separate tokens).
 //
-// The check uses character positions: if prev token ends at position X,
-// and next token starts at position X+1, they are adjacent.
+// The check uses character positions: if prev token ends at position X, and next token
+// starts at position X+1, they are adjacent.
 func (p *ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
 	if prev == nil || next == nil {
 		return false

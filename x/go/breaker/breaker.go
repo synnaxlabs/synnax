@@ -31,8 +31,8 @@ type Config struct {
 	// longer than the first, the third will wait 4x, etc.
 	// Default: 1.
 	Scale float32
-	// MaxRetries is the number set for how many calls to Wait is allowed. Once a breaker
-	// goes beyond this number, it no can no longer Wait and returns false.
+	// MaxRetries is the number set for how many calls to Wait is allowed. Once a
+	// breaker goes beyond this number, it no can no longer Wait and returns false.
 	// Default: 0.
 	MaxRetries int
 }
@@ -64,8 +64,9 @@ type Breaker struct {
 	retryCount   int
 }
 
-// NewBreaker creates a new breaker on the given context and configuration. If the context
-// is canceled while the breaker is waiting, the breaker stops waiting immediately.
+// NewBreaker creates a new breaker on the given context and configuration. If the
+// context is canceled while the breaker is waiting, the breaker stops waiting
+// immediately.
 func NewBreaker(ctx context.Context, configs ...Config) (Breaker, error) {
 	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {

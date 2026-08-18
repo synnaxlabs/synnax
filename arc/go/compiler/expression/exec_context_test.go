@@ -36,14 +36,20 @@ var _ = Describe("ExecContext", func() {
 			Exec: symbol.ExecFlow,
 		}))
 		expr := MustSucceed(parser.ParseExpression("avg(10)"))
-		Expect(expression.Compile(context.Child(ctx, expr))).Error().To(MatchError(ContainSubstring("cannot be called inside a func block")))
+		Expect(
+			expression.Compile(context.Child(ctx, expr)),
+		).Error().
+			To(MatchError(ContainSubstring("cannot be called inside a func block")))
 	})
 
 	It("Should allow a WASM function in a func block", func(bCtx SpecContext) {
 		ctx := NewContext(bCtx)
 		ctx.Resolver.RegisterLocal("pow", 3)
 		funcType := types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "base", Type: types.I64()}, {Name: "exp", Type: types.I64()}},
+			Inputs: types.Params{
+				{Name: "base", Type: types.I64()},
+				{Name: "exp", Type: types.I64()},
+			},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 		})
 		MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{

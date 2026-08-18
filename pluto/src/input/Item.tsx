@@ -9,7 +9,8 @@
 
 import "@/input/Item.css";
 
-import { direction, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { direction } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";

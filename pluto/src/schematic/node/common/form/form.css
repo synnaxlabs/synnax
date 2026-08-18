@@ -39,3 +39,7 @@
         overflow: hidden;
     }
 }
+
+.pluto-label-form__wrap-width {
+    max-width: 125px;
+}

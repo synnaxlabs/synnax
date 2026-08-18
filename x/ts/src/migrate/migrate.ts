@@ -12,6 +12,7 @@ import { z } from "zod";
 import { compare } from "@/compare";
 import { errors } from "@/errors";
 import { type optional } from "@/optional";
+import { zod } from "@/zod";
 
 export const semVerZ = z
   .string()
@@ -98,8 +99,8 @@ export const compareSemVer = ((
   opts.checkMajor ??= true;
   opts.checkMinor ??= true;
   opts.checkPatch ??= true;
-  const semA = semVerZ.parse(a);
-  const semB = semVerZ.parse(b);
+  const semA = zod.parse(semVerZ, a, { label: "version" });
+  const semB = zod.parse(semVerZ, b, { label: "version" });
 
   // Split version and pre-release parts
   const [aMain, aPreRelease] = semA.split("-");
@@ -123,6 +124,8 @@ export const compareSemVer = ((
 
   // When major.minor.patch are equal, compare pre-release versions
   // Version without pre-release > version with pre-release
+  // Pre-release qualifies the patch version, so skip it when patch is unchecked
+  if (!opts.checkPatch) return compare.EQUAL;
   if (aPreRelease === undefined && bPreRelease === undefined) return compare.EQUAL;
   if (aPreRelease === undefined) return compare.GREATER_THAN;
   if (bPreRelease === undefined) return compare.LESS_THAN;
@@ -250,7 +253,8 @@ export const migrator = <
         return def;
       }
       try {
-        if (targetSchema != null) return targetSchema.parse(v) as O;
+        if (targetSchema != null)
+          return zod.parse(targetSchema, v, { label: name }) as O;
         return v as unknown as O;
       } catch (e) {
         console.log(`${name} failed to parse default. Exiting with default`);

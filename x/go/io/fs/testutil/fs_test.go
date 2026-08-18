@@ -46,13 +46,16 @@ var _ = Describe("FS Testutil", func() {
 			Expect(MustSucceed(fs.Exists("a.bin"))).To(BeTrue())
 		})
 
-		It("Should return a fresh FS on each call so callers cannot leak state across tests", func() {
-			a := OpenMem()
-			b := OpenMem()
-			fa := MustSucceed(a.Open("only-in-a.bin", os.O_CREATE|os.O_RDWR))
-			DeferClose(fa)
-			Expect(MustSucceed(b.Exists("only-in-a.bin"))).To(BeFalse())
-		})
+		It(
+			"Should return a fresh FS on each call so callers cannot leak state across tests",
+			func() {
+				a := OpenMem()
+				b := OpenMem()
+				fa := MustSucceed(a.Open("only-in-a.bin", os.O_CREATE|os.O_RDWR))
+				DeferClose(fa)
+				Expect(MustSucceed(b.Exists("only-in-a.bin"))).To(BeFalse())
+			},
+		)
 
 		It("Should leave nothing on disk", func() {
 			before := matchingTempDirs(TempDirPrefix())
@@ -83,7 +86,7 @@ var _ = Describe("FS Testutil", func() {
 			before := matchingTempDirs(TempDirPrefix())
 			OpenOS()
 			after := matchingTempDirs(TempDirPrefix())
-			Expect(len(after)).To(Equal(len(before) + 1))
+			Expect(after).To(HaveLen(len(before) + 1))
 		})
 
 		Describe("Cleanup", Ordered, func() {
@@ -92,12 +95,13 @@ var _ = Describe("FS Testutil", func() {
 				createdAt string
 			)
 			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
 				priorDirs = matchingTempDirs(TempDirPrefix())
 			})
 			It("Creates the tempdir while the spec is running", func() {
 				OpenOS()
 				current := matchingTempDirs(TempDirPrefix())
-				Expect(len(current)).To(Equal(len(priorDirs) + 1))
+				Expect(current).To(HaveLen(len(priorDirs) + 1))
 				for _, name := range current {
 					if !slices.Contains(priorDirs, name) {
 						createdAt = filepath.Join(os.TempDir(), name)
@@ -137,7 +141,7 @@ var _ = Describe("FS Testutil", func() {
 			Expect(matchingTempDirs(TempDirPrefix())).To(Equal(before))
 
 			FileSystems["osFS"]()
-			Expect(len(matchingTempDirs(TempDirPrefix()))).To(Equal(len(before) + 1))
+			Expect(matchingTempDirs(TempDirPrefix())).To(HaveLen(len(before) + 1))
 		})
 	})
 

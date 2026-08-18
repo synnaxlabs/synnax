@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -39,16 +40,20 @@ var _ = Describe("Select", func() {
 			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
-					},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
+					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -58,7 +63,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -95,16 +100,20 @@ var _ = Describe("Select", func() {
 			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
-					},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
+					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
@@ -114,7 +123,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -137,7 +146,9 @@ var _ = Describe("Select", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+			)
 			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
 			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
 		})
@@ -151,7 +162,9 @@ var _ = Describe("Select", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+			)
 			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
 			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
 			selectNode := s.Node("select")
@@ -170,7 +183,9 @@ var _ = Describe("Select", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+			)
 			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
 			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
@@ -189,7 +204,9 @@ var _ = Describe("Select", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+			)
 			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
 			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
@@ -249,7 +266,9 @@ var _ = Describe("Select", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+			)
 			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
 			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
 			selectNode := s.Node("select")
@@ -266,7 +285,9 @@ var _ = Describe("Select", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+			)
 			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
 			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
@@ -283,7 +304,9 @@ var _ = Describe("Select", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
+			)
 			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
 			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
@@ -377,123 +400,169 @@ var _ = Describe("Select", func() {
 		})
 	})
 	Describe("Factory", func() {
-		It("Should create node for bare select via CompoundFactory", func(ctx SpecContext) {
-			g := graph.Graph{
-				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
-				},
-				Edges: []graph.Edge{
-					{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+		It(
+			"Should create node for bare select via CompoundFactory",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Nodes: []graph.Node{
+						{Key: "source"},
+						{Key: "select"},
 					},
-				},
-				Functions: []graph.Function{
-					{
-						Key: "source",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U8()},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"source": {"type": "source"},
+						"select": {"type": "select"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{
+								Node:  "select",
+								Param: ir.DefaultOutputParam,
+							},
+						}},
+					},
+					Functions: []ir.Function{
+						{
+							Key: "source",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U8()},
+							},
+						},
+						{
+							Key: "select",
+							Inputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U8()},
+							},
+							Outputs: types.Params{
+								{Name: "true", Type: types.U8()},
+								{Name: "false", Type: types.U8()},
+							},
 						},
 					},
-					{
-						Key: "select",
-						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
-						},
-						Outputs: types.Params{
-							{Name: "true", Type: types.U8()},
-							{Name: "false", Type: types.U8()},
-						},
-					},
-				},
-			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-			Expect(diagnostics.Ok()).To(BeTrue())
-			s := node.New(analyzed)
-			compound := node.CompoundFactory{selector.NewHost()}
-			cfg := node.Config{
-				Node:  ir.Node{Key: "select", Type: "select"},
-				State: s.Node("select"),
-			}
-			n := MustSucceed(compound.Create(ctx, cfg))
-			Expect(n).ToNot(BeNil())
-		})
+				}
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := node.New(analyzed)
+				compound := node.CompoundFactory{selector.NewHost()}
+				cfg := node.Config{
+					Node:  ir.Node{Key: "select", Type: "select"},
+					State: s.Node("select"),
+				}
+				n := MustSucceed(compound.Create(ctx, cfg))
+				Expect(n).ToNot(BeNil())
+			},
+		)
 	})
 	Describe("Alignment Propagation", func() {
-		It("Should propagate alignment and time range to both outputs", func(ctx SpecContext) {
-			g := graph.Graph{
-				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
-				},
-				Edges: []graph.Edge{
-					{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+		It(
+			"Should propagate alignment and time range to both outputs",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Nodes: []graph.Node{
+						{Key: "source"},
+						{Key: "select"},
 					},
-				},
-				Functions: []graph.Function{
-					{
-						Key: "source",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U8()},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"source": {"type": "source"},
+						"select": {"type": "select"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{
+								Node:  "select",
+								Param: ir.DefaultOutputParam,
+							},
+						}},
+					},
+					Functions: []ir.Function{
+						{
+							Key: "source",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U8()},
+							},
+						},
+						{
+							Key: "select",
+							Inputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U8()},
+							},
+							Outputs: types.Params{
+								{Name: "true", Type: types.U8()},
+								{Name: "false", Type: types.U8()},
+							},
 						},
 					},
-					{
-						Key: "select",
-						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
-						},
-						Outputs: types.Params{
-							{Name: "true", Type: types.U8()},
-							{Name: "false", Type: types.U8()},
-						},
-					},
-				},
-			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-			Expect(diagnostics.Ok()).To(BeTrue())
-			s := node.New(analyzed)
-			factory := selector.NewHost()
-			cfg := node.Config{
-				Node:  ir.Node{Type: "select"},
-				State: s.Node("select"),
-			}
-			source := s.Node("source")
+				}
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := node.New(analyzed)
+				factory := selector.NewHost()
+				cfg := node.Config{
+					Node:  ir.Node{Type: "select"},
+					State: s.Node("select"),
+				}
+				source := s.Node("source")
 
-			inputSeries := telem.NewSeriesV[uint8](1, 0, 1, 0)
-			inputSeries.Alignment = 150
-			inputSeries.TimeRange = telem.TimeRange{Start: 50 * telem.SecondTS, End: 200 * telem.SecondTS}
-			*source.Output(0) = inputSeries
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150, 200)
+				inputSeries := telem.NewSeriesV[uint8](1, 0, 1, 0)
+				inputSeries.Alignment = 150
+				inputSeries.TimeRange = telem.TimeRange{
+					Start: 50 * telem.SecondTS,
+					End:   200 * telem.SecondTS,
+				}
+				*source.Output(0) = inputSeries
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150, 200)
 
-			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+				n, _ := factory.Create(ctx, cfg)
+				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
-			selectNode := s.Node("select")
+				selectNode := s.Node("select")
 
-			// Check true output
-			trueOut := selectNode.Output(0)
-			Expect(trueOut.Alignment).To(Equal(telem.Alignment(150)))
-			Expect(trueOut.TimeRange.Start).To(Equal(50 * telem.SecondTS))
-			Expect(trueOut.TimeRange.End).To(Equal(200 * telem.SecondTS))
+				// Check true output
+				trueOut := selectNode.Output(0)
+				Expect(trueOut.Alignment).To(Equal(telem.Alignment(150)))
+				Expect(trueOut.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+				Expect(trueOut.TimeRange.End).To(Equal(200 * telem.SecondTS))
 
-			trueTime := selectNode.OutputTime(0)
-			Expect(trueTime.Alignment).To(Equal(telem.Alignment(150)))
-			Expect(trueTime.TimeRange.Start).To(Equal(50 * telem.SecondTS))
-			Expect(trueTime.TimeRange.End).To(Equal(200 * telem.SecondTS))
+				trueTime := selectNode.OutputTime(0)
+				Expect(trueTime.Alignment).To(Equal(telem.Alignment(150)))
+				Expect(trueTime.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+				Expect(trueTime.TimeRange.End).To(Equal(200 * telem.SecondTS))
 
-			// Check false output
-			falseOut := selectNode.Output(1)
-			Expect(falseOut.Alignment).To(Equal(telem.Alignment(150)))
-			Expect(falseOut.TimeRange.Start).To(Equal(50 * telem.SecondTS))
-			Expect(falseOut.TimeRange.End).To(Equal(200 * telem.SecondTS))
+				// Check false output
+				falseOut := selectNode.Output(1)
+				Expect(falseOut.Alignment).To(Equal(telem.Alignment(150)))
+				Expect(falseOut.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+				Expect(falseOut.TimeRange.End).To(Equal(200 * telem.SecondTS))
 
-			falseTime := selectNode.OutputTime(1)
-			Expect(falseTime.Alignment).To(Equal(telem.Alignment(150)))
-			Expect(falseTime.TimeRange.Start).To(Equal(50 * telem.SecondTS))
-			Expect(falseTime.TimeRange.End).To(Equal(200 * telem.SecondTS))
-		})
+				falseTime := selectNode.OutputTime(1)
+				Expect(falseTime.Alignment).To(Equal(telem.Alignment(150)))
+				Expect(falseTime.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+				Expect(falseTime.TimeRange.End).To(Equal(200 * telem.SecondTS))
+			},
+		)
 	})
+})
+
+var _ = Describe("Construction validation", func() {
+	It(
+		"Should error at construction when the input param is missing",
+		func(ctx SpecContext) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:     "select",
+				Type:    "select",
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			}}}
+			s := node.New(prog)
+			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("select")}
+			Expect(selector.NewHost().Create(ctx, cfg)).Error().
+				To(MatchError(node.ErrInputNotFound))
+		},
+	)
 })

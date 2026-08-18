@@ -1,0 +1,114 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type Store } from "@reduxjs/toolkit";
+import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/client";
+import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
+
+import { canParseFile } from "@/platform/import/canParseFile";
+import {
+  captureEntries,
+  isDirectoryEntry,
+  isFileEntry,
+  readDirectoryFiles,
+  readEntryFile,
+} from "@/platform/import/entries";
+import { ingestServer } from "@/platform/import/import";
+import { ingestBatch } from "@/platform/import/ingestBatch";
+import { type DirectoryIngester } from "@/platform/import/ingester";
+import { Panel } from "@/platform/panel";
+import { Session } from "@/session";
+
+const readJSON = async (file: File): Promise<unknown> => JSON.parse(await file.text());
+
+interface IngestContext {
+  client: Client | null;
+  ingestDirectory: DirectoryIngester;
+  projectKey: project.Key;
+  store: Store;
+}
+
+// Returns the resource the entry created, or nothing for a directory: a project import
+// brings its own panels, so it opens no tab here.
+const ingestEntry = async (
+  entry: FileSystemEntry,
+  { client, ingestDirectory, projectKey, store }: IngestContext,
+): Promise<void | ontology.ID> => {
+  if (isDirectoryEntry(entry)) {
+    const files = await readDirectoryFiles(entry);
+    const parsed = await Promise.all(
+      files
+        .filter(({ path }) => canParseFile(path))
+        .map(async ({ file, path }) => ({
+          name: file.name,
+          path,
+          data: await readJSON(file),
+        })),
+    );
+    return await ingestDirectory(entry.name, parsed, { client, store });
+  }
+  if (!isFileEntry(entry)) return;
+  const file = await readEntryFile(entry);
+  if (file.type !== "application/json") throw new Error("not a JSON file");
+  return await ingestServer(await readJSON(file), {
+    client,
+    projectKey,
+    fileName: file.name,
+  });
+};
+
+export interface UseFileDropParams {
+  /** Ingests a dropped directory. Injected by the composition root. */
+  ingestDirectory: DirectoryIngester;
+}
+
+/**
+ * A drop the mosaic reports, or one with no leaf to place into: the Console has no
+ * panel open, so the tabs open in a panel created for them.
+ */
+export interface FileDropProps extends Partial<Mosaic.OnFileDropProps> {
+  event: Mosaic.OnFileDropProps["event"];
+}
+
+export type FileDrop = (props: FileDropProps) => void;
+
+/**
+ * Returns a file drop handler that imports every dropped JSON file and directory
+ * concurrently, then opens the resources they created as one batch of tabs in the leaf
+ * the drop landed on. A file that fails is reported on its own.
+ */
+export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop => {
+  const client = Synnax.use();
+  const store = Session.useStore();
+  const openTabs = Panel.useOpenTabs();
+  const handleError = Status.useErrorHandler();
+  return useCallback(
+    ({ nodeKey, location, event }: FileDropProps) => {
+      const entries = captureEntries(event.dataTransfer);
+      // A dropped project selects itself once imported, so every file in the drop takes
+      // the project open when it landed instead of whichever one wins the race.
+      const projectKey = Session.Project.selectSelected(store.getState());
+      const placement =
+        nodeKey != null && location != null ? { leaf: nodeKey, location } : undefined;
+      handleError(
+        async () =>
+          await ingestBatch({
+            items: entries,
+            ingest: async (entry) =>
+              await ingestEntry(entry, { client, ingestDirectory, projectKey, store }),
+            handleError,
+            openTabs,
+            placement,
+          }),
+      );
+    },
+    [client, ingestDirectory, openTabs, store, handleError],
+  );
+};

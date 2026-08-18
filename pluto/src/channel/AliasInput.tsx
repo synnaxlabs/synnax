@@ -12,7 +12,7 @@ import { errors } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
-import { useRetrieve, useUpdateAlias } from "@/channel/queries";
+import { useResultAliasAndName, useUpdateAlias } from "@/channel/queries";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status/base";
@@ -21,20 +21,26 @@ import { Text } from "@/text";
 export interface AliasInputProps extends Input.TextProps {
   channel: channel.Key;
   range?: string;
-  shadow?: boolean;
+  // isDefault reports whether value is the derived default rather than a stored
+  // override. The reset button is shown only when an override is present.
+  isDefault?: boolean;
+  // onReset clears the override so the value reverts to its derived default.
+  onReset?: () => void;
 }
 
 export const AliasInput = ({
   channel,
   range,
-  shadow,
-  className,
+  isDefault,
+  onReset,
   ...rest
 }: AliasInputProps): ReactElement => {
-  const { value, onChange } = rest;
+  const { value } = rest;
   const [loading, setLoading] = useState(false);
   const { update } = useUpdateAlias();
-  const { data } = useRetrieve({ key: channel, rangeKey: range });
+  const { data } = useResultAliasAndName(
+    channel > 0 ? { key: channel, rangeKey: range } : null,
+  );
   const setAlias = async (value: string) => {
     update({ alias: value, range, channel });
   };
@@ -59,23 +65,18 @@ export const AliasInput = ({
     }, "Failed to set channel alias");
   };
 
-  const handleSetValueToAlias = (): void => {
-    if (alias == null) return;
-    onChange?.(alias);
-  };
-
   const setAliasTooltip =
     channel === 0 ? (
       <Text.Text level="small">
-        Select a channel to enable alias syncing with this label
+        Select a channel to sync its alias with this label
       </Text.Text>
     ) : setAlias == null ? (
       <Text.Text level="small">
-        Select a range to enable alias syncing with this label
+        Select a range to sync the alias with this label
       </Text.Text>
     ) : value.length === 0 ? (
       <Text.Text level="small">
-        Enter a value to enable alias syncing with this label
+        Enter a value to sync the alias with this label
       </Text.Text>
     ) : alias === value ? (
       <Text.Text level="small">Alias synced with this label</Text.Text>
@@ -85,10 +86,10 @@ export const AliasInput = ({
 
   return (
     <Input.Text selectOnFocus {...rest}>
-      {canSetAlias && (
+      {onReset != null && isDefault === false && (
         <Button.Button
-          onClick={handleSetValueToAlias}
-          tooltip={<Text.Text level="small">Set {name} as label</Text.Text>}
+          onClick={onReset}
+          tooltip={<Text.Text level="small">Reset to channel name</Text.Text>}
           tooltipLocation={{ y: "top" }}
           variant="outlined"
         >

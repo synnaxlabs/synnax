@@ -10,11 +10,9 @@
  */
 
 .pluto-header {
-    padding-left: 0.5rem;
+    padding: 1rem 1.5rem;
     .pluto-header__text,
     .pluto-breadcrumb {
-        padding: 0.5rem;
-        padding-left: 1rem;
         overflow: hidden;
         .pluto-text {
             overflow: hidden;
@@ -24,8 +22,5 @@
     }
     .pluto-header-button-title {
         flex-grow: 1;
-    }
-    &.pluto-header--padded {
-        padding-right: 1rem;
     }
 }

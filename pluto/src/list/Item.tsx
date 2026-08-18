@@ -10,7 +10,13 @@
 import "@/list/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import {
+  type MouseEvent,
+  type MouseEventHandler,
+  type ReactElement,
+  useCallback,
+  useMemo,
+} from "react";
 
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
@@ -28,17 +34,25 @@ export interface ItemRenderProps<K extends record.Key = record.Key> {
 export type ItemProps<
   K extends record.Key,
   E extends Button.ElementType = "div",
-> = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate"> &
+> = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate" | "onClick"> &
   ItemRenderProps<K> & {
     draggingOver?: boolean;
     rightAligned?: boolean;
-    highlightHovered?: boolean;
-    onSelect?: (key: K) => void;
+    onClick?: MouseEventHandler<HTMLElement>;
+    onSelect?: (key: K, e: MouseEvent<HTMLElement>) => void;
     selected?: boolean;
     hovered?: boolean;
   };
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
+
+/**
+ * itemNameID returns the DOM id for editable name text rendered inside the list item
+ * with the given key. Item assigns the raw key as the row element's own id, so nested
+ * editable text (e.g. Text.edit rename targets) must carry this derived id to keep
+ * DOM ids unique.
+ */
+export const itemNameID = (itemKey: record.Key): string => `${itemKey}-name`;
 
 export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   itemKey,
@@ -47,7 +61,6 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   el,
   draggingOver = false,
   rightAligned = false,
-  highlightHovered = false,
   selected = false,
   translate,
   onSelect,
@@ -55,34 +68,40 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   hovered,
   style,
   ...rest
-}: ItemProps<K, E>): ReactElement => (
-  <Button.Button
-    // Cast needed because Button is wrapped by Tooltip.wrap which loses generic type info
-    el={el}
-    defaultEl="div"
-    id={itemKey.toString()}
-    variant="text"
-    onClick={(e: any) => {
-      onSelect?.(itemKey);
+}: ItemProps<K, E>): ReactElement => {
+  // Offset with `top`, not a transform. A transform leaves the row's real box at the
+  // top of the list, and the browser snapshots that box for the drag preview, so every
+  // row but the first dragged with no image. The offset is the row's place in the whole
+  // list, so it is written once at mount rather than on every scroll frame.
+  const itemStyle = useMemo(() => ({ top: translate, ...style }), [translate, style]);
+  const handleClick = useCallback<MouseEventHandler<HTMLElement>>(
+    (e) => {
+      onSelect?.(itemKey, e);
       onClick?.(e);
-    }}
-    className={CSS(
-      className,
-      CONTEXT_TARGET,
-      selected && CONTEXT_SELECTED,
-      hovered && CSS.M("hovered"),
-      rightAligned && CSS.M("right-aligned"),
-      highlightHovered && CSS.M("highlight-hover"),
-      draggingOver && CSS.M("dragging-over"),
-      CSS.BE("list", "item"),
-      CSS.selected(selected),
-    )}
-    style={{
-      position: translate != null ? "absolute" : "relative",
-      transform: `translateY(${translate}px)`,
-      ...style,
-    }}
-    square={false}
-    {...rest}
-  />
-);
+    },
+    [onSelect, onClick, itemKey],
+  );
+  return (
+    <Button.Button
+      el={el}
+      defaultEl="div"
+      id={itemKey.toString()}
+      variant="text"
+      onClick={handleClick}
+      className={CSS(
+        className,
+        CONTEXT_TARGET,
+        selected && CONTEXT_SELECTED,
+        hovered && CSS.M("hovered"),
+        rightAligned && CSS.M("right-aligned"),
+        draggingOver && CSS.M("dragging-over"),
+        CSS.BE("list", "item"),
+        CSS.M("reveals"),
+        CSS.selected(selected),
+      )}
+      style={itemStyle}
+      square={false}
+      {...rest}
+    />
+  );
+};

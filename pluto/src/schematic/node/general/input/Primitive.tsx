@@ -10,7 +10,7 @@
 import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/input/input.css";
 
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useMemo, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -36,11 +36,15 @@ export const Input = ({
   disabled,
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
+  const style = useMemo(
+    () => ({ [CSS.var("symbol-color")]: symbolColorVar(color) }),
+    [color],
+  );
   return (
     <Primitive.Div
       orientation={orientation}
       className={CSS(CSS.B("input-symbol"), CSS.B("symbol-colored"), className)}
-      style={{ [CSS.var("symbol-color")]: symbolColorVar(color) }}
+      style={style}
     >
       <Handle.Rectangle
         orientation={orientation}

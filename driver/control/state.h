@@ -12,7 +12,9 @@
 #include <shared_mutex>
 #include <unordered_map>
 
-#include "client/cpp/synnax.h"
+#include "absl/log/log.h"
+
+#include "client/cpp/channel/channel.h"
 #include "x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 
@@ -45,8 +47,21 @@ public:
         }
     }
 
+    /// @brief replaces the mirror with the cluster's complete control state.
+    void set(const std::vector<x::control::State<synnax::channel::Key>> &next) {
+        std::unique_lock lock(this->mu);
+        this->states.clear();
+        for (const auto &state: next)
+            this->states[state.resource] = state;
+    }
+
+    /// @brief applies the control updates carried by a series from the control channel.
     void apply(const x::telem::Series &series) {
-        if (series.data_type() != x::telem::STRING_T) return;
+        if (series.data_type() != x::telem::JSON_T) {
+            LOG(ERROR) << "[bus.authority] expected a JSON control state series, got "
+                       << series.data_type();
+            return;
+        }
         for (const auto &json_str: series.strings()) {
             x::json::Parser parser(json_str);
             if (!parser.ok()) continue;

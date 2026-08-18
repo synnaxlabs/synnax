@@ -43,18 +43,17 @@ export interface UseSingleRequiredProps<K extends record.Key> {
 }
 
 type UseSingleInternalProps<K extends record.Key> =
-  | UseSingleAllowNoneProps<K>
-  | UseSingleRequiredProps<K>;
+  UseSingleAllowNoneProps<K> | UseSingleRequiredProps<K>;
 
 export type UseSingleProps<K extends record.Key> = optional.Optional<
   UseSingleInternalProps<K>,
   "allowNone"
 > &
-  Pick<UseHoverProps<K>, "initialHover">;
+  Pick<UseHoverProps<K>, "initialHover" | "enableTriggers">;
 
 export interface UseMultipleProps<K extends record.Key> extends Pick<
   UseHoverProps<K>,
-  "initialHover"
+  "initialHover" | "enableTriggers"
 > {
   allowNone?: boolean;
   value: K[];
@@ -63,6 +62,18 @@ export interface UseMultipleProps<K extends record.Key> extends Pick<
   closeDialogOnSelect?: boolean;
   autoSelectOnNone?: boolean;
 }
+
+/**
+ * hasModifier reports whether a pointer event carries a selection modifier, meaning
+ * the gesture is aimed at the selection rather than at the item: shift extends a
+ * range from the anchor, control (or command) toggles a single key. A row that
+ * activates on click routes to the enclosing selection instead when this is true.
+ */
+export const hasModifier = (e: {
+  shiftKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}): boolean => e.shiftKey || e.ctrlKey || e.metaKey;
 
 /** Return value for the {@link useMultiple} hook. */
 export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
@@ -77,6 +88,7 @@ export const useSingle = <K extends record.Key>({
   value,
   closeDialogOnSelect = false,
   initialHover,
+  enableTriggers,
   autoSelectOnNone = false,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
@@ -112,7 +124,12 @@ export const useSingle = <K extends record.Key>({
     [onChange],
   );
 
-  const hover = useHover({ data, onSelect: handleSelect, initialHover });
+  const hover = useHover({
+    data,
+    onSelect: handleSelect,
+    initialHover,
+    enableTriggers,
+  });
   return { onSelect: handleSelect, setSelected, clear, ...hover };
 };
 
@@ -121,6 +138,7 @@ export const useMultiple = <K extends record.Key>({
   replaceOnSingle = false,
   onChange,
   initialHover,
+  enableTriggers,
   allowNone = true,
   closeDialogOnSelect = false,
   autoSelectOnNone = false,
@@ -193,6 +211,6 @@ export const useMultiple = <K extends record.Key>({
     (keys: K[]): void => onChange(keys, { clicked: null, clickedIndex: 0 }),
     [onChange],
   );
-  const hover = useHover({ data, onSelect, initialHover });
+  const hover = useHover({ data, onSelect, initialHover, enableTriggers });
   return { onSelect, setSelected, clear, ...hover };
 };

@@ -19,18 +19,22 @@ export const eraserStateZ = z.object({
 });
 
 interface InternalState {
-  renderCtx: render.Context;
+  renderCtx: render.Context | null;
 }
 
 const CANVASES: render.CanvasVariant[] = ["gl", "lower2d", "upper2d"];
 
+/**
+ * Erases its region from the canvases on lifecycle changes. When no canvas render
+ * context exists (a canvas-less mount), there is nothing to erase and Eraser no-ops.
+ */
 export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
   static readonly TYPE = "eraser";
   schema = eraserStateZ;
 
   afterUpdate(ctx: aether.Context): void {
     if (this.deleted) return;
-    this.internal.renderCtx = render.Context.use(ctx);
+    this.internal.renderCtx = render.Context.useOptional(ctx);
     this.renderOnLifecycleChange();
   }
 
@@ -39,6 +43,7 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
   }
 
   renderOnLifecycleChange(): void {
+    if (this.internal.renderCtx == null) return;
     this.internal.renderCtx.loop.set({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
@@ -49,7 +54,7 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
 
   render(): void {
     if (this.deleted || !this.state.enabled) return;
-    this.internal.renderCtx.erase(this.state.region, xy.construct(0), ...CANVASES);
+    this.internal.renderCtx?.erase(this.state.region, xy.construct(0), ...CANVASES);
   }
 }
 

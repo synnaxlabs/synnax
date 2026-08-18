@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/testdata"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
@@ -39,9 +40,18 @@ var _ = Describe("Migration Test", func() {
 				Expect(CopyFS(sourceFS, destFS)).To(Succeed())
 
 				By("Opening the V1 database in V2")
-				db = MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
+				db = MustSucceed(
+					cesium.Open(
+						ctx,
+						"",
+						cesium.WithFS(fs),
+						cesium.WithInstrumentation(PanicLogger()),
+					),
+				)
 
-				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
+				By(
+					"Asserting that the version got migrated, the meta file got changed, and the format is correct",
+				)
 				for _, ch := range testdata.Channels {
 					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
 					if ch.Key == testdata.LegacyRateKey {
@@ -54,10 +64,12 @@ var _ = Describe("Migration Test", func() {
 
 					var (
 						channelFS = MustSucceed(fs.Sub(strconv.Itoa(int(ch.Key))))
-						r         = MustSucceed(channelFS.Open("meta.json", os.O_RDONLY))
-						s         = MustSucceed(r.Stat()).Size()
-						buf       = make([]byte, s)
-						chInMeta  cesium.Channel
+						r         = MustSucceed(
+							channelFS.Open("meta.json", os.O_RDONLY),
+						)
+						s        = MustSucceed(r.Stat()).Size()
+						buf      = make([]byte, s)
+						chInMeta cesium.Channel
 					)
 
 					MustSucceed(r.Read(buf))

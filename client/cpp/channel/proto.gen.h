@@ -17,28 +17,27 @@
 
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/channel/types.gen.h"
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/status/json.gen.h"
-#include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
-#include "core/pkg/distribution/channel/pb/channel.pb.h"
+#include "core/pkg/service/channel/pb/channel.pb.h"
 
 namespace synnax::channel {
 
-inline std::pair<::distribution::channel::pb::OperationType, x::errors::Error>
+inline std::pair<::service::channel::pb::OperationType, x::errors::Error>
 operation_type_to_pb(const std::string &cpp) {
-    static const std::
-        unordered_map<std::string, ::distribution::channel::pb::OperationType>
-            kMap = {
-                {OPERATION_TYPE_MIN, ::distribution::channel::pb::OPERATION_TYPE_MIN},
-                {OPERATION_TYPE_MAX, ::distribution::channel::pb::OPERATION_TYPE_MAX},
-                {OPERATION_TYPE_AVG, ::distribution::channel::pb::OPERATION_TYPE_AVG},
-                {OPERATION_TYPE_NONE, ::distribution::channel::pb::OPERATION_TYPE_NONE},
-                {OPERATION_TYPE_DERIVATIVE,
-                 ::distribution::channel::pb::OPERATION_TYPE_DERIVATIVE},
-            };
+    static const std::unordered_map<std::string, ::service::channel::pb::OperationType>
+        kMap = {
+            {OPERATION_TYPE_MIN, ::service::channel::pb::OPERATION_TYPE_MIN},
+            {OPERATION_TYPE_MAX, ::service::channel::pb::OPERATION_TYPE_MAX},
+            {OPERATION_TYPE_AVG, ::service::channel::pb::OPERATION_TYPE_AVG},
+            {OPERATION_TYPE_NONE, ::service::channel::pb::OPERATION_TYPE_NONE},
+            {OPERATION_TYPE_DERIVATIVE,
+             ::service::channel::pb::OPERATION_TYPE_DERIVATIVE},
+        };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
         return {{}, x::errors::Error("unrecognized OperationType value: " + cpp)};
@@ -46,26 +45,26 @@ operation_type_to_pb(const std::string &cpp) {
 }
 
 inline std::pair<std::string, x::errors::Error>
-operation_type_from_pb(::distribution::channel::pb::OperationType pb) {
+operation_type_from_pb(::service::channel::pb::OperationType pb) {
     switch (pb) {
-        case ::distribution::channel::pb::OPERATION_TYPE_MIN:
+        case ::service::channel::pb::OPERATION_TYPE_MIN:
             return {OPERATION_TYPE_MIN, x::errors::NIL};
-        case ::distribution::channel::pb::OPERATION_TYPE_MAX:
+        case ::service::channel::pb::OPERATION_TYPE_MAX:
             return {OPERATION_TYPE_MAX, x::errors::NIL};
-        case ::distribution::channel::pb::OPERATION_TYPE_AVG:
+        case ::service::channel::pb::OPERATION_TYPE_AVG:
             return {OPERATION_TYPE_AVG, x::errors::NIL};
-        case ::distribution::channel::pb::OPERATION_TYPE_NONE:
+        case ::service::channel::pb::OPERATION_TYPE_NONE:
             return {OPERATION_TYPE_NONE, x::errors::NIL};
-        case ::distribution::channel::pb::OPERATION_TYPE_DERIVATIVE:
+        case ::service::channel::pb::OPERATION_TYPE_DERIVATIVE:
             return {OPERATION_TYPE_DERIVATIVE, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized OperationType protobuf value")};
     }
 }
 
-inline std::pair<::distribution::channel::pb::Operation, x::errors::Error>
+inline std::pair<::service::channel::pb::Operation, x::errors::Error>
 Operation::to_proto() const {
-    ::distribution::channel::pb::Operation pb;
+    ::service::channel::pb::Operation pb;
     {
         auto [v, err] = operation_type_to_pb(this->type);
         if (err) return {{}, err};
@@ -77,7 +76,7 @@ Operation::to_proto() const {
 }
 
 inline std::pair<Operation, x::errors::Error>
-Operation::from_proto(const ::distribution::channel::pb::Operation &pb) {
+Operation::from_proto(const ::service::channel::pb::Operation &pb) {
     Operation cpp;
     {
         auto [v, err] = operation_type_from_pb(pb.type());
@@ -98,7 +97,7 @@ Channel::to_proto() const {
     pb.set_data_type(this->data_type.to_proto());
     pb.set_is_index(this->is_index);
     pb.set_index(static_cast<uint32_t>(this->index));
-    pb.set_alias(this->alias);
+    if (this->alias.has_value()) pb.set_alias(*this->alias);
     pb.set_virtual_(this->is_virtual);
     pb.set_internal(this->internal);
     pb.set_expression(this->expression);
@@ -121,11 +120,11 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
     Channel cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();
-    cpp.leaseholder = ::synnax::cluster::NodeKey(pb.leaseholder());
+    cpp.leaseholder = ::synnax::node::Key(pb.leaseholder());
     cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.is_index = pb.is_index();
     cpp.index = Key(pb.index());
-    cpp.alias = pb.alias();
+    if (pb.has_alias()) cpp.alias = pb.alias();
     cpp.is_virtual = pb.virtual_();
     cpp.internal = pb.internal();
     cpp.expression = pb.expression();

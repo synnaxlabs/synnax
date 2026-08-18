@@ -4,13 +4,14 @@ title: "Channels and Series"
 description:
   "How Arc connects to Synnax telemetry through channels and handles array data with
   series"
-prev: "Reactive Execution"
-prevURL: "/reference/control/arc/concepts/reactive-execution"
-next: "Stateful Variables"
-nextURL: "/reference/control/arc/concepts/stateful-variables"
+prev: "Sequences and Stages"
+prevURL: "/reference/control/arc/concepts/sequences-and-stages"
+next: "Data Processing"
+nextURL: "/reference/control/arc/how-to/data-processing"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -26,7 +27,7 @@ for batch processing and aggregation.
 A channel in Arc references a channel that exists in your Synnax cluster. You don't
 declare channels. Just use them by name:
 
-```arc
+```arc channels="tank_pressure, pressure_scaled, valve_cmd"
 // Read from a pressure transducer and scale it into another channel
 tank_pressure -> scale{factor=2.0} -> pressure_scaled
 // Write a fixed value to a valve command
@@ -50,34 +51,37 @@ channels in the Console's resources panel before writing code.
 Channels behave differently depending on whether you're in a **reactive context** (flow
 statements) or an **imperative context** (inside a function body).
 
-### Reactive Context
+<Arc.Tabs client:load>
 
-In flow statements, channels are event-driven data sources:
+<Fragment slot="flow">
 
-```arc
-sensor -> filter{threshold=50.0} -> controller{} -> actuator
+In flow statements, channels are **event-driven data sources**:
+
+```arc channels="sensor, actuator"
+sensor -> controller{} -> actuator
 ```
 
-When new data arrives on `sensor`, the entire pipeline executes. The runtime tracks
-which data has been processed using watermarks, so only new data triggers execution.
+When new data arrives on `sensor`, the entire pipeline executes.
 
-### Imperative Context
+</Fragment>
+
+<Fragment slot="function">
 
 Inside function bodies, channel reads are **non-blocking snapshots**:
 
 ```arc
-func controller{setpoint chan f64, output chan f64} (pressure f64) f64 {
-    target := setpoint // Read latest value (non-blocking)
-    error := pressure - target
-    if error > 10 {
-        output = error // Write to channel
-    }
+func controller{setpoint chan f64} (pressure f64) f64 {
+    error := pressure - setpoint // Read latest value (non-blocking)
     return error
 }
 ```
 
-The line `target := setpoint` returns immediately with the most recent value written to
-the `setpoint` channel. If nothing has been written yet, it returns zero.
+</Fragment>
+
+</Arc.Tabs>
+
+You can also bind a channel, or an expression over channels, to a
+[variable](/reference/control/arc/reference/variables) that updates as new data arrives.
 
 | Aspect        | Reactive (`->`)     | Imperative (function body)    |
 | ------------- | ------------------- | ----------------------------- |
@@ -86,11 +90,11 @@ the `setpoint` channel. If nothing has been written yet, it returns zero.
 | Empty channel | Skips execution     | Returns zero                  |
 | Use case      | Main data pipelines | Side-channel reads, setpoints |
 
-### Channels as Config Parameters
+### Channels as Inputs
 
-Channels can be passed to functions through config parameters:
+Channels can be passed to functions as input parameters:
 
-```arc
+```arc channels="tank_pressure, pressure_high"
 func monitor{sensor chan f64, limit f64} () u8 {
     return sensor > limit
 }
@@ -104,26 +108,35 @@ This lets you write reusable functions that work with different channels.
 
 ## Writing to Channels
 
-Inside functions, use assignment syntax to write to channels:
+Write to a channel by making it the final target of a flow statement, or with assignment
+syntax inside a function.
 
-```arc
-func control{valve chan u8} (pressure f64) {
-    if pressure > 500 {
-        valve = 1
-    } else {
-        valve = 0
-    }
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc channels="sensor, output_channel"
+stage control {
+    sensor -> scale{factor=2.0} -> output_channel
 }
 ```
 
-Writes are queued until the end of the execution cycle. Multiple writes to the same
-channel in a single cycle result in the last value being sent.
+</Fragment>
 
-In flow statements, you can write directly to channels as the final target:
+<Fragment slot="function">
 
 ```arc
-sensor -> scale{factor=2.0} -> output_channel
+func control{valve chan u8} (pressure f64) {
+    if pressure > 500 { valve = 1 }
+}
 ```
+
+</Fragment>
+
+</Arc.Tabs>
+
+Writes are queued until the end of the execution cycle. Multiple writes to the same
+channel in a single cycle result in the last value being sent.
 
 <Divider.Divider x />
 
@@ -137,6 +150,7 @@ with buffered data.
 ```arc
 // Literal
 data := [1.0, 2.0, 3.0]
+
 // Empty (requires type annotation)
 buffer series f64 := []
 ```
@@ -146,9 +160,9 @@ buffer series f64 := []
 ```arc
 data := [10.0, 20.0, 30.0, 40.0]
 
-first := data[0] // 10.0
-last := data[3] // 40.0
-middle := data[1: 3] // [20.0, 30.0]
+first := data[0]  // 10.0
+mid := data[1: 3] // [20.0, 30.0]
+last := data[3]   // 40.0
 ```
 
 Out-of-bounds access causes a runtime error.
@@ -168,14 +182,17 @@ Arithmetic and comparison operators work element-wise on series:
 
 ```arc
 data := [1.0, 2.0, 3.0]
+
 // Scalar operations (broadcast)
-scaled := data * 2.0 // [2.0, 4.0, 6.0]
+scaled := data * 2.0  // [2.0, 4.0, 6.0]
 offset := data + 10.0 // [11.0, 12.0, 13.0]
+
 // Series operations (must be equal length)
 other := [4.0, 5.0, 6.0]
 sum := data + other // [5.0, 7.0, 9.0]
+
 // Comparisons return series u8
-mask := data > 2.0 // [0, 0, 1]
+mask := data > 2.0  // [0, 0, 1]
 ```
 
 Binary operations between two series require them to have equal length. Mismatched
@@ -185,7 +202,7 @@ lengths cause a runtime error.
 
 ## Channel Types
 
-When passing channels through config parameters, you declare their type:
+When passing channels as input parameters, you declare their type:
 
 ```arc
 func process{input chan f64, output chan f64} () {

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -20,6 +21,7 @@ import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
+import { Staleness } from "@/vis/staleness";
 import { type Toggle as VisToggle } from "@/vis/toggle";
 
 interface ChannelFormProps {
@@ -31,12 +33,20 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
   const { value, onChange } = Form.useField<
     Omit<VisToggle.UseProps, "aetherKey"> & { control: Control.StateProps }
   >(path);
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
-  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
+  const sourceP = zod.parse(telem.sourcePipelinePropsZ, value.source?.props, {
+    label: "source pipeline",
+  });
+  const sinkP = zod.parse(telem.sinkPipelinePropsZ, value.sink?.props, {
+    label: "sink pipeline",
+  });
+  const source = zod.parse(
+    telem.streamChannelValuePropsZ,
     sourceP.segments.valueStream.props,
+    { label: "value stream source" },
   );
-  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+  const sink = zod.parse(control.setChannelValuePropsZ, sinkP.segments.setter.props, {
+    label: "setter sink",
+  });
 
   const handleSourceChange = (v: channel.Key | null): void => {
     v ??= 0;
@@ -98,6 +108,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
       <Flex.Box x grow>
         {!omit.includes("onClickDelay") && <ActivationDelayField grow />}
         <ControlChipField />
+        <Staleness.Fields />
       </Flex.Box>
     </Wrapper>
   );

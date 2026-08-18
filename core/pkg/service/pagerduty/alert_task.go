@@ -11,7 +11,6 @@ package pagerduty
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -20,11 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
-	xstatus "github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -32,43 +28,14 @@ import (
 // AlertTaskType is the type identifier for PagerDuty alert tasks.
 const AlertTaskType = "pagerduty_alert"
 
-// AlertConfig is the configuration for a single alert, mapping a Synnax status to a
-// PagerDuty alert.
-type AlertConfig struct {
-	// Status is the Synnax status key to alert on.
-	Status string `json:"status" msgpack:"status"`
-	// TreatErrorAsCritical controls whether error status variant maps to "critical"
-	// (true) or "error" (false) severity in PagerDuty.
-	TreatErrorAsCritical bool `json:"treat_error_as_critical" msgpack:"treat_error_as_critical"`
-	// Component of the source machine responsible for the event, for example "mysql" or
-	// "eth0".
-	Component string `json:"component" msgpack:"component"`
-	// Group is a logical grouping of components of a service, for example "app-stack".
-	Group string `json:"group" msgpack:"group"`
-	// Class is the class/type of the event, for example "ping failure" or "cpu load".
-	Class string `json:"class" msgpack:"class"`
-	// Enabled controls whether this specific alert is active.
-	Enabled bool `json:"enabled" msgpack:"enabled"`
-}
-
-// AlertTaskConfig is the configuration for a PagerDuty alert task.
-type AlertTaskConfig struct {
-	// RoutingKey is the 32-character Integration Key for an integration on a service
-	// or on a global ruleset.
-	RoutingKey string `json:"routing_key" msgpack:"routing_key"`
-	// AutoStart controls whether the task starts automatically when configured.
-	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
-	// Alerts is the list of alert configurations to send.
-	Alerts []AlertConfig `json:"alerts" msgpack:"alerts"`
-}
-
-// Validate validates the alert task configuration.
-func (c AlertTaskConfig) Validate() error {
-	v := validate.New("pagerduty.alert_task_config")
+// validateConfig checks the deploy-time constraints on a task config: a real
+// routing key and at least one enabled alert.
+func validateConfig(c TaskConfig) error {
+	v := validate.New("pagerduty.task_config")
 	v.Ternary("routing_key", len(c.RoutingKey) != 32, "must be exactly 32 characters")
 	var hasEnabled bool
 	for _, a := range c.Alerts {
-		if a.Enabled {
+		if !a.Disabled {
 			hasEnabled = true
 			break
 		}
@@ -77,86 +44,109 @@ func (c AlertTaskConfig) Validate() error {
 	return v.Error()
 }
 
-// MsgpackEncodedJSON converts the config into a binary.MsgpackEncodedJSON suitable
-// for use as a task.Task.Config value.
-func (c AlertTaskConfig) MsgpackEncodedJSON() (msgpack.EncodedJSON, error) {
-	b, err := json.Marshal(c)
-	if err != nil {
-		return nil, err
-	}
-	var m msgpack.EncodedJSON
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 type alertTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
-	cfg        AlertTaskConfig
+	cfg        TaskConfig
+	// status is the authority on this instance's current status.
+	status     *driver.StatusHandler
 	disconnect observe.Disconnect
-	// alertsByStatus maps status keys to their AlertConfig for O(1) lookup.
-	alertsByStatus map[string]AlertConfig
+	// alertsByStatus maps status keys to their enabled Alert for O(1) lookup.
+	alertsByStatus map[status.Key]Alert
 }
 
 var _ driver.Task = (*alertTask)(nil)
 
+// Exec implements driver.Task. Every command it handles ends in a status carrying
+// the command key, so a caller waiting on the command always resolves.
 func (t *alertTask) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
-		return t.start(ctx)
+		return t.start(ctx, cmd.Key)
 	case "stop":
-		return t.stop(ctx)
+		return t.stop(ctx, cmd.Key, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
 }
 
-func (t *alertTask) start(ctx context.Context) error {
+func (t *alertTask) start(ctx context.Context, cmdKey string) error {
 	if t.disconnect != nil {
+		t.ackCurrent(ctx, cmdKey, true)
 		return nil
 	}
-	t.alertsByStatus = make(map[string]AlertConfig, len(t.cfg.Alerts))
+	t.alertsByStatus = make(map[status.Key]Alert, len(t.cfg.Alerts))
 	for _, a := range t.cfg.Alerts {
-		if a.Enabled {
+		if !a.Disabled {
 			t.alertsByStatus[a.Status] = a
 		}
 	}
 	t.disconnect = t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
-	t.updateStatus(ctx, xstatus.VariantSuccess, true, "Task started successfully")
+	t.updateStatus(
+		ctx,
+		cmdKey,
+		status.VariantSuccess,
+		true,
+		"Task started successfully",
+	)
 	return nil
 }
 
-func (t *alertTask) Stop() error { return t.stop(context.TODO()) }
+func (t *alertTask) Stop(sendStatus bool) error {
+	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
+}
 
-func (t *alertTask) stop(ctx context.Context) error {
-	if t.disconnect != nil {
-		t.disconnect()
-		t.disconnect = nil
+func (t *alertTask) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
+	if t.disconnect == nil {
+		if sendStatus {
+			t.ackCurrent(ctx, cmdKey, false)
+		}
+		return nil
 	}
-	t.updateStatus(ctx, xstatus.VariantSuccess, false, "Task stopped successfully")
+	t.disconnect()
+	t.disconnect = nil
+	if sendStatus {
+		t.updateStatus(
+			ctx,
+			cmdKey,
+			status.VariantSuccess,
+			false,
+			"Task stopped successfully",
+		)
+	}
 	return nil
+}
+
+// ackCurrent answers cmdKey with the task's current status, for a command that
+// needs no work.
+func (t *alertTask) ackCurrent(ctx context.Context, cmdKey string, running bool) {
+	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
+		t.factoryCfg.L.Error("failed to acknowledge command",
+			zap.Stringer("task", t.task),
+			zap.String("cmd", cmdKey),
+			zap.Error(err),
+		)
+	}
 }
 
 func (t *alertTask) handleStatusChange(
 	ctx context.Context,
-	reader gorp.TxReader[string, status.Status[any]],
+	reader gorp.TxReader[status.Key, status.Status[any]],
 ) {
 	for ch := range reader {
 		if ch.Variant == change.VariantDelete {
 			continue
 		}
 		alertCfg, ok := t.alertsByStatus[ch.Key]
-		if !ok || !alertCfg.Enabled {
+		if !ok {
 			continue
 		}
 		s := ch.Value
 		switch s.Variant {
-		case xstatus.VariantError, xstatus.VariantWarning, xstatus.VariantInfo:
+		case status.VariantError, status.VariantWarning, status.VariantInfo:
 			event := t.buildTriggerEvent(s, alertCfg)
 			t.sendEvent(ctx, event)
-		case xstatus.VariantSuccess:
+		case status.VariantSuccess:
 			event := t.buildResolveEvent(s.Key)
 			t.sendEvent(ctx, event)
 		default:
@@ -167,7 +157,7 @@ func (t *alertTask) handleStatusChange(
 
 func (t *alertTask) buildTriggerEvent(
 	s status.Status[any],
-	alertCfg AlertConfig,
+	alertCfg Alert,
 ) pagerduty.V2Event {
 	summary := s.Message
 	if s.Description != "" {
@@ -191,7 +181,7 @@ func (t *alertTask) buildTriggerEvent(
 	}
 }
 
-func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
+func (t *alertTask) buildResolveEvent(statusKey status.Key) pagerduty.V2Event {
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "resolve",
@@ -199,16 +189,16 @@ func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
 	}
 }
 
-func mapSeverity(variant xstatus.Variant, treatErrorAsCritical bool) string {
+func mapSeverity(variant status.Variant, treatErrorAsCritical bool) string {
 	switch variant {
-	case xstatus.VariantError:
+	case status.VariantError:
 		if treatErrorAsCritical {
 			return "critical"
 		}
 		return "error"
-	case xstatus.VariantWarning:
+	case status.VariantWarning:
 		return "warning"
-	case xstatus.VariantInfo:
+	case status.VariantInfo:
 		return "info"
 	default:
 		return "info"
@@ -224,7 +214,7 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 			zap.Any("event", event),
 			zap.Error(err),
 		)
-		t.updateStatus(ctx, xstatus.VariantError, true,
+		t.updateStatus(ctx, driver.NoCommand, status.VariantError, true,
 			fmt.Sprintf("Failed to send PagerDuty event: %s", err.Error()))
 		return
 	}
@@ -238,20 +228,12 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 
 func (t *alertTask) updateStatus(
 	ctx context.Context,
-	variant xstatus.Variant,
+	cmdKey string,
+	variant status.Variant,
 	running bool,
 	message string,
 ) {
-	stat := task.Status{
-		Key:     task.OntologyID(t.task.Key).String(),
-		Name:    t.task.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.task.Key, Running: running},
-	}
-	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).
-		Set(ctx, &stat); err != nil {
+	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
 		t.factoryCfg.L.Error("failed to set task status", zap.Error(err))
 	}
 }

@@ -1,0 +1,124 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { ranger } from "@synnaxlabs/client";
+import { Access, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
+
+import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu as Base } from "@/platform/context-menu";
+import { Link } from "@/platform/link";
+import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
+import { Range } from "@/platform/range";
+import { Session } from "@/session";
+
+export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+  const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();
+  const ranges = getItem?.(keys) ?? [];
+  const isNotEmpty = ranges.length !== 0;
+  const isSingle = ranges.length === 1;
+  const ids = ranger.ontologyID(keys);
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasDeletePermission = Access.useDeleteGranted(ids);
+  const openTab = Panel.useOpenTab();
+  const openCreate = Range.useCreateModal();
+  const favoriteKeys = Session.Range.useSelectKeys();
+  const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
+  const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));
+  const dispatch = Session.useDispatch();
+  const renameModal = Modals.useRename();
+  const confirm = Modals.useConfirmDelete({
+    type: "Range",
+    description: "Deleting a range also deletes its child ranges.",
+  });
+  const { update: del } = Ranger.useDelete();
+  const { update: renameRange } = Ranger.useRename();
+  const handleAddChildRange = () => {
+    openCreate({ parent: ranges[0].key });
+  };
+  const handleFavorite = () => {
+    Session.Range.fromClient(ranges).forEach((r) => dispatch(Session.Range.add(r)));
+  };
+  const handleUnfavorite = () => {
+    dispatch(Session.Range.remove({ keys: ranges.map((r) => r.key) }));
+  };
+  const handleError = Status.useErrorHandler();
+  const handleLink = Cluster.useCopyLinkToClipboard();
+
+  const handleDetails = () => {
+    openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
+  };
+  const handleRename = () => {
+    handleError(async () => {
+      const renamed = await renameModal({
+        initialValue: ranges[0].name,
+        title: "Range.Rename",
+        icon: <Icon.Range />,
+      });
+      if (renamed == null) return;
+      renameRange({ key: ranges[0].key, name: renamed });
+    }, "Failed to rename range");
+  };
+  const handleDelete = () => {
+    handleError(async () => {
+      const confirmed = await confirm(ranges);
+      if (!confirmed) return;
+      const keys = ranges.map((r) => r.key);
+      dispatch(Session.Range.remove({ keys }));
+      del(keys);
+    }, "Failed to delete range");
+  };
+
+  return (
+    <Base.Menu>
+      {isSingle && (
+        <Menu.Item itemKey="details" onClick={handleDetails}>
+          <Icon.Details />
+          View details
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      {isSingle && (
+        <>
+          {hasUpdatePermission && <Base.RenameItem onClick={handleRename} />}
+          {hasCreatePermission && (
+            <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
+              <CreateChildRangeIcon key="plot" />
+              Create child range
+            </Menu.Item>
+          )}
+        </>
+      )}
+      <Menu.Divider />
+      <Base.FavoriteItems
+        anyFavorited={someAreFavorites}
+        anyNotFavorited={someAreNotFavorites}
+        onFavorite={handleFavorite}
+        onUnfavorite={handleUnfavorite}
+      />
+      <Menu.Divider />
+      {isSingle && (
+        <Link.CopyContextMenuItem
+          onClick={() =>
+            handleLink({
+              name: ranges[0].name,
+              ontologyID: ranger.ontologyID(ranges[0].key),
+            })
+          }
+        />
+      )}
+      <Menu.Divider />
+      {hasDeletePermission && isNotEmpty && <Base.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
+      <Base.ReloadConsoleItem />
+    </Base.Menu>
+  );
+};

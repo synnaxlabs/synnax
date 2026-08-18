@@ -87,9 +87,12 @@ inline Scope Scope::parse(x::json::Parser parser) {
         .mode = parser.field<ScopeMode>("mode"),
         .liveness = parser.field<Liveness>("liveness"),
         .activation = parser.field<std::optional<Handle>>("activation"),
-        .strata = parser.field<std::vector<Members>>("strata"),
-        .steps = parser.field<std::vector<Member>>("steps"),
-        .transitions = parser.field<std::vector<Transition>>("transitions"),
+        .strata = parser.field<std::vector<Members>>("strata", std::vector<Members>{}),
+        .steps = parser.field<std::vector<Member>>("steps", std::vector<Member>{}),
+        .transitions = parser.field<std::vector<Transition>>(
+            "transitions",
+            std::vector<Transition>{}
+        ),
     };
 }
 
@@ -126,7 +129,6 @@ inline Function Function::parse(x::json::Parser parser) {
     return Function{
         .key = parser.field<std::string>("key"),
         .body = parser.field<Body>("body"),
-        .config = parser.field<::arc::types::Params>("config"),
         .inputs = parser.field<::arc::types::Params>("inputs"),
         .outputs = parser.field<::arc::types::Params>("outputs"),
         .channels = parser.field<::arc::types::Channels>("channels"),
@@ -137,7 +139,6 @@ inline x::json::json Function::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["body"] = this->body.to_json();
-    j["config"] = this->config.to_json();
     j["inputs"] = this->inputs.to_json();
     j["outputs"] = this->outputs.to_json();
     j["channels"] = this->channels.to_json();
@@ -148,7 +149,6 @@ inline Node Node::parse(x::json::Parser parser) {
     return Node{
         .key = parser.field<std::string>("key"),
         .type = parser.field<std::string>("type"),
-        .config = parser.field<::arc::types::Params>("config"),
         .inputs = parser.field<::arc::types::Params>("inputs"),
         .outputs = parser.field<::arc::types::Params>("outputs"),
         .channels = parser.field<::arc::types::Channels>("channels"),
@@ -159,7 +159,6 @@ inline x::json::json Node::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["type"] = this->type;
-    j["config"] = this->config.to_json();
     j["inputs"] = this->inputs.to_json();
     j["outputs"] = this->outputs.to_json();
     j["channels"] = this->channels.to_json();

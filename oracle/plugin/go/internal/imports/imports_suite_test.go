@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestImports(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Imports Suite")
+	RunSpecs(t, "Plugin Go Imports Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -66,7 +66,9 @@ func compileForTwoIdent(
 	return compileForSeriesIteration(ctx, clause, elemName, indexName, expr)
 }
 
-func isRangeCallExpr(expr parser.IExpressionContext) (parser.IFunctionCallSuffixContext, bool) {
+func isRangeCallExpr(
+	expr parser.IExpressionContext,
+) (parser.IFunctionCallSuffixContext, bool) {
 	primary := parser.GetPrimaryExpression(expr)
 	if primary == nil || primary.IDENTIFIER() == nil {
 		return nil, false

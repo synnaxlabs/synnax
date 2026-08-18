@@ -11,9 +11,10 @@ from examples.simulators import PressSimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_LOW_PRIORITY_SOURCE = """
+import time
 authority 100
 
 start_low_cmd => main
@@ -21,12 +22,14 @@ start_low_cmd => main
 sequence main {
     stage active {
         0 -> press_vlv_cmd
-        wait{100ms} => active
+        time.wait{100ms} => active
     }
 }
 """
 
 ARC_HIGH_PRIORITY_SOURCE = """
+import control
+import time
 authority 200
 
 start_high_cmd => main
@@ -34,20 +37,20 @@ start_high_cmd => main
 sequence main {
     stage active {
         1 -> press_vlv_cmd
-        wait{100ms} => active_hold
+        time.wait{100ms} => active_hold
     }
     stage active_hold {
         1 -> press_vlv_cmd
-        wait{5s} => done
+        time.wait{5s} => done
     }
     stage done {
-        set_authority{0}
+        control.set_authority{0}
     }
 }
 """
 
 
-class AuthorityArcVsArc(ArcConsoleCase):
+class AuthorityArcVsArc(ArcCase):
     """Test that a higher-authority Arc program wins over a lower one,
     and the lower program resumes when the higher one stops writing."""
 

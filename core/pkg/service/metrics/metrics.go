@@ -14,7 +14,7 @@ import (
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -80,9 +80,15 @@ func (s *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []me
 func createCalculatedMetrics(namePrefix string) []channel.Channel {
 	return []channel.Channel{
 		{
-			Name:       namePrefix + "total_size_gb",
-			DataType:   telem.Float32T,
-			Expression: fmt.Sprintf("return %s%s + %s%s", namePrefix, tsSizeMetricName, namePrefix, kvSizeMetricName),
+			Name:     namePrefix + "total_size_gb",
+			DataType: telem.Float32T,
+			Expression: fmt.Sprintf(
+				"return %s%s + %s%s",
+				namePrefix,
+				tsSizeMetricName,
+				namePrefix,
+				kvSizeMetricName,
+			),
 		},
 	}
 }

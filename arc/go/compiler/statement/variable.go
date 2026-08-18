@@ -36,7 +36,9 @@ func compoundOpToString(compoundOp parser.ICompoundOpContext) string {
 	}
 }
 
-func compileVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) error {
+func compileVariableDeclaration(
+	ctx context.Context[parser.IVariableDeclarationContext],
+) error {
 	if localVar := ctx.AST.LocalVariable(); localVar != nil {
 		return compileLocalVariable(context.Child(ctx, localVar))
 	}
@@ -52,19 +54,26 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	if err != nil {
 		return err
 	}
+	// A reactive variable lowers at flow level; its declaration emits nothing.
+	if varScope.IsReactive() {
+		return nil
+	}
 	varType := varScope.Type
 
 	// Special case: if LHS has channel type and RHS is a symbol with channel type,
 	// just copy the channel key instead of reading from the channel.
 	// This handles patterns like:
-	//   sp := set_point  (where set_point is a config param with chan f32)
+	//   sp := set_point  (where set_point is an input param with chan f32)
 	//   sp2 := sp        (where sp is a variable with chan f32)
 	//   alias := channel (where channel is a global KindChannel)
 	if varType.Kind == types.KindChan || varScope.Kind == symbol.KindChannel {
-		if rhsScope, kind := resolveChannelSource(ctx, ctx.AST.Expression()); kind != channelSourceNone {
+		if rhsScope, kind := resolveChannelSource(
+			ctx,
+			ctx.AST.Expression(),
+		); kind != channelSourceNone {
 			switch kind {
 			case channelSourceLocal:
-				// Config params and variables have WASM locals holding the channel key
+				// Params and variables have WASM locals holding the channel key
 				ctx.Writer.WriteLocalGet(rhsScope.ID)
 			case channelSourceGlobal:
 				// Global channels don't have locals - their ID IS the channel key
@@ -79,7 +88,11 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
 	exprType, err := expression.Compile(exprCtx)
 	if err != nil {
-		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
+		return errors.Wrapf(
+			err,
+			"failed to compile initialization expression for '%s'",
+			name,
+		)
 	}
 	if !types.Equal(varType, exprType) {
 		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
@@ -95,7 +108,7 @@ type channelSourceKind int
 
 const (
 	channelSourceNone   channelSourceKind = iota // Not a channel source
-	channelSourceLocal                           // Config param or variable with chan type (has WASM local)
+	channelSourceLocal                           // Param or variable with chan type (has WASM local)
 	channelSourceGlobal                          // Global channel (ID is the channel key)
 )
 
@@ -117,9 +130,10 @@ func resolveChannelSource(
 	if scope.Kind == symbol.KindChannel {
 		return scope, channelSourceGlobal
 	}
-	// Config param or variable with channel type - has a WASM local holding the key
+	// Param or variable with channel type - has a WASM local holding the key
 	if scope.Type.Kind == types.KindChan &&
-		(scope.Kind == symbol.KindConfig || scope.Kind == symbol.KindVariable) {
+		(scope.Kind == symbol.KindInput ||
+			scope.Kind == symbol.KindVariable) {
 		return scope, channelSourceLocal
 	}
 	return nil, channelSourceNone
@@ -144,7 +158,11 @@ func compileStatefulVariable(
 	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
 	_, err = expression.Compile(exprCtx)
 	if err != nil {
-		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
+		return errors.Wrapf(
+			err,
+			"failed to compile initialization for stateful variable '%s'",
+			name,
+		)
 	}
 
 	// Stack is now: [varID, initValue/initHandle]
@@ -196,8 +214,10 @@ func compileIndexedAssignment(
 	return nil
 }
 
-// compileIndexedCompoundAssignment handles indexed compound assignment statements (series[i] += value)
-// Equivalent to: arr[i] = arr[i] op expr
+// compileIndexedCompoundAssignment handles indexed compound assignment statements
+// (series[i] += value).
+//
+//	Equivalent to: arr[i] = arr[i] op expr
 func compileIndexedCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	scope *symbol.Symbol,
@@ -259,7 +279,9 @@ func compileIndexedCompoundAssignment(
 	return nil
 }
 
-// compileSeriesCompoundAssignment handles whole-series compound assignment (series += value)
+// compileSeriesCompoundAssignment handles whole-series compound assignment (series +=
+// value).
+//
 // Equivalent to: series = series op expr (broadcast or element-wise)
 func compileSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
@@ -281,7 +303,13 @@ func compileSeriesCompoundAssignment(
 	}
 
 	isScalar := exprType.Kind != types.KindSeries
-	if err = ctx.Resolver.EmitSeriesArithmetic(ctx.Writer, ctx.WriterID, op, elemType, isScalar); err != nil {
+	if err = ctx.Resolver.EmitSeriesArithmetic(
+		ctx.Writer,
+		ctx.WriterID,
+		op,
+		elemType,
+		isScalar,
+	); err != nil {
 		return err
 	}
 
@@ -321,7 +349,9 @@ func compileCompoundAssignment(
 	op := compoundOpToString(compoundOp)
 	ctx.Writer.WriteLocalGet(scope.ID)
 
-	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	exprType, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(varType),
+	)
 	if err != nil {
 		return err
 	}
@@ -348,7 +378,11 @@ func compileCompoundAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if varType.Kind == types.KindSeries {
-			ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, varType.Unwrap())
+			ctx.Resolver.EmitStateStoreSeries(
+				ctx.Writer,
+				ctx.WriterID,
+				varType.Unwrap(),
+			)
 		} else {
 			ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		}
@@ -366,6 +400,9 @@ func compileAssignment(
 	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return err
+	}
+	if scope.IsReactive() {
+		return nil
 	}
 
 	if compoundOp := ctx.AST.CompoundOp(); compoundOp != nil {
@@ -391,16 +428,22 @@ func compileAssignment(
 			// Direct reference: scope.ID is the Synnax channel key
 			ctx.Writer.WriteI32Const(int32(scope.ID))
 		}
-	} else if varType.Kind == types.KindChan && (sym.Kind == symbol.KindConfig || sym.Kind == symbol.KindVariable || sym.Kind == symbol.KindInput) {
-		// For config params, variables, and input params with channel type,
+	} else if varType.Kind == types.KindChan && (sym.Kind == symbol.KindVariable || sym.Kind == symbol.KindInput) {
+		// For variables and input params with channel type,
 		// scope.ID is a WASM local index that holds the channel key at runtime
 		ctx.Writer.WriteLocalGet(scope.ID)
 	}
 
 	targetType := varType.UnwrapChan()
-	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(targetType))
+	exprType, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(targetType),
+	)
 	if err != nil {
-		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
+		return errors.Wrapf(
+			err,
+			"failed to compile assignment expression for '%s'",
+			name,
+		)
 	}
 	if !types.Equal(targetType, exprType) {
 		if err = expression.EmitCast(ctx, exprType, targetType); err != nil {
@@ -428,19 +471,16 @@ func compileAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if varType.Kind == types.KindSeries {
-			ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, varType.Unwrap())
+			ctx.Resolver.EmitStateStoreSeries(
+				ctx.Writer,
+				ctx.WriterID,
+				varType.Unwrap(),
+			)
 		} else {
 			ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		}
 	case symbol.KindChannel:
 		ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
-	case symbol.KindConfig:
-		if varType.Kind == types.KindChan {
-			ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
-		} else {
-			// Non-channel config param - just set the local
-			ctx.Writer.WriteLocalSet(scope.ID)
-		}
 	case symbol.KindOutput:
 		// Named output - needs special handling for multi-output routing
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {

@@ -2,10 +2,10 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "workspace",
+      "sequence_name": "project",
       "tests": [
-        { "case": "console/workspace/workspace" },
-        { "case": "console/workspace/ontology" }
+        { "case": "console/project/project" },
+        { "case": "console/project/ontology" }
       ]
     },
     {
@@ -30,6 +30,7 @@
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/open_close" },
         { "case": "console/pages/rename_synchronization" },
+        { "case": "console/pages/tombstone" },
         { "case": "console/plot/line_plot" },
         { "case": "console/range/range_explorer" },
         { "case": "console/range/range_details" },
@@ -54,7 +55,8 @@
           "case": "console/channel/calc_channel_stress",
           "parameters": { "rate": [10, 100, 1000] }
         },
-        { "case": "console/channel/calc_type_cascade" }
+        { "case": "console/channel/calc_type_cascade" },
+        { "case": "console/channel/tree_virtualization" }
       ]
     },
     {

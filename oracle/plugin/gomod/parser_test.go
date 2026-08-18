@@ -12,7 +12,6 @@ package gomod_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,15 +31,25 @@ var _ = Describe("ParseModuleName", func() {
 
 	It("should extract the module name from a go.mod file", func() {
 		modPath := filepath.Join(tmpDir, "go.mod")
-		Expect(os.WriteFile(modPath, []byte("module github.com/example/pkg\n\ngo 1.21\n"), 0o644)).To(Succeed())
-		Expect(MustSucceed(gomod.ParseModuleName(modPath))).To(Equal("github.com/example/pkg"))
+		Expect(
+			os.WriteFile(
+				modPath,
+				[]byte("module github.com/example/pkg\n\ngo 1.21\n"),
+				0o644,
+			),
+		).To(Succeed())
+		Expect(
+			MustSucceed(gomod.ParseModuleName(modPath)),
+		).To(Equal("github.com/example/pkg"))
 	})
 
 	It("should handle go.mod with require blocks", func() {
 		modPath := filepath.Join(tmpDir, "go.mod")
 		content := "module github.com/myorg/mymod\n\ngo 1.21\n\nrequire (\n\tgithub.com/foo/bar v1.0.0\n)\n"
 		Expect(os.WriteFile(modPath, []byte(content), 0o644)).To(Succeed())
-		Expect(MustSucceed(gomod.ParseModuleName(modPath))).To(Equal("github.com/myorg/mymod"))
+		Expect(
+			MustSucceed(gomod.ParseModuleName(modPath)),
+		).To(Equal("github.com/myorg/mymod"))
 	})
 
 	It("should return an error for a nonexistent file", func() {
@@ -81,7 +90,11 @@ var _ = Describe("ResolveImportPath", func() {
 			0o644,
 		)).To(Succeed())
 
-		result := gomod.ResolveImportPath("core/pkg/user", tmpDir, "github.com/fallback/")
+		result := gomod.ResolveImportPath(
+			"core/pkg/user",
+			tmpDir,
+			"github.com/fallback/",
+		)
 		Expect(result).To(Equal("github.com/synnaxlabs/synnax/pkg/user"))
 	})
 
@@ -99,18 +112,5 @@ var _ = Describe("ResolveImportPath", func() {
 	It("should fall back to prefix when no go.mod found", func() {
 		result := gomod.ResolveImportPath("some/path", tmpDir, "github.com/fallback/")
 		Expect(result).To(Equal("github.com/fallback/some/path"))
-	})
-})
-
-var _ = Describe("FindRepoRoot", func() {
-	It("should find the repo root from the current file", func() {
-		_, thisFile, _, _ := runtime.Caller(0)
-		root := gomod.FindRepoRoot(thisFile)
-		Expect(root).To(Equal(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(thisFile))))))
-	})
-
-	It("should return empty string when no .git directory exists", func() {
-		root := gomod.FindRepoRoot("/tmp/nonexistent/path/file.go")
-		Expect(root).To(BeEmpty())
 	})
 })

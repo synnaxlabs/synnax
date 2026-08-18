@@ -20,7 +20,9 @@ export default defineConfig({
   plugins: [
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
     react(),
-    lib({ name: "pluto" }),
+    // Pluto's maps are 17MB gzipped, mostly sourcesContent from bundled dependencies,
+    // so they stay out of the tarball. Every other package publishes its maps.
+    lib({ name: "pluto", publishSourcemaps: false }),
     {
       name: "copy-theme-css",
       closeBundle() {
@@ -41,6 +43,7 @@ export default defineConfig({
       entry: {
         index: path.resolve(".", "src/index.ts"),
         ether: path.resolve(".", "src/ether.ts"),
+        testutil: path.resolve(".", "src/testutil/index.ts"),
         tabs: path.resolve(".", "src/tabs/index.ts"),
         theming: path.resolve(".", "src/theming/index.ts"),
         menu: path.resolve(".", "src/menu/index.ts"),
@@ -60,6 +63,8 @@ export default defineConfig({
     },
     rolldownOptions: {
       external: [
+        "vitest",
+        /^@vitest\//,
         "react-hook-form",
         "zod",
         "@synnaxlabs/x",
@@ -80,6 +85,14 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    // vscode-languageclient's "./browser" entry only resolves under the "browser"
+    // exports condition, which Vitest's node-based resolver does not apply.
+    alias: {
+      "vscode-languageclient/browser": path.resolve(
+        ".",
+        "node_modules/vscode-languageclient/lib/browser/main.js",
+      ),
+    },
     setupFiles: ["src/mock/setuptests.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {

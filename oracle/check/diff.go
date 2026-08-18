@@ -33,13 +33,13 @@ func unifiedDiff(label, want, got string, maxLines int) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "--- %s (on disk)\n", label)
 	fmt.Fprintf(&sb, "+++ %s (generated)\n", label)
-	emitted := 0
+	var emitted int
 	limit := maxLines
 	if limit <= 0 {
 		limit = 40
 	}
 
-	i, j := 0, 0
+	var i, j int
 	for i < len(wantLines) || j < len(gotLines) {
 		if emitted >= limit {
 			fmt.Fprintf(&sb, "... up to %d source line(s) remain unprocessed\n",

@@ -7,49 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, ranger } from "@synnaxlabs/client";
-import { deep } from "@synnaxlabs/x";
+import { type ranger } from "@synnaxlabs/client";
 
 import { type flux } from "@/flux/aether";
 
-export const FLUX_STORE_KEY = "ranges";
+const PLURAL_RESOURCE_NAME = "ranges";
 
-export interface FluxStore extends flux.UnaryStore<ranger.Key, ranger.Range> {}
+export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
 
-interface FluxSubStore extends flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
-}
-
-const SET_LISTENER: flux.ChannelListener<FluxSubStore, typeof ranger.payloadZ> = {
-  channel: ranger.SET_CHANNEL_NAME,
-  schema: ranger.payloadZ,
-  onChange: async ({ store, changed, client }) => {
-    const range = client.ranges.sugarOne(changed);
-    const prev = store.ranges.get(changed.key);
-    let labels: label.Label[] | undefined;
-    if (prev?.labels == null) labels = await range.retrieveLabels();
-    let parent: ranger.Range | null = null;
-    if (prev?.parent == null) parent = await range.retrieveParent();
-    store.ranges.set(changed.key, (p) => {
-      const pld: ranger.Payload = { ...range.payload };
-      pld.labels = p?.labels ?? labels;
-      pld.parent = p?.parent ?? parent?.payload;
-      return client.ranges.sugarOne(pld);
-    });
-  },
-};
-
-const DELETE_LISTENER: flux.ChannelListener<FluxSubStore, typeof ranger.keyZ> = {
-  channel: ranger.DELETE_CHANNEL_NAME,
-  schema: ranger.keyZ,
-  onChange: ({ store, changed }) => store.ranges.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
-  FluxSubStore,
-  ranger.Key,
-  ranger.Range
-> = {
-  equal: (a, b) => deep.equal(a.payload, b.payload),
-  listeners: [SET_LISTENER, DELETE_LISTENER],
+export const listDefinition: flux.Definition<ListQuery, ranger.Range[]> = {
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.ranges.retrieve(query),
+  onChange: ({ client, query }, handler) => client.ranges.onChange(query, handler),
+  getCached: ({ client, query }) => client.ranges.getCached(query),
 };

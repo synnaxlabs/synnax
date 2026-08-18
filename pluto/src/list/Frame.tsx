@@ -70,7 +70,6 @@ export interface DataContextValue<K extends record.Key = record.Key> {
   data: K[];
   getItems: () => ItemSpec<K>[];
   getTotalSize: () => number | undefined;
-  itemHeight?: number;
   sentinelRef?: RefCallback<HTMLDivElement>;
 }
 
@@ -82,6 +81,7 @@ export interface UtilContextValue<
   getItem?: GetItem<K, E>;
   subscribe?: (callback: () => void, key: K) => () => void;
   scrollToIndex: (index: number, direction?: location.Y) => void;
+  itemHeight?: number;
 }
 
 const [DataContext, useDataContext] = context.create<DataContextValue>({
@@ -120,6 +120,13 @@ export const useScroller = <K extends record.Key = record.Key>(): Pick<
   return useMemo(() => ({ scrollToIndex }), [scrollToIndex]);
 };
 
+/**
+ * useItemHeight returns the row height the enclosing Frame was given. It reads the
+ * util context, which does not change as the list scrolls.
+ */
+export const useItemHeight = (): number | undefined =>
+  useUtilCtx("List.useItemHeight").itemHeight;
+
 export const useItem = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -146,10 +153,10 @@ export const useData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
-  const { data, getItems, getTotalSize, itemHeight, sentinelRef } = useDataContext(
+  const { data, getItems, getTotalSize, sentinelRef } = useDataContext(
     "List.useData",
   ) as DataContextValue<K>;
-  const { ref, getItem, scrollToIndex, subscribe } = useUtilCtx(
+  const { ref, getItem, scrollToIndex, subscribe, itemHeight } = useUtilCtx(
     "List.useData",
   ) as unknown as UtilContextValue<K, E>;
   return useMemo(
@@ -262,6 +269,8 @@ const useIntersectionFetchMore = (
   return { containerRef, sentinelRef };
 };
 
+const INITIAL_WINDOW_HEIGHT = 800;
+
 const VirtualFrame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -272,7 +281,7 @@ const VirtualFrame = <
   children,
   onFetchMore,
   overscan = 10,
-  itemHeight = 36,
+  itemHeight = 33,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const hasData = data.length > 0;
@@ -281,6 +290,10 @@ const VirtualFrame = <
     count: data.length,
     getScrollElement: () => ref.current,
     estimateSize: () => itemHeight,
+    getItemKey: useCallback((index: number) => data[index] ?? index, [data]),
+    // The container has no measured rect until an effect runs, and an unmeasured
+    // window renders nothing. Assuming one keeps the mount commit from painting empty.
+    initialRect: { width: 0, height: INITIAL_WINDOW_HEIGHT },
     overscan,
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
@@ -306,9 +319,8 @@ const VirtualFrame = <
           index,
           translate: start,
         })),
-      itemHeight,
     }),
-    [refCallback, virtualizer, data, getItem, itemHeight, items],
+    [refCallback, virtualizer, data, getItem, items],
   );
 
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
@@ -317,8 +329,9 @@ const VirtualFrame = <
       getItem,
       scrollToIndex: (index) => virtualizer.scrollToIndex(index),
       subscribe,
+      itemHeight,
     }),
-    [refCallback, virtualizer, getItem, subscribe],
+    [refCallback, virtualizer, getItem, subscribe, itemHeight],
   );
 
   return (
@@ -371,10 +384,9 @@ const StaticFrame = <
       subscribe,
       getTotalSize: () => undefined,
       getItems: () => items,
-      itemHeight,
       sentinelRef,
     }),
-    [refCallback, data, getItem, subscribe, itemHeight, sentinelRef, items],
+    [refCallback, data, getItem, subscribe, sentinelRef, items],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({
@@ -382,8 +394,9 @@ const StaticFrame = <
       getItem,
       scrollToIndex,
       subscribe,
+      itemHeight,
     }),
-    [refCallback, getItem, subscribe, scrollToIndex],
+    [refCallback, getItem, subscribe, scrollToIndex, itemHeight],
   );
   return (
     <DataContext value={dataCtxValue}>

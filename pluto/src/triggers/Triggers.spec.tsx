@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockBoundingClientRect } from "@/testutil/dom";
@@ -409,6 +409,313 @@ describe("Triggers", () => {
     });
   });
 
+  describe("scope", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    interface RenderScopedProps {
+      active: Triggers.Condition;
+      inner?: Triggers.Condition;
+      enabled?: Triggers.Condition;
+    }
+
+    const renderScoped = ({ active, inner, enabled }: RenderScopedProps) => {
+      const callback = vi.fn();
+      const C = () => {
+        Triggers.use({ callback, triggers: [["A"]], enabled });
+        return <div>Hello</div>;
+      };
+      const subject =
+        inner == null ? (
+          <C />
+        ) : (
+          <Triggers.Scope active={inner}>
+            <C />
+          </Triggers.Scope>
+        );
+      render(
+        <Triggers.Provider>
+          <Triggers.Scope active={active}>{subject}</Triggers.Scope>
+        </Triggers.Provider>,
+      );
+      const stages = () => callback.mock.calls.map(([e]) => e.stage);
+      return { stages };
+    };
+
+    const pressA = () => {
+      fireEvent.keyDown(document.body, { code: "KeyA" });
+      fireEvent.keyUp(document.body, { code: "KeyA" });
+      // Clears the provider's double-press window so the next press is a fresh one.
+      vi.advanceTimersByTime(500);
+    };
+
+    it("should deliver triggers while active", () => {
+      const { stages } = renderScoped({ active: true });
+      pressA();
+      expect(stages()).toEqual(["start", "end"]);
+    });
+
+    it("should withhold the press while inactive", () => {
+      const { stages } = renderScoped({ active: false });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+
+    it("should withhold the release when the press was withheld", () => {
+      const { stages } = renderScoped({ active: false });
+      pressA();
+      expect(stages()).toEqual([]);
+    });
+
+    it("should deliver the release after deactivation so a held key cannot stick", () => {
+      let active = true;
+      const { stages } = renderScoped({ active: () => active });
+      fireEvent.keyDown(document.body, { code: "KeyA" });
+      active = false;
+      fireEvent.keyUp(document.body, { code: "KeyA" });
+      vi.advanceTimersByTime(500);
+      expect(stages()).toEqual(["start", "end"]);
+    });
+
+    it("should read a getter at fire time rather than at render", () => {
+      let active = false;
+      const { stages } = renderScoped({ active: () => active });
+      pressA();
+      expect(stages()).not.toContain("start");
+      active = true;
+      pressA();
+      expect(stages()).toContain("start");
+    });
+
+    it("should not let an inner scope re-enable an outer one", () => {
+      const { stages } = renderScoped({ active: false, inner: true });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+
+    it("should withhold the press when enabled is false inside an active scope", () => {
+      const { stages } = renderScoped({ active: true, enabled: false });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+  });
+
+  describe("useUndoRedo", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    interface RenderUndoRedoProps {
+      enabled?: Triggers.Condition;
+      scope?: Triggers.Condition;
+    }
+
+    const renderUndoRedo = ({ enabled, scope }: RenderUndoRedoProps = {}) => {
+      const undo = vi.fn();
+      const redo = vi.fn();
+      const C = () => {
+        Triggers.useUndoRedo({ undo, redo, enabled });
+        return <div>Hello</div>;
+      };
+      render(
+        <Triggers.Provider>
+          {scope == null ? (
+            <C />
+          ) : (
+            <Triggers.Scope active={scope}>
+              <C />
+            </Triggers.Scope>
+          )}
+        </Triggers.Provider>,
+      );
+      return { undo, redo };
+    };
+
+    const press = (...codes: string[]) => {
+      codes.forEach((code) => fireEvent.keyDown(document.body, { code }));
+      [...codes].reverse().forEach((code) => fireEvent.keyUp(document.body, { code }));
+      vi.advanceTimersByTime(500);
+    };
+
+    it("should call undo on control+z", () => {
+      const { undo, redo } = renderUndoRedo();
+      press("ControlLeft", "KeyZ");
+      expect(undo).toHaveBeenCalledTimes(1);
+      expect(redo).not.toHaveBeenCalled();
+    });
+
+    it("should call redo on control+shift+z", () => {
+      const { undo, redo } = renderUndoRedo();
+      press("ControlLeft", "ShiftLeft", "KeyZ");
+      expect(redo).toHaveBeenCalledTimes(1);
+      expect(undo).not.toHaveBeenCalled();
+    });
+
+    it("should treat meta+z as undo", () => {
+      const { undo } = renderUndoRedo();
+      press("MetaLeft", "KeyZ");
+      expect(undo).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not fire on the release", () => {
+      const { undo } = renderUndoRedo();
+      press("ControlLeft", "KeyZ");
+      expect(undo).toHaveBeenCalledTimes(1);
+    });
+
+    it("should ignore z without a modifier", () => {
+      const { undo, redo } = renderUndoRedo();
+      press("KeyZ");
+      expect(undo).not.toHaveBeenCalled();
+      expect(redo).not.toHaveBeenCalled();
+    });
+
+    it("should withhold both handlers while disabled", () => {
+      const { undo, redo } = renderUndoRedo({ enabled: false });
+      press("ControlLeft", "KeyZ");
+      press("ControlLeft", "ShiftLeft", "KeyZ");
+      expect(undo).not.toHaveBeenCalled();
+      expect(redo).not.toHaveBeenCalled();
+    });
+
+    it("should withhold both handlers inside an inactive scope", () => {
+      const { undo, redo } = renderUndoRedo({ scope: false });
+      press("ControlLeft", "KeyZ");
+      press("ControlLeft", "ShiftLeft", "KeyZ");
+      expect(undo).not.toHaveBeenCalled();
+      expect(redo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useHeld", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const renderHeld = (triggers: Triggers.Trigger[], loose?: boolean) => {
+      const { result } = renderHook(() => Triggers.useHeld({ triggers, loose }), {
+        wrapper: ({ children }) => <Triggers.Provider>{children}</Triggers.Provider>,
+      });
+      return result;
+    };
+
+    it("should start unheld", () => {
+      const result = renderHeld([["Control"]]);
+      expect(result.current).toEqual({ triggers: [], held: false });
+    });
+
+    it("should report held while the trigger is down", () => {
+      const result = renderHeld([["Control"]]);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      });
+      expect(result.current.held).toBe(true);
+      expect(result.current.triggers).toEqual([["Control"]]);
+    });
+
+    it("should report unheld once the trigger is released", () => {
+      const result = renderHeld([["Control"]]);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      });
+      act(() => {
+        fireEvent.keyUp(document.body, { code: "ControlLeft" });
+      });
+      expect(result.current).toEqual({ triggers: [], held: false });
+    });
+
+    it("should stay held under loose matching until the last trigger lifts", () => {
+      const result = renderHeld([["Control"], ["Alt"]], true);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      });
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "AltLeft" });
+      });
+      act(() => {
+        fireEvent.keyUp(document.body, { code: "ControlLeft" });
+      });
+      expect(result.current).toEqual({ triggers: [["Alt"]], held: true });
+      act(() => {
+        fireEvent.keyUp(document.body, { code: "AltLeft" });
+      });
+      expect(result.current.held).toBe(false);
+    });
+
+    it("should drop an exact match once a second key joins it", () => {
+      const result = renderHeld([["Control"], ["Alt"]]);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      });
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "AltLeft" });
+      });
+      expect(result.current.held).toBe(false);
+    });
+
+    it("should ignore a key that is not one of its triggers", () => {
+      const result = renderHeld([["Control"]]);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+      });
+      expect(result.current.held).toBe(false);
+    });
+  });
+
+  describe("useHeldRef", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const renderHeldRef = (triggers: Triggers.Trigger[]) => {
+      const { result } = renderHook(() => Triggers.useHeldRef({ triggers }), {
+        wrapper: ({ children }) => <Triggers.Provider>{children}</Triggers.Provider>,
+      });
+      return result;
+    };
+
+    it("should track the held state without re-rendering", () => {
+      const renders = vi.fn();
+      const { result } = renderHook(
+        () => {
+          renders();
+          return Triggers.useHeldRef({ triggers: [["Control"]] });
+        },
+        {
+          wrapper: ({ children }) => <Triggers.Provider>{children}</Triggers.Provider>,
+        },
+      );
+      const before = renders.mock.calls.length;
+      fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      expect(result.current.current.held).toBe(true);
+      expect(renders.mock.calls.length).toEqual(before);
+    });
+
+    it("should clear the ref once the trigger is released", () => {
+      const result = renderHeldRef([["Control"]]);
+      fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      fireEvent.keyUp(document.body, { code: "ControlLeft" });
+      expect(result.current.current).toEqual({ triggers: [], held: false });
+    });
+  });
+
   describe("region-based triggers", () => {
     it("should only trigger when cursor is in the specified region", async () => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
@@ -652,7 +959,7 @@ describe("Triggers", () => {
     it("should still trigger undo/redo in input elements", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.use({ callback, triggers: [["Control", "Z"]] });
+        Triggers.use({ callback, triggers: [Triggers.UNDO] });
         return <input type="text" data-testid="input" />;
       };
       const { getByTestId } = render(
@@ -669,7 +976,7 @@ describe("Triggers", () => {
 
       expect(callback).toHaveBeenCalledWith({
         target: input,
-        triggers: [["Control", "Z"]],
+        triggers: [Triggers.UNDO],
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
@@ -1141,6 +1448,30 @@ describe("Triggers", () => {
         const low = vi.fn();
         const C = () => {
           Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+          Triggers.use({ callback: low, triggers: [["B"]], priority: 0 });
+          return <div>Hello</div>;
+        };
+        render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(high).toHaveBeenCalledOnce();
+        expect(low).not.toHaveBeenCalled();
+        fireEvent.keyUp(document.body, { code: "KeyA" });
+        fireEvent.keyDown(document.body, { code: "KeyB" });
+        expect(low).toHaveBeenCalledOnce();
+        expect(low.mock.calls[0][0].stage).toBe("start");
+      });
+
+      it("should withhold the release from a subscriber whose press was stopped", () => {
+        const high = vi.fn((e: Triggers.UseEvent) => {
+          if (e.stage === "start") e.stopPropagation();
+        });
+        const low = vi.fn();
+        const C = () => {
+          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
           Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
           return <div>Hello</div>;
         };
@@ -1150,10 +1481,8 @@ describe("Triggers", () => {
           </Triggers.Provider>,
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
-        expect(low).not.toHaveBeenCalled();
         fireEvent.keyUp(document.body, { code: "KeyA" });
-        expect(low).toHaveBeenCalledOnce();
-        expect(low.mock.calls[0][0].stage).toBe("end");
+        expect(low).not.toHaveBeenCalled();
       });
     });
   });

@@ -1,6 +1,11 @@
-# NOTE: Windows does not support glob patterns like **/node_modules in .bazelignore.
-# We must list each node_modules directory explicitly for cross-platform compatibility.
-# If you add a new package with node_modules, add its path below.
+# NOTE: Windows does not support glob patterns like **/node_modules in .bazelignore. We
+# must list each node_modules directory explicitly for cross-platform compatibility. If
+# you add a new package with node_modules, add its path below.
+
+# The boringssl->openssl shim is a standalone module consumed only via
+# local_path_override; it is not part of the root build graph.
+
+vendor/boringssl
 
 node_modules
 alamos/ts/node_modules

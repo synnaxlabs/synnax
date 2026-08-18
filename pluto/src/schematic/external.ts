@@ -16,4 +16,6 @@ export * from "@/schematic/node";
 export { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";
 export * from "@/schematic/queries";
 export * from "@/schematic/Schematic";
+export { Scope } from "@/schematic/scope";
+export * from "@/schematic/Suspended";
 export * from "@/schematic/symbol";

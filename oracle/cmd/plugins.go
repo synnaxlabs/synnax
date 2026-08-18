@@ -15,7 +15,9 @@ import (
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	goactions "github.com/synnaxlabs/oracle/plugin/go/actions"
+	goimex "github.com/synnaxlabs/oracle/plugin/go/imex"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
+	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -25,27 +27,34 @@ import (
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
 
-// buildPluginRegistry returns the canonical set of code-generation plugins
-// shared by `oracle sync` and `oracle check`. Sync writes the outputs;
-// check compares them against disk. Both must use the same registry, so
-// the set lives here as a single source of truth.
+// buildPluginRegistry returns the canonical set of code-generation plugins shared by
+// `oracle sync` and `oracle check`. Sync writes the outputs; check compares them
+// against disk. Both must use the same registry, so the set lives here as a single
+// source of truth.
 //
-// The migrate plugin is intentionally excluded; it has its own command
-// (`oracle migrate`) with bespoke snapshot handling and is not part of the
-// regular generation pipeline.
-func buildPluginRegistry() *plugin.Registry {
+// The migrate plugin joins the registry for its chain-driven migrate.gen.go emission —
+// a pure function of adjacent version files, regenerated on every sync.
+func buildPluginRegistry() (*plugin.Registry, error) {
 	registry := plugin.NewRegistry()
-	_ = registry.Register(tstypes.New(tstypes.DefaultOptions()))
-	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
-	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
-	_ = registry.Register(pbtypes.New(pbtypes.DefaultOptions()))
-	_ = registry.Register(cpptypes.New(cpptypes.DefaultOptions()))
-	_ = registry.Register(cppjson.New(cppjson.DefaultOptions()))
-	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
-	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
-	_ = registry.Register(goquery.New(goquery.DefaultOptions()))
-	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
-	_ = registry.Register(goactions.New(goactions.DefaultOptions()))
-	_ = registry.Register(tsactions.New(tsactions.DefaultOptions()))
-	return registry
+	for _, p := range []plugin.Plugin{
+		gomigrate.New(),
+		tstypes.New(tstypes.DefaultOptions()),
+		gotypes.New(gotypes.DefaultOptions()),
+		pytypes.New(pytypes.DefaultOptions()),
+		pbtypes.New(pbtypes.DefaultOptions()),
+		cpptypes.New(cpptypes.DefaultOptions()),
+		cppjson.New(cppjson.DefaultOptions()),
+		cpppb.New(cpppb.DefaultOptions()),
+		gopb.New(gopb.DefaultOptions()),
+		goquery.New(goquery.DefaultOptions()),
+		gomarshal.New(gomarshal.DefaultOptions()),
+		goactions.New(goactions.DefaultOptions()),
+		goimex.New(goimex.DefaultOptions()),
+		tsactions.New(tsactions.DefaultOptions()),
+	} {
+		if err := registry.Register(p); err != nil {
+			return nil, err
+		}
+	}
+	return registry, nil
 }

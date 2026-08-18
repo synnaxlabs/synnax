@@ -11,23 +11,12 @@
 
 package role
 
-import (
-	"github.com/google/uuid"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
 
 // Key is a unique identifier for a role, represented as a UUID.
-type Key = uuid.UUID
+type Key = versions.Key
 
 // Role is a named collection of policies that can be assigned to users, enabling
 // group-based permission management. Roles define what actions users can perform on
 // resources.
-type Role struct {
-	// Key is the unique identifier for this role.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
-	Name string `json:"name" msgpack:"name"`
-	// Description is an optional description explaining what permissions the role provides.
-	Description string `json:"description" msgpack:"description"`
-	// Internal is true if this is a built-in system role that cannot be deleted.
-	Internal bool `json:"internal" msgpack:"internal"`
-}
+type Role = versions.Role

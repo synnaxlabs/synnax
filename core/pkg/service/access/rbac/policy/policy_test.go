@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -46,6 +46,19 @@ var _ = Describe("Writer", func() {
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It(
+			"Should return a validation error when an object has an invalid type",
+			func(ctx SpecContext) {
+				p := &policy.Policy{
+					Name:    "test-policy",
+					Objects: []ontology.ID{{Type: "not-a-real-type", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				}
+				Expect(w.Create(ctx, p)).
+					To(MatchError(ContainSubstring("objects.0.type: invalid type")))
+			},
+		)
+
 		It("Should create a policy with provided UUID", func(ctx SpecContext) {
 			key := uuid.New()
 			p := &policy.Policy{
@@ -64,7 +77,7 @@ var _ = Describe("Writer", func() {
 				Objects: []ontology.ID{
 					{Type: "channel", Key: "ch1"},
 					{Type: "channel", Key: "ch2"},
-					{Type: "workspace", Key: "ws1"},
+					{Type: "project", Key: "p1"},
 				},
 				Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate},
 			}
@@ -91,34 +104,68 @@ var _ = Describe("Writer", func() {
 
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(policy.OntologyID(p.Key)).
+				WhereIDs(p.OntologyID()).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.ID.Key).To(Equal(p.Key.String()))
 			Expect(res.Name).To(Equal(p.Name))
 		})
 
-		It("Should create an internal policy when allowInternal is true", func(ctx SpecContext) {
-			internalWriter := svc.NewWriter(tx, true)
-			p := &policy.Policy{
-				Name:     "internal-policy",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions:  []access.Action{access.ActionRetrieve},
-				Internal: true,
-			}
-			Expect(internalWriter.Create(ctx, p)).To(Succeed())
-			Expect(p.Key).ToNot(Equal(uuid.Nil))
-		})
+		It(
+			"Should create an internal policy when allowInternal is true",
+			func(ctx SpecContext) {
+				internalWriter := svc.NewWriter(tx, true)
+				p := &policy.Policy{
+					Name:     "internal-policy",
+					Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions:  []access.Action{access.ActionRetrieve},
+					Internal: true,
+				}
+				Expect(internalWriter.Create(ctx, p)).To(Succeed())
+				Expect(p.Key).ToNot(Equal(uuid.Nil))
+			},
+		)
 
-		It("Should fail to create an internal policy when allowInternal is false", func(ctx SpecContext) {
-			p := &policy.Policy{
-				Name:     "internal-policy",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions:  []access.Action{access.ActionRetrieve},
-				Internal: true,
+		It(
+			"Should fail to create an internal policy when allowInternal is false",
+			func(ctx SpecContext) {
+				p := &policy.Policy{
+					Name:     "internal-policy",
+					Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions:  []access.Action{access.ActionRetrieve},
+					Internal: true,
+				}
+				Expect(w.Create(ctx, p)).
+					Error().
+					To(MatchError(ContainSubstring("cannot create internal policy")))
+			},
+		)
+	})
+
+	Describe("CreateMany", func() {
+		It("Should create multiple policies", func(ctx SpecContext) {
+			policies := []policy.Policy{
+				{
+					Name:    "policy-1",
+					Key:     uuid.New(),
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
+				{
+					Name:    "policy-2",
+					Key:     uuid.New(),
+					Objects: []ontology.ID{{Type: "project", Key: "proj1"}},
+					Actions: []access.Action{access.ActionUpdate},
+				},
 			}
-			Expect(w.Create(ctx, p)).
-				Error().To(MatchError(ContainSubstring("cannot create internal policy")))
+			Expect(w.CreateMany(ctx, &policies)).To(Succeed())
+
+			var retrieved []policy.Policy
+			Expect(svc.NewRetrieve().Where(policy.MatchKeys(
+				policies[0].Key,
+				policies[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
 		})
 	})
 
@@ -133,7 +180,7 @@ var _ = Describe("Writer", func() {
 				},
 				{
 					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -146,7 +193,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, policies[0].Key)).To(Succeed())
 
 			var p policy.Policy
-			err := svc.NewRetrieve().Where(policy.MatchKeys(policies[0].Key)).Entry(&p).Exec(ctx, tx)
+			err := svc.NewRetrieve().
+				Where(policy.MatchKeys(policies[0].Key)).
+				Entry(&p).
+				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -183,7 +233,7 @@ var _ = Describe("Writer", func() {
 				},
 				{
 					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -198,7 +248,7 @@ var _ = Describe("Writer", func() {
 
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(ontology.ResourceTypePolicy).
 				Entries(&children).
@@ -211,7 +261,7 @@ var _ = Describe("Writer", func() {
 
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(ontology.ResourceTypePolicy).
 				Entries(&children).
@@ -239,7 +289,7 @@ var _ = Describe("Retriever", func() {
 			},
 			{
 				Name:    "beta-policy",
-				Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 				Actions: []access.Action{access.ActionDelete},
 			},
 			{
@@ -317,12 +367,14 @@ var _ = Describe("Retriever", func() {
 				Description: "Test role for subject queries",
 			}
 			Expect(rw.Create(ctx, r)).To(Succeed())
-			Expect(w.SetOnRole(ctx, r.Key, policies[0].Key, policies[1].Key)).To(Succeed())
+			Expect(
+				w.SetOnRole(ctx, r.Key, policies[0].Key, policies[1].Key),
+			).To(Succeed())
 
 			subject1 = ontology.ID{Type: "user", Key: uuid.New().String()}
 			subject2 = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject1)).To(Succeed())
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject2)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject1)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject2)).To(Succeed())
 			Expect(rw.AssignRole(ctx, subject1, r.Key)).To(Succeed())
 		})
 
@@ -490,8 +542,16 @@ var _ = Describe("Retriever", func() {
 
 	Describe("Count and Exists", func() {
 		It("Should count policies matching a filter", func(ctx SpecContext) {
-			p1 := policy.Policy{Name: "count-a", Objects: []ontology.ID{{Type: "channel", Key: "a"}}, Actions: []access.Action{access.ActionRetrieve}}
-			p2 := policy.Policy{Name: "count-b", Objects: []ontology.ID{{Type: "channel", Key: "b"}}, Actions: []access.Action{access.ActionRetrieve}}
+			p1 := policy.Policy{
+				Name:    "count-a",
+				Objects: []ontology.ID{{Type: "channel", Key: "a"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			p2 := policy.Policy{
+				Name:    "count-b",
+				Objects: []ontology.ID{{Type: "channel", Key: "b"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
 			Expect(svc.NewWriter(tx, false).Create(ctx, &p1)).To(Succeed())
 			Expect(svc.NewWriter(tx, false).Create(ctx, &p2)).To(Succeed())
 			n := MustSucceed(svc.NewRetrieve().
@@ -500,7 +560,11 @@ var _ = Describe("Retriever", func() {
 			Expect(n).To(Equal(2))
 		})
 		It("Should report existence with Exists", func(ctx SpecContext) {
-			p := policy.Policy{Name: "exists-policy", Objects: []ontology.ID{{Type: "channel", Key: "x"}}, Actions: []access.Action{access.ActionRetrieve}}
+			p := policy.Policy{
+				Name:    "exists-policy",
+				Objects: []ontology.ID{{Type: "channel", Key: "x"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
 			Expect(svc.NewWriter(tx, false).Create(ctx, &p)).To(Succeed())
 			Expect(MustSucceed(svc.NewRetrieve().
 				Where(policy.MatchNames("exists-policy")).
@@ -520,13 +584,6 @@ var _ = Describe("Ontology Integration", func() {
 	Describe("Type", func() {
 		It("Should return correct ontology type", func(ctx SpecContext) {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypePolicy))
-		})
-	})
-
-	Describe("Schema", func() {
-		It("Should return a valid schema", func(ctx SpecContext) {
-			schema := svc.Schema()
-			Expect(schema).ToNot(BeNil())
 		})
 	})
 

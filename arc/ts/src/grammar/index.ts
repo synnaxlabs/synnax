@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Raw JSON string for Monaco/VSCode extension registration
+// Raw JSON string for Monaco/VS Code extension registration
 import arcGrammarRaw from "./arc.tmLanguage.json?raw";
+import arcLanguageConfigurationRaw from "./language-configuration.json?raw";
 
 /**
  * TextMate grammar for the Arc language.
@@ -51,8 +52,8 @@ export const grammar: Grammar = {
 };
 
 /**
- * Raw JSON string of the Arc grammar.
- * Use for Monaco/VSCode extension registration that requires string input.
+ * Raw JSON string of the Arc grammar. Use for Monaco/VS Code extension registration
+ * that requires string input.
  *
  * @example
  * ```typescript
@@ -62,5 +63,21 @@ export const grammar: Grammar = {
  * ```
  */
 export const grammarRaw: string = arcGrammarRaw;
+
+/**
+ * Raw JSON string of the Arc language configuration (comments, brackets, folding, and
+ * indentation rules). Use for Monaco/VS Code extension registration that requires
+ * string input.
+ *
+ * @example
+ * ```typescript
+ * import { languageConfigurationRaw } from '@synnaxlabs/arc';
+ *
+ * const dataUrl = `data:application/json;base64,${btoa(languageConfigurationRaw)}`;
+ * ```
+ */
+export const languageConfigurationRaw: string = arcLanguageConfigurationRaw;
+
+export { type SemanticTokenType, type Token, tokens } from "@/grammar/tokens";
 
 export default grammar;

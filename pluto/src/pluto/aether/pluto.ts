@@ -9,17 +9,12 @@
 
 import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
 
-import { access } from "@/access/aether";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
-import { tooltip } from "@/lineplot/tooltip/aether";
 import { log } from "@/log/aether";
 import { LogFactory } from "@/log/aether/telem/factory";
-import { ontology } from "@/ontology/aether";
-import { ranger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { table } from "@/table/aether";
@@ -34,27 +29,12 @@ import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
-import { measure } from "@/vis/measure/aether";
-import { rule } from "@/vis/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
+import { staleness } from "@/vis/staleness/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { stringValue } from "@/vis/stringValue/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
-
-const STORE_CONFIG: flux.StoreConfig<{
-  [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
-  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RelationshipFluxStore;
-  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.ResourceFluxStore;
-  [access.policy.FLUX_STORE_KEY]: access.policy.FluxStore;
-  [access.role.FLUX_STORE_KEY]: access.role.FluxStore;
-}> = {
-  [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
-  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
-  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_FLUX_STORE_CONFIG,
-  [access.policy.FLUX_STORE_KEY]: access.policy.FLUX_STORE_CONFIG,
-  [access.role.FLUX_STORE_KEY]: access.role.FLUX_STORE_CONFIG,
-};
 
 export const render = (): void => {
   const REGISTRY: aether.ComponentRegistry = {
@@ -68,10 +48,9 @@ export const render = (): void => {
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
-    ...measure.REGISTRY,
     ...range.REGISTRY,
-    ...rule.REGISTRY,
     ...setpoint.REGISTRY,
+    ...staleness.REGISTRY,
     ...stateIndicator.REGISTRY,
     ...status.REGISTRY,
     ...stringValue.REGISTRY,
@@ -79,12 +58,10 @@ export const render = (): void => {
     ...telem.createRegistry((client) => new LogFactory(client)),
     ...theming.REGISTRY,
     ...toggle.REGISTRY,
-    ...tooltip.REGISTRY,
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
     ...gauge.REGISTRY,
-    ...flux.createRegistry({ storeConfig: STORE_CONFIG }),
   };
 
   void aether.render({

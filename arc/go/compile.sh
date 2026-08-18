@@ -28,8 +28,8 @@ echo "Step 2: Embedding Arc into bin directory..."
 mkdir -p lsp/extensions/vscode/bin
 cp arc lsp/extensions/vscode/bin/arc
 
-# Step 3: Rebuild VSCode VSIX extension
-echo "Step 3: Building VSCode extension..."
+# Step 3: Rebuild VS Code VSIX extension
+echo "Step 3: Building VS Code extension..."
 cd lsp/extensions/vscode
 npm install
 npm run vscode:prepublish

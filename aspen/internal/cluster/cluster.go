@@ -123,7 +123,10 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 		c.SetHost(ctx, node.Node{Key: 1, Address: c.HostAddress})
 		clusterKey := uuid.New()
 		c.SetClusterKey(ctx, clusterKey)
-		c.L.Info("no peers provided, bootstrapping new cluster", zap.Stringer("cluster_key", clusterKey))
+		c.L.Info(
+			"no peers provided, bootstrapping new cluster",
+			zap.Stringer("cluster_key", clusterKey),
+		)
 		c.Pledge.ClusterKey = c.Key()
 		if err = pledge_.Arbitrate(c.Pledge); err != nil {
 			return c, err

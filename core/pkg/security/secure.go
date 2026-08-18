@@ -55,10 +55,14 @@ func newSecureProvider(cfg ProviderConfig) (Provider, error) {
 //
 // Thanks to the CockroachDB team for this list of cipher suites[4].
 //
-// [1]: https://github.com/golang/go/blob/4aa1efed4853ea067d665a952eee77c52faac774/src/crypto/tls/cipher_suites.go#L215-L270
-// [2]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
-// [3]: https://wiki.mozilla.org/Security/Server_Side_TLS#Intermediate_compatibility_.28recommended.29
-// [4]: https://github.com/cockroachdb/cockroach/blob/a9fcbd15b24bcf09e139785921be8d9ff8cad729/pkg/security/tls.go#L106
+// [1]:
+// https://github.com/golang/go/blob/4aa1efed4853ea067d665a952eee77c52faac774/src/crypto/tls/cipher_suites.go#L215-L270
+// [2]:
+// https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
+// [3]:
+// https://wiki.mozilla.org/Security/Server_Side_TLS#Intermediate_compatibility_.28recommended.29
+// [4]:
+// https://github.com/cockroachdb/cockroach/blob/a9fcbd15b24bcf09e139785921be8d9ff8cad729/pkg/security/tls.go#L106
 var defaultCipherSuites = []uint16{
 	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 	tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -68,10 +72,37 @@ var defaultCipherSuites = []uint16{
 	tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
 }
 
-// TLS implements TLSProvider.
-func (p *secureProvider) TLS() *tls.Config {
+// TLSConfigFor implements TLSProvider.
+func (p *secureProvider) TLSConfigFor(src cert.Source) *tls.Config {
+	return p.baseTLSConfig(src.GetCertificate)
+}
+
+// NodeClientConfig implements TLSProvider.
+func (p *secureProvider) NodeClientConfig() *tls.Config {
+	return p.baseTLSConfig(p.getNodeCert)
+}
+
+// VerifyCoreCert implements TLSProvider.
+func (p *secureProvider) VerifyCoreCert(src cert.Source, host string) error {
+	c, err := src.GetCertificate(&tls.ClientHelloInfo{})
+	if err != nil {
+		return err
+	}
+	leaf := c.Leaf
+	if leaf == nil {
+		if leaf, err = x509.ParseCertificate(c.Certificate[0]); err != nil {
+			return err
+		}
+	}
+	_, err = leaf.Verify(x509.VerifyOptions{Roots: p.certPool, DNSName: host})
+	return err
+}
+
+func (p *secureProvider) baseTLSConfig(
+	getCert func(*tls.ClientHelloInfo) (*tls.Certificate, error),
+) *tls.Config {
 	return &tls.Config{
-		GetCertificate:       p.getCert,
+		GetCertificate:       getCert,
 		RootCAs:              p.certPool,
 		ClientAuth:           tls.NoClientCert,
 		ClientCAs:            p.certPool,
@@ -85,10 +116,12 @@ func (p *secureProvider) TLS() *tls.Config {
 // NodePrivate implements KeyProvider.
 func (p *secureProvider) NodePrivate() crypto.PrivateKey { return p.tls.PrivateKey }
 
-func (p *secureProvider) getClientCert(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+func (p *secureProvider) getNodeCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return p.tls, nil
 }
 
-func (p *secureProvider) getCert(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (p *secureProvider) getClientCert(
+	*tls.CertificateRequestInfo,
+) (*tls.Certificate, error) {
 	return p.tls, nil
 }

@@ -19,7 +19,7 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 
 interface FieldChild<I, O>
-  extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "variant"> {}
+  extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {}
 
 export type FieldProps<I = string | number, O = I> = GetOptions<I> &
   UseFieldOptions<I, O> &
@@ -55,14 +55,14 @@ export const Field = <I = string | number, O = I>({
   });
   const ctx = useContext(undefined, `Field(${path})`);
   if (field == null) return null;
-  if (path == null) throw new Error("No path provided to Form Field");
-  label ??= caseconv.capitalize(deep.element(path, -1));
+  if (path == null) throw new Error("No path provided to form field");
+  label ??= caseconv.toSentence(deep.element(path, -1));
   visible = typeof visible === "function" ? visible(field, ctx) : visible;
   if (!visible) return null;
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
-  if (field.variant != null) childrenProps.variant = field.variant;
+  if (field.preview != null) childrenProps.preview = field.preview;
   return (
     <Input.Item
       padHelpText={padHelpText}

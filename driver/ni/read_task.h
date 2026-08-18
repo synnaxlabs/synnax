@@ -9,10 +9,13 @@
 
 #pragma once
 
+#include <functional>
 #include <set>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include "absl/log/log.h"
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
@@ -27,9 +30,9 @@
 namespace driver::ni {
 /// @brief the configuration for a read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
-    /// @brief the device key that will be used for the channels in the task. Analog
-    /// read tasks can specify multiple devices. In this case, the device key field
-    /// is empty and automatically set to "cross-device".
+    /// @brief the device key that will be used for the channels in the task. Read
+    /// tasks can specify multiple devices, one per channel. In this case, the
+    /// device key field is absent and automatically set to "cross-device".
     const std::string device_key;
     /// @brief sets the timing source for the task. If not provided, the task will
     /// use software timing on digital tasks and the sample clock on analog tasks.
@@ -82,9 +85,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         ),
         channels(cfg.map<std::unique_ptr<channel::Input>>(
             "channels",
-            [](x::json::Parser &ch_cfg)
+            [&task_type](x::json::Parser &ch_cfg)
                 -> std::pair<std::unique_ptr<channel::Input>, bool> {
-                auto ch = channel::parse_input(ch_cfg);
+                auto ch = channel::parse_input(ch_cfg, task_type);
                 if (ch == nullptr) return {nullptr, false};
                 return {std::move(ch), ch->enabled};
             }
@@ -168,9 +171,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return chs;
     }
 
-    [[nodiscard]]
-
-    x::errors::Error apply(
+    [[nodiscard]] x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         const TaskHandle handle
     ) const {
@@ -232,7 +233,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving_disabled),
         };
     }
 
@@ -256,25 +257,31 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 template<typename T>
 class ReadTaskSource final : public common::Source {
 public:
+    /// @brief the hardware interface this source reads from.
+    using Hardware = hardware::Reader<T>;
+    /// @brief builds the hardware for a run. Called on every start so each run
+    /// claims a fresh DAQmx task instead of reusing a handle from a prior run.
+    using MakeHardware = std::function<
+        std::pair<std::unique_ptr<Hardware>, x::errors::Error>(const ReadTaskConfig &)>;
+
     /// @brief constructs a source bound to the provided parent read task.
-    explicit ReadTaskSource(
-        ReadTaskConfig cfg,
-        std::unique_ptr<hardware::Reader<T>> hw_reader
-    ):
+    explicit ReadTaskSource(ReadTaskConfig cfg, MakeHardware make_hw):
         cfg(std::move(cfg)),
         buf(this->cfg.samples_per_chan * this->cfg.channels.size()),
-        hw_reader(std::move(hw_reader)),
+        make_hw(std::move(make_hw)),
         sample_clock(this->cfg.sample_clock()) {}
 
 private:
-    /// @brief the raw synnax task configuration.
     /// @brief the parsed configuration for the task.
     const ReadTaskConfig cfg;
     /// @brief the buffer used to read data from the hardware. This vector is
     /// pre-allocated and reused.
     std::vector<T> buf;
-    /// @brief interface used to read data from the hardware.
-    std::unique_ptr<hardware::Reader<T>> hw_reader;
+    /// @brief builds the hardware for each run.
+    MakeHardware make_hw;
+    /// @brief interface used to read data from the hardware. Populated on start
+    /// and released on stop.
+    std::unique_ptr<Hardware> hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
     std::unique_ptr<common::SampleClock> sample_clock;
@@ -287,18 +294,29 @@ private:
     }
 
     x::errors::Error start() override {
+        // DAQmx rejects a second task with a live task's name.
+        this->hw_reader.reset();
+        auto [hw, err] = this->make_hw(this->cfg);
+        if (err) return err;
+        this->hw_reader = std::move(hw);
         this->sample_clock->reset();
-        auto err = this->hw_reader->start();
+        if (const auto start_err = this->hw_reader->start()) {
+            this->hw_reader.reset();
+            return start_err;
+        }
+        return x::errors::NIL;
+    }
+
+    x::errors::Error stop() override {
+        if (this->hw_reader == nullptr) return x::errors::NIL;
+        const auto err = this->hw_reader->stop();
+        this->hw_reader.reset();
         return err;
     }
 
-    x::errors::Error stop() override { return this->hw_reader->stop(); }
-
     x::errors::Error restart() {
-        if (const auto err = this->hw_reader->stop()) return err;
-        if (const auto err = this->hw_reader->start()) return err;
-        this->sample_clock->reset();
-        return x::errors::NIL;
+        if (const auto err = this->stop()) return err;
+        return this->start();
     }
 
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
@@ -308,6 +326,14 @@ private:
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
+        // A failed in-loop restart leaves no hardware, so claim it again before
+        // reading. The pipeline retries temporary errors, giving recovery a
+        // chance on every attempt.
+        if (this->hw_reader == nullptr) {
+            res.error = translate_error(this->start());
+            this->curr_read_err = res.error;
+            if (res.error) return res;
+        }
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
         common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);

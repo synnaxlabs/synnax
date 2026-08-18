@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
+import { caseconv, type state } from "@synnaxlabs/x";
 import type z from "zod";
-
-import { type state } from "@/state";
 
 export type InitialStatusDetailsContainer<
   StatusDetails extends z.ZodType = z.ZodNever,
@@ -67,13 +66,6 @@ export type LoadingResult<
   variant: "loading";
   status: status.Status<StatusDetails, z.ZodLiteral<"loading">>;
   data: Data | undefined;
-  /// In-flight promise for the loading operation. Suspending reads attach this
-  /// so the cache can auto-transition to success or error when the promise
-  /// settles. Mutations and observable reads leave it undefined.
-  promise?: Promise<Data>;
-  /// Bare resource name (e.g., "range", "schematic"). Used by the query cache
-  /// to format the success / error status message when the promise settles.
-  name?: string;
 };
 
 export type DisabledResult<
@@ -135,19 +127,6 @@ export const loadingResult = (<
   data,
 })) as LoadingResultCreator;
 
-/// Builds a loading result with an attached promise and the bare resource name.
-/// Used by suspending reads so the cache can auto-transition to success or
-/// error when the promise settles, using `name` to format the next status
-/// message.
-export const pendingResult = <Data extends state.State>(
-  name: string,
-  promise: Promise<Data>,
-): LoadingResult<Data> => ({
-  ...loadingResult<Data>(`retrieving ${name}`),
-  promise,
-  name,
-});
-
 export const successResult = (<
   Data extends state.State,
   StatusDetails extends z.ZodType = z.ZodNever,
@@ -159,7 +138,7 @@ export const successResult = (<
   variant: "success",
   status: status.create<StatusDetails, "success">({
     variant: "success",
-    message: `Successfully ${op}`,
+    message: caseconv.capitalize(op),
     details: statusDetails,
   }),
   data,
@@ -190,8 +169,20 @@ export const nullClientResult = (<
   status: status.create<StatusDetails, "disabled">({
     variant: "disabled",
     message: `Failed to ${op}`,
-    description: `Cannot ${op} because no Core is connected.`,
+    description: "No Core is connected.",
     details: statusDetails as z.output<StatusDetails>,
   }),
   data: undefined,
 })) as NullClientResultCreator;
+
+export const noQueryResult = <Data extends state.State>(
+  op: string,
+): DisabledResult<Data, never> => ({
+  variant: "disabled",
+  status: status.create<never, "disabled">({
+    variant: "disabled",
+    message: `Did not ${op}`,
+    description: `Cannot ${op} without a query.`,
+  }),
+  data: undefined,
+});

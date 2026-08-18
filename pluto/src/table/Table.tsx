@@ -10,7 +10,7 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { box, id, math, type xy } from "@synnaxlabs/x";
+import { box, id, math, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
@@ -19,6 +19,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { type z } from "zod";
 
@@ -26,25 +27,25 @@ import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { Menu } from "@/menu";
-import { Select } from "@/select";
 import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";
 import { useClipboard } from "@/table/clipboard";
 import { DefaultContextMenu } from "@/table/ContextMenu";
-import { ColumnIndicators } from "@/table/Indicator";
+import { ColumnIndicators, INDICATOR_SIZE } from "@/table/Indicator";
 import {
   cellsInRegion,
   findCellPosition,
   nextCellPosition,
+  useColumns,
   useDispatch,
-  useEnsureRetrieved,
   useRedo,
-  useSelectColumns,
-  useSelectRows,
+  useRows,
   useUndo,
 } from "@/table/queries";
 import { Row } from "@/table/Row";
+import { Selection } from "@/table/selection";
+import { useKey } from "@/table/Suspended";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
@@ -55,8 +56,8 @@ type TriggerMode = "clear" | "undo" | "redo" | "default";
 
 const TRIGGERS_CONFIG: Triggers.ModeConfig<TriggerMode> = {
   clear: [["Delete"], ["Backspace"]],
-  undo: [["Control", "Z"]],
-  redo: [["Control", "Shift", "Z"]],
+  undo: [Triggers.UNDO],
+  redo: [Triggers.REDO],
   default: [],
   defaultMode: "default",
 };
@@ -84,10 +85,6 @@ export interface TableProps
   extends
     Omit<ComponentPropsWithRef<"div">, "onCopy" | "onPaste" | "onContextMenu">,
     Pick<z.infer<typeof aetherTable.Table.stateZ>, "visible"> {
-  // resourceKey is the table key the component reads from the Pluto flux
-  // store. The table data must be loaded into flux before the component
-  // mounts; useEnsureRetrieved kicks off the fetch.
-  resourceKey: table.Key;
   // selected is the set of cell keys currently selected. The component
   // never owns selection state itself; it only reflects this prop visually
   // and emits onSelectionChange in response to user gestures.
@@ -112,32 +109,36 @@ export interface TableProps
   // item in the context menu while editable is false. The callback receives
   // the next visibility value.
   onShowIndicatorsChange?: (next: boolean) => void;
+  /** Centers the table in its container. No effect on an axis it overflows. */
+  centered?: boolean;
+  /** When defined, surfaces a Center / Align item in the context menu. */
+  onCenteredChange?: (next: boolean) => void;
   // extraMenuItems is appended to the default context menu items so
   // consumers can add app-specific entries (e.g. "Reload Console").
   extraMenuItems?: ReactNode;
   // enableTriggers gates the in-table keyboard shortcuts (Delete/Backspace
-  // to clear, Cmd+Z to undo, Cmd+Shift+Z to redo). Defaults to true; pass a
-  // function to gate dynamically (e.g. only the focused mosaic tab).
-  enableTriggers?: boolean | (() => boolean);
+  // to clear, Cmd+Z to undo, Cmd+Shift+Z to redo). Defaults to true.
+  enableTriggers?: Triggers.Condition;
 }
 
 export const Table = ({
-  resourceKey: key,
   selected = [],
   onSelectionChange,
   editable = false,
   onEditableChange,
   showIndicators = true,
   onShowIndicatorsChange,
+  centered = false,
+  onCenteredChange,
   extraMenuItems,
   enableTriggers = true,
   visible,
   className,
   ...rest
 }: TableProps): ReactElement => {
-  useEnsureRetrieved({ key });
-  const rows = useSelectRows({ key });
-  const columns = useSelectColumns({ key });
+  const key = useKey();
+  const rows = useRows({ key });
+  const columns = useColumns({ key });
   const { dispatch } = useDispatch();
   const theme = Theming.use();
 
@@ -242,6 +243,8 @@ export const Table = ({
         onEditableChange={onEditableChange}
         showIndicators={showIndicators}
         onShowIndicatorsChange={onShowIndicatorsChange}
+        centered={centered}
+        onCenteredChange={onCenteredChange}
         onAddRow={addRow}
         onAddCol={addCol}
         onRemoveRow={removeRow}
@@ -257,6 +260,8 @@ export const Table = ({
       onEditableChange,
       showIndicators,
       onShowIndicatorsChange,
+      centered,
+      onCenteredChange,
       addRow,
       addCol,
       removeRow,
@@ -266,7 +271,7 @@ export const Table = ({
     ],
   );
 
-  const [{ path }, , setState] = Aether.use({
+  const { path, setState } = Aether.useLifecycle({
     type: aetherTable.Table.TYPE,
     schema: aetherTable.Table.stateZ,
     initialState: { region: box.ZERO, visible },
@@ -274,7 +279,17 @@ export const Table = ({
 
   useEffect(() => setState((s) => ({ ...s, visible })), [visible]);
 
-  const canvasRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
+  const [region, setRegion] = useState<box.Box>(box.ZERO);
+  const canvasRef = Canvas.useRegion((b) => {
+    setRegion(b);
+    setState((s) => ({ ...s, region: b }));
+  });
+
+  const handleScroll = useCallback(
+    ({ currentTarget: { scrollLeft, scrollTop } }: React.UIEvent<HTMLDivElement>) =>
+      setState((s) => ({ ...s, scroll: { x: scrollLeft, y: scrollTop } })),
+    [setState],
+  );
 
   const selectedRef = useSyncedRef(selected);
   const lastSelectedRef = useRef<string | null>(null);
@@ -284,11 +299,10 @@ export const Table = ({
   Triggers.use({
     triggers: FLATTENED_TRIGGERS_CONFIG,
     region: tableElRef,
+    enabled: enableTriggers,
     callback: useCallback(
       ({ triggers, stage }: Triggers.UseEvent) => {
         if (stage !== "start" || !editable) return;
-        if (enableTriggers === false) return;
-        if (typeof enableTriggers === "function" && !enableTriggers()) return;
         const mode = Triggers.determineMode(TRIGGERS_CONFIG, triggers);
         if (mode === "clear") {
           if (selected.length === 0) return;
@@ -296,7 +310,7 @@ export const Table = ({
         } else if (mode === "undo") undo();
         else if (mode === "redo") redo();
       },
-      [editable, enableTriggers, selected, eraseSelected, undo, redo],
+      [editable, selected, eraseSelected, undo, redo],
     ),
   });
 
@@ -462,8 +476,46 @@ export const Table = ({
   const colSizes = useMemo(() => columns.map((c) => c.size), [columns]);
   const totalCol = colSizes.reduce((a, s) => a + s, 0);
   const totalRow = rows.reduce((a, r) => a + r.size, 0);
+  const tableStyle = useMemo(
+    () => ({ width: totalCol, height: totalRow }),
+    [totalCol, totalRow],
+  );
 
-  let rowYCursor = showIndicators ? 4.5 * 6 : 0;
+  const indicatorSize = showIndicators ? INDICATOR_SIZE : 0;
+  // One offset feeds the frame's translate and the canvas cell boxes.
+  const liveOffset = useMemo(() => {
+    if (!centered) return xy.ZERO;
+    const half = (available: number, used: number) =>
+      Math.max(0, Math.floor((available - used) / 2));
+    return {
+      x: half(box.width(region), totalCol + indicatorSize),
+      y: half(box.height(region), totalRow + indicatorSize),
+    };
+  }, [centered, region, totalCol, totalRow, indicatorSize]);
+  // A live offset would slide a dragged edge out from under the cursor.
+  const [held, setHeld] = useState<xy.XY | null>(null);
+  const handlePointerDown = useCallback(() => {
+    if (!centered) return;
+    setHeld(liveOffset);
+    const release = (): void => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+      setHeld(null);
+    };
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+  }, [centered, liveOffset]);
+  const offset = centered ? (held ?? liveOffset) : xy.ZERO;
+  const frameStyle = useMemo(
+    () =>
+      offset.x === 0 && offset.y === 0
+        ? undefined
+        : { transform: `translate(${offset.x}px, ${offset.y}px)` },
+    [offset],
+  );
+
+  let rowYCursor = offset.y + indicatorSize;
+  const cellXOrigin = offset.x + indicatorSize;
   return (
     <div
       className={CSS(CSS.B("table-surface"), className)}
@@ -471,70 +523,77 @@ export const Table = ({
       {...rest}
     >
       <div ref={canvasRef} className={CSS.BE("table-surface", "canvas")} />
-      <div className={CSS(CSS.B("table-frame"), CSS.editable(editable))}>
-        <Menu.ContextMenu menu={renderMenu} {...menuProps}>
-          <table
-            ref={tableElRef}
-            className={CSS(CSS.B("table"), menuProps.className)}
-            style={{ width: totalCol, height: totalRow }}
-            onCopy={onCopy}
-            onPaste={editable ? onPaste : undefined}
-            onKeyDown={handleKeyDown}
-            tabIndex={-1}
-          >
-            <tbody>
-              <Aether.Composite path={path}>
-                <Select.Provider value={selected}>
-                  {showIndicators && (
-                    <ColumnIndicators
-                      columns={colSizes}
-                      rows={rows}
-                      selected={selected}
-                      editable={editable}
-                      onSelect={handleColSelect}
-                      onSelectAll={handleSelectAll}
-                      onResize={handleColResize}
-                    />
-                  )}
-                  {rows.map((row, rowIndex) => {
-                    const yPos = rowYCursor;
-                    rowYCursor += row.size;
-                    return (
-                      <Row
-                        key={rowIndex}
-                        index={rowIndex}
-                        resourceKey={key}
-                        cells={row.cells}
+      <div className={CSS.BE("table-surface", "scroll")} onScroll={handleScroll}>
+        <div
+          className={CSS(CSS.B("table-frame"), CSS.editable(editable))}
+          style={frameStyle}
+          onPointerDown={handlePointerDown}
+        >
+          <Menu.ContextMenu menu={renderMenu} {...menuProps}>
+            <table
+              ref={tableElRef}
+              className={CSS(CSS.B("table"), menuProps.className)}
+              style={tableStyle}
+              onCopy={onCopy}
+              onPaste={editable ? onPaste : undefined}
+              onKeyDown={handleKeyDown}
+              tabIndex={-1}
+            >
+              <tbody>
+                <Aether.Composite path={path}>
+                  <Selection.Context value={selected}>
+                    {showIndicators && (
+                      <ColumnIndicators
                         columns={colSizes}
-                        position={yPos}
-                        size={row.size}
+                        rows={rows}
+                        selected={selected}
                         editable={editable}
-                        showIndicator={showIndicators}
-                        onSelect={handleRowSelect}
-                        onResize={handleRowResize}
-                        onCellSelect={handleCellSelect}
+                        onSelect={handleColSelect}
+                        onSelectAll={handleSelectAll}
+                        onResize={handleColResize}
                       />
-                    );
-                  })}
-                </Select.Provider>
-              </Aether.Composite>
-            </tbody>
-          </table>
-        </Menu.ContextMenu>
-        {editable && (
-          <>
-            <AddCountControl
-              className={CSS.BE("table-frame", "add-col")}
-              resourceName="column"
-              onAdd={(n) => addCol(undefined, n)}
-            />
-            <AddCountControl
-              className={CSS.BE("table-frame", "add-row")}
-              resourceName="row"
-              onAdd={(n) => addRow(undefined, n)}
-            />
-          </>
-        )}
+                    )}
+                    {rows.map((row, rowIndex) => {
+                      const yPos = rowYCursor;
+                      rowYCursor += row.size;
+                      return (
+                        <Row
+                          key={rowIndex}
+                          index={rowIndex}
+                          resourceKey={key}
+                          cells={row.cells}
+                          columns={colSizes}
+                          x={cellXOrigin}
+                          y={yPos}
+                          size={row.size}
+                          editable={editable}
+                          showIndicator={showIndicators}
+                          onSelect={handleRowSelect}
+                          onResize={handleRowResize}
+                          onCellSelect={handleCellSelect}
+                        />
+                      );
+                    })}
+                  </Selection.Context>
+                </Aether.Composite>
+              </tbody>
+            </table>
+          </Menu.ContextMenu>
+          {editable && (
+            <>
+              <AddCountControl
+                className={CSS.BE("table-frame", "add-col")}
+                resourceName="column"
+                onAdd={(n) => addCol(undefined, n)}
+              />
+              <AddCountControl
+                className={CSS.BE("table-frame", "add-row")}
+                resourceName="row"
+                onAdd={(n) => addRow(undefined, n)}
+              />
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

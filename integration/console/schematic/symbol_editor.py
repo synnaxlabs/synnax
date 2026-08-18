@@ -43,7 +43,7 @@ class SymbolEditor:
 
     def wait_for_form_visible(self) -> None:
         """Wait for the form fields to appear (after SVG upload)."""
-        self.page.locator("input[placeholder='Symbol Name']").wait_for(
+        self.page.locator("input[placeholder='Symbol name']").wait_for(
             state="visible", timeout=5000
         )
 
@@ -53,7 +53,7 @@ class SymbolEditor:
 
     def set_name(self, name: str) -> None:
         """Set the symbol name."""
-        name_input = self.page.locator("input[placeholder='Symbol Name']")
+        name_input = self.page.locator("input[placeholder='Symbol name']")
         name_input.fill(name)
 
     def upload_svg(self, svg_path: str) -> None:
@@ -67,7 +67,7 @@ class SymbolEditor:
         """
         import os
 
-        with open(svg_path, "r") as f:
+        with open(svg_path, "r", encoding="utf-8") as f:
             svg_content = f.read()
 
         filename = os.path.basename(svg_path)
@@ -195,7 +195,7 @@ class SymbolEditor:
     def add_handle(self) -> None:
         """Add a new connection handle."""
         handles_header = self.page.locator(".pluto-header").filter(has_text="Handles")
-        add_handle_btn = handles_header.locator("button.pluto-btn--outlined").first
+        add_handle_btn = handles_header.locator("button").first
         add_handle_btn.click()
 
     def set_default_scale(self, scale_percent: int) -> None:

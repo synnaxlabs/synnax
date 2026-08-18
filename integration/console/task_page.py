@@ -60,9 +60,7 @@ class TaskPage(ConsolePage):
                 - msg: The status message (e.g., "Task has not been configured")
                 - level: The alert level (e.g., "disabled", "info", "success", "error")
         """
-        status_element = self.page.locator(
-            ".console-task-state p.pluto-status__text, .console-task-state p.pluto-text"
-        ).first
+        status_element = self.page.locator(".console-task-status__message-text").first
 
         # Parse status level from CSS class
         class_attr = status_element.get_attribute("class") or ""
@@ -120,9 +118,9 @@ class TaskPage(ConsolePage):
             layout.press_enter()
 
         if data_saving is not None:
-            if data_saving != layout.get_toggle("Data Saving"):
-                layout.click_checkbox("Data Saving")
+            if data_saving != layout.get_toggle("Data saving"):
+                layout.click_checkbox("Data saving")
 
         if auto_start is not None:
-            if auto_start != layout.get_toggle("Auto Start"):
-                layout.click_checkbox("Auto Start")
+            if auto_start != layout.get_toggle("Auto start"):
+                layout.click_checkbox("Auto start")

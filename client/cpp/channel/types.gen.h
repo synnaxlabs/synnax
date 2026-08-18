@@ -18,16 +18,16 @@
 #include <variant>
 #include <vector>
 
-#include "client/cpp/cluster/types.gen.h"
+#include "client/cpp/node/types.gen.h"
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
-#include "core/pkg/distribution/channel/pb/channel.pb.h"
+#include "core/pkg/service/channel/pb/channel.pb.h"
 
 namespace synnax::channel {
 
@@ -40,33 +40,37 @@ constexpr const char *OPERATION_TYPE_AVG = "avg";
 constexpr const char *OPERATION_TYPE_NONE = "none";
 constexpr const char *OPERATION_TYPE_DERIVATIVE = "derivative";
 
+/// @brief Key is a unique identifier for a channel in the Synnax database. Composed of
+/// a node key (first 12 bits) and a local key (last 20 bits), enabling distributed
+/// assignment while maintaining global uniqueness.
 using Key = std::uint32_t;
 
 using Name = std::string;
 
-using Status = ::x::status::Status<std::monostate>;
+using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Operation defines an aggregation operation applied to channel data.
-/// Operations calculate min, max, or average values over a time duration or triggered
-/// by a reset channel.
+/// Operations calculate min, max, average, or derivative values over a time duration or
+/// triggered by a reset channel.
 struct Operation {
-    /// @brief type is the aggregation operation type: min, max, avg, or none.
+    /// @brief type is the aggregation operation type: min, max, avg, derivative, or
+    /// none.
     std::string type;
-    /// @brief reset_channel is the channel key that triggers reset of the aggregation.
-    /// If
-    /// 0, duration-based reset is used.
-    Key reset_channel = 0;
-    /// @brief duration is the time window for aggregation when reset_channel is 0.
-    ::x::telem::TimeSpan duration = x::telem::TimeSpan(0);
+    /// @brief reset_channel is the key of a channel that resets the aggregation when it
+    /// receives a sample. If 0, no reset channel is used.
+    Key reset_channel = Key(0);
+    /// @brief duration is the interval at which the aggregation resets. If 0, the
+    /// aggregation is not reset on a timer.
+    ::x::telem::TimeSpan duration = ::x::telem::TimeSpan(0);
 
     static Operation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::distribution::channel::pb::Operation;
-    [[nodiscard]] std::pair<::distribution::channel::pb::Operation, x::errors::Error>
+    using proto_type = ::service::channel::pb::Operation;
+    [[nodiscard]] std::pair<::service::channel::pb::Operation, x::errors::Error>
     to_proto() const;
     static std::pair<Operation, x::errors::Error>
-    from_proto(const ::distribution::channel::pb::Operation &pb);
+    from_proto(const ::service::channel::pb::Operation &pb);
 };
 
 /// @brief Channel is a logical collection of samples emitted by or representing values
@@ -75,29 +79,28 @@ struct Operation {
 struct Channel {
     /// @brief key is the unique identifier for this channel, automatically assigned by
     /// Synnax.
-    Key key = 0;
+    Key key = Key(0);
     /// @brief name is the human-readable channel name.
     Name name;
-    /// @brief leaseholder is the cluster node that holds the lease for this channel.
-    /// Mostly
-    /// for internal use.
-    ::synnax::cluster::NodeKey leaseholder = 0;
+    /// @brief leaseholder is the node that holds the lease for this channel. Mostly for
+    /// internal use.
+    ::synnax::node::Key leaseholder = ::synnax::node::Key(0);
     /// @brief data_type is the data type of samples stored in this channel (e.g.,
-    /// Float64,
-    /// Int32, TimeStamp).
+    /// float64,
+    /// int32, timestamp).
     ::x::telem::DataType data_type;
     /// @brief is_index is true if this is an index channel. Index channels must have
     /// int64
     /// values (TIMESTAMP data type) written in ascending order, and are most commonly
-    /// unix nanosecond timestamps.
+    /// Unix nanosecond timestamps.
     bool is_index = false;
     /// @brief index is the channel used to index this channel's values, associating
     /// each
     /// value with a timestamp.
-    Key index = 0;
+    Key index = Key(0);
     /// @brief alias is an optional alternate name for the channel within a specific
     /// context.
-    std::string alias;
+    std::optional<std::string> alias;
     /// @brief is_virtual is true if this channel does not store data in the database
     /// but
     /// can still be used for streaming purposes.
@@ -108,11 +111,10 @@ struct Channel {
     /// @brief expression is an Arc expression for calculated channels. If set, the
     /// channel
     /// is automatically configured as virtual.
-    std::string expression;
-    /// @brief operations contains optional aggregation operations (min, max, avg)
-    /// applied
-    /// to channel data over time or triggered by a reset channel.
-    std::vector<Operation> operations;
+    std::string expression = "";
+    /// @brief operations contains optional aggregation operations (min, max, avg,
+    /// derivative) applied to channel data over time or triggered by a reset channel.
+    std::vector<Operation> operations = {};
     /// @brief concurrency sets the policy for concurrent writes to the channel's data.
     /// Only
     /// virtual channels can have a policy of shared concurrency.

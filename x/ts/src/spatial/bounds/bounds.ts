@@ -7,13 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { abs, add, equal as mathEqual, min as mathMin, sub } from "@/math/math";
+import { math } from "@/math";
 import { type numeric } from "@/numeric";
 import { type Bounds, boundsZ, type NumberCouple } from "@/spatial/base";
 
 export { type Bounds, boundsZ };
 
 export type Crude<T extends numeric.Value = number> = Bounds<T> | NumberCouple<T>;
+
+/**
+ * A bounds object with either or both of lower and upper omitted. Only valid for
+ * number bounds: `construct` fills a missing lower with -Infinity and a missing upper
+ * with Infinity, neither of which has a bigint representation.
+ */
+export type PartialCrude = Partial<Bounds<number>>;
 
 /** Options for the `construct` function. */
 interface ConstructOptions {
@@ -55,8 +62,17 @@ export interface Construct {
    * Options:
    * - makeValid: If true (default), swaps lower and upper bounds if lower > upper
    *
+   * 3. From a partial bounds object. A missing lower defaults to -Infinity and a
+   * missing upper defaults to Infinity:
+   * ```typescript
+   * construct({ lower: 0 }) // => { lower: 0, upper: Infinity }
+   * construct({ upper: 10 }) // => { lower: -Infinity, upper: 10 }
+   * ```
+   *
    * @param bounds - The input bounds to construct from. Can be:
    *   - A bounds object with lower and upper properties
+   *   - A partial bounds object with only lower or only upper. The missing bound
+   *     defaults to -Infinity (lower) or Infinity (upper)
    *   - An array of length 2 [lower, upper]
    *   - A single number/bigint (treated as upper bound, with lower = 0)
    *   - Two numbers/bigints (lower and upper bounds)
@@ -93,6 +109,13 @@ export interface Construct {
    * construct(10, 0)
    * // => { lower: 0, upper: 10 } (bounds are swapped)
    */
+  /**
+   * Constructs a bounds object from a partial bounds object. A missing lower defaults
+   * to -Infinity and a missing upper defaults to Infinity. Only valid for number
+   * bounds; bigint partials are rejected because there is no bigint infinity.
+   */
+  (bounds: PartialCrude, options?: ConstructOptions): Bounds<number>;
+
   <T extends numeric.Value = number>(
     bounds: Crude<T>,
     options?: ConstructOptions,
@@ -109,14 +132,14 @@ export interface Construct {
   <T extends numeric.Value = number>(lower: T, upper?: T | ConstructOptions): Bounds<T>;
 
   <T extends numeric.Value = number>(
-    lower: T | Crude,
+    lower: T | Crude<T>,
     upper?: T | ConstructOptions,
     options?: ConstructOptions,
   ): Bounds<T>;
 }
 
-export const construct = <T extends numeric.Value>(
-  lower: T | Crude<T>,
+export const construct: Construct = <T extends numeric.Value>(
+  lower: T | Crude<T> | PartialCrude,
   upper?: T | ConstructOptions,
   options?: ConstructOptions,
 ): Bounds<T> => {
@@ -138,8 +161,8 @@ export const construct = <T extends numeric.Value>(
     if (lower.length !== 2) throw new Error("bounds: expected array of length 2");
     [b.lower, b.upper] = lower;
   } else {
-    b.lower = lower.lower;
-    b.upper = lower.upper;
+    b.lower = (lower.lower ?? -Infinity) as T;
+    b.upper = (lower.upper ?? Infinity) as T;
   }
   return options?.makeValid ? makeValid<T>(b) : b;
 };
@@ -148,6 +171,11 @@ export const construct = <T extends numeric.Value>(
 export const ZERO: Bounds = Object.freeze({ lower: 0, upper: 0 });
 /** A lower bound of -Infinity and an upper bound of Infinity. */
 export const INFINITE: Bounds = Object.freeze({ lower: -Infinity, upper: Infinity });
+/**
+ * Bounds containing no values: the identity for {@link max} unions and the dual of
+ * {@link INFINITE}. Use as the "no data" sentinel; {@link isFinite} rejects it.
+ */
+export const INVALID: Bounds = Object.freeze({ lower: Infinity, upper: -Infinity });
 /** A lower bound of 0 and an upper bound of 1. */
 export const DECIMAL: Bounds = Object.freeze({ lower: 0, upper: 1 });
 /** Clip space bounds i.e. a lower bound of -1 and an upper bound of 1. */
@@ -184,9 +212,13 @@ export const makeValid = <T extends numeric.Value = number>(
 };
 
 /**
- * Clamps the given target value to the given bounds. If the target is less than the lower
- * bound, the lower bound is returned. If the target is greater than or equal to the upper
- * bound, the upper bound minus 1 is returned. Otherwise, the target is returned.
+ * Projects the target onto the closed interval [lower, upper]. Returns lower if the
+ * target is below it, upper if the target is above it, and the target otherwise.
+ *
+ * The returned value may equal upper, which is intentionally not contained by the
+ * half-open bounds (see contains). clamp answers "nearest valid magnitude", not "which
+ * half-open bucket"; those are different operations. To clamp an integer index into the
+ * half-open range [lower, upper), clamp against upper - 1.
  *
  * @param bounds - The bounds to clamp the target to.
  * @param target - The target value to clamp.
@@ -195,8 +227,7 @@ export const makeValid = <T extends numeric.Value = number>(
 export const clamp = <T extends numeric.Value>(bounds: Crude<T>, target: T): T => {
   const _bounds = construct<T>(bounds);
   if (target < _bounds.lower) return _bounds.lower;
-  if (target >= _bounds.upper)
-    return (_bounds.upper - ((typeof _bounds.upper === "number" ? 1 : 1n) as T)) as T;
+  if (target > _bounds.upper) return _bounds.upper;
   return target;
 };
 
@@ -292,22 +323,24 @@ export const mean = (a: Crude): number => {
 
 /**
  * @returns bounds that have the maximum span of the given bounds i.e. the min of all
- * of the lower bounds and the max of all of the upper bounds.
+ * of the lower bounds and the max of all of the upper bounds. Members are not
+ * reordered, so {@link INVALID} entries act as the identity instead of widening the
+ * result to infinity.
  */
 export const max = (bounds: Crude[]): Bounds => ({
-  lower: Math.min(...bounds.map((b) => construct(b).lower)),
-  upper: Math.max(...bounds.map((b) => construct(b).upper)),
+  lower: Math.min(...bounds.map((b) => construct(b, { makeValid: false }).lower)),
+  upper: Math.max(...bounds.map((b) => construct(b, { makeValid: false }).upper)),
 });
 
 /**
  * @returns bounds that have the minimum span of the given bounds i.e. the max of all
  * of the lower bounds and the min of all of the upper bounds. Note that this function
  * may create invalid bounds if the highest lower bound is greater than the lowest upper
- * bound.
+ * bound. Members are not reordered.
  */
 export const min = (bounds: Crude[]): Bounds => ({
-  lower: Math.max(...bounds.map((b) => construct(b).lower)),
-  upper: Math.min(...bounds.map((b) => construct(b).upper)),
+  lower: Math.max(...bounds.map((b) => construct(b, { makeValid: false }).lower)),
+  upper: Math.min(...bounds.map((b) => construct(b, { makeValid: false }).upper)),
 });
 
 /**
@@ -479,7 +512,7 @@ export const buildInsertionPlan = <T extends numeric.Value>(
   }
   let deleteInBetween = upper.index - lower.index;
   let insertInto = lower.index;
-  let removeBefore = sub(Number(span(_bounds[lower.index])), lower.position);
+  let removeBefore = math.sub(Number(span(_bounds[lower.index])), lower.position);
   // If we're overlapping with the previous bound, we need to slice out one less
   // and insert one further up.
   if (lower.position !== 0) {
@@ -596,7 +629,7 @@ export const traverse = <T extends numeric.Value = number>(
   let remainingDist = dist;
   let currentPosition = start;
 
-  while (mathEqual(remainingDist, 0) === false) {
+  while (math.equal(remainingDist, 0) === false) {
     // Find the bound we're currently in or adjacent to
     const index = _bounds.findIndex((b) => {
       if (dir > 0) return currentPosition >= b.lower && currentPosition < b.upper;
@@ -606,16 +639,16 @@ export const traverse = <T extends numeric.Value = number>(
     if (index !== -1) {
       const b = _bounds[index];
       let distanceInBound: T;
-      if (dir > 0) distanceInBound = sub(b.upper, currentPosition);
-      else distanceInBound = sub(currentPosition, b.lower);
+      if (dir > 0) distanceInBound = math.sub(b.upper, currentPosition);
+      else distanceInBound = math.sub(currentPosition, b.lower);
 
       if (distanceInBound > (0 as T)) {
-        const moveDist = mathMin(abs(remainingDist), distanceInBound);
-        currentPosition = add(currentPosition, dir > 0 ? moveDist : -moveDist);
-        remainingDist = sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
+        const moveDist = math.min(math.abs(remainingDist), distanceInBound);
+        currentPosition = math.add(currentPosition, dir > 0 ? moveDist : -moveDist);
+        remainingDist = math.sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
 
         // If we've exhausted the distance, return the current position
-        if (mathEqual(remainingDist, 0)) return currentPosition;
+        if (math.equal(remainingDist, 0)) return currentPosition;
         continue;
       }
     }

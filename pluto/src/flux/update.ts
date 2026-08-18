@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, type destructor, type status } from "@synnaxlabs/x";
+import { type query, type status, type Synnax as Client } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, type destructor, state, type verbs } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
-import { type base } from "@/flux/base";
-import { useStore } from "@/flux/Provider";
 import {
   errorResult,
   type InitialStatusDetailsContainer,
@@ -26,176 +24,124 @@ import {
   successResult,
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
-import { state } from "@/state";
 import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface UpdateParams<
-  Input extends base.Data,
-  Store extends base.Store,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 > {
   data: Input;
-  client: AllowDisconnected extends true ? Client | null : Client;
-  store: Store;
-  rollbacks: destructor.Destructor[];
+  client: Client;
   setStatus: (setter: state.SetArg<ResultStatus<StatusDetails>>) => void;
+  onOptimisticComplete: (data: Output) => Promise<void>;
 }
 
 export type CreateUpdateParams<
-  Input extends base.Data,
-  ScopedStore extends base.Store,
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 > = {
   name: string;
-  verbs: base.Verbs;
+  verbs: verbs.Verbs;
   update: (
-    params: UpdateParams<Input, ScopedStore, StatusDetails, AllowDisconnected>,
+    params: UpdateParams<Input, Output, StatusDetails>,
   ) => Promise<Output | false>;
-  allowDisconnected?: AllowDisconnected;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
-export interface UseObservableUpdateReturn<Input extends base.Data> {
-  update: (data: Input, opts?: base.FetchOptions) => void;
-  updateAsync: (data: Input, opts?: base.FetchOptions) => Promise<boolean>;
+export interface UseObservableUpdateReturn<Input extends query.Data> {
+  update: (data: Input, opts?: query.FetchOptions) => void;
+  updateAsync: (data: Input, opts?: query.FetchOptions) => Promise<boolean>;
 }
 
 export interface UseObservableUpdateParams<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
-  SubStore extends base.Store = {},
 > {
   debounce?: CrudeTimeSpan;
   onChange: state.Setter<Result<Input | undefined, StatusDetails>>;
-  scope?: string;
   beforeUpdate?: (
-    params: BeforeUpdateParams<Input, AllowDisconnected, SubStore>,
+    params: BeforeUpdateParams<Input>,
   ) => Promise<Input | boolean> | Input | boolean;
-  afterSuccess?: (
-    params: AfterSuccessParams<Output, AllowDisconnected>,
-  ) => Promise<void> | void;
-  afterFailure?: (
-    params: AfterFailureParams<Input, AllowDisconnected>,
-  ) => Promise<void> | void;
+  afterOptimistic?: (params: AfterOptimisticParams<Output>) => Promise<void> | void;
+  afterSuccess?: (params: AfterSuccessParams<Output>) => Promise<void> | void;
+  afterFailure?: (params: AfterFailureParams<Input>) => Promise<void> | void;
 }
 
-export interface BeforeUpdateParams<
-  Data extends base.Data,
-  AllowDisconnected extends boolean = false,
-  Store extends base.Store = {},
-> {
+export interface BeforeUpdateParams<Data extends query.Data> {
+  /** Side-effect undos run in reverse order when the update fails. */
   rollbacks: destructor.Destructor[];
-  client: AllowDisconnected extends true ? Client | null : Client;
+  client: Client;
   data: Data;
-  store: Store;
 }
 
-export interface AfterSuccessParams<
-  Output extends base.Data,
-  AllowDisconnected extends boolean = false,
-> {
-  client: AllowDisconnected extends true ? Client | null : Client;
+export interface AfterOptimisticParams<Output extends query.Data> {
+  /** Side-effect undos run in reverse order when the update fails. */
+  rollbacks: destructor.Destructor[];
+  client: Client;
   data: Output;
 }
 
-export interface AfterFailureParams<
-  Data extends base.Data,
-  AllowDisconnected extends boolean = false,
-> {
-  client: AllowDisconnected extends true ? Client | null : Client;
+export interface AfterSuccessParams<Output extends query.Data> {
+  client: Client;
+  data: Output;
+}
+
+export interface AfterFailureParams<Data extends query.Data> {
+  client: Client;
   status: status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
   data: Data;
 }
 
 export interface UseDirectUpdateParams<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
-  SubStore extends base.Store = {},
-> extends Omit<
-  UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected, SubStore>,
-  "onChange"
-> {}
+> extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
 
 export type UseDirectUpdateReturn<
-  Input extends base.Data,
+  Input extends query.Data,
   StatusDetails extends z.ZodType = z.ZodNever,
 > = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input>;
 
 export interface UseObservableUpdate<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
-  SubStore extends base.Store = {},
 > {
   (
-    args: UseObservableUpdateParams<
-      Input,
-      Output,
-      StatusDetails,
-      AllowDisconnected,
-      SubStore
-    >,
+    params: UseObservableUpdateParams<Input, Output, StatusDetails>,
   ): UseObservableUpdateReturn<Input>;
 }
 
 export interface UseUpdate<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
-  SubStore extends base.Store = {},
 > {
   (
-    args?: UseDirectUpdateParams<
-      Input,
-      Output,
-      StatusDetails,
-      AllowDisconnected,
-      SubStore
-    >,
+    params?: UseDirectUpdateParams<Input, Output, StatusDetails>,
   ): UseDirectUpdateReturn<Input, StatusDetails>;
 }
 
 export interface CreateUpdateReturn<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
-  SubStore extends base.Store = {},
 > {
-  useObservableUpdate: UseObservableUpdate<
-    Input,
-    Output,
-    StatusDetails,
-    AllowDisconnected,
-    SubStore
-  >;
-  useUpdate: UseUpdate<Input, Output, StatusDetails, AllowDisconnected, SubStore>;
+  useObservableUpdate: UseObservableUpdate<Input, Output, StatusDetails>;
+  useUpdate: UseUpdate<Input, Output, StatusDetails>;
 }
 
 const useObservable = <
-  Input extends base.Data,
-  Store extends base.Store,
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 >(
-  params: UseObservableUpdateParams<
-    Input,
-    Output,
-    StatusDetails,
-    AllowDisconnected,
-    Store
-  > &
-    CreateUpdateParams<Input, Store, Output, StatusDetails, AllowDisconnected>,
+  params: UseObservableUpdateParams<Input, Output, StatusDetails> &
+    CreateUpdateParams<Input, Output, StatusDetails>,
 ): UseObservableUpdateReturn<Input> => {
   const {
     onChange,
@@ -203,17 +149,15 @@ const useObservable = <
     name,
     verbs: { present, past, participle },
     debounce = 0,
-    scope,
     beforeUpdate,
+    afterOptimistic,
     afterSuccess,
     afterFailure,
-    allowDisconnected = false as AllowDisconnected,
   } = params;
-  const maybeClient = Synnax.use();
-  const store = useStore<Store>(scope);
+  const client = Synnax.use();
   const addStatus = useAdder();
   const runUpdate = useCallback(
-    async (data: Input, opts: base.FetchOptions = {}): Promise<boolean> => {
+    async (data: Input, opts: query.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
 
       const rollbacks: destructor.Destructor[] = [];
@@ -225,7 +169,7 @@ const useObservable = <
         }
       };
 
-      if (maybeClient == null && !allowDisconnected) {
+      if (client == null) {
         onChange((p) =>
           nullClientResult(
             `${present} ${name}`,
@@ -234,10 +178,6 @@ const useObservable = <
         );
         return false;
       }
-
-      const client = maybeClient as AllowDisconnected extends true
-        ? Client | null
-        : Client;
 
       try {
         onChange((p) =>
@@ -249,12 +189,7 @@ const useObservable = <
         );
 
         if (beforeUpdate != null) {
-          const updatedValue = await beforeUpdate({
-            client,
-            data,
-            rollbacks,
-            store,
-          });
+          const updatedValue = await beforeUpdate({ client, data, rollbacks });
           if (signal?.aborted === true) return false;
           if (updatedValue === false) {
             onChange(successResult(`${past} ${name}`, data));
@@ -274,7 +209,12 @@ const useObservable = <
             } as Result<Input | undefined, StatusDetails>;
           });
 
-        const output = await update({ client, data, store, rollbacks, setStatus });
+        const onOptimisticComplete = async (output: Output): Promise<void> => {
+          if (signal?.aborted === true) return;
+          await afterOptimistic?.({ client, data: output, rollbacks });
+        };
+
+        const output = await update({ client, data, setStatus, onOptimisticComplete });
         if (signal?.aborted === true) return false;
         onChange((p) =>
           successResult(
@@ -299,23 +239,22 @@ const useObservable = <
       }
     },
     [
-      maybeClient,
-      allowDisconnected,
+      client,
       name,
       present,
       participle,
       past,
-      store,
       onChange,
       addStatus,
       update,
       beforeUpdate,
+      afterOptimistic,
       afterSuccess,
       afterFailure,
     ],
   );
   const handleUpdate = useDebouncedCallback(
-    (data: Input, opts?: base.FetchOptions) => {
+    (data: Input, opts?: query.FetchOptions) => {
       void runUpdate(data, opts);
     },
     debounce,
@@ -325,20 +264,12 @@ const useObservable = <
 };
 
 const useDirect = <
-  Input extends base.Data,
-  Store extends base.Store = {},
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 >(
-  params: UseDirectUpdateParams<
-    Input,
-    Output,
-    StatusDetails,
-    AllowDisconnected,
-    Store
-  > &
-    CreateUpdateParams<Input, Store, Output, StatusDetails, AllowDisconnected>,
+  params: UseDirectUpdateParams<Input, Output, StatusDetails> &
+    CreateUpdateParams<Input, Output, StatusDetails>,
 ): UseDirectUpdateReturn<Input, StatusDetails> => {
   const { name, verbs, ...restParams } = params;
   const initialStatusDetails = parseInitialStatusDetails<StatusDetails>(params);
@@ -349,62 +280,32 @@ const useDirect = <
       initialStatusDetails,
     ),
   );
-  const methods = useObservable<Input, Store, Output, StatusDetails, AllowDisconnected>(
-    {
-      ...restParams,
-      initialStatusDetails,
-      verbs,
-      name,
-      onChange: setResult,
-    },
-  );
+  const methods = useObservable<Input, Output, StatusDetails>({
+    ...restParams,
+    initialStatusDetails,
+    verbs,
+    name,
+    onChange: setResult,
+  });
   return { ...result, ...methods };
 };
 
 export const createUpdate = <
-  Input extends base.Data,
-  ScopedStore extends base.Store,
-  Output extends base.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 >(
-  createParams: CreateUpdateParams<
-    Input,
-    ScopedStore,
-    Output,
-    StatusDetails,
-    AllowDisconnected
-  >,
-): CreateUpdateReturn<
-  Input,
-  Output,
-  StatusDetails,
-  AllowDisconnected,
-  ScopedStore
-> => ({
+  createParams: CreateUpdateParams<Input, Output, StatusDetails>,
+): CreateUpdateReturn<Input, Output, StatusDetails> => ({
   useObservableUpdate: (
-    params: UseObservableUpdateParams<
-      Input,
-      Output,
-      StatusDetails,
-      AllowDisconnected,
-      ScopedStore
-    >,
+    params: UseObservableUpdateParams<Input, Output, StatusDetails>,
   ) =>
-    useObservable<Input, ScopedStore, Output, StatusDetails, AllowDisconnected>({
+    useObservable<Input, Output, StatusDetails>({
       ...params,
       ...createParams,
     }),
-  useUpdate: (
-    params: UseDirectUpdateParams<
-      Input,
-      Output,
-      StatusDetails,
-      AllowDisconnected,
-      ScopedStore
-    > = {},
-  ) =>
-    useDirect<Input, ScopedStore, Output, StatusDetails, AllowDisconnected>({
+  useUpdate: (params: UseDirectUpdateParams<Input, Output, StatusDetails> = {}) =>
+    useDirect<Input, Output, StatusDetails>({
       ...params,
       ...createParams,
     }),

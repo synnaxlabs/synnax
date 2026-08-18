@@ -31,23 +31,29 @@ var _ = Describe("Trace", func() {
 		})
 	})
 	Describe("No-op", func() {
-		It("Should not panic when calling methods on a nil devTracer", func(specCtx SpecContext) {
-			var tracer *alamos.Tracer
-			Expect(func() {
-				_, sp := tracer.Debug(specCtx, "test")
-				sp.End()
-			}).ToNot(Panic())
-		})
+		It(
+			"Should not panic when calling methods on a nil devTracer",
+			func(specCtx SpecContext) {
+				var tracer *alamos.Tracer
+				Expect(func() {
+					_, sp := tracer.Debug(specCtx, "test")
+					sp.End()
+				}).ToNot(Panic())
+			},
+		)
 	})
 	Describe("Transfer", func() {
-		It("Should correctly transfer the span from one context to another", func(specCtx SpecContext) {
-			ctx, sp := devIns.T.Debug(specCtx, "test")
-			sp1 := trace.SpanFromContext(ctx)
-			ctx2 := devIns.T.Transfer(ctx, specCtx)
-			sp2 := trace.SpanFromContext(ctx2)
-			Expect(sp1).To(BeIdenticalTo(sp2))
-			sp.End()
-		})
+		It(
+			"Should correctly transfer the span from one context to another",
+			func(specCtx SpecContext) {
+				ctx, sp := devIns.T.Debug(specCtx, "test")
+				sp1 := trace.SpanFromContext(ctx)
+				ctx2 := devIns.T.Transfer(ctx, specCtx)
+				sp2 := trace.SpanFromContext(ctx2)
+				Expect(sp1).To(BeIdenticalTo(sp2))
+				sp.End()
+			},
+		)
 	})
 	Describe("Child", func() {
 		It("Should inject the child path into the span key", func(specCtx SpecContext) {

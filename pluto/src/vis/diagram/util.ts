@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
-import { type InternalNode, type ReactFlowInstance } from "@xyflow/react";
+import {
+  type InternalNode,
+  type NodeChange as RFNodeChange,
+  type ReactFlowInstance,
+} from "@xyflow/react";
+
+import { type diagram } from "@/vis/diagram/aether";
 
 import { type Diagram } from ".";
 
@@ -26,6 +32,48 @@ export const internalNodeBox = (node: InternalNode | null): box.Box => {
   const { width, height } = node.measured;
   if (width == null || height == null) return box.ZERO;
   return box.construct(node.internals.positionAbsolute, { width, height });
+};
+
+interface HandleGeometry {
+  id?: string | null;
+  position: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface NodeGeometry {
+  positionAbsolute: xy.XY;
+  handleBounds?: {
+    source?: HandleGeometry[] | null;
+    target?: HandleGeometry[] | null;
+  } | null;
+}
+
+/// @brief the connection point and side of a node's handle, matching React Flow's
+/// getHandlePosition (the point sits on the handle's edge for its side, not its center).
+/// Returns null when the named handle is absent; an empty handleKey uses the first handle.
+export const resolveEndpoint = (
+  { positionAbsolute, handleBounds }: NodeGeometry,
+  handleKey: string,
+): diagram.EdgeEndpoint | null => {
+  const handles = [...(handleBounds?.source ?? []), ...(handleBounds?.target ?? [])];
+  const handle = handleKey ? handles.find((h) => h.id === handleKey) : handles[0];
+  if (handle == null) return null;
+  const { x, y, width: w, height: h } = handle;
+  const origin = xy.translate(positionAbsolute, { x, y });
+  const orientation = handle.position as location.Outer;
+  switch (orientation) {
+    case "top":
+      return { position: xy.translateX(origin, w / 2), orientation };
+    case "right":
+      return { position: xy.translate(origin, { x: w, y: h / 2 }), orientation };
+    case "bottom":
+      return { position: xy.translate(origin, { x: w / 2, y: h }), orientation };
+    default:
+      return { position: xy.translateY(origin, h / 2), orientation };
+  }
 };
 
 export const selectNodeBox = (flow: ReactFlowInstance, key: string): box.Box => {
@@ -106,4 +154,38 @@ export const calculateCursorPosition = (
     .translate(xy.scale(viewport.position, -1))
     .magnify(xy.reciprocal(zoomXY));
   return s.pos(xy.construct(cursor));
+};
+
+export interface PartitionedNodeChanges {
+  /// @brief changes that should be forwarded to the diagram's onNodesChange handler.
+  passthrough: RFNodeChange[];
+  /// @brief finalized measured dimensions keyed by node id. Excludes in-progress
+  /// resizes and zero-area measurements, which react-flow emits before a node has
+  /// actually been laid out.
+  sizes: [string, dimensions.Dimensions][];
+  /// @brief ids of removed nodes, whose stale measurements should be discarded.
+  removed: string[];
+}
+
+/// @brief splits raw react-flow node changes into measured dimensions, removals, and
+/// the changes that should be passed through to the diagram. Dimension changes that are
+/// still resizing or report a zero width or height are dropped, since react-flow emits
+/// those before a node has settled into its final layout.
+export const partitionNodeChanges = (
+  changes: RFNodeChange[],
+): PartitionedNodeChanges => {
+  const passthrough: RFNodeChange[] = [];
+  const sizes: [string, dimensions.Dimensions][] = [];
+  const removed: string[] = [];
+  for (const change of changes) {
+    if (change.type === "dimensions") {
+      const d = change.dimensions;
+      if (d == null || d.width === 0 || d.height === 0 || change.resizing) continue;
+      sizes.push([change.id, { width: d.width, height: d.height }]);
+      continue;
+    }
+    if (change.type === "remove") removed.push(change.id);
+    passthrough.push(change);
+  }
+  return { passthrough, sizes, removed };
 };

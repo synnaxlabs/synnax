@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -55,7 +54,7 @@ class StatusesClient:
             name: The name for the new status.
             labels: Optional list of label names to attach.
         """
-        self.layout.command_palette("Create a status")
+        self.layout.command_palette("Create status")
         modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
@@ -63,31 +62,7 @@ class StatusesClient:
         name_input.fill(name)
 
         if labels is not None:
-            label_button = modal.get_by_text("Select labels", exact=True)
-            label_button.click(timeout=5000)
-            label_dialog = self.layout.page.locator(
-                ".pluto-select__dialog.pluto--visible"
-            )
-            label_dialog.wait_for(state="visible", timeout=5000)
-            for label_name in labels:
-                label_item = (
-                    label_dialog.locator(".pluto-list__item")
-                    .filter(has_text=label_name)
-                    .first
-                )
-                try:
-                    label_item.wait_for(state="visible", timeout=3000)
-                    label_item.click(timeout=2000)
-                except PlaywrightTimeoutError:
-                    all_labels = label_dialog.locator(".pluto-list__item").all()
-                    available = [
-                        lbl.text_content() for lbl in all_labels if lbl.is_visible()
-                    ]
-                    raise RuntimeError(
-                        f"Error selecting label '{label_name}'. "
-                        f"Available labels: {available}."
-                    )
-            self.layout.press_escape()
+            self.layout.select_labels(labels, modal)
 
         modal.get_by_role("button", name="Create").click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)
@@ -97,8 +72,8 @@ class StatusesClient:
     def open_explorer(self) -> None:
         """Open the Status Explorer via the command palette."""
         self.layout.hide_visualization_toolbar()
-        self.layout.command_palette("Open the Status Explorer")
-        self.layout.page.get_by_text("All Statuses").wait_for(
+        self.layout.command_palette("Open status explorer")
+        self.layout.page.get_by_text("All statuses").wait_for(
             state="visible", timeout=5000
         )
         self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).first.wait_for(

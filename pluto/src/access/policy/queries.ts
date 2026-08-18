@@ -8,16 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type policy } from "@/access/policy/aether";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
-import { Ontology } from "@/ontology";
 
-const RESOURCE_NAME = "Policy";
-const PLURAL_RESOURCE_NAME = "Policies";
+const RESOURCE_NAME = "policy";
+const PLURAL_RESOURCE_NAME = "policies";
 
 export const formSchema = z.object({
   key: z.uuid().optional(),
@@ -30,28 +28,12 @@ export type RetrieveQuery = {
   key: access.policy.Key;
 };
 
-const retrieveSingle = async ({
-  client,
-  query: { key },
-  store,
-}: Flux.RetrieveParams<RetrieveQuery, policy.FluxSubStore>) => {
-  let p = store.policies.get(key);
-  if (p != null) return p;
-  p = await client.access.policies.retrieve({ key });
-  store.policies.set(key, p);
-  return p;
-};
-
-export const { useRetrieve } = Flux.createRetrieve<
-  RetrieveQuery,
-  access.policy.Policy,
-  policy.FluxSubStore
->({
+export const { use } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>({
   name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
-    store.policies.onSet(onChange, key),
-  ],
+  retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
+  onChange: ({ client, query }, handler) =>
+    client.access.policies.onChange(query, handler),
+  getCached: ({ client, query }) => client.access.policies.getCached(query),
 });
 
 export type ListParams = List.PagerParams;
@@ -59,36 +41,28 @@ export type ListParams = List.PagerParams;
 export const useList = Flux.createList<
   ListParams,
   access.policy.Key,
-  access.policy.Policy,
-  policy.FluxSubStore
+  access.policy.Policy
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store }) => store.policies.list(),
   retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
-  retrieveByKey: async ({ key, ...rest }) =>
-    await retrieveSingle({ ...rest, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.policies.onSet((p) => onChange(p.key, p)),
-    store.policies.onDelete(onDelete),
-  ],
+  retrieveByKey: async ({ client, key }) => await client.access.policies.retrieve(key),
+  onChange: ({ client, query }, handler) =>
+    client.access.policies.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) =>
+    client.access.policies.onChange(key, handler),
+  getCached: ({ client, query }) => client.access.policies.getCached(query),
 });
 
 export type DeleteParams = access.policy.Key | access.policy.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<
-  DeleteParams,
-  policy.FluxSubStore
->({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
-    const ids = access.policy.ontologyID(keys);
-    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.push(store.relationships.delete(relFilter));
-    rollbacks.push(store.resources.delete(keys));
-    rollbacks.push(store.policies.delete(keys));
-    await client.access.policies.delete(keys);
+    await client.access.policies.delete(keys, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -98,30 +72,19 @@ export interface RenameParams {
   name: string;
 }
 
-export const { useUpdate: useRename } = Flux.createUpdate<
-  RenameParams,
-  policy.FluxSubStore
->({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  verbs: verbs.RENAME,
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    const existing = await retrieveSingle({ client, query: { key }, store });
-    rollbacks.push(Flux.partialUpdate(store.policies, key, { name }));
-    rollbacks.push(
-      Ontology.renameFluxResource(store, access.policy.ontologyID(key), name),
-    );
-    const updated = await client.access.policies.create({ ...existing, name });
-    store.policies.set(key, updated);
+    await client.access.policies.rename(key, name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
 
-export const useForm = Flux.createForm<
-  Partial<RetrieveQuery>,
-  typeof formSchema,
-  policy.FluxSubStore
->({
+export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: {
@@ -130,15 +93,10 @@ export const useForm = Flux.createForm<
     objects: [],
     actions: [],
   },
-  retrieve: async ({ client, query, store, reset }) => {
-    if (query.key == null) return;
-    const p = await retrieveSingle({ client, query: { key: query.key }, store });
-    reset(p);
-  },
-  update: async ({ client, value, store, set, rollbacks }) => {
-    const v = value();
-    const p = await client.access.policies.create(v);
-    rollbacks.push(store.policies.set(p.key, p));
+  retrieve: async ({ client, query: { key } }) =>
+    await client.access.policies.retrieve(key),
+  update: async ({ client, value, set }) => {
+    const p = await client.access.policies.create(value());
     set("key", p.key);
   },
 });

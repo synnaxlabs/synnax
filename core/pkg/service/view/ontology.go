@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -38,19 +38,14 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 // KeysFromOntologyIDs returns the keys of the views for the given ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	keys := make([]Key, len(ids))
-	var err error
-	for i, id := range ids {
-		if keys[i], err = uuid.Parse(id.Key); err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return uuid.Parse(id.Key)
+	})
 }
 
 // OntologyIDsFromViews converts a slice of views to a slice of ontology IDs.
 func OntologyIDsFromViews(views []View) []ontology.ID {
-	return lo.Map(views, func(v View, _ int) ontology.ID { return OntologyID(v.Key) })
+	return lo.Map(views, func(v View, _ int) ontology.ID { return v.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -60,7 +55,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(v View) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(v.Key), v.Name, v)
+	return ontology.NewResource(schema, v.OntologyID(), v.Name, v)
 }
 
 var (
@@ -71,8 +66,6 @@ var (
 type change = xchange.Change[Key, View]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeView }
-
-func (s *Service) Schema() zyn.Schema { return schema }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,

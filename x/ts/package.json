@@ -23,23 +23,39 @@
   },
   "dependencies": {
     "async-mutex": "catalog:",
-    "nanoid": "^5.1.11",
-    "uuid": "^14.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
+    "nanoid": "^6.0.1",
     "typescript": "catalog:",
+    "uuid": "^14.0.1",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "dist/x.cjs",
-  "module": "dist/x.js",
-  "types": "dist/src/index.d.ts"
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!**/mock/**",
+    "!dist/eslint.config.*"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/x.js"
+    },
+    "./bench": {
+      "types": "./dist/src/bench/index.d.ts",
+      "default": "./dist/bench.js"
+    },
+    "./dist/*": "./dist/*"
+  }
 }

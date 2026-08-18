@@ -20,8 +20,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverged bool, err error) {
-	if _, err = expression.Compile(context.Child(ctx, ctx.AST.Expression())); err != nil {
+func compileIfStatement(
+	ctx context.Context[parser.IIfStatementContext],
+) (diverged bool, err error) {
+	if _, err = expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()),
+	); err != nil {
 		return false, errors.Wrap(err, "failed to compile if condition")
 	}
 
@@ -47,15 +51,27 @@ func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverg
 		elseIfCtx := innerCtx
 		for i, elseIfClause := range ctx.AST.AllElseIfClause() {
 			ctx.Writer.WriteElse()
-			_, err := expression.Compile(context.Child(elseIfCtx, elseIfClause.Expression()))
+			_, err := expression.Compile(
+				context.Child(elseIfCtx, elseIfClause.Expression()),
+			)
 			if err != nil {
-				return false, errors.Wrapf(err, "failed to compile else-if[%d] condition", i)
+				return false, errors.Wrapf(
+					err,
+					"failed to compile else-if[%d] condition",
+					i,
+				)
 			}
 			ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
 			elseIfCtx = elseIfCtx.EnterBlock()
-			elseIfDiverged, err := CompileBlock(context.Child(elseIfCtx, elseIfClause.Block()))
+			elseIfDiverged, err := CompileBlock(
+				context.Child(elseIfCtx, elseIfClause.Block()),
+			)
 			if err != nil {
-				return false, errors.Wrapf(err, "failed to compile else-if[%d] block", i)
+				return false, errors.Wrapf(
+					err,
+					"failed to compile else-if[%d] block",
+					i,
+				)
 			}
 			allBranchesDiverge = allBranchesDiverge && elseIfDiverged
 		}
@@ -63,7 +79,9 @@ func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverg
 		// Compile the final else clause
 		if hasElseClause {
 			ctx.Writer.WriteElse()
-			elseDiverged, err := CompileBlock(context.Child(elseIfCtx, ctx.AST.ElseClause().Block()))
+			elseDiverged, err := CompileBlock(
+				context.Child(elseIfCtx, ctx.AST.ElseClause().Block()),
+			)
 			if err != nil {
 				return false, errors.Wrap(err, "failed to compile else block")
 			}
@@ -80,7 +98,8 @@ func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverg
 		}
 		ctx.Writer.WriteEnd()
 
-		// Only add unreachable if we have a complete else clause and all branches diverged
+		// Only add unreachable if we have a complete else clause and all branches
+		// diverged
 		if hasElseClause && allBranchesDiverge {
 			ctx.Writer.WriteUnreachable()
 			return true, nil
@@ -124,12 +143,15 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	return nil
 }
 
-func compileExpressionStatement(ctx context.Context[parser.IExpressionContext]) (types.Type, error) {
+func compileExpressionStatement(
+	ctx context.Context[parser.IExpressionContext],
+) (types.Type, error) {
 	exprType, err := expression.Compile(ctx)
 	if err != nil {
 		return types.Type{}, err
 	}
-	// Drop the result if the expression produced a value (statement-level expressions discard results)
+	// Drop the result if the expression produced a value (statement-level expressions
+	// discard results)
 	if exprType.IsValid() {
 		ctx.Writer.WriteOpcode(wasm.OpDrop)
 	}

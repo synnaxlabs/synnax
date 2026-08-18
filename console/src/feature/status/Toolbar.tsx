@@ -1,0 +1,165 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/feature/status/Toolbar.css";
+
+import { status } from "@synnaxlabs/client";
+import {
+  Access,
+  Component,
+  Flex,
+  Icon,
+  List as BaseList,
+  Menu,
+  Select,
+  Status,
+  Tag,
+  Telem,
+  Text,
+} from "@synnaxlabs/pluto";
+import { type ReactElement, useState } from "react";
+
+import { Explorer } from "@/feature/status/explorer";
+import { contextMenu } from "@/feature/status/list/ContextMenu";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { type Nav } from "@/platform/nav";
+import { Status as PlatformStatus } from "@/platform/status";
+import { Toolbar } from "@/platform/toolbar";
+import { Session } from "@/session";
+
+const NoStatuses = (): ReactElement => {
+  const openExplorer = Explorer.useOpenTab();
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  return (
+    <Empty.Action
+      message="No favorited statuses"
+      action={hasRetrievePermission ? "Open status explorer" : undefined}
+      onClick={openExplorer}
+    />
+  );
+};
+
+const List = (): ReactElement => {
+  const favorites = Session.Status.useSelectFavorites();
+  const menuProps = Menu.useContextMenu();
+  const [selected, setSelected] = useState<status.Key[]>([]);
+  return (
+    <Select.Frame<status.Key, status.Status>
+      multiple
+      data={favorites}
+      value={selected}
+      onChange={setSelected}
+    >
+      <Menu.ContextMenu menu={contextMenu} {...menuProps} />
+      <BaseList.Items<status.Key>
+        full="y"
+        emptyContent={<NoStatuses />}
+        onContextMenu={menuProps.open}
+      >
+        {listItem}
+      </BaseList.Items>
+    </Select.Frame>
+  );
+};
+
+const ListItem = (props: BaseList.ItemProps<status.Key>) => {
+  const { itemKey } = props;
+  const { data: item } = Status.useResult({ key: itemKey });
+  if (item == null) return null;
+  const { name, time, variant, message, labels } = item;
+  return (
+    <Select.ListItem className={CSS.B("status-list-item")} gap="small" y {...props}>
+      <Flex.Box x justify="between">
+        <Flex.Box x align="center" gap="small">
+          <Status.Indicator variant={variant} />
+          <Text.Text level="p" weight={450} status={variant}>
+            {name}
+          </Text.Text>
+        </Flex.Box>
+        <Telem.Text.TimeSpanSince
+          level="small"
+          format="semantic"
+          variant="code"
+          color={9}
+        >
+          {time}
+        </Telem.Text.TimeSpanSince>
+      </Flex.Box>
+      {message.length > 0 && (
+        <Text.Text level="small" color={9}>
+          {message}
+        </Text.Text>
+      )}
+      {labels != null && labels.length > 0 && (
+        <Flex.Box x gap="small" wrap className={CSS.B("status-list-item-labels")}>
+          {labels.map((l) => (
+            <Tag.Tag key={l.key} size="tiny" color={l.color}>
+              {l.name}
+            </Tag.Tag>
+          ))}
+        </Flex.Box>
+      )}
+    </Select.ListItem>
+  );
+};
+
+const listItem = Component.renderProp(ListItem);
+
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Status />
+        Statuses
+      </Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <Toolbar.Body>
+      <List />
+    </Toolbar.Body>
+  </Toolbar.Content>
+);
+
+const Actions = (): ReactElement | null => {
+  const openExplorer = Explorer.useOpenTab();
+  const openCreate = PlatformStatus.useCreateModal();
+  const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission && !hasRetrievePermission) return null;
+  return (
+    <Toolbar.Actions>
+      {hasRetrievePermission && (
+        <Toolbar.Action tooltip="Open status explorer" onClick={openExplorer}>
+          <Icon.Explore />
+        </Toolbar.Action>
+      )}
+      {hasCreatePermission && (
+        <Toolbar.Action
+          tooltip="Create status"
+          onClick={() => openCreate()}
+          variant="filled"
+        >
+          <Icon.Add />
+        </Toolbar.Action>
+      )}
+    </Toolbar.Actions>
+  );
+};
+
+export const TOOLBAR: Nav.Toolbar = {
+  key: "status",
+  icon: <Icon.Status />,
+  content: <Content />,
+  tooltip: "Statuses",
+  trigger: ["S"],
+  initialSize: 300,
+  sizeBounds: { lower: 175, upper: 400 },
+  useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
+};

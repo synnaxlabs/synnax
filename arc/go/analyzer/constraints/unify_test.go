@@ -43,7 +43,9 @@ var _ = Describe("Type Unification", func() {
 				system = constraints.New()
 				tv     = types.Variable("T", new(types.NumericConstraint()))
 			)
-			Expect(system.AddEquality(tv, types.String(), nil, "T = string")).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(
+				system.AddEquality(tv, types.String(), nil, "T = string"),
+			).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -84,7 +86,8 @@ var _ = Describe("Type Unification", func() {
 			Entry("f32 ~ u32 → f32", types.F32(), types.U32(), types.F32()),
 		)
 
-		DescribeTable("Rule 2: 64-bit Integer Promotion - when both are integers and either is 64-bit",
+		DescribeTable(
+			"Rule 2: 64-bit Integer Promotion - when both are integers and either is 64-bit",
 			testPromotion,
 			Entry("u64 ~ u32 → u64", types.U64(), types.U32(), types.U64()),
 			Entry("u64 ~ u64 → u64", types.U64(), types.U64(), types.U64()),
@@ -96,7 +99,8 @@ var _ = Describe("Type Unification", func() {
 			Entry("i32 ~ i64 → f64", types.I32(), types.I64(), types.F64()),
 		)
 
-		DescribeTable("Rule 3: 32-bit and Smaller Integer Promotion - when both are integers ≤32-bit",
+		DescribeTable(
+			"Rule 3: 32-bit and Smaller Integer Promotion - when both are integers ≤32-bit",
 			testPromotion,
 			Entry("i32 ~ u32 → i32", types.I32(), types.U32(), types.I32()),
 			Entry("u32 ~ i32 → i32", types.U32(), types.I32(), types.I32()),
@@ -118,9 +122,15 @@ var _ = Describe("Type Unification", func() {
 				addParamA      = types.Variable("T", &constraint)
 				addParamB      = types.Variable("T", &constraint)
 			)
-			Expect(system.AddEquality(constantOutput, addParamA, nil, "constant -> add.a")).To(Succeed())
-			Expect(system.AddEquality(types.F32(), addParamB, nil, "channel -> add.b")).To(Succeed())
-			Expect(system.AddEquality(addParamA, addParamB, nil, "add.a = add.b")).To(Succeed())
+			Expect(
+				system.AddEquality(constantOutput, addParamA, nil, "constant -> add.a"),
+			).To(Succeed())
+			Expect(
+				system.AddEquality(types.F32(), addParamB, nil, "channel -> add.b"),
+			).To(Succeed())
+			Expect(
+				system.AddEquality(addParamA, addParamB, nil, "add.a = add.b"),
+			).To(Succeed())
 			Expect(system.Unify()).To(Succeed())
 			Expect(system.ApplySubstitutions(constantOutput)).To(Equal(types.F32()))
 			Expect(system.ApplySubstitutions(addParamA)).To(Equal(types.F32()))
@@ -136,8 +146,17 @@ var _ = Describe("Type Unification", func() {
 				geRight        = types.Variable("ge_T", &constraint)
 				constantOutput = types.Variable("constant_T", &constraint)
 			)
-			Expect(system.AddEquality(onOutput, types.Chan(geLeft), nil, "on -> ge.left")).To(Succeed())
-			Expect(system.AddEquality(constantOutput, geRight, nil, "constant -> ge.right")).To(Succeed())
+			Expect(
+				system.AddEquality(onOutput, types.Chan(geLeft), nil, "on -> ge.left"),
+			).To(Succeed())
+			Expect(
+				system.AddEquality(
+					constantOutput,
+					geRight,
+					nil,
+					"constant -> ge.right",
+				),
+			).To(Succeed())
 			Expect(system.Unify()).To(Succeed())
 			Expect(system.ApplySubstitutions(constantOutput)).To(Equal(types.F32()))
 		})
@@ -156,7 +175,9 @@ var _ = Describe("Type Unification", func() {
 
 		It("should allow compatible numeric types without type variables", func() {
 			system := constraints.New()
-			Expect(system.AddCompatible(types.I32(), types.F32(), nil, "i32 ~ f32")).To(Succeed())
+			Expect(
+				system.AddCompatible(types.I32(), types.F32(), nil, "i32 ~ f32"),
+			).To(Succeed())
 			Expect(system.Unify()).To(Succeed())
 		})
 	})
@@ -169,7 +190,9 @@ var _ = Describe("Type Unification", func() {
 				chanTV  = types.Chan(tv)
 				chanF32 = types.Chan(types.F32())
 			)
-			Expect(system.AddEquality(chanTV, chanF32, nil, "chan T = chan f32")).To(Succeed())
+			Expect(
+				system.AddEquality(chanTV, chanF32, nil, "chan T = chan f32"),
+			).To(Succeed())
 			Expect(system.Unify()).To(Succeed())
 			Expect(system.Substitutions["T"]).To(Equal(types.F32()))
 		})
@@ -180,22 +203,30 @@ var _ = Describe("Type Unification", func() {
 				chanI32    = types.Chan(types.I32())
 				chanString = types.Chan(types.String())
 			)
-			Expect(system.AddEquality(chanI32, chanString, nil, "chan i32 = chan string")).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(
+				system.AddEquality(chanI32, chanString, nil, "chan i32 = chan string"),
+			).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
 	Describe("Error Cases", func() {
-		DescribeTable("should detect cyclic type dependencies",
+		DescribeTable(
+			"should detect cyclic type dependencies",
 			func(makeCyclic func(types.Type) types.Type) {
 				var (
 					system     = constraints.New()
 					tv         = types.Variable("T", nil)
 					cyclicType = makeCyclic(tv)
 				)
-				Expect(system.AddEquality(tv, cyclicType, nil, "T = cyclic T")).To(MatchError(ContainSubstring("is not compatible with")))
+				Expect(
+					system.AddEquality(tv, cyclicType, nil, "T = cyclic T"),
+				).To(MatchError(ContainSubstring("is not compatible with")))
 			},
 			Entry("chan T", func(tv types.Type) types.Type { return types.Chan(tv) }),
-			Entry("series T", func(tv types.Type) types.Type { return types.Series(tv) }),
+			Entry(
+				"series T",
+				func(tv types.Type) types.Type { return types.Series(tv) },
+			),
 		)
 
 		It("should report unresolved type variables with no constraints", func() {
@@ -204,7 +235,9 @@ var _ = Describe("Type Unification", func() {
 				tv     = types.Variable("T", nil)
 			)
 			Expect(system.AddEquality(tv, tv, nil, "T = T")).To(Succeed())
-			Expect(system.Unify()).To(MatchError(ContainSubstring("unresolved type variable")))
+			Expect(
+				system.Unify(),
+			).To(MatchError(ContainSubstring("unresolved type variable")))
 		})
 
 		It("should use default for constrained but unresolved variables", func() {
@@ -218,14 +251,21 @@ var _ = Describe("Type Unification", func() {
 			Expect(system.Substitutions["T"]).To(Equal(types.F64()))
 		})
 
-		DescribeTable("should fail when unifying incompatible compound types",
+		DescribeTable(
+			"should fail when unifying incompatible compound types",
 			func(compoundType, otherType types.Type) {
 				system := constraints.New()
-				Expect(system.AddEquality(compoundType, otherType, nil, "incompatible")).To(MatchError(ContainSubstring("is not compatible with")))
+				Expect(
+					system.AddEquality(compoundType, otherType, nil, "incompatible"),
+				).To(MatchError(ContainSubstring("is not compatible with")))
 			},
 			Entry("chan f32 = i32", types.Chan(types.F32()), types.I32()),
 			Entry("series f32 = string", types.Series(types.F32()), types.String()),
-			Entry("chan f32 = series f32", types.Chan(types.F32()), types.Series(types.F32())),
+			Entry(
+				"chan f32 = series f32",
+				types.Chan(types.F32()),
+				types.Series(types.F32()),
+			),
 		)
 
 		It("should fail when constraint doesn't match and not compatible", func() {
@@ -234,7 +274,9 @@ var _ = Describe("Type Unification", func() {
 				f32Constraint = types.F32()
 				tv            = types.Variable("T", &f32Constraint)
 			)
-			Expect(system.AddEquality(tv, types.I32(), nil, "T = i32")).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(
+				system.AddEquality(tv, types.I32(), nil, "T = i32"),
+			).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -365,23 +407,30 @@ var _ = Describe("Type Unification", func() {
 			Expect(system.ApplySubstitutions(tv4)).To(Equal(types.F32()))
 		})
 
-		It("should detect constraint ordering bugs with compatible constraints", func() {
-			constraint := types.NumericConstraint()
-			for _, firstType := range []types.Type{types.I32(), types.F32()} {
-				var (
-					system     = constraints.New()
-					tv         = types.Variable("T", &constraint)
-					secondType = types.F32()
-				)
-				if firstType.Kind == types.KindF32 {
-					secondType = types.I32()
+		It(
+			"should detect constraint ordering bugs with compatible constraints",
+			func() {
+				constraint := types.NumericConstraint()
+				for _, firstType := range []types.Type{types.I32(), types.F32()} {
+					var (
+						system     = constraints.New()
+						tv         = types.Variable("T", &constraint)
+						secondType = types.F32()
+					)
+					if firstType.Kind == types.KindF32 {
+						secondType = types.I32()
+					}
+					Expect(
+						system.AddCompatible(tv, firstType, nil, "T ~ first"),
+					).To(Succeed())
+					Expect(
+						system.AddCompatible(tv, secondType, nil, "T ~ second"),
+					).To(Succeed())
+					Expect(system.Unify()).To(Succeed())
+					Expect(system.Substitutions["T"]).To(Equal(types.F32()))
 				}
-				Expect(system.AddCompatible(tv, firstType, nil, "T ~ first")).To(Succeed())
-				Expect(system.AddCompatible(tv, secondType, nil, "T ~ second")).To(Succeed())
-				Expect(system.Unify()).To(Succeed())
-				Expect(system.Substitutions["T"]).To(Equal(types.F32()))
-			}
-		})
+			},
+		)
 	})
 
 	Describe("Float Literal Constraints", func() {
@@ -392,7 +441,9 @@ var _ = Describe("Type Unification", func() {
 					floatConstraint = types.FloatConstraint()
 					lit             = types.Variable("lit", &floatConstraint)
 				)
-				Expect(system.AddEquality(targetType, lit, nil, "assignment")).To(Succeed())
+				Expect(
+					system.AddEquality(targetType, lit, nil, "assignment"),
+				).To(Succeed())
 				Expect(system.Unify()).To(Succeed())
 				Expect(system.ApplySubstitutions(lit)).To(Equal(targetType))
 			},
@@ -407,29 +458,41 @@ var _ = Describe("Type Unification", func() {
 					floatConstraint = types.FloatConstraint()
 					tv              = types.Variable("T", &floatConstraint)
 				)
-				Expect(system.AddEquality(tv, targetType, nil, "T = target")).To(MatchError(ContainSubstring("is not compatible with")))
+				Expect(
+					system.AddEquality(tv, targetType, nil, "T = target"),
+				).To(MatchError(ContainSubstring("is not compatible with")))
 			},
 			Entry("i32", types.I32()),
 			Entry("string", types.String()),
 		)
 
-		It("should reject float literal in compatible context with integer type", func() {
-			var (
-				system          = constraints.New()
-				floatConstraint = types.FloatConstraint()
-				tv              = types.Variable("T", &floatConstraint)
-			)
-			Expect(system.AddCompatible(tv, types.I32(), nil, "T ~ i32")).To(MatchError(ContainSubstring("is not compatible with")))
-		})
+		It(
+			"should reject float literal in compatible context with integer type",
+			func() {
+				var (
+					system          = constraints.New()
+					floatConstraint = types.FloatConstraint()
+					tv              = types.Variable("T", &floatConstraint)
+				)
+				Expect(
+					system.AddCompatible(tv, types.I32(), nil, "T ~ i32"),
+				).To(MatchError(ContainSubstring("is not compatible with")))
+			},
+		)
 
-		It("should reject float literal in compatible context with non-numeric", func() {
-			var (
-				system          = constraints.New()
-				floatConstraint = types.FloatConstraint()
-				tv              = types.Variable("T", &floatConstraint)
-			)
-			Expect(system.AddCompatible(tv, types.String(), nil, "T ~ string")).To(MatchError(ContainSubstring("is not compatible with")))
-		})
+		It(
+			"should reject float literal in compatible context with non-numeric",
+			func() {
+				var (
+					system          = constraints.New()
+					floatConstraint = types.FloatConstraint()
+					tv              = types.Variable("T", &floatConstraint)
+				)
+				Expect(
+					system.AddCompatible(tv, types.String(), nil, "T ~ string"),
+				).To(MatchError(ContainSubstring("is not compatible with")))
+			},
+		)
 	})
 
 	Describe("Integer Literal Constraints", func() {
@@ -439,7 +502,9 @@ var _ = Describe("Type Unification", func() {
 				intConstraint = types.IntegerConstraint()
 				tv            = types.Variable("T", &intConstraint)
 			)
-			Expect(system.AddEquality(tv, types.String(), nil, "T = string")).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(
+				system.AddEquality(tv, types.String(), nil, "T = string"),
+			).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 
 		DescribeTable("should allow integer literal to be assigned to integer type",
@@ -449,7 +514,9 @@ var _ = Describe("Type Unification", func() {
 					intConstraint = types.IntegerConstraint()
 					lit           = types.Variable("lit", &intConstraint)
 				)
-				Expect(system.AddEquality(targetType, lit, nil, "assignment")).To(Succeed())
+				Expect(
+					system.AddEquality(targetType, lit, nil, "assignment"),
+				).To(Succeed())
 				Expect(system.Unify()).To(Succeed())
 				Expect(system.ApplySubstitutions(lit)).To(Equal(targetType))
 			},
@@ -470,7 +537,9 @@ var _ = Describe("Type Unification", func() {
 					intConstraint = types.IntegerConstraint()
 					lit           = types.Variable("lit", &intConstraint)
 				)
-				Expect(system.AddEquality(targetType, lit, nil, "assignment")).To(Succeed())
+				Expect(
+					system.AddEquality(targetType, lit, nil, "assignment"),
+				).To(Succeed())
 				Expect(system.Unify()).To(Succeed())
 				Expect(system.ApplySubstitutions(lit)).To(Equal(targetType))
 			},
@@ -478,54 +547,76 @@ var _ = Describe("Type Unification", func() {
 			Entry("f64", types.F64()),
 		)
 
-		It("should not prematurely resolve integer literals in compatible context", func() {
-			var (
-				system        = constraints.New()
-				intConstraint = types.IntegerConstraint()
-				lit1          = types.Variable("lit_1", &intConstraint)
-				lit2          = types.Variable("lit_2", &intConstraint)
-			)
-			Expect(system.AddCompatible(lit1, lit2, nil, "lit1 ~ lit2")).To(Succeed())
-			Expect(system.AddEquality(types.I64(), lit1, nil, "assignment to i64")).To(Succeed())
-			Expect(system.Unify()).To(Succeed())
-			Expect(system.ApplySubstitutions(lit1)).To(Equal(types.I64()))
-			Expect(system.ApplySubstitutions(lit2)).To(Equal(types.I64()))
-		})
+		It(
+			"should not prematurely resolve integer literals in compatible context",
+			func() {
+				var (
+					system        = constraints.New()
+					intConstraint = types.IntegerConstraint()
+					lit1          = types.Variable("lit_1", &intConstraint)
+					lit2          = types.Variable("lit_2", &intConstraint)
+				)
+				Expect(
+					system.AddCompatible(lit1, lit2, nil, "lit1 ~ lit2"),
+				).To(Succeed())
+				Expect(
+					system.AddEquality(types.I64(), lit1, nil, "assignment to i64"),
+				).To(Succeed())
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(lit1)).To(Equal(types.I64()))
+				Expect(system.ApplySubstitutions(lit2)).To(Equal(types.I64()))
+			},
+		)
 
-		It("should unify integer literal with i64 in nested expression (regression)", func() {
-			var (
-				system        = constraints.New()
-				intConstraint = types.IntegerConstraint()
-				lit1          = types.Variable("lit_1", &intConstraint)
-				lit2          = types.Variable("lit_2", &intConstraint)
-				lit3          = types.Variable("lit_3", &intConstraint)
-				lit4          = types.Variable("lit_4", &intConstraint)
-				lit5          = types.Variable("lit_5", &intConstraint)
-				lit6          = types.Variable("lit_6", &intConstraint)
-				add           = types.Variable("add_result", &intConstraint)
-				mul           = types.Variable("mul_result", &intConstraint)
-				sub           = types.Variable("sub_result", &intConstraint)
-				div           = types.Variable("div_result", &intConstraint)
-				mod           = types.Variable("mod_result", &intConstraint)
-			)
-			// Binary operations: ((((1 + 2) * 3) - 4) / 5) % 6
-			Expect(system.AddCompatible(lit1, lit2, nil, "1 + 2")).To(Succeed())
-			Expect(system.AddCompatible(lit1, add, nil, "result of 1 + 2")).To(Succeed())
-			Expect(system.AddCompatible(add, lit3, nil, "add * 3")).To(Succeed())
-			Expect(system.AddCompatible(add, mul, nil, "result of add * 3")).To(Succeed())
-			Expect(system.AddCompatible(mul, lit4, nil, "mul - 4")).To(Succeed())
-			Expect(system.AddCompatible(mul, sub, nil, "result of mul - 4")).To(Succeed())
-			Expect(system.AddCompatible(sub, lit5, nil, "sub / 5")).To(Succeed())
-			Expect(system.AddCompatible(sub, div, nil, "result of sub / 5")).To(Succeed())
-			Expect(system.AddCompatible(div, lit6, nil, "div % 6")).To(Succeed())
-			Expect(system.AddCompatible(div, mod, nil, "result of div % 6")).To(Succeed())
-			Expect(system.AddEquality(types.I64(), mod, nil, "x i64 := expression")).To(Succeed())
+		It(
+			"should unify integer literal with i64 in nested expression (regression)",
+			func() {
+				var (
+					system        = constraints.New()
+					intConstraint = types.IntegerConstraint()
+					lit1          = types.Variable("lit_1", &intConstraint)
+					lit2          = types.Variable("lit_2", &intConstraint)
+					lit3          = types.Variable("lit_3", &intConstraint)
+					lit4          = types.Variable("lit_4", &intConstraint)
+					lit5          = types.Variable("lit_5", &intConstraint)
+					lit6          = types.Variable("lit_6", &intConstraint)
+					add           = types.Variable("add_result", &intConstraint)
+					mul           = types.Variable("mul_result", &intConstraint)
+					sub           = types.Variable("sub_result", &intConstraint)
+					div           = types.Variable("div_result", &intConstraint)
+					mod           = types.Variable("mod_result", &intConstraint)
+				)
+				// Binary operations: ((((1 + 2) * 3) - 4) / 5) % 6
+				Expect(system.AddCompatible(lit1, lit2, nil, "1 + 2")).To(Succeed())
+				Expect(
+					system.AddCompatible(lit1, add, nil, "result of 1 + 2"),
+				).To(Succeed())
+				Expect(system.AddCompatible(add, lit3, nil, "add * 3")).To(Succeed())
+				Expect(
+					system.AddCompatible(add, mul, nil, "result of add * 3"),
+				).To(Succeed())
+				Expect(system.AddCompatible(mul, lit4, nil, "mul - 4")).To(Succeed())
+				Expect(
+					system.AddCompatible(mul, sub, nil, "result of mul - 4"),
+				).To(Succeed())
+				Expect(system.AddCompatible(sub, lit5, nil, "sub / 5")).To(Succeed())
+				Expect(
+					system.AddCompatible(sub, div, nil, "result of sub / 5"),
+				).To(Succeed())
+				Expect(system.AddCompatible(div, lit6, nil, "div % 6")).To(Succeed())
+				Expect(
+					system.AddCompatible(div, mod, nil, "result of div % 6"),
+				).To(Succeed())
+				Expect(
+					system.AddEquality(types.I64(), mod, nil, "x i64 := expression"),
+				).To(Succeed())
 
-			Expect(system.Unify()).To(Succeed())
-			for _, lit := range []types.Type{lit1, lit2, lit3, lit4, lit5, lit6, mod} {
-				Expect(system.ApplySubstitutions(lit)).To(Equal(types.I64()))
-			}
-		})
+				Expect(system.Unify()).To(Succeed())
+				for _, lit := range []types.Type{lit1, lit2, lit3, lit4, lit5, lit6, mod} {
+					Expect(system.ApplySubstitutions(lit)).To(Equal(types.I64()))
+				}
+			},
+		)
 	})
 
 	Describe("UnificationError", func() {
@@ -533,7 +624,9 @@ var _ = Describe("Type Unification", func() {
 			err := &constraints.UnificationError{
 				Message: "type mismatch: i32 is not compatible with f64",
 			}
-			Expect(err).To(MatchError(Equal("type mismatch: i32 is not compatible with f64")))
+			Expect(
+				err,
+			).To(MatchError(Equal("type mismatch: i32 is not compatible with f64")))
 		})
 
 		It("Should preserve constraint context", func() {
@@ -598,12 +691,39 @@ var _ = Describe("Type Unification", func() {
 				addOutput      = types.Variable("T2", &constraint)
 				constantOutput = types.Variable("T3", &constraint)
 			)
-			Expect(system.AddEquality(types.F32(), multiplyInput, nil, "sensor(f32) -> multiply")).To(Succeed())
-			Expect(system.AddEquality(multiplyOutput, addParamA, nil, "multiply -> add.a")).To(Succeed())
-			Expect(system.AddEquality(constantOutput, addParamB, nil, "constant -> add.b")).To(Succeed())
-			Expect(system.AddEquality(multiplyInput, multiplyOutput, nil, "multiply preserves type")).To(Succeed())
-			Expect(system.AddEquality(addParamA, addParamB, nil, "add params must match")).To(Succeed())
-			Expect(system.AddEquality(addParamA, addOutput, nil, "add output matches params")).To(Succeed())
+			Expect(
+				system.AddEquality(
+					types.F32(),
+					multiplyInput,
+					nil,
+					"sensor(f32) -> multiply",
+				),
+			).To(Succeed())
+			Expect(
+				system.AddEquality(multiplyOutput, addParamA, nil, "multiply -> add.a"),
+			).To(Succeed())
+			Expect(
+				system.AddEquality(constantOutput, addParamB, nil, "constant -> add.b"),
+			).To(Succeed())
+			Expect(
+				system.AddEquality(
+					multiplyInput,
+					multiplyOutput,
+					nil,
+					"multiply preserves type",
+				),
+			).To(Succeed())
+			Expect(
+				system.AddEquality(addParamA, addParamB, nil, "add params must match"),
+			).To(Succeed())
+			Expect(
+				system.AddEquality(
+					addParamA,
+					addOutput,
+					nil,
+					"add output matches params",
+				),
+			).To(Succeed())
 
 			Expect(system.Unify()).To(Succeed())
 			for _, tv := range []types.Type{multiplyInput, multiplyOutput, addParamA, addParamB, addOutput, constantOutput} {
@@ -619,7 +739,9 @@ var _ = Describe("Type Unification", func() {
 				seriesTV   = types.Series(tv)
 				seriesI32  = types.Series(types.I32())
 			)
-			Expect(system.AddEquality(seriesTV, seriesI32, nil, "series T = series i32")).To(Succeed())
+			Expect(
+				system.AddEquality(seriesTV, seriesI32, nil, "series T = series i32"),
+			).To(Succeed())
 			Expect(system.Unify()).To(Succeed())
 			Expect(system.Substitutions["T"]).To(Equal(types.I32()))
 			Expect(system.ApplySubstitutions(seriesTV)).To(Equal(seriesI32))

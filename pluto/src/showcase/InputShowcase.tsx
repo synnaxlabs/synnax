@@ -10,6 +10,7 @@
 import { type optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
+import { Button } from "@/button";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -126,11 +127,11 @@ export const InputShowcase = () => (
             <Text.Text level="small" weight={500}>
               Preview Variant
             </Text.Text>
-            <InputShowcaseText size="huge" variant="preview" value="Catalyst" />
-            <InputShowcaseText size="large" variant="preview" value="Catalyst" />
-            <InputShowcaseText size="medium" variant="preview" value="Catalyst" />
-            <InputShowcaseText size="small" variant="preview" value="Catalyst" />
-            <InputShowcaseText size="tiny" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="huge" preview value="Catalyst" />
+            <InputShowcaseText size="large" preview value="Catalyst" />
+            <InputShowcaseText size="medium" preview value="Catalyst" />
+            <InputShowcaseText size="small" preview value="Catalyst" />
+            <InputShowcaseText size="tiny" preview value="Catalyst" />
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -159,6 +160,43 @@ export const InputShowcase = () => (
             <InputShowcaseText endContent="m/s" size="medium" />
             <InputShowcaseText endContent="m/s" size="small" />
             <InputShowcaseText endContent="m/s" size="tiny" />
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+
+      <SubcategorySection
+        title="Shadow Cells"
+        description="Edit-in-place cells. The value always reads; the chassis and any packed neighbors appear on hover or focus"
+      >
+        <Flex.Box x gap="large">
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              With Drag Handle
+            </Text.Text>
+            <InputShowcaseNumeric variant="shadow" size="medium" />
+            <InputShowcaseNumeric
+              variant="shadow"
+              size="medium"
+              startContent={<Icon.Decimal />}
+            />
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              With Trailing Button
+            </Text.Text>
+            <InputShowcaseText variant="shadow" placeholder="Catalyst" size="medium">
+              <Button.Button variant="outlined">
+                <Icon.Copy />
+              </Button.Button>
+            </InputShowcaseText>
+            <InputShowcaseText variant="shadow" placeholder="Catalyst" size="medium">
+              <Button.Button variant="outlined">
+                <Icon.Sync />
+              </Button.Button>
+              <Button.Button variant="outlined">
+                <Icon.Rename />
+              </Button.Button>
+            </InputShowcaseText>
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -229,11 +267,11 @@ export const InputShowcase = () => (
           <Flex.Box x gap="medium">
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">False</Text.Text>
-              <InputShowcaseSwitch value={false} variant="preview" />
+              <InputShowcaseSwitch value={false} preview />
             </Flex.Box>
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">True</Text.Text>
-              <InputShowcaseSwitch value variant="preview" />
+              <InputShowcaseSwitch value preview />
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>
@@ -297,11 +335,11 @@ export const InputShowcase = () => (
             <Flex.Box x gap="medium" align="center">
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">False</Text.Text>
-                <InputShowcaseCheckbox value={false} variant="preview" />
+                <InputShowcaseCheckbox value={false} preview />
               </Flex.Box>
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">True</Text.Text>
-                <InputShowcaseCheckbox value variant="preview" />
+                <InputShowcaseCheckbox value preview />
               </Flex.Box>
             </Flex.Box>
           </Flex.Box>
@@ -332,19 +370,19 @@ export const InputShowcase = () => (
               <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
                 Level 1
               </Text.Text>
-              <InputShowcaseText placeholder="Catalyst" endContent="m/s" contrast={1} />
+              <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
             </Flex.Box>
             <Flex.Box y background={2} style={{ padding: "2rem" }} bordered rounded={1}>
               <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
                 Level 2
               </Text.Text>
-              <InputShowcaseText placeholder="Catalyst" endContent="m/s" contrast={2} />
+              <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
             </Flex.Box>
             <Flex.Box y background={3} style={{ padding: "2rem" }} bordered rounded={1}>
               <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
                 Level 3
               </Text.Text>
-              <InputShowcaseText placeholder="Catalyst" contrast={3} />
+              <InputShowcaseText placeholder="Catalyst" />
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>

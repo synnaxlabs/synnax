@@ -1,0 +1,57 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { renderPalette } from "@/feature/command/testutil";
+import { NI } from "@/feature/ni";
+import { Session } from "@/session";
+import { resolveFocusedTab, uniqueName } from "@/testutil";
+
+const client = createTestClient();
+
+describe("NI.Task Commands", () => {
+  it("should list every NI command once task-create access resolves", async () => {
+    const { openCommandPalette } = await renderPalette({
+      commands: NI.Task.COMMANDS,
+      client,
+    });
+    await openCommandPalette("NI");
+    for (const name of [
+      "Create NI analog read task",
+      "Create NI analog write task",
+      "Create NI counter read task",
+      "Create NI digital write task",
+      "Create NI digital read task",
+    ])
+      await waitFor(() => expect(document.body.textContent).toContain(name));
+  });
+
+  it("should create a draft task and open its resource tab when its command is selected", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
+    const { store, openCommandPalette, selectCommand } = await renderPalette({
+      commands: NI.Task.COMMANDS,
+      client,
+    });
+    store.dispatch(Session.Project.select(proj.key));
+    await openCommandPalette("Analog Read");
+    await selectCommand("Create NI analog read task");
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
+  });
+});

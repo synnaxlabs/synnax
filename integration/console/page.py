@@ -23,20 +23,20 @@ from console.tree import Tree
 from framework.run_dir import resolve_results_path
 
 PageType = Literal[
-    "Control Sequence",
-    "Line Plot",
+    "Control sequence",
+    "Line plot",
     "Schematic",
     "Log",
     "Table",
-    "NI Analog Read Task",
-    "NI Analog Write Task",
-    "NI Counter Read Task",
-    "NI Digital Read Task",
-    "NI Digital Write Task",
-    "LabJack Read Task",
-    "LabJack Write Task",
-    "OPC UA Read Task",
-    "OPC UA Write Task",
+    "NI analog read task",
+    "NI analog write task",
+    "NI counter read task",
+    "NI digital read task",
+    "NI digital write task",
+    "LabJack read task",
+    "LabJack write task",
+    "OPC UA read task",
+    "OPC UA write task",
 ]
 
 
@@ -92,7 +92,7 @@ class ConsolePage:
         in the Console UI via Playwright automation. It does NOT create a new page.
 
         The separation exists because:
-        - UI page creation: Handled by workspace.create_page() which clicks buttons
+        - UI page creation: Handled by project.create_page() which clicks buttons
           and interacts with the Console UI via Playwright
         - Python wrapper creation: This constructor creates a Python object that
           provides programmatic access to the already-existing UI page
@@ -128,7 +128,9 @@ class ConsolePage:
         """
         tab = self._get_tab()
         tab.wait_for(state="visible", timeout=5000)
-        close_button = tab.get_by_label("pluto-tabs__close")
+        # The close button reveals on tab hover; the tab icon covers it until then.
+        tab.hover()
+        close_button = tab.get_by_label("Close", exact=True)
         close_button.wait_for(state="visible", timeout=5000)
         close_button.click()
 
@@ -166,10 +168,10 @@ class ConsolePage:
         if self.pane_locator and self.pane_locator.count() > 0:
             self.pane_locator.click()
 
-    def _initialize_from_workspace(self, tab_locator: Locator, page_id: str) -> None:
-        """Initialize page after workspace creates it.
+    def _initialize_from_project(self, tab_locator: Locator, page_id: str) -> None:
+        """Initialize page after project creates it.
 
-        This is called by workspace after create_page() to set up the page instance.
+        This is called by project after create_page() to set up the page instance.
         """
         self.tab_locator = tab_locator
         self.id = page_id
@@ -287,7 +289,7 @@ class ConsolePage:
         Returns:
             The current page title
         """
-        self.page.locator("#properties").click(timeout=5000)
+        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
         return self.layout.get_input_field("Title")
 
     def copy_link(self) -> str:
@@ -315,7 +317,6 @@ class ConsolePage:
         """
         self.layout.show_visualization_toolbar()
         export_button = self.page.locator(".pluto-icon--export").locator("..")
-        self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
             try:
@@ -327,7 +328,7 @@ class ConsolePage:
         download = download_info.value
         save_path = resolve_results_path(f"{self.page_name}.json")
         download.save_as(save_path)
-        with open(save_path, "r") as f:
+        with open(save_path, "r", encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
             return result
 

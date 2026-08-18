@@ -14,156 +14,97 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
-	aspentransmock "github.com/synnaxlabs/aspen/transport/mock"
+	aspentransportmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
-	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/storage/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	storagemock "github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 )
 
-type Node struct {
-	*distribution.Layer
-	Storage *storage.Layer
-}
-
+// Cluster is an in-memory, multi-node distribution cluster for use in tests and
+// benchmarks. Every node shares the same in-process transport and storage backing, so
+// no real network or disk is involved. Cluster is not safe for concurrent use.
 type Cluster struct {
-	storage     *mock.Cluster
+	storage *storagemock.Cluster
+	// Nodes maps each provisioned node's host key to its Node.
 	Nodes       map[node.Key]Node
-	writerNet   *tmock.FramerWriterNetwork
-	iterNet     *tmock.FramerIteratorNetwork
-	channelNet  *tmock.ChannelNetwork
-	relayNet    *tmock.FramerRelayNetwork
-	deleteNet   *tmock.FramerDeleterNetwork
-	aspenNet    *aspentransmock.Network
+	distNet     *mock.Network
+	aspenNet    *aspentransportmock.Network
 	addrFactory *address.Factory
-	cfg         distribution.LayerConfig
 }
 
-func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.LayerConfig) *Cluster {
-	b := NewCluster(cfgs...)
-	for range n {
-		b.Provision(ctx)
-	}
-	return b
+// NewCluster opens an n-node in-memory cluster and registers its teardown via
+// testutil.DeferClose, so callers running inside a Ginkgo spec do not need to close it
+// themselves. It must be called from within a Ginkgo node; use OpenCluster from plain
+// Go tests and benchmarks, where DeferCleanup is unavailable.
+//
+// The teardown runs at the scope where NewCluster is called. When called from a
+// BeforeAll or BeforeSuite, the close fires after ShouldNotLeakGoroutinesPerSpec's
+// per-spec check, so a spec that spawns a goroutine against this cluster (e.g. an
+// observer) must stop it itself rather than relying on cluster teardown.
+func NewCluster(ctx context.Context, n int) *Cluster {
+	return testutil.DeferClose(OpenCluster(ctx, n))
 }
 
-func NewCluster(cfgs ...distribution.LayerConfig) *Cluster {
-	// NOTE: We don't use config.New here because it returns a zero-value when
-	// validation fails (which it will since we don't have required fields).
-	// Instead, we manually merge the configs to preserve values like
-	// ValidateChannelNames.
-	var cfg distribution.LayerConfig
-	for _, c := range cfgs {
-		cfg = cfg.Override(c)
-	}
-	return &Cluster{
-		cfg:         cfg,
-		storage:     mock.NewCluster(),
-		writerNet:   tmock.NewWriterNetwork(),
-		iterNet:     tmock.NewIteratorNetwork(),
-		channelNet:  tmock.NewChannelNetwork(),
-		relayNet:    tmock.NewRelayNetwork(),
-		deleteNet:   tmock.NewDeleterNetwork(),
-		aspenNet:    aspentransmock.NewNetwork(),
+// OpenCluster opens an n-node in-memory cluster. The caller owns teardown: close the
+// returned Cluster to tear down all nodes and their storage.
+func OpenCluster(ctx context.Context, n int) *Cluster {
+	c := &Cluster{
+		storage:     storagemock.NewCluster(),
+		distNet:     mock.NewNetwork(),
+		aspenNet:    aspentransportmock.NewNetwork(),
 		addrFactory: address.NewLocalFactory(0),
 		Nodes:       make(map[node.Key]Node),
 	}
+	for range n {
+		c.Provision(ctx)
+	}
+	return c
 }
 
+// Provision provisions a new Node in the cluster and returns it. The optional overrides
+// are layered on top of the base distribution.LayerConfig, allowing a caller to tweak
+// distribution-layer behavior (e.g. name validation) for a single node.
 func (c *Cluster) Provision(
-	ctx context.Context,
-	cfgs ...distribution.LayerConfig,
+	ctx context.Context, overrides ...distribution.LayerConfig,
 ) Node {
 	var (
-		peers             = c.addrFactory.Generated()
-		addr              = c.addrFactory.Next()
-		storageLayer      = c.storage.Provision(ctx)
-		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, append([]distribution.LayerConfig{{
-			Storage: storageLayer,
-			FrameTransport: mockFramerTransport{
-				iter:    c.iterNet.New(addr, 1),
-				writer:  c.writerNet.New(addr, 1),
-				relay:   c.relayNet.New(addr, 1),
-				deleter: c.deleteNet.New(addr),
-			},
-			ChannelTransport: c.channelNet.New(addr),
+		peers        = c.addrFactory.Generated()
+		addr         = c.addrFactory.Next()
+		storageLayer = c.storage.Provision(ctx)
+		cfg          = distribution.LayerConfig{
+			Storage:          storageLayer,
+			Transport:        c.distNet.New(addr, 1),
 			AspenTransport:   c.aspenNet.NewTransport(),
 			AdvertiseAddress: addr,
 			PeerAddresses:    peers,
 			AspenOptions: []aspen.Option{
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
-			EnableServiceSignals: new(false),
-		}, c.cfg}, cfgs...)...))
+		}
+		cfgs              = append([]distribution.LayerConfig{cfg}, overrides...)
+		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
 	)
+	distributionLayer.Framer.SetFreeIndexResolver(nopFreeIndexResolver{})
 	node := Node{Layer: distributionLayer, Storage: storageLayer}
 	c.Nodes[distributionLayer.Cluster.HostKey()] = node
-	c.WaitForTopologyToStabilize()
-	return node
-}
-
-// WaitForTopologyToStabilize waits for all nodes in the cluster to be aware of each
-// other.
-func (c *Cluster) WaitForTopologyToStabilize() {
 	for _, node := range c.Nodes {
 		gomega.Eventually(func() int {
 			return len(node.Cluster.Nodes())
 		}).Should(gomega.Equal(len(c.Nodes)))
 	}
+	return node
 }
 
-func (b *Cluster) Close() error {
+// Close tears down every node in the cluster along with the shared storage, returning
+// the joined error of all teardown failures.
+func (c *Cluster) Close() error {
 	var err error
-	for _, node := range b.Nodes {
+	for _, node := range c.Nodes {
 		err = errors.Join(err, node.Close())
 	}
-	return errors.Join(err, b.storage.Close())
+	return errors.Join(err, c.storage.Close())
 }
-
-type mockFramerTransport struct {
-	iter    iterator.Transport
-	writer  writer.Transport
-	relay   relay.Transport
-	deleter deleter.Transport
-}
-
-var _ framer.Transport = (*mockFramerTransport)(nil)
-
-func (m mockFramerTransport) Iterator() iterator.Transport {
-	return m.iter
-}
-
-func (m mockFramerTransport) Writer() writer.Transport {
-	return m.writer
-}
-
-func (m mockFramerTransport) Relay() relay.Transport {
-	return m.relay
-}
-
-func (m mockFramerTransport) Deleter() deleter.Transport {
-	return m.deleter
-}
-
-type StaticHostProvider struct {
-	Node node.Node
-}
-
-var _ node.HostProvider = StaticHostProvider{}
-
-func StaticHostKeyProvider(key node.Key) StaticHostProvider {
-	return StaticHostProvider{Node: node.Node{Key: key}}
-}
-
-func (s StaticHostProvider) Host() node.Node { return s.Node }
-
-func (s StaticHostProvider) HostKey() node.Key { return s.Node.Key }

@@ -37,6 +37,18 @@ export class PathError extends ValidationError.sub("path") {
     const decoded = PathError.encodedSchema.parse(JSON.parse(payload.data));
     return new PathError(decoded.path, errors.decode(decoded.error) as Error);
   }
+
+  static matchExact(e: unknown): e is PathError {
+    return (
+      e != null &&
+      typeof e === "object" &&
+      "path" in e &&
+      "error" in e &&
+      "type" in e &&
+      typeof e.type === "string" &&
+      e.type === PathError.TYPE
+    );
+  }
 }
 
 /**
@@ -51,6 +63,7 @@ export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 
 export class ExpiredTokenError extends AuthError.sub("expired_token") {}
 
+/** Raised when the caller's policies do not permit the action. */
 export class AccessDeniedError extends AuthError.sub("access_denied") {}
 
 /**
@@ -100,6 +113,13 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 }
 
 /**
+ * Whether the error means the Core could not be reached: a request that failed on
+ * the wire, or one short-circuited while the connection is known unreachable.
+ */
+export const isConnectionError = (err: unknown): boolean =>
+  Unreachable.matches(err) || DisconnectedError.matches(err);
+
+/**
  * Raised when time-series data is not contiguous.
  */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
@@ -116,6 +136,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))
       return new ExpiredTokenError(payload.data);
+    if (payload.type.startsWith(AccessDeniedError.TYPE))
+      return new AccessDeniedError(payload.data);
     return new AuthError(payload.data);
   }
 
@@ -142,8 +164,16 @@ const decode = (payload: errors.Payload): Error | null => {
   return new UnexpectedError(payload.data);
 };
 
-const encode = (): errors.Payload => {
-  throw new errors.NotImplemented();
+const encode: errors.Encoder = (error) => {
+  if (!error.type.startsWith(SynnaxError.TYPE)) return null;
+  if (PathError.matchExact(error)) {
+    const { path, error: cause } = error;
+    return {
+      type: PathError.TYPE,
+      data: JSON.stringify({ path, error: errors.encode(cause) }),
+    };
+  }
+  return { type: error.type, data: error.message };
 };
 
 errors.register({ encode, decode });

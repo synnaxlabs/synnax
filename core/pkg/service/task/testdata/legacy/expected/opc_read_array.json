@@ -1,0 +1,21 @@
+{
+  "array_mode": true,
+  "array_size": 24,
+  "auto_start": false,
+  "channels": [
+    {
+      "channel": 6110,
+      "data_type": "float32",
+      "disabled": false,
+      "key": "ch-opc-array-0",
+      "name": "fixture_opc_array_flow",
+      "node_id": "NS=3;S=fixture.array.flow",
+      "node_name": "FixtureFlowNode",
+      "use_as_index": false
+    }
+  ],
+  "data_saving_disabled": false,
+  "device": "fixture-opc-array-device",
+  "sample_rate": 128.5,
+  "stream_rate": 16.5
+}

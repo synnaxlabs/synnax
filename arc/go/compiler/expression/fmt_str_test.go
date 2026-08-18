@@ -66,9 +66,9 @@ var _ = Describe("Format String Compilation", func() {
 	})
 
 	Describe("Single Placeholder, With Format Spec", func() {
-		DescribeTable("compiles numeric placeholder with spec via emitSpecBytes + format_<type>",
+		DescribeTable(
+			"compiles numeric placeholder with spec via emitSpecBytes + format_<type>",
 			expectExpression,
-
 			Entry(
 				"i32 with :05d",
 				`f"{i32(7):05d}"`,
@@ -100,21 +100,35 @@ var _ = Describe("Format String Compilation", func() {
 	})
 
 	Describe("String Variable Placeholder", func() {
-		It("compiles string variable placeholder with no spec as identity", func(bCtx SpecContext) {
-			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{name}"`, []symbol.Symbol{
-				scalarSymbol("name", types.String(), 0),
-			})
-			Expect(exprType).To(Equal(types.String()))
-			Expect(bytecode).ToNot(BeEmpty())
-		})
+		It(
+			"compiles string variable placeholder with no spec as identity",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileWithAnalyzer(
+					bCtx,
+					`f"{name}"`,
+					[]symbol.Symbol{
+						scalarSymbol("name", types.String(), 0),
+					},
+				)
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).ToNot(BeEmpty())
+			},
+		)
 
-		It("compiles string variable placeholder with spec via format_str", func(bCtx SpecContext) {
-			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{name:s}"`, []symbol.Symbol{
-				scalarSymbol("name", types.String(), 0),
-			})
-			Expect(exprType).To(Equal(types.String()))
-			Expect(bytecode).ToNot(BeEmpty())
-		})
+		It(
+			"compiles string variable placeholder with spec via format_str",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileWithAnalyzer(
+					bCtx,
+					`f"{name:s}"`,
+					[]symbol.Symbol{
+						scalarSymbol("name", types.String(), 0),
+					},
+				)
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).ToNot(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Mixed Literal and Placeholder Segments", func() {
@@ -130,14 +144,20 @@ var _ = Describe("Format String Compilation", func() {
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
-		It("compiles two placeholders separated by literal with two concat ops", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, `f"{1} and {2}"`)
-			Expect(exprType).To(Equal(types.String()))
-			Expect(bytecode).ToNot(BeEmpty())
-		})
+		It(
+			"compiles two placeholders separated by literal with two concat ops",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileExpression(bCtx, `f"{1} and {2}"`)
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).ToNot(BeEmpty())
+			},
+		)
 
 		It("compiles three placeholders with mixed specs", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, `f"{1}, {i32(2):05d}, {f64(3.14):.2f}"`)
+			bytecode, exprType := compileExpression(
+				bCtx,
+				`f"{1}, {i32(2):05d}, {f64(3.14):.2f}"`,
+			)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
@@ -148,42 +168,56 @@ var _ = Describe("Format String Compilation", func() {
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
-		It("compiles a multi-line format string with literal newlines around a placeholder", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "f`line1\n{42}\nline3`")
-			Expect(exprType).To(Equal(types.String()))
-			Expect(bytecode).ToNot(BeEmpty())
-		})
+		It(
+			"compiles a multi-line format string with literal newlines around a placeholder",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileExpression(bCtx, "f`line1\n{42}\nline3`")
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).ToNot(BeEmpty())
+			},
+		)
 
-		It("compiles a multi-line format string with multiple placeholders across lines", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "f`a={1}\nb={2}`")
-			Expect(exprType).To(Equal(types.String()))
-			Expect(bytecode).ToNot(BeEmpty())
-		})
+		It(
+			"compiles a multi-line format string with multiple placeholders across lines",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileExpression(bCtx, "f`a={1}\nb={2}`")
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).ToNot(BeEmpty())
+			},
+		)
 
-		It("compiles an rf-prefixed format string with placeholder and backslash literal", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, `rf"path\to\{42}"`)
-			Expect(exprType).To(Equal(types.String()))
-			Expect(bytecode).ToNot(BeEmpty())
-		})
+		It(
+			"compiles an rf-prefixed format string with placeholder and backslash literal",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileExpression(bCtx, `rf"path\to\{42}"`)
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).ToNot(BeEmpty())
+			},
+		)
 
-		It("compiles an rf-prefixed multi-line format string with placeholder across newlines", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "rf`path\\to\n{42}`")
-			Expect(exprType).To(Equal(types.String()))
-			Expect(bytecode).ToNot(BeEmpty())
-		})
+		It(
+			"compiles an rf-prefixed multi-line format string with placeholder across newlines",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileExpression(bCtx, "rf`path\\to\n{42}`")
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).ToNot(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Malformed Format String Body", func() {
-		It("propagates literal.FmtStrParse errors from compileRawStringLiteral", func(bCtx SpecContext) {
-			// `{` parses as a raw-string token, but the body is malformed:
-			// literal.FmtStrParse rejects an unmatched '{', exercising the second
-			// error branch in compileRawStringLiteral.
-			expr := MustSucceed(parser.ParseExpression(`f"{"`))
-			ctx := NewContext(bCtx)
-			_, err := expression.Compile(ccontext.Child(ctx, expr))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unmatched"))
-		})
+		It(
+			"propagates literal.FmtStrParse errors from compileRawStringLiteral",
+			func(bCtx SpecContext) {
+				// `{` parses as a raw-string token, but the body is malformed:
+				// literal.FmtStrParse rejects an unmatched '{', exercising the second
+				// error branch in compileRawStringLiteral.
+				expr := MustSucceed(parser.ParseExpression(`f"{"`))
+				ctx := NewContext(bCtx)
+				_, err := expression.Compile(ccontext.Child(ctx, expr))
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("unmatched"))
+			},
+		)
 	})
-
 })

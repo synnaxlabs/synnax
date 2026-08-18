@@ -11,23 +11,89 @@
 
 package lineplot
 
-import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = uuid.UUID
+type Key = versions.Key
+
+// TickType selects how an axis renders its tick labels.
+type TickType = versions.TickType
+
+const (
+	TickTypeLinear TickType = versions.TickTypeLinear
+	TickTypeTime   TickType = versions.TickTypeTime
+)
+
+// DownsampleMode selects how a line condenses samples that map to the same pixel.
+type DownsampleMode = versions.DownsampleMode
+
+const (
+	DownsampleModeAverage  DownsampleMode = versions.DownsampleModeAverage
+	DownsampleModeDecimate DownsampleMode = versions.DownsampleModeDecimate
+)
+
+// XAxisKey names one of the two x-axes. X-axes carry a single channel each.
+type XAxisKey = versions.XAxisKey
+
+const (
+	XAxisKeyX1 XAxisKey = versions.XAxisKeyX1
+	XAxisKeyX2 XAxisKey = versions.XAxisKeyX2
+)
+
+// YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
+type YAxisKey = versions.YAxisKey
+
+const (
+	YAxisKeyY1 YAxisKey = versions.YAxisKeyY1
+	YAxisKeyY2 YAxisKey = versions.YAxisKeyY2
+	YAxisKeyY3 YAxisKey = versions.YAxisKeyY3
+	YAxisKeyY4 YAxisKey = versions.YAxisKeyY4
+)
+
+// AxisKey names one of the six fixed plot axes.
+type AxisKey = versions.AxisKey
+
+const (
+	AxisKeyX1 AxisKey = versions.AxisKeyX1
+	AxisKeyX2 AxisKey = versions.AxisKeyX2
+	AxisKeyY1 AxisKey = versions.AxisKeyY1
+	AxisKeyY2 AxisKey = versions.AxisKeyY2
+	AxisKeyY3 AxisKey = versions.AxisKeyY3
+	AxisKeyY4 AxisKey = versions.AxisKeyY4
+)
+
+// Title is the plot title configuration.
+type Title = versions.Title
+
+// Legend is the plot legend configuration.
+type Legend = versions.Legend
+
+// Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
+// carry zero or more channels each.
+type Channels = versions.Channels
+
+// Ranges binds range keys to each x-axis.
+type Ranges = versions.Ranges
+
+// ManualBounds controls whether an axis uses a manually-set bound on each side
+// independently. When a side is false (the default), the corresponding entry in
+// Axis.bounds is recomputed locally from the rendered data window and never broadcast
+// to the server; when true, Axis.bounds holds the user-set value.
+type ManualBounds = versions.ManualBounds
+
+// Axis is the configuration for a single plot axis.
+type Axis = versions.Axis
+
+// Axes bundles configuration for all six fixed plot axes.
+type Axes = versions.Axes
+
+// Line is the per-line styling and downsampling configuration.
+type Line = versions.Line
+
+// Rule is a horizontal or vertical annotation line drawn over the plot.
+type Rule = versions.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
-type LinePlot struct {
-	// Key is the unique identifier for this line plot.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the line plot.
-	Name string `json:"name" msgpack:"name"`
-	// Data is the line plot configuration including channel references, axis settings, and
-	// display options.
-	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
-}
+type LinePlot = versions.LinePlot

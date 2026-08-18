@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/value/RedlineForm.css";
+
 import { type bounds, color, deep, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { type Redline, ZERO_READLINE } from "@/vis/value/redline";
 
 const boundsInputProps = { size: "small", showDragHandle: false } as const;
-
-const boundsStyle = { width: 60 };
 
 export interface RedlineFormProps {
   path: string;
@@ -38,7 +39,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
     <Flex.Box x grow>
       <Form.NumericField
         inputProps={boundsInputProps}
-        style={boundsStyle}
+        className={CSS.B("redline-form-bound")}
         label="Lower"
         path={`${path}.bounds.lower`}
       />
@@ -78,7 +79,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
       </Form.Field>
       <Form.NumericField
         inputProps={boundsInputProps}
-        style={boundsStyle}
+        className={CSS.B("redline-form-bound")}
         label="Upper"
         path={`${path}.bounds.upper`}
       />

@@ -14,15 +14,17 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/cmux"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 )
 
 // SimpleHTTPBranch is a single handler Branch that serves HTTP requests.
 type SimpleHTTPBranch struct {
-	stopErr chan error
 	server  *http.Server
 	handler http.Handler
 	policy  RoutingPolicy
+	ins     alamos.Instrumentation
 }
 
 func NewSimpleHTTPBranch(
@@ -31,7 +33,6 @@ func NewSimpleHTTPBranch(
 ) *SimpleHTTPBranch {
 	return &SimpleHTTPBranch{
 		policy:  policy,
-		stopErr: make(chan error, 1),
 		handler: handler,
 	}
 }
@@ -49,17 +50,17 @@ func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {
 }
 
 // Init implements Branch.
-func (h *SimpleHTTPBranch) Init(BranchContext) {
+func (h *SimpleHTTPBranch) Init(ctx BranchContext) {
+	h.ins = ctx.Instrumentation
 	h.server = &http.Server{Handler: h.handler}
 }
 
 // Serve implements Branch.
 func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
-	err := h.server.Serve(ctx.Lis)
-	if !errors.Is(err, http.ErrServerClosed) {
+	if err := h.server.Serve(ctx.Lis); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
-	return <-h.stopErr
+	return nil
 }
 
 // Stop implements Branch.
@@ -67,7 +68,9 @@ func (h *SimpleHTTPBranch) Stop() {
 	if h.server == nil {
 		return
 	}
-	h.stopErr <- h.server.Shutdown(context.TODO())
+	if err := h.server.Shutdown(context.TODO()); err != nil {
+		h.ins.L.Error("failed to shut down http redirect server", zap.Error(err))
+	}
 }
 
 func secureHTTPRedirect(w http.ResponseWriter, r *http.Request) {

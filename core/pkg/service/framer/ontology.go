@@ -11,17 +11,13 @@ package framer
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
-
-// OntologyID returns a unique identifier for a Channel for use within a resource
-// ontology.
-func OntologyID(k channel.Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeFramer, Key: k.String()}
-}
 
 // OntologyIDs returns the ontology.ID for each key.
 func OntologyIDs(ks channel.Keys) []ontology.ID {
-	return lo.Map(ks, func(key channel.Key, _ int) ontology.ID { return OntologyID(key) })
+	return lo.Map(ks, func(key channel.Key, _ int) ontology.ID {
+		return ontology.ID{Type: ontology.ResourceTypeFramer, Key: key.String()}
+	})
 }

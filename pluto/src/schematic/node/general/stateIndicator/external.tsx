@@ -17,6 +17,7 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitiv
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 
 export * from "@/schematic/node/general/stateIndicator/config";
 
@@ -26,7 +27,8 @@ export const defaultConfig = (): Config => ({
   color: color.ZERO,
   inlineSize: 100,
   options: [],
-  label: Label.defaultConfig("State Indicator"),
+  label: Label.defaultConfig("State indicator"),
+  ...Staleness.ZERO_CONFIG,
   source: telem.sourcePipeline("number", {
     connections: [],
     segments: { valueStream: telem.streamChannelValue({ channel: 0 }) },
@@ -44,7 +46,7 @@ const Preview = ({ color }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "State Indicator",
+  name: "State indicator",
   Form: StateIndicatorForm,
   Node: Symbol,
   Preview,

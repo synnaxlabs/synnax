@@ -23,10 +23,24 @@ func GoFormatter() resolver.TypeFormatter {
 type GoImportResolver struct {
 	RepoRoot       string
 	CurrentPackage string
+	// AliasOverrides remaps specific import paths to explicit aliases. The
+	// re-render pass sets it to untangle pinned/live imports of one dependency
+	// that would otherwise collide on the same derived alias.
+	AliasOverrides map[string]string
 }
 
-func (r *GoImportResolver) ResolveImport(outputPath string, ctx *resolver.Context) (importPath string, qualifier string, shouldImport bool) {
-	alias := naming.DerivePackageAlias(outputPath, r.CurrentPackage)
-	importPath = gomod.ResolveImportPath(outputPath, r.RepoRoot, gomod.DefaultModulePrefix)
+func (r *GoImportResolver) ResolveImport(
+	outputPath string,
+	ctx *resolver.Context,
+) (importPath, qualifier string, shouldImport bool) {
+	importPath = gomod.ResolveImportPath(
+		outputPath,
+		r.RepoRoot,
+		gomod.DefaultModulePrefix,
+	)
+	alias, ok := r.AliasOverrides[importPath]
+	if !ok {
+		alias = naming.DerivePackageAlias(outputPath, r.CurrentPackage)
+	}
 	return importPath, alias, true
 }

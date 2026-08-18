@@ -149,7 +149,7 @@ class TestController:
                     lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
                 )
                 # Keep publishing closed-valve samples until the sequence has observed
-                # the acknowledgement, so the second wait_until always fires, then keep
+                # the acknowledgment, so the second wait_until always fires, then keep
                 # publishing open-valve samples until the sequence finishes, so the
                 # observation window is guaranteed to see the condition fail no matter
                 # when it starts.
@@ -302,7 +302,7 @@ class TestController:
                     lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
                 )
                 # Keep publishing closed-valve samples until the sequence has observed
-                # the acknowledgement, so the second wait_until always fires. Then keep
+                # the acknowledgment, so the second wait_until always fires. Then keep
                 # the valve closed for three out of every four samples (75% closed,
                 # comfortably above the 50% target) until the sequence finishes.
                 # Starting the pattern with its closed run right as the observation
@@ -562,3 +562,92 @@ class TestRemainsTrueForProcessor:
         processor.process(self._state)
         assert isinstance(processor.exc, ValueError)
         assert processor.event.is_set()
+
+
+@pytest.mark.control
+class TestRetrieve:
+    def test_retrieve_held_channel(self, client: sy.Synnax):
+        """Should return the state of a channel a writer holds."""
+        ch = client.channels.create(
+            name="control_retrieve_held",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.open_writer(
+            start=sy.TimeStamp.now(), channels=[ch.key], name="philadelphia"
+        ):
+            state = client.control.retrieve(key=ch.key)
+            assert state is not None
+            assert state.resource == ch.key
+            assert state.subject.name == "philadelphia"
+
+    def test_retrieve_uncontrolled_channel(self, client: sy.Synnax):
+        """Should return None for a channel no subject controls."""
+        ch = client.channels.create(
+            name="control_retrieve_unheld",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        assert client.control.retrieve(key=ch.key) is None
+
+    def test_retrieve_by_name(self, client: sy.Synnax):
+        """Should resolve a channel name before reading its state."""
+        ch = client.channels.create(
+            name="control_retrieve_by_name",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.open_writer(
+            start=sy.TimeStamp.now(), channels=[ch.key], name="denver"
+        ):
+            state = client.control.retrieve(name=ch.name)
+            assert state is not None
+            assert state.subject.name == "denver"
+
+    def test_retrieve_all(self, client: sy.Synnax):
+        """Should return every controlled channel when no params are given."""
+        ch = client.channels.create(
+            name="control_retrieve_all",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.open_writer(
+            start=sy.TimeStamp.now(), channels=[ch.key], name="austin"
+        ):
+            states = client.control.retrieve()
+            assert any(s.resource == ch.key for s in states)
+
+    def test_retrieve_several(self, client: sy.Synnax):
+        """Should return the state of each held channel and omit the rest."""
+        held = client.channels.create(
+            name="control_retrieve_several_held",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        free = client.channels.create(
+            name="control_retrieve_several_free",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.open_writer(
+            start=sy.TimeStamp.now(), channels=[held.key], name="boulder"
+        ):
+            states = client.control.retrieve(keys=[held.key, free.key])
+            assert [s.resource for s in states] == [held.key]
+            states = client.control.retrieve(names=[held.name, free.name])
+            assert [s.resource for s in states] == [held.key]
+
+    @pytest.mark.parametrize("params", [{"keys": []}, {"names": []}])
+    def test_retrieve_empty_params(self, client: sy.Synnax, params: dict):
+        """Should return no states when an empty set of channels is requested."""
+        assert client.control.retrieve(**params) == []
+
+    def test_retrieve_unknown_names(self, client: sy.Synnax):
+        """Should return no states when no requested name resolves to a channel."""
+        assert client.control.retrieve(names=["control_retrieve_does_not_exist"]) == []

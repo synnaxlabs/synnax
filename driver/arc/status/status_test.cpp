@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -21,6 +22,7 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/testutil/testutil.h"
 #include "driver/arc/status/status.h"
 
 namespace driver::arc::status {
@@ -62,7 +64,7 @@ namespace {
     variant_param.name = "variant";
     variant_param.type = str_type;
     variant_param.value = variant;
-    node.config = ::arc::types::Params{key_param, message_param, variant_param};
+    node.inputs = ::arc::types::Params{key_param, message_param, variant_param};
     ::arc::types::Type out_type;
     out_type.kind = ::arc::types::Kind::String;
     ::arc::types::Param out;
@@ -72,14 +74,34 @@ namespace {
     return node;
 }
 
-// recordingReporter pushes (variant, message) pairs into the provided vector.
-Reporter recordingReporter(std::vector<std::pair<std::string, std::string>> *out) {
-    return
-        [out](const std::string &v, const std::string &m) { out->emplace_back(v, m); };
+::arc::types::Param str_input(const std::string &name) {
+    ::arc::types::Param p;
+    p.name = name;
+    p.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    return p;
+}
+
+// set_spec declares the set native's input shape for building test configs.
+::arc::stl::testutil::NodeSpec set_spec() {
+    ::arc::types::Param out;
+    out.name = ::arc::ir::default_output_param;
+    out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
+    ::arc::stl::testutil::NodeSpec spec;
+    spec.type = "set";
+    spec.outputs.push_back(std::move(out));
+    spec.inputs.push_back(str_input("key_or_name"));
+    spec.inputs.push_back(str_input("message"));
+    spec.inputs.push_back(str_input("variant"));
+    return spec;
+}
+
+// recordingReporter pushes reported messages into the provided vector.
+Reporter recordingReporter(std::vector<std::string> *out) {
+    return [out](const std::string &m) { out->emplace_back(m); };
 }
 
 Reporter noopReporter() {
-    return [](const std::string &, const std::string &) {};
+    return [](const std::string &) {};
 }
 
 // Unique per test to avoid cross-run contamination on a shared cluster.
@@ -99,7 +121,7 @@ std::string unique_name(const std::string &prefix) {
     return ir;
 }
 
-} // namespace
+}
 
 TEST(StatusModuleTest, HandlesSet) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -168,6 +190,30 @@ TEST(StatusModuleTest, ReturnsNotFoundForUnknownType) {
     );
     EXPECT_EQ(created, nullptr);
     EXPECT_EQ(err, x::errors::NOT_FOUND);
+}
+
+TEST(SetStatusTest, ReadsAVarBoundMessageAtFireTime) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    std::vector<std::string> calls;
+    const auto name = unique_name("var_msg_");
+    const auto f = set_spec().config(
+        {name,
+         std::shared_ptr<::arc::stl::testutil::VarBinding>(
+             ::arc::stl::testutil::var_of<std::string>("live message")
+         ),
+         "info"}
+    );
+    Module module(client, recordingReporter(&calls));
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    const auto node = f.make_node();
+    const auto new_key = std::get<std::string>((*node.output(0)).at(0));
+    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(new_key));
+    EXPECT_EQ(retrieved.message, "live message");
+    EXPECT_TRUE(calls.empty());
 }
 
 TEST(SetStatusTest, NextWritesResolvedKeyToOutput) {
@@ -240,7 +286,7 @@ TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("set_iv_");
 
-    std::vector<std::pair<std::string, std::string>> calls;
+    std::vector<std::string> calls;
     auto node = make_set_ir_node(name, "msg", "bogus");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -256,8 +302,7 @@ TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].first, x::status::VARIANT_WARNING);
-    EXPECT_NE(calls[0].second.find("status.set:"), std::string::npos);
+    EXPECT_NE(calls[0].find("status.set:"), std::string::npos);
 }
 
 TEST(SetStatusTest, IsOutputTruthyDoesNotThrow) {

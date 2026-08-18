@@ -14,7 +14,7 @@
 #include <thread>
 #include <vector>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/thread/rt/rt.h"
 

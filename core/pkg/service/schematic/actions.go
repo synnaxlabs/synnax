@@ -15,6 +15,11 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Schematic) (Schematic, error) {
+	return p.Schematic, nil
+}
+
 // Handle replaces the schematic's name.
 func (p RenamePayload) Handle(state Schematic) (Schematic, error) {
 	state.Name = p.Name
@@ -26,18 +31,6 @@ func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == p.Key {
 			state.Nodes[i].Position = p.Position
-			break
-		}
-	}
-	return state, nil
-}
-
-// Handle records the rendered pixel size of the named node. No-op if no node
-// matches.
-func (p SetNodeMeasuredPayload) Handle(state Schematic) (Schematic, error) {
-	for i := range state.Nodes {
-		if state.Nodes[i].Key == p.Key {
-			state.Nodes[i].Measured = p.Measured
 			break
 		}
 	}

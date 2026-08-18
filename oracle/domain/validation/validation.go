@@ -19,10 +19,13 @@ type Rules struct {
 	MaxLength      *int64
 	Min            *Number
 	Max            *Number
-	Default        *resolution.ExpressionValue
 	Pattern        *string
 	PatternMessage *string
 	Required       bool
+	// Skip excludes the field from generated validation entirely, including recursion
+	// into it. Used for fields that hold a reference to another entity (e.g. a parent
+	// key or label keys) rather than embedded data to validate.
+	Skip bool
 }
 
 // Number represents a numeric constraint value that can be int or float.
@@ -41,6 +44,8 @@ func Parse(domain resolution.Domain) *Rules {
 			switch expr.Name {
 			case "required":
 				rules.Required = true
+			case "skip":
+				rules.Skip = true
 			}
 			continue
 		}
@@ -62,8 +67,6 @@ func Parse(domain resolution.Domain) *Rules {
 				Float: v.FloatValue,
 				IsInt: v.Kind == resolution.ValueKindInt,
 			}
-		case "default":
-			rules.Default = &v
 		case "pattern":
 			rules.Pattern = &v.StringValue
 			if len(expr.Values) > 1 {
@@ -80,5 +83,5 @@ func IsEmpty(r *Rules) bool {
 		return true
 	}
 	return !r.Required && r.MinLength == nil && r.MaxLength == nil &&
-		r.Min == nil && r.Max == nil && r.Default == nil && r.Pattern == nil
+		r.Min == nil && r.Max == nil && r.Pattern == nil
 }

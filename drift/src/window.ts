@@ -35,6 +35,11 @@ export interface WindowStateExtensionProps {
   focusCount: number;
   /** Incremented to center the window */
   centerCount: number;
+  /**
+   * Creation ordinal, assigned once when the window is reserved and never
+   * reused. The main window is 1; pre-render windows have none until claimed.
+   */
+  ordinal?: number;
 }
 
 export const INITIAL_WINDOW_STATE: WindowStateExtensionProps = {
@@ -50,6 +55,22 @@ export const INITIAL_PRERENDER_WINDOW_STATE: WindowState = {
   key: PRERENDER_WINDOW,
   visible: false,
 };
+
+/**
+ * Clears how the window was presented and where it was in its lifecycle when its
+ * process ended. Identity and geometry survive.
+ */
+export const resetTransientState = (window: WindowState): WindowState => ({
+  ...window,
+  stage: "creating",
+  processCount: 0,
+  focusCount: 0,
+  centerCount: 0,
+  focus: undefined,
+  minimized: undefined,
+  fullscreen: undefined,
+  error: undefined,
+});
 
 /** State of a window managed by drift  */
 export interface WindowState extends WindowProps, WindowStateExtensionProps {}

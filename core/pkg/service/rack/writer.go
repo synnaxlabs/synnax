@@ -12,11 +12,10 @@ package rack
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -32,57 +31,89 @@ type Writer struct {
 	group group.Group
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
-	// newTaskKey returns a new key for a task within the rack.
-	newTaskKey func(context.Context, Key) (uint32, error)
 	// status is used to write status updates.
 	status status.Writer[StatusDetails]
 	// table is the gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
 }
 
-func resolveStatus(r *Rack) *status.Status[StatusDetails] {
+func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
-		return &status.Status[StatusDetails]{
-			Key:     OntologyID(r.Key).String(),
+		return &Status{
+			Key:     r.OntologyID().String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.VariantWarning,
+			Variant: status.VariantWarning,
 			Message: "Status unknown",
 			Details: StatusDetails{Rack: r.Key},
 		}
 	}
-	stat := status.Status[StatusDetails](*r.Status)
-	stat.Key = OntologyID(r.Key).String()
+	stat := *r.Status
+	stat.Key = r.OntologyID().String()
 	stat.Details.Rack = r.Key
 	stat.Name = r.Name
 	return &stat
 }
 
+// healStatus restores a rack's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Racks are re-created on every scan cycle,
+// so on a no-op update the default "unknown" status must not overwrite a status the
+// driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *Status,
+) error {
+	if exists, err := gorp.NewRetrieve[string, Status]().
+		Where(gorp.MatchKeys[string, Status](stat.Key)).
+		Exists(ctx, w.tx); err != nil || exists {
+		return err
+	}
+	return w.status.Set(ctx, stat)
+}
+
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
 // does not exist, a new rack will be created. If a status is provided on the rack,
 // it will be used instead of the default "unknown" status.
-func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
+func (w Writer) Create(ctx context.Context, r *Rack) error {
+	var err error
 	if r.Key.IsZero() {
 		r.Key, err = w.newKey(ctx)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = r.Validate(); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
-	otgID := OntologyID(r.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	otgID := r.OntologyID()
+	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	stat := resolveStatus(r)
-	if err = w.status.Set(ctx, stat); err != nil {
+	if r.Status != nil {
+		if err = w.status.Set(ctx, stat); err != nil {
+			return err
+		}
+	} else if err = w.healStatus(ctx, stat); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
+	return w.otg.DefineRelationships(
+		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID,
+	)
+}
+
+// CreateMany creates the given racks. If racks with the same key already exist, they
+// will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, racks *[]Rack) error {
+	for i := range *racks {
+		if err := w.Create(ctx, &(*racks)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Delete deletes the rack with the provided key and its associated status. Delete is
@@ -93,14 +124,16 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 
 // DeleteGuard deletes the rack with the given key and its associated status if the
 // provided guard function returns nil.
-func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[Key, Rack]) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Rack](key)).Guard(guard).Exec(ctx, w.tx); err != nil {
+func (w Writer) DeleteGuard(
+	ctx context.Context,
+	key Key,
+	guard gorp.GuardFunc[Key, Rack],
+) error {
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Rack](key)).
+		Guard(guard).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, OntologyID(key).String())
-}
-
-// NewTaskKey returns a new, unique key for the task on the provided rack.
-func (w Writer) NewTaskKey(ctx context.Context, key Key) (next uint32, err error) {
-	return w.newTaskKey(ctx, key)
+	return w.status.Delete(ctx, key.OntologyID().String())
 }

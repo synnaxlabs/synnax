@@ -12,9 +12,8 @@ package symbol
 import (
 	"context"
 
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -23,22 +22,22 @@ import (
 // symbol.Service.
 type Retrieve struct {
 	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[uuid.UUID, Symbol]
+	gorp       gorp.Retrieve[Key, Symbol]
 	search     *search.Index
 	searchTerm string
 }
 
 // Where applies the provided filter to the query. To compose multiple filters,
 // chain Where calls or pass a combined filter via gorp.And / gorp.Or.
-func (r Retrieve) Where(filter gorp.Filter[uuid.UUID, Symbol]) Retrieve {
+func (r Retrieve) Where(filter gorp.Filter[Key, Symbol]) Retrieve {
 	r.gorp = r.gorp.Where(filter)
 	return r
 }
 
 // MatchKeys returns a filter that restricts results to symbols whose key
 // matches any of the provided values.
-func MatchKeys(keys ...uuid.UUID) gorp.Filter[uuid.UUID, Symbol] {
-	return gorp.MatchKeys[uuid.UUID, Symbol](keys...)
+func MatchKeys(keys ...Key) gorp.Filter[Key, Symbol] {
+	return gorp.MatchKeys[Key, Symbol](keys...)
 }
 
 // Search sets a fuzzy search term that Retrieve will use to filter results.
@@ -51,17 +50,17 @@ func (r Retrieve) Entry(symbol *Symbol) Retrieve {
 	return r
 }
 
-// Entries binds the given slice of symbols to the query. This pointer is where the results
-// of the query will be stored after Exec is called.
+// Entries binds the given slice of symbols to the query. This pointer is where the
+// results of the query will be stored after Exec is called.
 func (r Retrieve) Entries(symbols *[]Symbol) Retrieve {
 	r.gorp = r.gorp.Entries(symbols)
 	return r
 }
 
-// Exec executes the query against the given transaction. The results of the query
-// will be stored in the pointer given to the Entry or Entries method. If tx is nil,
-// the query will be executed directly against the underlying gorp.DB provided to the
-// symbol service. It's important to note that fuzzy search will not be aware of any writes/
+// Exec executes the query against the given transaction. The results of the query will
+// be stored in the pointer given to the Entry or Entries method. If tx is nil, the
+// query will be executed directly against the underlying gorp.DB provided to the symbol
+// service. It's important to note that fuzzy search will not be aware of any writes/
 // deletes executed on the tx, and will only search the underlying database.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)

@@ -37,22 +37,39 @@ class Log(ConsolePage):
             self.set_channel(channel_name)
 
     def clear_channels(self) -> None:
-        """Remove all currently selected channels from the log."""
+        """Remove all currently selected channels from the log.
+
+        The remove button reveals on row hover but stays under the row's own
+        content in hit-testing, so a physical click never lands; dispatch the
+        click on the button instead.
+        """
         self.layout.show_visualization_toolbar()
         toolbar = self.page.locator(".console-log-toolbar")
         while True:
-            remove_btns = toolbar.locator(
-                ".console-log__channel-row .pluto-btn--text:not(.pluto--disabled)"
+            rows = toolbar.locator(
+                ".console-log__channel-row:has(button:has(svg.pluto-icon--close))"
             )
-            if remove_btns.count() == 0:
+            count = rows.count()
+            if count == 0:
                 break
-            remove_btns.first.click()
+            row = rows.first
+            row.hover()
+            remove_btn = row.locator("button:has(svg.pluto-icon--close)").first
+            remove_btn.dispatch_event("click")
+            # Confirm the row actually detached before rescanning; a silent
+            # no-op here would loop forever.
+            for _ in range(10):
+                if rows.count() < count:
+                    break
+                self.page.wait_for_timeout(200)
+            else:
+                raise RuntimeError("Log channel row did not detach after remove")
 
     def set_channel(self, channel_name: str) -> None:
-        """Add a channel to the log via the 'Add a channel...' row."""
+        """Add a channel to the log via the 'Add channel' row."""
         self.layout.show_visualization_toolbar()
         toolbar = self.page.locator(".console-log-toolbar")
-        add_trigger = toolbar.get_by_text("Add a channel...")
+        add_trigger = toolbar.get_by_text("Add channel")
         add_trigger.click()
         self.layout.select_from_dropdown(channel_name, "Search channels")
 
@@ -67,6 +84,54 @@ class Log(ConsolePage):
             if channel_name in row_text:
                 return True
         return False
+
+    def copy_visible_entries(self) -> str:
+        """Drag-select the log and copy the selection via the context menu.
+
+        Log entries are drawn on a canvas, so they are not countable as DOM
+        nodes. A mouse drag (not the Ctrl+A trigger) sets the selection, and the
+        context-menu Copy item writes it through ``navigator.clipboard.write``
+        (the async clipboard API). Both avoid the focus-dependent native copy
+        event and the active-tab trigger gate, so the round-trip is reliable in
+        headless runs. Returns "" if the copy could not be performed.
+        """
+        self.layout.get_tab(self.page_name).click()
+        if not self.pane_locator:
+            return ""
+        bbox = self.pane_locator.bounding_box()
+        if bbox is None:
+            return ""
+        x = bbox["x"] + 40
+        self.page.mouse.move(x, bbox["y"] + 10)
+        self.page.mouse.down()
+        self.page.mouse.move(x, bbox["y"] + bbox["height"] - 10, steps=5)
+        self.page.mouse.up()
+        self.pane_locator.click(button="right", position={"x": 40, "y": 10})
+        menu = self.page.locator(".pluto-menu-context").first
+        try:
+            menu.wait_for(state="visible", timeout=3000)
+            menu.locator(".pluto-menu-item").filter(has_text="Copy").first.click(
+                timeout=2000
+            )
+        except PlaywrightTimeoutError:
+            self.page.keyboard.press("Escape")
+            return ""
+        return self.layout.read_clipboard()
+
+    def wait_for_copied_entries(self, retries: int = 20) -> list[str]:
+        """Poll the drag-select + context-menu copy until it yields entries.
+
+        Returns the non-empty copied lines (one per rendered entry), or an empty
+        list if nothing was copied within the retry budget.
+        """
+        lines: list[str] = []
+        for _ in range(retries):
+            text = self.copy_visible_entries()
+            lines = [ln for ln in text.split("\n") if ln.strip()]
+            if lines:
+                return lines
+            self.page.wait_for_timeout(250)
+        return lines
 
     def is_empty(self) -> bool:
         """Check if the log shows any empty state message."""
@@ -90,20 +155,24 @@ class Log(ConsolePage):
             return False
         return self.pane_locator.locator("text=No data received yet").count() > 0
 
+    def _hold_toggle(self) -> Locator:
+        """The pause/resume scrolling toggle in the log's hover controls."""
+        assert self.pane_locator is not None
+        return self.pane_locator.locator(".console-controls button")
+
     def is_streaming(self) -> bool:
-        """Check if the log is actively streaming data (live button visible)."""
+        """Check if the log is rendering streamed entries (no empty state shown)."""
         if not self.pane_locator:
             return False
-        live_button = self.pane_locator.locator("button.pluto-log__live")
-        return live_button.count() > 0
+        return not self.is_empty()
 
     def wait_until_streaming(self) -> bool:
-        """Wait until the log starts streaming data."""
-        live_button = self.page.locator(
-            f"{self.pluto_label} button.pluto-log__live"
-        ).first
+        """Wait until streamed entries replace the log's empty state."""
+        if not self.pane_locator:
+            return False
+        empty_state = self.pane_locator.get_by_text("No data received yet")
         try:
-            live_button.wait_for(state="visible", timeout=5000)
+            empty_state.wait_for(state="hidden", timeout=5000)
             return True
         except PlaywrightTimeoutError:
             return False
@@ -120,31 +189,32 @@ class Log(ConsolePage):
             return False
 
     def is_scrolling_paused(self) -> bool:
-        """Check if log scrolling is paused."""
+        """Check if log scrolling is paused (hold toggle selected)."""
         if not self.pane_locator:
             return False
-        live_button = self.pane_locator.locator("button.pluto-log__live")
-        if live_button.count() == 0:
+        toggle = self._hold_toggle()
+        if toggle.count() == 0:
             return False
-        btn_class = live_button.get_attribute("class") or ""
-        return "pluto--active" in btn_class
+        btn_class = toggle.get_attribute("class") or ""
+        return "pluto--selected" in btn_class
 
     def pause_scrolling(self) -> None:
         """Pause log scrolling (enter scrollback mode)."""
-        if self.is_scrolling_paused():
+        if not self.pane_locator or self.is_scrolling_paused():
             return
-        if not self.pane_locator:
-            return
-        live_button = self.pane_locator.locator("button.pluto-log__live")
-        if live_button.count() > 0:
-            live_button.click()
+        # The controls reveal on pane hover; hover first so the click lands.
+        self.pane_locator.hover()
+        self._hold_toggle().click()
+        self.pane_locator.locator(".console-controls button.pluto--selected").wait_for(
+            state="attached", timeout=2000
+        )
 
     def resume_scrolling(self) -> None:
         """Resume log scrolling (exit scrollback mode)."""
-        if not self.is_scrolling_paused():
+        if not self.pane_locator or not self.is_scrolling_paused():
             return
-        if not self.pane_locator:
-            return
-        live_button = self.pane_locator.locator("button.pluto-log__live")
-        if live_button.count() > 0:
-            live_button.click()
+        self.pane_locator.hover()
+        self._hold_toggle().click()
+        self.pane_locator.locator(".console-controls button.pluto--selected").wait_for(
+            state="detached", timeout=2000
+        )

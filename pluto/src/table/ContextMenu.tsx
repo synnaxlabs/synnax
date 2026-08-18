@@ -13,7 +13,7 @@ import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { getCellColumn } from "@/table/Indicator";
-import { useCellPosition, useSelectRows } from "@/table/queries";
+import { useCellPosition, useRows } from "@/table/queries";
 
 export interface DefaultContextMenuProps {
   resourceKey: table.Key;
@@ -27,6 +27,10 @@ export interface DefaultContextMenuProps {
   // item.
   showIndicators?: boolean;
   onShowIndicatorsChange?: (next: boolean) => void;
+  /** Whether the table is centered in its container. */
+  centered?: boolean;
+  /** When defined, surfaces a Center / Align item in the menu. */
+  onCenteredChange?: (next: boolean) => void;
   onAddRow: (index?: number) => void;
   onAddCol: (index?: number) => void;
   onRemoveRow: (indices: number[]) => void;
@@ -52,6 +56,8 @@ export const DefaultContextMenu = ({
   onEditableChange,
   showIndicators = true,
   onShowIndicatorsChange,
+  centered = false,
+  onCenteredChange,
   onAddRow,
   onAddCol,
   onRemoveRow,
@@ -64,7 +70,7 @@ export const DefaultContextMenu = ({
   const cellPos = useCellPosition({ key: resourceKey, cellKey: cellKey ?? "" });
   const rowIdx = resizer?.dir === "y" ? resizer.index : (cellPos?.y ?? null);
   const colIdx = resizer?.dir === "x" ? resizer.index : (cellPos?.x ?? null);
-  const rows = useSelectRows({ key: resourceKey });
+  const rows = useRows({ key: resourceKey });
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   // fullySelectedRows / fullySelectedCols: indices where every cell along
   // that axis is in the selection. When the right-clicked row/col is part
@@ -110,6 +116,10 @@ export const DefaultContextMenu = ({
   const handleToggleIndicators = useCallback(
     () => onShowIndicatorsChange?.(!showIndicators),
     [onShowIndicatorsChange, showIndicators],
+  );
+  const handleToggleCentered = useCallback(
+    () => onCenteredChange?.(!centered),
+    [onCenteredChange, centered],
   );
   const showIndicatorToggle = !editable && onShowIndicatorsChange != null;
   return (
@@ -205,6 +215,12 @@ export const DefaultContextMenu = ({
         >
           {showIndicators ? <Icon.Hidden /> : <Icon.Visible />}
           {`${showIndicators ? "Hide" : "Show"} indicators`}
+        </Menu.Item>
+      )}
+      {onCenteredChange != null && (
+        <Menu.Item size="small" itemKey="toggleCentered" onClick={handleToggleCentered}>
+          {centered ? <Icon.Align.BoxTopLeft /> : <Icon.Align.BoxCenter />}
+          {centered ? "Align table to top left" : "Center table"}
         </Menu.Item>
       )}
       {extra != null && (

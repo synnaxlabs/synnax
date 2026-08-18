@@ -1,0 +1,159 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { connection } from "@synnaxlabs/client";
+import { Button, Flex, Form, Icon, type Input, Nav, Status } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
+import { useState } from "react";
+import { type z } from "zod";
+
+import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
+import { Session } from "@/session";
+
+export interface ConnectModalParams {
+  clusterKey?: string;
+}
+
+const baseFormSchema = Session.Cluster.clusterZ.pick({
+  name: true,
+  host: true,
+  port: true,
+  secure: true,
+});
+
+const ZERO_VALUES: z.infer<typeof baseFormSchema> = {
+  name: "",
+  host: "",
+  port: "",
+  secure: false,
+};
+
+const PORT_FIELD_PROPS: Partial<Input.TextProps> = {
+  placeholder: "9090",
+};
+
+const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
+  placeholder: "localhost",
+};
+
+export const useConnectModal = Modals.create<ConnectModalParams>(
+  ({ clusterKey, close }) => {
+    const dispatch = Session.useDispatch();
+    const isEdit = clusterKey != null;
+    const existing = Session.Cluster.useSelectState(clusterKey);
+    const [connStatus, setConnStatus] = useState<connection.Status | null>(null);
+    const [loading, setLoading] = useState<"test" | "submit" | null>(null);
+    const names = Session.Cluster.useSelectAllNames();
+    const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
+      const isDuplicate = names.some(
+        (n) => n === name && (!isEdit || existing?.name !== name),
+      );
+      if (isDuplicate)
+        issues.push({
+          input: name,
+          code: "custom",
+          path: ["name"],
+          message: `${name} is already in use.`,
+        });
+    });
+    const handleError = Status.useErrorHandler();
+    const methods = Form.use<typeof formSchema>({
+      schema: formSchema,
+      values:
+        isEdit && existing != null
+          ? {
+              name: existing.name,
+              host: existing.host,
+              port: existing.port,
+              secure: existing.secure,
+            }
+          : { ...ZERO_VALUES },
+    });
+
+    const handleSubmit = (): void =>
+      handleError(async () => {
+        if (!methods.validate()) return;
+        const data = methods.value();
+        setConnStatus(null);
+        setLoading("submit");
+        const status = await connection.check(data);
+        setLoading(null);
+        setConnStatus(status);
+        if (isEdit && existing != null && clusterKey != null) {
+          dispatch(
+            Session.Cluster.set({
+              ...data,
+              key: clusterKey,
+              username: existing.username,
+              password: existing.password,
+            }),
+          );
+          if (status.details.clusterKey && status.details.clusterKey !== clusterKey)
+            dispatch(
+              Session.Cluster.changeKey({
+                oldKey: clusterKey,
+                newKey: status.details.clusterKey,
+              }),
+            );
+        } else {
+          const key = status.details.clusterKey || uuid.create();
+          dispatch(Session.Cluster.set({ ...data, key, username: "", password: "" }));
+        }
+        close();
+      }, "Failed to connect to the Core");
+
+    return (
+      <Modals.Frame className={CSS.B("connect-cluster")}>
+        <Modals.Header icon={<Icon.Cluster />}>Core.Connect</Modals.Header>
+        <Form.Form<typeof formSchema> {...methods}>
+          <Modals.Body gap="tiny" align="stretch">
+            <Form.TextField
+              path="name"
+              inputProps={{
+                autoFocus: true,
+                variant: "text",
+                level: "h2",
+                placeholder: "Synnax Core",
+                grow: true,
+              }}
+            />
+            <Flex.Box x align="stretch">
+              <Form.TextField path="host" grow inputProps={HOST_FIELD_PROPS} />
+              <Form.TextField path="port" inputProps={PORT_FIELD_PROPS} />
+              <Form.SwitchField path="secure" />
+            </Flex.Box>
+          </Modals.Body>
+        </Form.Form>
+        <Modals.Footer>
+          <Nav.Bar.Start gap="small">
+            {connStatus != null ? (
+              <Status.Summary variant={connStatus.variant}>
+                {connStatus.variant === "success" ? "Connected" : connStatus.message}
+              </Status.Summary>
+            ) : (
+              <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button
+              onClick={handleSubmit}
+              status={loading === "submit" ? "loading" : undefined}
+              trigger={Triggers.SAVE}
+              variant="filled"
+            >
+              {isEdit ? "Save" : "Connect"}
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modals.Footer>
+      </Modals.Frame>
+    );
+  },
+);

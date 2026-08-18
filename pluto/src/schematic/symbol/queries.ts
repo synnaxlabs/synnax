@@ -7,85 +7,61 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, NotFoundError, ontology, schematic } from "@synnaxlabs/client";
+import {
+  type group,
+  NotFoundError,
+  ontology,
+  query,
+  schematic,
+} from "@synnaxlabs/client";
+import { verbs } from "@synnaxlabs/x";
+import { useMemo } from "react";
+import type z from "zod";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
-import { state } from "@/state";
-
-/// isMissing reports whether a schematic symbol retrieve resolved to a missing
-/// reference. Lets canvas and property-panel call sites branch on the existing
-/// Flux Result without inventing a parallel state type.
-export const isMissing = (res: Flux.Result<schematic.symbol.Symbol>): boolean =>
-  res.variant === "error" && NotFoundError.matches(res.status.details.error);
-
-export const FLUX_STORE_KEY = "schematicSymbols";
 
 const RESOURCE_NAME = "schematic symbol";
 const PLURAL_RESOURCE_NAME = "schematic symbols";
-
-export interface FluxStore extends Flux.UnaryStore<
-  schematic.symbol.Key,
-  schematic.symbol.Symbol
-> {}
-
-export interface FluxSubStore extends Ontology.FluxSubStore {
-  [FLUX_STORE_KEY]: FluxStore;
-}
-
-const SET_SYMBOL_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof schematic.symbol.symbolZ
-> = {
-  channel: schematic.symbol.SET_CHANNEL_NAME,
-  schema: schematic.symbol.symbolZ,
-  onChange: ({ store, changed }) => store.schematicSymbols.set(changed.key, changed),
-};
-
-const DELETE_SYMBOL_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof schematic.symbol.keyZ
-> = {
-  channel: schematic.symbol.DELETE_CHANNEL_NAME,
-  schema: schematic.symbol.keyZ,
-  onChange: ({ store, changed }) => store.schematicSymbols.delete(changed),
-};
-
-export const STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
-  schematic.symbol.Key,
-  schematic.symbol.Symbol
-> = {
-  listeners: [SET_SYMBOL_LISTENER, DELETE_SYMBOL_LISTENER],
-};
+const GROUP_RESOURCE_NAME = "schematic symbol group";
 
 export type RetrieveQuery = {
   key: string;
 };
 
-const retrieveSingle = async ({
-  client,
-  query: { key },
-  store,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const cached = store.schematicSymbols.get(key);
-  if (cached != null) return cached;
-  const symbol = await client.schematics.symbols.retrieve({ key });
-  store.schematicSymbols.set(key, symbol);
-  return symbol;
-};
-
-export const { useRetrieve, useRetrieveEffect } = Flux.createRetrieve<
+export const { use, useResult } = Flux.createRetrieve<
   RetrieveQuery,
-  schematic.symbol.Symbol,
-  FluxSubStore
+  schematic.symbol.Symbol
 >({
   name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
-    store.schematicSymbols.onSet(onChange, key),
-  ],
+  retrieve: async ({ client, query }) =>
+    await client.schematics.symbols.retrieve(query),
+  onChange: ({ client, query }, handler) =>
+    client.schematics.symbols.onChange(query, handler),
+  getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
 });
+
+export interface Resolved {
+  symbol?: schematic.symbol.Symbol;
+  // missing reports whether the key points at a symbol that no longer exists
+  // (or never did), as opposed to one still loading.
+  missing: boolean;
+}
+
+/**
+ * Resolves a symbol specification by key, kept live across edits and deletes.
+ * Loading and missing are distinct: `symbol` is unset for both, `missing` is
+ * true only once the reference is known to be dangling.
+ */
+export const useResolved = (key: string | null): Resolved => {
+  const res = useResult(key == null ? null : { key });
+  return useMemo(() => {
+    if (res.variant !== "error") return { symbol: res.data, missing: false };
+    const { error } = res.status.details;
+    return {
+      missing: NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error),
+    };
+  }, [res]);
+};
 
 export type ListQuery = {
   keys?: string[];
@@ -95,83 +71,41 @@ export type ListQuery = {
   limit?: number;
 };
 
-const matchSymbolRelationship = (r: ontology.Relationship, parent: ontology.ID) =>
-  ontology.matchRelationship(r, {
-    from: parent,
-    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-    to: { type: "schematic_symbol" },
-  });
-export const useList = Flux.createList<
-  ListQuery,
-  string,
-  schematic.symbol.Symbol,
-  FluxSubStore
->({
+export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbol>({
   sort: (a, b) => a.name.localeCompare(b.name),
-  retrieveCached: ({ query: params, store }) => {
-    if (params.searchTerm != null && params.searchTerm.length > 0) return [];
-    if (params.parent == null) return store.schematicSymbols.list();
-    const keys = store.relationships.get((r) =>
-      matchSymbolRelationship(r, params.parent as ontology.ID),
-    );
-    return store.schematicSymbols.get(keys.map((k) => k.to.key));
-  },
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, store, query: { parent, ...rest } }) => {
-    if (parent != null) {
-      const children = await client.ontology.retrieveChildren(parent);
-      const keys = children.map((c) => c.id.key);
-      if (keys.length === 0) return [];
-      const symbols = await client.schematics.symbols.retrieve({
-        ...rest,
-        keys,
-      });
-      symbols.forEach((s) => {
-        const rel = {
-          from: parent,
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: schematic.symbol.ontologyID(s.key),
-        };
-        store.relationships.set(ontology.relationshipToString(rel), rel);
-      });
-      return symbols;
-    }
-    const res = await client.schematics.symbols.retrieve(rest);
-    store.schematicSymbols.set(res);
-    return res;
-  },
-  retrieveByKey: async ({ key, ...rest }) =>
-    await retrieveSingle({ ...rest, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete, query, client }) => [
-    store.schematicSymbols.onSet((symbol) =>
-      onChange(symbol.key, (p) => (p == null ? null : symbol)),
-    ),
-    store.schematicSymbols.onDelete(onDelete),
-    store.relationships.onSet(async (r) => {
-      if (!matchSymbolRelationship(r, query.parent as ontology.ID)) return;
-      const symbol = await retrieveSingle({ client, query: { key: r.to.key }, store });
-      onChange(r.to.key, symbol);
-    }),
-    store.relationships.onDelete(async (r) => {
-      const rel = ontology.relationshipZ.parse(r);
-      if (!matchSymbolRelationship(rel, query.parent as ontology.ID)) return;
-      onDelete(rel.to.key);
-    }),
-  ],
+  retrieve: async ({ client, query }) =>
+    await client.schematics.symbols.retrieve(query),
+  retrieveByKey: async ({ client, key }) =>
+    await client.schematics.symbols.retrieve(key),
+  onChange: ({ client, query }, handler) =>
+    client.schematics.symbols.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) =>
+    client.schematics.symbols.onChange(key, handler),
+  getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
 });
 
 export type FormQuery = {
-  key?: string;
+  key: string;
 };
 
 export const formSchema = schematic.symbol.symbolZ
   .partial({ key: true })
   .extend({ parent: ontology.idZ });
 
-export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
+const toFormValues = (
+  symbol: schematic.symbol.Symbol,
+  parents: ontology.Resource[],
+): z.infer<typeof formSchema> => ({
+  name: symbol.name,
+  data: symbol.data,
+  key: symbol.key,
+  parent: parents[0]?.id ?? ontology.ROOT_ID,
+});
+
+export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   initialValues: {
-    version: 1,
     name: "",
     data: {
       svg: "",
@@ -185,91 +119,68 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
     parent: ontology.ROOT_ID,
   },
   schema: formSchema,
-  retrieve: async ({ client, query: { key }, reset, store }) => {
-    if (key == null) return;
-    const symbol = await retrieveSingle({ client, store, query: { key } });
-    const parent = await Ontology.retrieveParentID({
-      client,
-      query: { id: schematic.symbol.ontologyID(key) },
-      store,
-    });
-    reset({
-      version: 1,
-      name: symbol.name,
-      data: symbol.data,
-      key: symbol.key,
-      parent,
-    });
+  retrieve: async ({ client, query: { key } }) => {
+    // The two reads share only the key, so serializing them would double the
+    // latency the editor suspends for.
+    const [symbol, parents] = await Promise.all([
+      client.schematics.symbols.retrieve(key),
+      client.ontology.parents.retrieve({ ids: schematic.symbol.ontologyID(key) }),
+    ]);
+    return toFormValues(symbol, parents);
   },
-  update: async ({ client, value, reset, store, rollbacks }) => {
+  getCached: ({ client, query: { key } }) => {
+    const symbol = client.schematics.symbols.getCached(key);
+    if (!query.isLive(symbol)) return undefined;
+    const parents = client.ontology.parents.getCached({
+      ids: schematic.symbol.ontologyID(key),
+    });
+    if (!query.isLive(parents)) return undefined;
+    return toFormValues(symbol, parents);
+  },
+  update: async ({ client, value, reset }) => {
     const payload = value();
     const created = await client.schematics.symbols.create(payload);
-    const newRel: ontology.Relationship = {
-      from: payload.parent,
-      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      to: schematic.symbol.ontologyID(created.key),
-    };
-    rollbacks.push(store.schematicSymbols.set(created.key, created));
-    rollbacks.push(
-      store.relationships.set(ontology.relationshipToString(newRel), newRel),
-    );
     reset({ ...created, parent: payload.parent });
   },
-  mountListeners: ({ store, query: { key }, reset, get }) => {
-    if (key == null) return [];
-    return [
-      store.schematicSymbols.onSet(
-        (symbol) =>
-          reset({
-            ...symbol,
-            parent:
-              get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
-          }),
-        key,
-      ),
-    ];
-  },
+  mountListeners: ({ client, query: { key }, reset, get }) =>
+    client.schematics.symbols.onChange(key, (result) => {
+      if (!query.isLive(result)) return;
+      reset({
+        ...result,
+        parent:
+          get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
+      });
+    }),
 });
 
 export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    const { key, name } = data;
-    await client.schematics.symbols.rename(key, name);
-    rollbacks.push(
-      store.schematicSymbols.set(
-        key,
-        state.skipUndefined((p) => ({ ...p, name })),
-      ),
-    );
+  verbs: verbs.RENAME,
+  update: async ({ client, data }) => {
+    await client.schematics.symbols.rename(data.key, data.name);
     return data;
   },
 });
 
 export type DeleteParams = schematic.symbol.Key | schematic.symbol.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    rollbacks.push(store.schematicSymbols.delete(data));
-    await client.schematics.symbols.delete(data);
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.schematics.symbols.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
 
-export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
+export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
   {},
-  group.Group,
-  FluxSubStore
+  group.Group
 >({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, store }) => {
-    const g = await client.schematics.symbols.retrieveGroup();
-    store.groups.set(g.key, g);
-    return g;
-  },
+  name: GROUP_RESOURCE_NAME,
+  retrieve: async ({ client }) => await client.schematics.symbols.retrieveGroup(),
 });

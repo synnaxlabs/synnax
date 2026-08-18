@@ -41,7 +41,10 @@ const (
 	WriterCommandSetAuthority
 )
 
-var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterCommandWrite, WriterCommandSetAuthority)
+var validateWriterCommand = validate.NewInclusiveBoundsChecker(
+	WriterCommandWrite,
+	WriterCommandSetAuthority,
+)
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
@@ -109,7 +112,7 @@ type streamWriter struct {
 	accumulatedErr  error
 	errSent         bool
 	virtual         *virtualWriter
-	updateDBControl func(ctx context.Context, u ControlUpdate) error
+	updateDBControl func(ctx context.Context, u ControlUpdate)
 	internal        []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
@@ -136,11 +139,11 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if w.accumulatedErr != nil {
 					err = w.accumulatedErr
 				}
-				return
+				return err
 			case req, ok := <-w.In.Outlet():
 				if !ok {
 					err = w.accumulatedErr
-					return
+					return err
 				}
 				var commitEnd telem.TimeStamp
 				if w.accumulatedErr == nil {
@@ -154,20 +157,23 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEnd telem.TimeStamp, err error) {
+func (w *streamWriter) process(
+	ctx context.Context,
+	req WriterRequest,
+) (commitEnd telem.TimeStamp, err error) {
 	if err = validateWriterCommand(req.Command); err != nil {
 		return 0, err
 	}
 	if req.Command == WriterCommandSetAuthority {
 		err = w.setAuthority(ctx, req.Config)
-		return
+		return commitEnd, err
 	}
 	if req.Command == WriterCommandCommit {
 		commitEnd, err = w.commit(ctx)
-		return
+		return commitEnd, err
 	}
 	err = w.write(ctx, req)
-	return
+	return commitEnd, err
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
@@ -214,7 +220,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	}
 
 	if len(u.Transfers) > 0 {
-		return w.updateDBControl(ctx, u)
+		w.updateDBControl(ctx, u)
 	}
 	return nil
 }
@@ -224,8 +230,14 @@ func (w *streamWriter) maybeSendRes(
 	req WriterRequest,
 	end telem.TimeStamp,
 ) error {
-	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
-	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
+	res := WriterResponse{
+		Command:    req.Command,
+		SeqNum:     req.SeqNum,
+		End:        end,
+		Authorized: true,
+	}
+	if w.accumulatedErr != nil &&
+		errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.accumulatedErr = nil
 		w.errSent = false
 		res.Authorized = false
@@ -268,7 +280,10 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	if w.virtual.internal != nil {
-		if req.Frame, err = w.virtual.write(&excludeUnauthorized, req.Frame); err != nil {
+		if req.Frame, err = w.virtual.write(
+			&excludeUnauthorized,
+			req.Frame,
+		); err != nil {
 			accumulatedErr = err
 			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
 				return accumulatedErr
@@ -402,7 +417,9 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	var err error
-	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+	parentUpdate := ControlUpdate{
+		Transfers: make([]control.Transfer, 0, len(w.internal)),
+	}
 	for _, idx := range w.internal {
 		u, errClose := idx.Close()
 		if errClose != nil {
@@ -421,16 +438,8 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(parentUpdate.Transfers) > 0 {
-		_ = w.updateDBControl(ctx, parentUpdate)
+		w.updateDBControl(ctx, parentUpdate)
 	}
-
-	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
-		// When digest writer closes, we do not (and cannot) send an update.
-		if _, digestErr := digestWriter.Close(); digestErr != nil {
-			return digestErr
-		}
-	}
-
 	return err
 }
 
@@ -519,7 +528,7 @@ func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 	// Allocate the Series's byte buffer once and reinterpret it as []TimeStamp via
 	// unsafe.CastSlice so timestamps are written directly into the backing array. Going
 	// through NewSeriesV(stamps...) would perform two allocations instead of one.
-	series := telem.MakeSeries(telem.TimeStampT, int(w.scanDataLen))
+	series := telem.MakeSeries(telem.TimestampT, int(w.scanDataLen))
 	stamps := unsafe.CastSlice[byte, telem.TimeStamp](series.Data)
 	for j := range stamps {
 		stamps[j] = t0 + telem.TimeStamp(j)
@@ -594,6 +603,8 @@ func (w *idxWriter) write(
 		alignment              telem.Alignment
 		alignmentSet           bool
 		idxUnauthorized        bool
+		idxTimeRange           telem.TimeRange
+		idxTimeRangeSet        bool
 	)
 	// Pass 1: the index channel establishes the alignment for the whole frame. Its
 	// sample position is the space every channel it indexes is expressed in, so it must
@@ -625,6 +636,15 @@ func (w *idxWriter) write(
 			incrementedSampleCount = true
 			w.hasUncommittedData = true
 			series.Alignment = alignment
+			// The index series carries the timestamps for the whole group, so data
+			// series can be stamped with a real time range without consulting the
+			// index on disk.
+			idxTimeRange = telem.TimeRange{
+				Start: telem.ValueAt[telem.TimeStamp](series, 0),
+				End:   w.idx.highWaterMark + 1,
+			}
+			idxTimeRangeSet = true
+			series.TimeRange = idxTimeRange
 			fr.SetRawSeriesAt(i, series)
 			break
 		}
@@ -676,6 +696,9 @@ func (w *idxWriter) write(
 			w.hasUncommittedData = true
 		}
 		series.Alignment = alignment
+		if idxTimeRangeSet {
+			series.TimeRange = idxTimeRange
+		}
 		fr.SetRawSeriesAt(i, series)
 	}
 	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
@@ -784,7 +807,6 @@ func missingChannelError(
 func incorrectNumberOfSeriesError(
 	expected int,
 	received int,
-
 ) error {
 	return errors.Wrapf(
 		validate.ErrValidation,
@@ -814,7 +836,8 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		}
 		ch := uWriter.Channel
 		if lengthOfFrame == -1 {
-			if !ch.DataType.IsVariable() && s.DataType.Density() == telem.UnknownDensity {
+			if !ch.DataType.IsVariable() &&
+				s.DataType.Density() == telem.UnknownDensity {
 				return invalidDataTypeError(ch, s.DataType)
 			}
 			lengthOfFrame = s.Len()
@@ -858,7 +881,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 }
 
 func (w *idxWriter) updateHighWater(s telem.Series) error {
-	if s.DataType != telem.TimeStampT && s.DataType != telem.Int64T {
+	if s.DataType != telem.TimestampT && s.DataType != telem.Int64T {
 		return invalidDataTypeError(w.idx.ch, s.DataType)
 	}
 	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, -1)
@@ -868,7 +891,9 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 // resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
 // returns the high watermark. For a non-index channel, this returns a stamp to the
 // approximation of the end
-func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
+func (w *idxWriter) resolveCommitEnd(
+	ctx context.Context,
+) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
@@ -886,11 +911,13 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 }
 
 type virtualWriter struct {
-	internal  map[ChannelKey]*virtual.Writer
-	digestKey channel.Key
+	internal map[ChannelKey]*virtual.Writer
 }
 
-func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame, error) {
+func (w virtualWriter) write(
+	filterUnauthorized *[]ChannelKey,
+	fr Frame,
+) (Frame, error) {
 	var accumulatedErr error
 	for rawI, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
@@ -920,15 +947,11 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 	var err error
 	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
-		// We do not want to clean up the digest channel since we want to use it to send
-		// updates for closures.
-		if chW.Channel.Key != w.digestKey {
-			transfer, closeErr := chW.Close()
-			if closeErr != nil {
-				err = errors.Join(err, closeErr)
-			} else if transfer.Occurred() {
-				update.Transfers = append(update.Transfers, transfer)
-			}
+		transfer, closeErr := chW.Close()
+		if closeErr != nil {
+			err = errors.Join(err, closeErr)
+		} else if transfer.Occurred() {
+			update.Transfers = append(update.Transfers, transfer)
 		}
 	}
 	return update, err

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location } from "@synnaxlabs/x";
+import { box, location, type state as xstate } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
   type RefCallback,
   useCallback,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -22,16 +23,11 @@ import { type Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
-import { type LocationPreference, position, type Preference } from "@/dialog/position";
+import { PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
-import {
-  useClickOutside,
-  useCombinedRefs,
-  useResize,
-  useSyncedRef,
-  useWindowResize,
-} from "@/hooks";
+import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import { CONTEXT_MENU_CLASS } from "@/menu/types";
+import { position } from "@/position";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
@@ -46,8 +42,8 @@ export interface FrameProps extends Omit<
 > {
   initialVisible?: boolean;
   visible?: boolean;
-  onVisibleChange?: state.Setter<boolean>;
-  location?: LocationPreference;
+  onVisibleChange?: xstate.Setter<boolean>;
+  location?: position.LocationPreference;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
@@ -95,6 +91,8 @@ interface InternalContextValue extends Pick<
   "targetCorner" | "dialogCorner" | "style" | "modalPosition"
 > {
   ref: RefCallback<HTMLDivElement>;
+  /** Ties the portaled dialog back to this frame for click-outside checks. */
+  id: string;
 }
 
 const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
@@ -104,7 +102,7 @@ const [InternalContext, useInternalContext] = context.create<InternalContextValu
 
 export { useInternalContext };
 
-const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
 const positionsEqual = (
   variant: Variant,
@@ -121,7 +119,7 @@ const positionsEqual = (
   return topLeftEqual && widthEqual;
 };
 
-const PREFERENCES: LocationPreference[] = [
+const PREFERENCES: position.LocationPreference[] = [
   {
     targetCorner: location.BOTTOM_LEFT,
     dialogCorner: location.TOP_LEFT,
@@ -186,9 +184,10 @@ export const Frame = ({
   const open = useCallback(() => setVisible(true), [setVisible]);
   const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
 
+  const id = useId();
   const visibleRef = useSyncedRef(visible);
   const targetRef = useRef<HTMLDivElement>(null);
-  const prevLocationPreference = useRef<Preference | undefined>(undefined);
+  const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -219,7 +218,7 @@ export const Frame = ({
       prefer = [prevLocationPreference.current, ...PREFERENCES];
     // In the connected or floating case, we use a more sophisticated positioning
     // algorithm.
-    const { adjustedDialog, ...locations } = position({
+    const { adjustedDialog, ...locations } = position.position({
       target,
       dialog,
       container: windowBox,
@@ -313,12 +312,13 @@ export const Frame = ({
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
       ref: combinedDialogRef,
+      id,
       targetCorner,
       dialogCorner,
       style,
       modalPosition,
     }),
-    [combinedDialogRef, targetCorner, dialogCorner, style, modalPosition],
+    [combinedDialogRef, id, targetCorner, dialogCorner, style, modalPosition],
   );
 
   const ctxValue = useMemo(
@@ -339,6 +339,7 @@ export const Frame = ({
       <InternalContext value={internalContextValue}>
         <Flex.Box
           {...rest}
+          {...{ [PORTAL_ID_ATTR]: id }}
           ref={combinedTargetRef}
           className={CSS(
             className,

@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type xy } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, type ReactNode } from "react";
 
-import { type Tabs } from "@/tabs";
 import { type Theming } from "@/theming";
 
-export interface FormProps extends Pick<Tabs.TabsProps, "actions"> {
+export interface FormProps {
+  /** actions render in the right corner of the form's tab strip. */
+  actions?: ReactNode;
   schematicKey?: string;
 }
 

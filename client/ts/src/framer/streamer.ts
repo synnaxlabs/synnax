@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { breaker, errors, observe, Rate, TimeSpan } from "@synnaxlabs/x";
+import { errors, Rate, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { paramsZ } from "@/channel/payload";
-import { ReadAdapter } from "@/framer/adapter";
+import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -56,7 +56,6 @@ export const streamerConfigZ = intermediateStreamerConfigZ.or(
 );
 
 export type StreamerConfig = z.input<typeof streamerConfigZ>;
-type ParsedStreamerConfig = z.output<typeof streamerConfigZ>;
 
 /**
  * A streamer is used to stream frames of telemetry in real-time from a Synnax cluster.
@@ -99,16 +98,17 @@ export interface StreamOpener {
 }
 
 /**
- * Creates a function that opens streamers with the given retriever and client.
- * @param retriever - The channel retriever to use for resolving channel information
+ * Creates a function that opens streamers with the given channel resolver and
+ * client.
+ * @param retrieveChannels - Resolves channel params to payloads for the codec
  * @param client - The WebSocket client to use for streaming
  * @returns A function that opens streamers with the given configuration
  */
 export const createStreamOpener =
-  (retriever: channel.Retriever, client: WebSocketClient): StreamOpener =>
+  (retrieveChannels: ChannelRetriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
-    const cfg = streamerConfigZ.parse(config);
-    const adapter = await ReadAdapter.open(retriever, cfg.channels);
+    const cfg = zod.parse(streamerConfigZ, config, { label: "streamer config" });
+    const adapter = await ReadAdapter.open(retrieveChannels, cfg.channels);
     client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream("/frame/stream", reqZ, resZ);
     const streamer = new BaseStreamer(
@@ -130,16 +130,16 @@ export const createStreamOpener =
 
 /**
  * Opens a new streamer with the given configuration.
- * @param retriever - The channel retriever to use for resolving channel information
+ * @param retrieveChannels - Resolves channel params to payloads for the codec
  * @param client - The WebSocket client to use for streaming
  * @param config - The configuration for the streamer
  * @returns A promise that resolves to a new streamer
  */
 export const openStreamer = async (
-  retriever: channel.Retriever,
+  retrieveChannels: ChannelRetriever,
   client: WebSocketClient,
   config: StreamerConfig,
-): Promise<Streamer> => await createStreamOpener(retriever, client)(config);
+): Promise<Streamer> => await createStreamOpener(retrieveChannels, client)(config);
 
 class BaseStreamer implements Streamer {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
@@ -197,148 +197,5 @@ class BaseStreamer implements Streamer {
 
   [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
     return this;
-  }
-}
-
-/**
- * A hardened streamer that automatically reconnects on failure.
- * This streamer wraps a regular streamer and adds automatic reconnection
- * logic when the connection is lost or errors occur.
- */
-export class HardenedStreamer implements Streamer {
-  private wrapped_: Streamer | null = null;
-  private readonly breaker: breaker.Breaker;
-  private readonly opener: StreamOpener;
-  private readonly config: ParsedStreamerConfig;
-
-  private constructor(
-    opener: StreamOpener,
-    config: StreamerConfig,
-    breakerConfig: breaker.Config = {},
-  ) {
-    this.opener = opener;
-    this.config = streamerConfigZ.parse(config);
-    const {
-      maxRetries = 5000,
-      baseInterval = TimeSpan.seconds(1),
-      scale = 1,
-    } = breakerConfig ?? {};
-    this.breaker = new breaker.Breaker({ maxRetries, baseInterval, scale });
-  }
-
-  /**
-   * Opens a new hardened streamer with the given configuration.
-   * @param opener - The function to use for opening streamers
-   * @param config - The configuration for the streamer
-   * @returns A promise that resolves to a new hardened streamer
-   */
-  static async open(
-    opener: StreamOpener,
-    config: StreamerConfig,
-    breakerConfig?: breaker.Config,
-  ): Promise<HardenedStreamer> {
-    const h = new HardenedStreamer(opener, config, breakerConfig);
-    await h.runStreamer();
-    return h;
-  }
-
-  private async runStreamer(): Promise<void> {
-    while (true)
-      try {
-        if (this.wrapped_ != null) this.wrapped_.close();
-        this.wrapped_ = await this.opener(this.config);
-        this.breaker.reset();
-        return;
-      } catch (e) {
-        this.wrapped_ = null;
-        if (!(await this.breaker.wait())) throw errors.fromUnknown(e);
-        console.error("failed to open streamer", e);
-        continue;
-      }
-  }
-
-  private get wrapped(): Streamer {
-    if (this.wrapped_ == null) throw new Error("stream closed");
-    return this.wrapped_;
-  }
-
-  async update(channels: channel.Params): Promise<void> {
-    this.config.channels = paramsZ.parse(channels);
-    try {
-      await this.wrapped.update(channels);
-    } catch {
-      await this.runStreamer();
-      return await this.update(channels);
-    }
-  }
-
-  async next(): Promise<IteratorResult<Frame>> {
-    try {
-      return { done: false, value: await this.read() };
-    } catch (e) {
-      if (EOF.matches(e)) return { done: true, value: undefined };
-      throw errors.fromUnknown(e);
-    }
-  }
-
-  async read(): Promise<Frame> {
-    try {
-      const fr = await this.wrapped.read();
-      this.breaker.reset();
-      return fr;
-    } catch (e) {
-      if (EOF.matches(e)) throw errors.fromUnknown(e);
-      await this.runStreamer();
-      return await this.read();
-    }
-  }
-  close(): void {
-    this.wrapped.close();
-  }
-
-  get keys(): channel.Key[] {
-    return this.wrapped.keys;
-  }
-
-  [Symbol.asyncIterator](): AsyncIterator<Frame> {
-    return this;
-  }
-}
-
-/**
- * Wraps a standard streamer to implement an observable interface for handling changes
- * to channel values through an onChange handler.
- */
-export class ObservableStreamer<V = Frame>
-  extends observe.Observer<Frame, V>
-  implements observe.ObservableAsyncCloseable<V>
-{
-  private readonly streamer: Streamer;
-  private readonly closePromise: Promise<void>;
-
-  /**
-   * Creates a new observable streamer.
-   * @param streamer - The streamer to wrap
-   * @param transform - An optional transform function to apply to each frame
-   * @template V - The type of the transformed value. Only relevant if transform is
-   * provided. Defaults to Frame.
-   */
-  constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
-    super(transform);
-    this.streamer = streamer;
-    this.closePromise = this.stream();
-  }
-
-  async update(channels: channel.Params): Promise<void> {
-    await this.streamer.update(channels);
-  }
-
-  async close(): Promise<void> {
-    this.streamer.close();
-    await this.closePromise;
-  }
-
-  private async stream(): Promise<void> {
-    for await (const frame of this.streamer) this.notify(frame);
   }
 }

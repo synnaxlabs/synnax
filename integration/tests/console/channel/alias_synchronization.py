@@ -68,7 +68,7 @@ class AliasSynchronization(ConsoleCase):
         )
 
         self.log("Setting up Line Plot with channel")
-        plot = console.workspace.create_plot(f"Alias Test Plot {self.suffix}")
+        plot = console.project.create_plot(f"Alias Test Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", [self.data_name])
 

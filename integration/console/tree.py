@@ -10,12 +10,22 @@
 """Tree navigation utilities for Console UI automation."""
 
 import re
+import time
 
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
+
+CONTAINER = ".pluto-tree"
+VIRTUALIZER = ".pluto-list__virtualizer"
+SCROLL_STEP = 200
+# Rows for a new offset mount on a later frame, and a page the tree has not fetched
+# yet needs a round-trip.
+SCROLL_SETTLE_MS = 150
+POLL_MS = 100
+DEFAULT_TIMEOUT_MS = 5000
 
 
 class Tree:
@@ -36,53 +46,139 @@ class Tree:
         self.layout = LayoutClient(page)
         self.ctx_menu = ContextMenu(page)
 
+    def by_id(self, item_id: str) -> Locator:
+        """Locate a tree item by its ID.
+
+        A windowed tree renumbers its rows whenever the window moves, so an index-bound
+        locator points at another item after any scroll. An ID-bound one does not.
+
+        :param item_id: The item ID (e.g., 'channel:42').
+        :returns: The Locator for the item.
+        """
+        return self.page.locator(f"div[id='{item_id}']")
+
+    def _mounted(self, prefix: str) -> list[tuple[str, str]]:
+        """The mounted rows for a prefix, as (ID, text) pairs."""
+        rows: list[list[str]] = self.page.locator(f"div[id^='{prefix}']").evaluate_all(
+            "(els) => els.filter((el) => el.checkVisibility())"
+            ".map((el) => [el.id, el.innerText.trim()])"
+        )
+        return [(item_id, text) for item_id, text in rows]
+
     def find_by_prefix(self, prefix: str) -> list[Locator]:
         """Find all visible tree items with the given ID prefix.
 
         :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
         :returns: List of visible Locator elements.
         """
-        locator = self.page.locator(f"div[id^='{prefix}']")
-        elements = locator.all()
-        return [el for el in elements if el.is_visible()]
+        return [self.by_id(item_id) for item_id, _ in self._mounted(prefix)]
+
+    def _match(self, prefix: str, name: str, *, exact: bool) -> Locator | None:
+        for item_id, text in self._mounted(prefix):
+            matches = text == name if exact else name.lower() in text.lower()
+            if matches:
+                return self.by_id(item_id)
+        return None
+
+    def _scroll_to(self, offset: int) -> None:
+        self.page.locator(CONTAINER).first.evaluate(
+            "(el, top) => { el.scrollTop = top; }", offset
+        )
+        self.page.wait_for_timeout(SCROLL_SETTLE_MS)
+
+    def _scroll_step(self) -> int:
+        """Scroll distance that keeps every row inside some window of the sweep.
+
+        The window mounts a viewport of rows plus an overscan on each side, so a step
+        of one viewport never skips a row.
+        """
+        height = self.page.locator(CONTAINER).first.evaluate("(el) => el.clientHeight")
+        return max(SCROLL_STEP, int(height))
 
     def find_by_name(
         self, prefix: str, name: str, *, exact: bool = True
     ) -> Locator | None:
         """Find a tree item by its ID prefix and display name.
 
+        The tree is windowed, so an item reaches the DOM only once scrolled to. Scrolls
+        the tree from the top until the item mounts.
+
         :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
         :param name: The display name of the item.
         :param exact: If True, match full text exactly. If False, use substring match.
         :returns: The Locator if found, None otherwise.
         """
-        if exact:
-            elements = self.find_by_prefix(prefix)
-            for element in elements:
-                text = element.inner_text().strip()
-                if text == name:
-                    return element
+        found = self._match(prefix, name, exact=exact)
+        if found is not None:
+            return found
+        virtualizer = self.page.locator(f"{CONTAINER} {VIRTUALIZER}").first
+        if virtualizer.count() == 0:
             return None
-        else:
-            items = self.page.locator(f"div[id^='{prefix}']").filter(has_text=name)
-            if items.count() == 0:
-                return None
-            return items.first
+        total = virtualizer.evaluate("(el) => el.scrollHeight")
+        for offset in range(0, int(total), self._scroll_step()):
+            self._scroll_to(offset)
+            found = self._match(prefix, name, exact=exact)
+            if found is not None:
+                return found
+        self._scroll_to(0)
+        return None
 
-    def wait_for_removal(self, prefix: str, name: str, *, exact: bool = True) -> None:
-        """Wait for a tree item to be removed.
+    def wait_for_name(
+        self,
+        prefix: str,
+        name: str,
+        *,
+        exact: bool = True,
+        timeout: int = DEFAULT_TIMEOUT_MS,
+    ) -> Locator:
+        """Wait for a tree item to reach the DOM, sweeping the window on each attempt.
 
         :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
         :param name: The display name of the item.
         :param exact: If True, match full text exactly. If False, use substring match.
+        :param timeout: Maximum time to wait, in milliseconds.
+        :returns: The Locator for the item.
+        :raises PlaywrightTimeoutError: If the item never mounts.
         """
-        if exact:
-            item = self.page.locator(f"div[id^='{prefix}']").filter(
-                has=self.page.get_by_text(name, exact=True)
-            )
-        else:
-            item = self.page.locator(f"div[id^='{prefix}']").filter(has_text=name)
-        item.first.wait_for(state="hidden", timeout=5000)
+        deadline = time.monotonic() + timeout / 1000
+        while True:
+            found = self.find_by_name(prefix, name, exact=exact)
+            if found is not None:
+                return found
+            if time.monotonic() >= deadline:
+                raise PlaywrightTimeoutError(
+                    f"Tree item {prefix}{name} did not appear within {timeout}ms"
+                )
+            self.page.wait_for_timeout(POLL_MS)
+
+    def wait_for_removal(
+        self,
+        prefix: str,
+        name: str,
+        *,
+        exact: bool = True,
+        timeout: int = DEFAULT_TIMEOUT_MS,
+    ) -> None:
+        """Wait for a tree item to leave the tree.
+
+        A windowed tree drops the rows away from the viewport, so absence from the DOM
+        proves nothing on its own. Each attempt sweeps the whole tree.
+
+        :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
+        :param name: The display name of the item.
+        :param exact: If True, match full text exactly. If False, use substring match.
+        :param timeout: Maximum time to wait, in milliseconds.
+        :raises PlaywrightTimeoutError: If the item stays in the tree.
+        """
+        deadline = time.monotonic() + timeout / 1000
+        while True:
+            if self.find_by_name(prefix, name, exact=exact) is None:
+                return
+            if time.monotonic() >= deadline:
+                raise PlaywrightTimeoutError(
+                    f"Tree item {prefix}{name} was still present after {timeout}ms"
+                )
+            self.page.wait_for_timeout(POLL_MS)
 
     def list_names(self, prefix: str) -> list[str]:
         """List all visible item names with the given ID prefix.
@@ -118,7 +214,7 @@ class Tree:
 
         Waits for the item to appear, then clicks to expand if not already expanded.
 
-        :param prefix: The ID prefix (e.g., 'workspace:', 'channel:').
+        :param prefix: The ID prefix (e.g., 'project:', 'channel:').
         """
         self.page.locator(f"div[id^='{prefix}']").first.wait_for(
             state="visible", timeout=5000
@@ -134,6 +230,45 @@ class Tree:
         except PlaywrightTimeoutError:
             pass
         root.click()
+        caret.wait_for(state="visible", timeout=5000)
+
+    def expand_named(self, prefix: str, name: str) -> None:
+        """Expand the root-level tree node with the given prefix and display name.
+
+        Unlike expand_root, which expands whichever node sorts first, this
+        targets a specific node by name. When several root nodes share a prefix
+        (e.g. one project per concurrently-running test), expand_root would
+        expand an arbitrary sibling; this expands the intended one.
+
+        :param prefix: The ID prefix (e.g., 'project:').
+        :param name: The exact display name of the node to expand.
+        """
+        self.page.locator(f"div[id^='{prefix}']").first.wait_for(
+            state="visible", timeout=5000
+        )
+        item = (
+            self.page.locator(f"div[id^='{prefix}']")
+            .filter(has=self.page.get_by_text(name, exact=True))
+            .first
+        )
+        item.wait_for(state="visible", timeout=5000)
+        # An expanded node's caret carries pluto--location-bottom (caret down);
+        # collapsed is pluto--location-right. The drawer remounts the tree each
+        # time it is reopened, so an expand click issued before the freshly
+        # mounted tree settles is silently dropped; retry until the caret flips.
+        caret = item.locator(".pluto--location-bottom")
+        for _ in range(4):
+            try:
+                caret.wait_for(state="visible", timeout=500)
+                return
+            except PlaywrightTimeoutError:
+                pass
+            item.click()
+            try:
+                caret.wait_for(state="visible", timeout=3000)
+                return
+            except PlaywrightTimeoutError:
+                continue
         caret.wait_for(state="visible", timeout=5000)
 
     def expand(self, item: Locator) -> None:

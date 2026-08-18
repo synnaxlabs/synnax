@@ -11,115 +11,77 @@ package channel_test
 
 import (
 	"context"
-	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/telem"
+	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/channel"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Service", Ordered, func() {
-	var mockCluster *mock.Cluster
+// validServiceConfig opens an in-memory single-node cluster and returns a fully
+// populated ServiceConfig backed by its host resolver, key-value store, time-series
+// database, and a fresh in-memory channel transport.
+func validServiceConfig(ctx context.Context) channel.ServiceConfig {
+	node := mock.NewNode(ctx)
+	return channel.ServiceConfig{
+		HostResolver: node.Cluster,
+		KV:           node.DB,
+		TS:           node.Storage.TS,
+		Transport:    tmock.NewNetwork().New("mock"),
+	}
+}
+
+var _ = Describe("ServiceConfig", Ordered, func() {
+	var valid channel.ServiceConfig
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.ProvisionCluster(context.Background(), 1)
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
+		ShouldNotLeakGoroutines()
+		valid = validServiceConfig(ctx)
 	})
 
-	Describe("CountExternalNonVirtual", func() {
-		It("Should return zero for empty database", func(ctx SpecContext) {
-			count := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
-			Expect(count).To(BeEquivalentTo(0))
+	Describe("Validate", func() {
+		It("Should pass when all required fields are set", func() {
+			Expect(valid.Validate()).To(Succeed())
 		})
-
-		It("Should count external non-virtual channels", func(ctx SpecContext) {
-			initialCount := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
-
-			// Create an index channel (external, non-virtual)
-			indexCh := channel.Channel{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.TimeStampT,
-				IsIndex:     true,
-				Leaseholder: 1,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &indexCh)).To(Succeed())
-
-			// Create a data channel (external, non-virtual)
-			dataCh := channel.Channel{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.Float64T,
-				LocalIndex:  indexCh.LocalKey,
-				Leaseholder: 1,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &dataCh)).To(Succeed())
-
-			// Count should increase by 2
-			Expect(mockCluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount + 2))
-		})
-
-		It("Should not count virtual channels", func(ctx SpecContext) {
-			initialCount := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
-
-			// Create a virtual channel (external, but virtual)
-			virtualCh := channel.Channel{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.Float64T,
-				Leaseholder: node.KeyFree,
-				Virtual:     true,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &virtualCh)).To(Succeed())
-
-			// Count should NOT increase
-			Expect(mockCluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount))
-		})
-
-		It("Should not count internal channels", func(ctx SpecContext) {
-			initialCount := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
-
-			// Create an internal index channel
-			internalIndexCh := channel.Channel{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.TimeStampT,
-				IsIndex:     true,
-				Leaseholder: 1,
-				Internal:    true,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &internalIndexCh)).To(Succeed())
-
-			// Create an internal data channel
-			internalDataCh := channel.Channel{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.Float64T,
-				LocalIndex:  internalIndexCh.LocalKey,
-				Leaseholder: 1,
-				Internal:    true,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &internalDataCh)).To(Succeed())
-
-			// Count should NOT increase
-			Expect(mockCluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount))
-		})
+		DescribeTable("Should report each missing required field",
+			func(field string) {
+				Expect(channel.ServiceConfig{}.Validate()).To(
+					MatchError(ContainSubstring(field)),
+				)
+			},
+			Entry("host resolver", "host_resolver: must be non-nil"),
+			Entry("kv", "kv: must be non-nil"),
+			Entry("time-series database", "ts: must be non-nil"),
+			Entry("transport", "transport: must be non-nil"),
+		)
 	})
 
-	Describe("Observe", func() {
-		It("Should notify when a channel is created", func(ctx SpecContext) {
-			var called atomic.Bool
-			mockCluster.Nodes[1].Channel.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
-				called.Store(true)
-			})
-			ch := channel.Channel{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.TimeStampT,
-				IsIndex:     true,
-				Leaseholder: 1,
-			}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-			Eventually(called.Load).Should(BeTrue())
+	Describe("Override", func() {
+		It("Should carry the override's fields onto a zero config", func() {
+			Expect(channel.ServiceConfig{}.Override(valid).Validate()).To(Succeed())
 		})
+	})
+})
+
+var _ = Describe("Service", Ordered, func() {
+	var valid channel.ServiceConfig
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		valid = validServiceConfig(ctx)
+	})
+
+	It("Should open with a valid configuration", func(ctx SpecContext) {
+		Expect(channel.NewService(ctx, valid)).ToNot(BeNil())
+	})
+	It("Should return an error with an invalid configuration", func(ctx SpecContext) {
+		Expect(channel.NewService(ctx, channel.ServiceConfig{})).Error().To(
+			MatchError(SatisfyAll(
+				ContainSubstring("host_resolver: must be non-nil"),
+				ContainSubstring("kv: must be non-nil"),
+				ContainSubstring("ts: must be non-nil"),
+				ContainSubstring("transport: must be non-nil"),
+			)),
+		)
 	})
 })

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
 
 export const VARIANT_COLORS: Record<status.Variant, string> = {
   info: "var(--pluto-text-color)",
@@ -15,5 +15,5 @@ export const VARIANT_COLORS: Record<status.Variant, string> = {
   warning: "var(--pluto-warning-m1)",
   success: "var(--pluto-primary-z)",
   loading: "var(--pluto-text-color)",
-  disabled: "var(--pluto-gray-l8)",
+  disabled: "var(--pluto-text-disabled)",
 };

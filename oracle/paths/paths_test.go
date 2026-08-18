@@ -38,6 +38,28 @@ var _ = Describe("Paths", func() {
 			root := MustSucceed(paths.RepoRoot())
 			Expect(root).ToNot(BeEmpty())
 		})
+
+		It("Should fall back to walking up for a .git entry", func() {
+			// An empty .git directory is not a valid repository, so `git rev-parse`
+			// fails and RepoRoot falls back to the directory walk.
+			origWd := MustSucceed(os.Getwd())
+			DeferCleanup(func() { Expect(os.Chdir(origWd)).To(Succeed()) })
+			dir := GinkgoT().TempDir()
+			Expect(os.MkdirAll(filepath.Join(dir, ".git"), 0o755)).To(Succeed())
+			nested := filepath.Join(dir, "a", "b")
+			Expect(os.MkdirAll(nested, 0o755)).To(Succeed())
+			Expect(os.Chdir(nested)).To(Succeed())
+			root := MustSucceed(paths.RepoRoot())
+			Expect(filepath.Join(root, ".git")).To(BeADirectory())
+		})
+
+		It("Should error outside any git repository", func() {
+			origWd := MustSucceed(os.Getwd())
+			DeferCleanup(func() { Expect(os.Chdir(origWd)).To(Succeed()) })
+			Expect(os.Chdir(GinkgoT().TempDir())).To(Succeed())
+			Expect(paths.RepoRoot()).Error().
+				To(MatchError(ContainSubstring("no .git entry found")))
+		})
 	})
 
 	Describe("Normalize", func() {
@@ -50,6 +72,13 @@ var _ = Describe("Paths", func() {
 		It("Should handle already repo-relative paths", func() {
 			rel := MustSucceed(paths.Normalize("oracle/paths", repoRoot))
 			Expect(rel).To(Equal("oracle/paths"))
+		})
+
+		It("Should resolve cwd-relative paths that are not repo-relative", func() {
+			// paths_test.go exists relative to the cwd (oracle/paths) but not
+			// relative to the repo root, forcing the cwd-resolution branch.
+			rel := MustSucceed(paths.Normalize("paths_test.go", repoRoot))
+			Expect(rel).To(Equal("oracle/paths/paths_test.go"))
 		})
 
 		It("Should reject paths that escape the repository", func() {
@@ -100,32 +129,10 @@ var _ = Describe("Paths", func() {
 			Expect(paths.ValidateOutput("", repoRoot)).
 				Error().To(MatchError(ContainSubstring("output path cannot be empty")))
 		})
-	})
 
-	Describe("RelativeImport", func() {
-		It("Should compute relative path between sibling directories", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "client/ts/src/group"))
-			Expect(rel).To(Equal("../group"))
-		})
-
-		It("Should compute relative path to nested directory", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src", "client/ts/src/user"))
-			Expect(rel).To(Equal("./user"))
-		})
-
-		It("Should compute relative path to parent directory", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "client/ts/src"))
-			Expect(rel).To(Equal(".."))
-		})
-
-		It("Should return . for same directory", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src", "client/ts/src"))
-			Expect(rel).To(Equal("."))
-		})
-
-		It("Should compute relative path across different branches", func() {
-			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "core/pkg/service/group"))
-			Expect(rel).To(Equal("../../../../core/pkg/service/group"))
+		It("Should reject backslash-prefixed paths", func() {
+			Expect(paths.ValidateOutput(`\client\ts`, repoRoot)).Error().
+				To(MatchError(ContainSubstring("must be repo-relative")))
 		})
 	})
 
@@ -156,6 +163,70 @@ var _ = Describe("Paths", func() {
 			ns := paths.DeriveNamespace("schema/core/label")
 			Expect(ns).To(Equal("label"))
 		})
+
+		It("Should derive a version file's resource as its namespace", func() {
+			ns := paths.DeriveNamespace("schemas/x/versions/telem/v0.oracle")
+			Expect(ns).To(Equal("telem"))
+			Expect(paths.DeriveNamespace("schemas/x/versions/telem/v12")).
+				To(Equal("telem"))
+		})
+	})
+
+	Describe("VersionFile", func() {
+		It("Should recognize version file paths", func() {
+			resource, version, ok := paths.VersionFile(
+				"schemas/synnax/versions/channel/v3.oracle",
+			)
+			Expect(ok).To(BeTrue())
+			Expect(resource).To(Equal("channel"))
+			Expect(version).To(Equal(3))
+		})
+
+		It("Should reject non-version paths", func() {
+			_, _, ok := paths.VersionFile("schemas/synnax/channel.oracle")
+			Expect(ok).To(BeFalse())
+			_, _, ok = paths.VersionFile("schemas/synnax/channel/v3.oracle")
+			Expect(ok).To(BeFalse())
+			_, _, ok = paths.VersionFile("schemas/synnax/versions/channel/v03.oracle")
+			Expect(ok).To(BeFalse())
+		})
+	})
+
+	Describe("VersionsDir", func() {
+		It("Should return the chain directory for a live resource schema", func() {
+			dir := MustBeOk(paths.VersionsDir("schemas/synnax/channel.oracle"))
+			Expect(dir).To(Equal("schemas/synnax/versions/channel"))
+		})
+
+		DescribeTable("Should report false for non-live paths",
+			func(path string) {
+				_, ok := paths.VersionsDir(path)
+				Expect(ok).To(BeFalse())
+			},
+			Entry("version file", "schemas/synnax/versions/channel/v0.oracle"),
+			Entry("nested path", "schemas/synnax/nested/channel.oracle"),
+			Entry("outside schemas", "client/ts/channel.oracle"),
+		)
+	})
+
+	Describe("LiveSchema", func() {
+		It("Should return the domain and resource for a live schema", func() {
+			domain, resource, ok := paths.LiveSchema("schemas/x/telem.oracle")
+			Expect(ok).To(BeTrue())
+			Expect(domain).To(Equal("x"))
+			Expect(resource).To(Equal("telem"))
+		})
+
+		DescribeTable("Should report false for non-live paths",
+			func(path string) {
+				_, _, ok := paths.LiveSchema(path)
+				Expect(ok).To(BeFalse())
+			},
+			Entry("version file", "schemas/x/versions/telem/v0.oracle"),
+			Entry("too shallow", "schemas/telem.oracle"),
+			Entry("too deep", "schemas/x/nested/telem.oracle"),
+			Entry("outside schemas", "client/x/telem.oracle"),
+		)
 	})
 
 	Describe("Integration", func() {

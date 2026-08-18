@@ -47,7 +47,9 @@ func (i IteratorConfig) Validate() error { return nil }
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
-	DefaultIteratorConfig                               = IteratorConfig{AutoChunkSize: 1e5}
+	DefaultIteratorConfig                               = IteratorConfig{
+		AutoChunkSize: 1e5,
+	}
 )
 
 func IterRange(tr telem.TimeRange) IteratorConfig {
@@ -159,8 +161,8 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 		// If the provided ts is in the seeked domain, set the view to be ts.
 		i.seekReset(ts)
 	} else {
-		// Otherwise, set the view to the start of the seeked domain or bounds, whichever
-		// one is later.
+		// Otherwise, set the view to the start of the seeked domain or bounds,
+		// whichever one is later.
 		i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	}
 	return ok
@@ -182,7 +184,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	}()
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
-		return
+		return ok
 	}
 
 	if span == AutoSpan {
@@ -192,24 +194,24 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 
 	if i.view.Span().IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
-		return
+		return ok
 	}
 
 	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
-		return
+		return ok
 	}
 
 	for i.internal.Next() &&
 		i.accumulate(ctx) &&
 		!i.satisfied() {
 	}
-	return
+	return ok
 }
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
 	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(
+	viewEnd, err := i.idx.Stamp(
 		ctx,
 		i.view.Start,
 		i.AutoChunkSize,
@@ -219,17 +221,29 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	if endApprox.Lower.After(i.bounds.End) {
+	if viewEnd.Lower.After(i.bounds.End) {
 		return i.Next(ctx, i.view.Start.Span(i.bounds.End))
 	}
-	i.view.End = endApprox.Lower
+	// A view start between two samples brackets the chunk end. The upper bound is the
+	// first sample past the chunk, so a view ending there holds exactly AutoChunkSize
+	// samples. A stamp that runs out of data reports an unbounded upper instead.
+	i.view.End = viewEnd.Lower
+	if viewEnd.Upper != telem.TimeStampMax {
+		i.view.End = viewEnd.Upper
+	}
 	i.reset(i.view.BoundBy(i.bounds))
 
 	nRemaining := i.AutoChunkSize
 	for {
-		if !i.internal.TimeRange().OverlapsWith(i.view) {
+		domainTR := i.internal.TimeRange()
+		// Domains are ordered, so one starting at or after the view end belongs to the
+		// next chunk. Leave the iterator on it and keep what this chunk already read.
+		if domainTR.Start.AfterEq(i.view.End) {
+			break
+		}
+		if !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Next() {
-				return false
+				break
 			}
 			continue
 		}
@@ -238,10 +252,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		startSample := startApprox.Upper
-		if !startApprox.Exact() && !startApprox.StartExact {
-			startSample = startApprox.Lower
-		}
+		startSample := pickSampleOffset(startApprox)
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err
@@ -269,7 +280,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 func (i *Iterator) autoPrev(ctx context.Context) bool {
 	i.view.End = i.view.Start
-	startApprox, err := i.idx.Stamp(
+	viewStart, err := i.idx.Stamp(
 		ctx,
 		i.view.Start,
 		-i.AutoChunkSize,
@@ -279,43 +290,51 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	if startApprox.Lower.Before(i.bounds.Start) {
+	if viewStart.Lower.Before(i.bounds.Start) {
 		return i.Prev(ctx, i.bounds.Start.Span(i.view.End))
 	}
-	i.view.Start = startApprox.Lower + 1
+	i.view.Start = viewStart.Lower + 1
 	i.reset(i.view.BoundBy(i.bounds))
 	nRemaining := i.AutoChunkSize
 	for {
-		if !i.internal.TimeRange().OverlapsWith(i.view) {
+		domainTR := i.internal.TimeRange()
+		// Domains are ordered, so one ending at or before the view start belongs to the
+		// previous chunk. Leave the iterator on it and keep this chunk's samples.
+		if domainTR.End.BeforeEq(i.view.Start) {
+			break
+		}
+		if !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Prev() {
-				return false
+				break
 			}
 			continue
+		}
+		startApprox, alignment, err := i.approximateStart(ctx)
+		if err != nil {
+			i.err = err
+			return false
 		}
 		endApprox, err := i.approximateEnd(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		endSample := endApprox.Upper
-		if !startApprox.Exact() && !endApprox.StartExact {
-			endSample = endApprox.Lower
-		}
+		endSample := pickSampleOffset(endApprox)
 		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		startSample := endSample - nRemaining
-		if startSample < 0 {
-			startSample = 0
-		}
+		startSample := max(endSample-nRemaining, 0)
+		// approximateStart stamps the alignment at the view start. This chunk may begin
+		// earlier in the domain, so move the alignment back with it.
+		alignment -= telem.Alignment(pickSampleOffset(startApprox) - startSample)
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, 0, startOffset, endOffset-startOffset)
+		series, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
@@ -346,7 +365,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
-		return
+		return ok
 	}
 
 	if span == AutoSpan {
@@ -356,19 +375,19 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
 
 	if i.view.Span().IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
-		return
+		return ok
 	}
 
 	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
-		return
+		return ok
 	}
 
 	for i.internal.Prev() &&
 		i.accumulate(ctx) &&
 		!i.satisfied() {
 	}
-	return
+	return ok
 }
 
 // Len returns the number of samples in the iterator's frame.
@@ -423,7 +442,8 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if i.frame.Empty() || i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
+	if i.frame.Empty() ||
+		i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
@@ -519,7 +539,9 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 // range and the end of the current iterator view. If the end of the current view is
 // after the end of the range, the returned value will be the number of samples in the
 // range.
-func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
+func (i *Iterator) approximateEnd(
+	ctx context.Context,
+) (endApprox index.DistanceApproximation, err error) {
 	total, err := i.resolver.domainSampleCount(ctx, i.internal)
 	if err != nil {
 		return index.DistanceApproximation{}, err
@@ -529,7 +551,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
 	}
-	return
+	return endApprox, err
 }
 
 // satisfied returns whether an iterator collected all telemetry in its view. An

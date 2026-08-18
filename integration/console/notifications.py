@@ -100,10 +100,10 @@ class NotificationsClient:
                 return False
 
             notification = notifications.nth(notification_index)
-            close_button = notification.locator(".pluto-notification__silence")
+            close_button = notification.get_by_role("button", name="close")
 
             if close_button.count() > 0:
-                close_button.dispatch_event("click")
+                close_button.first.dispatch_event("click")
                 notification.wait_for(state="hidden", timeout=2000)
                 return True
             return False
@@ -150,14 +150,14 @@ class NotificationsClient:
         if notification.count() == 0:
             return False
 
-        close_btn = notification.locator(".pluto-notification__silence")
-        if close_btn.count() > 0:
-            try:
-                close_btn.dispatch_event("click", timeout=2000)
-            except PlaywrightTimeoutError:
-                return False
+        close_btn = notification.get_by_role("button", name="close")
+        if close_btn.count() == 0:
+            return False
+        try:
+            close_btn.first.dispatch_event("click", timeout=2000)
             return True
-        return False
+        except PlaywrightTimeoutError:
+            return False
 
     def wait_for(self, text: str) -> bool:
         """Wait for a notification containing specific text to appear.

@@ -10,8 +10,6 @@
 package http
 
 import (
-	"context"
-
 	"github.com/gofiber/fiber/v3"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -31,6 +29,10 @@ type unaryServerOptions struct {
 	// responseEncoders is the set of encoders the unary server will consider when
 	// resolving the response body codec from the Accept header.
 	responseEncoders []http.Encoder
+	// errorEncoders is the set of encoders the unary server will consider when the
+	// handler fails. It is separate from responseEncoders because a response encoder
+	// may be specialized to a single payload shape and unable to carry an error.
+	errorEncoders []http.Encoder
 }
 
 // UnaryServerOption configures a unary HTTP server.
@@ -48,10 +50,19 @@ func WithResponseEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
 }
 
+// WithErrorEncoders overrides the set of encoders the unary server matches against the
+// request's Accept header when the handler returns an error. The first encoder is the
+// fallback when Accept matches none of them. Passing none leaves error responses with a
+// status and no encoded payload.
+func WithErrorEncoders(encoders ...http.Encoder) UnaryServerOption {
+	return func(o *unaryServerOptions) { o.errorEncoders = encoders }
+}
+
 func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	so := unaryServerOptions{
 		requestDecoders:  defaultDecoders,
 		responseEncoders: defaultEncoders,
+		errorEncoders:    defaultEncoders,
 	}
 	for _, opt := range opts {
 		opt(&so)
@@ -61,7 +72,7 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 
 type unaryServer[RQ, RS freighter.Payload] struct {
 	unaryServerOptions
-	handle func(context.Context, RQ) (RS, error)
+	handle freighter.UnaryHandler[RQ, RS]
 	path   string
 	freighter.MiddlewareCollector
 }
@@ -72,18 +83,22 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol": unaryProtocol,
-		"acceptedContentTypes": lo.Map(s.requestDecoders, func(d http.Decoder, _ int) string {
-			return d.ContentType()
-		}),
-		"emittedContentTypes": lo.Map(s.responseEncoders, func(e http.Encoder, _ int) string {
-			return e.ContentType()
-		}),
+		"acceptedContentTypes": lo.Map(
+			s.requestDecoders,
+			func(d http.Decoder, _ int) string {
+				return d.ContentType()
+			},
+		),
+		"emittedContentTypes": lo.Map(
+			s.responseEncoders,
+			func(e http.Encoder, _ int) string {
+				return e.ContentType()
+			},
+		),
 	}
 }
 
-func (s *unaryServer[RQ, RS]) BindHandler(
-	handler func(context.Context, RQ) (RS, error),
-) {
+func (s *unaryServer[RQ, RS]) BindHandler(handler freighter.UnaryHandler[RQ, RS]) {
 	s.handle = handler
 }
 
@@ -119,8 +134,34 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	if fErr.Type == errors.TypeNil {
 		return encodeAndWrite(fCtx, encoder, res)
 	}
+	errEncoder, ok := s.resolveErrorEncoder(fCtx)
+	if !ok {
+		return fCtx.SendStatus(fiber.StatusBadRequest)
+	}
+	fCtx.Set(fiber.HeaderContentType, errEncoder.ContentType())
 	fCtx.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(fCtx, encoder, fErr)
+	return encodeAndWrite(fCtx, errEncoder, fErr)
+}
+
+// resolveErrorEncoder returns the encoder for an error payload, negotiating the
+// configured error encoders against the request's Accept header and falling back to the
+// first when none matches. It reports false when the server was given no error
+// encoders, leaving the caller to answer with a status and no encoded payload.
+func (s *unaryServer[RQ, RS]) resolveErrorEncoder(fCtx fiber.Ctx) (http.Encoder, bool) {
+	if len(s.errorEncoders) == 0 {
+		return nil, false
+	}
+	offers := lo.Map(s.errorEncoders, func(e http.Encoder, _ int) string {
+		return e.ContentType()
+	})
+	if matched := fCtx.Accepts(offers...); matched != "" {
+		for _, e := range s.errorEncoders {
+			if e.ContentType() == matched {
+				return e, true
+			}
+		}
+	}
+	return s.errorEncoders[0], true
 }
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(

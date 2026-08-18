@@ -10,7 +10,7 @@
 import "@/list/Items.css";
 
 import { type record } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode } from "react";
+import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -24,7 +24,16 @@ export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
   children: ItemRenderProp<K>;
   emptyContent?: ReactNode;
   displayItems?: number;
+  /**
+   * Smooths the height change when the item count changes. Set it only when the list
+   * is sized by its content; a list sized by its container lags behind every resize.
+   */
+  animateHeight?: boolean;
 }
+
+/* The container's 1rem top and bottom padding (Items.css); the sized box is
+   border-box, so omitting it leaves short lists scrolling by exactly this amount. */
+const VERTICAL_PADDING = 12;
 
 const BaseItems = <
   K extends record.Key = record.Key,
@@ -34,6 +43,7 @@ const BaseItems = <
   children,
   emptyContent,
   displayItems,
+  animateHeight = false,
   style,
   direction,
   x,
@@ -47,12 +57,12 @@ const BaseItems = <
   const visibleData = getItems();
   let content = emptyContent;
   const hasItems = data.length > 0;
+  const totalSize = getTotalSize();
+  const isVirtual = totalSize != null;
+  const virtualizerStyle = useMemo(() => ({ minHeight: totalSize }), [totalSize]);
   if (hasItems)
     content = (
-      <div
-        className={CSS.BE("list", "virtualizer")}
-        style={{ minHeight: getTotalSize() }}
-      >
+      <div className={CSS.BE("list", "virtualizer")} style={virtualizerStyle}>
         {visibleData.map(({ key, index, translate }) =>
           children({ key, index, itemKey: key, translate }),
         )}
@@ -68,7 +78,16 @@ const BaseItems = <
 
   let minHeight: number | undefined;
   if (itemHeight != null && displayItems != null && isFinite(displayItems) && hasItems)
-    minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
+    minHeight = Math.min(displayItems, data.length) * itemHeight + VERTICAL_PADDING + 1;
+
+  const boxStyle = useMemo(
+    () => ({
+      height: minHeight,
+      [CSS.var("list-item-height")]: itemHeight != null ? `${itemHeight}px` : undefined,
+      ...style,
+    }),
+    [minHeight, itemHeight, style],
+  );
 
   const parsedDirection = Flex.parseDirection(direction, x, y);
   return (
@@ -78,9 +97,11 @@ const BaseItems = <
       className={CSS(
         className,
         CSS.BE("list", "items"),
+        isVirtual && CSS.BEM("list", "items", "virtual"),
         !hasItems && CSS.BEM("list", "items", "empty"),
+        animateHeight && CSS.BEM("list", "items", "animate-height"),
       )}
-      style={{ height: minHeight, ...style }}
+      style={boxStyle}
       full={parsedDirection}
       direction={parsedDirection}
       {...rest}

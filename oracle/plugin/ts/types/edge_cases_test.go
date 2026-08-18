@@ -72,8 +72,10 @@ var _ = Describe("Edge Cases", func() {
 	})
 
 	Describe("Type parameter constraints", func() {
-		It("Should produce a typeof enum fallback for type-param fields constrained on an enum", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should produce a typeof enum fallback for type-param fields constrained on an enum",
+			func(ctx SpecContext) {
+				source := `
 				@ts output "out"
 
 				Variant enum {
@@ -85,44 +87,50 @@ var _ = Describe("Edge Cases", func() {
 					value V
 				}
 			`
-			resp := MustGenerate(ctx, source, "holder", loader, p)
-			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("variantZ"))
-		})
-
+				resp := MustGenerate(ctx, source, "holder", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring("variantZ"))
+			},
+		)
 	})
 
 	Describe("Auto-generated key defaults", func() {
-		It("Should emit id.create() default for string key fields with @key generate", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should emit id.create() default for string key fields with create",
+			func(ctx SpecContext) {
+				source := `
 				@ts output "out"
 
 				Item struct {
-					key string {
-						@key generate
+					key string = create {
+						@key
 					}
 					name string
 				}
 			`
-			resp := MustGenerate(ctx, source, "item", loader, p)
-			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("id.create()"))
-		})
+				resp := MustGenerate(ctx, source, "item", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring(".default(id.create)"))
+			},
+		)
 
-		It("Should emit uuid.create() default for uuid key fields with @key generate", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should emit uuid.create() default for uuid key fields with create",
+			func(ctx SpecContext) {
+				source := `
 				@ts output "out"
 
 				Item struct {
-					key uuid {
-						@key generate
+					key uuid = create {
+						@key
 					}
 					name string
 				}
 			`
-			resp := MustGenerate(ctx, source, "item", loader, p)
-			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("uuid.create()"))
-		})
+				resp := MustGenerate(ctx, source, "item", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring(".default(uuid.create)"))
+			},
+		)
 	})
 })

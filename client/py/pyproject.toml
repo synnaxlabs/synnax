@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 [project]
 name = "synnax"
 version = "0.56.1"
@@ -9,12 +18,12 @@ dependencies = [
     "alamos",
     "synnax-freighter",
     "synnax-x",
-    "click>=8.4.0,<9",
+    "click>=8.4.2,<9",
     "keyring>=25.7.0,<26",
-    "matplotlib>=3.10.9,<4",
-    "npTDMS>=1.10.0,<2",
-    "numpy>=2.4.5,<3",
-    "pandas>=3.0.3,<4",
+    "matplotlib>=3.11.1,<4",
+    "npTDMS>=1.11.0,<2",
+    "numpy>=2.5.1,<3",
+    "pandas>=3.0.5,<4",
     "pydantic>=2.13.4,<3",
     "rich>=15.0.0,<16",
     "urllib3>=2.7.0,<3",
@@ -29,16 +38,16 @@ Repository = "https://github.com/synnaxlabs/synnax"
 
 [dependency-groups]
 dev = [
-    "asyncua>=1.1.8,<2; python_version < '3.14'",
+    "asyncua>=2.0.1,<3",
     "flask>=3.1.3,<4",
-    "mypy>=2.1.0,<3",
-    "ruff>=0.15.13,<1",
-    "pandas-stubs>=3.0.0.260204,<4",
-    "pymodbus>=3.13.0,<4",
-    "pytest>=9.0.3,<10",
-    "pytest-asyncio>=1.3.0,<2",
+    "mypy>=2.3.0,<3",
+    "ruff>=0.16.0,<1",
+    "pandas-stubs>=3.0.3.260530,<4",
+    "pymodbus>=3.14.0,<4",
+    "pytest>=9.1.1,<10",
+    "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",
-    "scipy>=1.17.1,<2",
+    "scipy>=1.18.0,<2",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -84,6 +93,7 @@ markers = [
     "framer: mark test as a framer test",
     "http: mark test as an http test",
     "group: mark test as a group test",
+    "imex: mark test as an imex test",
     "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",
     "internal: mark test as an internal test",
@@ -95,6 +105,7 @@ markers = [
     "ontology: mark test as an ontology test",
     "opcua: mark test as an opcua test",
     "pagerduty: mark test as a pagerduty test",
+    "project: mark test as a project test",
     "rack: mark test as a rack test",
     "ranger: mark test as a ranger test",
     "role: mark test as a role test",

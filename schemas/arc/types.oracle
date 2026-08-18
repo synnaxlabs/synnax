@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output  "client/ts/src/arc/types"
-@go output  "arc/go/types"
 @cpp output "arc/cpp/types"
+@go output  "arc/go/types"
 @pb
+@py output  "client/py/synnax/arc/types"
+@ts output  "client/ts/src/arc/types"
 
 Kind enum {
     invalid                      = 0
@@ -25,16 +26,17 @@ Kind enum {
     f32                          = 9
     f64                          = 10
     string                       = 11
-    chan                         = 14
-    series                       = 15
-    variable                     = 16
-    numeric_constant             = 17
-    integer_constant             = 18
-    float_constant               = 19
-    exact_integer_float_constant = 20
-    function                     = 21
-    sequence                     = 22
-    stage                        = 23
+    chan                         = 12
+    series                       = 13
+    variable                     = 14
+    numeric_constant             = 15
+    integer_constant             = 16
+    float_constant               = 17
+    exact_integer_float_constant = 18
+    function                     = 19
+    sequence                     = 20
+    stage                        = 21
+    var_ref                      = 22
 
     @doc value """
         is the type category for Arc's type system, including primitives, compound
@@ -43,77 +45,77 @@ Kind enum {
 }
 
 ChanDirection enum {
-    none  = 0
-    read  = 1
-    write = 2
+    none       = 0
+    read       = 1
+    write      = 2
+    read_write = 3
 
-    @doc value "indicates read/write direction for channel-typed config parameters."
+    @doc value "indicates read/write direction for channel-typed parameters."
 }
 
 FunctionProperties struct {
-    inputs  Params? {
+    inputs  Params = [] {
         @doc value "contains input parameter definitions."
     }
-    outputs Params? {
+    outputs Params = [] {
         @doc value "contains output parameter definitions."
     }
-    config  Params? {
-        @doc value "contains configuration parameter definitions."
-    }
 
-    @doc value "contains common parameter definitions for function-like types."
+    @doc value  "contains common parameter definitions for function-like types."
+    @go marshal
 }
 
 Type struct extends FunctionProperties {
-    kind           Kind           {
+    kind           Kind          {
         @doc value "is the type category (primitive, compound, or meta-type)."
     }
-    name           string         {
+    name           string        {
         @doc value "is the type name for variables and user-defined types."
     }
-    elem           Type??         {
+    elem           Type?         {
         @doc value "is the element type for compound types (chan, series)."
     }
-    unit           Unit??         {
+    unit           Unit?         {
         @doc value "is the physical unit metadata for dimensional analysis."
     }
-    constraint     Type??         {
+    constraint     Type?         {
         @doc value "is the type constraint for type variables."
     }
-    chan_direction  ChanDirection? {
-        @doc value "indicates read/write direction for channel-typed config parameters."
+    chan_direction ChanDirection {
+        @doc value "indicates read/write direction for channel-typed parameters."
     }
 
+    @cpp includes        "x/cpp/telem/telem.h"
+    @cpp methods         "[[nodiscard]] size_t density() const" "[[nodiscard]] bool is_valid() const" "[[nodiscard]] bool is_timestamp() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] x::telem::DataType telem() const" "friend std::ostream& operator<<(std::ostream& os, const Type& t)"
+    @cpp system_includes "ostream"
     @doc value           """
         is a type in Arc's type system with optional element type for compounds,
         physical units, and constraints.
     """
-    @cpp includes        "x/cpp/telem/telem.h"
-    @cpp system_includes "ostream"
-    @cpp methods         "[[nodiscard]] size_t density() const" "[[nodiscard]] bool is_valid() const" "[[nodiscard]] bool is_timestamp() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] x::telem::DataType telem() const" "friend std::ostream& operator<<(std::ostream& os, const Type& t)"
+    @go marshal
 }
 
 Param struct {
-    name        string  {
+    name  string {
         @doc value "is the parameter name."
     }
-    type        Type    {
+    type  Type   {
         @doc value "is the parameter type."
     }
-    value       any?    {
+    value any    {
         @doc value "is an optional default value."
     }
 
-    @doc value    "is a named, typed parameter with optional default value."
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Param& p)"
+    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Param& p)"
+    @doc value   "is a named, typed parameter with optional default value."
+    @go marshal
 }
 
 Params Param[] {
-    @doc value """
-        is a collection of named, typed parameters for function inputs, outputs,
-        or configuration.
+    @cpp methods "[[nodiscard]] const Param& operator[](const std::string& name) const" "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Params& p)"
+    @doc value   """
+        is a collection of named, typed parameters for function inputs or outputs.
     """
-    @cpp methods  "[[nodiscard]] const Param& operator[](const std::string& name) const" "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Params& p)"
 }
 
 Channels struct {
@@ -124,10 +126,11 @@ Channels struct {
         @doc value "contains writable channel indices mapped to parameter names."
     }
 
-    @doc value    """
+    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Channels& c)"
+    @doc value   """
         contains channel declarations for reading from and writing to Synnax channels.
     """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Channels& c)"
+    @go marshal
 }
 
 Dimensions struct {
@@ -141,25 +144,24 @@ Dimensions struct {
         @doc value "is the time dimension exponent (seconds)."
     }
     current     int8 {
-        @doc value "is the electric current dimension exponent (amperes)."
+        @doc value "is the electric current dimension exponent (Amperes)."
     }
     temperature int8 {
-        @doc value "is the temperature dimension exponent (kelvin)."
+        @doc value "is the temperature dimension exponent (Kelvin)."
     }
     angle       int8 {
         @doc value "is the angle dimension exponent (radians)."
     }
     count       int8 {
-        @doc value "is the count dimension exponent (dimensionless quantity)."
+        @doc value "is the count dimension exponent."
     }
     data        int8 {
         @doc value "is the data size dimension exponent (bytes)."
     }
 
-    @doc value   """
-        contains physical dimension exponents for dimensional analysis (SI base quantities).
-    """
     @cpp methods "bool operator==(const Dimensions& other) const" "[[nodiscard]] bool is_zero() const"
+    @doc value   "contains dimension exponents for dimensional analysis."
+    @go marshal
 }
 
 Unit struct {
@@ -173,8 +175,9 @@ Unit struct {
         @doc value "is the unit name (e.g., 'psi', 'ns', 'm/s')."
     }
 
+    @cpp methods "bool operator==(const Unit& other) const" "[[nodiscard]] bool is_timestamp() const"
     @doc value   """
         is a physical unit with dimensions and scale factor for unit-aware computation.
     """
-    @cpp methods "bool operator==(const Unit& other) const" "[[nodiscard]] bool is_timestamp() const"
+    @go marshal
 }

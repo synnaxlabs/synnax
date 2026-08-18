@@ -17,7 +17,7 @@ export const ZERO_AUTHORITY: Authority = 0;
 
 export const AUTHORITY_BOUNDS: bounds.Bounds<Authority> = {
   lower: ZERO_AUTHORITY,
-  upper: ABSOLUTE_AUTHORITY + 1,
+  upper: ABSOLUTE_AUTHORITY,
 };
 
 export const filterTransfersByChannelKey =

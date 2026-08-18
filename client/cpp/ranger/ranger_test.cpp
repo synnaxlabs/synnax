@@ -17,7 +17,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/test/test.h"
 
-#include "core/pkg/api/ranger/pb/ranger.pb.h"
+#include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
@@ -47,6 +47,29 @@ TEST(RangerTests, testRetrieveByKey) {
     ASSERT_FALSE(got.key.is_nil());
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(30));
     ASSERT_EQ(got.time_range.end, x::telem::TimeStamp(100));
+}
+
+/// @brief it should set the end bound of a range while preserving its other fields.
+TEST(RangerTests, testSetEnd) {
+    const auto client = new_test_client();
+    const auto range = ASSERT_NIL_P(client.ranges.create(
+        "test",
+        x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
+    ));
+    ASSERT_NIL(client.ranges.set_end(range.key, x::telem::TimeStamp(500)));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
+    ASSERT_EQ(got.name, "test");
+    ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(30));
+    ASSERT_EQ(got.time_range.end, x::telem::TimeStamp(500));
+}
+
+/// @brief it should return an error when setting the end of a nonexistent range.
+TEST(RangerTests, testSetEndNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.ranges.set_end(x::uuid::create(), x::telem::TimeStamp(500)),
+        x::errors::NOT_FOUND
+    );
 }
 
 /// @brief it should retrieve a range by its name.

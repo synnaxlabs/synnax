@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "client/cpp/synnax.h"
+#include "absl/log/log.h"
 
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
@@ -80,7 +80,8 @@ class Factory final : public task::Factory {
     /// task state and return false.
     [[nodiscard]] bool check_health(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) const;
 
 public:
@@ -98,7 +99,8 @@ public:
     /// @brief implements task::Factory to process task configuration requests.
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override;
 
     /// @brief implements task::Factory to configure initial tasks such as the
@@ -117,30 +119,28 @@ public:
         common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
-        TaskHandle handle;
-        const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +
-                                          ")";
-        if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle))
-            return {std::move(result), err};
-        // Very important that we instantiate the Hardware API here, as we pass
-        // ownership over the lifecycle of the task handle to it. If we encounter
-        // any errors when applying the configuration or cycling the task, we need
-        // to make sure it gets cleared.
-        auto hw = std::make_unique<HardwareT>(this->dmx, handle);
-        if (const auto err = cfg.apply(this->dmx, handle))
-            return {std::move(result), err};
-        // NI will look for invalid configuration parameters internally, so we
-        // quickly cycle the task to catch and communicate any errors as
-        // soon as possible.
-        if (const auto err = hw->start()) return {std::move(result), err};
-        if (const auto err = hw->stop()) return {std::move(result), err};
+        const std::string dmx_task_name = task.name + " (" + task.key.to_string() + ")";
+        using Hardware = typename SourceSinkT::Hardware;
+        typename SourceSinkT::MakeHardware make_hw =
+            [dmx = this->dmx, dmx_task_name](
+                const ConfigT &run_cfg
+            ) -> std::pair<std::unique_ptr<Hardware>, x::errors::Error> {
+            TaskHandle handle = nullptr;
+            if (const auto err = dmx->CreateTask(dmx_task_name.c_str(), &handle))
+                return {nullptr, err};
+            // The hardware owns the handle from here, so a failed apply still
+            // clears it.
+            auto hw = std::make_unique<HardwareT>(dmx, handle);
+            if (const auto err = run_cfg.apply(dmx, handle)) return {nullptr, err};
+            return {std::move(hw), x::errors::NIL};
+        };
+        result.auto_start = cfg.auto_start;
         result.task = std::make_unique<TaskT>(
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
+            std::make_unique<SourceSinkT>(std::move(cfg), std::move(make_hw))
         );
-        result.auto_start = cfg.auto_start;
         return {std::move(result), x::errors::NIL};
     }
 

@@ -9,8 +9,6 @@
 
 #pragma once
 
-#include "glog/logging.h"
-
 #include "driver/common/read_task.h"
 #include "driver/ni/daqmx/sugared.h"
 
@@ -204,6 +202,40 @@ public:
     );
 
     ReadResult read(size_t samples_per_channel, std::vector<T> &data) override;
+};
+
+/// @brief forwards to a shared mock reader so tests that build hardware on every
+/// start keep one scripted mock across runs.
+template<typename T>
+class SharedReader final : public hardware::Reader<T> {
+    std::shared_ptr<hardware::Reader<T>> wrapped;
+
+public:
+    explicit SharedReader(std::shared_ptr<hardware::Reader<T>> wrapped):
+        wrapped(std::move(wrapped)) {}
+
+    x::errors::Error start() override { return this->wrapped->start(); }
+    x::errors::Error stop() override { return this->wrapped->stop(); }
+    ReadResult read(size_t samples_per_channel, std::vector<T> &data) override {
+        return this->wrapped->read(samples_per_channel, data);
+    }
+};
+
+/// @brief forwards to a shared mock writer so tests that build hardware on every
+/// start keep one scripted mock across runs.
+template<typename T>
+class SharedWriter final : public hardware::Writer<T> {
+    std::shared_ptr<hardware::Writer<T>> wrapped;
+
+public:
+    explicit SharedWriter(std::shared_ptr<hardware::Writer<T>> wrapped):
+        wrapped(std::move(wrapped)) {}
+
+    x::errors::Error start() override { return this->wrapped->start(); }
+    x::errors::Error stop() override { return this->wrapped->stop(); }
+    x::errors::Error write(const std::vector<T> &data) override {
+        return this->wrapped->write(data);
+    }
 };
 
 /// @brief Mock implementation of Writer interface for testing

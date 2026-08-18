@@ -91,7 +91,10 @@ export const DateTime = ({
         step={0.00001}
         {...rest}
       >
-        <Button.Button onClick={() => setVisible(!visible)} variant={variant}>
+        <Button.Button
+          onClick={() => setVisible(!visible)}
+          variant={variant === "shadow" ? "outlined" : variant}
+        >
           <Icon.Calendar />
         </Button.Button>
       </InputText>
@@ -134,7 +137,7 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
         <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.Start gap="small">
             <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
-            <Text.Text level="small">To Finish</Text.Text>
+            <Text.Text level="small">to finish</Text.Text>
           </Nav.Bar.Start>
           <Nav.Bar.End>
             <Button.Button onClick={close} variant="outlined">
@@ -231,7 +234,7 @@ const AISelector = ({
         value={value}
         onChange={handleChange}
         autoFocus
-        placeholder="AI Suggestion"
+        placeholder="AI suggestion"
         full="x"
       />
       <Select.Frame data={data} allowNone onChange={handleSelect} getItem={getItem}>
@@ -243,13 +246,13 @@ const AISelector = ({
           emptyContent={
             <Flex.Box empty grow align="center" justify="center">
               <Flex.Box y gap="tiny">
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "April 1 at 2PM"
                 </Text.Text>
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "Add 2 two hours"
                 </Text.Text>
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "Next Friday"
                 </Text.Text>
               </Flex.Box>
@@ -320,14 +323,16 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           </Button.Button>
           <Text.Text
             level="small"
-            style={{ flexGrow: 1, paddingLeft: "1rem" }}
-            className={CSS.BE("calendar-header", "month")}
+            className={CSS(
+              CSS.BE("calendar-header", "month"),
+              CSS.B("datetime-calendar-header-label"),
+            )}
           >
             {MONTH_NAMES[month]}
           </Text.Text>
           <Button.Button
             onClick={() => handleMonthChange(month + 1)}
-            style={{ borderTopRightRadius: 0 }}
+            className={CSS.BM("datetime-calendar-header-btn", "next")}
             variant="outlined"
           >
             <Icon.Caret.Right />
@@ -337,18 +342,19 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           <Button.Button onClick={() => handleYearChange(year - 1)} variant="outlined">
             <Icon.Caret.Left />
           </Button.Button>
-          <Text.Text level="small" style={{ flexGrow: 1, paddingLeft: "1rem" }}>
+          <Text.Text level="small" className={CSS.B("datetime-calendar-header-label")}>
             {year}
           </Text.Text>
           <Button.Button onClick={() => handleYearChange(year + 1)} variant="outlined">
             <Icon.Caret.Right />
           </Button.Button>
         </Flex.Box>
-        <Flex.Box x wrap gap="tiny" style={{ padding: "0.5rem", height: "100%" }}>
+        <Flex.Box x wrap gap="tiny" className={CSS.B("datetime-calendar-days")}>
           {Array.from({ length: daysInMonth(month, year) }).map((_, i) => (
             <Button.Button
               key={i}
-              variant={i + 1 === day ? "outlined" : "text"}
+              variant="text"
+              className={CSS(CSS.selected(i + 1 === day))}
               onClick={() => handleDayChange(i + 1)}
               square
             >

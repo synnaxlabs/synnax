@@ -30,11 +30,6 @@ export const defaultConfig = (): Config => ({
   size: "small",
   label: Label.defaultConfig("Setpoint"),
   control: { show: true },
-  source: telem.sourcePipeline("number", {
-    connections: [],
-    segments: { valueStream: telem.streamChannelValue({ channel: 0 }) },
-    outlet: "valueStream",
-  }),
   sink: telem.sinkPipeline("number", {
     connections: [],
     segments: { setter: control.setChannelValue({ channel: 0 }) },
@@ -44,10 +39,8 @@ export const defaultConfig = (): Config => ({
 
 const Preview = ({ ...rest }: Config): ReactElement => (
   <Setpoint
-    value={12}
     onChange={() => {}}
     units="mV"
-    style={{ width: 120, transform: "scale(0.95)" }}
     className={CSS.BM("setpoint", "preview")}
     disabled
     {...rest}

@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/textBox/textBox.css";
+
 import { type text } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Button } from "@/button";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Icon } from "@/icon";
@@ -18,10 +21,6 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
-
-const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {
-  borderLeft: "var(--pluto-border-l5)",
-};
 
 const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 0, upper: 2000 },
@@ -36,7 +35,7 @@ export const TextBoxForm = (): ReactElement => {
       <Flex.Box y grow>
         <Flex.Box x align="stretch">
           <Base.TextField path="value" label="Text" padHelpText={false} grow />
-          <Base.Field<text.Level> path="level" label="Text Size" padHelpText={false}>
+          <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
             {({ value, onChange }) => (
               <Select.Text.Level value={value} onChange={onChange} />
             )}
@@ -66,7 +65,7 @@ export const TextBoxForm = (): ReactElement => {
                   onClick={() => autoFit?.onChange(true)}
                   disabled={autoFit?.value === true}
                   variant="outlined"
-                  style={TEXT_BOX_AUTO_FIT_STYLE}
+                  className={CSS.BE("text-box-form", "auto-fit-btn")}
                   tooltip={
                     autoFit?.value === true
                       ? "Manually enter value to disable auto fit"

@@ -115,6 +115,14 @@ class LayoutClient:
     """
 
     MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+    # Focusing a tab collapses the mosaic to a single overlaid leaf instead of
+    # opening a modal dialog.
+    FOCUS_SELECTOR = ".pluto-panel-mosaic__overlaid-leaf"
+    # Scoped to the mosaic: the top nav renders a second tab strip for panels.
+    TAB_STRIP_SELECTOR = (
+        ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector"
+    )
+    TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .pluto-tabs__tab"
 
     def __init__(self, page: Page):
         self.page = page
@@ -239,6 +247,13 @@ class LayoutClient:
                 return True
         return False
 
+    # Resource toolbar toggles live in the left navbar's main content section. The
+    # end section holds the Component toggle, whose icon mirrors the focused tab.
+    _RESOURCE_NAV_ITEMS = (
+        ".pluto-navbar.pluto--location-left "
+        ".pluto-navbar__content:not(.pluto--end) button.console-main-nav__item"
+    )
+
     def show_resource_toolbar(self, resource: str) -> None:
         """Show a resource toolbar by clicking its icon in the sidebar."""
         nav_drawer = self.page.locator(
@@ -251,7 +266,9 @@ class LayoutClient:
         if drawer_count > 0 and items_count > 0 and items_visible:
             return
 
-        button = self.page.locator("button.console-main-nav__item").filter(
+        # Scope to the main content section: the Component toggle in the end section
+        # mirrors the focused tab's icon and can duplicate any resource icon.
+        button = self.page.locator(self._RESOURCE_NAV_ITEMS).filter(
             has=self.page.locator(f"svg.pluto-icon--{resource}")
         )
         btn_class = button.first.get_attribute("class") or ""
@@ -267,7 +284,7 @@ class LayoutClient:
         if nav_drawer.count() == 0 or not nav_drawer.first.is_visible():
             return
         active_nav_btn = self.page.locator(
-            "button.console-main-nav__item.pluto--selected"
+            f"{self._RESOURCE_NAV_ITEMS}.pluto--selected"
         ).first
         if active_nav_btn.count() == 0:
             return
@@ -292,7 +309,7 @@ class LayoutClient:
             if anchored_drawer.count() > 0 and anchored_drawer.first.is_visible():
                 # Re-find the selected button to close anchored drawer
                 selected_btn = self.page.locator(
-                    "button.console-main-nav__item.pluto--selected"
+                    f"{self._RESOURCE_NAV_ITEMS}.pluto--selected"
                 ).first
                 if selected_btn.count() > 0:
                     selected_btn.click()
@@ -301,20 +318,6 @@ class LayoutClient:
             active_nav_btn.click()
 
         nav_drawer.wait_for(state="hidden", timeout=5000)
-
-    def get_version(self) -> str:
-        """Get the version string displayed in the navbar badge.
-
-        Returns:
-            The version string (e.g., "v0.51.0").
-        """
-        navbar_end = self.page.locator(
-            ".pluto-navbar__content.pluto--end[data-tauri-drag-region]"
-        )
-        navbar_end.wait_for(state="visible", timeout=15000)
-        version_badge = navbar_end.locator("button").first
-        version_badge.wait_for(state="visible", timeout=5000)
-        return version_badge.inner_text().strip()
 
     def fill_input_field(self, input_label: str, value: str) -> None:
         """Fill an input field by label."""
@@ -347,7 +350,12 @@ class LayoutClient:
             .first
         )
         button.wait_for(state="attached", timeout=300)
-        button.click()
+        try:
+            button.click(timeout=5000)
+        except PlaywrightTimeoutError:
+            # Toasts stack over the bottom of a form and swallow the click.
+            self.notifications.close_all()
+            button.click(timeout=5000)
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""
@@ -358,7 +366,12 @@ class LayoutClient:
             .first
         )
         checkbox.wait_for(state="attached", timeout=300)
-        checkbox.click()
+        try:
+            checkbox.click(timeout=5000)
+        except PlaywrightTimeoutError:
+            # Toasts stack over the bottom of a form and swallow the click.
+            self.notifications.close_all()
+            checkbox.click(timeout=5000)
 
     def get_toggle(self, toggle_label: str) -> bool:
         """Get the value of a toggle by label."""
@@ -392,53 +405,93 @@ class LayoutClient:
                 continue
             button.wait_for(state="attached", timeout=5000)
             class_name = button.get_attribute("class") or ""
-            if "pluto-btn--filled" in class_name:
+            if "pluto--selected" in class_name:
                 return option
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
+    def select_labels(self, labels: list[str], scope: Locator | None = None) -> None:
+        """Pick labels from a "Select labels" dropdown.
+
+        :param labels: The label names to select.
+        :param scope: Where the trigger lives. Defaults to the whole page.
+        """
+        parent = self.page if scope is None else scope
+        parent.get_by_text("Select labels", exact=True).click(timeout=5000)
+        dialog = self.page.locator(".pluto-select__dialog.pluto--visible")
+        dialog.wait_for(state="visible", timeout=5000)
+        for name in labels:
+            self.select_from_dropdown(name, exact=True)
+        self.press_escape()
+
     def select_from_dropdown(
-        self, text: str, placeholder: str | None = None, exact: bool = False
+        self,
+        text: str,
+        placeholder: str | None = None,
+        exact: bool = False,
+        reopen: Callable[[], None] | None = None,
     ) -> None:
-        """Select an item from an open dropdown."""
+        """Select an item from an open dropdown.
+
+        :param text: Visible text of the item to select.
+        :param placeholder: Search input placeholder to filter with before selecting.
+        :param exact: Require an exact text match instead of a substring match.
+        :param reopen: Re-opens the dropdown. Called before a retry when the dialog
+            closed before the item was found (e.g. a re-render dismissed it).
+        """
         sy.sleep(0.3)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
 
-        search_input = None
-        if placeholder is not None:
-            search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
-        if search_input is None or search_input.count() == 0:
-            search_input = self.page.locator("input[placeholder*='Search']")
-        if search_input.count() > 0:
-            search_input.wait_for(state="attached", timeout=5000)
-            current_value = search_input.input_value()
-            if current_value != text:
-                search_input.fill(text)
-            sy.sleep(0.2)
+        def apply_search() -> None:
+            search_input = None
+            if placeholder is not None:
+                search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
+            if search_input is None or search_input.count() == 0:
+                search_input = self.page.locator("input[placeholder*='Search']")
+            if search_input.count() > 0:
+                search_input.wait_for(state="attached", timeout=5000)
+                if search_input.input_value() != text:
+                    search_input.fill(text)
+                sy.sleep(0.2)
 
+        apply_search()
+        last_recovery_error: Exception | None = None
         for _ in range(5):
             try:
                 self.page.wait_for_selector(target_item, timeout=5000)
                 if exact:
                     for candidate in self.page.locator(target_item).all():
                         if candidate.inner_text().strip() == text:
-                            candidate.click()
+                            candidate.click(timeout=5000)
                             return
                 else:
                     item = self.page.locator(target_item).first
                     item.wait_for(state="attached", timeout=5000)
-                    item.click()
+                    item.click(timeout=5000)
                     return
             except Exception:
-                sy.sleep(1)
+                try:
+                    # Toasts overlap the dropdown and swallow the click.
+                    self.notifications.close_all()
+                    dialog = self.page.locator(".pluto-dialog__dialog.pluto--visible")
+                    if reopen is not None and dialog.count() == 0:
+                        reopen()
+                        apply_search()
+                    else:
+                        sy.sleep(1)
+                except Exception as e:
+                    # A failed recovery consumes this retry instead of aborting.
+                    last_recovery_error = e
+                    sy.sleep(1)
                 continue
 
         items = self.page.locator(
             ".pluto-list__item:not(.pluto-tree__item)"
         ).all_text_contents()
-        raise RuntimeError(
-            f"Could not find item '{text}' in dropdown. Available items: {items}"
-        )
+        message = f"Could not find item '{text}' in dropdown. Available items: {items}"
+        if last_recovery_error is not None:
+            message += f" (last recovery attempt failed: {last_recovery_error})"
+        raise RuntimeError(message)
 
     def click(self, selector: str | Locator) -> None:
         """Click an element by text selector or Locator.
@@ -503,11 +556,55 @@ class LayoutClient:
             Locator for the tab element
         """
         return (
-            self.page.locator(".pluto-tabs-selector")
-            .locator("div")
+            self.page.locator(self.TAB_SELECTOR)
             .filter(has_text=re.compile(f"^{re.escape(name)}$"))
-            .filter(has=self.page.locator("[aria-label='pluto-tabs__close']"))
+            .filter(has=self.page.locator("[aria-label='Close']"))
             .first
+        )
+
+    def get_tombstone(self, name: str) -> Locator:
+        """Get the tombstone a deleted resource's tab shows in place of content.
+
+        Args:
+            name: The name the resource had when it was deleted
+
+        Returns:
+            Locator for the tombstone element
+        """
+        return self.page.get_by_role("group", name=f"{name} was deleted", exact=True)
+
+    def restore_tombstone(self, name: str) -> None:
+        """Click Restore on a deleted resource's tombstone.
+
+        Args:
+            name: The name the resource had when it was deleted
+        """
+        tombstone = self.get_tombstone(name)
+        tombstone.get_by_role("button", name="Restore", exact=True).click()
+
+    def close_tombstone(self, name: str) -> None:
+        """Click Close on a deleted resource's tombstone.
+
+        Args:
+            name: The name the resource had when it was deleted
+        """
+        tombstone = self.get_tombstone(name)
+        tombstone.get_by_role("button", name="Close", exact=True).click()
+
+    def tab_names(self) -> list[str]:
+        """Return the names of every open tab in the mosaic."""
+        tabs = self.page.locator(self.TAB_SELECTOR)
+        return [tabs.nth(i).inner_text().strip() for i in range(tabs.count())]
+
+    def create_panel(self) -> None:
+        """Create a panel through the panel selector's add button."""
+        add_btn = self.page.locator(
+            ".console-panel-selector button:has(.pluto-icon--add)"
+        ).first
+        add_btn.wait_for(state="visible", timeout=5000)
+        add_btn.click()
+        self.page.locator(self.TAB_STRIP_SELECTOR).first.wait_for(
+            state="visible", timeout=10000
         )
 
     def wait_for_tab(self, name: str) -> None:
@@ -534,7 +631,10 @@ class LayoutClient:
 
         modality = random.choice(["button", "context_menu"])
         if modality == "button":
-            tab.get_by_label("pluto-tabs__close").click()
+            # The close button reveals on tab hover; the tab icon covers it until
+            # then.
+            tab.hover()
+            tab.get_by_label("Close", exact=True).click()
         else:
             self.ctx_menu.action(tab.locator("p"), "Close", exact=False)
 
@@ -561,10 +661,17 @@ class LayoutClient:
         # Ensure focus
         tab.click()
 
-        if modality == "dblclick":
+        renamed_from_menu = False
+        if modality == "context_menu":
+            # Only tabs backed by a resource carry a Rename item.
+            self.ctx_menu.open_on(tab.locator("p"))
+            renamed_from_menu = self.ctx_menu.has_option("Rename", exact=False)
+            if renamed_from_menu:
+                self.ctx_menu.click_option("Rename", exact=False)
+            else:
+                self.ctx_menu.close()
+        if not renamed_from_menu:
             tab.locator("p").first.dblclick()
-        else:
-            self.ctx_menu.action(tab.locator("p"), "Rename", exact=False)
 
         # The tab name uses Text.Editable which becomes contentEditable (not an input)
         editable_text = tab.locator("p[contenteditable='true']").first
@@ -590,7 +697,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        self.ctx_menu.action(tab, "Split Horizontally", exact=False)
+        self.ctx_menu.action(tab, "Split horizontally", exact=False)
 
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
@@ -599,7 +706,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        self.ctx_menu.action(tab, "Split Vertically", exact=False)
+        self.ctx_menu.action(tab, "Split vertically", exact=False)
 
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.
@@ -613,30 +720,34 @@ class LayoutClient:
         tab.click()
         self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
 
+    # The bottom Component toolbar's toggle is the single nav menu item in the left
+    # navbar's end section. Its icon mirrors the focused tab's icon, so it cannot be
+    # located by icon like the resource toolbars.
+    _COMPONENT_TOOLBAR_TOGGLE = (
+        ".pluto-navbar.pluto--location-left .pluto-navbar__content.pluto--end "
+        "button.console-main-nav__item"
+    )
+
     def show_visualization_toolbar(self) -> None:
-        """Show the visualization toolbar by clicking the visualize nav button."""
+        """Show the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.pluto--location-bottom.pluto--visible"
         )
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
             return
 
-        self.page.locator(
-            "button.console-main-nav__item:has(svg.pluto-icon--visualize)"
-        ).click()
+        self.page.locator(self._COMPONENT_TOOLBAR_TOGGLE).click()
         bottom_drawer.wait_for(state="visible", timeout=5000)
 
     def hide_visualization_toolbar(self) -> None:
-        """Hide the visualization toolbar by clicking the visualize nav button."""
+        """Hide the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.pluto--location-bottom.pluto--visible"
         )
         if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
             return
 
-        self.page.locator(
-            "button.console-main-nav__item:has(svg.pluto-icon--visualize)"
-        ).click()
+        self.page.locator(self._COMPONENT_TOOLBAR_TOGGLE).click()
         bottom_drawer.wait_for(state="hidden", timeout=5000)
 
     def get_visualization_toolbar_title(self) -> str:
@@ -808,8 +919,16 @@ class LayoutClient:
         items = self.page.locator(f"div[id^='{item_prefix}']")
         if items.count() > 0 and items.first.is_visible():
             return
-        self.press_key(shortcut_key)
-        items.first.wait_for(state="visible", timeout=5000)
+        # Right after login the nav item may still be hidden (its permission
+        # query is loading), which swallows the shortcut, so retry the press.
+        for attempt in range(3):
+            self.press_key(shortcut_key)
+            try:
+                items.first.wait_for(state="visible", timeout=3000)
+                return
+            except PlaywrightTimeoutError:
+                if attempt == 2:
+                    raise
 
     def get_list_item(self, selector: str, name: str) -> Locator:
         """Get a list item locator by CSS selector filtered by text content."""
@@ -818,12 +937,15 @@ class LayoutClient:
     def deselect_all_items(self, container: Locator | Page, item_selector: str) -> None:
         """Deselect all checked items by dispatching click on their checkbox labels."""
         checked = container.locator(
-            f"{item_selector}:has(input.pluto-input__checkbox-input:checked)"
+            f"{item_selector}:has(input.pluto-input__checkbox-input:checked"
+            ":not([aria-label='Favorite']))"
         )
         for _ in range(10):
             if checked.count() == 0:
                 break
-            checked.first.locator(".pluto-input__checkbox").dispatch_event("click")
+            checked.first.locator(
+                ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
+            ).dispatch_event("click")
 
     def select_items(
         self, names: list[str], get_item_fn: Callable[[str], Locator]
@@ -833,9 +955,13 @@ class LayoutClient:
         for name in names:
             item = get_item_fn(name)
             item.wait_for(state="visible", timeout=5000)
-            checkbox_input = item.locator("input.pluto-input__checkbox-input")
-            if not checkbox_input.is_checked():
-                item.locator(".pluto-input__checkbox").dispatch_event("click")
+            # List items also carry a favorite checkbox; the unlabeled one is
+            # the selection control.
+            checkbox = item.locator(
+                ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
+            ).first
+            if not checkbox.locator("input").is_checked():
+                checkbox.dispatch_event("click")
             last_item = item
         assert last_item is not None
         return last_item
@@ -870,6 +996,7 @@ class LayoutClient:
         """
         modal = self.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
+        self.notifications.close_all()
         modal.get_by_role("button", name="Delete", exact=True).click()
         modal.wait_for(state="hidden", timeout=5000)
 

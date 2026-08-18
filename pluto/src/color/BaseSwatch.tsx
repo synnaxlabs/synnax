@@ -10,7 +10,7 @@
 import "@/color/Swatch.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -78,6 +78,10 @@ export const BaseSwatch = ({
   const handleDragStart = useCallback(() => {
     startDrag([createHaulItem(color.hex(clr))]);
   }, [startDrag, clr]);
+  const swatchStyle = useMemo(
+    () => ({ ...style, [CSS.var("swatch", "color")]: color.cssString(value) }),
+    [style, value],
+  );
   return (
     <Button.Button
       className={CSS(
@@ -92,10 +96,7 @@ export const BaseSwatch = ({
       size={size}
       draggable={draggable}
       onDragStart={handleDragStart}
-      style={{
-        ...style,
-        [CSS.var("swatch", "color")]: color.cssString(value),
-      }}
+      style={swatchStyle}
       variant="outlined"
       {...haulProps}
       {...rest}

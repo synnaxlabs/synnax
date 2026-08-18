@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_STL_MATH_SOURCE = """
 import math
@@ -227,7 +227,7 @@ STAT_INDEXED_OUTPUTS = [
 ]
 
 
-class StlMath(ArcConsoleCase):
+class StlMath(ArcCase):
     """Test math module: pow, avg, min, max, derivative.
 
     pow — parameterized across input types and data types.
@@ -362,7 +362,7 @@ class StlMath(ArcConsoleCase):
             self.log(f"[{c.label}] Writing base={c.base_val} to {c.base_ch}")
             self.writer.write(c.base_ch, c.base_val)
             self.log(f"[{c.label}] Expecting {c.out_ch} == {c.expected}")
-            self.wait_for_eq(c.out_ch, c.expected, is_virtual=True)
+            self.wait_for_eq(c.out_ch, c.expected)
 
     def _verify_arithmetic_ops(self) -> None:
         self.log("=== arithmetic operators ===")
@@ -372,12 +372,12 @@ class StlMath(ArcConsoleCase):
             self.log(f"[{c.label}] Writing a={c.a_val} to {c.a_ch}")
             self.writer.write(c.a_ch, c.a_val)
             self.log(f"[{c.label}] Expecting {c.out_ch} == {c.expected}")
-            self.wait_for_eq(c.out_ch, c.expected, is_virtual=True)
+            self.wait_for_eq(c.out_ch, c.expected)
 
         self.log("[neg] Writing 7.0 to op_neg_a")
         self.writer.write("op_neg_a", 7.0)
         self.log("[neg] Expecting op_neg_out == -7.0")
-        self.wait_for_eq("op_neg_out", -7.0, is_virtual=True)
+        self.wait_for_eq("op_neg_out", -7.0)
 
     def _verify_stat_basic(self) -> None:
         self.log("Basic stats: [10, 20, 30]")

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
 import { act, render } from "@testing-library/react";
 import { type ReactElement, use } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -58,6 +58,24 @@ describe("SuspenseBoundary", () => {
     );
     expect(c.getByText("loading")).toBeTruthy();
     resolve("done");
+  });
+
+  it("should render the delayed loading indicator by default while suspended", () => {
+    const c = render(
+      <SuspenseBoundary>
+        <Suspender promise={new Promise<string>(() => {})} />
+      </SuspenseBoundary>,
+    );
+    expect(c.container.querySelector(".pluto-status__loading")).not.toBeNull();
+  });
+
+  it("should render nothing while suspended when loading is null", () => {
+    const c = render(
+      <SuspenseBoundary loading={null}>
+        <Suspender promise={new Promise<string>(() => {})} />
+      </SuspenseBoundary>,
+    );
+    expect(c.container.innerHTML).toBe("");
   });
 
   it("should render the default Fallback when a child throws an Error", () => {

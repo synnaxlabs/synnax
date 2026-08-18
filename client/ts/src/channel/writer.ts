@@ -11,18 +11,16 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type CacheRetriever } from "@/channel/retriever";
 import {
   type Key,
   keyZ,
   nameZ,
   type New,
-  newZ,
   type Payload,
   payloadZ,
 } from "@/channel/types.gen";
 
-const createReqZ = z.object({ channels: newZ.array() });
+const createReqZ = z.object({ channels: payloadZ.array() });
 const createResZ = z.object({ channels: payloadZ.array() });
 
 const deleteReqZ = z.object({
@@ -39,11 +37,9 @@ export interface RenameProps extends z.input<typeof renameReqZ> {}
 
 export class Writer {
   private readonly client: UnaryClient;
-  private readonly cache: CacheRetriever;
 
-  constructor(client: UnaryClient, cache: CacheRetriever) {
+  constructor(client: UnaryClient) {
     this.client = client;
-    this.cache = cache;
   }
 
   async create(channels: New[]): Promise<Payload[]> {
@@ -58,19 +54,14 @@ export class Writer {
       createReqZ,
       createResZ,
     );
-    this.cache.set(created);
     return created;
   }
 
   async delete(props: DeleteProps): Promise<void> {
-    const keys = keyZ.array().parse(props.keys ?? []);
     await this.client.send("/channel/delete", props, deleteReqZ, deleteResZ);
-    if (keys.length > 0) this.cache.delete(keys);
-    if (props.names != null) this.cache.delete(props.names);
   }
 
   async rename(keys: Key[], names: string[]): Promise<void> {
     await this.client.send("/channel/rename", { keys, names }, renameReqZ, renameResZ);
-    this.cache.rename(keys, names);
   }
 }

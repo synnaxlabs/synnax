@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -25,18 +25,22 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Symbol]
+	table     *gorp.Table[Key, Symbol]
 }
 
 // Create creates the given symbol as a child of the ontology.Resource with the given
-// parent ID. If the symbol does not have a key, a new key will be generated. If the symbol
-// already exists, it will be updated and the existing parent relationship will be deleted
-// and replaced with the new parent relationship.
+// parent ID. If the symbol does not have a key, a new key will be generated. If the
+// symbol already exists, it will be updated and the existing parent relationship will
+// be deleted and replaced with the new parent relationship.
 func (w Writer) Create(
 	ctx context.Context,
 	s *Symbol,
 	parent ontology.ID,
 ) (err error) {
+	s.ApplyDefaults()
+	if err = s.Validate(); err != nil {
+		return err
+	}
 	var exists bool
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
@@ -49,45 +53,59 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(s.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	otgID := s.OntologyID()
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	// Symbol already exists = delete incoming relationships and define new parent
 	// Symbol does not exist = define parent
 	if exists {
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.RelationshipTypeParentOf); err != nil {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+			ctx,
+			otgID,
+			ontology.RelationshipTypeParentOf,
+		); err != nil {
 			return err
 		}
 	}
-	return w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID)
+	return w.otgWriter.DefineRelationships(
+		ctx, parent, ontology.RelationshipTypeParentOf, otgID,
+	)
 }
 
-// Rename renames the symbol with the given key to the provided name.
-func (w Writer) Rename(
+// CreateMany creates the given symbols as children of the ontology.Resource with the
+// given parent ID. If symbols with the same key already exist, they will be
+// overwritten.
+func (w Writer) CreateMany(
 	ctx context.Context,
-	key uuid.UUID,
-	name string,
+	symbols *[]Symbol,
+	parent ontology.ID,
 ) error {
-	return w.table.NewUpdate().Where(MatchKeys(key)).Change(func(_ gorp.Context, s Symbol) Symbol {
-		s.Name = name
-		return s
-	}).Exec(ctx, w.tx)
-}
-
-// Delete deletes the symbols with the given keys.
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...uuid.UUID,
-) error {
-	err := w.table.NewDelete().Where(MatchKeys(keys...)).Exec(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+	for i := range *symbols {
+		if err := w.Create(ctx, &(*symbols)[i], parent); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// Rename renames the symbol with the given key to the provided name.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	return w.table.NewUpdate().
+		Where(MatchKeys(key)).
+		Change(func(_ gorp.Context, s Symbol) Symbol {
+			s.Name = name
+			return s
+		}).
+		Exec(ctx, w.tx)
+}
+
+// Delete deletes the symbols with the given keys.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.table.NewDelete().
+		Where(MatchKeys(keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

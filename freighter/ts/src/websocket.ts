@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, buildQueryString, errors, type URL } from "@synnaxlabs/x";
+import { type binary, errors, url, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, StreamClosed } from "@/errors";
-import { CONTENT_TYPE_HEADER_KEY } from "@/http";
+import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
 
@@ -45,9 +45,17 @@ class WebSocketStream<
   private sendClosed: boolean;
   private readonly receiveDataQueue: WebsocketMessage[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
+  private readonly resLabel: string;
 
-  constructor(ws: WebSocket, encoder: binary.Codec, reqSchema: RQ, resSchema: RS) {
+  constructor(
+    ws: WebSocket,
+    encoder: binary.Codec,
+    target: string,
+    reqSchema: RQ,
+    resSchema: RS,
+  ) {
     this.codec = encoder;
+    this.resLabel = `${target} response`;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
     this.ws = ws;
@@ -81,7 +89,7 @@ class WebSocketStream<
       if (this.serverClosed == null) throw new Error("Message error must be defined");
       throw this.serverClosed;
     }
-    return this.resSchema.parse(msg.payload);
+    return zod.parse(this.resSchema, msg.payload, { label: this.resLabel });
   }
 
   /** Implements the Stream protocol */
@@ -135,8 +143,6 @@ class WebSocketStream<
   }
 }
 
-export const FREIGHTER_METADATA_PREFIX = "freighterctx";
-
 const CLOSE_NORMAL = 1000;
 
 /**
@@ -144,7 +150,7 @@ const CLOSE_NORMAL = 1000;
  * websockets.
  */
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
-  baseUrl: URL;
+  baseUrl: url.URL;
   encoder: binary.Codec;
   secure: boolean;
 
@@ -155,7 +161,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
    *   responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
    */
-  constructor(baseEndpoint: URL, encoder: binary.Codec, secure = false) {
+  constructor(baseEndpoint: url.URL, encoder: binary.Codec, secure = false) {
     super();
     this.secure = secure;
     this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
@@ -181,7 +187,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         const ws = new WebSocket(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
-        stream = await this.wrapSocket(ws, reqSchema, resSchema);
+        stream = await this.wrapSocket(ws, target, reqSchema, resSchema);
         return outCtx;
       },
     );
@@ -189,7 +195,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   private buildURL(target: string, ctx: Context): string {
-    const qs = buildQueryString(
+    const qs = url.buildQueryString(
       {
         [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
         ...ctx.params,
@@ -201,12 +207,19 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
 
   private async wrapSocket<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     ws: WebSocket,
+    target: string,
     reqSchema: RQ,
     resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS>> {
     return await new Promise((resolve, reject) => {
       ws.onopen = () => {
-        const oWs = new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema);
+        const oWs = new WebSocketStream<RQ, RS>(
+          ws,
+          this.encoder,
+          target,
+          reqSchema,
+          resSchema,
+        );
         oWs
           .receiveOpenAck()
           .then(() => resolve(oWs))

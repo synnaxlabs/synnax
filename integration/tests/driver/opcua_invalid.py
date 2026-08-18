@@ -9,25 +9,22 @@
 
 """OPC UA invalid configuration integration tests.
 
-Each test attempts to configure a task with an invalid setting and verifies
-the driver rejects it with a ConfigurationError or reports a runtime error.
+Each test saves a task with an invalid setting and verifies the driver rejects
+it with an error status when the task is started.
 """
 
 from examples.opcua import OPCUASim
-from pydantic import ValidationError
 
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import create_channel, create_index
-
-
-def _cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
-    """Delete the task if it was assigned a key during configure."""
-    if task.key and task.key != 0:
-        try:
-            client.tasks.delete(task.key)
-        except sy.NotFoundError:
-            pass
+from tests.driver.task import (
+    assert_configure_rejected,
+    assert_start_rejected,
+    cleanup_task,
+    create_channel,
+    create_index,
+    run_and_expect_rejection,
+)
 
 
 class OPCUAInvalidConfig(SimulatorCase):
@@ -65,7 +62,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device="nonexistent_device_key_12345",
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=create_channel(
@@ -79,11 +75,8 @@ class OPCUAInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_configure_fails(
-            task,
-            "nonexistent device",
-            accept=(sy.ConfigurationError, sy.NotFoundError),
-        )
+        message = assert_configure_rejected(self.client, task, "nonexistent device")
+        self.log(f"  Correctly rejected (nonexistent device): {message}")
 
     def test_no_enabled_channels(self) -> None:
         """Configure a read task with all channels disabled."""
@@ -94,7 +87,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=create_channel(
@@ -105,11 +97,11 @@ class OPCUAInvalidConfig(SimulatorCase):
                     ),
                     node_id="NS=2;I=8",
                     data_type="float32",
-                    enabled=False,
+                    disabled=True,
                 ),
             ],
         )
-        self._assert_configure_fails(task, "no enabled channels")
+        self._assert_deploy_fails(task, "no enabled channels")
 
     def test_invalid_rates(self) -> None:
         """Configure a read task with sample rate less than stream rate."""
@@ -120,7 +112,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=10 * sy.Rate.HZ,
             stream_rate=100 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=create_channel(
@@ -134,7 +125,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_configure_fails(task, "invalid rates")
+        self._assert_deploy_fails(task, "invalid rates")
 
     def test_nonexistent_channel_key(self) -> None:
         """Configure a read task with a Synnax channel key that doesn't exist."""
@@ -144,7 +135,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=999999999,
@@ -153,7 +143,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_configure_fails(task, "nonexistent channel key")
+        self._assert_deploy_fails(task, "nonexistent channel key")
 
     def test_invalid_node_id(self) -> None:
         """Start a read task with a node ID that doesn't exist on the server."""
@@ -164,7 +154,6 @@ class OPCUAInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
                 sy.opcua.ReadChannel(
                     channel=create_channel(
@@ -178,11 +167,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        try:
-            self.client.tasks.configure(task)
-            self._assert_task_error(task, "invalid node ID")
-        finally:
-            _cleanup_task(self.client, task)
+        self._assert_deploy_fails(task, "invalid node ID")
 
     def test_duplicate_channel(self) -> None:
         """Configure and run two tasks that use the same channel."""
@@ -201,7 +186,6 @@ class OPCUAInvalidConfig(SimulatorCase):
                 device=self.device.key,
                 sample_rate=100 * sy.Rate.HZ,
                 stream_rate=25 * sy.Rate.HZ,
-                data_saving=True,
                 channels=[
                     sy.opcua.ReadChannel(
                         channel=shared_ch_key,
@@ -220,10 +204,15 @@ class OPCUAInvalidConfig(SimulatorCase):
         try:
             with task_a.run():
                 self.log("  Task A running")
-                rejected = self._try_configure_and_run(task_b)
+                self.client.tasks.configure(task_b)
+                self.log("  Task B configured (attempting run)")
+                message = run_and_expect_rejection(self.client, task_b)
+                if message is not None:
+                    self.log(f"  Correctly rejected on run: {message}")
+                    rejected = True
         finally:
-            _cleanup_task(self.client, task_a)
-            _cleanup_task(self.client, task_b)
+            cleanup_task(self.client, task_a)
+            cleanup_task(self.client, task_b)
 
         if not rejected:
             self.fail(
@@ -231,89 +220,7 @@ class OPCUAInvalidConfig(SimulatorCase):
                 "same channel — both tasks ran simultaneously"
             )
 
-    def _try_configure_and_run(self, task: sy.Task) -> bool:
-        """Try to configure and start a task. Return True if rejected."""
-        try:
-            self.client.tasks.configure(task)
-        except (sy.ConfigurationError, TimeoutError) as e:
-            self.log(f"  Correctly rejected on configure: {e}")
-            return True
-
-        self.log("  Task B configured (attempting run)")
-        with self.client.open_streamer(["sy_status_set"]) as streamer:
-            task._internal.execute_command("start")
-            timeout = 10 * sy.TimeSpan.SECOND
-            timer = sy.Timer()
-            while timer.elapsed() < timeout:
-                frame = streamer.read(timeout=timeout)
-                if frame is None:
-                    break
-                if "sy_status_set" not in frame:
-                    continue
-                for raw in frame["sy_status_set"]:
-                    try:
-                        status = sy.task.Status.model_validate(raw)
-                    except ValidationError:
-                        continue
-                    if status.details is None or status.details.task != task.key:
-                        continue
-                    if status.variant in ("warning", "error"):
-                        self.log(f"  Correctly rejected on run: {status.message}")
-                        task._internal.execute_command("stop")
-                        return True
-
-        task._internal.execute_command("stop")
-        return False
-
-    def _assert_task_error(
-        self,
-        task: sy.Task,
-        label: str,
-        timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
-    ) -> None:
-        """Start a task and assert the driver emits a warning or error status."""
-        with self.client.open_streamer(["sy_status_set"]) as streamer:
-            task.start()
-            try:
-                timer = sy.Timer()
-                while timer.elapsed() < timeout:
-                    frame = streamer.read(timeout=timeout)
-                    if frame is None:
-                        break
-                    if "sy_status_set" not in frame:
-                        continue
-                    for raw in frame["sy_status_set"]:
-                        try:
-                            status = sy.task.Status.model_validate(raw)
-                        except ValidationError:
-                            continue
-                        if status.details is None or status.details.task != task.key:
-                            continue
-                        if status.variant in ("warning", "error"):
-                            self.log(
-                                f"  Correctly reported {status.variant} "
-                                f"({label}): {status.message}"
-                            )
-                            return
-            finally:
-                task.stop()
-        self.fail(f"Driver did not report error for {label}")
-
-    def _assert_configure_fails(
-        self,
-        task: sy.Task,
-        label: str,
-        accept: tuple[type[Exception], ...] = (sy.ConfigurationError,),
-    ) -> None:
-        """Attempt to configure a task and assert it raises an expected error."""
-        try:
-            self.client.tasks.configure(task)
-        except accept as e:
-            self.log(f"  Correctly rejected ({label}): {e}")
-            _cleanup_task(self.client, task)
-            return
-        except Exception as e:
-            _cleanup_task(self.client, task)
-            self.fail(f"Expected {accept} for {label}, got {type(e).__name__}: {e}")
-        _cleanup_task(self.client, task)
-        self.fail(f"Driver did not reject {label} — configure succeeded unexpectedly")
+    def _assert_deploy_fails(self, task: sy.Task, label: str) -> None:
+        """Save a task and assert the driver rejects it on start."""
+        message = assert_start_rejected(self.client, task, label)
+        self.log(f"  Correctly rejected ({label}): {message}")

@@ -24,24 +24,34 @@ type fakeFormatter struct {
 	tag string
 }
 
-func (f *fakeFormatter) Format(_ context.Context, content []byte, _ string) ([]byte, error) {
+func (f *fakeFormatter) Format(
+	_ context.Context,
+	content []byte,
+	_ string,
+) ([]byte, error) {
 	return append([]byte(f.tag+":"), content...), nil
 }
 
 var _ = Describe("Registry", func() {
-	It("Should pass content through unchanged when no formatter is registered", func(ctx SpecContext) {
-		r := format.NewRegistry()
-		out := MustSucceed(r.Format(ctx, []byte("hello"), "/x/foo.unknown"))
-		Expect(string(out)).To(Equal("hello"))
-	})
+	It(
+		"Should pass content through unchanged when no formatter is registered",
+		func(ctx SpecContext) {
+			r := format.NewRegistry()
+			out := MustSucceed(r.Format(ctx, []byte("hello"), "/x/foo.unknown"))
+			Expect(string(out)).To(Equal("hello"))
+		},
+	)
 
-	It("Should route by extension and chain in registration order", func(ctx SpecContext) {
-		r := format.NewRegistry()
-		r.Register(".go", &fakeFormatter{tag: "first"})
-		r.Register(".go", &fakeFormatter{tag: "second"})
-		out := MustSucceed(r.Format(ctx, []byte("body"), "/x/main.go"))
-		Expect(string(out)).To(Equal("second:first:body"))
-	})
+	It(
+		"Should route by extension and chain in registration order",
+		func(ctx SpecContext) {
+			r := format.NewRegistry()
+			r.Register(".go", &fakeFormatter{tag: "first"})
+			r.Register(".go", &fakeFormatter{tag: "second"})
+			out := MustSucceed(r.Format(ctx, []byte("body"), "/x/main.go"))
+			Expect(string(out)).To(Equal("second:first:body"))
+		},
+	)
 
 	It("Should ignore other extensions", func(ctx SpecContext) {
 		r := format.NewRegistry()

@@ -323,4 +323,27 @@ describe("XY", () => {
       expect(result.y).toBeCloseTo(5);
     });
   });
+
+  describe("dot", () => {
+    it("returns the dot product of two vectors", () => {
+      expect(xy.dot({ x: 1, y: 2 }, { x: 3, y: 4 })).toEqual(11);
+    });
+
+    it("returns zero for perpendicular vectors", () => {
+      expect(xy.dot({ x: 1, y: 0 }, { x: 0, y: 1 })).toEqual(0);
+    });
+  });
+
+  describe("lerp", () => {
+    it("returns the endpoints at t = 0 and t = 1", () => {
+      const a = { x: 0, y: 10 };
+      const b = { x: 100, y: 30 };
+      expect(xy.lerp(a, b, 0)).toEqual(a);
+      expect(xy.lerp(a, b, 1)).toEqual(b);
+    });
+
+    it("interpolates the midpoint at t = 0.5", () => {
+      expect(xy.lerp({ x: 0, y: 0 }, { x: 10, y: 20 }, 0.5)).toEqual({ x: 5, y: 10 });
+    });
+  });
 });

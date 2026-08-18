@@ -91,7 +91,7 @@ export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
   zoomReset: [["MouseLeft", "Control"]],
   pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
   select: [["MouseLeft", "Alt"], ["MouseRight"]],
-  cancel: [["Escape"]],
+  cancel: [Triggers.ESCAPE],
 };
 
 export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
@@ -100,7 +100,7 @@ export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
   zoom: [["MouseLeft", "Shift"]],
   zoomReset: [["MouseLeft", "Control"]],
   select: [["MouseLeft", "Alt"]],
-  cancel: [["Escape"]],
+  cancel: [Triggers.ESCAPE],
 };
 
 export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
@@ -109,7 +109,7 @@ export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
   pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
   zoom: [["MouseLeft", "Alt"]],
   zoomReset: [["MouseLeft", "Control"]],
-  cancel: [["Escape"]],
+  cancel: [Triggers.ESCAPE],
 };
 
 export const DEFAULT_TRIGGERS: Record<Mode, UseTriggers> = {
@@ -298,21 +298,22 @@ export const use = ({
 
   useEffect(() => {
     const handler = (e: WheelEvent): void => {
-      if (canvasRef.current == null) return;
+      const canvas = canvasRef.current;
+      if (canvas == null) return;
+      // The listener is window-level and one exists per mounted viewport, so the
+      // ancestry check runs before measuring: reading the canvas box forces layout
+      // and must only happen for events actually over this viewport.
+      if (
+        canvas !== e.target &&
+        findParent(e.target as HTMLElement, (el) => el === canvas) == null
+      )
+        return;
+      const canvasBox = box.construct(canvas);
+      if (!box.contains(canvasBox, xy.construct(e))) return;
       let sf = 1;
       if (e.deltaY < 0) sf -= 0.035;
       else sf += 0.035;
-      const canvasBox = box.construct(canvasRef.current);
-      const rawCursor = xy.construct(e);
-      const candidateElements = Array.from(canvasRef.current.children);
-      candidateElements.push(canvasRef.current);
-      if (
-        !box.contains(canvasBox, rawCursor) ||
-        (canvasRef.current !== e.target &&
-          findParent(e.target as HTMLElement, (el) => el === canvasRef.current) == null)
-      )
-        return;
-      const s2 = constructScale(stateRef.current, box.construct(canvasRef.current));
+      const s2 = constructScale(stateRef.current, canvasBox);
       const cursor = s2.pos(xy.construct(e));
       const s = scale.XY.magnify({
         x: verticalTrigger.current.held ? 1 : sf,

@@ -10,8 +10,8 @@
 import { bounds, box, location, scale, xy } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
+import { rule } from "@/lineplot/rule/aether";
 import { line } from "@/vis/line/aether";
-import { rule } from "@/vis/rule/aether";
 
 export const yAxisStateZ = baseAxisStateZ.extend({
   location: location.xZ.default("left"),
@@ -19,6 +19,8 @@ export const yAxisStateZ = baseAxisStateZ.extend({
 
 export interface YAxisProps extends AxisRenderProps {
   xDataToDecimalScale: scale.Scale;
+  /** Bounds of the parent x axis; y bounds cover only samples inside them. */
+  xBounds: bounds.Bounds;
   exposure: number;
 }
 
@@ -43,17 +45,17 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     );
   }
 
-  bounds(hold: boolean): bounds.Bounds {
-    const [bound, err] = this.iBounds(hold, this.dataBounds.bind(this));
+  bounds(hold: boolean, xBounds: bounds.Bounds): bounds.Bounds {
+    const [bound, err] = this.iBounds(hold, () => this.dataBounds(xBounds));
     if (err != null) throw err;
     return bound;
   }
 
   render(props: YAxisProps): void {
     if (this.deleted) return;
-    const [dataToDecimalScale, error] = this.dataToDecimalScale(
+    const [dataToDecimalScale, , error] = this.dataToDecimalScale(
       props.hold,
-      this.dataBounds.bind(this),
+      () => this.dataBounds(props.xBounds),
       props.viewport,
     );
     // We need to invert scale because the y-axis is inverted in decimal space.
@@ -101,6 +103,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   findByXValue(
     {
       xDataToDecimalScale,
+      xBounds,
       plot,
       viewport,
       hold,
@@ -108,9 +111,9 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     }: Omit<YAxisProps, "canvases">,
     target: number,
   ): line.FindResult[] {
-    const [yDataToDecimalScale, error] = this.dataToDecimalScale(
+    const [yDataToDecimalScale, , error] = this.dataToDecimalScale(
       hold,
-      this.dataBounds.bind(this),
+      () => this.dataBounds(xBounds),
       viewport,
     );
     if (error != null) throw error;
@@ -122,8 +125,8 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     }));
   }
 
-  private dataBounds(): bounds.Bounds[] {
-    return this.lines.map((el) => el.yBounds());
+  private dataBounds(xBounds: bounds.Bounds): bounds.Bounds[] {
+    return this.lines.map((el) => el.yBounds(xBounds));
   }
 
   private get lines(): readonly line.Line[] {

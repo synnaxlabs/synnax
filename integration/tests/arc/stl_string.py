@@ -8,8 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_STL_STRING_SOURCE = """
 // ──────────────────────────── string.len ─────────────────────────────
@@ -218,9 +217,10 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("fmt_chan_float_flow_out", sy.DataType.STRING),
     ("fmt_chan_str_flow_out", sy.DataType.STRING),
     ("fmt_multi_flow_out", sy.DataType.STRING),
-]
-
-INDEXED_CHANNELS: list[tuple[str, sy.DataType]] = [
+    # len / concat / equal outputs. Virtual (stream-read) rather than indexed
+    # (DB-read): these assert pure STL-function results that only need to flow
+    # through, so reading them off the subscription avoids the database
+    # round-trip and its not-ready retry penalty.
     ("len_cc_out", sy.DataType.INT64),
     ("len_ch_out", sy.DataType.INT64),
     ("concat_cc_out", sy.DataType.INT64),
@@ -233,12 +233,10 @@ INDEXED_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("equal_xx_same_out", sy.DataType.UINT8),
 ]
 
-ALL_CHANNELS = [name for name, _ in VIRTUAL_CHANNELS] + [
-    name for name, _ in INDEXED_CHANNELS
-]
+ALL_CHANNELS = [name for name, _ in VIRTUAL_CHANNELS]
 
 
-class StlString(ArcConsoleCase):
+class StlString(ArcCase):
     """Test string operations: len(), + concat, == equal.
 
     Primary axis: function (len, concat, equal).
@@ -252,10 +250,13 @@ class StlString(ArcConsoleCase):
     subscribe_channels = ALL_CHANNELS
 
     def setup(self) -> None:
-        for name, dtype in VIRTUAL_CHANNELS:
-            create_virtual_channel(self.client, name, dtype)
-        for name, dtype in INDEXED_CHANNELS:
-            create_indexed_pair(self.client, name, dtype)
+        self.client.channels.create(
+            [
+                sy.Channel(name=name, data_type=dtype, virtual=True)
+                for name, dtype in VIRTUAL_CHANNELS
+            ],
+            retrieve_if_name_exists=True,
+        )
         super().setup()
 
     def _trigger(self) -> None:
@@ -266,8 +267,6 @@ class StlString(ArcConsoleCase):
 
     def _test_len(self) -> None:
         self.log("=== string.len ===")
-        self._trigger()
-
         self.log("[len_cc] Expecting 5 (len('hello'))")
         self.wait_for_eq("len_cc_out", 5)
 
@@ -276,8 +275,6 @@ class StlString(ArcConsoleCase):
 
     def _test_concat(self) -> None:
         self.log("=== concat (+) ===")
-        self._trigger()
-
         self.log("[concat_cc] Expecting 4 (len('abcd'))")
         self.wait_for_eq("concat_cc_out", 4)
 
@@ -288,12 +285,10 @@ class StlString(ArcConsoleCase):
         self.wait_for_eq("concat_cx_out", 12)
 
         self.log("[concat_xx] Expecting 10 (len('helloother'))")
-        self.wait_for_eq("concat_xx_out", 10, is_virtual=True)
+        self.wait_for_eq("concat_xx_out", 10)
 
     def _test_equal(self) -> None:
         self.log("=== equal (==) ===")
-        self._trigger()
-
         self.log("[equal_cc] Expecting 1 (equal('abc', 'abc'))")
         self.wait_for_eq("equal_cc_out", 1)
 
@@ -310,18 +305,16 @@ class StlString(ArcConsoleCase):
         self.wait_for_eq("equal_xx_same_out", 1)
 
         self.log("[equal_xx_diff] Expecting 0 (equal('hello', 'other'))")
-        self.wait_for_eq("equal_xx_diff_out", 0, is_virtual=True)
+        self.wait_for_eq("equal_xx_diff_out", 0)
 
     def _test_misc(self) -> None:
         self.log("=== misc ===")
-        self._trigger()
-
         self.log("[concat_nested] Expecting 11 (len('hello-other'))")
-        self.wait_for_eq("concat_nested_out", 11, is_virtual=True)
+        self.wait_for_eq("concat_nested_out", 11)
 
         # "hello" + "other" + "_suffix" + "!" = "helloother_suffix!" = 18
         self.log("[multi_add] Expecting 18 (len('helloother_suffix!'))")
-        self.wait_for_eq("multi_add_out", 18, is_virtual=True)
+        self.wait_for_eq("multi_add_out", 18)
 
     def _test_format(self) -> None:
         """Format strings in function and flow contexts.
@@ -347,124 +340,122 @@ class StlString(ArcConsoleCase):
 
         # Function context: constants
         self.log("[fmt_const_int_fn] Expecting 'int: 42'")
-        self.wait_for_eq("fmt_const_int_fn_out", "int: 42", is_virtual=True)
+        self.wait_for_eq("fmt_const_int_fn_out", "int: 42")
         self.log("[fmt_const_hex_fn] Expecting 'hex: ff'")
-        self.wait_for_eq("fmt_const_hex_fn_out", "hex: ff", is_virtual=True)
+        self.wait_for_eq("fmt_const_hex_fn_out", "hex: ff")
         self.log("[fmt_const_float_fn] Expecting 'pi: 3.14'")
-        self.wait_for_eq("fmt_const_float_fn_out", "pi: 3.14", is_virtual=True)
+        self.wait_for_eq("fmt_const_float_fn_out", "pi: 3.14")
 
         # Function context: local variables
         self.log("[fmt_var_int_fn] Expecting 'var int: 99'")
-        self.wait_for_eq("fmt_var_int_fn_out", "var int: 99", is_virtual=True)
+        self.wait_for_eq("fmt_var_int_fn_out", "var int: 99")
         self.log("[fmt_var_float_fn] Expecting 'var float: 1.5'")
-        self.wait_for_eq("fmt_var_float_fn_out", "var float: 1.5", is_virtual=True)
+        self.wait_for_eq("fmt_var_float_fn_out", "var float: 1.5")
         self.log("[fmt_var_expr_fn] Expecting 'expr: 100'")
-        self.wait_for_eq("fmt_var_expr_fn_out", "expr: 100", is_virtual=True)
+        self.wait_for_eq("fmt_var_expr_fn_out", "expr: 100")
 
         # Function context: channel references
         self.log("[fmt_chan_int_fn] Expecting 'chan: 42'")
-        self.wait_for_eq("fmt_chan_int_fn_out", "chan: 42", is_virtual=True)
+        self.wait_for_eq("fmt_chan_int_fn_out", "chan: 42")
         self.log("[fmt_chan_float_fn] Expecting 'chan: 2.72'")
-        self.wait_for_eq("fmt_chan_float_fn_out", "chan: 2.72", is_virtual=True)
+        self.wait_for_eq("fmt_chan_float_fn_out", "chan: 2.72")
         self.log("[fmt_chan_str_fn] Expecting 'chan: \"hello\"'")
-        self.wait_for_eq("fmt_chan_str_fn_out", 'chan: "hello"', is_virtual=True)
+        self.wait_for_eq("fmt_chan_str_fn_out", 'chan: "hello"')
 
         # Flow context: constants
         self.log("[fmt_const_int_flow] Expecting 'int: 42'")
-        self.wait_for_eq("fmt_const_int_flow_out", "int: 42", is_virtual=True)
+        self.wait_for_eq("fmt_const_int_flow_out", "int: 42")
         self.log("[fmt_const_hex_flow] Expecting 'hex: ff'")
-        self.wait_for_eq("fmt_const_hex_flow_out", "hex: ff", is_virtual=True)
+        self.wait_for_eq("fmt_const_hex_flow_out", "hex: ff")
         self.log("[fmt_const_float_flow] Expecting 'pi: 3.14'")
-        self.wait_for_eq("fmt_const_float_flow_out", "pi: 3.14", is_virtual=True)
+        self.wait_for_eq("fmt_const_float_flow_out", "pi: 3.14")
 
         # Flow context: channel references
         self.log("[fmt_chan_int_flow] Expecting 'chan: 42'")
-        self.wait_for_eq("fmt_chan_int_flow_out", "chan: 42", is_virtual=True)
+        self.wait_for_eq("fmt_chan_int_flow_out", "chan: 42")
         self.log("[fmt_chan_float_flow] Expecting 'chan: 2.72'")
-        self.wait_for_eq("fmt_chan_float_flow_out", "chan: 2.72", is_virtual=True)
+        self.wait_for_eq("fmt_chan_float_flow_out", "chan: 2.72")
         self.log("[fmt_chan_str_flow] Expecting 'chan: \"hello\"'")
-        self.wait_for_eq("fmt_chan_str_flow_out", 'chan: "hello"', is_virtual=True)
+        self.wait_for_eq("fmt_chan_str_flow_out", 'chan: "hello"')
 
         # Flow context: multiple placeholders
         self.log("[fmt_multi_flow] Expecting 'i=42, f=2.7'")
-        self.wait_for_eq("fmt_multi_flow_out", "i=42, f=2.7", is_virtual=True)
+        self.wait_for_eq("fmt_multi_flow_out", "i=42, f=2.7")
 
         # Verb coverage: one case per verb supported by the analyzer.
         self.log("[fmt_bin] Expecting '101'")
-        self.wait_for_eq("fmt_bin_fn_out", "101", is_virtual=True)
+        self.wait_for_eq("fmt_bin_fn_out", "101")
         self.log("[fmt_oct] Expecting '10'")
-        self.wait_for_eq("fmt_oct_fn_out", "10", is_virtual=True)
+        self.wait_for_eq("fmt_oct_fn_out", "10")
         self.log("[fmt_goct] Expecting '0o10'")
-        self.wait_for_eq("fmt_goct_fn_out", "0o10", is_virtual=True)
+        self.wait_for_eq("fmt_goct_fn_out", "0o10")
         self.log("[fmt_hex_upper] Expecting 'FF'")
-        self.wait_for_eq("fmt_hex_upper_fn_out", "FF", is_virtual=True)
+        self.wait_for_eq("fmt_hex_upper_fn_out", "FF")
         self.log("[fmt_rune_ascii] Expecting 'A'")
-        self.wait_for_eq("fmt_rune_ascii_fn_out", "A", is_virtual=True)
+        self.wait_for_eq("fmt_rune_ascii_fn_out", "A")
         self.log("[fmt_rune_utf8] Expecting '☃'")
-        self.wait_for_eq("fmt_rune_utf8_fn_out", "☃", is_virtual=True)
+        self.wait_for_eq("fmt_rune_utf8_fn_out", "☃")
         self.log("[fmt_sci_lower] Expecting '1.000000e+06'")
-        self.wait_for_eq("fmt_sci_lower_fn_out", "1.000000e+06", is_virtual=True)
+        self.wait_for_eq("fmt_sci_lower_fn_out", "1.000000e+06")
         self.log("[fmt_sci_upper] Expecting '1.000000E+06'")
-        self.wait_for_eq("fmt_sci_upper_fn_out", "1.000000E+06", is_virtual=True)
+        self.wait_for_eq("fmt_sci_upper_fn_out", "1.000000E+06")
         self.log("[fmt_short] Expecting '3.14'")
-        self.wait_for_eq("fmt_short_fn_out", "3.14", is_virtual=True)
+        self.wait_for_eq("fmt_short_fn_out", "3.14")
 
         # Alt flag (#) on zero: Go emits "0x0"/"0b0" but suppresses for octal.
         self.log("[fmt_alt_hex_zero] Expecting '0x0'")
-        self.wait_for_eq("fmt_alt_hex_zero_fn_out", "0x0", is_virtual=True)
+        self.wait_for_eq("fmt_alt_hex_zero_fn_out", "0x0")
         self.log("[fmt_alt_oct_zero] Expecting '0'")
-        self.wait_for_eq("fmt_alt_oct_zero_fn_out", "0", is_virtual=True)
+        self.wait_for_eq("fmt_alt_oct_zero_fn_out", "0")
         self.log("[fmt_alt_bin] Expecting '0b101'")
-        self.wait_for_eq("fmt_alt_bin_fn_out", "0b101", is_virtual=True)
+        self.wait_for_eq("fmt_alt_bin_fn_out", "0b101")
 
         # Width, precision, sign flags.
         self.log("[fmt_width] Expecting '   42'")
-        self.wait_for_eq("fmt_width_fn_out", "   42", is_virtual=True)
+        self.wait_for_eq("fmt_width_fn_out", "   42")
         self.log("[fmt_left] Expecting '42   '")
-        self.wait_for_eq("fmt_left_fn_out", "42   ", is_virtual=True)
+        self.wait_for_eq("fmt_left_fn_out", "42   ")
         self.log("[fmt_zero_pad] Expecting '00042'")
-        self.wait_for_eq("fmt_zero_pad_fn_out", "00042", is_virtual=True)
+        self.wait_for_eq("fmt_zero_pad_fn_out", "00042")
         self.log("[fmt_plus] Expecting '+42'")
-        self.wait_for_eq("fmt_plus_fn_out", "+42", is_virtual=True)
+        self.wait_for_eq("fmt_plus_fn_out", "+42")
         self.log("[fmt_prec_int] Expecting '0042'")
-        self.wait_for_eq("fmt_prec_int_fn_out", "0042", is_virtual=True)
+        self.wait_for_eq("fmt_prec_int_fn_out", "0042")
 
         # Negative ints with non-decimal verbs: sign preserved per Go.
         self.log("[fmt_neg_hex] Expecting '-ff'")
-        self.wait_for_eq("fmt_neg_hex_fn_out", "-ff", is_virtual=True)
+        self.wait_for_eq("fmt_neg_hex_fn_out", "-ff")
         self.log("[fmt_neg_alt_hex] Expecting '-0xff'")
-        self.wait_for_eq("fmt_neg_alt_hex_fn_out", "-0xff", is_virtual=True)
+        self.wait_for_eq("fmt_neg_alt_hex_fn_out", "-0xff")
         self.log("[fmt_neg_bin] Expecting '-101'")
-        self.wait_for_eq("fmt_neg_bin_fn_out", "-101", is_virtual=True)
+        self.wait_for_eq("fmt_neg_bin_fn_out", "-101")
 
         # UTF-8 width and precision: Go counts code points, not bytes.
         # "héllo" is 5 runes / 6 bytes; %6s pads to 6 runes, %.3s keeps 3.
         self.log("[fmt_utf8_width] Expecting ' héllo'")
-        self.wait_for_eq("fmt_utf8_width_fn_out", " héllo", is_virtual=True)
+        self.wait_for_eq("fmt_utf8_width_fn_out", " héllo")
         self.log("[fmt_utf8_prec] Expecting 'hél'")
-        self.wait_for_eq("fmt_utf8_prec_fn_out", "hél", is_virtual=True)
+        self.wait_for_eq("fmt_utf8_prec_fn_out", "hél")
 
         # Literal-brace escapes: {{ -> { and }} -> }.
         self.log("[fmt_brace_pair] Expecting '{a}'")
-        self.wait_for_eq("fmt_brace_pair_fn_out", "{a}", is_virtual=True)
+        self.wait_for_eq("fmt_brace_pair_fn_out", "{a}")
         self.log("[fmt_brace_around] Expecting '{42}'")
-        self.wait_for_eq("fmt_brace_around_fn_out", "{42}", is_virtual=True)
+        self.wait_for_eq("fmt_brace_around_fn_out", "{42}")
         self.log("[fmt_brace_path] Expecting 'C:\\logs\\{abc}.txt'")
-        self.wait_for_eq("fmt_brace_path_fn_out", r"C:\logs\{abc}.txt", is_virtual=True)
+        self.wait_for_eq("fmt_brace_path_fn_out", r"C:\logs\{abc}.txt")
         self.log("[fmt_brace_path_int] Expecting 'C:\\logs\\{42}.txt'")
-        self.wait_for_eq(
-            "fmt_brace_path_int_fn_out", r"C:\logs\{42}.txt", is_virtual=True
-        )
+        self.wait_for_eq("fmt_brace_path_int_fn_out", r"C:\logs\{42}.txt")
         self.log("[fmt_brace_path_flow] Expecting 'C:\\logs\\{abc}.txt'")
-        self.wait_for_eq(
-            "fmt_brace_path_flow_out", r"C:\logs\{abc}.txt", is_virtual=True
-        )
+        self.wait_for_eq("fmt_brace_path_flow_out", r"C:\logs\{abc}.txt")
         self.log("[fmt_brace_backslash_flow] Expecting 'C:\\logs\\42.txt'")
-        self.wait_for_eq(
-            "fmt_brace_backslash_flow_out", r"C:\logs\42.txt", is_virtual=True
-        )
+        self.wait_for_eq("fmt_brace_backslash_flow_out", r"C:\logs\42.txt")
 
     def verify_sequence_execution(self) -> None:
+        # len, concat, equal, and misc are all gated on str_trigger, so a single
+        # write computes every output in one pass; the groups below just assert
+        # the results.
+        self._trigger()
         self._test_len()
         self._test_concat()
         self._test_equal()

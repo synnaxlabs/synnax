@@ -12,9 +12,9 @@
 from __future__ import annotations
 
 from typing import Any, TypeAlias
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
 
@@ -22,42 +22,24 @@ Key: TypeAlias = UUID
 
 
 class View(BaseModel):
-    """Is a persisted view configuration storing visualization settings and
-    query parameters for line plots, tables, schematics, and other view
-    types.
+    """Is a persisted view configuration storing visualization settings and query
+    parameters for line plots, tables, schematics, and other view types.
 
     Attributes:
         key: Is the unique identifier for this view.
         name: Is a human-readable name for the view.
         type: Is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
-        query: Is a type-agnostic JSON object containing view-specific configuration
-            and query parameters.
+        query: Is a type-agnostic JSON object containing view-specific configuration and
+            query parameters.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str
     type: str
-    query: dict[str, Any]
+    query: dict[str, Any] = Field(default_factory=dict)
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class New(BaseModel):
-    """Contains parameters for creating a new view.
-
-    Attributes:
-        key: Is an optional key for the view. If not provided, one will be
-            automatically assigned.
-        name: Is a human-readable name for the view.
-        type: Is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
-        query: Contains view-specific configuration and query parameters.
-    """
-
-    key: Key | None = None
-    name: str
-    type: str
-    query: dict[str, Any]
 
 
 ONTOLOGY_TYPE = ID(type="view")

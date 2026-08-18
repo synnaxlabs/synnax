@@ -35,8 +35,8 @@ export const Static = ({
   className,
   stateOverrides,
 }: StaticProps): ReactElement => {
-  const result = Symbol.useRetrieve({ key: specKey }, { addStatusOnFailure: false });
-  const spec = result.variant === "success" ? result.data.data : undefined;
+  const { symbol, missing } = Symbol.useResolved(specKey);
+  const spec = symbol?.data;
   const setContainer = Custom.useRender({
     orientation,
     activeState: "base",
@@ -44,12 +44,12 @@ export const Static = ({
     spec,
     stateOverrides,
   });
-  if (Symbol.isMissing(result))
+  if (missing)
     return (
       <Note.Note variant="warning" className={className}>
         <Text.Text level="p" status="warning">
           <Icon.Warning />
-          Missing Custom Symbol
+          Missing custom symbol
         </Text.Text>
       </Note.Note>
     );

@@ -77,24 +77,26 @@ class PagerDutyAlert(TestCase):
             rack=go_rack.key,
             name=f"PD Integration Test {self.suffix}",
             type="pagerduty_alert",
-            config=sy.pagerduty.AlertTaskConfig(
+            config=sy.pagerduty.TaskConfig(
                 routing_key=ROUTING_KEY,
                 auto_start=True,
                 alerts=[
-                    sy.pagerduty.AlertConfig(
+                    sy.pagerduty.Alert(
                         status=self.status_key,
-                        enabled=True,
                         treat_error_as_critical=True,
                         component="integration-test",
                         group="ci",
-                        alert_class="test_alert",
+                        class_="test_alert",
                     ),
                 ],
-            ).model_dump(by_alias=True, exclude_none=True),
+            ),
         )
         self.log(f"Alert task created: key={created.key}")
 
-        # Wait for the Go driver to configure and auto-start the task
+        # Deploy the saved config: tasks only reach the driver on start.
+        created.execute_command("start")
+
+        # Wait for the Go driver to configure and start the task
         task_ontology_key = f"task:{created.key}"
         timer = sy.Timer()
         configured = False
