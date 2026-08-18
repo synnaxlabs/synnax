@@ -12,13 +12,7 @@ import { type ontology, project, type Synnax as Client } from "@synnaxlabs/clien
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import {
-  captureEntries,
-  isDirectoryEntry,
-  isFileEntry,
-  readDirectoryFiles,
-  readEntryFile,
-} from "@/platform/import/entries";
+import { FS } from "@/platform/fs";
 import { type BundleImporter, importServer } from "@/platform/import/import";
 import { useImportBatch } from "@/platform/import/useImportBatch";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
@@ -40,12 +34,12 @@ const importEntry = async (
   entry: FileSystemEntry,
   { client, importBundle, projectKey, store }: ImportContext,
 ): Promise<void | ontology.ID> => {
-  if (isDirectoryEntry(entry)) {
-    const bundle = await zipFiles(await readDirectoryFiles(entry));
+  if (FS.isDirectoryEntry(entry)) {
+    const bundle = await zipFiles(await FS.readDirectoryFiles(entry));
     return await importBundle(entry.name, bundle, { client, store });
   }
-  if (!isFileEntry(entry)) return;
-  const file = await readEntryFile(entry);
+  if (!FS.isFileEntry(entry)) return;
+  const file = await FS.readEntryFile(entry);
   if (isZipFile(file.name))
     return await importBundle(file.name, new Uint8Array(await file.arrayBuffer()), {
       client,
@@ -88,7 +82,7 @@ export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
   const importBatch = useImportBatch();
   return useCallback(
     ({ nodeKey, location, event }: FileDropProps) => {
-      const entries = captureEntries(event.dataTransfer);
+      const entries = FS.captureEntries(event.dataTransfer);
       // A dropped project selects itself once imported, so every file in the drop takes
       // the project open when it landed instead of whichever one wins the race.
       const projectKey = Session.Project.selectSelected(store.getState());

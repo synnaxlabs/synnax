@@ -12,13 +12,13 @@ import { fireEvent, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Import } from "@/platform/import";
+import { FS } from "@/platform/fs";
 import {
   fakeFileEntry,
   FileDragSource,
   fireFileDrop,
   startFileDrag,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
 import { renderWithConsole } from "@/testutil";
 
 const TWO_FILE_DRAG = "start two file drag";
@@ -48,9 +48,9 @@ const renderZone = async ({ onDrop = vi.fn(), onClick }: RenderParams = {}) => {
     <Haul.Provider>
       <FileDragSource />
       <TwoFileDragSource />
-      <Import.DropZone onDrop={onDrop} onClick={onClick}>
+      <FS.DropZone onDrop={onDrop} onClick={onClick}>
         <span>zone content</span>
-      </Import.DropZone>
+      </FS.DropZone>
     </Haul.Provider>,
   );
   const zone = container.querySelector<HTMLElement>(".console-drop-zone");
@@ -58,7 +58,7 @@ const renderZone = async ({ onDrop = vi.fn(), onClick }: RenderParams = {}) => {
   return { zone };
 };
 
-describe("Import.DropZone", () => {
+describe("FS.DropZone", () => {
   it("renders its children and opens the fallback on click", async () => {
     const onClick = vi.fn();
     const { zone } = await renderZone({ onClick });

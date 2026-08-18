@@ -29,7 +29,7 @@ import {
   FileDragSource,
   fireFileDrop,
   startFileDrag,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
 import { Panel } from "@/platform/panel";
 import { createServerPanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";

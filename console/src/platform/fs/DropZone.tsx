@@ -11,7 +11,7 @@ import { Flex, Haul } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { captureEntries } from "@/platform/import/entries";
+import { captureEntries } from "@/platform/fs/entries";
 
 // Accepts a drag carrying exactly one OS file or folder.
 const canDropFile: Haul.CanDrop = ({ items }) =>

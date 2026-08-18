@@ -13,7 +13,6 @@ import { unzipSync, zipSync } from "fflate";
 import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Import } from "@/platform/import";
 import {
   createJSONFile,
   fakeDirectoryEntry,
@@ -21,7 +20,8 @@ import {
   FileDragSource,
   fireFileDrop,
   startFileDrag,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
+import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
 import {
   CaptureStatuses,

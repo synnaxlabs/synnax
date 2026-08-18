@@ -16,13 +16,13 @@ import { unzipSync, zipSync } from "fflate";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Import } from "@/platform/import";
 import {
   createJSONFile,
   fakeDirectoryEntry,
   fakeFileDropEvent,
   fakeFileEntry,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
+import { Import } from "@/platform/import";
 import {
   createPanelWrapper,
   createServerPanel,

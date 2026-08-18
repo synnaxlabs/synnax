@@ -9,18 +9,18 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Import } from "@/platform/import";
+import { FS } from "@/platform/fs";
 import {
   createJSONFile,
   fakeDataTransfer,
   fakeDirectoryEntry,
   fakeFileEntry,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
 
 describe("captureEntries", () => {
   it("takes only the file items out of a mixed transfer", () => {
     const entry = fakeFileEntry(createJSONFile("a.json", {}));
-    expect(Import.captureEntries(fakeDataTransfer([null, entry]))).toEqual([entry]);
+    expect(FS.captureEntries(fakeDataTransfer([null, entry]))).toEqual([entry]);
   });
 });
 
@@ -28,8 +28,8 @@ describe("readEntryFile", () => {
   it("resolves the file the entry points at", async () => {
     const file = createJSONFile("a.json", { key: "a" });
     const entry = fakeFileEntry(file);
-    if (!Import.isFileEntry(entry)) throw new Error("expected a file entry");
-    await expect(Import.readEntryFile(entry)).resolves.toBe(file);
+    if (!FS.isFileEntry(entry)) throw new Error("expected a file entry");
+    await expect(FS.readEntryFile(entry)).resolves.toBe(file);
   });
 });
 
@@ -39,8 +39,8 @@ describe("readDirectoryFiles", () => {
       createJSONFile("top.json", {}),
       fakeDirectoryEntry("nested", [createJSONFile("inner.json", {})]),
     ]);
-    if (!Import.isDirectoryEntry(root)) throw new Error("expected a directory entry");
-    const files = await Import.readDirectoryFiles(root);
+    if (!FS.isDirectoryEntry(root)) throw new Error("expected a directory entry");
+    const files = await FS.readDirectoryFiles(root);
     expect(files.map(({ path }) => path)).toEqual(["top.json", "nested/inner.json"]);
   });
 
@@ -49,8 +49,8 @@ describe("readDirectoryFiles", () => {
       createJSONFile(`f${i}.json`, {}),
     );
     const root = fakeDirectoryEntry("root", children, 2);
-    if (!Import.isDirectoryEntry(root)) throw new Error("expected a directory entry");
-    const files = await Import.readDirectoryFiles(root);
+    if (!FS.isDirectoryEntry(root)) throw new Error("expected a directory entry");
+    const files = await FS.readDirectoryFiles(root);
     expect(files.map(({ path }) => path)).toEqual([
       "f0.json",
       "f1.json",

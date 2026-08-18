@@ -10,22 +10,15 @@
 import { errors } from "@synnaxlabs/x";
 import { Zip, ZipPassThrough } from "fflate";
 
+import { type FS } from "@/platform/fs";
+
 /** Reports whether the file at name is a zip archive by its extension. */
 export const isZipFile = (name: string): boolean => name.toLowerCase().endsWith(".zip");
-
-/**
- * A bundle source file: a path relative to the bundle root in forward-slash form and
- * lazily read bytes.
- */
-export interface SourceFile {
-  path: string;
-  readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
-}
 
 // The Core reads only files in a supported serialization extension from a bundle —
 // members, the manifest, and a legacy LAYOUT.json are all .json — so anything else
 // (repository junk, images) is dead upload weight.
-const isBundleFile = ({ path }: SourceFile): boolean =>
+const isBundleFile = ({ path }: FS.SourceFile): boolean =>
   path.toLowerCase().endsWith(".json");
 
 /**
@@ -35,7 +28,7 @@ const isBundleFile = ({ path }: SourceFile): boolean =>
  * uncompressed; the Core re-reads them anyway.
  */
 export const zipFiles = async (
-  files: SourceFile[],
+  files: FS.SourceFile[],
 ): Promise<Uint8Array<ArrayBuffer>> => {
   const chunks: Uint8Array<ArrayBuffer>[] = [];
   await new Promise<void>((resolve, reject) => {

@@ -7,12 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/pluto";
 import { act, createEvent, fireEvent, screen } from "@testing-library/react";
 import { type DragEvent, type ReactElement } from "react";
-
-import { type FileImporterContext } from "@/platform/import/import";
 
 const START_FILE_DRAG = "start file drag";
 
@@ -32,19 +29,6 @@ export const startFileDrag = (): void => {
     fireEvent.click(screen.getByText(START_FILE_DRAG));
   });
 };
-
-/**
- * Builds a FileImporterContext with no connected cluster. Merge overrides over it for
- * spec-specific fields.
- */
-export const createFileImporterContext = (
-  overrides: Partial<FileImporterContext> = {},
-): FileImporterContext => ({
-  client: null,
-  parent: project.ontologyID("project-1"),
-  fileName: "test.json",
-  ...overrides,
-});
 
 /** Builds a JSON file the drop path accepts. */
 export const createJSONFile = (name: string, contents: unknown): File =>

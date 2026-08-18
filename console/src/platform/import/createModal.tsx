@@ -13,13 +13,7 @@ import { Button, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
-import { DropZone } from "@/platform/import/DropZone";
-import {
-  isDirectoryEntry,
-  isFileEntry,
-  readDirectoryFiles,
-  readEntryFile,
-} from "@/platform/import/entries";
+import { FS } from "@/platform/fs";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
@@ -90,16 +84,16 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
           if (entries.length !== 1)
             throw new Error("drop a single .zip file or folder");
           const [entry] = entries;
-          if (isDirectoryEntry(entry)) {
+          if (FS.isDirectoryEntry(entry)) {
             await importZip(
-              await zipFiles(await readDirectoryFiles(entry)),
+              await zipFiles(await FS.readDirectoryFiles(entry)),
               entry.name,
             );
             return;
           }
-          if (!isFileEntry(entry))
+          if (!FS.isFileEntry(entry))
             throw new Error("dropped item is not a file or folder");
-          const file = await readEntryFile(entry);
+          const file = await FS.readEntryFile(entry);
           if (!isZipFile(file.name)) throw new Error(`${file.name} is not a .zip file`);
           await importZip(new Uint8Array(await file.arrayBuffer()), file.name);
         }, errorMessage),
@@ -110,7 +104,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
       <Modals.Frame className={CSS.B("import-modal")}>
         <Modals.Header icon={<Icon.Import />}>{header}</Modals.Header>
         <Modals.Body>
-          <DropZone
+          <FS.DropZone
             className={CSS.BE("import-modal", "zone")}
             y
             gap="small"
@@ -136,7 +130,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
             >
               Select folder
             </Button.Button>
-          </DropZone>
+          </FS.DropZone>
         </Modals.Body>
       </Modals.Frame>
     );

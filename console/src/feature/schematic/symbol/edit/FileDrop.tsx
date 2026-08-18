@@ -15,7 +15,7 @@ import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Import } from "@/platform/import";
+import { FS } from "@/platform/fs";
 import { Runtime } from "@/platform/runtime";
 
 const isSVGFile = (name: string): boolean => name.toLowerCase().endsWith(".svg");
@@ -55,9 +55,9 @@ export const FileDrop = ({
 
   const handleDrop = (entries: FileSystemEntry[]): void => {
     const [entry] = entries;
-    if (entry == null || !Import.isFileEntry(entry)) return;
+    if (entry == null || !FS.isFileEntry(entry)) return;
     handleError(async () => {
-      const file = await Import.readEntryFile(entry);
+      const file = await FS.readEntryFile(entry);
       loadSVG(file.name, () => file.text());
     }, "Failed to load dropped SVG file");
   };
@@ -73,7 +73,7 @@ export const FileDrop = ({
     }, "Failed to load SVG file");
 
   return (
-    <Import.DropZone
+    <FS.DropZone
       grow
       className={CSS(
         CSS.B("file-drop"),
@@ -100,6 +100,6 @@ export const FileDrop = ({
         </Flex.Box>
       )}
       {children}
-    </Import.DropZone>
+    </FS.DropZone>
   );
 };

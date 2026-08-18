@@ -16,7 +16,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Import } from "@/platform/import";
-import { createFileImporterContext } from "@/platform/import/testutil";
 import {
   assertDefined,
   CaptureStatuses,
@@ -28,6 +27,15 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+const createFileImporterContext = (
+  overrides: Partial<Import.FileImporterContext> = {},
+): Import.FileImporterContext => ({
+  client: null,
+  parent: project.ontologyID("project-1"),
+  fileName: "test.json",
+  ...overrides,
 });
 
 describe("importServer", () => {

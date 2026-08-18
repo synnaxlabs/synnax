@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type SourceFile } from "@/platform/import/zip";
+/**
+ * A source file: a path relative to its root in forward-slash form and lazily read
+ * bytes.
+ */
+export interface SourceFile {
+  path: string;
+  readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
+}
 
 /**
  * Takes the file-system entries out of a drop's data transfer. Call it before anything

@@ -8,8 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/import/createModal";
-export * from "@/platform/import/DropZone";
-export * from "@/platform/import/entries";
 export * from "@/platform/import/import";
 export * from "@/platform/import/useFileDrop";
 export * from "@/platform/import/useImportBatch";

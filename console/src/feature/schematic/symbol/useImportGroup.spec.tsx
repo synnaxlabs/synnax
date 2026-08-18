@@ -27,7 +27,7 @@ import {
   FileDragSource,
   fireFileDrop,
   startFileDrag,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
 import { Modals } from "@/platform/modals";
 import {
   CaptureStatuses,
