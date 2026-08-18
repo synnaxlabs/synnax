@@ -197,7 +197,8 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
 
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Bool) {
     TestSetup setup(types::Kind::Bool, true);
-    Constant node(setup.make_node(), static_cast<uint8_t>(1), x::telem::BOOLEAN_T, true);
+    Constant
+        node(setup.make_node(), static_cast<uint8_t>(1), x::telem::BOOLEAN_T, true);
 
     auto ctx = make_context();
     node.next(ctx);
