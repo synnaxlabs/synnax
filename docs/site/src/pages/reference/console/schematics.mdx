@@ -13,6 +13,8 @@ import { Divider, Note, Icon, Flex } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
 import { Table } from "@/components";
 import Diagram from "@/components/diagram/Diagram.astro";
+import CreateVisualization from "@/components/console/CreateVisualization.astro";
+import ShareAndExport from "@/components/console/ShareAndExport.astro";
 import ControlChip from "@/components/console/ControlChip.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -42,32 +44,7 @@ to try it out yourself.
 
 ## Creating a Schematic
 
-Creating a schematic is as simple as adding a new tab and selecting the schematic
-visualization:
-
-<Video client:only="react" id="console/schematics/create" />
-
-<Note.Note variant="warning">
-  Make sure that you are working in an active
-  [workspace](/reference/console/workspaces)! If your schematic is not created in a
-  workspace, it will not be saved permanently to Synnax.
-</Note.Note>
-
-### Export a Schematic
-
-You can download a schematic as a JSON file so that it can be easily sent and loaded.
-
-To download, right click on the schematic's name in the Workspaces Toolbar and click
-"Download as JSON":
-
-<Video client:only="react" id="console/schematics/download" />
-
-### Import a Schematic
-
-To import a schematic, you can drag and drop from your file system or right click on a
-workspace name in the Workspaces Toolbar:
-
-<Video client:only="react" id="console/schematics/upload" />
+<CreateVisualization type="schematic" video="console/schematics/create" />
 
 <Divider.Divider x />
 
@@ -112,7 +89,12 @@ the controls in the top-right corner of the schematic.
 
 <Divider.Divider x />
 
-## The Symbols Library
+## Configuring the Schematic
+
+When selected, a symbol's properties will appear in the bottom Component Toolbar. There
+are several tabs that can be used to fine-tune the look and behavior of the symbol.
+
+### Symbols Library
 
 Schematics are assembled by dragging symbols out of the library and onto the screen.
 These symbols are visual representation of sensors, actuators, and other components on
@@ -121,14 +103,6 @@ sure to click the visualization <Icon.Visualize /> icon in the bottom-left corne
 
 Synnax has a collection of built-in symbols including valves, live sensor values,
 buttons, and tanks.
-
-<Divider.Divider x />
-
-## Changing Symbol Properties
-
-When selected, a symbol's properties will appear in the bottom Visualization Toolbar.
-There are several tabs that can be used to fine-tune the look and behavior of the
-symbol.
 
 ### Style Tab
 
@@ -302,7 +276,7 @@ two main properties:
 
 <Divider.Divider x />
 
-## Stylistic Modifying the Schematic
+## Styling the Schematic
 
 There are many ways that you can change the visuals of a schematic.
 
@@ -354,7 +328,7 @@ The color of the bar and legend indicate what has control over the channel.
 
 Oftentimes, you will want to save the configuration of a schematic to a particular
 range, so you can see exactly how a schematic looked at a certain point in time. To do
-this, you can snapshot a schematic to a range by finding the schematic in the Workspaces
+this, you can snapshot a schematic to a range by finding the schematic in the Projects
 Toolbar, opening the context menu, and snapshotting the schematic to a range.
 
 <Video client:only="react" id="console/schematics/snapshot" />
@@ -415,3 +389,12 @@ section, and edit the colors of the region.
 By default, Synnax uses the dimensions of the imported SVG to determine the default size
 of the symbol when it is added to a schematic. To change this scale, simply drag the
 slider or enter a new value in the properties field.
+
+<Divider.Divider x />
+
+## Sharing and Exporting
+
+<ShareAndExport type="schematic">
+  <Video slot="export" client:only="react" id="console/schematics/download" />
+  <Video slot="import" client:only="react" id="console/schematics/upload" />
+</ShareAndExport>

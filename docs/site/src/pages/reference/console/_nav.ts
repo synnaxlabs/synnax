@@ -45,9 +45,9 @@ export const CONSOLE_NAV: PageNavNode = {
       name: "Calculated Channels",
     },
     {
-      key: "/reference/console/workspaces",
-      href: "/reference/console/workspaces",
-      name: "Workspaces",
+      key: "/reference/console/projects",
+      href: "/reference/console/projects",
+      name: "Projects",
     },
     {
       key: "/reference/console/ranges",

@@ -8,10 +8,12 @@ next: "Logs"
 nextURL: "/reference/console/logs"
 ---
 
-import { Divider, Icon, Note } from "@synnaxlabs/pluto";
+import { Divider, Icon } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
 import { Table } from "@/components";
 import Diagram from "@/components/diagram/Diagram.astro";
+import CreateVisualization from "@/components/console/CreateVisualization.astro";
+import ShareAndExport from "@/components/console/ShareAndExport.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -29,24 +31,23 @@ export const components = mdxOverrides;
   />
 </Diagram>
 
-Line plots are the main visualization tool in the Synnax Console. Line plots can be used
-to plot real-time data or historical data. They can plot one or several channels along
-the y-axes, and the x-axis can be time or another channel.
-
-Click the visualize <Icon.Visualize /> button in the bottom-left corner to open the
-Visualization Toolbar.
-
-<Video client:only="react" id="console/line-plots/toolbar" />
-
-<Note.Note variant="warning">
-  Make sure that you are working in an active
-  [workspace](/reference/console/workspaces)! If your line plot is not created in a
-  workspace, it will not be saved permanently to Synnax.
-</Note.Note>
+Line plots graph real-time or historical data. They plot one or more channels along the
+y-axes, with time or another channel on the x-axis.
 
 <Divider.Divider x />
 
-## Visualization Toolbar
+## Creating a Plot
+
+<CreateVisualization type="line plot" video="console/line-plots/create" />
+
+<Divider.Divider x />
+
+## Configuring the Plot
+
+Click the line plot <Icon.LinePlot /> button in the bottom-left corner to open the
+Component Toolbar.
+
+<Video client:only="react" id="console/line-plots/toolbar" />
 
 ### Data Tab
 
@@ -296,3 +297,9 @@ second point, press the `2` key and click on the line plot.
 
 Pressing the `H` key or clicking the pause <Icon.Pause /> button will pause live
 plotting.
+
+<Divider.Divider x />
+
+## Sharing and Exporting
+
+<ShareAndExport type="line plot" />

@@ -27,8 +27,6 @@ controls.
 
 ## Toolbars
 
-To kick things off, we'll walk you through each of the toolbars and their functionality.
-
 ### <Icon.Channel /> Channels
 
 The [Channels Toolbar](/reference/console/channels) allows you to create, view, and
@@ -39,12 +37,10 @@ access the channels you're interested in visualizing.
 The [Ranges Toolbar](/reference/console/ranges) allows you to create, view, and access
 ranges that you have favorited in the Console.
 
-<Video client:only="react" id="console/ui-overview/range-toolbar" />
+### <Icon.Project /> Projects
 
-### <Icon.Workspace /> Workspaces
-
-The [Workspaces Toolbar](/reference/console/workspaces) allows you to create and view
-workspaces that have been made by users in your Synnax deployment.
+The [Projects Toolbar](/reference/console/projects) allows you to create and view
+projects that have been made by users in your Synnax deployment.
 
 ### <Icon.Device /> Devices
 
@@ -56,61 +52,22 @@ devices you're interested in visualizing.
 The [Tasks Toolbar](/reference/driver) allows you to view, pause, and resume the current
 tasks running on a Driver.
 
-<Video client:only="react" id="console/ui-overview/task-toolbar" />
-
 ### <Icon.User /> Users
 
 The [Users Toolbar](/reference/console/users) allows you to view and change permissions
 for users in your Synnax deployment.
 
-### <Icon.Visualize /> Visualization
+### <Icon.Component /> Component
 
-The Visualization Toolbar allows you to edit the properties of
+The Component Toolbar allows you to edit the properties of
 [line plots](/reference/console/line-plots), [logs](/reference/console/logs),
 [schematics](/reference/console/schematics), and [tables](/reference/console/tables).
-
-<Video client:only="react" id="console/ui-overview/visualization-toolbar" />
-
-## Selectors
-
-### <Icon.Workspace /> Workspace
-
-The [Workspace Selector](/reference/console/workspaces) allows you to create and view
-workspaces that you have favorited in the Console.
-
-### <Icon.Cluster /> Core
-
-The [Core Selector](/reference/console/cores) allows you to switch the current Core that
-you are connected to and add new Cores.
-
-<Video client:only="react" id="console/ui-overview/cluster-toolbar" />
-
-<Divider.Divider x />
-
-## Mosaic
-
-Synnax can be easily manipulated to help choose the exact display you want.
-
-You can easily open and close toolbars on Synnax:
-
-<Video client:only="react" id="console/ui-overview/open-toolbars" />
-
-You can close toolbars either by touching their respective icon or resizing it to the
-edge:
-
-<Video client:only="react" id="console/ui-overview/close-toolbars" />
-
-You can also have multiple visualizations displayed at the same time:
-
-<Video client:only="react" id="console/ui-overview/multiple-tabs" />
-
-<Divider.Divider x />
 
 ## Getting Help
 
 {/* prettier-ignore-start */}
 
-The Synnax documentation website can be opened from within the Console by clicking the
+The Synnax documentation can be opened from within the Console by clicking the
 <Icon.QuestionMark /> icon.
 
 {/* prettier-ignore-end */}
@@ -123,24 +80,16 @@ The Synnax documentation website can be opened from within the Console by clicki
 
 {/* prettier-ignore-start */}
 
-The Search and Command Palette at the top can be used to search for resources or to
-activate commands. Searching for resources can be done by searching or pressing
-<Icon.Keyboard.Control /> +`P` (Windows) / <Icon.Keyboard.Command /> +`P` (macOS). As an
-example of searching for resources, you could search for a test range and then
-automatically add it as the active range:
+The Search and Command Palette can be used to search for resources or to activate
+commands.
+
+- On Windows, press `Ctrl+P` to search for resources or `Ctrl+Shift+P` to search for
+  commands.
+- On macOS, press <code><Icon.Keyboard.Command />+P</code> to search for resources or
+  <code><Icon.Keyboard.Command />+<Icon.Keyboard.Shift />+P</code> to search for
+  commands.
+
 
 {/* prettier-ignore-end */}
 
 <Video client:only="react" id="console/ui-overview/palette-search" />
-
-{/* prettier-ignore-start */}
-
-The Search and Command Palette can run commands by entering a `>` into the toolbar or by
-pressing <Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) /
-<Icon.Keyboard.Command />+<Icon.Keyboard.Shift /> +`P` (macOS). This allows you to run
-commands such as toggling the color theme, creating a visualization, adding a range, or
-opening the documentation:
-
-{/* prettier-ignore-end */}
-
-<Video client:only="react" id="console/ui-overview/palette-command" />
