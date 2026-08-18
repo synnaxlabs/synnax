@@ -9,7 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { createTestDevice } from "@/platform/device/testutil";
@@ -28,6 +28,6 @@ describe("device/Toolbar", () => {
     });
     await screen.findByText("Devices");
     fireEvent.click(await findTreeRow(rack.name));
-    await screen.findByText(dev.name);
+    expect(await findTreeRow(dev.name)).toBeTruthy();
   });
 });

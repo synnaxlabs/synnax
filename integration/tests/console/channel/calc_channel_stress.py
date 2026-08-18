@@ -14,6 +14,7 @@ import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
+from framework.utils import create_indexed_channels
 
 CrudeFrame = dict[int, sy.TimeStamp | float | np.floating]
 
@@ -45,15 +46,8 @@ class CalcChannelStress(ConsoleCase):
     def _create_multiple_channels(
         self, base_name: str, count: int, index_key: int
     ) -> list[sy.Channel]:
-        return [
-            self.client.channels.create(
-                name=f"{base_name}_{i + 1}",
-                index=index_key,
-                data_type=sy.DataType.FLOAT32,
-                retrieve_if_name_exists=True,
-            )
-            for i in range(count)
-        ]
+        names = [f"{base_name}_{i + 1}" for i in range(count)]
+        return create_indexed_channels(self.client, names, index_key)
 
     def _start_stress_writer(self) -> None:
         """Start the stress writer in a background thread."""

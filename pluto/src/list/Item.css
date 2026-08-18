@@ -48,3 +48,11 @@
         background: var(--pluto-gray-l4);
     }
 }
+
+/* The virtualizer positions rows itself, at offsets it assumes rather than measures, so
+   a row shorter than the assumed pitch would leave a gap. */
+.pluto-list__items--virtual .pluto-list__item {
+    position: absolute;
+    left: 0;
+    min-height: var(--pluto-list-item-height);
+}

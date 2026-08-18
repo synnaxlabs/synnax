@@ -59,6 +59,7 @@ export const Window = memo((): ReactElement | null => {
       className={CSS(
         CSS.B("main"),
         CSS.M(`os-${os.toLowerCase()}`),
+        isMain && CSS.M("primary"),
         menuProps.className,
       )}
       onDragOver={handleDragOver}
