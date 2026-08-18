@@ -84,8 +84,7 @@ const hold = async (key: channel.Key, subject: string): Promise<Holder> => {
 };
 
 /** Mounts a controller against the test cluster with a status source bound to the
- * channel. Reading the channel opens the control stream, so no transfer after this
- * point is missed. */
+ * channel, and waits for the client's change stream. */
 const setup = async (key: channel.Key) => {
   const h = renderAether(Colors, {
     state: {},
@@ -101,6 +100,9 @@ const setup = async (key: channel.Key) => {
   const controller = h.child<Controller>(CONTROLLER_KEY);
   const { client: mounted } = controller;
   assert(mounted != null);
+  // With the cache enabled, connect() resolves only once the change stream is
+  // live, so no transfer published after this point is missed.
+  await mounted.connect();
   if (key !== 0) await mounted.control.retrieve([key]);
   const source = controller.create<AuthoritySource>(authoritySource({ channel: key }));
   assert(source != null);

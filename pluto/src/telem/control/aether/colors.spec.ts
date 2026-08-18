@@ -65,8 +65,7 @@ const hold = async (ch: channel.Channel): Promise<Holder> => {
   };
 };
 
-/** Mounts Colors against the test cluster. Reading the given channels opens the control
- * stream, so no transfer after this point is missed. */
+/** Mounts Colors against the test cluster and waits for its change stream. */
 const setup = async (channels: channel.Channel[]): Promise<Colors> => {
   const h = renderAether(Colors, {
     state: {},
@@ -79,6 +78,9 @@ const setup = async (channels: channel.Channel[]): Promise<Colors> => {
   assert(provider != null);
   const { client: mounted } = provider.internal;
   assert(mounted != null);
+  // With the cache enabled, connect() resolves only once the change stream is
+  // live, so no transfer published after this point is missed.
+  await mounted.connect();
   if (channels.length > 0)
     await mounted.control.retrieve(channels.map(({ key }) => key));
   return h.component;
