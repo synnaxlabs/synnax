@@ -82,11 +82,11 @@ type leaseProxy struct {
 
 func newLeaseProxy(cfg Config, localTo, remoteTo address.Address) segment {
 	lp := &leaseProxy{Config: cfg, localTo: localTo, remoteTo: remoteTo}
-	lp.Switch.Switch = lp.switch_
+	lp.Switch.Switch = lp.switchF
 	return lp
 }
 
-func (lp *leaseProxy) switch_(
+func (lp *leaseProxy) switchF(
 	_ context.Context,
 	txReq TxRequest,
 ) (address.Address, bool, error) {

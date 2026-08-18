@@ -107,7 +107,7 @@ var _ = Describe("txn", func() {
 				func(ctx SpecContext) {
 					kv1 := MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
 					Expect(MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))).
-						To(Not(BeNil()))
+						ToNot(BeNil())
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value2"), node.Key(2))).
 						To(MatchError(ContainSubstring("cannot transfer lease")))
@@ -233,7 +233,7 @@ var _ = Describe("txn", func() {
 			Expect(MustOpen(builder.New(ctx, kv.Config{
 				GossipInterval:    20 * time.Millisecond,
 				RecoveryThreshold: 2,
-			}, cluster.Config{}))).To(Not(BeNil()))
+			}, cluster.Config{}))).ToNot(BeNil())
 			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Eventually(func() int {
 				return builder.OpNet.EntryCount()
@@ -286,8 +286,7 @@ var _ = Describe("txn", func() {
 					defer GinkgoRecover()
 					for i := range totalWrites {
 						key := fmt.Appendf(nil, "key-%d", i)
-						err := db.Set(ctx, key, []byte("v"))
-						Expect(err).ToNot(HaveOccurred())
+						Expect(db.Set(ctx, key, []byte("v"))).To(Succeed())
 						completed.Add(1)
 					}
 				}()
@@ -388,7 +387,7 @@ var _ = Describe("txn", func() {
 			func(ctx SpecContext) {
 				kv1 := MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				Expect(MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))).
-					To(Not(BeNil()))
+					ToNot(BeNil())
 				waitForClusterStateToConverge(builder)
 
 				var fired atomic.Int64
