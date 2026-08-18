@@ -22,10 +22,12 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
+from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
+from synnax.status import VARIANT_ERROR
 from synnax.task.types_gen import Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from x.lists import check_for_none, normalize, override
@@ -191,7 +193,9 @@ class Task:
                     "type": type_,
                     "key": key,
                     "config_hash": self.config_hash,
-                    "args": args,
+                    # Readers validate args as a record; a null on the wire fails
+                    # their schema, so an absent value must encode as {}.
+                    "args": args if args is not None else {},
                 }
             ],
         )
@@ -274,9 +278,11 @@ class StarterStopperMixin:
 
         :raises TimeoutError: If the timeout is reached before the Synnax cluster
             acknowledges the command.
-        :raises Exception: If the Synnax cluster fails to start the task correctly.
+        :raises ConfigurationError: If the driver fails to start the task.
         """
-        self._internal.execute_command_sync("start", timeout=timeout)
+        status = self._internal.execute_command_sync("start", timeout=timeout)
+        if status.variant == VARIANT_ERROR:
+            raise ConfigurationError(status.message)
 
     def stop(self, timeout: float | TimeSpan = 5) -> None:
         """Stops the task and blocks until the Synnax cluster has acknowledged the
@@ -284,15 +290,21 @@ class StarterStopperMixin:
 
         :raises TimeoutError: If the timeout is reached before the Synnax cluster
             acknowledges the command.
-        :raises Exception: If the Synnax cluster fails to stop the task correctly.
+        :raises ConfigurationError: If the task ended in an error state. The task is
+            stopped either way; the error is whatever went wrong while it ran.
         """
-        self._internal.execute_command_sync("stop", timeout=timeout)
+        status = self._internal.execute_command_sync("stop", timeout=timeout)
+        if status.variant == VARIANT_ERROR:
+            raise ConfigurationError(status.message)
 
     @contextmanager
     def run(self, timeout: float | TimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
+
+        :raises ConfigurationError: If the task failed to start, or ended in an error
+            state. A task that dies mid-block surfaces its cause on exit.
         """
         self.start(timeout)
         try:

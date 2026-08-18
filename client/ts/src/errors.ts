@@ -14,6 +14,11 @@ import { z } from "zod";
 export class SynnaxError extends errors.createTyped("sy") {}
 
 /**
+ * Raised when a configuration error occurs.
+ */
+export class ConfigurationError extends SynnaxError.sub("configuration") {}
+
+/**
  * Raised when a validation error occurs.
  */
 export class ValidationError extends SynnaxError.sub("validation") {}
@@ -126,6 +131,8 @@ export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
 const decode = (payload: errors.Payload): Error | null => {
   if (!payload.type.startsWith(SynnaxError.TYPE)) return null;
+  if (payload.type.startsWith(ConfigurationError.TYPE))
+    return new ConfigurationError(payload.data);
   if (payload.type.startsWith(ValidationError.TYPE)) {
     if (payload.type === PathError.TYPE) return PathError.decode(payload);
     return new ValidationError(payload.data);

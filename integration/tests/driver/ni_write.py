@@ -129,14 +129,22 @@ class NIDigitalWriteInvalidData(NIDigitalWriteTaskCase):
     def run(self) -> None:
         assert self.tsk is not None
         self.log("Testing: Send invalid digital values (42)")
-        with self.tsk.run():
-            _assert_driver_rejects_value(
-                self.client,
-                self.tsk.key,
-                cmd_keys=self._channel_keys(self.tsk),
-                value=42.0,
-                writer_name=f"{self.task_name}_test_writer",
+        # The rejected write kills the task, so stopping it reports the cause.
+        try:
+            with self.tsk.run():
+                _assert_driver_rejects_value(
+                    self.client,
+                    self.tsk.key,
+                    cmd_keys=self._channel_keys(self.tsk),
+                    value=42.0,
+                    writer_name=f"{self.task_name}_test_writer",
+                )
+        except sy.ConfigurationError as e:
+            assert "not supported" in str(e), (
+                f"Stop should report the rejected write, got: {e}"
             )
+        else:
+            raise AssertionError("Stop should report the rejected write")
         self.log("Driver correctly rejected invalid digital data")
 
 

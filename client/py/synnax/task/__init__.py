@@ -22,6 +22,7 @@ from synnax.task.types_gen import (
     BaseScanConfig,
     BaseStartConfig,
     BaseWriteConfig,
+    Command,
     Key,
     KeyedConfig,
     Payload,
@@ -45,6 +46,7 @@ __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
     "Client",
+    "Command",
     "Key",
     "Task",
     "Payload",

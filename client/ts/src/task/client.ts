@@ -24,6 +24,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ConfigurationError } from "@/errors";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -226,21 +227,52 @@ export class Task<S extends Schemas = Schemas> {
     });
   }
 
-  async start(): Promise<void> {
-    await this.executeCommand({ type: "start" });
+  /**
+   * Starts the task and blocks until the driver acknowledges the command.
+   * @param timeout - The maximum time to wait for the acknowledgement.
+   * @throws {ConfigurationError} if the driver fails to start the task.
+   */
+  async start(timeout?: CrudeTimeSpan): Promise<void> {
+    const status = await this.executeCommandSync({ type: "start", timeout });
+    if (status.variant === "error") throw new ConfigurationError(status.message);
   }
 
-  async stop(): Promise<void> {
-    await this.executeCommand({ type: "stop" });
+  /**
+   * Stops the task and blocks until the driver acknowledges the command.
+   * @param timeout - The maximum time to wait for the acknowledgement.
+   * @throws {ConfigurationError} if the task ended in an error state. The task is
+   * stopped either way; the error is whatever went wrong while it ran.
+   */
+  async stop(timeout?: CrudeTimeSpan): Promise<void> {
+    const status = await this.executeCommandSync({ type: "stop", timeout });
+    if (status.variant === "error") throw new ConfigurationError(status.message);
   }
 
+  /**
+   * Starts the task, runs fn, and stops the task.
+   * @throws {ConfigurationError} if the task failed to start, or ended in an error
+   * state. A task that dies while fn runs surfaces its cause on stop, with whatever
+   * fn threw attached as the cause.
+   */
   async run<T>(fn: () => Promise<T>): Promise<T> {
     await this.start();
+    let value: T;
     try {
-      return await fn();
-    } finally {
-      await this.stop();
+      value = await fn();
+    } catch (error) {
+      const fnError =
+        error instanceof Error ? error : new Error(String(error), { cause: error });
+      try {
+        await this.stop();
+      } catch (stopError) {
+        if (!(stopError instanceof Error)) throw fnError;
+        stopError.cause ??= fnError;
+        throw stopError;
+      }
+      throw fnError;
     }
+    await this.stop();
+    return value;
   }
 
   async snapshottedTo(): Promise<ontology.Resource | null> {

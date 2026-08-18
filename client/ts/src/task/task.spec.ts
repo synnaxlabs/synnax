@@ -11,8 +11,11 @@ import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { ConfigurationError } from "@/errors";
+import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { type status } from "@/status";
 import { task } from "@/task";
 import { createTestClient } from "@/testutil";
 
@@ -419,6 +422,38 @@ describe("Task", async () => {
   });
 
   describe("lifecycle methods", () => {
+    /// Plays the driver: reads the task's next command and acks it with a status.
+    /// The command channel is shared, so commands for other tasks are skipped.
+    const ackNextCommand = async (
+      streamer: framer.Streamer,
+      taskKey: task.Key,
+      variant: status.Variant,
+      message: string,
+    ): Promise<task.Command> => {
+      while (true) {
+        const fr = await streamer.read();
+        for (const sample of fr.get(task.COMMAND_CHANNEL_NAME)) {
+          const parsed = task.commandZ.safeParse(sample);
+          if (!parsed.success || parsed.data.task !== taskKey) continue;
+          const cmd = parsed.data;
+          await client.statuses.set({
+            key: id.create(),
+            name: "Task Status",
+            variant,
+            message,
+            time: TimeStamp.now(),
+            details: {
+              task: cmd.task,
+              running: variant !== "error",
+              cmd: cmd.key,
+              data: {},
+            },
+          });
+          return cmd;
+        }
+      }
+    };
+
     it("should start a task", async () => {
       const t = await testRack.createTask({
         name: "lifecycle-start-test",
@@ -426,15 +461,40 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      await t.start();
-      await expect
-        .poll<Promise<task.Command>>(async () => {
-          const fr = await streamer.read();
-          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
-          return task.commandZ.parse(sample);
-        })
-        .toMatchObject({ task: t.key, type: "start" });
-      streamer.close();
+      try {
+        const started = t.start();
+        const cmd = await ackNextCommand(
+          streamer,
+          t.key,
+          "success",
+          "Task started successfully",
+        );
+        expect(cmd).toMatchObject({ task: t.key, type: "start" });
+        await started;
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("should throw a ConfigurationError when the driver rejects a start", async () => {
+      const t = await testRack.createTask({
+        name: "lifecycle-start-error-test",
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        // The assertions attach before the ack: start() can reject the moment the
+        // error status lands, and an unhandled rejection fails the whole run.
+        const started = t.start();
+        await Promise.all([
+          expect(started).rejects.toThrow(ConfigurationError),
+          expect(started).rejects.toThrow("failed to reserve device"),
+          ackNextCommand(streamer, t.key, "error", "failed to reserve device"),
+        ]);
+      } finally {
+        streamer.close();
+      }
     });
 
     it("should stop a task", async () => {
@@ -444,15 +504,38 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      await t.stop();
-      await expect
-        .poll<Promise<task.Command>>(async () => {
-          const fr = await streamer.read();
-          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
-          return task.commandZ.parse(sample);
-        })
-        .toMatchObject({ task: t.key, type: "stop" });
-      streamer.close();
+      try {
+        const stopped = t.stop();
+        const cmd = await ackNextCommand(
+          streamer,
+          t.key,
+          "success",
+          "Task stopped successfully",
+        );
+        expect(cmd).toMatchObject({ task: t.key, type: "stop" });
+        await stopped;
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("should throw a ConfigurationError when the task ended in an error", async () => {
+      const t = await testRack.createTask({
+        name: "lifecycle-stop-error-test",
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const stopped = t.stop();
+        await Promise.all([
+          expect(stopped).rejects.toThrow(ConfigurationError),
+          expect(stopped).rejects.toThrow("device disconnected"),
+          ackNextCommand(streamer, t.key, "error", "device disconnected"),
+        ]);
+      } finally {
+        streamer.close();
+      }
     });
 
     it("should run a task with automatic start and stop", async () => {
@@ -462,34 +545,30 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      let executedCallback = false;
-
-      await t.run(async () => {
-        executedCallback = true;
-      });
-
-      expect(executedCallback).toBe(true);
-
-      // Should have received both start and stop commands
-      const commands: task.Command[] = [];
-      await expect
-        .poll(async () => {
-          try {
-            const fr = await streamer.read();
-            const samples = fr.get(task.COMMAND_CHANNEL_NAME);
-            for (const sample of samples) commands.push(task.commandZ.parse(sample));
-
-            return (
-              commands.some((c) => c.task === t.key && c.type === "start") &&
-              commands.some((c) => c.task === t.key && c.type === "stop")
-            );
-          } catch {
-            return false;
-          }
-        })
-        .toBe(true);
-
-      streamer.close();
+      try {
+        let executedCallback = false;
+        const ran = t.run(async () => {
+          executedCallback = true;
+        });
+        const startCmd = await ackNextCommand(
+          streamer,
+          t.key,
+          "success",
+          "Task started successfully",
+        );
+        expect(startCmd.type).toBe("start");
+        const stopCmd = await ackNextCommand(
+          streamer,
+          t.key,
+          "success",
+          "Task stopped successfully",
+        );
+        expect(stopCmd.type).toBe("stop");
+        await ran;
+        expect(executedCallback).toBe(true);
+      } finally {
+        streamer.close();
+      }
     });
 
     it("should stop task even if callback throws error", async () => {
@@ -499,32 +578,54 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-
-      await expect(
-        t.run(async () => {
+      try {
+        const ran = t.run(async () => {
           throw new Error("Test error");
-        }),
-      ).rejects.toThrow("Test error");
+        });
+        const rejected = expect(ran).rejects.toThrow("Test error");
+        const startCmd = await ackNextCommand(
+          streamer,
+          t.key,
+          "success",
+          "Task started successfully",
+        );
+        expect(startCmd.type).toBe("start");
+        // The callback throws, so run() still sends and awaits the stop.
+        const stopCmd = await ackNextCommand(
+          streamer,
+          t.key,
+          "success",
+          "Task stopped successfully",
+        );
+        expect(stopCmd.type).toBe("stop");
+        await rejected;
+      } finally {
+        streamer.close();
+      }
+    });
 
-      // Should still have received stop command
-      const stopCommands: task.Command[] = [];
-      await expect
-        .poll(async () => {
-          try {
-            const fr = await streamer.read();
-            const samples = fr.get(task.COMMAND_CHANNEL_NAME);
-            for (const sample of samples) {
-              const cmd = task.commandZ.parse(sample);
-              if (cmd.task === t.key && cmd.type === "stop") stopCommands.push(cmd);
-            }
-            return stopCommands.length > 0;
-          } catch {
-            return false;
-          }
-        })
-        .toBe(true);
-
-      streamer.close();
+    it("should keep the callback error as the cause when stop also fails", async () => {
+      const t = await testRack.createTask({
+        name: "lifecycle-run-both-error-test",
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const callbackError = new Error("callback blew up");
+        const ran = t.run(async () => {
+          throw callbackError;
+        });
+        const settled = ran.catch((error: unknown) => error);
+        await ackNextCommand(streamer, t.key, "success", "Task started successfully");
+        await ackNextCommand(streamer, t.key, "error", "device disconnected");
+        const error = await settled;
+        expect(error).toBeInstanceOf(ConfigurationError);
+        expect((error as Error).message).toContain("device disconnected");
+        expect((error as Error).cause).toBe(callbackError);
+      } finally {
+        streamer.close();
+      }
     });
   });
 
