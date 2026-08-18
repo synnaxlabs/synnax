@@ -75,6 +75,29 @@ describe("Runtime files", () => {
       await expect(p).resolves.toBeNull();
     });
 
+    it("should map every selected file when multiple", async () => {
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json", multiple: true });
+      picker.selectFiles([
+        fakePickedFile("a.json", "1"),
+        fakePickedFile("b.json", "2"),
+      ]);
+      const result = await p;
+      assertDefined(result);
+      expect(result.map((f) => f.path)).toEqual(["a.json", "b.json"]);
+    });
+
+    it("should settle null when the picker is dismissed without an event", async () => {
+      vi.useFakeTimers();
+      try {
+        const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
+        window.dispatchEvent(new Event("focus"));
+        await vi.advanceTimersByTimeAsync(500);
+        await expect(p).resolves.toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("should build the accept attribute from the extension", async () => {
       const p = Runtime.pickFiles({ title: "Pick", extension: "json", multiple: true });
       const input = picker.lastInput();
@@ -148,6 +171,7 @@ describe("Runtime files", () => {
           ? [
               { name: "a.json", isFile: true, isDirectory: false, isSymlink: false },
               { name: "nested", isFile: false, isDirectory: true, isSymlink: false },
+              { name: "link", isFile: false, isDirectory: false, isSymlink: true },
             ]
           : [{ name: "b.json", isFile: true, isDirectory: false, isSymlink: false }],
       );
@@ -208,6 +232,12 @@ describe("Runtime files", () => {
         await expect(
           Runtime.pickPath({ title: "Pick", extension: "pem" }),
         ).resolves.toBe("/tmp/cert.pem");
+        expect(openMock).toHaveBeenCalledWith({
+          title: "Pick",
+          filters: [{ name: "PEM", extensions: ["pem"] }],
+          directory: false,
+          multiple: false,
+        });
       });
 
       it("should return null when cancelled", async () => {

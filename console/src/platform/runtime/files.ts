@@ -151,13 +151,12 @@ export const pickPath = async ({
 }: PickPathParams): Promise<string | null> => {
   if (Session.Runtime.ENGINE !== "tauri")
     throw new Error("File paths can only be selected in the Synnax desktop app.");
-  const result = await open({
+  return await open({
     title,
     filters: tauriFilters(extension),
     directory: false,
     multiple: false,
   });
-  return typeof result === "string" ? result : null;
 };
 
 /** A directory chosen through a picker, with its files read lazily. */
@@ -182,20 +181,25 @@ const pickDirectoryTauri = async ({
   const dirPath = result;
   const separator = sep();
   const name = dirPath.split(separator).pop() ?? dirPath;
-  const files: PickedFile[] = [];
-  const walk = async (absolute: string, relative: string): Promise<void> => {
-    for (const entry of await readDir(absolute)) {
-      // Joined by hand: path.join is a Tauri IPC round-trip, and a large tree would
-      // pay one per entry before reading a byte.
-      const fullPath = absolute + separator + entry.name;
-      const relPath = relative === "" ? entry.name : `${relative}/${entry.name}`;
-      if (entry.isDirectory) await walk(fullPath, relPath);
-      else if (entry.isFile)
-        files.push({ path: relPath, readBytes: () => readFile(fullPath) });
-    }
+  // Sibling directories walk concurrently, and results flatten in entry order so the
+  // listing stays deterministic.
+  const walk = async (absolute: string, relative: string): Promise<PickedFile[]> => {
+    const entries = await readDir(absolute);
+    const results = await Promise.all(
+      entries.map(async (entry): Promise<PickedFile[]> => {
+        // Joined by hand: path.join is a Tauri IPC round-trip, and a large tree would
+        // pay one per entry before reading a byte.
+        const fullPath = absolute + separator + entry.name;
+        const relPath = relative === "" ? entry.name : `${relative}/${entry.name}`;
+        if (entry.isDirectory) return await walk(fullPath, relPath);
+        if (entry.isFile)
+          return [{ path: relPath, readBytes: () => readFile(fullPath) }];
+        return [];
+      }),
+    );
+    return results.flat();
   };
-  await walk(dirPath, "");
-  return { name, files };
+  return { name, files: await walk(dirPath, "") };
 };
 
 const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
