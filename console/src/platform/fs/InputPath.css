@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-input-file-path {
+.console-input-path {
     overflow: hidden;
     .console-path {
         padding: 0 1.25rem;
@@ -21,7 +21,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .console-input-file-path__icon {
+        .console-input-path__icon {
             color: var(--pluto-gray-l9);
         }
     }

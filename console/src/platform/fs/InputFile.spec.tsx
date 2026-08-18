@@ -46,12 +46,11 @@ vi.mock("@tauri-apps/plugin-fs", async () => {
   };
 });
 
-import { type Status } from "@synnaxlabs/pluto";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 
 import { FS } from "@/platform/fs";
-import { CaptureStatuses, renderWithConsole } from "@/testutil";
+import { renderWithConsole } from "@/testutil";
 
 const openMock = vi.mocked(open);
 const readFileMock = vi.mocked(readFile);
@@ -66,81 +65,7 @@ afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-describe("FS.InputFilePath", () => {
-  beforeEach(() => {
-    mocks.engine = "web";
-    openMock.mockReset();
-    readFileMock.mockClear();
-  });
-
-  it("should show a placeholder without a path and the path once one is set", async () => {
-    const { rerender } = await renderWithConsole(
-      <FS.InputFilePath value="" onChange={vi.fn()} />,
-    );
-    expect(screen.getByText("No file selected")).toBeTruthy();
-    rerender(<FS.InputFilePath value="/tmp/config.json" onChange={vi.fn()} />);
-    expect(screen.getByText("/tmp/config.json")).toBeTruthy();
-    expect(screen.queryByText("No file selected")).toBeNull();
-  });
-
-  it("should surface an error and not call onChange when clicked in the browser", async () => {
-    const onChange = vi.fn();
-    let statuses: Status.NotificationSpec[] = [];
-    await renderWithConsole(
-      <>
-        <FS.InputFilePath value="" onChange={onChange} />
-        <CaptureStatuses onStatuses={(s) => (statuses = s)} />
-      </>,
-    );
-    fireEvent.click(screen.getByText("Select file"));
-    await waitFor(() =>
-      expect(
-        statuses.some(
-          (s) => s.variant === "error" && s.message === "Failed to open file",
-        ),
-      ).toBe(true),
-    );
-    expect(openMock).not.toHaveBeenCalled();
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  describe("tauri engine", () => {
-    beforeEach(() => {
-      mocks.engine = "tauri";
-    });
-
-    it("should open a dialog and report the chosen path", async () => {
-      openMock.mockResolvedValue("/tmp/picked.json");
-      const onChange = vi.fn();
-      await renderWithConsole(
-        <FS.InputFilePath
-          value=""
-          onChange={onChange}
-          filters={[{ name: "JSON", extensions: ["json"] }]}
-        />,
-      );
-      fireEvent.click(screen.getByText("Select file"));
-      await waitFor(() => expect(onChange).toHaveBeenCalledWith("/tmp/picked.json"));
-      expect(openMock).toHaveBeenCalledWith({
-        title: undefined,
-        directory: false,
-        multiple: false,
-        filters: [{ name: "JSON", extensions: ["json"] }],
-      });
-    });
-
-    it("should not call onChange when the dialog is cancelled", async () => {
-      openMock.mockResolvedValue(null);
-      const onChange = vi.fn();
-      await renderWithConsole(<FS.InputFilePath value="" onChange={onChange} />);
-      fireEvent.click(screen.getByText("Select file"));
-      await waitFor(() => expect(openMock).toHaveBeenCalled());
-      expect(onChange).not.toHaveBeenCalled();
-    });
-  });
-});
-
-describe("FS.InputFileContents", () => {
+describe("FS.InputFile", () => {
   beforeEach(() => {
     mocks.engine = "tauri";
     openMock.mockReset();
@@ -150,15 +75,14 @@ describe("FS.InputFileContents", () => {
     vi.restoreAllMocks();
   });
 
-  it("should read and decode the file at the initial path", async () => {
+  it("should show the caller's path without reading it", async () => {
     const path = join(dir, "seed.txt");
     await writeFile(path, "file body");
     const onChange = vi.fn();
-    await renderWithConsole(
-      <FS.InputFileContents onChange={onChange} initialPath={path} />,
-    );
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith("file body", path));
+    await renderWithConsole(<FS.InputFile value={path} onChange={onChange} />);
     expect(screen.getByText(path)).toBeTruthy();
+    expect(readFileMock).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("should read the file when the path is chosen via the dialog", async () => {
@@ -166,7 +90,7 @@ describe("FS.InputFileContents", () => {
     await writeFile(path, "chosen body");
     openMock.mockResolvedValue(path);
     const onChange = vi.fn();
-    await renderWithConsole(<FS.InputFileContents onChange={onChange} />);
+    await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
     fireEvent.click(screen.getByText("Select file"));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("chosen body", path));
   });
@@ -174,29 +98,30 @@ describe("FS.InputFileContents", () => {
   it("should decode JSON contents against the provided schema", async () => {
     const path = join(dir, "config.json");
     await writeFile(path, JSON.stringify({ host: "localhost", port: 9090 }));
+    openMock.mockResolvedValue(path);
     const schema = z.object({ host: z.string(), port: z.number() });
     const onChange = vi.fn();
     await renderWithConsole(
-      <FS.InputFileContents
+      <FS.InputFile
+        value=""
         onChange={onChange}
-        initialPath={path}
         schema={schema}
         decoder={binary.JSON_CODEC}
       />,
     );
+    fireEvent.click(screen.getByText("Select file"));
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith({ host: "localhost", port: 9090 }, path),
     );
   });
 
-  it("should not call onChange and keep the path empty when the file does not exist", async () => {
+  it("should not call onChange when the chosen file does not exist", async () => {
     const path = join(dir, "missing.txt");
+    openMock.mockResolvedValue(path);
     const onChange = vi.fn();
-    await renderWithConsole(
-      <FS.InputFileContents onChange={onChange} initialPath={path} />,
-    );
+    await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
+    fireEvent.click(screen.getByText("Select file"));
     await waitFor(() => expect(readFileMock).toHaveBeenCalledWith(path));
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.queryByText(path)).toBeNull();
   });
 });

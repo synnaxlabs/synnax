@@ -19,7 +19,8 @@ const resourceTabs = (ids: (ontology.ID | void)[]): panel.NewTab[] =>
 export interface IngestBatchParams<I extends { name: string }> {
   /** The items to ingest. An item's name identifies it when its ingest fails. */
   items: I[];
-  /** Creates the resource the item describes, or nothing when it opens no tab. */
+  /** Creates the resource the item describes, or nothing when it opens no tab. TODO:
+   * should probably NOT return `void`. */
   ingest: (item: I) => Promise<void | ontology.ID>;
   handleError: Status.ErrorHandler;
   openTabs: Panel.OpenTabs;

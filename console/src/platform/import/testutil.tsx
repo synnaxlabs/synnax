@@ -16,7 +16,7 @@ import { type FileIngesterContext } from "@/platform/import/ingester";
 const START_FILE_DRAG = "start file drag";
 
 /**
- * Renders a button that puts an OS file haul in flight, the way the window chrome
+ * Renders a button that puts an OS file haul in flight, the way the window Chrome
  * does on dragover in production (app/window/Window.tsx). Render it beside the drop
  * target, inside the same Haul provider.
  */

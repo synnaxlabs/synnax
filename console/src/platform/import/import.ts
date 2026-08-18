@@ -27,7 +27,7 @@ import { Session } from "@/session";
  * Imports data by streaming its bytes to the Core, which owns envelope decoding, type
  * resolution for typeless legacy Console states, legacy-version migration, file-name
  * naming, and project parenting.
- * @throws {DisconnectedError} if no cluster is connected.
+ * @throws {DisconnectedError} if no Core is connected.
  */
 export const ingestServer: FileIngester = async (
   data,

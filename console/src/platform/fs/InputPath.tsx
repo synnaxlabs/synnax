@@ -7,27 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/fs/LoadFileContents.css";
+import "@/platform/fs/InputPath.css";
 
 import { Button, Flex, Icon, type Input, Status } from "@synnaxlabs/pluto";
-import { binary, primitive } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
-import { type z } from "zod";
+import { primitive } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Runtime } from "@/platform/runtime";
 
-export interface InputFilePathProps
+export interface InputPathProps
   extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
   filters?: Runtime.FileFilter[];
 }
 
-export const InputFilePath = ({
+/**
+ * An input holding an absolute file path chosen through the native picker. Only the
+ * desktop app can produce a path, so the picker rejects in the browser.
+ */
+export const InputPath = ({
   value,
   onChange,
   filters,
   ...rest
-}: InputFilePathProps): ReactElement => {
+}: InputPathProps): ReactElement => {
   const path = value;
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
@@ -37,7 +40,7 @@ export const InputFilePath = ({
       onChange(path);
     }, "Failed to open file");
   return (
-    <Flex.Box pack className={CSS.B("input-file-path")} borderColor={6} {...rest}>
+    <Flex.Box pack className={CSS.B("input-path")} borderColor={6} {...rest}>
       <Button.Button
         level="small"
         className={CSS.B("path")}
@@ -50,7 +53,7 @@ export const InputFilePath = ({
       >
         {primitive.isNonZero(path) ? (
           <>
-            <Icon.Attachment className={CSS.BE("input-file-path", "icon")} />
+            <Icon.Attachment className={CSS.BE("input-path", "icon")} />
             {path}
           </>
         ) : (
@@ -66,36 +69,4 @@ export const InputFilePath = ({
       </Button.Button>
     </Flex.Box>
   );
-};
-
-export interface InputFileContentsProps<P extends z.ZodType = z.ZodString> extends Omit<
-  InputFilePathProps,
-  "value" | "onChange"
-> {
-  onChange: (value: z.infer<P>, path: string) => void;
-  initialPath?: string;
-  schema?: P;
-  decoder?: binary.Codec;
-}
-
-export const InputFileContents = <P extends z.ZodType = z.ZodString>({
-  onChange,
-  decoder = binary.TEXT_CODEC,
-  initialPath,
-  schema,
-  ...rest
-}: InputFileContentsProps<P>): ReactElement => {
-  const handleError = Status.useErrorHandler();
-  const [path, setPath] = useState<string>("");
-  useEffect(() => {
-    if (initialPath == null || initialPath === path) return;
-    handleChange(initialPath);
-  }, [initialPath]);
-  const handleChange = (path: string) =>
-    handleError(async () => {
-      const contents = await Runtime.readPath(path);
-      onChange(decoder.decode<P>(contents, schema), path);
-      setPath(path);
-    }, "Failed to read file");
-  return <InputFilePath value={path} onChange={handleChange} {...rest} />;
 };

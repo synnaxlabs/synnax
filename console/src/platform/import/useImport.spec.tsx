@@ -33,6 +33,7 @@ interface HarnessProps {
 }
 
 const Inner = ({ onReady }: Pick<HarnessProps, "onReady">): ReactElement => {
+  // TODO: should maybe be `Import.use`?
   const run = Import.useImport();
   useEffect(() => onReady(run), [onReady, run]);
   return <span>ready</span>;

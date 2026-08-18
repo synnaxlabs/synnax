@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form, Icon, Input, Select, state } from "@synnaxlabs/pluto";
+import { Flex, Form, Icon, Input, Select, state, Status } from "@synnaxlabs/pluto";
 import { binary, deep, type record } from "@synnaxlabs/x";
 import { type FC, useRef } from "react";
 import { z } from "zod";
@@ -21,7 +21,7 @@ import {
   type Units,
 } from "@/feature/ni/task/types";
 import { FS } from "@/platform/fs";
-import { type Runtime } from "@/platform/runtime";
+import { Runtime } from "@/platform/runtime";
 
 const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,
@@ -173,16 +173,19 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       `${prefix}.colOptions`,
     );
     const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const tableSchema = z.record(z.string(), z.array(z.unknown()));
     const preScaledField = Form.useField<number[]>(`${prefix}.preScaledVals`);
     const scaledField = Form.useField<number[]>(`${prefix}.scaledVals`);
     const currValueRef = useRef<Record<string, unknown[]>>({});
+    const handleError = Status.useErrorHandler();
 
-    const updateValue = () => {
-      const value = currValueRef.current;
-      const preScaledValues = value[rawCol] as number[] | undefined;
-      const scaledValues = value[scaledCol] as number[] | undefined;
+    const applyColumns = (
+      value: Record<string, unknown[]>,
+      raw: string,
+      scaled: string,
+    ) => {
+      const preScaledValues = value[raw] as number[] | undefined;
+      const scaledValues = value[scaled] as number[] | undefined;
       const hasScaled = scaledValues != null;
       const hasPreScaled = preScaledValues != null;
       if (hasScaled && hasPreScaled)
@@ -195,39 +198,55 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       if (hasScaled) scaledField.onChange(scaledValues);
     };
 
-    const handleFileContentsChange = (
-      value: z.infer<typeof tableSchema>,
-      path: string,
-    ) => {
-      setPath(path);
+    // The table cache empties when the form remounts; the persisted path refills it on
+    // demand, so a column change after reopening still recomputes the values.
+    const readTable = async (): Promise<Record<string, unknown[]>> => {
+      if (Object.keys(currValueRef.current).length === 0 && path !== "")
+        currValueRef.current = binary.CSV_CODEC.decode(
+          await Runtime.readPath(path),
+          tableSchema,
+        );
+      return currValueRef.current;
+    };
+
+    const handleFileChange = (value: z.infer<typeof tableSchema>, newPath: string) => {
+      setPath(newPath);
       currValueRef.current = value;
       const keys = Object.keys(value).filter(
         (key) =>
           Array.isArray(value[key]) && value[key].every((v) => isFinite(Number(v))),
       );
       setColOptions(keys.map((key) => ({ key, name: key })));
-      if (keys.length > 0) setRawCol(keys[0]);
-      if (keys.length > 1) setScaledCol(keys[1]);
-      updateValue();
+      const raw = keys.length > 0 ? keys[0] : rawCol;
+      const scaled = keys.length > 1 ? keys[1] : scaledCol;
+      if (keys.length > 0) setRawCol(raw);
+      if (keys.length > 1) setScaledCol(scaled);
+      applyColumns(value, raw, scaled);
     };
 
     const handleRawColChange = (value: string) => {
       setRawCol(value);
-      updateValue();
+      handleError(
+        async () => applyColumns(await readTable(), value, scaledCol),
+        "Failed to update scale columns",
+      );
     };
 
     const handleScaledColChange = (value: string) => {
       setScaledCol(value);
-      updateValue();
+      handleError(
+        async () => applyColumns(await readTable(), rawCol, value),
+        "Failed to update scale columns",
+      );
     };
 
     return (
       <>
         <CustomScaleUnitsFields prefix={prefix} />
         <Input.Item label="Table CSV" padHelpText>
-          <FS.InputFileContents<typeof tableSchema>
-            initialPath={path}
-            onChange={handleFileContentsChange}
+          <FS.InputFile<typeof tableSchema>
+            value={path}
+            onChange={handleFileChange}
             filters={FILTERS}
             decoder={binary.CSV_CODEC}
           />
