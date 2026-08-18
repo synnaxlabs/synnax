@@ -209,7 +209,9 @@ class DevicesClient:
             status_icon = item.locator("svg.pluto-rack__heartbeat")
         status_icon.wait_for(state="visible", timeout=2000)
         status_icon.hover()
-        tooltip = self.layout.page.locator(".pluto-tooltip")
+        # A tooltip from a previously hovered item lingers with pluto--closing
+        # while it fades out, so exclude it to keep the lookup unambiguous.
+        tooltip = self.layout.page.locator(".pluto-tooltip:not(.pluto--closing)")
         tooltip.wait_for(state="visible", timeout=5000)
         message = tooltip.inner_text().strip()
         if is_device:

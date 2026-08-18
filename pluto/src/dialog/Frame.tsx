@@ -13,6 +13,7 @@ import {
   type ReactElement,
   type RefCallback,
   useCallback,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -22,14 +23,9 @@ import { type Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
+import { PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
-import {
-  useClickOutside,
-  useCombinedRefs,
-  useResize,
-  useSyncedRef,
-  useWindowResize,
-} from "@/hooks";
+import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import { CONTEXT_MENU_CLASS } from "@/menu/types";
 import { position } from "@/position";
 import { state } from "@/state";
@@ -95,6 +91,8 @@ interface InternalContextValue extends Pick<
   "targetCorner" | "dialogCorner" | "style" | "modalPosition"
 > {
   ref: RefCallback<HTMLDivElement>;
+  /** Ties the portaled dialog back to this frame for click-outside checks. */
+  id: string;
 }
 
 const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
@@ -186,6 +184,7 @@ export const Frame = ({
   const open = useCallback(() => setVisible(true), [setVisible]);
   const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
 
+  const id = useId();
   const visibleRef = useSyncedRef(visible);
   const targetRef = useRef<HTMLDivElement>(null);
   const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
@@ -313,12 +312,13 @@ export const Frame = ({
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
       ref: combinedDialogRef,
+      id,
       targetCorner,
       dialogCorner,
       style,
       modalPosition,
     }),
-    [combinedDialogRef, targetCorner, dialogCorner, style, modalPosition],
+    [combinedDialogRef, id, targetCorner, dialogCorner, style, modalPosition],
   );
 
   const ctxValue = useMemo(
@@ -339,6 +339,7 @@ export const Frame = ({
       <InternalContext value={internalContextValue}>
         <Flex.Box
           {...rest}
+          {...{ [PORTAL_ID_ATTR]: id }}
           ref={combinedTargetRef}
           className={CSS(
             className,

@@ -10,3 +10,4 @@
 export * from "@/dialog/Dialog";
 export * from "@/dialog/Frame";
 export * from "@/dialog/Trigger";
+export { useClickOutside, type UseClickOutsideProps } from "@/dialog/useClickOutside";

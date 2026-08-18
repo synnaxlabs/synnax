@@ -140,7 +140,7 @@ class EditProps(ConsoleCase):
             "notation": "standard",
             "precision": 2,
             "averaging_window": 1,
-            "stale_color": "#C29D0A",  # pluto-warning-m1
+            "stale_color": "#B07207",  # pluto-warning-m1 (light theme)
             "stale_timeout": 5,
         }
         assert_symbol_properties(value, default_props)
