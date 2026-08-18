@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project/legacy"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -32,10 +33,6 @@ import (
 const (
 	manifestVersion = 1
 	manifestType    = "project"
-	// legacyLayoutFileName is the tiling file every stable release wrote at the root of
-	// a project export. It marks the legacy (version 0) format only when no manifest is
-	// present.
-	legacyLayoutFileName = "LAYOUT.json"
 )
 
 // Export serializes the project identified by key and its ontology descendants as a
@@ -305,7 +302,7 @@ func (s *Service) Import(
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
 	if !ok {
-		if layoutData, ok := files[legacyLayoutFileName]; ok {
+		if layoutData, ok := files[legacy.LayoutFileName]; ok {
 			return s.importLegacy(ctx, tx, layoutData, files, fileName)
 		}
 		return Project{}, errors.Wrapf(
@@ -392,6 +389,44 @@ func (s *Service) Import(
 	return proj, nil
 }
 
+// importLegacy recreates a legacy (version 0) project directory, named after the
+// extension-stripped fileName: the documents its layout records reference, then each
+// window's mosaic tiling as a panel of resource tabs.
+func (s *Service) importLegacy(
+	ctx context.Context,
+	tx gorp.Tx,
+	layoutData []byte,
+	files zip.Files,
+	fileName string,
+) (Project, error) {
+	members, err := legacy.Members(ctx, s.cfg.ImEx, layoutData, files)
+	if err != nil {
+		return Project{}, err
+	}
+	proj := Project{Name: filename.Stem(fileName)}
+	if err = s.NewWriter(tx).Create(ctx, &proj); err != nil {
+		return Project{}, err
+	}
+	projID := OntologyID(proj.Key)
+	refs := make(map[string]ontology.ID, len(members))
+	for _, m := range members {
+		id, err := s.cfg.ImEx.Import(ctx, tx, m.Env, imex.ImportOptions{
+			FileName: m.Path,
+			Parent:   projID,
+		})
+		if err != nil {
+			return Project{}, errors.Wrap(err, m.Path)
+		}
+		refs[m.LayoutKey] = id
+	}
+	if err = legacy.CreatePanels(
+		ctx, tx, s.cfg.Panel, projID, layoutData, refs,
+	); err != nil {
+		return Project{}, err
+	}
+	return proj, nil
+}
+
 // ImportObjects returns the type-level ontology ID of every resource kind Import
 // creates for files, so callers can enforce access before any import work. An invalid
 // bundle fails here with Import's error.
@@ -417,24 +452,20 @@ func (s *Service) ImportObjects(
 		err     error
 	)
 	if !ok {
-		layoutData, legacy := files[legacyLayoutFileName]
-		if !legacy {
+		layoutData, isLegacy := files[legacy.LayoutFileName]
+		if !isLegacy {
 			return nil, errors.Wrapf(
 				validate.ErrValidation, "bundle holds no %s", manifestFileName,
 			)
 		}
-		var slice legacySlice
-		if err = json.Codec.Decode(ctx, layoutData, &slice); err != nil {
-			return nil, errors.Wrap(err, legacyLayoutFileName)
-		}
-		legMembers, err := s.legacyMembers(ctx, slice, files)
+		legMembers, err := legacy.Members(ctx, s.cfg.ImEx, layoutData, files)
 		if err != nil {
 			return nil, err
 		}
 		for _, m := range legMembers {
-			members = append(members, m.importMember)
+			members = append(members, importMember{path: m.Path, env: m.Env})
 		}
-		if legacyHasPanels(ctx, layoutData, legMembers) {
+		if legacy.HasPanels(ctx, layoutData, legMembers) {
 			add(ontology.ResourceTypePanel)
 		}
 	} else {
