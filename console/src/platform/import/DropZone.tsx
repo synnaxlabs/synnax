@@ -13,8 +13,8 @@ import { type ReactElement, useState } from "react";
 import { CSS } from "@/platform/css";
 import { captureEntries } from "@/platform/import/entries";
 
-/** Accepts a drag carrying exactly one OS file or folder. */
-export const canDropFile: Haul.CanDrop = ({ items }) =>
+// Accepts a drag carrying exactly one OS file or folder.
+const canDropFile: Haul.CanDrop = ({ items }) =>
   items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;
 
 export interface DropZoneProps extends Omit<Flex.BoxProps, "onDrop" | "onClick"> {
