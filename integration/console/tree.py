@@ -59,10 +59,11 @@ class Tree:
 
     def _mounted(self, prefix: str) -> list[tuple[str, str]]:
         """The mounted rows for a prefix, as (ID, text) pairs."""
-        return self.page.locator(f"div[id^='{prefix}']").evaluate_all(
+        rows: list[list[str]] = self.page.locator(f"div[id^='{prefix}']").evaluate_all(
             "(els) => els.filter((el) => el.checkVisibility())"
             ".map((el) => [el.id, el.innerText.trim()])"
         )
+        return [(item_id, text) for item_id, text in rows]
 
     def find_by_prefix(self, prefix: str) -> list[Locator]:
         """Find all visible tree items with the given ID prefix.
