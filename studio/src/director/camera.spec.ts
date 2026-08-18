@@ -9,9 +9,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { crop, focusToCenter, simulate } from "@/director/camera";
+import { crop, fitAmount, focusToCenter, frameRect, simulate } from "@/director/camera";
+import { ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { plan } from "@/director/zoom";
-import { type Event, type Timeline } from "@/timeline";
+import { type Event, type Rect, type Timeline } from "@/timeline";
 
 const FPS = 60;
 const W = 1920;
@@ -39,6 +40,54 @@ describe("focusToCenter", () => {
   it("should pin edge-band focus flush to the edge", () => {
     expect(focusToCenter({ x: 10, y: H / 2 }, 2, W, H).x).toEqual(0);
     expect(focusToCenter({ x: W - 10, y: H / 2 }, 2, W, H).x).toEqual(1);
+  });
+});
+
+describe("fitAmount", () => {
+  it("should allow deep zoom for small rects", () => {
+    expect(fitAmount({ x: 0, y: 0, width: 100, height: 40 }, W, H)).toBeGreaterThan(3);
+  });
+
+  it("should cap zoom so wide rects fit with margin", () => {
+    const rect: Rect = { x: 300, y: 400, width: 1250, height: 180 };
+    const amount = fitAmount(rect, W, H);
+    expect((rect.width + 2 * ZOOM_RECT_MARGIN_PX) * amount).toBeLessThanOrEqual(
+      W + 1e-6,
+    );
+  });
+
+  it("should floor at 1 for rects larger than the viewport", () => {
+    expect(fitAmount({ x: 0, y: 0, width: 2500, height: 300 }, W, H)).toEqual(1);
+  });
+});
+
+describe("frameRect", () => {
+  const contains = (rect: Rect, amount: number, center: { x: number; y: number }) => {
+    const c = crop({ amount, cx: center.x, cy: center.y }, W, H);
+    expect(rect.x).toBeGreaterThanOrEqual(c.x - 1e-6);
+    expect(rect.y).toBeGreaterThanOrEqual(c.y - 1e-6);
+    expect(rect.x + rect.width).toBeLessThanOrEqual(c.x + c.width + 1e-6);
+    expect(rect.y + rect.height).toBeLessThanOrEqual(c.y + c.height + 1e-6);
+  };
+
+  it("should keep a centered rect centered", () => {
+    const rect: Rect = { x: W / 2 - 200, y: H / 2 - 100, width: 400, height: 200 };
+    const c = frameRect(rect, 2, W, H);
+    expect(c.x).toBeCloseTo(0.5, 5);
+    expect(c.y).toBeCloseTo(0.5, 5);
+    contains(rect, 2, c);
+  });
+
+  it("should keep an edge-hugging rect fully visible at its fit amount", () => {
+    const rect: Rect = { x: W - 500, y: 100, width: 480, height: 300 };
+    const amount = fitAmount(rect, W, H);
+    contains(rect, amount, frameRect(rect, amount, W, H));
+  });
+
+  it("should keep a wide dialog rect fully visible at its fit amount", () => {
+    const rect: Rect = { x: 500, y: 380, width: 1250, height: 190 };
+    const amount = fitAmount(rect, W, H);
+    contains(rect, amount, frameRect(rect, amount, W, H));
   });
 });
 
@@ -94,5 +143,22 @@ describe("camera.simulate", () => {
     const a = simulate(tl, plan(tl));
     const b = simulate(tl, plan(tl));
     expect(a).toEqual(b);
+  });
+
+  it("should contain a clicked element's rect once the camera settles", () => {
+    const rect: Rect = { x: 1500, y: 60, width: 360, height: 120 };
+    const tl = timeline([
+      { type: "move", tick: 90, x: 1680, y: 120, duration: 20, rect },
+      { type: "pointerdown", tick: 120, x: 1680, y: 120, button: "left", rect },
+      { type: "pointerup", tick: 126, x: 1680, y: 120, button: "left" },
+    ]);
+    const track = simulate(tl, plan(tl));
+    const settled = track[120 + 90];
+    expect(settled.amount).toBeGreaterThan(1.5);
+    const c = crop(settled, W, H);
+    expect(rect.x).toBeGreaterThanOrEqual(c.x - 2);
+    expect(rect.y).toBeGreaterThanOrEqual(c.y - 2);
+    expect(rect.x + rect.width).toBeLessThanOrEqual(c.x + c.width + 2);
+    expect(rect.y + rect.height).toBeLessThanOrEqual(c.y + c.height + 2);
   });
 });

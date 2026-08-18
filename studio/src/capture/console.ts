@@ -72,6 +72,7 @@ export interface CommandPaletteOptions {
  * commandPalette opens the palette and executes a command, as recorded input:
  * the palette click, query typing, and selection all land on the timeline.
  * Typing plays at `typeSpeed` and returns to natural speed before selection.
+ * The camera frames the palette dialog while the query types.
  */
 export const commandPalette = async (
   session: CaptureSession,
@@ -83,8 +84,13 @@ export const commandPalette = async (
   const input = page.locator(".console-palette__input input[role='textbox']");
   await session.waitFor(input);
   session.setSpeed(typeSpeed);
-  await session.type(`>${command}`);
+  await session.type(">");
+  await session.zoom(
+    page.locator(".pluto-dialog__dialog:has(.console-palette__input)").first(),
+  );
+  await session.type(command);
   await session.hold(400);
   session.setSpeed(1);
   await session.press("Enter");
+  session.endZoom();
 };

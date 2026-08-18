@@ -19,6 +19,15 @@ import { z } from "zod";
 export const pointZ = z.object({ x: z.number(), y: z.number() });
 export type Point = z.infer<typeof pointZ>;
 
+/** Bounding rect of an interaction's target element, in CSS px. */
+export const rectZ = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().nonnegative(),
+  height: z.number().nonnegative(),
+});
+export type Rect = z.infer<typeof rectZ>;
+
 /** Cursor travels to (x, y), arriving at `tick`, departing `tick - duration`. */
 export const moveEventZ = z.object({
   type: z.literal("move"),
@@ -27,6 +36,8 @@ export const moveEventZ = z.object({
   y: z.number(),
   /** Travel duration in ticks. Zero teleports the cursor. */
   duration: z.int().nonnegative(),
+  /** Rect of the resolved target element, when the move targeted one. */
+  rect: rectZ.optional(),
 });
 
 export const pointerDownEventZ = z.object({
@@ -35,6 +46,8 @@ export const pointerDownEventZ = z.object({
   x: z.number(),
   y: z.number(),
   button: z.enum(["left", "right", "middle"]).default("left"),
+  /** Rect of the clicked element; the director frames zooms on it. */
+  rect: rectZ.optional(),
 });
 
 export const pointerUpEventZ = z.object({
@@ -70,6 +83,8 @@ export const zoomOverrideEventZ = z.object({
   amount: z.number().min(1),
   x: z.number(),
   y: z.number(),
+  /** Rect to frame; when present the camera fits it instead of centering (x, y). */
+  rect: rectZ.optional(),
 });
 
 export const eventZ = z.discriminatedUnion("type", [

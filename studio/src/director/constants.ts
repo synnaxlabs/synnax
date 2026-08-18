@@ -71,6 +71,15 @@ export const FOLLOW_DEADZONE_H = 0.7;
 /** Amounts at or below this are treated as fully zoomed out (pre-aim active). */
 export const PRE_AIM_EPSILON = 1.0005;
 
+/**
+ * Margin (CSS px) kept around a focused element's rect when the camera frames
+ * it: the rect plus this margin must fit inside the zoomed viewport.
+ */
+export const ZOOM_RECT_MARGIN_PX = 96;
+
+/** Ceiling for zoom amounts derived from element rects (authored or auto). */
+export const RECT_ZOOM_MAX = 2.5;
+
 /** Minimum-jerk travel duration model: T = MIN + SCALE * sqrt(d / diagonal). */
 export const TRAVEL_MIN_S = 0.25;
 export const TRAVEL_SCALE_S = 0.35;

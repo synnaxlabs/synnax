@@ -18,12 +18,27 @@ import {
   type Page,
 } from "playwright";
 
+import { fitAmount } from "@/director/camera";
 import {
+  RECT_ZOOM_MAX,
   TRAVEL_MAX_S,
   TRAVEL_MIN_S,
   TRAVEL_SCALE_S,
 } from "@/director/constants";
-import { type Event, type Meta, type Point, type Timeline } from "@/timeline";
+import {
+  type Event,
+  type Meta,
+  type Point,
+  type Rect,
+  type Timeline,
+} from "@/timeline";
+
+/**
+ * Fixed virtual-clock epoch for every capture. A constant epoch keeps captures
+ * reproducible run to run and gives both videos of a themed pair identical
+ * on-screen timestamps (plot axes, range pickers).
+ */
+const CLOCK_EPOCH = new Date("2026-08-18T09:00:00");
 
 export interface CaptureOptions {
   /** URL of the Console web build. */
@@ -41,6 +56,12 @@ export interface CaptureOptions {
    * capture cannot step, so it blinks fps/wall-rate times too fast in output.
    */
   hideCaret?: boolean;
+  /**
+   * Hides the notification feed (default true): environment noise like stale
+   * driver warnings must not pollute shots. Disable for scripts that
+   * demonstrate notifications.
+   */
+  hideNotifications?: boolean;
 }
 
 /**
@@ -85,7 +106,10 @@ export class CaptureSession {
   private recording = false;
   private speed = 1;
   private cursor: Point;
+  private cursorRect: Rect | undefined;
   private origin: Point | null = null;
+  private openZoom: { tick: number; point: Point; rect?: Rect; amount: number } | null =
+    null;
 
   private constructor(
     browser: Browser,
@@ -109,6 +133,7 @@ export class CaptureSession {
       theme: "light",
       headed: false,
       hideCaret: false,
+      hideNotifications: true,
       ...options,
     };
     const browser = await chromium.launch({
@@ -121,12 +146,18 @@ export class CaptureSession {
       colorScheme: opts.theme,
     });
     const page = await context.newPage();
-    await page.clock.install();
+    await page.clock.install({ time: CLOCK_EPOCH });
     await page.addInitScript(ANIMATION_STEPPER);
-    if (opts.hideCaret)
+    const hideRules = [
+      ...(opts.hideCaret ? ["* { caret-color: transparent !important; }"] : []),
+      ...(opts.hideNotifications
+        ? [".pluto-notification, .console-notifications { display: none !important; }"]
+        : []),
+    ];
+    if (hideRules.length > 0)
       await page.addInitScript(`document.addEventListener("DOMContentLoaded", () => {
         const style = document.createElement("style");
-        style.textContent = "* { caret-color: transparent !important; }";
+        style.textContent = ${JSON.stringify(hideRules.join("\n"))};
         document.head.appendChild(style);
       });`);
     await page.goto(opts.url, { timeout: 30_000 });
@@ -213,12 +244,17 @@ export class CaptureSession {
     for (let i = 0; i < ticks; i++) await this.tick();
   }
 
-  private async resolve(target: Locator | Point): Promise<Point> {
-    if ("x" in target && typeof target.x === "number") return target;
+  private async resolve(
+    target: Locator | Point,
+  ): Promise<{ point: Point; rect?: Rect }> {
+    if ("x" in target && typeof target.x === "number") return { point: target };
     const locator = target as Locator;
     const box = await locator.boundingBox();
     if (box == null) throw new Error("capture target has no bounding box");
-    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    return {
+      point: { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+      rect: box,
+    };
   }
 
   private travelTicks(to: Point): number {
@@ -238,12 +274,13 @@ export class CaptureSession {
    * arrival, matching the synthesized cursor's arrival in post.
    */
   async moveTo(target: Locator | Point): Promise<Point> {
-    const to = await this.resolve(target);
+    const { point: to, rect } = await this.resolve(target);
     const duration = this.travelTicks(to);
     for (let i = 0; i < duration; i++) await this.tick();
-    this.events.push({ type: "move", tick: this.frame, ...to, duration });
+    this.events.push({ type: "move", tick: this.frame, ...to, duration, rect });
     await this.page.mouse.move(to.x, to.y);
     this.cursor = to;
+    this.cursorRect = rect;
     await this.tick();
     return to;
   }
@@ -251,12 +288,55 @@ export class CaptureSession {
   /** click travels to the target, presses, and releases. */
   async click(target: Locator | Point): Promise<void> {
     const at = await this.moveTo(target);
-    this.events.push({ type: "pointerdown", tick: this.frame, ...at, button: "left" });
+    this.events.push({
+      type: "pointerdown",
+      tick: this.frame,
+      ...at,
+      button: "left",
+      rect: this.cursorRect,
+    });
     await this.page.mouse.down();
     await this.hold(80);
     this.events.push({ type: "pointerup", tick: this.frame, ...at, button: "left" });
     await this.page.mouse.up();
     await this.tick();
+  }
+
+  /**
+   * zoom opens an authored camera override framing the target, superseding
+   * auto-zoom until endZoom (or finish) closes it. When amount is omitted it is
+   * derived from the target's rect: as tight as the framing margin allows,
+   * capped at RECT_ZOOM_MAX.
+   */
+  async zoom(target: Locator | Point, amount?: number): Promise<void> {
+    if (this.openZoom != null) this.endZoom();
+    const { point, rect } = await this.resolve(target);
+    let resolved = amount;
+    if (resolved == null) {
+      if (rect == null)
+        throw new Error("zoom on a bare point requires an explicit amount");
+      resolved = Math.min(
+        RECT_ZOOM_MAX,
+        fitAmount(rect, this.opts.width, this.opts.height),
+      );
+    }
+    this.openZoom = { tick: this.frame, point, rect, amount: resolved };
+  }
+
+  /** endZoom closes the open authored zoom, returning the camera to auto. */
+  endZoom(): void {
+    if (this.openZoom == null) return;
+    const { tick, point, rect, amount } = this.openZoom;
+    this.openZoom = null;
+    if (this.frame <= tick) return;
+    this.events.push({
+      type: "zoom",
+      tick,
+      endTick: this.frame,
+      amount,
+      ...point,
+      rect,
+    });
   }
 
   /** type enters text at a human cadence, one key per interval. */
@@ -291,6 +371,7 @@ export class CaptureSession {
 
   /** finish writes the timeline and closes the browser, returning the timeline. */
   async finish(): Promise<Timeline> {
+    this.endZoom();
     const meta: Meta = {
       version: 1,
       fps: this.opts.fps,

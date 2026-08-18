@@ -15,21 +15,28 @@ import {
   ZOOM_POST_S,
   ZOOM_PRE_S,
 } from "@/director/constants";
-import { clicks, type Point, type Timeline } from "@/timeline";
+import { clicks, type Point, type Rect, type Timeline } from "@/timeline";
+
+/** A focus the camera frames: a point, optionally with its element's rect. */
+export interface Focus {
+  tick: number;
+  point: Point;
+  rect?: Rect;
+}
 
 /** A planned zoom segment: the camera holds `amount` over [start, end] ticks. */
 export interface Segment {
   start: number;
   end: number;
   amount: number;
-  /** Focus points (CSS px) within the segment, in tick order. */
-  focus: { tick: number; point: Point }[];
+  /** Focuses (CSS px) within the segment, in tick order. */
+  focus: Focus[];
 }
 
 /**
  * plan derives zoom segments from the timeline: one segment per click expanded by
  * the pre/post windows, merged when gaps are small, clamped away from the tail.
- * Authored zoom overrides replace any auto segment they overlap.
+ * Authored zoom overrides clip any auto segment they overlap.
  */
 export const plan = (tl: Timeline): Segment[] => {
   const { fps, frames } = tl.meta;
@@ -46,7 +53,7 @@ export const plan = (tl: Timeline): Segment[] => {
         Math.round(c.tick + ZOOM_POST_S * fps),
       ),
       amount: AUTO_ZOOM_AMOUNT,
-      focus: [{ tick: c.tick, point: { x: c.x, y: c.y } }],
+      focus: [{ tick: c.tick, point: { x: c.x, y: c.y }, rect: c.rect }],
     });
   }
 
@@ -60,13 +67,24 @@ export const plan = (tl: Timeline): Segment[] => {
     } else merged.push(seg);
   }
 
+  const clipped = merged
+    .map((seg) => {
+      for (const o of overrides) {
+        if (seg.end < o.tick || seg.start > o.endTick) continue;
+        if (seg.start < o.tick) seg.end = Math.min(seg.end, o.tick - 1);
+        else seg.start = Math.max(seg.start, o.endTick + 1);
+      }
+      return seg;
+    })
+    .filter((seg) => seg.end > seg.start);
+
   for (const o of overrides)
-    merged.push({
+    clipped.push({
       start: o.tick,
       end: o.endTick,
       amount: o.amount,
-      focus: [{ tick: o.tick, point: { x: o.x, y: o.y } }],
+      focus: [{ tick: o.tick, point: { x: o.x, y: o.y }, rect: o.rect }],
     });
 
-  return merged.sort((a, b) => a.start - b.start);
+  return clipped.sort((a, b) => a.start - b.start);
 };

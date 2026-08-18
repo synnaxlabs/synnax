@@ -51,6 +51,21 @@ crisp zoom tops out at `(width * dsf) / target`, so a 1080p target from a dsf-2
 capture keeps 2x zooms pixel-perfect, while a 4k target upscales during them. For
 deeper crisp zooms at 4k, capture with `--dsf 3`.
 
+## Camera
+
+Auto-zoom frames each click on the clicked element, not the click point: capture
+records the target's bounding rect into the timeline, and the director picks a zoom
+amount that fits the rect plus a margin (capped at the Screen Studio default), then
+positions the crop to contain it. Scripts can also author the camera directly:
+`session.zoom(locator)` opens an override framing the element (amount derived from
+its rect unless given) and suppresses auto-zoom until `session.endZoom()`.
+
+Captures run under a fixed virtual-clock epoch, so main-thread timestamps are
+identical across runs and between the light/dark videos of a pair. Plot axis labels
+are not: they come from the Aether worker, which the virtual clock does not reach
+(the same seam noted under Determinism), so they show wall time until Pluto gains a
+steppable time source.
+
 ## Pacing
 
 `session.setSpeed(factor)` changes presentation speed mid-capture: each output frame

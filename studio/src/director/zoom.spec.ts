@@ -74,4 +74,26 @@ describe("zoom.plan", () => {
     expect(segments).toHaveLength(1);
     expect(segments[0].amount).toEqual(1.5);
   });
+
+  it("should clip an auto segment that leads into an authored override", () => {
+    const tl = timeline([
+      ...click(600),
+      { type: "zoom", tick: 650, endTick: 1200, amount: 1.4, x: 900, y: 500 },
+    ]);
+    const segments = plan(tl);
+    expect(segments).toHaveLength(2);
+    expect(segments[0].end).toEqual(649);
+    expect(segments[1].start).toEqual(650);
+    expect(segments[1].amount).toEqual(1.4);
+  });
+
+  it("should carry click rects onto segment focuses", () => {
+    const rect = { x: 450, y: 350, width: 100, height: 100 };
+    const tl = timeline([
+      { type: "pointerdown", tick: 300, x: 500, y: 400, button: "left", rect },
+      { type: "pointerup", tick: 306, x: 500, y: 400, button: "left" },
+    ]);
+    const segments = plan(tl);
+    expect(segments[0].focus[0].rect).toEqual(rect);
+  });
 });
