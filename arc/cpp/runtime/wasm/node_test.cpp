@@ -2482,15 +2482,15 @@ func cmp() bool { return 3 > 2 })arc");
     EXPECT_EQ(v, 1);
 }
 
-/// @brief a series comparison yields a bool series usable through u8().
+/// @brief a series comparison yields a bool series with readable elements.
 TEST(BoolFuncTest, SeriesComparisonYieldsBoolSeries) {
     const auto client = new_test_client();
     const auto v = call_func<uint8_t>(client, R"arc(
-func series_lt() u8 {
+func series_lt() bool {
     a series f64 := [1.0, 5.0, 3.0]
     b series f64 := [2.0, 4.0, 3.0]
     c := a < b
-    return u8(c[0])
+    return c[0]
 })arc");
     EXPECT_EQ(v, 1);
 }
