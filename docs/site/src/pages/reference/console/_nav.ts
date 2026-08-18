@@ -20,16 +20,6 @@ export const CONSOLE_NAV: PageNavNode = {
       name: "Get Started",
     },
     {
-      key: "/reference/console/requirements",
-      href: "/reference/console/requirements",
-      name: "Requirements",
-    },
-    {
-      key: "/reference/console/cores",
-      href: "/reference/console/cores",
-      name: "Cores",
-    },
-    {
       key: "/reference/console/ui-overview",
       href: "/reference/console/ui-overview",
       name: "UI Overview",

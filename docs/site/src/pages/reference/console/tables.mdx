@@ -8,7 +8,7 @@ next: "Users"
 nextURL: "/reference/console/users"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Icon } from "@synnaxlabs/pluto";
 
 import { Image } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
@@ -33,9 +33,8 @@ export const components = mdxOverrides;
   />
 </Diagram>
 
-Tables are used to view live telemetry in a tabular format. They can be used for
-creating dashboards, viewing data from many different channels, and conditionally
-coloring data that exceeds certain thresholds.
+Tables display live telemetry in a tabular format. They are useful for dashboards,
+viewing many channels at once, and conditionally coloring values that exceed thresholds.
 
 <Divider.Divider x />
 
@@ -47,22 +46,23 @@ coloring data that exceeds certain thresholds.
 
 ## Configuring the Table
 
+Click the table <Icon.Table /> button in the bottom-left corner to open the Component
+Toolbar and configure the table.
+
 ### Text Cells
 
-In a table, a text cell can be used to display a line of text. You can also change the
-text alignment, text weight, and and text size.
+Text cells display a line of text. You can change the alignment, weight, and size.
 
 ### Value Cells
 
-Value cells functions like values on a schematic. These can be used to display live
-data, and automatically update as new data comes in.
+Value cells function like values on a schematic. They display live data and update as
+new data arrives.
 
 ### Redlining a Value
 
-You can "redline" a value to change the value's color when the number exceeds a certain
-threshold. This is done by clicking the "Redline" tab in the cell's properties. The
-lower and upper represent the lower and upper bounds on the value. Selecting a color
-determines which color appears when the value passes the threshold.
+Redline a value to change its color when it passes a threshold. In the cell's `Redline`
+tab, set the lower and upper bounds and the color that appears when the value passes
+them.
 
 <Image client:only="react" id="console/tables/redline" />
 

@@ -8,11 +8,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Video } from "@/components/media/Media";
+
 interface Props {
     type: string;
+    video?: string;
 }
 
-const { type } = Astro.props;
+const { type, video } = Astro.props;
 ---
 
 <p>
@@ -25,6 +28,4 @@ const { type } = Astro.props;
     the Console to import it.
 </p>
 
-<slot name="export" />
-
-<slot name="import" />
+{video && <Video client:only="react" id={video} />}

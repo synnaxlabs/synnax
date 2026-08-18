@@ -7,43 +7,32 @@ prev: "Tables"
 prevURL: "/reference/console/tables"
 ---
 
-import { Divider, Icon } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/pluto";
 import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax uses role-based access control (RBAC) to manage what actions different team
-members can perform. Each user is assigned a role, and the role determines what
-resources the user can view, edit, or delete. This approach makes it easy to manage
-permissions for large teams by assigning users to predefined roles rather than
-configuring individual permissions.
+Synnax uses role-based access control (RBAC). Each user is assigned a role that
+determines what resources they can view, edit, or delete.
 
 <Divider.Divider x />
 
 ## Registering Users
 
-{/* prettier-ignore-start */}
-
-Users can be added with the "Register a User" command from the command palette in the
-top of the Console. The palette can be opened by pressing <Icon.Keyboard.Control /> +
-<Icon.Keyboard.Shift /> + `P` (Windows) / <Icon.Keyboard.Command /> +
-<Icon.Keyboard.Shift /> + `P` (macOS).
-
-{/* prettier-ignore-end */}
+Register a user with the `Register a user` command in the
+[Command Palette](/reference/console/ui-overview#search-and-command-palette).
 
 <Video client:only="react" id="console/users/register" />
 
-During registration, you can select a role for the new user. The role determines what
-permissions the user will have in the system. Afterwards, users can log in to Synnax
-using the username and password that was registered for them.
+Select a role during registration. The new user can then log in with the registered
+username and password.
 
 <Divider.Divider x />
 
 ## Built-In Roles
 
-Synnax provides four built-in roles that cover common access patterns. These roles
-cannot be deleted or renamed, ensuring a consistent permission structure across your
-deployment.
+Synnax provides five built-in roles that cover common access patterns. Built-in roles
+cannot be deleted or renamed.
 
 | Role         | Description                                                             | Key Capabilities                                                                                                       |
 | ------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -57,18 +46,11 @@ deployment.
 
 ## Assigning Roles
 
-To change a user's role, find the user's username in the Users Toolbar on the left-hand
-side of the screen. Right-click the user and select "Assign to role". This opens a
-dialog where you can select a role from a dropdown and click "Assign" to save the
-change.
+Right-click the user in the Users Toolbar and select `Change role`. In the dialog,
+select a role and click `Assign`.
+
+You can also drag a user onto a role in the resource tree.
 
 <Video client:only="react" id="console/users/modal-change-role" />
 
-You can also assign roles by dragging a user onto the desired role in the resource tree.
-This provides a quick way to reassign multiple users to different roles.
-
-<Video client:only="react" id="console/users/drag-change-role" />
-
-There are some restrictions on role assignment. Root users cannot have their roles
-changed, which ensures the system always has at least one administrator. Additionally,
-users cannot change their own roles, preventing accidental privilege changes.
+Root users cannot have their roles changed, and users cannot change their own roles.
