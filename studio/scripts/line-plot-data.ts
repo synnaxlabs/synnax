@@ -22,7 +22,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     session.startRecording();
     await session.hold(800);
 
-    await capture.commandPalette(session, "Create a line plot");
+    await capture.commandPalette(session, "Create line plot");
     await session.waitFor(session.page.locator(".pluto-line-plot").first());
     await session.hold(1000);
 

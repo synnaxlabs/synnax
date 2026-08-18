@@ -218,7 +218,10 @@ export const clickButton = async (
 
 /** tab returns the mosaic tab with the given title. */
 export const tab = (page: Page, name: string): Locator =>
-  page.locator(".pluto-tabs-selector").getByText(name, { exact: true }).first();
+  page
+    .locator(".pluto-tabs__tab")
+    .filter({ has: page.getByText(name, { exact: true }) })
+    .first();
 
 /** selectTab clicks the mosaic tab with the given title, as recorded input. */
 export const selectTab = async (
@@ -233,10 +236,7 @@ export const closeTab = async (
   session: CaptureSession,
   name: string,
 ): Promise<void> => {
-  const target = tab(session.page, name)
-    .locator("..")
-    .getByLabel("pluto-tabs__close")
-    .first();
+  const target = tab(session.page, name).locator(".pluto-tabs__close").first();
   await session.click(target);
   await session.waitForHidden(tab(session.page, name));
 };

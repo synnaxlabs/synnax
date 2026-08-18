@@ -24,7 +24,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // The plot must exist before any range is favorited: favoriting also makes
     // the range active, and a plot created under an active range inherits its
     // historic window instead of a live rolling one.
-    await capture.commandPalette(session, "Create a line plot");
+    await capture.commandPalette(session, "Create line plot");
     await session.waitFor(session.page.locator(".pluto-line-plot").first());
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
     await capture.hideVisualizationToolbar(session);
