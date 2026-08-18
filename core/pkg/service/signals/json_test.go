@@ -116,15 +116,16 @@ var _ = Describe("JSON", func() {
 				Exec(ctx, nil),
 			).To(Succeed())
 			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
-				Keys: channel.Keys{ch.Key()},
+				Keys:        channel.Keys{ch.Key()},
+				SendOpenAck: true,
 			}))
 			requests, responses = confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
 			closeStreamer = signal.NewHardShutdown(sCtx, cancel)
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			// The streamer needs a moment to register its demand with the relay before
-			// an update can reach it.
-			time.Sleep(10 * time.Millisecond)
+			// The open ack is the barrier: once it arrives, the relay has applied the
+			// streamer's demand, so any update after it reaches the outlet.
+			Eventually(responses.Outlet()).Should(Receive())
 		})
 		AfterEach(func() {
 			requests.Close()
