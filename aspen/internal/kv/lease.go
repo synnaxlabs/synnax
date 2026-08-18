@@ -23,8 +23,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-var errLeaseNotTransferable = errors.New("cannot transfer lease")
-
 const nodeKeyDefaultLeaseholder node.Key = 0
 
 type leaseAllocator struct{ Config }
@@ -46,7 +44,7 @@ func (la *leaseAllocator) allocate(
 		} else if lh != op.Leaseholder {
 			// If the Leaseholder doesn't match the previous Leaseholder,
 			// we return an error.
-			return op, errLeaseNotTransferable
+			return Operation{}, errors.New("cannot transfer lease")
 		}
 	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantSet {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {
@@ -54,15 +52,15 @@ func (la *leaseAllocator) allocate(
 			// assigned, we assign the leaseAlloc to the cluster host.
 			op.Leaseholder = la.Cluster.HostKey()
 		}
-		// If we can't find the Leaseholder, and the op has a Leaseholder assigned,
-		// that means it's a new key, so we let it choose its own leaseAlloc.
+		// If we can't find the Leaseholder, and the op has a Leaseholder assigned, that
+		// means it's a new key, so we let it choose its own leaseAlloc.
 	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantDelete {
 		// The key has no digest (e.g. it was written directly or through a recovery
 		// that didn't persist digests). Assign the host as leaseholder so the delete
 		// can proceed.
 		op.Leaseholder = la.Cluster.HostKey()
 	} else {
-		return op, err
+		return Operation{}, err
 	}
 	return op, nil
 }
@@ -84,15 +82,15 @@ type leaseProxy struct {
 
 func newLeaseProxy(cfg Config, localTo, remoteTo address.Address) segment {
 	lp := &leaseProxy{Config: cfg, localTo: localTo, remoteTo: remoteTo}
-	lp.Switch.Switch = lp._switch
+	lp.Switch.Switch = lp.switch_
 	return lp
 }
 
-func (lp *leaseProxy) _switch(
+func (lp *leaseProxy) switch_(
 	_ context.Context,
-	b TxRequest,
+	txReq TxRequest,
 ) (address.Address, bool, error) {
-	route := lo.Ternary(b.Leaseholder == lp.Cluster.HostKey(), lp.localTo, lp.remoteTo)
+	route := lo.Ternary(txReq.Leaseholder == lp.Cluster.HostKey(), lp.localTo, lp.remoteTo)
 	return route, true, nil
 }
 
@@ -112,13 +110,13 @@ func newLeaseSender(cfg Config) sink {
 	return ls
 }
 
-func (lf *leaseSender) send(_ context.Context, br TxRequest) error {
-	addr, err := lf.Cluster.Resolve(br.Leaseholder)
+func (ls *leaseSender) send(_ context.Context, br TxRequest) error {
+	addr, err := ls.Cluster.Resolve(br.Leaseholder)
 	defer func() { br.done(err) }()
 	if err != nil {
 		return nil
 	}
-	_, err = lf.LeaseTransportClient.Send(br.Context, addr, br)
+	_, err = ls.LeaseTransportClient.Send(br.Context, addr, br)
 	return nil
 }
 
@@ -134,9 +132,9 @@ func newLeaseReceiver(cfg Config) source {
 	return lr
 }
 
-func (lr *leaseReceiver) receive(_ context.Context, br TxRequest) (types.Nil, error) {
+func (lr *leaseReceiver) receive(_ context.Context, txReq TxRequest) (types.Nil, error) {
 	bc := txCoordinator{}
-	bc.add(&br)
-	lr.Out.Inlet() <- br
+	bc.add(&txReq)
+	lr.Out.Inlet() <- txReq
 	return types.Nil{}, bc.wait()
 }
