@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project, schematic, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  type ontology,
+  project,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   Haul,
@@ -222,3 +227,12 @@ export const createSymbolPayload = (name: string) => ({
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
   },
 });
+
+// A symbol file as main-era Consoles exported it: typeless camelCase symbolZ JSON
+// carrying the persisted version field the schema stamped by default.
+export const createLegacySymbolFile = (name: string): string =>
+  JSON.stringify({ version: 1, ...createSymbolPayload(name) });
+
+/** Returns the names of the resource's ontology children on the test cluster. */
+export const childNames = async (id: ontology.ID): Promise<string[]> =>
+  (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);

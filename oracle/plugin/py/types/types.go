@@ -40,16 +40,10 @@ var primitiveMapper = pyprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
-type Options struct {
-	OutputPath      string
-	FileNamePattern string
-}
+type Options struct{ FileNamePattern string }
 
 func DefaultOptions() Options {
-	return Options{
-		OutputPath:      "{{.Namespace}}",
-		FileNamePattern: "types_gen.py",
-	}
+	return Options{FileNamePattern: "types_gen.py"}
 }
 
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
@@ -59,8 +53,6 @@ func (p *Plugin) Name() string { return "py/types" }
 func (p *Plugin) Domains() []string { return nil }
 
 func (p *Plugin) Requires() []string { return nil }
-
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
@@ -804,7 +796,7 @@ func buildExtendsExpr(
 	baseName := getPyName(parent)
 
 	// A base class defined in another schema module must be imported and
-	// referenced through its module alias (e.g. task_.BaseReadConfig).
+	// referenced through its module alias (e.g. task_.ReadConfig).
 	if parent.Namespace != data.Namespace {
 		outputPath := output.GetPath(parent, "py")
 		if outputPath == "" {

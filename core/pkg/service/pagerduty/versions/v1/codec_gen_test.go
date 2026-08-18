@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -68,9 +68,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.TaskConfig{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
+				StartConfig: task.StartConfig{
+					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:   false,
 				},
 				RoutingKey: "test_3",
 				Alerts: []v1.Alert{
@@ -86,14 +86,14 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v1.TaskConfig{
-				BaseStart:  config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
-				RoutingKey: "",
-				Alerts:     nil,
+				StartConfig: task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
+				RoutingKey:  "",
+				Alerts:      nil,
 			}),
 			Entry("empty collections", v1.TaskConfig{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
+				StartConfig: task.StartConfig{
+					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:   false,
 				},
 				RoutingKey: "test_3",
 				Alerts:     []v1.Alert{},
@@ -129,9 +129,9 @@ func BenchmarkEncodeDecodeAlert(b *testing.B) {
 
 func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 	seed := v1.TaskConfig{
-		BaseStart: config.BaseStart{
-			Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart: false,
+		StartConfig: task.StartConfig{
+			KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			AutoStart:   false,
 		},
 		RoutingKey: "test_3",
 		Alerts: []v1.Alert{
@@ -219,9 +219,9 @@ func FuzzDecodeAlert(f *testing.F) {
 func FuzzDecodeTaskConfig(f *testing.F) {
 	{
 		seed := v1.TaskConfig{
-			BaseStart: config.BaseStart{
-				Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart: false,
+			StartConfig: task.StartConfig{
+				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:   false,
 			},
 			RoutingKey: "test_3",
 			Alerts: []v1.Alert{
@@ -244,9 +244,9 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v1.TaskConfig{
-			BaseStart:  config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
-			RoutingKey: "",
-			Alerts:     nil,
+			StartConfig: task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
+			RoutingKey:  "",
+			Alerts:      nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -256,9 +256,9 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v1.TaskConfig{
-			BaseStart: config.BaseStart{
-				Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart: false,
+			StartConfig: task.StartConfig{
+				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:   false,
 			},
 			RoutingKey: "test_3",
 			Alerts:     []v1.Alert{},

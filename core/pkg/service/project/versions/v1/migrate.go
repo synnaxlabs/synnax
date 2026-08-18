@@ -128,9 +128,7 @@ func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	projects := make([]Project, len(stale))
 	keys := make([]Key, len(stale))
 	for i, ws := range stale {
-		if projects[i], err = autoMigrateProject(ctx, ws); err != nil {
-			return err
-		}
+		projects[i] = Project{Key: ws.Key, Name: ws.Name, Layout: ws.Layout}
 		keys[i] = ws.Key
 	}
 	if err := gorp.WrapWriter[Key, Project](tx).Set(ctx, projects...); err != nil {

@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/config/types.gen.h"
+#include "client/cpp/device/key.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -82,7 +82,7 @@ struct BaseWriteChannel {
 };
 
 /// @brief ScanConfig configures a Modbus scan task.
-struct ScanConfig : public ::synnax::task::config::BaseScan {
+struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -162,7 +162,7 @@ WriteChannel parse_write_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteChannel &value);
 
 /// @brief ReadConfig configures a Modbus read task.
-struct ReadConfig : public ::synnax::task::config::BaseRead {
+struct ReadConfig : public ::synnax::task::ReadConfig {
     /// @brief device is the key of the device the task acquires from.
     ::synnax::device::Key device = "";
     /// @brief channels are the channels the task acquires.
@@ -173,7 +173,7 @@ struct ReadConfig : public ::synnax::task::config::BaseRead {
 };
 
 /// @brief WriteConfig configures a Modbus write task.
-struct WriteConfig : public ::synnax::task::config::BaseWrite {
+struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief channels are the channels the task drives.
     std::vector<WriteChannel> channels;
 

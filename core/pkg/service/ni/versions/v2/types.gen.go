@@ -17,13 +17,13 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Units enumerates the engineering units an NI analog channel can report.
+// Units enumerates the engineering units for NI analog channel values.
 type Units string
 
 const (
@@ -901,7 +901,7 @@ type Sensitivity struct {
 type CurrentExcitation struct {
 	// CurrentExcitSource selects the source of the current excitation signal.
 	CurrentExcitSource ExcitationSource `json:"current_excit_source" msgpack:"current_excit_source"`
-	// CurrentExcitVal is the current excitation level, in amps.
+	// CurrentExcitVal is the current excitation level, in Amps.
 	CurrentExcitVal float64 `json:"current_excit_val" msgpack:"current_excit_val"`
 }
 
@@ -924,7 +924,7 @@ func (c CurrentExcitation) Validate() error {
 type VoltageExcitation struct {
 	// VoltageExcitSource selects the source of the voltage excitation signal.
 	VoltageExcitSource ExcitationSource `json:"voltage_excit_source" msgpack:"voltage_excit_source"`
-	// VoltageExcitVal is the voltage excitation level, in volts.
+	// VoltageExcitVal is the voltage excitation level, in Volts.
 	VoltageExcitVal float64 `json:"voltage_excit_val" msgpack:"voltage_excit_val"`
 }
 
@@ -947,7 +947,7 @@ func (vo VoltageExcitation) Validate() error {
 type Bridge struct {
 	// BridgeConfig selects the physical bridge wiring.
 	BridgeConfig BridgeConfig `json:"bridge_config" msgpack:"bridge_config"`
-	// NominalBridgeResistance is the nominal resistance of the bridge, in ohms.
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
 	NominalBridgeResistance float64 `json:"nominal_bridge_resistance" msgpack:"nominal_bridge_resistance"`
 }
 
@@ -1272,7 +1272,7 @@ type AICurrentChannel struct {
 	Units Units `json:"units" msgpack:"units"`
 	// ShuntResistorLoc selects where the shunt resistor is located.
 	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
-	// ExtShuntResistorVal is the external shunt resistor value, in ohms.
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
 	ExtShuntResistorVal float64 `json:"ext_shunt_resistor_val" msgpack:"ext_shunt_resistor_val"`
 }
 
@@ -1607,7 +1607,7 @@ type AIRTDChannel struct {
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 	// RtdType selects the RTD resistance-temperature curve.
 	RtdType RTDType `json:"rtd_type" msgpack:"rtd_type"`
-	// R0 is the sensor resistance at 0 degrees Celsius, in ohms.
+	// R0 is the sensor resistance at 0 degrees Celsius, in Ohms.
 	R0 float64 `json:"r0" msgpack:"r0"`
 }
 
@@ -1651,11 +1651,11 @@ type AIStrainGaugeChannel struct {
 	GageFactor float64 `json:"gage_factor" msgpack:"gage_factor"`
 	// InitialBridgeVoltage is the bridge output voltage in the unloaded state.
 	InitialBridgeVoltage float64 `json:"initial_bridge_voltage" msgpack:"initial_bridge_voltage"`
-	// NominalGageResistance is the nominal gauge resistance, in ohms.
+	// NominalGageResistance is the nominal gauge resistance, in Ohms.
 	NominalGageResistance float64 `json:"nominal_gage_resistance" msgpack:"nominal_gage_resistance"`
-	// PoissonRatio is the Poisson ratio of the gauge material.
+	// PoissonRatio is the Poisson ratio of the measured material.
 	PoissonRatio float64 `json:"poisson_ratio" msgpack:"poisson_ratio"`
-	// LeadWireResistance is the resistance of the lead wires, in ohms.
+	// LeadWireResistance is the resistance of the lead wires, in Ohms.
 	LeadWireResistance float64 `json:"lead_wire_resistance" msgpack:"lead_wire_resistance"`
 }
 
@@ -1933,7 +1933,7 @@ type AIAccelChargeChannel struct {
 	Units AccelUnits `json:"units" msgpack:"units"`
 	// Sensitivity is the sensitivity of the accelerometer.
 	Sensitivity float64 `json:"sensitivity" msgpack:"sensitivity"`
-	// SensitivityUnits are the units of the accelerometer's sensitivity rating.
+	// SensitivityUnits are the units of the accelerometer sensitivity.
 	SensitivityUnits AccelSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
 }
 
@@ -2005,7 +2005,7 @@ type AICurrentRMSChannel struct {
 	Units Units `json:"units" msgpack:"units"`
 	// ShuntResistorLoc selects where the shunt resistor is located.
 	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
-	// ExtShuntResistorVal is the external shunt resistor value, in ohms.
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
 	ExtShuntResistorVal float64 `json:"ext_shunt_resistor_val" msgpack:"ext_shunt_resistor_val"`
 }
 
@@ -2212,7 +2212,7 @@ type AIThermistorVexChannel struct {
 	B float64 `json:"b" msgpack:"b"`
 	// C is the third Steinhart-Hart coefficient.
 	C float64 `json:"c" msgpack:"c"`
-	// R1 is the reference resistor value, in ohms.
+	// R1 is the reference resistor value, in Ohms.
 	R1 float64 `json:"r1" msgpack:"r1"`
 }
 
@@ -2855,7 +2855,7 @@ func (c CIMeasMethod) IsValid() bool {
 	}
 }
 
-// CIFreqUnits are the units of a frequency measurement.
+// CIFreqUnits are the unit options for a counter frequency channel.
 type CIFreqUnits string
 
 const (
@@ -3039,7 +3039,7 @@ func (z ZIndexPhase) IsValid() bool {
 type ZIndex struct {
 	// ZIndexEnable is true when the encoder's Z index resets the count.
 	ZIndexEnable bool `json:"z_index_enable" msgpack:"z_index_enable"`
-	// ZIndexVal is the count value the Z index resets to.
+	// ZIndexVal is the value the measurement resets to when the Z index is active.
 	ZIndexVal float64 `json:"z_index_val" msgpack:"z_index_val"`
 	// ZIndexPhase selects the A/B states at which the Z index is active.
 	ZIndexPhase ZIndexPhase `json:"z_index_phase" msgpack:"z_index_phase"`
@@ -3197,9 +3197,9 @@ func (c CIEdgeCountChannel) Validate() error {
 type CIPeriodChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected period, in seconds.
+	// MinVal is the minimum expected period, in the selected units.
 	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected period, in seconds.
+	// MaxVal is the maximum expected period, in the selected units.
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
@@ -3258,9 +3258,9 @@ func (c CIPeriodChannel) Validate() error {
 type CIPulseWidthChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected pulse width, in seconds.
+	// MinVal is the minimum expected pulse width, in the selected units.
 	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected pulse width, in seconds.
+	// MaxVal is the maximum expected pulse width, in the selected units.
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the pulse-width measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
@@ -3303,9 +3303,9 @@ func (c CIPulseWidthChannel) Validate() error {
 type CISemiPeriodChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected semi-period, in seconds.
+	// MinVal is the minimum expected semi-period, in the selected units.
 	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected semi-period, in seconds.
+	// MaxVal is the maximum expected semi-period, in the selected units.
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the semi-period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
@@ -3342,9 +3342,9 @@ func (c CISemiPeriodChannel) Validate() error {
 type CITwoEdgeSepChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected separation, in seconds.
+	// MinVal is the minimum expected separation, in the selected units.
 	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected separation, in seconds.
+	// MaxVal is the maximum expected separation, in the selected units.
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the two-edge-separation measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
@@ -3916,7 +3916,7 @@ type AOFuncGenChannel struct {
 	BaseAOChannel
 	// WaveType selects the waveform to generate.
 	WaveType WaveType `json:"wave_type" msgpack:"wave_type"`
-	// Frequency is the waveform frequency, in hertz.
+	// Frequency is the waveform frequency, in Hertz.
 	Frequency float64 `json:"frequency" msgpack:"frequency"`
 	// Amplitude is the waveform amplitude.
 	Amplitude float64 `json:"amplitude" msgpack:"amplitude"`
@@ -4114,14 +4114,14 @@ type DOChannel struct {
 // AnalogReadConfig configures an NI analog read task. Each channel carries its own
 // device.
 type AnalogReadConfig struct {
-	config.BaseRead
+	task.ReadConfig
 	// Channels are the analog input channels the task acquires.
 	Channels []AIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AnalogReadConfig) ApplyDefaults() {
-	a.BaseRead.ApplyDefaults()
+	a.ReadConfig.ApplyDefaults()
 	for i := range a.Channels {
 		a.Channels[i].ApplyDefaults()
 	}
@@ -4140,14 +4140,14 @@ func (a AnalogReadConfig) Validate() error {
 // CounterReadConfig configures an NI counter read task. Each channel carries its own
 // device.
 type CounterReadConfig struct {
-	config.BaseRead
+	task.ReadConfig
 	// Channels are the counter input channels the task acquires.
 	Channels []CIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CounterReadConfig) ApplyDefaults() {
-	c.BaseRead.ApplyDefaults()
+	c.ReadConfig.ApplyDefaults()
 	for i := range c.Channels {
 		c.Channels[i].ApplyDefaults()
 	}
@@ -4165,8 +4165,8 @@ func (c CounterReadConfig) Validate() error {
 
 // WriteConfig carries the configuration fields shared by NI write tasks.
 type WriteConfig struct {
-	config.BaseWrite
-	// StateRate is the rate at which output state is reported to Synnax, in hertz.
+	task.WriteConfig
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 }
 
@@ -4204,7 +4204,7 @@ func (a AnalogWriteConfig) Validate() error {
 
 // DigitalReadConfig configures an NI digital read task.
 type DigitalReadConfig struct {
-	config.BaseRead
+	task.ReadConfig
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the digital input channels the task acquires.
@@ -4213,7 +4213,7 @@ type DigitalReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DigitalReadConfig) ApplyDefaults() {
-	d.BaseRead.ApplyDefaults()
+	d.ReadConfig.ApplyDefaults()
 }
 
 // DigitalWriteConfig configures an NI digital write task.
@@ -4230,7 +4230,7 @@ func (d *DigitalWriteConfig) ApplyDefaults() {
 
 // ScanConfig configures the NI device scanner task.
 type ScanConfig struct {
-	config.BaseScan
+	task.ScanConfig
 	// IgnoredModels are regex patterns matching the device models the scan skips.
 	IgnoredModels []string `json:"ignored_models,omitzero" msgpack:"ignored_models,omitzero"`
 }
@@ -4240,5 +4240,5 @@ func (s *ScanConfig) ApplyDefaults() {
 	if s.IgnoredModels == nil {
 		s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
 	}
-	s.BaseScan.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
 }

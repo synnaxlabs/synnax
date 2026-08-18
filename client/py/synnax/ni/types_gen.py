@@ -473,7 +473,7 @@ class CurrentExcitation(BaseModel):
 
     Attributes:
         current_excit_source: Selects the source of the current excitation signal.
-        current_excit_val: Is the current excitation level, in amps.
+        current_excit_val: Is the current excitation level, in Amps.
     """
 
     current_excit_source: ExcitationSource = "Internal"
@@ -485,7 +485,7 @@ class VoltageExcitation(BaseModel):
 
     Attributes:
         voltage_excit_source: Selects the source of the voltage excitation signal.
-        voltage_excit_val: Is the voltage excitation level, in volts.
+        voltage_excit_val: Is the voltage excitation level, in Volts.
     """
 
     voltage_excit_source: ExcitationSource = "Internal"
@@ -497,7 +497,7 @@ class Bridge(BaseModel):
 
     Attributes:
         bridge_config: Selects the physical bridge wiring.
-        nominal_bridge_resistance: Is the nominal resistance of the bridge, in ohms.
+        nominal_bridge_resistance: Is the nominal resistance of the bridge, in Ohms.
     """
 
     bridge_config: BridgeConfig = "FullBridge"
@@ -590,7 +590,7 @@ class ZIndex(BaseModel):
 
     Attributes:
         z_index_enable: Is true when the encoder's Z index resets the count.
-        z_index_val: Is the count value the Z index resets to.
+        z_index_val: Is the value the measurement resets to when the Z index is active.
         z_index_phase: Selects the A/B states at which the Z index is active.
         terminal_z: Is the terminal the Z index signal is wired to.
     """
@@ -699,11 +699,11 @@ class DOChannel(BaseModel):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(task.WriteConfig):
     """Carries the configuration fields shared by NI write tasks.
 
     Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
     """
 
     state_rate: telem.Rate = telem.Rate(10)
@@ -712,7 +712,7 @@ class WriteConfig(task.BaseWriteConfig):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures the NI device scanner task.
 
     Attributes:
@@ -745,8 +745,8 @@ class ChanCJC(BaseModel):
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
 
 
-# Is the cold-junction compensation for a thermocouple. The source selects
-# where the reference temperature comes from.
+# Is the cold-junction compensation for a thermocouple. The source selects where
+# the reference temperature comes from.
 CJC = Annotated[
     Union[BuiltInCJC, ConstValCJC, ChanCJC],
     Field(discriminator="source"),
@@ -808,7 +808,7 @@ Scale = Annotated[
 ]
 
 
-class DigitalReadConfig(task.BaseReadConfig):
+class DigitalReadConfig(task.ReadConfig):
     """Configures an NI digital read task.
 
     Attributes:
@@ -1131,8 +1131,8 @@ class AIVoltageWithExcitChannel(
     use_excit_for_scaling: bool = False
 
 
-# Is a single NI analog input channel. The type field selects the
-# measurement mode and the fields that accompany it.
+# Is a single NI analog input channel. The type field selects the measurement mode
+# and the fields that accompany it.
 AIChannel = Annotated[
     Union[
         AIVoltageChannel,
@@ -1302,8 +1302,8 @@ class CIDutyCycleChannel(BaseCIChannel, CustomScale):
     terminal: str = ""
 
 
-# Is a single NI counter input channel. The type field selects the
-# measurement mode and the fields that accompany it.
+# Is a single NI counter input channel. The type field selects the measurement
+# mode and the fields that accompany it.
 CIChannel = Annotated[
     Union[
         CIFrequencyChannel,
@@ -1346,15 +1346,15 @@ class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale):
     units: Units = "Volts"
 
 
-# Is a single NI analog output channel. The type field selects the
-# output mode and the fields that accompany it.
+# Is a single NI analog output channel. The type field selects the output mode and
+# the fields that accompany it.
 AOChannel = Annotated[
     Union[AOCurrentChannel, AOFuncGenChannel, AOVoltageChannel],
     Field(discriminator="type"),
 ]
 
 
-class AnalogReadConfig(task.BaseReadConfig):
+class AnalogReadConfig(task.ReadConfig):
     """Configures an NI analog read task. Each channel carries its own device.
 
     Attributes:
@@ -1367,7 +1367,7 @@ class AnalogReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class CounterReadConfig(task.BaseReadConfig):
+class CounterReadConfig(task.ReadConfig):
     """Configures an NI counter read task. Each channel carries its own device.
 
     Attributes:

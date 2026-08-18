@@ -50,10 +50,9 @@ type Plugin struct{ opts Options }
 // New constructs a Plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{opts: opts} }
 
-func (*Plugin) Name() string                { return "ts/actions" }
-func (*Plugin) Domains() []string           { return []string{"ts"} }
-func (*Plugin) Requires() []string          { return []string{"ts/types"} }
-func (*Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Name() string       { return "ts/actions" }
+func (*Plugin) Domains() []string  { return []string{"ts"} }
+func (*Plugin) Requires() []string { return []string{"ts/types"} }
 
 // Generate emits one actions.gen.ts per output package containing structs that declare
 // actions. Structs without actions are skipped.
@@ -96,7 +95,6 @@ func (p *Plugin) generateFile(
 
 	data := &templateData{
 		Manager:         mgr,
-		TargetType:      casing.TypeCamel(typ.Name),
 		TargetTypeName:  typ.Name,
 		TargetProseName: proseName(typ.Name),
 	}
@@ -132,7 +130,6 @@ func (p *Plugin) generateFile(
 // templateData's fields are read by fileTemplate, so they must stay exported.
 type templateData struct {
 	*imports.Manager
-	TargetType      string
 	TargetTypeName  string
 	TargetProseName string
 	Actions         []actionData

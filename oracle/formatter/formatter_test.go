@@ -10,6 +10,8 @@
 package formatter_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/formatter"
@@ -292,6 +294,54 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Domain Sorting", func() {
+		It("should sort file-level domains by domain name", func() {
+			source := "@ts output \"client/ts\"\n@go output \"core/pkg\"\n@py output \"client/py\"\n\nUser struct {}\n"
+			Expect(format(source)).To(Equal(
+				"@go output \"core/pkg\"\n@py output \"client/py\"\n@ts output \"client/ts\"\n\nUser struct {}\n",
+			))
+		})
+
+		It("should sort struct-level domains by name then command", func() {
+			source := "User struct {\n    name string\n\n    @go migrate\n    @go marshal\n    @doc value \"is a user.\"\n}\n"
+			Expect(format(source)).To(Equal(
+				"User struct {\n    name string\n\n    @doc value  \"is a user.\"\n    @go marshal\n    @go migrate\n}\n",
+			))
+		})
+
+		It("should sort field body domains", func() {
+			source := "User struct {\n    key string {\n        @key\n        @doc value \"is the key.\"\n    }\n}\n"
+			Expect(format(source)).To(Equal(
+				"User struct {\n    key string {\n        @doc value \"is the key.\"\n        @key\n    }\n}\n",
+			))
+		})
+
+		It("should sort inline field domains", func() {
+			source := "User struct {\n    name string @validate required @index\n}\n"
+			Expect(format(source)).To(Equal(
+				"User struct {\n    name string @index @validate required\n}\n",
+			))
+		})
+
+		It("should sort inline and body domains as one group", func() {
+			source := "User struct {\n    key string @key {\n        @doc value \"is the key.\"\n    }\n}\n"
+			first := format(source)
+			Expect(first).To(Equal(
+				"User struct {\n    key string {\n        @doc value \"is the key.\"\n        @key\n    }\n}\n",
+			))
+			Expect(format(first)).To(Equal(first))
+		})
+
+		It("should keep source order when a comment is attached", func() {
+			source := "User struct {\n    name string\n\n    /* migrate first */ @go migrate\n    @go marshal\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("/* migrate first */"))
+			migrateIdx := strings.Index(result, "@go migrate")
+			marshalIdx := strings.Index(result, "@go marshal")
+			Expect(migrateIdx).To(BeNumerically("<", marshalIdx))
+		})
+	})
+
 	Describe("Type Definitions", func() {
 		It("should format a simple typedef", func() {
 			Expect(format("UserID uuid\n")).To(Equal("UserID uuid\n"))
@@ -338,6 +388,23 @@ var _ = Describe("Format", func() {
 			result := format(source)
 			Expect(result).To(ContainSubstring("// Copyright 2026"))
 			Expect(result).To(ContainSubstring("import \"common.oracle\""))
+		})
+
+		It("should keep a blank line splitting the leading comments", func() {
+			source := "// Copyright 2026\n// Licensed.\n\n// Tombstone: removed.\n"
+			result := format(source)
+			Expect(result).To(Equal(source))
+			Expect(format(result)).To(Equal(result))
+		})
+
+		It("should collapse repeated blank lines between leading comments", func() {
+			result := format("// Copyright 2026\n\n\n\n// Tombstone: removed.\n")
+			Expect(result).To(Equal("// Copyright 2026\n\n// Tombstone: removed.\n"))
+		})
+
+		It("should leave glued leading comments glued", func() {
+			source := "// Copyright 2026\n// Tombstone: removed.\n"
+			Expect(format(source)).To(Equal(source))
 		})
 	})
 
@@ -540,6 +607,115 @@ var _ = Describe("Format", func() {
 				"User struct {\n  role string @relation target access.Role\n}\n",
 			)
 			Expect(result).To(ContainSubstring("target access.Role"))
+		})
+	})
+
+	Describe("Doc Strings", func() {
+		It("should keep a single-quoted doc that fits its line", func() {
+			source := "Color struct {\n" +
+				"    b uint8 {\n" +
+				"        @doc value \"is the blue component (0-255).\"\n" +
+				"    }\n" +
+				"}\n"
+			Expect(format(source)).To(Equal(source))
+		})
+
+		It("should convert an over-long single-quoted doc to wrapped triple form",
+			func() {
+				doc := "is the blue component of the color measured on the usual " +
+					"eight bit integer scale running from zero up to two hundred " +
+					"fifty five inclusive."
+				source := "Color struct {\n" +
+					"    b uint8 {\n" +
+					"        @doc value \"" + doc + "\"\n" +
+					"    }\n" +
+					"}\n"
+				result := format(source)
+				Expect(result).To(Equal("Color struct {\n" +
+					"    b uint8 {\n" +
+					"        @doc value \"\"\"\n" +
+					"            is the blue component of the color measured on the " +
+					"usual eight bit integer\n" +
+					"            scale running from zero up to two hundred fifty " +
+					"five inclusive.\n" +
+					"        \"\"\"\n" +
+					"    }\n" +
+					"}\n"))
+				Expect(format(result)).To(Equal(result))
+			})
+
+		It("should not convert an over-long string outside the doc domain", func() {
+			path := "core/pkg/service/some/very/deeply/nested/output/path/that/" +
+				"keeps/going/well/past/the/line/limit"
+			source := "@go output \"" + path + "\"\n\nUser struct {}\n"
+			Expect(format(source)).To(ContainSubstring("output \"" + path + "\""))
+		})
+
+		It("should move triple-quoted content off the quote lines and indent it",
+			func() {
+				source := "Level enum {\n" +
+					"    h1 = \"h1\"\n" +
+					"\n" +
+					"    @doc value \"\"\"is a typography level.\n" +
+					"Order is descending.\"\"\"\n" +
+					"}\n"
+				result := format(source)
+				Expect(result).To(ContainSubstring(
+					"    @doc value \"\"\"\n" +
+						"        is a typography level. Order is descending.\n" +
+						"    \"\"\"\n"))
+				Expect(format(result)).To(Equal(result))
+			})
+
+		It("should keep relative indentation when re-indenting content", func() {
+			source := "Thing struct {\n" +
+				"    @doc value \"\"\"is an example:\n" +
+				"\n" +
+				"id := ID{\n" +
+				"    Key: \"a\",\n" +
+				"}\"\"\"\n" +
+				"}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"    @doc value \"\"\"\n" +
+					"        is an example:\n" +
+					"\n" +
+					"        id := ID{\n" +
+					"            Key: \"a\",\n" +
+					"        }\n" +
+					"    \"\"\"\n"))
+			Expect(format(result)).To(Equal(result))
+		})
+
+		It("should re-fill short prose lines to the line limit", func() {
+			source := "Symbol struct {\n" +
+				"    key string {\n" +
+				"        @doc value \"\"\"\n" +
+				"            is the handle identifier used when\n" +
+				"            linking symbols.\n" +
+				"        \"\"\"\n" +
+				"    }\n" +
+				"}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"        @doc value \"\"\"\n" +
+					"            is the handle identifier used when linking symbols.\n" +
+					"        \"\"\"\n"))
+			Expect(format(result)).To(Equal(result))
+		})
+
+		It("should break an inline triple-quoted doc into brace form", func() {
+			source := "Thing struct {\n" +
+				"    key string @doc value \"\"\"is short.\"\"\"\n" +
+				"}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"    key string {\n" +
+					"        @doc value \"\"\"\n" +
+					"            is short.\n" +
+					"        \"\"\"\n" +
+					"    }\n"))
+			Expect(format(result)).To(Equal(result))
 		})
 	})
 

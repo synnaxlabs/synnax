@@ -14,8 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
-	. "github.com/synnaxlabs/x/testutil"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Node", func() {
@@ -79,29 +77,5 @@ var _ = Describe("Node", func() {
 					"├── inputs: x (i64), y (i64)\n"+
 					"└── outputs: output (i64)\n"),
 		)
-	})
-
-	Describe("DecodeMsgpack", func() {
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Key      string
-				Type     string
-				Inputs   types.Params
-				Outputs  types.Params
-				Channels types.Channels
-			}{
-				Key:  "node1",
-				Type: "fn1",
-				Inputs: types.Params{
-					{Name: "rate", Type: types.Type{Kind: types.KindF32}},
-				},
-			}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded ir.Node
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Key).To(Equal("node1"))
-			Expect(decoded.Type).To(Equal("fn1"))
-			Expect(decoded.Inputs).To(HaveLen(1))
-		})
 	})
 })
