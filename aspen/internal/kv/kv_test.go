@@ -65,8 +65,8 @@ var _ = Describe("txn", func() {
 				Expect(kv).ToNot(BeNil())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 				v, closer := MustSucceed2(kv.Get(ctx, []byte("key")))
-				Expect(closer.Close()).To(Succeed())
 				Expect(v).To(Equal([]byte("value")))
+				Expect(closer.Close()).To(Succeed())
 			})
 
 			It("Should propagate the operation to other members of the cluster",
@@ -79,8 +79,8 @@ var _ = Describe("txn", func() {
 					Eventually(func(g Gomega) {
 						v, closer, err := kv2.Get(ctx, []byte("key"))
 						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(closer.Close()).To(Succeed())
 						g.Expect(v).To(Equal([]byte("value")))
+						g.Expect(closer.Close()).To(Succeed())
 					}).Should(Succeed())
 				})
 			It("Should forward an update to the Leaseholder", func(ctx SpecContext) {
@@ -90,17 +90,17 @@ var _ = Describe("txn", func() {
 				Eventually(func(g Gomega) {
 					v, closer, err := kv2.Get(ctx, []byte("key"))
 					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(closer.Close()).To(Succeed())
 					g.Expect(v).To(Equal([]byte("value")))
+					g.Expect(closer.Close()).To(Succeed())
 					g.Expect(kv2.Set(ctx, []byte("key"), []byte("value2"))).
 						To(Succeed())
 				}).Should(Succeed())
 				v, closer := MustSucceed2(kv1.Get(ctx, []byte("key")))
-				Expect(closer.Close()).To(Succeed())
 				Expect(v).To(Equal([]byte("value2")))
+				Expect(closer.Close()).To(Succeed())
 				v, closer = MustSucceed2(kv1.Get(ctx, []byte("key")))
-				Expect(closer.Close()).To(Succeed())
 				Expect(v).To(Equal([]byte("value2")))
+				Expect(closer.Close()).To(Succeed())
 			})
 
 			It("Should return an error when attempting to transfer the lease",
@@ -125,8 +125,8 @@ var _ = Describe("txn", func() {
 				Eventually(func(g Gomega) {
 					v, closer, err := kv2.Get(ctx, []byte("key"))
 					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(closer.Close()).To(Succeed())
 					g.Expect(v).To(Equal([]byte("value")))
+					g.Expect(closer.Close()).To(Succeed())
 				}).Should(Succeed())
 			})
 
@@ -150,11 +150,11 @@ var _ = Describe("txn", func() {
 			Expect(tx.Set(ctx, []byte("key2"), []byte("value2"))).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			v, closer := MustSucceed2(kv.Get(ctx, []byte("key")))
-			Expect(closer.Close()).To(Succeed())
 			Expect(v).To(Equal([]byte("value")))
-			v, closer = MustSucceed2(kv.Get(ctx, []byte("key2")))
 			Expect(closer.Close()).To(Succeed())
+			v, closer = MustSucceed2(kv.Get(ctx, []byte("key2")))
 			Expect(v).To(Equal([]byte("value2")))
+			Expect(closer.Close()).To(Succeed())
 		})
 
 		It("Should commit a key set and then deleted in one tx as absent", func(
@@ -168,8 +168,8 @@ var _ = Describe("txn", func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(kv.Get(ctx, []byte("key"))).Error().To(MatchError(query.ErrNotFound))
 			v, closer := MustSucceed2(kv.Get(ctx, []byte("kept")))
-			Expect(closer.Close()).To(Succeed())
 			Expect(v).To(Equal([]byte("value")))
+			Expect(closer.Close()).To(Succeed())
 		})
 	})
 
@@ -179,8 +179,8 @@ var _ = Describe("txn", func() {
 				kv := MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 				v, closer := MustSucceed2(kv.Get(ctx, []byte("key")))
-				Expect(closer.Close()).To(Succeed())
 				Expect(v).To(Equal([]byte("value")))
+				Expect(closer.Close()).To(Succeed())
 				Expect(kv.Delete(ctx, []byte("key"))).To(Succeed())
 				Expect(kv.Get(ctx, []byte("key"))).Error().
 					To(MatchError(query.ErrNotFound))
@@ -216,8 +216,8 @@ var _ = Describe("txn", func() {
 				Eventually(func(g Gomega) {
 					v, closer, err := kv2.Get(ctx, []byte("key"))
 					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(closer.Close()).To(Succeed())
 					g.Expect(v).To(Equal([]byte("value")))
+					g.Expect(closer.Close()).To(Succeed())
 				}).Should(Succeed())
 			})
 		})
@@ -456,16 +456,16 @@ var _ = Describe("txn", func() {
 			Eventually(func(g Gomega) {
 				v, closer, err := kv2.Get(ctx, []byte("key"))
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(closer.Close()).To(Succeed())
 				g.Expect(v).To(Equal([]byte("value")))
+				g.Expect(closer.Close()).To(Succeed())
 				v, closer, err = kv2.Get(ctx, []byte("key2"))
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(closer.Close()).To(Succeed())
 				g.Expect(v).To(Equal([]byte("value2")))
+				g.Expect(closer.Close()).To(Succeed())
 				v, closer, err = kv2.Get(ctx, []byte("key3"))
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(closer.Close()).To(Succeed())
 				g.Expect(v).To(Equal([]byte("value3")))
+				g.Expect(closer.Close()).To(Succeed())
 			}).Should(Succeed())
 		})
 
@@ -478,8 +478,8 @@ var _ = Describe("txn", func() {
 				Eventually(func(g Gomega) {
 					v, closer, err := kv2.Get(ctx, []byte("key"))
 					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(closer.Close()).To(Succeed())
 					g.Expect(v).To(Equal([]byte("value")))
+					g.Expect(closer.Close()).To(Succeed())
 				}).Should(Succeed())
 				Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
 				Eventually(func(g Gomega) {
