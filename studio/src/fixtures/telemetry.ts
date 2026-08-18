@@ -9,6 +9,8 @@
 
 import { Synnax, TimeStamp } from "@synnaxlabs/client";
 
+import { defaultPort } from "@/fixtures/cluster";
+
 export interface TelemetryOptions {
   host?: string;
   port?: number;
@@ -33,7 +35,7 @@ export interface TelemetryFixture {
  */
 export const sineTelemetry = async ({
   host = "localhost",
-  port = 9090,
+  port = defaultPort(),
   username = "synnax",
   password = "seldon",
   periodMs = 40,

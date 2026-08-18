@@ -36,20 +36,58 @@ export default async (session: capture.CaptureSession) => {
 };
 ```
 
+## Producing docs videos
+
+`videos.ts` is the production manifest: one entry per docs video, keyed by the
+id the docs site's Video component uses (the CDN serves
+`docs/<id>-light.mp4` / `docs/<id>-dark.mp4`).
+
+```bash
+# use `pnpm run` for flagged invocations: the bare `pnpm <script>` shorthand
+# consumes flags pnpm itself knows (--force, --dry-run, ...)
+pnpm batch                    # produce every out-of-date manifest entry
+pnpm batch ranges             # only ids containing "ranges"
+pnpm run batch --draft        # fast 1080p review renders
+pnpm run batch --list         # show what would run
+pnpm gallery                  # write out/gallery.html for batch review
+pnpm run upload --dry-run     # preview the CDN upload plan
+pnpm upload ranges            # push finals (needs DO_SPACES_KEY / DO_SPACES_SECRET)
+pnpm clean                    # free disk: drop capture frames, keep videos
+pnpm run clean --videos       # also drop rendered videos and stamps
+pnpm run clean --all          # remove out/ entirely
+```
+
+For each entry, batch captures light and dark against fresh ephemeral cores,
+renders the pair to `out/<id>-light.mp4` / `out/<id>-dark.mp4`, and stamps
+`out/<id>/produce.json` with a hash of the script and options; unchanged
+entries are skipped on the next run (`--force` overrides). Captured frames run
+to gigabytes per theme, so batch prunes them after a successful render
+(`--keep-frames` retains them for `produce --skip-capture` iteration). Draft
+renders are refused by `pnpm upload` unless `--allow-draft` is passed.
+
 ## Usage
 
-Requires the Console dev server (`pnpm dev:console-vite`, localhost:5173). The
-core is managed by the studio: each capture spawns a fresh in-memory core on 9090
-(`--no-driver`, logs to `<out>/core.log`) and stops it when the capture ends, so
-every capture sees an empty cluster. A long-lived shared core pollutes shots:
-stale driver racks surface warning notifications, integration test runs leave
-ranges that render as annotations on any plot whose window overlaps them, and
-every capture adds a project. The port must be 9090 because the dev Console
-hardcodes its connection there (`detectConnection`); if something else already
-holds 9090, produce refuses with instructions rather than capturing against
-contaminated state. Pass `--core external` to use the running core anyway, and
-`--core-bin <path>` (or `SYNNAX_CORE_BIN`) if `core/synnax` isn't built at the
-repo root.
+Requires the Console dev server (`pnpm dev:console-vite`) served from a worktree
+that includes the dev-connection port override in
+`console/src/cluster/detectConnection.ts` (this one does); pass its URL via
+`--url` when it isn't on the default localhost:5173. The core is managed by the
+studio: each capture spawns a fresh in-memory core (`--no-driver`, logs to
+`<out>/core.log`) on the studio's own port 9095 and stops it when the capture
+ends, so every capture sees an empty cluster and never contends with the shared
+dev core on 9090. The rig points the dev Console at the capture core through
+the override (a localStorage key set before the app boots), and fixtures pick
+the port up automatically. A long-lived shared core pollutes shots: stale
+driver racks surface warning notifications, integration test runs leave ranges
+that render as annotations on any plot whose window overlaps them, and every
+capture adds a project; that is why produce refuses if the capture port is
+already in use. Pass `--core external` to capture against a running core (on
+9090 unless `--port` says otherwise), and `--core-bin <path>` (or
+`SYNNAX_CORE_BIN`) if `core/synnax` isn't built at the repo root.
+
+Build `core/synnax` in the same worktree that serves the Console: a core from
+another branch can return schema the Console fails to parse (permissions being
+the dangerous one, since palette commands are permission-gated and silently
+vanish when the retrieve fails).
 
 ```bash
 # capture + direct + render
@@ -105,7 +143,7 @@ time. `commandPalette` accepts `{ typeSpeed }` (default 1.5) and restores natura
 speed before the selection.
 
 Docs videos ship as themed pairs (`<id>-light.mp4` / `<id>-dark.mp4`) uploaded to the
-docs CDN; run each script once per theme.
+docs CDN; `pnpm batch` runs each manifest script once per theme.
 
 ## Determinism
 

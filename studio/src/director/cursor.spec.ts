@@ -119,4 +119,19 @@ describe("synthesize", () => {
     expect(track[820].opacity).toEqual(0);
     expect(track[920].opacity).toEqual(1);
   });
+
+  it("should stay pressed and track the waypoint through a drag", () => {
+    const events: Event[] = [
+      { type: "move", tick: 60, x: 300, y: 300, duration: 30 },
+      { type: "pointerdown", tick: 60, x: 300, y: 300, button: "left" },
+      { type: "move", tick: 180, x: 1200, y: 700, duration: 100 },
+      { type: "pointerup", tick: 200, x: 1200, y: 700, button: "left" },
+    ];
+    const track = synthesize(timeline(events));
+    for (let f = 70; f <= 195; f++) expect(track[f].pressed).toBe(true);
+    expect(track[130].x).toBeGreaterThan(track[90].x);
+    expect(track[240].x).toBeCloseTo(1200, 0);
+    expect(track[240].y).toBeCloseTo(700, 0);
+    expect(track[240].pressed).toBe(false);
+  });
 });

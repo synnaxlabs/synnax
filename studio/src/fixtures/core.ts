@@ -18,8 +18,8 @@ export interface CoreOptions {
   /** Path to the synnax core binary. Defaults to $SYNNAX_CORE_BIN, then the
    * first `core/synnax` found walking up from this package. */
   binary?: string;
-  /** Port to listen on. Must be 9090 for the dev Console, which hardcodes its
-   * dev connection to localhost:9090. */
+  /** Port to listen on. The capture rig points the dev Console here via its
+   * dev-connection port override. */
   port?: number;
   /** Directory to write core.log into. */
   outDir: string;

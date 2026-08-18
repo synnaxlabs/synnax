@@ -45,11 +45,7 @@ export interface Crop {
 }
 
 /** crop converts a camera sample into the visible source rectangle in CSS px. */
-export const crop = (
-  s: CameraSample,
-  width: number,
-  height: number,
-): Crop => ({
+export const crop = (s: CameraSample, width: number, height: number): Crop => ({
   x: s.cx * (width - width / s.amount),
   y: s.cy * (height - height / s.amount),
   width: width / s.amount,

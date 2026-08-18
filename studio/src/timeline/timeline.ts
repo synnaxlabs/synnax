@@ -135,6 +135,4 @@ export const parse = (data: unknown): Timeline => timelineZ.parse(data);
 
 /** clicks returns pointerdown events in tick order. */
 export const clicks = (tl: Timeline): z.infer<typeof pointerDownEventZ>[] =>
-  tl.events
-    .filter((e) => e.type === "pointerdown")
-    .sort((a, b) => a.tick - b.tick);
+  tl.events.filter((e) => e.type === "pointerdown").sort((a, b) => a.tick - b.tick);

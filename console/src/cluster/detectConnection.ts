@@ -22,9 +22,22 @@ const DEV_CONNECTION: ConnectionParams = {
   secure: false,
 };
 
+/**
+ * DEV_PORT_KEY is a localStorage key that overrides the dev connection's port,
+ * for tooling (e.g. the docs video studio) that runs the dev Console against a
+ * core on a non-default port.
+ */
+export const DEV_PORT_KEY = "synnax-dev-connection-port";
+
+const devConnection = (): ConnectionParams => {
+  const port = Number(localStorage.getItem(DEV_PORT_KEY));
+  if (!Number.isInteger(port) || port <= 0) return DEV_CONNECTION;
+  return { ...DEV_CONNECTION, port };
+};
+
 export const detectConnection = (): ConnectionParams | null => {
   if (Runtime.ENGINE === "tauri") return null;
-  if (IS_DEV) return DEV_CONNECTION;
+  if (IS_DEV) return devConnection();
   const url = new URL(window.location.origin);
   return {
     name: "Core",

@@ -19,6 +19,7 @@ import {
 } from "playwright";
 
 import { TRAVEL_MAX_S, TRAVEL_MIN_S, TRAVEL_SCALE_S } from "@/director/constants";
+import { minimumJerk } from "@/director/cursor";
 import {
   type CursorKind,
   type Event,
@@ -57,7 +58,15 @@ export interface CaptureOptions {
    * demonstrate notifications.
    */
   hideNotifications?: boolean;
+  /**
+   * Port of the core the capture runs against. Injected into the dev Console
+   * via its dev-connection port override before the app boots.
+   */
+  corePort?: number;
 }
+
+/** Mirrors DEV_PORT_KEY in console/src/cluster/detectConnection.ts. */
+const DEV_PORT_KEY = "synnax-dev-connection-port";
 
 /**
  * Pauses any newly discovered Web Animations (CSS transitions/animations, WAAPI)
@@ -103,8 +112,12 @@ export class CaptureSession {
   private cursor: Point;
   private cursorRect: Rect | undefined;
   private origin: Point | null = null;
-  private openZoom: { tick: number; point: Point; rect?: Rect; amount?: number } | null =
-    null;
+  private openZoom: {
+    tick: number;
+    point: Point;
+    rect?: Rect;
+    amount?: number;
+  } | null = null;
 
   private constructor(
     browser: Browser,
@@ -129,6 +142,7 @@ export class CaptureSession {
       headed: false,
       hideCaret: false,
       hideNotifications: true,
+      corePort: 9090,
       ...options,
     };
     const browser = await chromium.launch({
@@ -143,6 +157,9 @@ export class CaptureSession {
     const page = await context.newPage();
     await page.clock.install({ time: CLOCK_EPOCH });
     await page.addInitScript(ANIMATION_STEPPER);
+    await page.addInitScript(
+      `localStorage.setItem(${JSON.stringify(DEV_PORT_KEY)}, ${JSON.stringify(String(opts.corePort))});`,
+    );
     const hideRules = [
       ...(opts.hideCaret ? ["* { caret-color: transparent !important; }"] : []),
       ...(opts.hideNotifications
@@ -291,19 +308,72 @@ export class CaptureSession {
     return to;
   }
 
-  /** click travels to the target, presses, and releases. */
-  async click(target: Locator | Point): Promise<void> {
-    const at = await this.moveTo(target);
+  private async pressRelease(at: Point, button: "left" | "right"): Promise<void> {
     this.events.push({
       type: "pointerdown",
       tick: this.frame,
       ...at,
+      button,
+      rect: this.cursorRect,
+    });
+    await this.page.mouse.down({ button });
+    await this.hold(80);
+    this.events.push({ type: "pointerup", tick: this.frame, ...at, button });
+    await this.page.mouse.up({ button });
+    await this.tick();
+  }
+
+  /** click travels to the target, presses, and releases. */
+  async click(target: Locator | Point): Promise<void> {
+    await this.pressRelease(await this.moveTo(target), "left");
+  }
+
+  /** rightClick travels to the target and opens its context menu. */
+  async rightClick(target: Locator | Point): Promise<void> {
+    await this.pressRelease(await this.moveTo(target), "right");
+  }
+
+  /**
+   * drag presses at `from`, travels to `to` with the button held, and releases.
+   * Unlike moveTo, the real mouse tracks the travel tick by tick (along the same
+   * minimum-jerk profile the director renders), so drag interactions follow the
+   * cursor on screen.
+   */
+  async drag(from: Locator | Point, to: Locator | Point): Promise<void> {
+    const start = await this.moveTo(from);
+    this.events.push({
+      type: "pointerdown",
+      tick: this.frame,
+      ...start,
       button: "left",
       rect: this.cursorRect,
     });
     await this.page.mouse.down();
-    await this.hold(80);
-    this.events.push({ type: "pointerup", tick: this.frame, ...at, button: "left" });
+    await this.hold(120);
+
+    const { point: dest, rect, cursor } = await this.resolve(to);
+    const duration = this.travelTicks(dest);
+    for (let i = 1; i <= duration; i++) {
+      const s = minimumJerk(i / duration);
+      await this.page.mouse.move(
+        start.x + (dest.x - start.x) * s,
+        start.y + (dest.y - start.y) * s,
+      );
+      await this.tick();
+    }
+    this.events.push({
+      type: "move",
+      tick: this.frame,
+      ...dest,
+      duration,
+      rect,
+      cursor,
+    });
+    this.cursor = dest;
+    this.cursorRect = rect;
+    await this.hold(120);
+
+    this.events.push({ type: "pointerup", tick: this.frame, ...dest, button: "left" });
     await this.page.mouse.up();
     await this.tick();
   }

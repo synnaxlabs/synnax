@@ -4,5 +4,11 @@
     "types": ["node"],
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src/**/*", "scripts/**/*", "eslint.config.ts", "vite.config.ts"]
+  "include": [
+    "src/**/*",
+    "scripts/**/*",
+    "videos.ts",
+    "eslint.config.ts",
+    "vite.config.ts"
+  ]
 }

@@ -7,8 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as capture from "@/capture";
-export * as director from "@/director";
-export * as fixtures from "@/fixtures";
-export * as manifest from "@/manifest";
-export * as timeline from "@/timeline";
+export * from "@/manifest/manifest";

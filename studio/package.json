@@ -11,9 +11,14 @@
     "test": "vitest",
     "lint": "eslint",
     "fix": "eslint --fix",
-    "produce": "tsx src/cli/produce.ts"
+    "produce": "tsx src/cli/produce.ts",
+    "batch": "tsx src/cli/batch.ts",
+    "upload": "tsx src/cli/upload.ts",
+    "gallery": "tsx src/cli/gallery.ts",
+    "clean": "tsx src/cli/clean.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1112.0",
     "@remotion/bundler": "^4.0.0",
     "@remotion/renderer": "^4.0.0",
     "@synnaxlabs/client": "workspace:^",
