@@ -13,7 +13,7 @@ import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
 
-/** Maps the resources ingest created to the tabs that open them. */
+/** Maps the resources importItem created to the tabs that open them. */
 const resourceTabs = (ids: (ontology.ID | void)[]): panel.NewTab[] =>
   ids.filter((id) => id != null).map((resource) => ({ variant: "resource", resource }));
 
