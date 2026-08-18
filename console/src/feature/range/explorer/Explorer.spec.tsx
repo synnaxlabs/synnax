@@ -58,7 +58,7 @@ const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }
     </>,
     { wrapper },
   );
-  await screen.findByText("All Ranges");
+  await screen.findByText("All ranges");
   return { store };
 };
 

@@ -15,7 +15,15 @@ import {
   query,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, compare, deep, type optional, type record, verbs } from "@synnaxlabs/x";
+import {
+  array,
+  compare,
+  deep,
+  type optional,
+  type record,
+  verbs,
+  zod,
+} from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
@@ -246,7 +254,10 @@ export const createSelectTabArgs =
   <Z extends z.ZodType>(schema: Z): (() => z.output<Z>) =>
   () => {
     const args = useTabArgs({});
-    return useMemo(() => schema.parse(args), [args, schema]);
+    return useMemo(
+      () => zod.parse(schema, args, { label: "view arguments" }),
+      [args, schema],
+    );
   };
 
 export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}

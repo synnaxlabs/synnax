@@ -83,7 +83,7 @@ const FallbackContextMenu = (): ReactElement => (
 const itemRenderProp = Component.renderProp(
   ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
     const { itemKey } = rest;
-    const id = ontology.idZ.parse(itemKey);
+    const id = ontology.parseID(itemKey);
     const resource = List.useItem<string, ontology.Resource>(itemKey);
     const Item = useItems()[id.type] ?? DefaultItem;
     const { onDrop, useLoading, onDragStart, onDragEnd } =
@@ -338,7 +338,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         return;
       }
       setLoading(clicked);
-      watchChildren(ontology.idZ.parse(clicked));
+      watchChildren(ontology.parseID(clicked));
     },
     [watchChildren, releaseChildren, setLoading, nodesRef],
   );
@@ -431,7 +431,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const dropped = Base.filterHaulItems(items);
       const isValidDrop = dropped.length > 0 && source.type === Base.HAUL_TYPE;
       if (!isValidDrop) return [];
-      const destination = ontology.idZ.parse(key);
+      const destination = ontology.parseID(key);
       const svc = resolveItem(destination.type);
       if (!svc.canDrop({ source, items })) return [];
 
@@ -448,13 +448,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
         const sourceKey = parent?.key ?? ontology.idToString(root);
         const ids = bySource.get(sourceKey) ?? [];
-        ids.push(ontology.idZ.parse(key));
+        ids.push(ontology.parseID(key));
         bySource.set(sourceKey, ids);
       });
       contract(...moved.map(({ key }) => key));
       bySource.forEach((ids, sourceKey) =>
         moveChildren.update({
-          source: ontology.idZ.parse(sourceKey),
+          source: ontology.parseID(sourceKey),
           destination,
           ids,
         }),
@@ -477,7 +477,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         });
         return startDrag(selectedHaulItems);
       }
-      const haulItems = resolveItem(ontology.idZ.parse(itemKey).type).haulItems(
+      const haulItems = resolveItem(ontology.parseID(itemKey).type).haulItems(
         getResource(itemKey),
       );
       startDrag([Base.createHaulItem(itemKey), ...haulItems]);
@@ -502,7 +502,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       else keys = selectedRef.current;
       const nodeSnapshot = nodesRef.current;
 
-      const ids = keys.map((key) => ontology.idZ.parse(key));
+      const ids = keys.map((key) => ontology.parseID(key));
 
       // TODO: we might be selecting two nodes that are not ascendants or
       // descendants of the other ones. We need to change this function to
@@ -514,9 +514,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         key: keys.sort(Base.compareDepth(shapeRef.current))[0],
       });
 
-      const parentID = parent == null ? root : ontology.idZ.parse(parent.key);
+      const parentID = parent == null ? root : ontology.parseID(parent.key);
 
-      const firstID = ontology.idZ.parse(keys[0]);
+      const firstID = ontology.parseID(keys[0]);
 
       const props: ContextMenuProps = {
         selection: {

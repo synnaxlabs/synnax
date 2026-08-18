@@ -32,19 +32,19 @@ describe("LinePlot Commands", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     await openCommandPalette();
-    await selectCommand("Create a line plot");
+    await selectCommand("Create line plot");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource")
       throw new Error("focused tab is not a line plot resource");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
     const created = await client.lineplots.retrieve(tab.resource.key);
-    expect(created.name).toBe("Line Plot");
+    expect(created.name).toBe("Line plot");
   });
 });
 
 describe("LinePlot Commands permissions", () => {
   it("should offer Create a line plot to an engineer", async () => {
-    const gate = findCommand(LinePlot.COMMANDS, "Create a line plot").useVisible;
+    const gate = findCommand(LinePlot.COMMANDS, "Create line plot").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Engineer"),
@@ -53,7 +53,7 @@ describe("LinePlot Commands permissions", () => {
   });
 
   it("should withhold Create a line plot from a viewer", async () => {
-    const gate = findCommand(LinePlot.COMMANDS, "Create a line plot").useVisible;
+    const gate = findCommand(LinePlot.COMMANDS, "Create line plot").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(
       () => ({

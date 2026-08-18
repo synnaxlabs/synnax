@@ -13,6 +13,7 @@ import random
 import re
 import shutil
 import tempfile
+import zipfile
 from typing import Any, Literal, TypeVar, overload
 
 from playwright.sync_api import Locator
@@ -38,39 +39,6 @@ from framework.run_dir import resolve_results_path
 __all__ = ["ProjectClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
-
-# Playwright has expect_file_chooser for <input type="file"> but no analogue
-# for the File System Access API's showDirectoryPicker, which is what the real
-# browser-mode export uses. This snippet installs an in-memory mock that
-# captures writes into window.__synnaxExportedFiles as
-# { "relativePath": "contents" }; production export code runs unchanged. The
-# Python side reads the map back and materializes a real on-disk directory the
-# import test can consume verbatim.
-_INSTALL_DIRECTORY_PICKER_MOCK_JS = """
-window.__synnaxExportedFiles = {};
-window.showDirectoryPicker = async () => ({
-    name: '__synnaxExportMock',
-    getDirectoryHandle: async (subdir, opts) => {
-        if (!opts || !opts.create)
-            throw new DOMException('Not found', 'NotFoundError');
-        return {
-            name: subdir,
-            getFileHandle: async (name) => ({
-                name,
-                createWritable: async () => ({
-                    write: async (data) => {
-                        const text = typeof data === 'string'
-                            ? data
-                            : await new Response(data).text();
-                        window.__synnaxExportedFiles[subdir + '/' + name] = text;
-                    },
-                    close: async () => {},
-                }),
-            }),
-        };
-    },
-});
-"""
 
 
 class ProjectClient:
@@ -141,13 +109,7 @@ class ProjectClient:
         """
         self.layout.close_left_toolbar()
 
-        vowels = ["A", "E", "I", "O", "U"]
-        article = (
-            "an"
-            if page_type[0].upper() in vowels or page_type.startswith("NI")
-            else "a"
-        )
-        self.layout.command_palette(f"Create {article} {page_type}")
+        self.layout.command_palette(f"Create {page_type}")
         return self._handle_new_page(page_type, page_name)
 
     def _handle_new_page(
@@ -178,7 +140,7 @@ class ProjectClient:
 
         pluto_labels = {
             "Log": ".pluto-log",
-            "Line Plot": ".pluto-line-plot",
+            "Line plot": ".pluto-line-plot",
             "Schematic": ".pluto-schematic",
             "Table": ".pluto-table",
         }
@@ -329,15 +291,16 @@ class ProjectClient:
             container.wait_for(state="attached", timeout=2000)
         except PlaywrightTimeoutError:
             return False
-        prev_scroll = -1
+        # The list is virtualized, so the wheel is the only way to reach detached rows.
+        # The rendered text stops changing once the list hits bottom.
+        container.hover()
+        prev_rows: str | None = None
         for _ in range(50):
-            curr_scroll = container.evaluate(
-                "el => ({ top: el.scrollTop, height: el.scrollHeight })"
-            )
-            if prev_scroll != -1 and curr_scroll["top"] == prev_scroll:
+            curr_rows = container.inner_text()
+            if prev_rows is not None and curr_rows == prev_rows:
                 break
-            prev_scroll = curr_scroll["top"]
-            container.evaluate("el => el.scrollTop += 200")
+            prev_rows = curr_rows
+            self.layout.page.mouse.wheel(0, 200)
             self.layout.page.wait_for_timeout(100)
             try:
                 page_item.wait_for(state="attached", timeout=300)
@@ -588,7 +551,6 @@ class ProjectClient:
         """
         page_item = self._find_page(name)
         self.ctx_menu.open_on(page_item)
-        self.layout.page.evaluate("delete window.showSaveFilePicker")
 
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
@@ -602,20 +564,8 @@ class ProjectClient:
             result: dict[str, Any] = json.load(f)
             return result
 
-    def _install_directory_picker_mock(self) -> None:
-        """Replace window.showDirectoryPicker with an in-memory capture."""
-        self.layout.page.evaluate(_INSTALL_DIRECTORY_PICKER_MOCK_JS)
-
-    def _drain_exported_files(self) -> dict[str, str]:
-        """Read and clear files captured by the showDirectoryPicker mock."""
-        files: dict[str, str] = self.layout.page.evaluate(
-            "() => { const f = window.__synnaxExportedFiles || {};"
-            " window.__synnaxExportedFiles = {}; return f; }"
-        )
-        return files
-
     def import_page(self, json_path: str, name: str) -> None:
-        """Import a component via the real "Import component(s)" command palette flow.
+        """Import a component via the real "Import components" command palette flow.
 
         The import pipeline derives the tab name from the chosen filename (via
         trimFileName), so we copy ``json_path`` into a temp file named
@@ -637,7 +587,7 @@ class ProjectClient:
             tmp_path = os.path.join(tmp_dir, f"{name}.json")
             shutil.copyfile(json_path, tmp_path)
             with self.layout.page.expect_file_chooser() as fc_info:
-                self.layout.command_palette("Import component(s)")
+                self.layout.command_palette("Import components")
             fc_info.value.set_files(tmp_path)
             self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
             if not self.page_exists(name):
@@ -647,54 +597,52 @@ class ProjectClient:
             self.layout.close_left_toolbar()
 
     def import_project_from_directory(self, directory_path: str) -> None:
-        """Import a project via the real "Import a project" command flow.
+        """Import a project via the real "Import project" command flow.
 
-        Opens the command palette, fulfills the resulting directory chooser
-        with ``directory_path`` (Playwright walks it and uploads each file
-        with its webkitRelativePath set), then waits for the project
-        selector to display the directory's basename. The directory must
-        contain ``LAYOUT.json`` and one ``{component_name}.json`` file per
-        layout entry, matching the Console export format.
+        Opens the command palette, fulfills the resulting directory chooser with
+        ``directory_path`` (Playwright walks it and uploads each file with its
+        webkitRelativePath set), then waits for the project selector to display the
+        imported project's name. A bundle directory holds a ``manifest.json`` whose
+        ``name`` names the project; a legacy directory holds ``LAYOUT.json`` and names
+        the project after its basename.
         """
-        with self.layout.page.expect_file_chooser() as fc_info:
-            self.layout.command_palette("Import a project")
-        fc_info.value.set_files(directory_path)
         expected_name = os.path.basename(directory_path.rstrip(os.sep))
-        self.layout.page.get_by_role("button").filter(has_text=expected_name).wait_for(
-            state="visible", timeout=10000
-        )
+        manifest_path = os.path.join(directory_path, "manifest.json")
+        if os.path.isfile(manifest_path):
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                expected_name = json.load(f).get("name") or expected_name
+        with self.layout.page.expect_file_chooser() as fc_info:
+            self.layout.command_palette("Import project")
+        fc_info.value.set_files(directory_path)
+        self.wait_for_active(expected_name)
+        self._active_project = expected_name
 
     def export_project(self, name: str) -> str:
         """Export a project via the real Export context menu action.
 
-        Installs an in-memory mock of ``window.showDirectoryPicker`` so the
-        real export code path runs unchanged but writes captured into a JS
-        Map instead of touching the OS file picker. Waits for the production
-        "Exported {name} to ..." success notification, which fires only
-        after every file write completes, then drains the map and
-        materializes the captured files into a real directory under the
-        results dir.
+        The browser runs without the File System Access pickers (see the case launch
+        args), so the export falls back to a plain download, which Playwright captures.
+        Saves the bundle zip under the results dir and extracts it into a real directory
+        the import test can consume.
         """
-        self._install_directory_picker_mock()
         self.layout.show_resource_toolbar("project")
         project_item = self.get_item(name)
         project_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(project_item, "Export")
+        with self.layout.page.expect_download(timeout=10000) as download_info:
+            self.ctx_menu.action(project_item, "Export")
+        zip_path = resolve_results_path(f"{name}_export.zip")
+        download_info.value.save_as(zip_path)
 
-        if not self.notifications.wait_for(f"Exported {name}"):
+        if not self.notifications.wait_for(f"Downloaded {name}"):
             raise AssertionError(
                 f"Export of project {name!r} did not emit a success notification"
             )
-        files = self._drain_exported_files()
-
         export_dir = resolve_results_path(f"{name}_export")
         if os.path.isdir(export_dir):
             shutil.rmtree(export_dir)
         os.makedirs(export_dir)
-        for rel_path, contents in files.items():
-            basename = os.path.basename(rel_path)
-            with open(os.path.join(export_dir, basename), "w", encoding="utf-8") as f:
-                f.write(contents)
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(export_dir)
 
         self.notifications.close_all()
         self.layout.close_left_toolbar()
@@ -767,20 +715,17 @@ class ProjectClient:
             return False
 
         if random.choice([True, False]):
-            self.layout.command_palette("Create a project")
+            self.layout.command_palette("Create project")
         else:
             self.layout.close_left_toolbar()
-            selector = (
-                self.layout.page.locator("button.pluto-dialog__trigger")
-                .filter(has=self.layout.page.locator(".pluto-icon--project"))
-                .first
-            )
-            selector.click(timeout=5000)
-            self.layout.page.get_by_role("button", name="New", exact=True).click(
-                timeout=5000
-            )
+            self._selector_trigger().click(timeout=5000)
+            self.layout.page.locator("button.console-create-list-item").filter(
+                has_text="New project"
+            ).click(timeout=5000)
 
-        name_input = self.layout.page.locator("input[placeholder='Project Name']")
+        name_input = self.layout.page.locator(
+            ".console-modal input[placeholder='Name']"
+        )
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.layout.page.get_by_role("button", name="Create", exact=True).click(
@@ -803,21 +748,48 @@ class ProjectClient:
                 self._wait_for_app()
             return
 
-        selector = (
-            self.layout.page.locator("button.pluto-dialog__trigger")
-            .filter(has=self.layout.page.locator(".pluto-icon--project"))
-            .first
-        )
-        if name in selector.inner_text():
-            self._active_project = name
+        if self._active_project == name:
             return
         self.layout.show_resource_toolbar("project")
         self.get_item(name).dblclick(timeout=5000)
-        self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
-            state="visible", timeout=5000
-        )
+        self.wait_for_active(name)
         self._active_project = name
         self.layout.close_left_toolbar()
+
+    def _selector_trigger(self) -> Locator:
+        return self.layout.page.locator("button.console-project-selector__trigger")
+
+    def wait_for_active(self, name: str) -> None:
+        """Wait for the project selector to mark ``name`` as the active project.
+
+        The selector trigger shows only the project's avatar, so the dialog is
+        opened and the entry for ``name`` is checked for selection styling. An
+        in-flight project switch (e.g. a just-finished import) remounts the
+        layout and closes the dialog mid-check, so the sequence retries.
+        """
+        dialog = self.layout.page.locator(".console-project-selector-dialog")
+        last_err: PlaywrightTimeoutError | None = None
+        for _ in range(3):
+            try:
+                self._selector_trigger().click(timeout=5000)
+                dialog.wait_for(state="visible", timeout=5000)
+                dialog.get_by_placeholder("Search projects...").fill(name)
+                item = (
+                    dialog.locator(".pluto-list__item.pluto--selected")
+                    .filter(has_text=name)
+                    .first
+                )
+                item.wait_for(state="visible", timeout=5000)
+                self._selector_trigger().click(timeout=5000)
+                dialog.wait_for(state="hidden", timeout=5000)
+                return
+            except PlaywrightTimeoutError as e:
+                last_err = e
+                if dialog.is_visible():
+                    self.layout.press_escape()
+                    dialog.wait_for(state="hidden", timeout=5000)
+        assert last_err is not None
+        raise last_err
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename a project via context menu.
@@ -928,15 +900,19 @@ class ProjectClient:
         return True
 
     def _create_from_splash(self, name: str) -> None:
-        """Create ``name`` via the Splash New Project form."""
+        """Create ``name`` via the Splash New Project action."""
+        self.layout.page.locator(
+            ".console-project-splash button.console-create-list-item"
+        ).click(timeout=5000)
         name_input = self.layout.page.locator(
-            ".console-project-splash__form input[placeholder='Project name']"
+            ".console-modal input[placeholder='Name']"
         )
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
-        self.layout.page.get_by_role("button", name="Create Project", exact=True).click(
+        self.layout.page.get_by_role("button", name="Create", exact=True).click(
             timeout=5000
         )
+        name_input.wait_for(state="hidden", timeout=5000)
         self._active_project = name
 
     def open_plot(self, name: str) -> Plot:
@@ -1022,7 +998,7 @@ class ProjectClient:
         Returns:
             Plot instance wrapping the created UI page
         """
-        return self._create_and_initialize_page("Line Plot", name, Plot)
+        return self._create_and_initialize_page("Line plot", name, Plot)
 
     def create_log(self, name: str) -> Log:
         """Create a new log page in the UI and return a wrapper.
@@ -1094,7 +1070,7 @@ class ProjectClient:
             has=self.layout.page.locator("[aria-label='Close']")
         )
         tab_count = tabs.count()
-        actual_tab_name = "Line Plot"
+        actual_tab_name = "Line plot"
         if tab_count > 0:
             last_tab = tabs.nth(tab_count - 1)
             actual_tab_name = last_tab.inner_text().strip()
@@ -1180,17 +1156,17 @@ class ProjectClient:
 
     @overload
     def create_task(
-        self, task_type: Literal["NI Analog Read Task"], name: str
+        self, task_type: Literal["NI analog read task"], name: str
     ) -> AnalogRead: ...
 
     @overload
     def create_task(
-        self, task_type: Literal["NI Analog Write Task"], name: str
+        self, task_type: Literal["NI analog write task"], name: str
     ) -> AnalogWrite: ...
 
     @overload
     def create_task(
-        self, task_type: Literal["NI Counter Read Task"], name: str
+        self, task_type: Literal["NI counter read task"], name: str
     ) -> CounterRead: ...
 
     def create_task(self, task_type: PageType, name: str) -> TaskPage:
@@ -1227,15 +1203,15 @@ class ProjectClient:
         """
         # Map task types to their corresponding classes
         task_class_map: dict[str, type[TaskPage]] = {
-            "NI Analog Read Task": AnalogRead,
-            "NI Analog Write Task": AnalogWrite,
-            "NI Counter Read Task": CounterRead,
-            # "NI Digital Read Task": DigitalRead,
-            # "NI Digital Write Task": DigitalWrite,
-            # "LabJack Read Task": LabJackRead,
-            # "LabJack Write Task": LabJackWrite,
-            # "OPC UA Read Task": OPCUARead,
-            # "OPC UA Write Task": OPCUAWrite,
+            "NI analog read task": AnalogRead,
+            "NI analog write task": AnalogWrite,
+            "NI counter read task": CounterRead,
+            # "NI digital read task": DigitalRead,
+            # "NI digital write task": DigitalWrite,
+            # "LabJack read task": LabJackRead,
+            # "LabJack write task": LabJackWrite,
+            # "OPC UA read task": OPCUARead,
+            # "OPC UA write task": OPCUAWrite,
         }
 
         if task_type not in task_class_map:

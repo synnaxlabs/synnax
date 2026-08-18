@@ -32,7 +32,7 @@ describe("Table Commands", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     await openCommandPalette();
-    await selectCommand("Create a table");
+    await selectCommand("Create table");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);
@@ -43,7 +43,7 @@ describe("Table Commands", () => {
 
 describe("Table Commands permissions", () => {
   it("should offer Create a table to an engineer", async () => {
-    const gate = findCommand(Table.COMMANDS, "Create a table").useVisible;
+    const gate = findCommand(Table.COMMANDS, "Create table").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Engineer"),
@@ -52,7 +52,7 @@ describe("Table Commands permissions", () => {
   });
 
   it("should withhold Create a table from a viewer", async () => {
-    const gate = findCommand(Table.COMMANDS, "Create a table").useVisible;
+    const gate = findCommand(Table.COMMANDS, "Create table").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(
       () => ({

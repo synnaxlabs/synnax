@@ -17,7 +17,6 @@ export interface CommandProps extends List.ItemProps<string> {}
 export interface Command extends FC<CommandProps> {
   key: string;
   commandName: string;
-  sortOrder?: number;
   useVisible?: () => boolean;
 }
 
@@ -58,7 +57,6 @@ export interface CreateParams {
   icon: Icon.ReactElement;
   useOnSelect: () => () => void;
   useVisible?: () => boolean;
-  sortOrder?: number;
 }
 
 export const create = ({
@@ -67,7 +65,6 @@ export const create = ({
   icon,
   useOnSelect,
   useVisible,
-  sortOrder,
 }: CreateParams): Command => {
   const Cmd: Command = (listProps) => {
     const handleSelect = useOnSelect();
@@ -76,7 +73,6 @@ export const create = ({
   };
   Cmd.key = key;
   Cmd.commandName = name;
-  Cmd.sortOrder = sortOrder;
   Cmd.useVisible = useVisible;
   return Cmd;
 };

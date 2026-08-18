@@ -209,7 +209,9 @@ describe("read", () => {
     cache.close();
   });
 
-  it("should not fetch when the live leading buffer covers the requested range", async () => {
+  // The leading buffer holds provisional leading alignments, so its span still
+  // fetches: the fetched form is what pairs with other channels' fetched data.
+  it("should fetch the range the live leading buffer covers", async () => {
     const cache = new Cache();
     const remoteReadF = vi.fn();
     const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
@@ -226,12 +228,17 @@ describe("read", () => {
       new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(20)),
       1,
     );
-    expect(remoteReadF).not.toHaveBeenCalled();
-    expect(res).toHaveLength(3);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    expect(remoteReadF).toHaveBeenCalledWith(
+      new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(20)),
+      [1],
+    );
+    // Both representations return: 3 buffer samples plus the 3 fetched ones.
+    expect(res.length).toEqual(6);
     cache.close();
   });
 
-  it("should fetch only the portion of the range before the leading buffer", async () => {
+  it("should fetch the full range across the leading buffer start", async () => {
     const cache = new Cache();
     const remoteReadF = vi.fn();
     const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
@@ -247,7 +254,7 @@ describe("read", () => {
     await reader.read(new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(20)), 1);
     expect(remoteReadF).toHaveBeenCalledTimes(1);
     expect(remoteReadF).toHaveBeenCalledWith(
-      new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(10)),
+      new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(20)),
       [1],
     );
     cache.close();

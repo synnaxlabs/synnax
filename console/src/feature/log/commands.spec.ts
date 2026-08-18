@@ -41,7 +41,7 @@ describe("Log Commands", () => {
       },
     });
     await openCommandPalette();
-    await selectCommand("Create a log");
+    await selectCommand("Create log");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(log.TYPE_ONTOLOGY_ID.type);
@@ -52,7 +52,7 @@ describe("Log Commands", () => {
 
 describe("Log Commands permissions", () => {
   it("should offer Create a log to an engineer", async () => {
-    const gate = findCommand(Log.COMMANDS, "Create a log").useVisible;
+    const gate = findCommand(Log.COMMANDS, "Create log").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Engineer"),
@@ -61,7 +61,7 @@ describe("Log Commands permissions", () => {
   });
 
   it("should withhold Create a log from a viewer", async () => {
-    const gate = findCommand(Log.COMMANDS, "Create a log").useVisible;
+    const gate = findCommand(Log.COMMANDS, "Create log").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(
       () => ({

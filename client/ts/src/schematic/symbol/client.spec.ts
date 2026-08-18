@@ -282,7 +282,9 @@ describe("Symbol Client", () => {
     // Zip entry names are stored uncompressed, so the raw archive names the bundle's
     // files without the spec needing a zip reader.
     const download = async (key: group.Key): Promise<string> => {
-      const stream = await client.schematics.symbols.exportGroup(key);
+      const stream = await client.schematics.symbols.exportGroup(key, {
+        encoding: "JSON",
+      });
       return new TextDecoder().decode(await new Response(stream).arrayBuffer());
     };
 

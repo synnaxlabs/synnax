@@ -186,6 +186,7 @@ export interface DiagramProps
 }
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
+const FIT_VIEW_DEBOUNCE = TimeSpan.milliseconds(50);
 
 export const create = ({
   node: nodeRenderer,
@@ -312,7 +313,7 @@ export const create = ({
     const { fitView } = useReactFlow();
     const debouncedFitView = useDebouncedCallback(
       (args: diagram.FitViewOptions) => void fitView(args),
-      TimeSpan.milliseconds(50),
+      FIT_VIEW_DEBOUNCE,
       [fitView],
     );
 

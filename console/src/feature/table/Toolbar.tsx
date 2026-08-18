@@ -181,9 +181,8 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   return (
     <Empty.Action
-      x
-      message={`${name} is not editable.${hasUpdatePermission ? " To make changes," : ""}`}
-      action={hasUpdatePermission ? "enable editing." : undefined}
+      message={`${name} is not editable`}
+      action={hasUpdatePermission ? "Enable editing" : undefined}
       onClick={() => dispatch(Session.Table.setEditable({ key, editable: true }))}
     />
   );

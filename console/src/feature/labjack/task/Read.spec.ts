@@ -44,7 +44,7 @@ const createConfig = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<LabJack.Task.ReadSchemas> = {
-  name: "LabJack Read Task",
+  name: "LabJack read task",
   type: LabJack.Task.READ_TYPE,
   config: LabJack.Task.READ_SCHEMAS.config.parse({}),
 };
@@ -58,7 +58,7 @@ describe("LabJack Read", () => {
   it("should prompt for a selection when the form carries no device", async () => {
     const draft = await createDraft(client, createConfig("", []));
     await renderRead({ client, taskKey: draft.key });
-    await waitFor(() => expect(screen.getByText("No device selected.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No device selected")).toBeTruthy());
   });
 
   it("should prompt to configure an unconfigured device", async () => {
@@ -102,7 +102,7 @@ describe("LabJack Read", () => {
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("AIN0"));
-    await waitFor(() => expect(screen.getByText("Max Voltage")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Max voltage")).toBeTruthy());
     expect(screen.getByText("Scale")).toBeTruthy();
     expect(screen.queryByText("Slope")).toBeNull();
   });
@@ -131,13 +131,13 @@ describe("LabJack Read", () => {
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("AIN0"));
-    await waitFor(() => expect(screen.getByText("Thermocouple Type")).toBeTruthy());
-    expect(screen.getByText("Temperature Units")).toBeTruthy();
-    expect(screen.getByText("Positive Channel")).toBeTruthy();
-    expect(screen.getByText("Negative Channel")).toBeTruthy();
-    expect(screen.getByText("CJC Source")).toBeTruthy();
-    expect(screen.getByText("CJC Slope")).toBeTruthy();
-    expect(screen.getByText("CJC Offset")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Thermocouple type")).toBeTruthy());
+    expect(screen.getByText("Temperature units")).toBeTruthy();
+    expect(screen.getByText("Positive channel")).toBeTruthy();
+    expect(screen.getByText("Negative channel")).toBeTruthy();
+    expect(screen.getByText("CJC source")).toBeTruthy();
+    expect(screen.getByText("CJC slope")).toBeTruthy();
+    expect(screen.getByText("CJC offset")).toBeTruthy();
   });
 
   it("should show no extra detail fields for a DI channel", async () => {
@@ -148,9 +148,9 @@ describe("LabJack Read", () => {
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("EIO0"));
-    await waitFor(() => expect(screen.getByText("Channel Type")).toBeTruthy());
-    expect(screen.queryByText("Max Voltage")).toBeNull();
-    expect(screen.queryByText("Thermocouple Type")).toBeNull();
+    await waitFor(() => expect(screen.getByText("Channel type")).toBeTruthy());
+    expect(screen.queryByText("Max voltage")).toBeNull();
+    expect(screen.queryByText("Thermocouple type")).toBeNull();
   });
 
   it("should swap the channel type and remap its port to the new port space", async () => {
@@ -161,10 +161,10 @@ describe("LabJack Read", () => {
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await findChannelListItem("AIN0"));
-    await waitFor(() => expect(screen.getByText("Max Voltage")).toBeTruthy());
-    fireEvent.click(await findDialogTriggerByText("Analog Input"));
-    fireEvent.click(await screen.findByText("Digital Input"));
-    await waitFor(() => expect(screen.queryByText("Max Voltage")).toBeNull());
+    await waitFor(() => expect(screen.getByText("Max voltage")).toBeTruthy());
+    fireEvent.click(await findDialogTriggerByText("Analog input"));
+    fireEvent.click(await screen.findByText("Digital input"));
+    await waitFor(() => expect(screen.queryByText("Max voltage")).toBeNull());
     await waitFor(() => expect(screen.getAllByText("FIO4").length).toBeGreaterThan(0));
   });
 

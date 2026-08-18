@@ -18,6 +18,7 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  FAST_RETRY,
   TEST_CLIENT_PARAMS,
 } from "@/testutil";
 
@@ -488,7 +489,11 @@ describe("cached reads", () => {
   describe("name resolution", () => {
     it("serves literal names from the record store without reaching the cluster", async () => {
       const proxy = await createSeverableProxy();
-      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      const local = createTestClient({
+        ...TEST_CLIENT_PARAMS,
+        port: proxy.port,
+        retry: FAST_RETRY,
+      });
       try {
         const ch = await createVirtual(local);
         await proxy.sever();
@@ -501,7 +506,11 @@ describe("cached reads", () => {
 
     it("fetches only the names the store cannot resolve", async () => {
       const proxy = await createSeverableProxy();
-      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      const local = createTestClient({
+        ...TEST_CLIENT_PARAMS,
+        port: proxy.port,
+        retry: FAST_RETRY,
+      });
       try {
         const known = await createVirtual(local);
         // Created by another client, so `local` has never seen it. Severing
@@ -526,7 +535,11 @@ describe("cached reads", () => {
 
     it("goes to the cluster for a name holding regex characters", async () => {
       const proxy = await createSeverableProxy();
-      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      const local = createTestClient({
+        ...TEST_CLIENT_PARAMS,
+        port: proxy.port,
+        retry: FAST_RETRY,
+      });
       try {
         const ch = await createVirtual(local);
         await proxy.sever();
@@ -540,7 +553,11 @@ describe("cached reads", () => {
 
     it("goes to the cluster when a name matches two stored channels", async () => {
       const proxy = await createSeverableProxy();
-      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      const local = createTestClient({
+        ...TEST_CLIENT_PARAMS,
+        port: proxy.port,
+        retry: FAST_RETRY,
+      });
       try {
         const ch = await createVirtual(local);
         const other = await createVirtual(local);
@@ -564,7 +581,11 @@ describe("cached reads", () => {
 
     it("goes to the cluster for a request narrowed beyond names", async () => {
       const proxy = await createSeverableProxy();
-      const local = createTestClient({ ...TEST_CLIENT_PARAMS, port: proxy.port });
+      const local = createTestClient({
+        ...TEST_CLIENT_PARAMS,
+        port: proxy.port,
+        retry: FAST_RETRY,
+      });
       try {
         const ch = await createVirtual(local);
         await proxy.sever();

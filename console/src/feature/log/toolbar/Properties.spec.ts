@@ -33,9 +33,9 @@ const renderProperties = async (overrides: Partial<log.New> = {}, as?: Client) =
 describe("log/toolbar/Properties", () => {
   it("renders the property controls", async () => {
     await renderProperties();
-    expect(await screen.findByText("Show Channel Names")).toBeDefined();
-    expect(screen.getByText("Receipt Timestamp Precision")).toBeDefined();
-    expect(screen.getByText("Show Receipt Timestamp")).toBeDefined();
+    expect(await screen.findByText("Show channel names")).toBeDefined();
+    expect(screen.getByText("Receipt timestamp precision")).toBeDefined();
+    expect(screen.getByText("Show receipt timestamp")).toBeDefined();
   });
 
   it("reflects showChannelNames from the server", async () => {
@@ -81,7 +81,7 @@ describe("log/toolbar/Properties permissions", () => {
       {},
       await roles.get("Viewer"),
     );
-    await screen.findByText("Show Channel Names");
+    await screen.findByText("Show channel names");
     await waitFor(() => expect(showChannelNames().disabled).toBe(true));
     expect(showReceiptTimestamp().disabled).toBe(true);
   });

@@ -9,3 +9,4 @@
 
 export * from "@/platform/framer/access";
 export * from "@/platform/framer/useDeleteDataModal";
+export * from "@/platform/framer/useDownloadCSVModal";

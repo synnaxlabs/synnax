@@ -17,7 +17,7 @@ import {
 
 import { Flux } from "@/flux";
 
-const PERMISSION_PLURAL_RESOURCE_NAME = "Permissions";
+const PERMISSION_PLURAL_RESOURCE_NAME = "permissions";
 
 export type PermissionsQuery = {
   subject?: ontology.ID;

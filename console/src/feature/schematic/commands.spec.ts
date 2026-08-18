@@ -44,7 +44,7 @@ describe("Schematic Commands", () => {
       },
     });
     await openCommandPalette();
-    await selectCommand("Create a schematic");
+    await selectCommand("Create schematic");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource")
       throw new Error("focused tab is not a schematic resource");
@@ -55,7 +55,7 @@ describe("Schematic Commands", () => {
 
 describe("Schematic Commands permissions", () => {
   it("should offer Create a schematic to an engineer", async () => {
-    const gate = findCommand(Schematic.COMMANDS, "Create a schematic").useVisible;
+    const gate = findCommand(Schematic.COMMANDS, "Create schematic").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Engineer"),
@@ -64,7 +64,7 @@ describe("Schematic Commands permissions", () => {
   });
 
   it("should withhold Create a schematic from a viewer", async () => {
-    const gate = findCommand(Schematic.COMMANDS, "Create a schematic").useVisible;
+    const gate = findCommand(Schematic.COMMANDS, "Create schematic").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(
       () => ({

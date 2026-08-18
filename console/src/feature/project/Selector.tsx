@@ -180,7 +180,7 @@ export const Selector = (): ReactElement | null => {
             footer={
               hasCreatePermission && (
                 <Button.CreateListItem size="small" onClick={handleCreate}>
-                  New Project
+                  New project
                 </Button.CreateListItem>
               )
             }

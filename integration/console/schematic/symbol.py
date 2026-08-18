@@ -69,7 +69,7 @@ class Symbol(ABC):
 
         Args:
             label: Display label for the symbol
-            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three Way")
+            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
             rotatable: Whether the symbol can be rotated (default: False)
         """
         if label.strip() == "":

@@ -9,7 +9,7 @@
 
 import "@/feature/auth/ConnectionGuard.css";
 
-import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { type connection } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -20,7 +20,6 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -32,6 +31,7 @@ import {
 import { Login } from "@/feature/auth/Login";
 import { Shell } from "@/feature/shell";
 import { Cluster } from "@/platform/cluster";
+import { Connection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
@@ -47,10 +47,10 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   const settled = Session.useSettled();
   if (client == null) return children;
   if (status.variant === "error" && status.details.reason === "auth") return <Login />;
-  if (!settled) return <Splash client={client} status={status} />;
+  if (!settled) return <Splash status={status} />;
   return (
     <Errors.SuspenseBoundary
-      loading={<Splash client={client} status={status} />}
+      loading={<Splash status={status} />}
       FallbackComponent={PermissionsFallback}
     >
       <AwaitPermissions>{children}</AwaitPermissions>
@@ -84,29 +84,13 @@ const PermissionsFallback = (props: Errors.FallbackProps): ReactElement => {
   );
 };
 
-// A check against a dead local port fails in milliseconds, too fast to see.
-const CHECK_HOLD = TimeSpan.milliseconds(1250);
-
-const useHeldChecking = (checking: boolean): boolean => {
-  const [held, setHeld] = useState(checking);
-  useEffect(() => {
-    if (checking) {
-      setHeld(true);
-      return;
-    }
-    const timeout = setTimeout(() => setHeld(false), CHECK_HOLD.milliseconds);
-    return () => clearTimeout(timeout);
-  }, [checking]);
-  return held;
-};
-
 interface CountdownCoreProps {
   retry: NonNullable<connection.StatusDetails["retry"]>;
   checking: boolean;
 }
 
 const CountdownCore = ({ retry, checking }: CountdownCoreProps): ReactElement => {
-  const remaining = PlatformShell.useCountdown(retry.nextAt);
+  const remaining = Connection.useCountdown(retry.nextAt);
   return (
     <>
       <Text.Text level="h3" color={11} className={CSS.BE("connection", "countdown")}>
@@ -121,11 +105,10 @@ const CountdownCore = ({ retry, checking }: CountdownCoreProps): ReactElement =>
 };
 
 interface SplashProps {
-  client: Client;
   status: connection.Status;
 }
 
-const Splash = ({ client, status }: SplashProps): ReactElement => {
+const Splash = ({ status }: SplashProps): ReactElement => {
   const { variant, details } = status;
   const activeKey = Session.Cluster.useSelectSelectedKey();
   const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
@@ -139,7 +122,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
     const timeout = setTimeout(() => setRevealed(true), 300);
     return () => clearTimeout(timeout);
   }, []);
-  const checking = useHeldChecking(details.checking);
+  const checking = Connection.useHeldChecking(details.checking);
   const core =
     troubled && details.retry != null ? (
       <CountdownCore retry={details.retry} checking={checking} />
@@ -156,7 +139,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
       >
         <Status.Orbital core={<PlatformShell.Mark>{core}</PlatformShell.Mark>} />
         {troubled ? (
-          <Trouble client={client} status={status} checking={checking} />
+          <Trouble />
         ) : (
           <Status.Summary
             variant="loading"
@@ -168,58 +151,15 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
   );
 };
 
-interface TroubleProps {
-  client: Client;
-  status: connection.Status;
-  checking: boolean;
-}
-
-const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
+const Trouble = (): ReactElement => {
   const activeKey = Session.Cluster.useSelectSelectedKey();
-  const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
   const logout = Session.useLogout();
   const openConnect = Cluster.useConnectModal();
-  const { variant } = status;
   return (
     <Flex.Box y gap="large" full="x">
-      <Flex.Box
-        x
-        align="center"
-        justify="center"
-        gap="medium"
-        className={CSS.BE("connection", "target")}
-      >
-        <Status.Indicator variant={variant} />
-        <Text.Text color={10} weight={500} overflow="ellipsis">
-          {cluster?.name ?? "Cluster"}
-        </Text.Text>
-        {cluster != null && (
-          <Text.Text color={9} overflow="ellipsis">
-            {cluster.host}:{cluster.port}
-          </Text.Text>
-        )}
-        <Text.Text status={variant} className={CSS.BE("connection", "status")}>
-          <span>{checking ? "Retrying" : PlatformShell.STATUS_LABELS[variant]}</span>
-          <span className={CSS.M("ghost")} aria-hidden>
-            Retrying
-          </span>
-          <span className={CSS.M("ghost")} aria-hidden>
-            {PlatformShell.STATUS_LABELS[variant]}
-          </span>
-        </Text.Text>
-      </Flex.Box>
+      <Connection.Target />
       <Flex.Box y gap="small" full="x">
-        <Button.Button
-          variant="filled"
-          size="large"
-          full="x"
-          justify="center"
-          disabled={checking}
-          onClick={() => client.connection.retryNow()}
-        >
-          <Icon.Refresh />
-          Retry now
-        </Button.Button>
+        <Connection.Retry variant="filled" size="large" full="x" justify="center" />
         <Flex.Box x gap="small" full="x" className={CSS.BE("connection", "actions")}>
           {activeKey != null && (
             <Button.Button

@@ -38,7 +38,7 @@ describe("Arc Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
-    const item = await screen.findByText("Open the Arc Explorer");
+    const item = await screen.findByText("Open Arc explorer");
     await act(async () => {
       fireEvent.click(item);
     });
@@ -58,11 +58,11 @@ describe("Arc Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
-    const item = await screen.findByText("Create an Arc automation");
+    const item = await screen.findByText("Create Arc automation");
     await act(async () => {
       fireEvent.click(item);
     });
-    const inputs = await screen.findAllByPlaceholderText("Automation Name");
+    const inputs = await screen.findAllByPlaceholderText("Name");
     const input = inputs[inputs.length - 1];
     const name = uniqueName("arc");
     fireEvent.change(input, { target: { value: name } });
@@ -82,7 +82,7 @@ describe("Arc Commands", () => {
 
 describe("Arc Commands permissions", () => {
   it("should offer Create an Arc automation to an engineer", async () => {
-    const gate = findCommand(Arc.COMMANDS, "Create an Arc automation").useVisible;
+    const gate = findCommand(Arc.COMMANDS, "Create Arc automation").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Engineer"),
@@ -91,9 +91,9 @@ describe("Arc Commands permissions", () => {
   });
 
   it("should withhold Create an Arc automation from a viewer", async () => {
-    const gate = findCommand(Arc.COMMANDS, "Create an Arc automation").useVisible;
+    const gate = findCommand(Arc.COMMANDS, "Create Arc automation").useVisible;
     assertDefined(gate);
-    const read = findCommand(Arc.COMMANDS, "Open the Arc Explorer").useVisible;
+    const read = findCommand(Arc.COMMANDS, "Open Arc explorer").useVisible;
     assertDefined(read);
     const { result } = await renderHookWithConsole(
       () => ({ visible: gate(), readable: read() }),
@@ -104,7 +104,7 @@ describe("Arc Commands permissions", () => {
   });
 
   it("should still offer Open the Arc Explorer to a viewer", async () => {
-    const gate = findCommand(Arc.COMMANDS, "Open the Arc Explorer").useVisible;
+    const gate = findCommand(Arc.COMMANDS, "Open Arc explorer").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Viewer"),

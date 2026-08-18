@@ -59,8 +59,8 @@ describe("layouts.List", () => {
       <Task.Views.List<Channel> createChannel={createChannel} listItem={listItem} />,
       { values: { config: { channels: [] } } },
     );
-    await waitFor(() => expect(screen.getByText("No channels in task.")).toBeTruthy());
-    fireEvent.click(screen.getByText("Add a channel"));
+    await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
+    fireEvent.click(screen.getByText("Add channel"));
     await waitFor(() =>
       expect(form.current?.get("config.channels").value).toHaveLength(1),
     );
@@ -73,7 +73,7 @@ describe("layouts.List", () => {
     );
     fireEvent.click(getIconButton(container, "add"));
     expect(form.current?.get("config.channels").value).toHaveLength(0);
-    expect(screen.getByText("No channels in task.")).toBeTruthy();
+    expect(screen.getByText("No channels in task")).toBeTruthy();
   });
 
   it("should hide the add button when the task is a snapshot", async () => {

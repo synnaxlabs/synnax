@@ -31,7 +31,7 @@ describe("Import Commands", () => {
     });
     const picker = interceptFilePicker();
     await openCommandPalette();
-    const item = await screen.findByText("Import component(s)");
+    const item = await screen.findByText("Import components");
     // The picker interceptor swallows programmatic clicks, including the select
     // frame's synthetic click, so fire the detail-0 click that invokes onSelect
     // directly.
@@ -53,7 +53,7 @@ describe("Import Commands", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     await openCommandPalette();
-    expect(await screen.findByText("Import component(s)")).toBeTruthy();
+    expect(await screen.findByText("Import components")).toBeTruthy();
   });
 
   it("should hide the import command from a subject who cannot write the project", async () => {
@@ -65,6 +65,6 @@ describe("Import Commands", () => {
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
     await openCommandPalette();
-    await waitFor(() => expect(screen.queryByText("Import component(s)")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Import components")).toBeNull());
   });
 });

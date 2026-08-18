@@ -106,7 +106,7 @@ const Internal = (): ReactElement => {
             </Tabs.Content>
           </>
         ) : (
-          <Empty.Action x message={`${name} is not editable.`} />
+          <Empty.Action message={`${name} is not editable`} />
         )}
       </Tabs.Frame>
     </Base.Content>

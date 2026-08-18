@@ -16,7 +16,10 @@ import { ontology } from "@/ontology";
  * The serialized wire formats a resource can be imported from or exported to. Today
  * only "JSON" is supported.
  */
-export type Encoding = "JSON";
+export const encodingZ = z.enum(["JSON"]);
+
+/** The serialized wire format of an imported or exported resource. */
+export type Encoding = z.infer<typeof encodingZ>;
 
 /**
  * Options shared by import and export. Carries the wire format of the resource and is
@@ -26,6 +29,9 @@ export interface Options {
   /** The serialized format of the resource. */
   encoding: Encoding;
 }
+
+/** The standard options for a JSON import or export. */
+export const JSON_OPTIONS: Options = { encoding: "JSON" };
 
 /** The wire shape of the per-import request params. Both fields are required. */
 const importParamsZ = z.object({
@@ -70,7 +76,7 @@ export interface ImportOptions extends Options {
  * - Browser: `import(fileInput.files[0], opts)` and pipe the export into a
  *   showSaveFilePicker writable (or buffer it with `new Response(stream).blob()`).
  * - Tauri/Console: read the picked file into a Blob to import, and hand the export
- *   stream to the Console's downloadStream helper.
+ *   stream to the Console's download hook.
  */
 export interface ClientConfig {
   file: FileTransport;

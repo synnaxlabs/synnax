@@ -33,8 +33,8 @@ describe("arc/Selectable", () => {
       </>,
       { wrapper },
     );
-    fireEvent.click(await screen.findByText("Arc Automation"));
-    expect(await screen.findByPlaceholderText("Automation Name")).toBeTruthy();
+    fireEvent.click(await screen.findByText("Arc automation"));
+    expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
   });
 });
 
@@ -53,7 +53,7 @@ describe("arc/Selectable permissions", () => {
       client: await roles.get("Engineer"),
     });
     render(<Selectable />, { wrapper });
-    expect(await screen.findByText("Arc Automation")).toBeTruthy();
+    expect(await screen.findByText("Arc automation")).toBeTruthy();
   });
 
   it("should withhold the tile from a viewer", async () => {

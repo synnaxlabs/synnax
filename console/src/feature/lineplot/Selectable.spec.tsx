@@ -30,12 +30,12 @@ describe("lineplot/Selectable", () => {
     const Selectable = LinePlot.SELECTABLES[0];
     expect(Selectable.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
     render(<Selectable />, { wrapper });
-    fireEvent.click(await screen.findByText("Line Plot"));
+    fireEvent.click(await screen.findByText("Line plot"));
     const tab = await resolveFocusedTab(store, client, (t) => t.variant === "resource");
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
     const created = await client.lineplots.retrieve(tab.resource.key);
-    expect(created.name).toBe("Line Plot");
+    expect(created.name).toBe("Line plot");
   });
 });
 
@@ -54,7 +54,7 @@ describe("lineplot/Selectable permissions", () => {
       client: await roles.get("Engineer"),
     });
     render(<Selectable />, { wrapper });
-    expect(await screen.findByText("Line Plot")).toBeTruthy();
+    expect(await screen.findByText("Line plot")).toBeTruthy();
   });
 
   it("should withhold the tile from a viewer", async () => {

@@ -38,7 +38,7 @@ describe("useCalculatedModal", () => {
       await openModal();
       await waitFor(() => expect(screen.getByText("Derivative")).toBeTruthy());
       expect(screen.queryByText("Window")).toBeNull();
-      expect(screen.queryByText("Reset Channel")).toBeNull();
+      expect(screen.queryByText("Reset channel")).toBeNull();
     });
 
     it("should hide the window and reset-channel fields for the derivative operation", async () => {
@@ -48,7 +48,7 @@ describe("useCalculatedModal", () => {
       await waitFor(() => expect(screen.getByText("Window")).toBeTruthy());
       fireEvent.click(screen.getByText("Derivative"));
       await waitFor(() => expect(screen.queryByText("Window")).toBeNull());
-      expect(screen.queryByText("Reset Channel")).toBeNull();
+      expect(screen.queryByText("Reset channel")).toBeNull();
     });
 
     it("should show the window and reset-channel fields when switching to a windowed operation", async () => {
@@ -56,7 +56,7 @@ describe("useCalculatedModal", () => {
       await waitFor(() => expect(screen.getByText("Average")).toBeTruthy());
       fireEvent.click(screen.getByText("Average"));
       await waitFor(() => expect(screen.getByText("Window")).toBeTruthy());
-      expect(screen.getByText("Reset Channel")).toBeTruthy();
+      expect(screen.getByText("Reset channel")).toBeTruthy();
     });
   });
 

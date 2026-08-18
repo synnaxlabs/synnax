@@ -350,7 +350,7 @@ class Schematic(ConsolePage):
         An edge must be selected first (see select_edge).
 
         Args:
-            variant: The display name of the edge variant (e.g. "Electric Signal").
+            variant: The display name of the edge variant (e.g. "Electric signal").
         """
         self.layout.show_visualization_toolbar()
         self.page.get_by_text("Properties", exact=True).first.click()
@@ -423,8 +423,7 @@ class Schematic(ConsolePage):
 
         if control_button.count() > 0:
             class_attr = control_button.get_attribute("class") or ""
-            has_filled = "pluto-btn--filled" in class_attr
-            return has_filled
+            return "pluto--selected" in class_attr
 
         return False
 
@@ -432,14 +431,15 @@ class Schematic(ConsolePage):
         """Acquire control of the schematic if not already acquired."""
         if not self.get_control_status():
             control_button = (
-                self.page.locator(".console-controls button.pluto-btn--outlined")
+                self.page.locator(".console-controls button:not(.pluto--selected)")
                 .filter(has=self.page.locator("svg.pluto-icon--circle"))
                 .first
             )
             if control_button.count() > 0:
                 control_button.click()
                 self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--filled", timeout=2000
+                    ".console-controls button.pluto--selected:has(svg.pluto-icon--circle)",
+                    timeout=2000,
                 )
             sy.sleep(0.1)  # Wait for Core update
 
@@ -447,15 +447,15 @@ class Schematic(ConsolePage):
         """Release control of the schematic if currently acquired."""
         if self.get_control_status():
             control_button = (
-                self.page.locator(".console-controls button.pluto-btn--filled")
+                self.page.locator(".console-controls button.pluto--selected")
                 .filter(has=self.page.locator("svg.pluto-icon--circle"))
                 .first
             )
             if control_button.count() > 0:
                 control_button.click()
-                self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--outlined", timeout=5000
-                )
+                self.page.locator(
+                    ".console-controls button.pluto--selected:has(svg.pluto-icon--circle)"
+                ).wait_for(state="hidden", timeout=5000)
             sy.sleep(0.1)  # Wait for Core update
 
     def fit_view(self) -> None:
@@ -485,8 +485,7 @@ class Schematic(ConsolePage):
 
         if edit_button.count() > 0:
             class_attr = edit_button.get_attribute("class") or ""
-            has_filled = "pluto-btn--filled" in class_attr
-            return has_filled
+            return "pluto--selected" in class_attr
 
         return False
 
@@ -494,14 +493,17 @@ class Schematic(ConsolePage):
         """Enable edit for the schematic if not already enabled."""
         if not self.get_edit_status():
             edit_button = (
-                self.page.locator(".console-controls button.pluto-btn--outlined")
+                self.page.locator(".console-controls button:not(.pluto--selected)")
                 .filter(has=self.page.locator("svg.pluto-icon--edit"))
                 .first
             )
             if edit_button.count() > 0:
                 edit_button.click()
                 self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--filled", timeout=2000
+                    ".console-controls button.pluto--selected:has(svg.pluto-icon--edit),"
+                    " .console-controls button.pluto--selected"
+                    ":has(svg.pluto-icon--edit-off)",
+                    timeout=2000,
                 )
         sy.sleep(0.1)
 
@@ -509,15 +511,16 @@ class Schematic(ConsolePage):
         """Disable edit for the schematic if currently enabled."""
         if self.get_edit_status():
             edit_button = (
-                self.page.locator(".console-controls button.pluto-btn--filled")
+                self.page.locator(".console-controls button.pluto--selected")
                 .filter(has=self.page.locator("svg.pluto-icon--edit-off"))
                 .first
             )
             if edit_button.count() > 0:
                 edit_button.click()
-                self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--outlined", timeout=2000
-                )
+                self.page.locator(
+                    ".console-controls button.pluto--selected"
+                    ":has(svg.pluto-icon--edit-off)"
+                ).wait_for(state="hidden", timeout=2000)
         sy.sleep(0.1)
 
     def get_properties(self) -> SchematicProperties:

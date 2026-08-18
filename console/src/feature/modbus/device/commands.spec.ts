@@ -33,7 +33,7 @@ describe("Modbus.Device Commands permissions", () => {
   it("should offer Connect a Modbus server to an engineer", async () => {
     const gate = findCommand(
       Modbus.Device.COMMANDS,
-      "Connect a Modbus server",
+      "Connect Modbus server",
     ).useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
@@ -45,7 +45,7 @@ describe("Modbus.Device Commands permissions", () => {
   it("should withhold Connect a Modbus server from a viewer", async () => {
     const gate = findCommand(
       Modbus.Device.COMMANDS,
-      "Connect a Modbus server",
+      "Connect Modbus server",
     ).useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(

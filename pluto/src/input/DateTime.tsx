@@ -137,7 +137,7 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
         <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.Start gap="small">
             <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
-            <Text.Text level="small">To Finish</Text.Text>
+            <Text.Text level="small">to finish</Text.Text>
           </Nav.Bar.Start>
           <Nav.Bar.End>
             <Button.Button onClick={close} variant="outlined">
@@ -234,7 +234,7 @@ const AISelector = ({
         value={value}
         onChange={handleChange}
         autoFocus
-        placeholder="AI Suggestion"
+        placeholder="AI suggestion"
         full="x"
       />
       <Select.Frame data={data} allowNone onChange={handleSelect} getItem={getItem}>

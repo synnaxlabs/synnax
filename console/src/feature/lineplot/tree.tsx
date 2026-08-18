@@ -21,7 +21,7 @@ import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
-  type: "Line Plot",
+  type: "Line plot",
   icon: "LinePlot",
   query: Base.useDelete,
   convertKey: String,
@@ -44,7 +44,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = Export.use();
+  const handleExport = Export.useResource();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const hasDeletePermission = Access.useDeleteGranted(ids);

@@ -26,7 +26,7 @@ import {
   Synnax as PSynnax,
   Task as PTask,
 } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
@@ -108,6 +108,9 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 // The deploy pipeline saves once at the end; notifying would fire autosave first.
 const SKIP_AUTOSAVE: PForm.SetOptions = { notifyOnChange: false };
 
+// Numeric fields have drag handles that emit a change per pixel.
+const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
+
 const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
   issue.code === "custom" && issue.params != null && "variant" in issue.params
     ? (issue.params.variant as status.Variant)
@@ -131,6 +134,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const { form, saveAsync } = useForm({
       query: { key: taskKey },
       autoSave: true,
+      autoSaveDebounce: AUTO_SAVE_DEBOUNCE,
     });
 
     // Deploy pipeline: resolve channels and rack through onConfigure, persist

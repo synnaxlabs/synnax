@@ -55,7 +55,7 @@ class StatusesClient:
             name: The name for the new status.
             labels: Optional list of label names to attach.
         """
-        self.layout.command_palette("Create a status")
+        self.layout.command_palette("Create status")
         modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
@@ -97,8 +97,8 @@ class StatusesClient:
     def open_explorer(self) -> None:
         """Open the Status Explorer via the command palette."""
         self.layout.hide_visualization_toolbar()
-        self.layout.command_palette("Open the Status Explorer")
-        self.layout.page.get_by_text("All Statuses").wait_for(
+        self.layout.command_palette("Open status explorer")
+        self.layout.page.get_by_text("All statuses").wait_for(
             state="visible", timeout=5000
         )
         self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).first.wait_for(

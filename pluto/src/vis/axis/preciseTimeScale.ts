@@ -44,6 +44,8 @@ export const TIME_SCALE_STEPS: TimeSpan[] = [
   TimeSpan.SECOND, // 1s
 ];
 
+const MICROSECOND_FORMAT_THRESHOLD = TimeSpan.microseconds(50);
+
 /**
  * Configuration properties for creating a PreciseTimeScale.
  */
@@ -180,7 +182,7 @@ export class PreciseTimeScale {
    * @returns Formatted string representation of the timestamp
    */
   formatTick(value: TimeStamp): string {
-    if (this._span.lessThan(TimeSpan.microseconds(50))) {
+    if (this._span.lessThan(MICROSECOND_FORMAT_THRESHOLD)) {
       const remainder = value.remainder(TimeSpan.MILLISECOND);
       return `${remainder.microseconds.toString()}µs`;
     }

@@ -16,7 +16,7 @@ export { configZ } from "@/arc/graph/node/stable/config";
 
 export const SPEC: Spec<"stable_for", Config> = {
   key: "stable_for",
-  name: "Stable For",
+  name: "Stable for",
   zIndex: 100,
   Form,
   Symbol: StableFor,

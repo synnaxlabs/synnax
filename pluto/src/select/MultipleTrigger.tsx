@@ -100,7 +100,7 @@ export const MultipleTrigger = <
   haulType = "",
   createHaulItem,
   disabled,
-  placeholder = "Select...",
+  placeholder = "Select",
   variant = "outlined",
   preview,
   icon,

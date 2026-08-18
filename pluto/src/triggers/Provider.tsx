@@ -59,6 +59,7 @@ const ZERO_REF_STATE: RefState = {
 };
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
+const DOUBLE_PRESS_WINDOW = TimeSpan.milliseconds(300).valueOf();
 
 // Native text-editing shortcuts (select-all, copy, paste, cut) the browser owns inside
 // any text field. We drop them while a text-entry element is focused so app-level
@@ -140,7 +141,7 @@ export const Provider = ({
       // This is considered a double press.
       if (
         prev.prev.includes(key) &&
-        TimeStamp.since(prev.last).valueOf() < TimeSpan.milliseconds(300).valueOf()
+        TimeStamp.since(prev.last).valueOf() < DOUBLE_PRESS_WINDOW
       )
         next.push(key);
       const nextState: RefState = {

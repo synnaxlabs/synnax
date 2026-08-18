@@ -94,7 +94,7 @@ const getInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = ({
 }) => {
   const cfg = analogWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "NI Analog Write Task", type: ANALOG_WRITE_TYPE, config: cfg };
+  return { name: "NI analog write task", type: ANALOG_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
@@ -222,7 +222,7 @@ export const useCreateAnalogWrite = Task.createUseCreate({
 
 export const AnalogWriteSelectable = Selector.createSelectable({
   type: ANALOG_WRITE_TYPE,
-  title: "NI Analog Write Task",
+  title: "NI analog write task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateAnalogWrite,
 });

@@ -126,11 +126,11 @@ class RoleViewerPermissions(ConsoleCase):
 
     def creation_commands_are_hidden(self) -> None:
         for command in (
-            "Create a project",
-            "Create a line plot",
-            "Create a channel",
-            "Create a schematic",
-            "Define a range",
+            "Create project",
+            "Create line plot",
+            "Create channel",
+            "Create schematic",
+            "Create range",
         ):
             assert not self.console.access.command_available(command), (
                 f"{command!r} is offered to a Viewer, who cannot create one"
@@ -162,7 +162,7 @@ class RoleViewerPermissions(ConsoleCase):
             "line plot offers its editing tabs to a Viewer, who cannot write it"
         )
         self.console.layout.select_tab(TABLE_NAME)
-        self.console.layout.get_by_text(f"{TABLE_NAME} is not editable.").wait_for(
+        self.console.layout.get_by_text(f"{TABLE_NAME} is not editable").wait_for(
             state="visible", timeout=10000
         )
         self.console.layout.hide_visualization_toolbar()

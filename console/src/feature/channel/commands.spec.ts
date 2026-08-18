@@ -20,7 +20,7 @@ import { assertDefined, renderHookWithConsole } from "@/testutil";
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-const NAMES = ["Create a channel", "Create a calculated channel"];
+const NAMES = ["Create channel", "Create calculated channel"];
 
 describe("Channel Commands", () => {
   it.each(NAMES)("should offer %s to an engineer", async (name) => {

@@ -52,7 +52,7 @@ export interface Client {
 /** Reported by remote sources created while the cluster is disconnected. */
 export const DISCONNECTED_STATUS: cstatus.Crude = {
   variant: "warning",
-  message: "cluster disconnected",
+  message: "Core disconnected",
 };
 
 export const streamChannelValuePropsZ = z.object({
@@ -149,7 +149,7 @@ export class StreamChannelValue
       if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel value"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel value"));
     }
   }
 }
@@ -248,7 +248,7 @@ export class ChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to read channel data"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to read channel data"));
     }
   }
 }
@@ -351,7 +351,7 @@ export class StreamChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel data"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel data"));
     }
   }
 
@@ -469,7 +469,7 @@ export class StreamChannelStringValue
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(
-        cstatus.fromException(e, "failed to stream channel string value"),
+        cstatus.fromException(e, "Failed to stream channel string value"),
       );
     }
   }

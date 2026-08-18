@@ -52,6 +52,9 @@ export interface NumericProps
  * @default x: 1, y: 10
  * @param props.dragDirection - The direction of the drag handle.
  * @default undefined
+ * @param props.onlyChangeOnBlur - If true, a drag holds its value locally and calls
+ * `onChange` once, on release. Typed input always waits for blur or 'Enter'.
+ * @default false
  */
 export const Numeric = ({
   ref,
@@ -62,6 +65,7 @@ export const Numeric = ({
   dragScale,
   selectOnFocus = true,
   bounds: propsBounds = bounds.INFINITE,
+  onlyChangeOnBlur = false,
   resetValue,
   variant = "outlined",
   preview,
@@ -139,10 +143,18 @@ export const Numeric = ({
 
   const onDragChange = useCallback(
     (value: number) => {
+      const next = bounds.clamp(propsBounds, Math.round(value));
+      // A gated input parks the drag in the internal value, so the text tracks the
+      // pointer and the release commits through the same blur path typing uses.
+      if (onlyChangeOnBlur) {
+        setIsValueValid(false);
+        setInternalValue(next.toString());
+        return;
+      }
       setIsValueValid(true);
-      onChange?.(bounds.clamp(propsBounds, Math.round(value)));
+      onChange?.(next);
     },
-    [onChange, setIsValueValid],
+    [onChange, onlyChangeOnBlur, setInternalValue, setIsValueValid],
   );
 
   if (dragScale == null && bounds.isFinite(propsBounds))

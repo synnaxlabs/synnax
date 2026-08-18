@@ -343,17 +343,33 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class ReadTaskSource final : public common::Source {
     /// @brief the configuration for the task.
     const ReadTaskConfig config;
-    /// @brief the device to read from.
+    /// @brief creates the device connection on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the device to read from. Populated on start.
     std::shared_ptr<device::Device> dev;
     /// @brief the sample clock to regulate the read rate.
     common::SoftwareTimedSampleClock sample_clock;
 
 public:
     explicit ReadTaskSource(
-        const std::shared_ptr<device::Device> &dev,
+        const std::shared_ptr<device::Manager> &devs,
         ReadTaskConfig cfg
     ):
-        config(std::move(cfg)), dev(dev), sample_clock(this->config.sample_rate) {}
+        config(std::move(cfg)), devs(devs), sample_clock(this->config.sample_rate) {}
+
+    /// @brief connects on every start so a server restart between runs cannot
+    /// leave the task reading from a dead socket.
+    x::errors::Error start() override {
+        auto [d, err] = this->devs->acquire(this->config.conn);
+        if (err) return err;
+        this->dev = std::move(d);
+        return x::errors::NIL;
+    }
+
+    x::errors::Error stop() override {
+        this->dev.reset();
+        return x::errors::NIL;
+    }
 
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {

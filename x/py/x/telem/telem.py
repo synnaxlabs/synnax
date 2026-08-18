@@ -936,7 +936,7 @@ class DataType(str):
                 return result
 
         if isinstance(value, (bool, np.bool_)):
-            return DataType.BOOL
+            return DataType.BOOLEAN
 
         if isinstance(value, float):
             return DataType.FLOAT64
@@ -955,7 +955,7 @@ class DataType(str):
                 return DataType.TIMESTAMP
 
             if isinstance(value[0], (bool, np.bool_)):
-                return DataType.BOOL
+                return DataType.BOOLEAN
 
             if isinstance(value[0], float):
                 return DataType.FLOAT64
@@ -1054,7 +1054,7 @@ class DataType(str):
     STRING: DataType
     JSON: DataType
     BYTES: DataType
-    BOOL: DataType
+    BOOLEAN: DataType
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, DTypeLike]
     _FROM_NUMPY: dict[DTypeLike, DataType]
@@ -1077,7 +1077,7 @@ DataType.UINT8 = DataType("uint8")
 DataType.JSON = DataType("json")
 DataType.STRING = DataType("string")
 DataType.BYTES = DataType("bytes")
-DataType.BOOL = DataType("bool")
+DataType.BOOLEAN = DataType("boolean")
 DataType.ALL = (
     DataType.UUID,
     DataType.FLOAT64,
@@ -1093,7 +1093,7 @@ DataType.ALL = (
     DataType.STRING,
     DataType.JSON,
     DataType.BYTES,
-    DataType.BOOL,
+    DataType.BOOLEAN,
 )
 
 CrudeTimeStamp: TypeAlias = (
@@ -1121,7 +1121,7 @@ DataType._TO_NUMPY = {
     DataType.UINT32: np.dtype(np.uint32),
     DataType.UINT16: np.dtype(np.uint16),
     DataType.UINT8: np.dtype(np.uint8),
-    DataType.BOOL: np.dtype(np.bool_),
+    DataType.BOOLEAN: np.dtype(np.bool_),
 }
 DataType._FROM_NUMPY = {
     np.dtype(np.float64): DataType.FLOAT64,
@@ -1134,7 +1134,7 @@ DataType._FROM_NUMPY = {
     np.dtype(np.uint32): DataType.UINT32,
     np.dtype(np.uint16): DataType.UINT16,
     np.dtype(np.uint8): DataType.UINT8,
-    np.dtype(np.bool_): DataType.BOOL,
+    np.dtype(np.bool_): DataType.BOOLEAN,
     np.dtype(np.datetime64): DataType.TIMESTAMP,
     np.dtype(np.str_): DataType.STRING,
 }
@@ -1155,7 +1155,7 @@ DataType._DENSITIES = {
     DataType.STRING: Density.UNKNOWN,
     DataType.JSON: Density.UNKNOWN,
     DataType.BYTES: Density.UNKNOWN,
-    DataType.BOOL: Density.BIT8,
+    DataType.BOOLEAN: Density.BIT8,
 }
 
 

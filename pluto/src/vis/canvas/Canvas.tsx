@@ -51,13 +51,15 @@ const ZERO_CANVASES: Canvases = {
   bootstrapped: false,
 };
 
+const DEFAULT_RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
+
 export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
   resizeDebounce?: CrudeTimeSpan;
 }
 
 export const Canvas = ({
   children,
-  resizeDebounce: debounce = TimeSpan.milliseconds(100),
+  resizeDebounce: debounce = DEFAULT_RESIZE_DEBOUNCE,
   className,
   ...rest
 }: CanvasProps): ReactElement => {

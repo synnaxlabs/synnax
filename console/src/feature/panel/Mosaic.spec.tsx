@@ -209,7 +209,7 @@ describe("Panel.Mosaic keep-alive", () => {
       </Haul.Provider>,
       { wrapper },
     );
-    await screen.findByText("No panels open.");
+    await screen.findByText("No panels open");
     startFileDrag();
     fireFileDrop(getBySelector(document, ".console-mosaic--empty"), [
       fakeFileEntry(createJSONFile("widget.json", { type: "log" })),
@@ -231,7 +231,7 @@ describe("Panel.Mosaic keep-alive", () => {
     act(() => {
       store.dispatch(Session.Panel.clearSelected({}));
     });
-    await waitFor(() => expect(screen.getByText("No panels open.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No panels open")).toBeTruthy());
     expect(unmounts).toHaveLength(0);
   });
 
@@ -476,19 +476,19 @@ describe("Panel.Mosaic empty state permissions", () => {
   const renderEmpty = async (as: Client) => {
     const { wrapper } = await setup(undefined, as);
     render(<Mosaic onCreateTab={createTab} />, { wrapper });
-    await screen.findByText("No panels open.");
+    await screen.findByText("No panels open");
   };
 
   it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should withhold the create action from a %s",
     async (role) => {
       await renderEmpty(await roles.get(role));
-      expect(screen.queryByText("Create a new panel")).toBeNull();
+      expect(screen.queryByText("Create panel")).toBeNull();
     },
   );
 
   it("should offer the create action to an engineer", async () => {
     await renderEmpty(await roles.get("Engineer"));
-    expect(await screen.findByText("Create a new panel")).toBeTruthy();
+    expect(await screen.findByText("Create panel")).toBeTruthy();
   });
 });

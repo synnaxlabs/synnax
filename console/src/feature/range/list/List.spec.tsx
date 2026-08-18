@@ -137,7 +137,7 @@ describe("range/list/List permissions", () => {
     fireEvent.change(input, { target: { value: rng.name } });
     await within(container).findByText(rng.name);
     fireEvent.change(input, { target: { value: "qqqqzzzz" } });
-    await within(container).findByText("No ranges found.", undefined, {
+    await within(container).findByText("No ranges found", undefined, {
       timeout: 5000,
     });
   };
@@ -172,14 +172,14 @@ describe("range/list/List permissions", () => {
   it("should withhold both create affordances from a viewer", async () => {
     const container = await renderList(await roles.get("Viewer"));
     await showEmptyState(container);
-    expect(within(container).queryByText("Create a range")).toBeNull();
+    expect(within(container).queryByText("Create range")).toBeNull();
     expect(queryIconButton(container, "add")).toBeNull();
   });
 
   it("should offer both create affordances to an operator", async () => {
     const container = await renderList(await roles.get("Operator"));
     await showEmptyState(container);
-    expect(await within(container).findByText("Create a range")).toBeTruthy();
+    expect(await within(container).findByText("Create range")).toBeTruthy();
     expect(queryIconButton(container, "add")).toBeTruthy();
   });
 });

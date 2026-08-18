@@ -62,7 +62,7 @@ export const Base = ({
   channels,
   emptyContent = (
     <Status.Summary center level="h3" variant="disabled" hideIcon>
-      Empty Log
+      No log entries
     </Status.Summary>
   ),
   color,

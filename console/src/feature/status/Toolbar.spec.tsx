@@ -75,7 +75,7 @@ describe("status toolbar", () => {
     });
     const { store } = await renderToolbar();
     store.dispatch(Session.Project.select(proj.key));
-    fireEvent.click(await screen.findByText("Open Status Explorer"));
+    fireEvent.click(await screen.findByText("Open status explorer"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "view") throw new Error("expected a view tab");
     expect(tab.type).toBe(Status.Explorer.TAB_TYPE);
@@ -118,14 +118,14 @@ describe("status toolbar permissions", () => {
 
   it("should withhold the create action from a viewer", async () => {
     const { container } = await renderToolbar([], await roles.get("Viewer"));
-    await screen.findByText("No favorited statuses.");
+    await screen.findByText("No favorited statuses");
     await waitFor(() => expect(queryIcon(container, "explore")).toBeTruthy());
     expect(queryIcon(container, "add")).toBeNull();
   });
 
   it("should offer the create action to an engineer", async () => {
     const { container } = await renderToolbar([], await roles.get("Engineer"));
-    await screen.findByText("No favorited statuses.");
+    await screen.findByText("No favorited statuses");
     await waitFor(() => expect(queryIcon(container, "add")).toBeTruthy());
   });
 });

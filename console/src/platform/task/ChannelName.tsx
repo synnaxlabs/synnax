@@ -117,12 +117,12 @@ const Message = ({ variant, message, description, children }: MessageProps) => (
 );
 
 const MISSING_DESCRIPTION =
-  "If it was deleted, a new channel will be created when the task is configured.";
+  "It may have been deleted. Configuring the task creates a new channel.";
 
 const describe = (error: Error): Pick<MessageProps, "message" | "description"> => {
   if (Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause))
     return {
-      message: "Channel not found. Was it deleted?",
+      message: "Channel not found",
       description: MISSING_DESCRIPTION,
     };
   return { message: "Failed to retrieve channel", description: error.message };

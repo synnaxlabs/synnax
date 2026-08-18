@@ -131,7 +131,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		BeforeEach(func(ctx SpecContext) {
 			indexCh = &channel.Channel{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
@@ -243,13 +243,13 @@ var _ = Describe("Streamer", Ordered, func() {
 			func(ctx SpecContext) {
 				idxA := &channel.Channel{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
 				Expect(channelWriter.Create(ctx, idxA)).To(Succeed())
 				idxB := &channel.Channel{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
 				Expect(channelWriter.Create(ctx, idxB)).To(Succeed())
@@ -382,7 +382,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			func(ctx SpecContext) {
 				indexCh := &channel.Channel{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
 				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())

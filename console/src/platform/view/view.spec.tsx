@@ -71,7 +71,7 @@ const renderHarness = async (as: Client = client): Promise<void> => {
 describe("View", () => {
   it("hides the search input until the view is made editable", async () => {
     await renderHarness();
-    await waitFor(() => expect(screen.getByText("All Channels")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("All channels")).toBeTruthy());
     expect(screen.queryByPlaceholderText("Search channels...")).toBeNull();
   });
 
@@ -115,7 +115,7 @@ describe("View", () => {
     // Core search fuzzy-matches per token: dictionary-ish words ("no", "channel")
     // hit real channels, so the term must be pure gibberish.
     fireEvent.change(input, { target: { value: uniqueName("zzqjxvwq") } });
-    await waitFor(() => expect(screen.getByText("No channels found.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No channels found")).toBeTruthy());
   });
 
   it("reveals the filter menu contents when the filter trigger is opened", async () => {
@@ -139,7 +139,7 @@ describe("View permissions", () => {
   it("should leave the view read-only for a subject who cannot update views", async () => {
     await renderHarness(await createSubject({}));
     await enableEditing();
-    await screen.findByText("All Channels");
+    await screen.findByText("All channels");
     expect(screen.queryByPlaceholderText("Search channels...")).toBeNull();
     expect(queryIconButton(getBySelector(document.body, ".console-controls"), "add"))
       .toBeNull();

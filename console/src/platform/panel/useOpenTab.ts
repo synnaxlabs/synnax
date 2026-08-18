@@ -135,7 +135,7 @@ export const useOpenTabs = (): OpenTabs => {
       // that would race the create and fail with "panel not found", while the local
       // store update keeps focus optimistic.
       createPanel({
-        name: "New Panel",
+        name: "New panel",
         root: { variant: "leaf", tabs: params.map((p) => panel.tabZ.parse({ ...p })) },
         parent: project.ontologyID(getSelectedProject()),
       });

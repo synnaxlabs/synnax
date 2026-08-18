@@ -30,7 +30,7 @@ describe("User Commands", () => {
       client,
     });
     await openCommandPalette();
-    await selectCommand("Register a user");
+    await selectCommand("Register user");
     await screen.findByRole("dialog");
     expect(findModalButton("Register")).toBeTruthy();
   });
@@ -38,7 +38,7 @@ describe("User Commands", () => {
 
 describe("User Commands permissions", () => {
   it("should offer Register a user to an owner", async () => {
-    const gate = findCommand(User.COMMANDS, "Register a user").useVisible;
+    const gate = findCommand(User.COMMANDS, "Register user").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Owner"),
@@ -47,7 +47,7 @@ describe("User Commands permissions", () => {
   });
 
   it("should withhold Register a user from a viewer", async () => {
-    const gate = findCommand(User.COMMANDS, "Register a user").useVisible;
+    const gate = findCommand(User.COMMANDS, "Register user").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(
       () => ({

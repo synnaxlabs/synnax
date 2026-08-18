@@ -62,7 +62,7 @@ class TaskClient:
 
     def _is_running(self, item: Locator) -> bool:
         """Check if a task item is currently running by its icon."""
-        return item.locator("button:has(.pluto-icon--pause)").is_visible()
+        return item.locator("button:has(.pluto-icon--stop)").is_visible()
 
     def wait_for_state(self, name: str, state: Literal["running", "stopped"]) -> None:
         """Wait for a task to reach the expected running state in the UI.
@@ -74,7 +74,7 @@ class TaskClient:
         self.show_toolbar()
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
-        icon_class = "pause" if state == "running" else "play"
+        icon_class = "stop" if state == "running" else "play"
         item.locator(f"button:has(.pluto-icon--{icon_class})").wait_for(
             state="visible", timeout=30000
         )
@@ -153,7 +153,6 @@ class TaskClient:
         item.wait_for(state="visible", timeout=5000)
         item.click()
         self.ctx_menu.open_on(item)
-        self.layout.page.evaluate("delete window.showSaveFilePicker")
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
         download = download_info.value
@@ -196,7 +195,7 @@ class TaskClient:
         self.wait_for_state(name, "running")
 
     def stop_task(self, name: str) -> None:
-        """Stop a single task by clicking its pause button. No-op if already stopped.
+        """Stop a single task by clicking its stop button. No-op if already stopped.
 
         Waits for the task to reach the stopped state before returning.
 
@@ -208,7 +207,7 @@ class TaskClient:
         item.wait_for(state="visible", timeout=5000)
         if not self._is_running(item):
             return
-        item.locator("button:has(.pluto-icon--pause)").click()
+        item.locator("button:has(.pluto-icon--stop)").click()
         self.wait_for_state(name, "stopped")
 
     def start_tasks(self, names: list[str]) -> None:

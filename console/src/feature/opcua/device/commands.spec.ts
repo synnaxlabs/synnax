@@ -33,7 +33,7 @@ describe("OPCUA.Device Commands permissions", () => {
   it("should offer Connect an OPC UA server to an engineer", async () => {
     const gate = findCommand(
       OPCUA.Device.COMMANDS,
-      "Connect an OPC UA server",
+      "Connect OPC UA server",
     ).useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
@@ -45,7 +45,7 @@ describe("OPCUA.Device Commands permissions", () => {
   it("should withhold Connect an OPC UA server from a viewer", async () => {
     const gate = findCommand(
       OPCUA.Device.COMMANDS,
-      "Connect an OPC UA server",
+      "Connect OPC UA server",
     ).useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(

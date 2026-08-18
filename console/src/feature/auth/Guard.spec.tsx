@@ -67,19 +67,19 @@ const submitCredentials = (username: string, password: string): void => {
   fireEvent.change(screen.getByPlaceholderText("seldon"), {
     target: { value: password },
   });
-  fireEvent.click(findButton("Log In"));
+  fireEvent.click(findButton("Log in"));
 };
 
 describe("auth guard", () => {
   it("should render children when a cluster is already selected", async () => {
     await renderGuard(CLUSTER_KEY);
     expect(screen.getByText("authenticated content")).toBeTruthy();
-    expect(screen.queryByText("Log In")).toBeNull();
+    expect(screen.queryByText("Log in")).toBeNull();
   });
 
   it("should render the login screen when no cluster is selected", async () => {
     await renderGuard();
-    expect(screen.getAllByText("Log In").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
     expect(screen.queryByText("authenticated content")).toBeNull();
   });
 
@@ -120,7 +120,7 @@ describe("auth guard", () => {
     );
     const key = Session.Cluster.selectSelectedKey(store.getState());
     expect(await screen.findByText(/invalid credentials/i)).toBeTruthy();
-    expect(screen.getAllByText("Log In").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
     expect(screen.queryByText("authenticated content")).toBeNull();
     submitCredentials("synnax", "seldon");
     await waitFor(

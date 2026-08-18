@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, project, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  imex,
+  project,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Access, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -30,7 +35,7 @@ export const ingestServer: FileIngester = async (
 ) => {
   if (client == null) throw new DisconnectedError();
   return await client.imex.import(JSON.stringify(data), {
-    encoding: "JSON",
+    ...imex.JSON_OPTIONS,
     fileName,
     parent: project.ontologyID(projectKey),
   });

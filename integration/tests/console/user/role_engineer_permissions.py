@@ -58,11 +58,11 @@ class RoleEngineerPermissions(ConsoleCase):
 
     def creation_commands_are_offered(self) -> None:
         for command in (
-            "Create a project",
-            "Create a schematic",
-            "Create a line plot",
-            "Create a channel",
-            "Define a range",
+            "Create project",
+            "Create schematic",
+            "Create line plot",
+            "Create channel",
+            "Create range",
         ):
             assert self.console.access.command_available(command), (
                 f"{command!r} is withheld from an Engineer, who can create one"

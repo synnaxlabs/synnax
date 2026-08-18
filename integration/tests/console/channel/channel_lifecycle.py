@@ -114,8 +114,8 @@ class ChannelLifecycle(ConsoleCase):
         self.test_erroneous_calculated_channel()
 
     def test_create_multiple_channels(self) -> None:
-        """Test creating multiple channels using the 'Create More' checkbox."""
-        self.log("Testing create multiple channels with 'Create More'")
+        """Test creating multiple channels using the 'Create more' checkbox."""
+        self.log("Testing create multiple channels with 'Create more'")
 
         console = self.console
         client = self.client

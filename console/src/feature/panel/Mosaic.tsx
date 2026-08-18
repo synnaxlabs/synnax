@@ -249,11 +249,10 @@ const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
     <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
       <Logo className="synnax-logo-watermark" />
       <Empty.Action
-        x
         className={CSS.BE("mosaic", "empty-action")}
         level="h5"
-        message="No components open."
-        action={canEdit ? "Create a new component" : undefined}
+        message="No components open"
+        action={canEdit ? "Create component" : undefined}
         onClick={handleCreate}
       />
     </Flex.Box>
@@ -349,11 +348,10 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
       <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
         <Logo className="synnax-logo-watermark" />
         <Empty.Action
-          x
           className={CSS.BE("mosaic", "empty-action")}
           level="h5"
-          message="No panels open."
-          action={canCreate ? "Create a new panel" : undefined}
+          message="No panels open"
+          action={canCreate ? "Create panel" : undefined}
           onClick={createPanel}
         />
       </Flex.Box>

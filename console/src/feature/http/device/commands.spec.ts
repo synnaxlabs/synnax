@@ -29,14 +29,14 @@ describe("HTTP.Device Commands", () => {
       client,
     });
     await openCommandPalette("Connect an HTTP");
-    await selectCommand("Connect an HTTP server");
+    await selectCommand("Connect HTTP server");
     expect(await screen.findByPlaceholderText("www.example.com")).toBeTruthy();
   });
 });
 
 describe("HTTP.Device Commands permissions", () => {
   it("should offer Connect an HTTP server to an engineer", async () => {
-    const gate = findCommand(HTTP.Device.COMMANDS, "Connect an HTTP server").useVisible;
+    const gate = findCommand(HTTP.Device.COMMANDS, "Connect HTTP server").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(gate, {
       client: await roles.get("Engineer"),
@@ -45,7 +45,7 @@ describe("HTTP.Device Commands permissions", () => {
   });
 
   it("should withhold Connect an HTTP server from a viewer", async () => {
-    const gate = findCommand(HTTP.Device.COMMANDS, "Connect an HTTP server").useVisible;
+    const gate = findCommand(HTTP.Device.COMMANDS, "Connect HTTP server").useVisible;
     assertDefined(gate);
     const { result } = await renderHookWithConsole(
       () => ({

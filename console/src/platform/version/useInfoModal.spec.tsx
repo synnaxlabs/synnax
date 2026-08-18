@@ -77,7 +77,7 @@ describe("version useInfoModal", () => {
       expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
     );
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Update & Restart" }));
+      fireEvent.click(screen.getByRole("button", { name: "Update and restart" }));
     });
     await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
     expect(mocks.relaunch).toHaveBeenCalledTimes(1);

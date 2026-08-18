@@ -171,7 +171,7 @@ describe("wrapForm", () => {
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
         deployConfigZ: schemas.config.extend({
-          device: z.string().min(1, "Must specify a device"),
+          device: z.string().min(1, "Device is required"),
         }),
         onConfigure: async (_client, config) => {
           configured = true;
@@ -184,7 +184,7 @@ describe("wrapForm", () => {
       });
       await clickDeploy(container);
       await waitFor(() =>
-        expect(screen.getByText("device-status:Must specify a device")).toBeTruthy(),
+        expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       expect(configured).toBe(false);
     });

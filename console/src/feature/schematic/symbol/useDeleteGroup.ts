@@ -19,7 +19,7 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
   const addStatus = Status.useAdder();
   const confirmDelete = Modals.useConfirmDelete({
     type: "Group",
-    title: "Schematic.Symbols.Group.Delete",
+    title: "Schematic.Symbol.Group.Delete",
   });
   return useCallback(
     (g: group.Group) => {

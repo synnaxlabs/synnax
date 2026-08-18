@@ -57,7 +57,7 @@ describe("table/Toolbar", () => {
     expect(
       await screen.findByText(new RegExp(`${name} is not editable`)),
     ).toBeDefined();
-    fireEvent.click(await screen.findByText("enable editing."));
+    fireEvent.click(await screen.findByText("Enable editing"));
     await waitFor(() =>
       expect(
         Session.Table.selectSliceState(store.getState()).tables[key].editable,
@@ -137,7 +137,7 @@ describe("table/Toolbar permissions", () => {
       tableState: { editable: false },
       as: await roles.get("Viewer"),
     });
-    expect(await screen.findByText(`${name} is not editable.`)).toBeTruthy();
+    expect(await screen.findByText(`${name} is not editable`)).toBeTruthy();
     expect(screen.queryByText("enable editing.")).toBeNull();
   });
 });

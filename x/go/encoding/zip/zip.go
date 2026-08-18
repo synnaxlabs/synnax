@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package zip encodes a flat namespace of named files into a zip archive.
+// Package zip encodes a namespace of named files into a zip archive.
 package zip
 
 import (
@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/fs"
 	"maps"
 	"slices"
 	"strings"
@@ -25,14 +26,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Files is a flat namespace of file name to file contents. It carries no directories
-// and no nesting: every name is a leaf, which the Encoder enforces.
+// Files maps entry names to file contents. A name is a relative path from the archive
+// root in forward-slash form; directories exist only as prefixes of entry names, which
+// the Encoder enforces.
 type Files = map[string][]byte
 
 // Encoder encodes a Files value into a zip archive with one entry per file. Entries are
 // written in sorted name order, so equal Files always encode to equal bytes. Encoding a
-// value that is not a Files fails, and a file name that is not a leaf returns an error
-// wrapping validate.ErrValidation.
+// value that is not a Files fails, and an invalid entry name returns an error wrapping
+// validate.ErrValidation.
 var Encoder http.Encoder = encoder{}
 
 type encoder struct{}
@@ -58,7 +60,7 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	// leaves no partial output on w.
 	names := slices.Sorted(maps.Keys(files))
 	for _, name := range names {
-		if err := validateLeaf(name); err != nil {
+		if err := validateEntryName(name); err != nil {
 			return err
 		}
 	}
@@ -75,21 +77,23 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	return encoding.SugarEncodingError(value, zw.Close())
 }
 
-// validateLeaf returns an error wrapping validate.ErrValidation when name cannot be a
-// flat archive entry: an empty name, a name holding a path separator, or a name
-// addressing a directory. It names the offender itself rather than going through
-// encoding.SugarEncodingError, which reports the whole file map and drops the reason.
-func validateLeaf(name string) error {
-	switch {
-	case name == "":
+// validateEntryName returns an error wrapping validate.ErrValidation when name is not
+// a relative forward-slash path of non-empty segments — the fs.ValidPath rules, minus
+// the "." root, which addresses a directory — or when it holds a backslash. It names
+// the offender itself rather than going through encoding.SugarEncodingError, which
+// reports the whole file map and drops the reason.
+func validateEntryName(name string) error {
+	if name == "" {
 		return errors.Wrap(validate.ErrValidation, "file name is empty")
-	case strings.ContainsAny(name, `/\`):
+	}
+	if strings.Contains(name, `\`) {
 		return errors.Wrapf(
-			validate.ErrValidation, "file name %q holds a path separator", name,
+			validate.ErrValidation, "file name %q holds a backslash", name,
 		)
-	case name == "." || name == "..":
+	}
+	if name == "." || !fs.ValidPath(name) {
 		return errors.Wrapf(
-			validate.ErrValidation, "file name %q addresses a directory", name,
+			validate.ErrValidation, "file name %q is not a valid relative path", name,
 		)
 	}
 	return nil

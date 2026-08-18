@@ -34,8 +34,8 @@ describe("HTTP Device.Select", () => {
     fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
       target: { value: uniqueName("no_such_device") },
     });
-    await screen.findByText("No HTTP servers connected.");
-    fireEvent.click(screen.getByText("Connect a new server"));
+    await screen.findByText("No HTTP servers connected");
+    fireEvent.click(screen.getByText("Connect server"));
     await screen.findByText("Server");
     expect(screen.getByPlaceholderText("www.example.com")).toBeTruthy();
   });

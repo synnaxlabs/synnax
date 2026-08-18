@@ -26,7 +26,7 @@ export type SelectAIChannelTypeFieldProps = Form.SelectFieldProps<AIChannelType,
 export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Entry>({
   fieldKey: "type",
   fieldProps: {
-    label: "Channel Type",
+    label: "Channel type",
     onChange: (value, { get, set, path }) => {
       const prevType = get<AIChannelType>(path).value;
       if (prevType === value) return;
