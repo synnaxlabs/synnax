@@ -142,10 +142,10 @@ func (s *Service) ResolveType(envelope Envelope) (string, error) {
 	return "", newFieldError("type", "file does not match any known resource format")
 }
 
-// baseName strips fileName's directory segments and trailing extension. Both separators
+// BaseName strips fileName's directory segments and trailing extension. Both separators
 // are cut: the name arrives on the wire, so a client can send a path built on a
 // platform other than the Core's. An empty fileName stays empty.
-func baseName(fileName string) string {
+func BaseName(fileName string) string {
 	if i := strings.LastIndexAny(fileName, `/\`); i >= 0 {
 		fileName = fileName[i+1:]
 	}
@@ -180,7 +180,7 @@ func (s *Service) Import(
 		return ontology.ID{}, notFoundError(envelope.Type, "importer")
 	}
 	if envelope.Name == "" {
-		envelope.Name = baseName(opts.FileName)
+		envelope.Name = BaseName(opts.FileName)
 	}
 	if envelope.Name == "" {
 		return ontology.ID{}, newFieldError("name", "name must be a non-empty string")

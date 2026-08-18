@@ -10,16 +10,6 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type project, type Synnax } from "@synnaxlabs/client";
 
-export interface File {
-  data: unknown;
-  name: string;
-  /**
-   * The file's path relative to the imported directory in forward-slash form. Absent
-   * for flat sources; treat a missing path as the file's name.
-   */
-  path?: string;
-}
-
 export interface FileIngesterContext {
   client: Synnax | null;
   projectKey: project.Key;
@@ -41,11 +31,19 @@ export interface FileIngester {
   ): void | ontology.ID | Promise<void | ontology.ID>;
 }
 
-interface DirectoryIngesterContext {
+interface BundleIngesterContext {
   client: Synnax | null;
   store: Store;
 }
 
-export interface DirectoryIngester {
-  (name: string, files: File[], ctx: DirectoryIngesterContext): Promise<void>;
+/**
+ * Imports a zipped bundle read from a picked or dropped source. name is the source
+ * archive or folder's name, the Core's fallback for naming the imported resource.
+ */
+export interface BundleIngester {
+  (
+    name: string,
+    bundle: Uint8Array<ArrayBuffer>,
+    ctx: BundleIngesterContext,
+  ): Promise<void>;
 }

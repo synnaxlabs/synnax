@@ -11,8 +11,10 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"go/types"
 
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -25,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Service struct {
@@ -197,6 +200,76 @@ func (s *Service) Export(
 		return nil, err
 	}
 	return files, nil
+}
+
+type (
+	// ImportRequest holds a bundle's contents keyed by path from the bundle root. The
+	// HTTP transport decodes it from a zip archive.
+	ImportRequest = zip.Files
+	// ImportResponse carries the project the import created.
+	ImportResponse struct {
+		// Project is the created project holding the imported resources.
+		Project project.Project `json:"project" msgpack:"project"`
+	}
+)
+
+// Import imports a project bundle in a single transaction. It requires create access
+// on the project type and on every resource kind the bundle carries, all enforced
+// before any import work runs.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ImportRequest,
+) (ImportResponse, error) {
+	fileName, err := parseImportParams(ctx)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	objects, err := s.internal.ImportObjects(ctx, req)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: objects,
+	}); err != nil {
+		return ImportResponse{}, err
+	}
+	p, err := s.internal.Import(ctx, tx, req, fileName)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	return ImportResponse{Project: p}, nil
+}
+
+type importParams struct {
+	// FileName is the name of the uploaded archive or picked directory, e.g.
+	// "Test Stand 12.zip". Its extension-stripped form names the project when the
+	// bundle carries no name.
+	FileName string `json:"file_name"`
+}
+
+// parseImportParams decodes the required "params" request param — a JSON object
+// carrying the out-of-band import options. A missing param, malformed JSON, or a
+// missing file name returns a validation error scoped to the offending field.
+func parseImportParams(ctx context.Context) (string, error) {
+	v, ok := freighter.MDFromContext(ctx).Get("params")
+	s, isStr := v.(string)
+	if !ok || !isStr || s == "" {
+		return "", validate.PathedError(validate.ErrRequired, "params")
+	}
+	var params importParams
+	if err := json.Unmarshal([]byte(s), &params); err != nil {
+		return "", validate.PathedError(
+			errors.Wrapf(validate.ErrValidation, "invalid params: %v", err),
+			"params",
+		)
+	}
+	if params.FileName == "" {
+		return "", validate.PathedError(validate.ErrRequired, "file_name")
+	}
+	return params.FileName, nil
 }
 
 type DeleteRequest struct {

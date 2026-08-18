@@ -183,4 +183,67 @@ describe("Project", () => {
       expect(archive).toContain("pressure (1).json");
     });
   });
+  describe("import", () => {
+    test("imports an exported bundle back as a fresh project", async () => {
+      const src = await client.projects.create({ name: `import-${id.create()}` });
+      const l = await client.logs.create(src.key, { name: "Metrics" });
+      await client.panels.create({
+        key: uuid.create(),
+        name: "Controls",
+        parent: ontologyID(src.key),
+        root: {
+          variant: "leaf",
+          tabs: [
+            {
+              key: uuid.create(),
+              variant: "resource",
+              resource: log.ontologyID(l.key),
+            },
+          ],
+        },
+      });
+      const stream = await client.projects.export(src.key, { encoding: "JSON" });
+      const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
+      const imported = await client.projects.import(bundle, {
+        fileName: `${src.name}.zip`,
+      });
+      expect(imported.key).not.toEqual(src.key);
+      expect(imported.name).toEqual(src.name);
+      const children = await client.ontology.retrieveChildren(ontologyID(imported.key));
+      expect(children.map(({ name }) => name).sort()).toEqual(["Controls", "Metrics"]);
+    });
+
+    test("recreates group directories as groups", async () => {
+      const src = await client.projects.create({ name: `import-${id.create()}` });
+      const g = await client.groups.create({
+        parent: ontologyID(src.key),
+        name: "Propulsion",
+      });
+      const l = await client.logs.create(src.key, { name: "Pressure" });
+      await client.ontology.moveChildren(
+        ontologyID(src.key),
+        group.ontologyID(g.key),
+        log.ontologyID(l.key),
+      );
+      const stream = await client.projects.export(src.key, { encoding: "JSON" });
+      const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
+      const imported = await client.projects.import(bundle, {
+        fileName: `${src.name}.zip`,
+      });
+      const children = await client.ontology.retrieveChildren(ontologyID(imported.key));
+      expect(children).toHaveLength(1);
+      expect(children[0].name).toEqual("Propulsion");
+      const grandChildren = await client.ontology.retrieveChildren(children[0].id);
+      expect(grandChildren.map(({ name }) => name)).toEqual(["Pressure"]);
+    });
+
+    test("rejects a bundle without a manifest", async () => {
+      // The 22-byte end-of-central-directory record alone: a valid, empty archive.
+      const emptyArchive = new Uint8Array(22);
+      emptyArchive.set([0x50, 0x4b, 0x05, 0x06]);
+      await expect(
+        client.projects.import(emptyArchive, { fileName: "Empty.zip" }),
+      ).rejects.toThrow("bundle holds no manifest.json");
+    });
+  });
 });

@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-schematic__symbol-import-group-zone {
+.console-import-modal__zone {
     min-height: 50rem;
     cursor: pointer;
 }

@@ -10,18 +10,13 @@
 import { log, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
-import {
-  captureBrowserDownloads,
-  interceptFilePicker,
-  removeSaveFilePicker,
-  uniqueName,
-} from "@/testutil";
+import { captureBrowserDownloads, removeSaveFilePicker, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -65,22 +60,14 @@ describe("Project Commands", () => {
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 
-  it("should open a directory picker when importing a project", async () => {
-    const { openCommandPalette } = await renderPalette({
+  it("should open the import modal when importing a project", async () => {
+    const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Project.COMMANDS,
       client,
     });
-    const picker = interceptFilePicker();
     await openCommandPalette();
-    const item = await screen.findByText("Import project");
-    // The picker interceptor swallows the select frame's synthetic click, so fire the
-    // detail-0 click that invokes onSelect directly.
-    await act(async () => {
-      fireEvent.click(item, { detail: 0 });
-    });
-    await waitFor(() => expect(picker.lastInput()).toBeDefined());
-    expect(picker.lastInput().webkitdirectory).toBe(true);
-    picker.cancel();
+    await selectCommand("Import project");
+    expect(await screen.findByText("Drop a .zip or folder here")).toBeTruthy();
   });
 
   it("should export the current project as a zip download", async () => {

@@ -12,7 +12,6 @@ import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { canParseFile } from "@/platform/import/canParseFile";
 import {
   captureEntries,
   isDirectoryEntry,
@@ -22,7 +21,8 @@ import {
 } from "@/platform/import/entries";
 import { ingestServer } from "@/platform/import/import";
 import { ingestBatch } from "@/platform/import/ingestBatch";
-import { type DirectoryIngester } from "@/platform/import/ingester";
+import { type BundleIngester } from "@/platform/import/ingester";
+import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
@@ -30,32 +30,37 @@ const readJSON = async (file: File): Promise<unknown> => JSON.parse(await file.t
 
 interface IngestContext {
   client: Client | null;
-  ingestDirectory: DirectoryIngester;
+  ingestBundle: BundleIngester;
   projectKey: project.Key;
   store: Store;
 }
 
-// Returns the resource the entry created, or nothing for a directory: a project import
-// brings its own panels, so it opens no tab here.
+// Returns the resource the entry created, or nothing for a bundle: a project import
+// brings its own panels, so it opens no tab here. A dropped directory is zipped with
+// its files' relative paths; the Core owns the bundle format.
 const ingestEntry = async (
   entry: FileSystemEntry,
-  { client, ingestDirectory, projectKey, store }: IngestContext,
+  { client, ingestBundle, projectKey, store }: IngestContext,
 ): Promise<void | ontology.ID> => {
   if (isDirectoryEntry(entry)) {
     const files = await readDirectoryFiles(entry);
-    const parsed = await Promise.all(
-      files
-        .filter(({ path }) => canParseFile(path))
-        .map(async ({ file, path }) => ({
-          name: file.name,
+    const bundle = zipFiles(
+      await Promise.all(
+        files.map(async ({ file, path }) => ({
           path,
-          data: await readJSON(file),
+          bytes: new Uint8Array(await file.arrayBuffer()),
         })),
+      ),
     );
-    return await ingestDirectory(entry.name, parsed, { client, store });
+    return await ingestBundle(entry.name, bundle, { client, store });
   }
   if (!isFileEntry(entry)) return;
   const file = await readEntryFile(entry);
+  if (isZipFile(file.name))
+    return await ingestBundle(file.name, new Uint8Array(await file.arrayBuffer()), {
+      client,
+      store,
+    });
   if (file.type !== "application/json") throw new Error("not a JSON file");
   return await ingestServer(await readJSON(file), {
     client,
@@ -65,8 +70,8 @@ const ingestEntry = async (
 };
 
 export interface UseFileDropParams {
-  /** Ingests a dropped directory. Injected by the composition root. */
-  ingestDirectory: DirectoryIngester;
+  /** Ingests a dropped directory or .zip as a bundle. Injected by the composition root. */
+  ingestBundle: BundleIngester;
 }
 
 /**
@@ -84,7 +89,7 @@ export type FileDrop = (props: FileDropProps) => void;
  * concurrently, then opens the resources they created as one batch of tabs in the leaf
  * the drop landed on. A file that fails is reported on its own.
  */
-export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop => {
+export const useFileDrop = ({ ingestBundle }: UseFileDropParams): FileDrop => {
   const client = Synnax.use();
   const store = Session.useStore();
   const openTabs = Panel.useOpenTabs();
@@ -102,13 +107,13 @@ export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop =>
           await ingestBatch({
             items: entries,
             ingest: async (entry) =>
-              await ingestEntry(entry, { client, ingestDirectory, projectKey, store }),
+              await ingestEntry(entry, { client, ingestBundle, projectKey, store }),
             handleError,
             openTabs,
             placement,
           }),
       );
     },
-    [client, ingestDirectory, openTabs, store, handleError],
+    [client, ingestBundle, openTabs, store, handleError],
   );
 };

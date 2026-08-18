@@ -11,17 +11,31 @@ package project
 
 import (
 	"context"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
+)
+
+const (
+	manifestVersion = 1
+	manifestType    = "project"
+	// legacyLayoutFileName is the tiling file every stable release wrote at the root of
+	// a project export. It marks the legacy (version 0) format only when no manifest is
+	// present.
+	legacyLayoutFileName = "LAYOUT.json"
 )
 
 // Export serializes the project identified by key and its ontology descendants as a
@@ -78,8 +92,8 @@ func (s *Service) Export(
 		return nil, nil, err
 	}
 	manifest, err := encoder.Encode(ctx, imex.Manifest{
-		Version: 1,
-		Type:    "project",
+		Version: manifestVersion,
+		Type:    manifestType,
 		Name:    proj.Name,
 	})
 	if err != nil {
@@ -274,4 +288,328 @@ func (w *bundleWalk) encodePanels(
 		}
 	}
 	return nil
+}
+
+// Import creates a fresh project from the bundle in files on tx. The manifest names
+// the project, with the extension-stripped fileName as the fallback; each bundle
+// directory becomes a group; each non-panel member imports through the leaf registry;
+// each panel is recreated with its resource tabs resolved to the members' minted IDs.
+// A directory with no manifest but a root LAYOUT.json is the legacy (version 0)
+// format: its documents are recreated and its tiling dropped. Invalid bundles return
+// validation errors naming the offending file.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	files zip.Files,
+	fileName string,
+) (Project, error) {
+	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
+	manifestData, ok := files[manifestFileName]
+	if !ok {
+		if layoutData, ok := files[legacyLayoutFileName]; ok {
+			return s.importLegacy(ctx, tx, layoutData, files, fileName)
+		}
+		return Project{}, errors.Wrapf(
+			validate.ErrValidation, "bundle holds no %s", manifestFileName,
+		)
+	}
+	manifest, err := decodeManifest(ctx, manifestData, manifestFileName)
+	if err != nil {
+		return Project{}, err
+	}
+	name := manifest.Name
+	if name == "" {
+		name = imex.BaseName(fileName)
+	}
+	members, err := s.bundleMembers(ctx, files)
+	if err != nil {
+		return Project{}, err
+	}
+	proj := Project{Name: name}
+	if err = s.NewWriter(tx).Create(ctx, &proj); err != nil {
+		return Project{}, err
+	}
+	projID := OntologyID(proj.Key)
+	groups, err := s.createGroups(ctx, tx, projID, members)
+	if err != nil {
+		return Project{}, err
+	}
+	var (
+		refs      = make(map[string]ontology.ID, len(members))
+		otgWriter = s.cfg.Ontology.NewWriter(tx)
+	)
+	for _, m := range members {
+		if m.env.Type == string(ontology.ResourceTypePanel) {
+			continue
+		}
+		id, err := s.cfg.ImEx.Import(ctx, tx, m.env, imex.ImportOptions{
+			FileName: m.path,
+			Parent:   projID,
+		})
+		if err != nil {
+			return Project{}, errors.Wrap(err, m.path)
+		}
+		refs[m.path] = id
+		dir := parentDir(m.path)
+		// A task parents under its rack's task group, never the project: it entered
+		// the bundle through a panel reference, so it stays where its importer put it.
+		if dir == "" || id.Type == ontology.ResourceTypeTask {
+			continue
+		}
+		if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+			From: projID,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   id,
+		}); err != nil {
+			return Project{}, err
+		}
+		if err = otgWriter.DefineRelationships(
+			ctx, groups[dir], ontology.RelationshipTypeParentOf, id,
+		); err != nil {
+			return Project{}, err
+		}
+	}
+	panelWriter := s.cfg.Panel.NewWriter(tx)
+	for _, m := range members {
+		if m.env.Type != string(ontology.ResourceTypePanel) {
+			continue
+		}
+		p, err := panel.DecodeBundle(ctx, m.env, refs)
+		if err != nil {
+			return Project{}, errors.Wrap(err, m.path)
+		}
+		if p.Name == "" {
+			p.Name = imex.BaseName(m.path)
+		}
+		parent := projID
+		if dir := parentDir(m.path); dir != "" {
+			parent = groups[dir]
+		}
+		p.Parent = &parent
+		if err = panelWriter.Create(ctx, &p); err != nil {
+			return Project{}, errors.Wrap(err, m.path)
+		}
+	}
+	return proj, nil
+}
+
+// ImportObjects returns the type-level ontology ID of every resource kind Import
+// creates for files: the project, each distinct member type, and the group when the
+// bundle carries directories. Callers enforce access on the result before any import
+// work runs. Format routing mirrors Import, so an invalid bundle fails here with the
+// same error.
+func (s *Service) ImportObjects(
+	ctx context.Context,
+	files zip.Files,
+) ([]ontology.ID, error) {
+	var (
+		objects = []ontology.ID{{Type: ontology.ResourceTypeProject}}
+		seen    = set.New(ontology.ResourceTypeProject)
+	)
+	add := func(t ontology.ResourceType) {
+		if seen.Contains(t) {
+			return
+		}
+		seen.Add(t)
+		objects = append(objects, ontology.ID{Type: t})
+	}
+	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
+	manifestData, ok := files[manifestFileName]
+	var (
+		members []importMember
+		err     error
+	)
+	if !ok {
+		layoutData, legacy := files[legacyLayoutFileName]
+		if !legacy {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "bundle holds no %s", manifestFileName,
+			)
+		}
+		if members, err = s.legacyMembers(ctx, layoutData, files); err != nil {
+			return nil, err
+		}
+	} else {
+		if _, err = decodeManifest(ctx, manifestData, manifestFileName); err != nil {
+			return nil, err
+		}
+		if members, err = s.bundleMembers(ctx, files); err != nil {
+			return nil, err
+		}
+	}
+	for _, m := range members {
+		if m.env.Type == string(ontology.ResourceTypePanel) {
+			add(ontology.ResourceTypePanel)
+			continue
+		}
+		resourceType, err := s.cfg.ImEx.ImporterType(m.env.Type)
+		if err != nil {
+			return nil, errors.Wrap(err, m.path)
+		}
+		add(resourceType)
+	}
+	for _, m := range members {
+		if parentDir(m.path) != "" {
+			add(ontology.ResourceTypeGroup)
+			break
+		}
+	}
+	return objects, nil
+}
+
+// importMember pairs a member path with its decoded envelope, its type resolved to a
+// registration type.
+type importMember struct {
+	path string
+	env  imex.Envelope
+}
+
+// decodeManifest reads and guards the bundle manifest: the type must be "project" and
+// the version exactly the current one, since version 0 wrote no manifest.
+func decodeManifest(
+	ctx context.Context,
+	data []byte,
+	fileName string,
+) (imex.Manifest, error) {
+	var manifest imex.Manifest
+	if err := json.Codec.Decode(ctx, data, &manifest); err != nil {
+		return imex.Manifest{}, errors.Wrap(err, fileName)
+	}
+	if manifest.Type != manifestType {
+		return imex.Manifest{}, errors.Wrapf(
+			validate.ErrValidation,
+			"bundle is a %q, not a %s", manifest.Type, manifestType,
+		)
+	}
+	if manifest.Version > manifestVersion {
+		return imex.Manifest{}, imex.NewErrUnsupportedVersion(
+			manifestType, imex.Version(manifest.Version), manifestVersion,
+		)
+	}
+	if manifest.Version != manifestVersion {
+		return imex.Manifest{}, errors.Wrapf(
+			validate.ErrValidation,
+			"unsupported manifest version %d", manifest.Version,
+		)
+	}
+	return manifest, nil
+}
+
+// bundleMembers enumerates a version 1 bundle's members — every JSON file under the
+// root except the manifest — in sorted path order, each decoded and resolved to its
+// registration type. Member names that collide case-folded within one directory are a
+// validation error.
+func (s *Service) bundleMembers(
+	ctx context.Context,
+	files zip.Files,
+) ([]importMember, error) {
+	var (
+		ext            = json.Codec.Extension()
+		foldedManifest = filename.Fold(imex.ManifestBaseName + ext)
+		foldedExt      = filename.Fold(ext)
+		paths          = make([]string, 0, len(files))
+	)
+	for path := range files {
+		folded := filename.Fold(path)
+		if folded == foldedManifest || !strings.HasSuffix(folded, foldedExt) {
+			continue
+		}
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	if err := validateMemberPaths(paths); err != nil {
+		return nil, err
+	}
+	members := make([]importMember, 0, len(paths))
+	for _, path := range paths {
+		var env imex.Envelope
+		if err := json.Codec.Decode(ctx, files[path], &env); err != nil {
+			return nil, errors.Wrap(err, path)
+		}
+		if env.Type != string(ontology.ResourceTypePanel) {
+			typ, err := s.cfg.ImEx.ResolveType(env)
+			if err != nil {
+				return nil, errors.Wrap(err, path)
+			}
+			env.Type = typ
+		}
+		members = append(members, importMember{path: path, env: env})
+	}
+	return members, nil
+}
+
+// validateMemberPaths rejects two names in one directory that compare equal
+// case-folded: the Console extracts bundles onto case-insensitive filesystems, where
+// the pair collides. File and directory names share each directory's namespace.
+func validateMemberPaths(paths []string) error {
+	type segment struct {
+		path string
+		name string
+		dir  bool
+	}
+	claimed := map[string]segment{}
+	for _, path := range paths {
+		var (
+			segs   = strings.Split(path, "/")
+			prefix = ""
+		)
+		for i, seg := range segs {
+			var (
+				isDir = i < len(segs)-1
+				key   = prefix + "\x00" + filename.Fold(seg)
+			)
+			prev, ok := claimed[key]
+			if !ok {
+				claimed[key] = segment{path: path, name: seg, dir: isDir}
+			} else if !prev.dir || !isDir || prev.name != seg {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"members %q and %q have the same file name; "+
+						"rename one and import again",
+					prev.path,
+					path,
+				)
+			}
+			prefix += filename.Fold(seg) + "/"
+		}
+	}
+	return nil
+}
+
+// parentDir returns the directory holding path, or "" at the bundle root.
+func parentDir(path string) string {
+	if i := strings.LastIndexByte(path, '/'); i >= 0 {
+		return path[:i]
+	}
+	return ""
+}
+
+// createGroups recreates each bundle directory as a group, outer before inner, rooted
+// at the project, and returns each directory's group ontology ID keyed by path ("" is
+// the project itself).
+func (s *Service) createGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	projID ontology.ID,
+	members []importMember,
+) (map[string]ontology.ID, error) {
+	dirs := set.New[string]()
+	for _, m := range members {
+		for dir := parentDir(m.path); dir != ""; dir = parentDir(dir) {
+			dirs.Add(dir)
+		}
+	}
+	var (
+		groups = map[string]ontology.ID{"": projID}
+		writer = s.cfg.Group.NewWriter(tx)
+	)
+	for _, dir := range slices.Sorted(maps.Keys(dirs)) {
+		name := dir[strings.LastIndexByte(dir, '/')+1:]
+		g, err := writer.Create(ctx, name, groups[parentDir(dir)])
+		if err != nil {
+			return nil, errors.Wrap(err, dir)
+		}
+		groups[dir] = g.OntologyID()
+	}
+	return groups, nil
 }

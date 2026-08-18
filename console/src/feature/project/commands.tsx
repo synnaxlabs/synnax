@@ -11,7 +11,7 @@ import { DisconnectedError, imex, project } from "@synnaxlabs/client";
 import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { import_ } from "@/feature/project/import";
+import { useImportModal } from "@/feature/project/import";
 import { Command } from "@/platform/command";
 import { Export } from "@/platform/export";
 import { Project } from "@/platform/project";
@@ -27,21 +27,11 @@ const CreateCommand = Command.create({
   useVisible: useCreateVisible,
 });
 
-const useImportProject = () => {
-  const handleError = Status.useErrorHandler();
-  const store = Session.useStore();
-  const client = Synnax.use();
-  return useCallback(
-    () => import_({ handleError, store, client }),
-    [handleError, store, client],
-  );
-};
-
 const ImportProjectCommand = Command.create({
   key: "project_import",
   name: "Import project",
   icon: <PProject.ImportIcon />,
-  useOnSelect: useImportProject,
+  useOnSelect: useImportModal,
   useVisible: useCreateVisible,
 });
 
