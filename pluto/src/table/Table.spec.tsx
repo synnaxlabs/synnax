@@ -299,7 +299,7 @@ describe("Table", () => {
       const { container } = render(<Wrapped />, { wrapper });
       await waitFor(() => {
         expect(container.querySelector(".pluto-table-frame")).not.toBeNull();
-        expect(container.querySelector(".pluto-table__row")).not.toBeNull();
+        expect(container.querySelector(".pluto-table__cell--value")).not.toBeNull();
       });
     });
   });
