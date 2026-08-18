@@ -125,6 +125,7 @@ type Transport struct {
 	SchematicSymbolRename        freighter.UnaryServer[symbol.RenameRequest, types.Nil]
 	SchematicSymbolRetrieveGroup freighter.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]
 	SchematicSymbolExportGroup   freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
+	SchematicSymbolImportGroup   freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
 	SchematicSymbolDeleteGroup   freighter.UnaryServer[symbol.DeleteGroupRequest, types.Nil]
 	// LOG
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
@@ -328,6 +329,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolRename,
 		t.SchematicSymbolRetrieveGroup,
 		t.SchematicSymbolExportGroup,
+		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
 
 		// LINE PLOT
@@ -510,6 +512,9 @@ func (l *Layer) BindTo(t Transport) {
 	)
 	t.SchematicSymbolRetrieveGroup.BindHandler(l.Symbol.RetrieveGroup)
 	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
+	t.SchematicSymbolImportGroup.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.ImportGroup),
+	)
 	t.SchematicSymbolDeleteGroup.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.DeleteGroup),
 	)

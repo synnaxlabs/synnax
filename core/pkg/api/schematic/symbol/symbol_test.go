@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -293,4 +294,64 @@ var _ = Describe("DeleteGroup", func() {
 			apisymbol.DeleteGroupRequest{Key: g.Key},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
+})
+
+// groupType is the type-wide group object ImportGroup enforces on.
+var groupType = ontology.ID{Type: ontology.ResourceTypeGroup}
+
+// newBundle returns a version 2 symbol group bundle holding one symbol.
+func newBundle(name string) zip.Files {
+	return zip.Files{
+		"manifest.json": []byte(
+			`{"version":2,"type":"symbol_group","name":"` + name + `"}`,
+		),
+		"Inlet.json": []byte(
+			`{"version":2,"type":"schematic_symbol","name":"Inlet",` +
+				`"data":{"svg":"<svg/>","variant":"valve"}}`,
+		),
+	}
+}
+
+var _ = Describe("ImportGroup", func() {
+	It("Should import the bundle when the types and the permanent group are granted",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			grantCreateOn(ctx, u.OntologyID(), groupType, symbolType)
+			grantUpdateOn(ctx, u.OntologyID(), symbolSvc.Group().OntologyID())
+			res := MustSucceed(apiSvc.ImportGroup(
+				AuthedCtx(ctx, u), nil, newBundle("Valves"),
+			))
+			Expect(res.Group.Name).To(Equal("Valves"))
+			Expect(symbolSvc.RetrieveGroupSymbols(ctx, nil, res.Group.Key)).
+				To(HaveLen(1))
+		},
+	)
+	It("Should reject the request when create is not granted on the types", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grantUpdateOn(ctx, u.OntologyID(), symbolSvc.Group().OntologyID())
+		Expect(apiSvc.ImportGroup(
+			AuthedCtx(ctx, u), nil, newBundle("Valves"),
+		)).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should reject the request when create is granted on one type alone", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grantCreateOn(ctx, u.OntologyID(), symbolType)
+		grantUpdateOn(ctx, u.OntologyID(), symbolSvc.Group().OntologyID())
+		Expect(apiSvc.ImportGroup(
+			AuthedCtx(ctx, u), nil, newBundle("Valves"),
+		)).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should reject the request when update is not granted on the permanent group",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			grantCreateOn(ctx, u.OntologyID(), groupType, symbolType)
+			Expect(apiSvc.ImportGroup(
+				AuthedCtx(ctx, u), nil, newBundle("Valves"),
+			)).Error().To(MatchError(access.ErrDenied))
+		},
+	)
 })
