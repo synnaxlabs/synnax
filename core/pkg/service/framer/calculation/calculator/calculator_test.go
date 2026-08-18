@@ -321,7 +321,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Single persisted channel", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
@@ -359,7 +359,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Two persisted channels shared index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
@@ -407,12 +407,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			indexes := []channel.Channel{
 				{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 				{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 			}
@@ -463,7 +463,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Mixed virtual and persisted", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
@@ -545,7 +545,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Index after data", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
@@ -583,7 +583,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Data after index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
@@ -621,7 +621,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Sequential channel arrivals", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
@@ -674,12 +674,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			indexes := []channel.Channel{
 				{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 				{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 			}
@@ -733,7 +733,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	It("Operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
 			Name:     UniqueChannelName(),
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}}
 		base := []channel.Channel{{
@@ -791,7 +791,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		func(ctx SpecContext) {
 			idx := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			base := []channel.Channel{{
@@ -844,7 +844,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	It("Should correctly chain multiple operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
 			Name:     UniqueChannelName(),
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}}
 		base := []channel.Channel{{
@@ -893,7 +893,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				idx := []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}
@@ -930,7 +930,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				idx := []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}
@@ -979,7 +979,7 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		It("Should close all calculators", func(ctx SpecContext) {
 			idx := []channel.Channel{
-				{Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true},
+				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
 			}
 			b1 := []channel.Channel{{Name: UniqueChannelName(), DataType: telem.Int64T}}
 			b2 := []channel.Channel{

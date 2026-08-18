@@ -899,7 +899,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeF64(
 				input,
@@ -928,7 +928,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			input1 := telem.NewSeriesV(0.0, 10.0)
 			time1 := telem.NewSeriesSecondsTSV(1, 2)
@@ -967,7 +967,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeF64(
 				input,
@@ -991,7 +991,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeF64(
 				input,
@@ -1020,7 +1020,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeI32(
 				input,
@@ -1040,12 +1040,12 @@ var _ = Describe("Vectorized Operations", func() {
 
 		It("should handle empty input", func() {
 			input := telem.Series{DataType: telem.Float64T}
-			inputTime := telem.Series{DataType: telem.TimeStampT}
+			inputTime := telem.Series{DataType: telem.TimestampT}
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeF64(
 				input,
@@ -1069,7 +1069,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeU8(
 				input,
@@ -1094,7 +1094,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeU8(
 				input,

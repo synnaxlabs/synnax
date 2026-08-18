@@ -46,7 +46,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					Channel: channel.Channel{
 						Key:      indexDBKey,
 						Name:     "test",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}))
@@ -176,7 +176,7 @@ var _ = Describe("DB Metadata Operations", func() {
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 
-						expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+						expectedSize := telem.Size(5 * telem.TimestampT.Density())
 						Expect(indexDB.Size()).To(Equal(expectedSize))
 					},
 				)
@@ -194,7 +194,7 @@ var _ = Describe("DB Metadata Operations", func() {
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 
-						expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+						expectedSize := telem.Size(5 * telem.TimestampT.Density())
 						Expect(indexDB.Size()).To(Equal(expectedSize))
 					},
 				)
@@ -211,7 +211,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				Channel: channel.Channel{
 					Key:      GenerateChannelKey(),
 					Name:     "test",
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 			}))
@@ -261,7 +261,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "test",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}))

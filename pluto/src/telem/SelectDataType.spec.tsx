@@ -48,6 +48,13 @@ describe("SelectDataType", () => {
     expect(c.queryByText("Unknown")).toBeNull();
   });
 
+  it("should display the boolean data type as Boolean", () => {
+    const c = render(<SelectWrapper />);
+    fireEvent.click(c.getByText("Select data type"));
+    expect(c.getByText("Boolean")).toBeTruthy();
+    expect(c.queryByText("boolean")).toBeNull();
+  });
+
   it("should display UUID and JSON in all caps", () => {
     const c = render(<SelectWrapper />);
     fireEvent.click(c.getByText("Select data type"));
