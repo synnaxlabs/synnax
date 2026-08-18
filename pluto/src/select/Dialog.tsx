@@ -44,6 +44,23 @@ const DefaultEmptyContent = ({ resourceName }: DefaultEmptyContentProps) => (
   </Text.Text>
 );
 
+/* Height the list may take, leaving the search input its share of the dialog's cap in
+   Dialog.css. Rows are only ever whole, so this is a budget rather than a limit. */
+const LIST_BUDGET = 220;
+
+/**
+ * useDisplayItems returns how many rows fit the dialog at the enclosing list's row
+ * height. Counting rows rather than pixels gives the list a definite height, which is
+ * what lets its growth animate.
+ */
+const useDisplayItems = (): number => {
+  const itemHeight = List.useItemHeight();
+  return useMemo(
+    () => (itemHeight == null ? 1 : Math.max(1, Math.floor(LIST_BUDGET / itemHeight))),
+    [itemHeight],
+  );
+};
+
 const Base = memo(
   <K extends record.Key>({
     onSearch,
@@ -58,6 +75,7 @@ const Base = memo(
   }: DialogProps<K>) => {
     const loading = status?.variant === "loading";
     const hasSearch = onSearch != null;
+    const displayItems = useDisplayItems();
     emptyContent = useMemo(() => {
       if (loading) return hasSearch ? null : <Status.Loading />;
       if (status != null && status.variant !== "success")
@@ -103,6 +121,8 @@ const Base = memo(
             grow
             rounded
             full="x"
+            displayItems={displayItems}
+            animateHeight
           >
             {children}
           </List.Items>
@@ -117,7 +137,13 @@ const Base = memo(
             rounded
             full="x"
           >
-            <List.Items emptyContent={emptyContent} grow full="x">
+            <List.Items
+              emptyContent={emptyContent}
+              grow
+              full="x"
+              displayItems={displayItems}
+              animateHeight
+            >
               {children}
             </List.Items>
             {footer}

@@ -17,6 +17,7 @@ import {
   findModalButton,
   renderToolbar,
 } from "@/platform/tree/menuTestutil";
+import { findTreeRow } from "@/platform/tree/treeTestutil";
 import { getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -28,9 +29,9 @@ describe("user toolbar", () => {
     const created = await client.users.create({ username, password: "pwd12345" });
     await client.access.roles.assign({ user: created.key, role: role.key });
     await renderToolbar(User.TOOLBAR.content, { client });
-    await screen.findByText(role.name);
+    await findTreeRow(role.name);
     expandTreeRow(role.name);
-    expect(await screen.findByText(username)).toBeTruthy();
+    expect(await findTreeRow(username)).toBeTruthy();
   });
 
   it("should open the register modal from the create action", async () => {

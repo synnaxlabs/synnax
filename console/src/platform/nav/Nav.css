@@ -12,15 +12,10 @@
 .console-nav__bar {
     .pluto-menu-item {
         position: relative;
-
-        /* Fill comes from the list tier; the rail indicator is the nav's own
-           ornament. */
         &.pluto--selected {
             &::after {
-                top: 0.5rem;
-                height: calc(100% - 1rem);
+                transform: scaleY(1);
                 opacity: 1;
-                transition: all 0.15s;
             }
         }
         &::after {
@@ -28,10 +23,13 @@
             position: absolute;
             width: 0.5rem;
             background: var(--pluto-primary-z);
-            top: 50%;
+            top: 0.5rem;
+            height: calc(100% - 1rem);
             opacity: 0;
-            height: 0;
-            transition: all 0.15s;
+            transform: scaleY(0);
+            transition:
+                transform 0.15s,
+                opacity 0.15s;
         }
     }
 

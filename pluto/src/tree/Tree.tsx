@@ -158,6 +158,8 @@ export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
   shape: Shape<K>;
 }
 
+const ITEM_HEIGHT = 27;
+
 export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   shape,
   children,
@@ -172,7 +174,10 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   className: ____,
   clearExpanded: _____,
   showRules = false,
-  virtual = false,
+  virtual = true,
+  itemHeight = ITEM_HEIGHT,
+  overscan,
+  onFetchMore,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys } = shape;
@@ -186,7 +191,9 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         onChange={onSelect}
         getItem={getItem}
         subscribe={subscribe}
-        itemHeight={27}
+        itemHeight={itemHeight}
+        overscan={overscan}
+        onFetchMore={onFetchMore}
         virtual={virtual}
       >
         <List.Items<K, E>

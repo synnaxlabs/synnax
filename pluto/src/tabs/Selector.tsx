@@ -392,24 +392,31 @@ export const Selector = ({
     const el = internalRef.current;
     const thumb = thumbRef.current;
     if (el == null || thumb == null) return;
-    const max = el.scrollWidth - el.clientWidth;
+    // Every measurement is taken before the first write. A read after a write forces
+    // a synchronous layout, and this runs once per pane per resize frame.
+    const {
+      scrollWidth,
+      clientWidth,
+      scrollLeft,
+      offsetLeft,
+      offsetTop,
+      offsetHeight,
+    } = el;
+    const max = scrollWidth - clientWidth;
     const scrollable = max > 1;
     el.classList.toggle(SCROLLABLE_CLASS, scrollable);
-    el.classList.toggle(CLIPPED_START_CLASS, scrollable && el.scrollLeft > 1);
-    el.classList.toggle(CLIPPED_END_CLASS, scrollable && el.scrollLeft < max - 1);
+    el.classList.toggle(CLIPPED_START_CLASS, scrollable && scrollLeft > 1);
+    el.classList.toggle(CLIPPED_END_CLASS, scrollable && scrollLeft < max - 1);
     if (!scrollable) return;
-    const width = Math.max(
-      (el.clientWidth / el.scrollWidth) * el.clientWidth,
-      MIN_THUMB_WIDTH,
-    );
-    const offset = (el.scrollLeft / max) * (el.clientWidth - width);
+    const width = Math.max((clientWidth / scrollWidth) * clientWidth, MIN_THUMB_WIDTH);
+    const offset = (scrollLeft / max) * (clientWidth - width);
     thumb.style.width = `${width}px`;
     // The translate, not left, carries the per-scroll-frame move so it stays off
     // the layout path.
-    thumb.style.transform = `translateX(${el.offsetLeft + offset}px)`;
+    thumb.style.transform = `translateX(${offsetLeft + offset}px)`;
     // Hangs just below the strip; the grab target's upward extension keeps hover
     // continuous across the gap.
-    thumb.style.top = `${el.offsetTop + el.offsetHeight + 1}px`;
+    thumb.style.top = `${offsetTop + offsetHeight + 1}px`;
   }, []);
   // Native listeners: React registers wheel passively, so onWheel would drop the
   // preventDefault.
