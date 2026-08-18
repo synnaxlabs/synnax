@@ -128,6 +128,8 @@ class ConsolePage:
         """
         tab = self._get_tab()
         tab.wait_for(state="visible", timeout=5000)
+        # The close button reveals on tab hover; the tab icon covers it until then.
+        tab.hover()
         close_button = tab.get_by_label("Close", exact=True)
         close_button.wait_for(state="visible", timeout=5000)
         close_button.click()

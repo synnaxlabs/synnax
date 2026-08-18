@@ -23,14 +23,9 @@ import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import {
-  useClickOutside,
-  useCombinedRefs,
-  useResize,
-  useSyncedRef,
-  useWindowResize,
-} from "@/hooks";
+import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import {
   CONTEXT_MENU_CLASS,
   CONTEXT_OPEN_ATTRIBUTE,
@@ -182,7 +177,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     setMenuState(INITIAL_STATE);
   }, [clearTarget]);
 
-  useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
+  Dialog.useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
 
   const visibleRef = useSyncedRef(state.visible);
   const handleEscape = useCallback(

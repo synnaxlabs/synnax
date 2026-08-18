@@ -112,15 +112,21 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.test_delete_task()
 
     def assert_data_saving(self, name: str, expected: bool) -> None:
-        """Verify data saving state via the Python client, with polling."""
+        """Verify data saving state via the Python client, with polling.
+
+        The config stores the inverted dataSavingDisabled flag.
+        """
         for _ in range(10):
             task = self.client.tasks.retrieve(names=[name])[0]
-            actual = task.config.get("dataSaving", task.config.get("data_saving"))
+            disabled = task.config.get(
+                "dataSavingDisabled", task.config.get("data_saving_disabled")
+            )
+            actual = None if disabled is None else not disabled
             if actual == expected:
                 return
             sy.sleep(0.5)
         assert actual == expected, (
-            f"Task '{name}' data_saving should be {expected}, got {actual}"
+            f"Task '{name}' data saving should be {expected}, got {actual}"
         )
 
     def test_play_pause(self) -> None:
