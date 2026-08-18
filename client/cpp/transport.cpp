@@ -205,6 +205,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     device_create->use(mw);
     device_retrieve->use(mw);
     device_delete->use(mw);
+    control_retrieve->use(mw);
     status_retrieve->use(mw);
     status_set->use(mw);
     status_delete->use(mw);
