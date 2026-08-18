@@ -50,7 +50,7 @@ export const FileDrop = ({
       const properName =
         nameWithoutExt === "" ? undefined : caseconv.toProperNoun(nameWithoutExt);
       onContentsChange(contents, properName);
-    }, "Failed to load SVG file");
+    }, `Failed to load ${name}`);
   };
 
   const handleDrop = (entries: FileSystemEntry[]): void => {

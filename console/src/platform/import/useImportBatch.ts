@@ -25,6 +25,8 @@ export interface ImportBatchParams<I extends { name: string }> {
   importItem: (item: I) => Promise<void | ontology.ID>;
   /** Places the tabs in a specific leaf instead of beside the current one. */
   placement?: Panel.Placement;
+  /** Called for each item whose import succeeds. */
+  onSuccess?: (item: I) => void;
 }
 
 export interface ImportBatch {
@@ -44,11 +46,14 @@ export const useImportBatch = (): ImportBatch => {
       items,
       importItem,
       placement,
+      onSuccess,
     }: ImportBatchParams<I>): Promise<void> => {
       const ids = await Promise.all(
         items.map(async (item) => {
           try {
-            return await importItem(item);
+            const id = await importItem(item);
+            onSuccess?.(item);
+            return id;
           } catch (e) {
             handleError(e, `Failed to import ${item.name}`);
           }

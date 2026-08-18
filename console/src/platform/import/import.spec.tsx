@@ -50,7 +50,7 @@ describe("importServer", () => {
     const data = JSON.parse(await new Response(stream).text());
     const id = await Import.importServer(
       data,
-      createFileImporterContext({ client, projectKey: proj.key }),
+      createFileImporterContext({ client, parent: project.ontologyID(proj.key) }),
     );
     assertDefined(id, "server import returned no resource");
     const created = await client.logs.retrieve({ key: id.key });
@@ -70,7 +70,7 @@ describe("importServer", () => {
       state,
       createFileImporterContext({
         client,
-        projectKey: proj.key,
+        parent: project.ontologyID(proj.key),
         fileName: "Legacy Log.json",
       }),
     );
@@ -96,7 +96,7 @@ describe("importServer", () => {
       legacy,
       createFileImporterContext({
         client,
-        projectKey: proj.key,
+        parent: project.ontologyID(proj.key),
         fileName: "PD Alerts.json",
       }),
     );

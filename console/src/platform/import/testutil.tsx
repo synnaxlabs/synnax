@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { project } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/pluto";
 import { act, createEvent, fireEvent, screen } from "@testing-library/react";
 import { type DragEvent, type ReactElement } from "react";
@@ -40,7 +41,7 @@ export const createFileImporterContext = (
   overrides: Partial<FileImporterContext> = {},
 ): FileImporterContext => ({
   client: null,
-  projectKey: "project-1",
+  parent: project.ontologyID("project-1"),
   fileName: "test.json",
   ...overrides,
 });

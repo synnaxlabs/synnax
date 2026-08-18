@@ -24,7 +24,8 @@ import { Session } from "@/session";
 
 export interface FileImporterContext {
   client: Client | null;
-  projectKey: project.Key;
+  /** The ontology resource the created resource is parented to. */
+  parent: ontology.ID;
   /**
    * The name of the file the data was read from, extension included. The Core names
    * the resource after the file when the file's contents carry no name.
@@ -68,13 +69,13 @@ export interface BundleImporter {
  */
 export const importServer: FileImporter = async (
   data,
-  { client, projectKey, fileName },
+  { client, parent, fileName },
 ) => {
   if (client == null) throw new DisconnectedError();
   return await client.imex.import(JSON.stringify(data), {
     ...imex.JSON_OPTIONS,
     fileName,
-    parent: project.ontologyID(projectKey),
+    parent,
   });
 };
 
@@ -105,7 +106,11 @@ export const useImport = (): ((projectKey?: string) => void) => {
           importItem: async (file) =>
             await importServer(
               JSON.parse(new TextDecoder().decode(await file.readBytes())),
-              { client, projectKey: activeProjectKeyAfter, fileName: file.name },
+              {
+                client,
+                parent: project.ontologyID(activeProjectKeyAfter),
+                fileName: file.name,
+              },
             ),
         });
       }),

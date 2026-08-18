@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex, Haul } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { captureEntries } from "@/platform/import/entries";
@@ -36,19 +36,24 @@ export const DropZone = ({
   ...rest
 }: DropZoneProps): ReactElement => {
   const [draggingOver, setDraggingOver] = useState(false);
-  const handleDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-    if (event == null) return items;
-    event.preventDefault();
-    setDraggingOver(false);
-    onDrop(captureEntries(event.dataTransfer));
-    return items;
-  };
+  const handleDrop = useCallback(
+    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+      if (event == null) return items;
+      event.preventDefault();
+      setDraggingOver(false);
+      onDrop(captureEntries(event.dataTransfer));
+      return items;
+    },
+    [onDrop],
+  );
+  const handleDragOver = useCallback(() => setDraggingOver(true), []);
   const dropProps = Haul.useDrop({
     type: Haul.FILE_TYPE,
     onDrop: handleDrop,
     canDrop: canDropFile,
-    onDragOver: () => setDraggingOver(true),
+    onDragOver: handleDragOver,
   });
+  const handleDragLeave = useCallback(() => setDraggingOver(false), []);
   return (
     <Flex.Box
       className={CSS(
@@ -61,7 +66,7 @@ export const DropZone = ({
       bordered
       rounded="small"
       borderColor={draggingOver ? 9 : 6}
-      onDragLeave={() => setDraggingOver(false)}
+      onDragLeave={handleDragLeave}
       onClick={onClick}
       {...dropProps}
       {...rest}

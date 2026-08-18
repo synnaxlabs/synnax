@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/client";
+import { type ontology, project, type Synnax as Client } from "@synnaxlabs/client";
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -54,7 +54,7 @@ const importEntry = async (
   if (file.type !== "application/json") throw new Error("not a JSON file");
   return await importServer(await readJSON(file), {
     client,
-    projectKey,
+    parent: project.ontologyID(projectKey),
     fileName: file.name,
   });
 };
