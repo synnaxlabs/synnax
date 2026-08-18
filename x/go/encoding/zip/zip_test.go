@@ -305,14 +305,3 @@ var _ = Describe("Codec", func() {
 		})
 	})
 })
-
-var _ = DescribeTable("ParentDir",
-	func(name, expected string) {
-		Expect(xzip.ParentDir(name)).To(Equal(expected))
-	},
-	Entry("root entry", "manifest.json", ""),
-	Entry("nested entry", "propulsion/pressurization.json", "propulsion"),
-	Entry("deeply nested entry", "a/b/c.json", "a/b"),
-	Entry("directory prefix", "a/b", "a"),
-	Entry("empty name", "", ""),
-)

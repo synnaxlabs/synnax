@@ -12,6 +12,7 @@ package project
 import (
 	"context"
 	"maps"
+	"path"
 	"slices"
 	"strings"
 
@@ -346,10 +347,10 @@ func (s *Service) Import(
 			return Project{}, errors.Wrap(err, m.path)
 		}
 		refs[m.path] = id
-		dir := zip.ParentDir(m.path)
+		dir := path.Dir(m.path)
 		// A task parents under its rack's task group, never the project: it entered
 		// the bundle through a panel reference, so it stays where its importer put it.
-		if dir == "" || id.Type == ontology.ResourceTypeTask {
+		if dir == "." || id.Type == ontology.ResourceTypeTask {
 			continue
 		}
 		if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
@@ -378,7 +379,7 @@ func (s *Service) Import(
 			p.Name = filename.Stem(m.path)
 		}
 		parent := projID
-		if dir := zip.ParentDir(m.path); dir != "" {
+		if dir := path.Dir(m.path); dir != "." {
 			parent = groups[dir]
 		}
 		p.Parent = &parent
@@ -488,7 +489,7 @@ func (s *Service) ImportObjects(
 		add(resourceType)
 	}
 	for _, m := range members {
-		if zip.ParentDir(m.path) != "" {
+		if path.Dir(m.path) != "." {
 			add(ontology.ResourceTypeGroup)
 			break
 		}
@@ -612,7 +613,7 @@ func validateMemberPaths(paths []string) error {
 }
 
 // createGroups recreates each bundle directory as a group, outer before inner, and
-// returns each directory's group ontology ID keyed by path ("" is the project).
+// returns each directory's group ontology ID keyed by path ("." is the project).
 func (s *Service) createGroups(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -621,17 +622,17 @@ func (s *Service) createGroups(
 ) (map[string]ontology.ID, error) {
 	dirs := set.New[string]()
 	for _, m := range members {
-		for dir := zip.ParentDir(m.path); dir != ""; dir = zip.ParentDir(dir) {
+		for dir := path.Dir(m.path); dir != "."; dir = path.Dir(dir) {
 			dirs.Add(dir)
 		}
 	}
 	var (
-		groups = map[string]ontology.ID{"": projID}
+		groups = map[string]ontology.ID{".": projID}
 		writer = s.cfg.Group.NewWriter(tx)
 	)
 	for _, dir := range slices.Sorted(maps.Keys(dirs)) {
 		name := dir[strings.LastIndexByte(dir, '/')+1:]
-		g, err := writer.Create(ctx, name, groups[zip.ParentDir(dir)])
+		g, err := writer.Create(ctx, name, groups[path.Dir(dir)])
 		if err != nil {
 			return nil, errors.Wrap(err, dir)
 		}
