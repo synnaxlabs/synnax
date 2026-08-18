@@ -12,38 +12,43 @@ import { binary } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
-import { InputPath, type InputPathProps } from "@/platform/fs/InputPath";
+import { PickerRow, type PickerRowProps } from "@/platform/fs/PickerRow";
 import { Runtime } from "@/platform/runtime";
 
 export interface InputFileProps<P extends z.ZodType = z.ZodString> extends Omit<
-  InputPathProps,
-  "value" | "onChange"
+  PickerRowProps,
+  "value" | "onClick" | "onChange"
 > {
-  /** The path of the currently loaded file. The caller owns it. */
+  /** The displayed name of the loaded file. The caller owns it. */
   value: string;
-  /** Receives the decoded contents and the path they were read from. */
-  onChange: (value: z.infer<P>, path: string) => void;
+  /** Receives the decoded contents and the file's name. */
+  onChange: (value: z.infer<P>, name: string) => void;
+  filters?: Runtime.FileFilter[];
   schema?: P;
   decoder?: binary.Codec;
 }
 
 /**
- * A file picker that reads and decodes the chosen file's contents. Controlled: the
- * caller stores the picked path and receives the decoded contents alongside it. A file
- * that fails to read or decode reports an error status and leaves the value untouched.
+ * A file picker that reads and decodes the chosen file's contents, in the desktop app
+ * and the browser alike. Controlled: the caller stores the file's name and receives
+ * the decoded contents alongside it. A file that fails to read or decode reports an
+ * error status and leaves the value untouched.
  */
 export const InputFile = <P extends z.ZodType = z.ZodString>({
   value,
   onChange,
+  filters,
   decoder = binary.TEXT_CODEC,
   schema,
   ...rest
 }: InputFileProps<P>): ReactElement => {
   const handleError = Status.useErrorHandler();
-  const handleChange = (path: string) =>
+  const handleClick = () =>
     handleError(async () => {
-      const contents = await Runtime.readPath(path);
-      onChange(decoder.decode<P>(contents, schema), path);
+      const files = await Runtime.pickFiles({ filters });
+      if (files == null) return;
+      const [file] = files;
+      onChange(decoder.decode<P>(await file.readBytes(), schema), file.name);
     }, "Failed to read file");
-  return <InputPath value={value} onChange={handleChange} {...rest} />;
+  return <PickerRow value={value} onClick={handleClick} {...rest} />;
 };

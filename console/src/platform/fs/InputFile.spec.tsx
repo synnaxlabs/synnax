@@ -34,6 +34,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
+vi.mock("@tauri-apps/api/path", () => ({ sep: vi.fn(() => "/") }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 // The Tauri fs plugin is an unmockable IPC seam in jsdom; route it to the real node
 // filesystem so the specs exercise genuine file reads.
@@ -50,7 +51,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 
 import { FS } from "@/platform/fs";
-import { renderWithConsole } from "@/testutil";
+import { fakePickedFile, interceptFilePicker, renderWithConsole } from "@/testutil";
 
 const openMock = vi.mocked(open);
 const readFileMock = vi.mocked(readFile);
@@ -67,7 +68,7 @@ afterAll(async () => {
 
 describe("FS.InputFile", () => {
   beforeEach(() => {
-    mocks.engine = "tauri";
+    mocks.engine = "web";
     openMock.mockReset();
     readFileMock.mockClear();
   });
@@ -75,30 +76,28 @@ describe("FS.InputFile", () => {
     vi.restoreAllMocks();
   });
 
-  it("should show the caller's path without reading it", async () => {
-    const path = join(dir, "seed.txt");
-    await writeFile(path, "file body");
+  it("should show the caller's file name without reading anything", async () => {
     const onChange = vi.fn();
-    await renderWithConsole(<FS.InputFile value={path} onChange={onChange} />);
-    expect(screen.getByText(path)).toBeTruthy();
+    await renderWithConsole(<FS.InputFile value="table.csv" onChange={onChange} />);
+    expect(screen.getByText("table.csv")).toBeTruthy();
     expect(readFileMock).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("should read the file when the path is chosen via the dialog", async () => {
-    const path = join(dir, "chosen.txt");
-    await writeFile(path, "chosen body");
-    openMock.mockResolvedValue(path);
+  it("should read a file picked in the browser", async () => {
+    const picker = interceptFilePicker();
     const onChange = vi.fn();
     await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
     fireEvent.click(screen.getByText("Select file"));
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith("chosen body", path));
+    await waitFor(() => expect(picker.lastInput()).toBeDefined());
+    picker.selectFiles([fakePickedFile("notes.txt", "file body")]);
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith("file body", "notes.txt"),
+    );
   });
 
   it("should decode JSON contents against the provided schema", async () => {
-    const path = join(dir, "config.json");
-    await writeFile(path, JSON.stringify({ host: "localhost", port: 9090 }));
-    openMock.mockResolvedValue(path);
+    const picker = interceptFilePicker();
     const schema = z.object({ host: z.string(), port: z.number() });
     const onChange = vi.fn();
     await renderWithConsole(
@@ -110,18 +109,43 @@ describe("FS.InputFile", () => {
       />,
     );
     fireEvent.click(screen.getByText("Select file"));
+    await waitFor(() => expect(picker.lastInput()).toBeDefined());
+    picker.selectFiles([
+      fakePickedFile("config.json", JSON.stringify({ host: "localhost", port: 9090 })),
+    ]);
     await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith({ host: "localhost", port: 9090 }, path),
+      expect(onChange).toHaveBeenCalledWith(
+        { host: "localhost", port: 9090 },
+        "config.json",
+      ),
     );
   });
 
-  it("should not call onChange when the chosen file does not exist", async () => {
-    const path = join(dir, "missing.txt");
-    openMock.mockResolvedValue(path);
-    const onChange = vi.fn();
-    await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
-    fireEvent.click(screen.getByText("Select file"));
-    await waitFor(() => expect(readFileMock).toHaveBeenCalledWith(path));
-    expect(onChange).not.toHaveBeenCalled();
+  describe("tauri engine", () => {
+    beforeEach(() => {
+      mocks.engine = "tauri";
+    });
+
+    it("should read the file behind the chosen path", async () => {
+      const path = join(dir, "chosen.txt");
+      await writeFile(path, "chosen body");
+      openMock.mockResolvedValue(path);
+      const onChange = vi.fn();
+      await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
+      fireEvent.click(screen.getByText("Select file"));
+      await waitFor(() =>
+        expect(onChange).toHaveBeenCalledWith("chosen body", "chosen.txt"),
+      );
+    });
+
+    it("should not call onChange when the chosen file does not exist", async () => {
+      const path = join(dir, "missing.txt");
+      openMock.mockResolvedValue(path);
+      const onChange = vi.fn();
+      await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
+      fireEvent.click(screen.getByText("Select file"));
+      await waitFor(() => expect(readFileMock).toHaveBeenCalledWith(path));
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 });

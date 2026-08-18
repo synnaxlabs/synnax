@@ -62,7 +62,8 @@ const ingestEntry = async (
 };
 
 export interface UseFileDropParams {
-  /** Ingests a dropped directory or .zip as a bundle. Injected by the composition root. */
+  /** Ingests a dropped directory or .zip as a bundle. Injected by the composition root.
+   * */
   ingestBundle: BundleIngester;
 }
 

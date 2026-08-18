@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/fs/InputPath.css";
-
-import { Button, Flex, Icon, type Input, Status } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { type Input, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/platform/css";
+import { PickerRow, type PickerRowProps } from "@/platform/fs/PickerRow";
 import { Runtime } from "@/platform/runtime";
 
 export interface InputPathProps
-  extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
+  extends Input.Control<string>, Omit<PickerRowProps, "value" | "onClick"> {
   filters?: Runtime.FileFilter[];
 }
 
@@ -31,7 +28,6 @@ export const InputPath = ({
   filters,
   ...rest
 }: InputPathProps): ReactElement => {
-  const path = value;
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
@@ -39,34 +35,5 @@ export const InputPath = ({
       if (path == null) return;
       onChange(path);
     }, "Failed to open file");
-  return (
-    <Flex.Box pack className={CSS.B("input-path")} borderColor={6} {...rest}>
-      <Button.Button
-        level="small"
-        className={CSS.B("path")}
-        variant="outlined"
-        grow
-        onClick={handleClick}
-        size="medium"
-        textColor={9}
-        weight={450}
-      >
-        {primitive.isNonZero(path) ? (
-          <>
-            <Icon.Attachment className={CSS.BE("input-path", "icon")} />
-            {path}
-          </>
-        ) : (
-          "No file selected"
-        )}
-      </Button.Button>
-      <Button.Button
-        variant="outlined"
-        className={CSS.B("select")}
-        onClick={handleClick}
-      >
-        Select file
-      </Button.Button>
-    </Flex.Box>
-  );
+  return <PickerRow value={value} onClick={handleClick} {...rest} />;
 };

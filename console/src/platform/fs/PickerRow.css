@@ -9,19 +9,22 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-input-path {
+.console-picker-row {
     overflow: hidden;
+
     .console-path {
         padding: 0 1.25rem;
         width: min-content;
         overflow: hidden;
+
         .pluto-text {
             max-width: 500px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .console-input-path__icon {
+
+        .console-picker-row__icon {
             color: var(--pluto-gray-l9);
         }
     }

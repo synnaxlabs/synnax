@@ -120,7 +120,7 @@ func (ls *leaseSender) send(_ context.Context, txReq TxRequest) error {
 	addr, err := ls.Cluster.Resolve(txReq.Leaseholder)
 	defer func() { txReq.done(err) }()
 	if err != nil {
-		return nil
+		return err
 	}
 	_, err = ls.LeaseTransportClient.Send(txReq.Context, addr, txReq)
 	return err
