@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// decode unpacks a bundle file's bytes into the generic map assertions inspect.
 func decode(b []byte) map[string]any {
 	GinkgoHelper()
 	var m map[string]any
@@ -136,7 +135,6 @@ func leaf(tabs ...panel.Tab) panel.Node {
 	}}
 }
 
-// childrenOf reads the ontology children of id on the per-spec tx.
 func childrenOf(ctx SpecContext, id ontology.ID) []ontology.Resource {
 	GinkgoHelper()
 	var children []ontology.Resource

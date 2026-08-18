@@ -25,14 +25,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// legacyLayoutFile builds a LAYOUT.json holding one layout record per entry.
 func legacyLayoutFile(layouts map[string]map[string]any) []byte {
 	GinkgoHelper()
 	return MustSucceed(json.Marshal(map[string]any{"layouts": layouts}))
 }
 
-// legacyLogState is a frozen legacy Console log state: typeless, recognized by its
-// channels array.
+// legacyLogState is typeless, recognized as a log by its channels array.
 func legacyLogState(extra map[string]any) []byte {
 	GinkgoHelper()
 	body := map[string]any{
@@ -136,8 +134,6 @@ var _ = Describe("Legacy import", func() {
 	})
 })
 
-// legacyTilingFile builds a LAYOUT.json holding layout records beside per-window
-// mosaic trees.
 func legacyTilingFile(
 	layouts map[string]map[string]any,
 	mosaics map[string]any,
@@ -148,7 +144,6 @@ func legacyTilingFile(
 	}))
 }
 
-// legacyLeaf builds a legacy mosaic leaf node holding one tab per layout key.
 func legacyLeaf(keys ...string) map[string]any {
 	tabs := make([]any, len(keys))
 	for i, k := range keys {

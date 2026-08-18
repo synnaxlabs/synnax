@@ -30,34 +30,26 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// legacySlice is the layout-slice body every stable release wrote to LAYOUT.json; only
-// the layout records are needed to locate and type each component file.
+// legacySlice is the layout-slice body every stable release wrote to LAYOUT.json.
 type legacySlice struct {
 	Layouts map[string]legacyLayout `json:"layouts"`
 }
 
-// legacyLayout is one layout record of a legacy export.
 type legacyLayout struct {
 	Key  string `json:"key"`
 	Type string `json:"type"`
 	Name string `json:"name"`
 }
 
-// legacyComponentTypes are the visualization layout types found in legacy project
-// exports. Their component files are typeless legacy Console states. Frozen — legacy
-// exports are no longer produced.
-var legacyComponentTypes = set.New(
+// legacyImportableTypes are the layout types whose component files import through the
+// leaf machinery: typeless visualization states and typed task configs. Frozen —
+// legacy exports are no longer produced.
+var legacyImportableTypes = set.New(
 	string(ontology.ResourceTypeArc),
 	string(ontology.ResourceTypeLineplot),
 	string(ontology.ResourceTypeLog),
 	string(ontology.ResourceTypeSchematic),
 	string(ontology.ResourceTypeTable),
-)
-
-// legacyTaskTypes are the task layout types found in legacy project exports. Their
-// component files are typed legacy task configs the leaf machinery migrates. Frozen
-// for the same reason.
-var legacyTaskTypes = set.New(
 	"ethercat_read",
 	"ethercat_write",
 	"http_read",
@@ -128,13 +120,11 @@ type legacyTiling struct {
 	Mosaics map[string]legacyMosaic `json:"mosaics"`
 }
 
-// legacyMosaic is a single window's persisted mosaic state.
 type legacyMosaic struct {
 	Root *legacyMosaicNode `json:"root"`
 }
 
-// legacyMosaicNode is a node in the Console's persisted mosaic tree. Leaves carry
-// tabs; interior nodes carry a direction, size, and two children.
+// legacyMosaicNode is a node in the Console's persisted mosaic tree.
 type legacyMosaicNode struct {
 	Tabs      []legacyMosaicTab `json:"tabs"`
 	Direction string            `json:"direction"`
@@ -143,16 +133,14 @@ type legacyMosaicNode struct {
 	Last      *legacyMosaicNode `json:"last"`
 }
 
-// legacyMosaicTab is a tab in a legacy mosaic leaf. TabKey is the key of the layout
-// the tab renders.
 type legacyMosaicTab struct {
+	// TabKey is the key of the layout the tab renders.
 	TabKey string `json:"tabKey"`
 }
 
-// createLegacyPanels recreates the legacy tiling as panels: each window's mosaic whose
-// tabs resolve to imported members becomes a panel under the project, main window
-// first. The tiling is best-effort — a mosaics shape this decoder does not recognize
-// leaves the documents imported with no panels rather than failing the import.
+// createLegacyPanels recreates the tiling as panels, one per window whose tabs resolve
+// to imported members, main window first. Best-effort: an unrecognized mosaics shape
+// imports the documents with no panels instead of failing.
 func (s *Service) createLegacyPanels(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -183,8 +171,8 @@ func (s *Service) createLegacyPanels(
 	return nil
 }
 
-// sortedLegacyWindowKeys orders the mosaic window keys deterministically, with the
-// main window first so it becomes the project's first panel.
+// sortedLegacyWindowKeys orders window keys with main first, so the main window
+// becomes the project's first panel.
 func sortedLegacyWindowKeys(mosaics map[string]legacyMosaic) []string {
 	keys := slices.Collect(maps.Keys(mosaics))
 	slices.SortFunc(keys, func(a, b string) int {
@@ -202,8 +190,6 @@ func sortedLegacyWindowKeys(mosaics map[string]legacyMosaic) []string {
 	return keys
 }
 
-// legacyPanelName resolves a converted panel's name from the window's layout entry,
-// falling back to the window key when the entry is missing or unnamed.
 func legacyPanelName(layouts map[string]legacyLayout, windowKey string) string {
 	if l, ok := layouts[windowKey]; ok && l.Name != "" {
 		return l.Name
@@ -211,10 +197,9 @@ func legacyPanelName(layouts map[string]legacyLayout, windowKey string) string {
 	return windowKey
 }
 
-// convertLegacyNode recursively converts a legacy mosaic node into a panel tree node,
-// resolving each tab to the ontology ID minted for its layout key. It returns nil when
-// the subtree retains no resolvable tabs; a split with one surviving side collapses
-// into that side.
+// convertLegacyNode converts a mosaic node into a panel tree node, resolving each tab
+// through refs. It returns nil when no tabs resolve; a split with one surviving side
+// collapses into it.
 func convertLegacyNode(
 	n *legacyMosaicNode,
 	refs map[string]ontology.ID,
@@ -255,8 +240,8 @@ func convertLegacyNode(
 	return &panel.Node{Variant: panel.LeafNode{Tabs: tabs}}
 }
 
-// legacyHasPanels reports whether the legacy tiling would convert to at least one
-// panel given the importable members, for access enforcement before any import work.
+// legacyHasPanels reports whether the tiling would convert to at least one panel, so
+// callers can enforce access before any import work.
 func legacyHasPanels(
 	ctx context.Context,
 	layoutData []byte,
@@ -278,8 +263,6 @@ func legacyHasPanels(
 	return false
 }
 
-// convertLegacyDirection parses a legacy mosaic split direction, defaulting to x when
-// the value is missing or invalid.
 func convertLegacyDirection(d string) spatial.Direction {
 	if parsed := spatial.Direction(d); parsed.IsValid() {
 		return parsed
@@ -287,9 +270,8 @@ func convertLegacyDirection(d string) spatial.Direction {
 	return spatial.DirectionX
 }
 
-// convertLegacySize normalizes a legacy split size to the (0, 1) fraction panels
-// store. Legacy mosaics persisted sizes in several units over time, so anything
-// outside the fractional range falls back to an even split.
+// convertLegacySize normalizes a split size to the (0, 1) fraction panels store; the
+// persisted units drifted across releases, so anything else becomes an even split.
 func convertLegacySize(s float64) spatial.Decimal {
 	if s > 0 && s < 1 {
 		return spatial.Decimal(s)
@@ -297,16 +279,15 @@ func convertLegacySize(s float64) spatial.Decimal {
 	return 0.5
 }
 
-// legacyMember pairs an importable layout record's component file with the layout key
-// mosaic tabs reference it by.
 type legacyMember struct {
 	importMember
+	// layoutKey is the key mosaic tabs reference the member by.
 	layoutKey string
 }
 
-// legacyMembers locates the component file behind each importable layout record, in
-// layout-key order, each decoded and resolved to its registration type. A record whose
-// component file the directory does not hold is a validation error.
+// legacyMembers locates and decodes the component file behind each importable layout
+// record, in layout-key order. A record whose file the directory does not hold is a
+// validation error.
 func (s *Service) legacyMembers(
 	ctx context.Context,
 	slice legacySlice,
@@ -315,8 +296,7 @@ func (s *Service) legacyMembers(
 	members := make([]legacyMember, 0, len(slice.Layouts))
 	for _, key := range slices.Sorted(maps.Keys(slice.Layouts)) {
 		layout := slice.Layouts[key]
-		if !legacyComponentTypes.Contains(layout.Type) &&
-			!legacyTaskTypes.Contains(layout.Type) {
+		if !legacyImportableTypes.Contains(layout.Type) {
 			continue
 		}
 		path, err := findLegacyComponent(ctx, files, key, layout)
@@ -340,8 +320,8 @@ func (s *Service) legacyMembers(
 	return members, nil
 }
 
-// findLegacyComponent locates the component file behind a layout record: a file named
-// after the layout or its key, or one whose body carries the matching key or name.
+// findLegacyComponent matches a layout record to a file named after the layout or its
+// key, or one whose body carries the matching key or name.
 func findLegacyComponent(
 	ctx context.Context,
 	files zip.Files,

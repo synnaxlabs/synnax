@@ -290,13 +290,12 @@ func (w *bundleWalk) encodePanels(
 	return nil
 }
 
-// Import creates a fresh project from the bundle in files on tx. The manifest names
-// the project, with the extension-stripped fileName as the fallback; each bundle
-// directory becomes a group; each non-panel member imports through the leaf registry;
-// each panel is recreated with its resource tabs resolved to the members' minted IDs.
-// A directory with no manifest but a root LAYOUT.json is the legacy (version 0)
-// format: its documents are recreated and its tiling dropped. Invalid bundles return
-// validation errors naming the offending file.
+// Import creates a fresh project from the bundle in files on tx: the manifest (or the
+// extension-stripped fileName) names it, directories become groups, members import
+// through the leaf registry, and panels are recreated with their resource tabs
+// resolved to the minted IDs. A root LAYOUT.json with no manifest is the legacy
+// (version 0) format. Invalid bundles return validation errors naming the offending
+// file.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -394,10 +393,8 @@ func (s *Service) Import(
 }
 
 // ImportObjects returns the type-level ontology ID of every resource kind Import
-// creates for files: the project, each distinct member type, and the group when the
-// bundle carries directories. Callers enforce access on the result before any import
-// work runs. Format routing mirrors Import, so an invalid bundle fails here with the
-// same error.
+// creates for files, so callers can enforce access before any import work. An invalid
+// bundle fails here with Import's error.
 func (s *Service) ImportObjects(
 	ctx context.Context,
 	files zip.Files,
@@ -468,11 +465,10 @@ func (s *Service) ImportObjects(
 	return objects, nil
 }
 
-// importMember pairs a member path with its decoded envelope, its type resolved to a
-// registration type.
 type importMember struct {
 	path string
-	env  imex.Envelope
+	// env is the member's decoded envelope, its type resolved to a registration type.
+	env imex.Envelope
 }
 
 // decodeManifest reads and guards the bundle manifest: the type must be "project" and
@@ -506,10 +502,8 @@ func decodeManifest(
 	return manifest, nil
 }
 
-// bundleMembers enumerates a version 1 bundle's members — every JSON file under the
-// root except the manifest — in sorted path order, each decoded and resolved to its
-// registration type. Member names that collide case-folded within one directory are a
-// validation error.
+// bundleMembers enumerates and decodes a version 1 bundle's members — every JSON file
+// under the root except the manifest — in sorted path order.
 func (s *Service) bundleMembers(
 	ctx context.Context,
 	files zip.Files,
@@ -550,8 +544,8 @@ func (s *Service) bundleMembers(
 }
 
 // validateMemberPaths rejects two names in one directory that compare equal
-// case-folded: the Console extracts bundles onto case-insensitive filesystems, where
-// the pair collides. File and directory names share each directory's namespace.
+// case-folded, which collide when the Console extracts a bundle onto a
+// case-insensitive filesystem. File and directory names share the namespace.
 func validateMemberPaths(paths []string) error {
 	type segment struct {
 		path string
@@ -586,9 +580,8 @@ func validateMemberPaths(paths []string) error {
 	return nil
 }
 
-// createGroups recreates each bundle directory as a group, outer before inner, rooted
-// at the project, and returns each directory's group ontology ID keyed by path ("" is
-// the project itself).
+// createGroups recreates each bundle directory as a group, outer before inner, and
+// returns each directory's group ontology ID keyed by path ("" is the project).
 func (s *Service) createGroups(
 	ctx context.Context,
 	tx gorp.Tx,

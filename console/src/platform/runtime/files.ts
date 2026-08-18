@@ -13,6 +13,16 @@ import { readDir, readFile } from "@tauri-apps/plugin-fs";
 
 import { Session } from "@/session";
 
+/** Options for pickFiles. */
+export interface PickFilesParams {
+  /** Titles the native dialog. */
+  title: string;
+  /** Restricts the picker to files with this extension, without the leading dot. */
+  extension: string;
+  /** Whether the picker allows multiple file selection. */
+  multiple?: boolean;
+}
+
 /** A file chosen through a picker, read lazily. */
 export interface PickedFile {
   /**
@@ -24,32 +34,12 @@ export interface PickedFile {
   readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
 }
 
-/** Options for pickFiles. */
-export interface PickFilesParams {
-  /** Titles the native dialog. */
-  title: string;
-  /** Restricts the picker to files with this extension, without the leading dot. */
-  extension: string;
-  multiple?: boolean;
-}
-
-// The Tauri dialog wants a named filter group; the name is just the dialog's label
-// for the extension.
+// The Tauri dialog wants a named filter group; the name is just the dialog's label for
+// the extension.
 const tauriFilters = (extension?: string) =>
   extension == null
     ? undefined
     : [{ name: extension.toUpperCase(), extensions: [extension] }];
-
-/** Options for pickPath. */
-export interface PickPathParams {
-  /** Titles the native dialog. */
-  title: string;
-  /**
-   * Restricts the picker to files with this extension, without the leading dot. Left
-   * unset, the picker accepts any file.
-   */
-  extension?: string;
-}
 
 /**
  * Resolves a settle callback after the user appears to have dismissed a file picker but
@@ -137,6 +127,17 @@ export const pickFiles = (async (
   if (files == null) return null;
   return params.multiple === true ? files : files[0];
 }) as PickFiles;
+
+/** Options for pickPath. */
+export interface PickPathParams {
+  /** Titles the native dialog. */
+  title: string;
+  /**
+   * Restricts the picker to files with this extension, without the leading dot. Left
+   * unset, the picker accepts any file.
+   */
+  extension?: string;
+}
 
 /**
  * Opens a native file picker and returns the chosen file's absolute path, or null if
