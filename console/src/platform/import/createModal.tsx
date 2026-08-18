@@ -72,7 +72,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
           filters: [{ name: "Zip", extensions: ["zip"] }],
         });
         if (files == null) return;
-        await importZip(await files[0].readBytes(), files[0].name);
+        await importZip(await files[0].readBytes(), files[0].path);
       }, errorMessage);
 
     const handlePickDirectory = (): void =>

@@ -773,15 +773,3 @@ var _ = Describe("Service", func() {
 		)
 	})
 })
-
-var _ = DescribeTable("BaseName",
-	func(fileName, expected string) {
-		Expect(imex.BaseName(fileName)).To(Equal(expected))
-	},
-	Entry("bare file name", "Metrics Log.json", "Metrics Log"),
-	Entry("zip archive", "Test Stand 12.zip", "Test Stand 12"),
-	Entry("slash-separated path", "a/b/Pump.json", "Pump"),
-	Entry("backslash-separated path", `a\Valve.json`, "Valve"),
-	Entry("no extension", "Gauge", "Gauge"),
-	Entry("empty name", "", ""),
-)

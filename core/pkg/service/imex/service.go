@@ -12,13 +12,12 @@ package imex
 import (
 	"context"
 	"maps"
-	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -142,16 +141,6 @@ func (s *Service) ResolveType(envelope Envelope) (string, error) {
 	return "", newFieldError("type", "file does not match any known resource format")
 }
 
-// BaseName strips fileName's directory segments and trailing extension. Both separators
-// are cut: the name arrives on the wire, so a client can send a path built on a
-// platform other than the Core's. An empty fileName stays empty.
-func BaseName(fileName string) string {
-	if i := strings.LastIndexAny(fileName, `/\`); i >= 0 {
-		fileName = fileName[i+1:]
-	}
-	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
-}
-
 // Import routes envelope to its Importer, persists it on tx, and returns the created
 // resource's ID. The opts.FileName fallback is applied before routing; opts then
 // reaches the importer untouched. It returns a validation error scoped to "parent" when
@@ -180,7 +169,7 @@ func (s *Service) Import(
 		return ontology.ID{}, notFoundError(envelope.Type, "importer")
 	}
 	if envelope.Name == "" {
-		envelope.Name = BaseName(opts.FileName)
+		envelope.Name = filename.Stem(opts.FileName)
 	}
 	if envelope.Name == "" {
 		return ontology.ID{}, newFieldError("name", "name must be a non-empty string")

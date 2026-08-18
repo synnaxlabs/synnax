@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -93,7 +94,7 @@ func (s *Service) importLegacy(
 	if err != nil {
 		return Project{}, err
 	}
-	proj := Project{Name: imex.BaseName(fileName)}
+	proj := Project{Name: filename.Stem(fileName)}
 	if err = s.NewWriter(tx).Create(ctx, &proj); err != nil {
 		return Project{}, err
 	}

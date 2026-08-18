@@ -319,7 +319,7 @@ func (s *Service) Import(
 	}
 	name := manifest.Name
 	if name == "" {
-		name = imex.BaseName(fileName)
+		name = filename.Stem(fileName)
 	}
 	members, err := s.bundleMembers(ctx, files)
 	if err != nil {
@@ -379,7 +379,7 @@ func (s *Service) Import(
 			return Project{}, errors.Wrap(err, m.path)
 		}
 		if p.Name == "" {
-			p.Name = imex.BaseName(m.path)
+			p.Name = filename.Stem(m.path)
 		}
 		parent := projID
 		if dir := parentDir(m.path); dir != "" {

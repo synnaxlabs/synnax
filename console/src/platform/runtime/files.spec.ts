@@ -27,7 +27,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 }));
 
 import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readFile, readTextFile } from "@tauri-apps/plugin-fs";
+import { readDir, readFile } from "@tauri-apps/plugin-fs";
 
 import { Runtime } from "@/platform/runtime";
 import {
@@ -40,15 +40,13 @@ import {
 const openMock = vi.mocked(open);
 const readDirMock = vi.mocked(readDir);
 const readFileMock = vi.mocked(readFile);
-const readTextFileMock = vi.mocked(readTextFile);
 
 let picker: FilePickerInterceptor;
 
 describe("Runtime files", () => {
   beforeEach(() => {
     mocks.engine = "web";
-    for (const m of [openMock, readDirMock, readFileMock, readTextFileMock])
-      m.mockReset();
+    for (const m of [openMock, readDirMock, readFileMock]) m.mockReset();
     picker = interceptFilePicker();
   });
   afterEach(() => {
@@ -56,15 +54,14 @@ describe("Runtime files", () => {
   });
 
   describe("pickFiles (browser)", () => {
-    it("should map selected files into name/path/read handles", async () => {
+    it("should map selected files into path/readBytes handles", async () => {
       const p = Runtime.pickFiles({});
       picker.selectFiles([fakePickedFile("manifest.json", "{}")]);
       const result = await p;
       assertDefined(result);
       expect(result).toHaveLength(1);
-      expect(result[0].name).toBe("manifest.json");
       expect(result[0].path).toBe("manifest.json");
-      await expect(result[0].read()).resolves.toBe("{}");
+      expect(new TextDecoder().decode(await result[0].readBytes())).toBe("{}");
     });
 
     it("should return null when no files are selected", async () => {
@@ -111,21 +108,20 @@ describe("Runtime files", () => {
 
     it("should resolve a single selected path to its basename", async () => {
       openMock.mockResolvedValue("/tmp/data/config.json");
-      readTextFileMock.mockResolvedValue("{}");
+      readFileMock.mockResolvedValue(new Uint8Array([1]));
       const result = await Runtime.pickFiles({ title: "Pick" });
       assertDefined(result);
       expect(result).toHaveLength(1);
-      expect(result[0].name).toBe("config.json");
       expect(result[0].path).toBe("config.json");
-      await result[0].read();
-      expect(readTextFileMock).toHaveBeenCalledWith("/tmp/data/config.json");
+      await result[0].readBytes();
+      expect(readFileMock).toHaveBeenCalledWith("/tmp/data/config.json");
     });
 
     it("should resolve multiple selected paths", async () => {
       openMock.mockResolvedValue(["/a/one.json", "/b/two.json"]);
       const result = await Runtime.pickFiles({ multiple: true });
       assertDefined(result);
-      expect(result.map((f) => f.name)).toEqual(["one.json", "two.json"]);
+      expect(result.map((f) => f.path)).toEqual(["one.json", "two.json"]);
     });
 
     it("should return null when the dialog resolves an empty array", async () => {
@@ -159,15 +155,15 @@ describe("Runtime files", () => {
             ]
           : [{ name: "b.json", isFile: true, isDirectory: false, isSymlink: false }],
       );
-      readTextFileMock.mockResolvedValue("data");
+      readFileMock.mockResolvedValue(new Uint8Array([1]));
       const result = await Runtime.pickDirectory();
       assertDefined(result);
       expect(result.name).toBe("project");
       expect(result.files.map((f) => f.path)).toEqual(["a.json", "nested/b.json"]);
-      await result.files[0].read();
-      expect(readTextFileMock).toHaveBeenCalledWith("/tmp/project/a.json");
-      await result.files[1].read();
-      expect(readTextFileMock).toHaveBeenCalledWith("/tmp/project/nested/b.json");
+      await result.files[0].readBytes();
+      expect(readFileMock).toHaveBeenCalledWith("/tmp/project/a.json");
+      await result.files[1].readBytes();
+      expect(readFileMock).toHaveBeenCalledWith("/tmp/project/nested/b.json");
     });
   });
 
@@ -222,24 +218,6 @@ describe("Runtime files", () => {
         openMock.mockResolvedValue(null);
         await expect(Runtime.pickPath()).resolves.toBeNull();
       });
-    });
-  });
-
-  describe("readPath", () => {
-    it("should reject in the browser without touching the filesystem", async () => {
-      await expect(Runtime.readPath("/tmp/cert.pem")).rejects.toThrow(
-        "File paths can only be read in the Synnax desktop app.",
-      );
-      expect(readFileMock).not.toHaveBeenCalled();
-    });
-
-    it("should read the path's bytes on tauri", async () => {
-      mocks.engine = "tauri";
-      readFileMock.mockResolvedValue(new Uint8Array([1, 2, 3]));
-      await expect(Runtime.readPath("/tmp/cert.pem")).resolves.toEqual(
-        new Uint8Array([1, 2, 3]),
-      );
-      expect(readFileMock).toHaveBeenCalledWith("/tmp/cert.pem");
     });
   });
 });

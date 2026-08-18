@@ -74,13 +74,13 @@ const importComponent = ({
     }
     const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
     await ingestBatch({
-      items: files,
+      // ingestBatch names failures after the item, so the path doubles as the name.
+      items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
       ingest: async (file) =>
-        await ingestServer(JSON.parse(await file.read()), {
-          client,
-          projectKey: activeProjectKeyAfter,
-          fileName: file.name,
-        }),
+        await ingestServer(
+          JSON.parse(new TextDecoder().decode(await file.readBytes())),
+          { client, projectKey: activeProjectKeyAfter, fileName: file.name },
+        ),
       handleError,
       openTabs,
     });

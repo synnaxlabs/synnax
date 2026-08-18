@@ -32,18 +32,18 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
         await Promise.all(
           files.map(async (file) => {
             try {
-              const data = await file.read();
+              const data = await file.readBytes();
               await client.imex.import(data, {
                 ...imex.JSON_OPTIONS,
-                fileName: file.name,
+                fileName: file.path,
                 parent: parentID,
               });
               addStatus({
                 variant: "success",
-                message: `Imported ${file.name}`,
+                message: `Imported ${file.path}`,
               });
             } catch (e) {
-              handleError(e, `Failed to import symbol from ${file.name}`);
+              handleError(e, `Failed to import symbol from ${file.path}`);
             }
           }),
         );
