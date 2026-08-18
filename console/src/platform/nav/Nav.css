@@ -12,9 +12,6 @@
 .console-nav__bar {
     .pluto-menu-item {
         position: relative;
-
-        /* Fill comes from the list tier; the rail indicator is the nav's own
-           ornament. */
         &.pluto--selected {
             &::after {
                 transform: scaleY(1);
@@ -29,7 +26,6 @@
             top: 0.5rem;
             height: calc(100% - 1rem);
             opacity: 0;
-            /* Scales from the centre, so the bar grows outward without layout. */
             transform: scaleY(0);
             transition:
                 transform 0.15s,
