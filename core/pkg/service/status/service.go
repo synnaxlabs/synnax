@@ -86,7 +86,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
-	table  *gorp.Table[string, Status[any]]
+	table  *gorp.Table[Key, Status[any]]
 	group  group.Group
 }
 
@@ -103,7 +103,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(
 		ctx,
-		gorp.TableConfig[string, Status[any]]{
+		gorp.TableConfig[Key, Status[any]]{
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
@@ -115,10 +115,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx,
 		"Statuses",
 		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
+	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -132,7 +129,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) Close() error { return s.closer.Close() }
 
 // Observe returns an observable that notifies callers of changes to status entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[string, Status[any]]] {
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Status[any]]] {
 	return s.table.Observe()
 }
 
@@ -194,7 +191,7 @@ func SetTarget(matches []Status[any], keyOrName, message, variant string) Status
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	keyOrName, message, variant string,
-) (key string, multipleMatches bool, err error) {
+) (key Key, multipleMatches bool, err error) {
 	// Check before opening a Tx
 	if !Variant(variant).IsValid() {
 		return "", false, errors.Wrap(validate.ErrValidation, "invalid status variant")
@@ -227,7 +224,7 @@ func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 
 func NewRetrieve[D any](s *Service) Retrieve[D] {
 	return Retrieve[D]{
-		gorp:   gorp.NewRetrieve[string, Status[D]](),
+		gorp:   gorp.NewRetrieve[Key, Status[D]](),
 		baseTX: s.cfg.DB,
 		search: s.cfg.Search,
 		label:  s.cfg.Label,

@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/config/types.gen.h"
+#include "client/cpp/device/key.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -105,7 +105,7 @@ struct BaseWriteField {
 };
 
 /// @brief ScanConfig configures an HTTP scan task.
-struct ScanConfig : public ::synnax::task::config::BaseScan {
+struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -246,10 +246,10 @@ struct WriteEndpoint {
 
 /// @brief ReadConfig configures an HTTP read task, which polls one or more endpoints on
 /// an HTTP server device and writes extracted JSON values to Synnax channels.
-struct ReadConfig : public ::synnax::task::config::BasePersist {
+struct ReadConfig : public ::synnax::task::PersistConfig {
     /// @brief device is the key of the HTTP server device to poll.
     ::synnax::device::Key device = "";
-    /// @brief rate is the polling rate applied to all endpoints, in hertz.
+    /// @brief rate is the polling rate applied to all endpoints, in Hertz.
     ::x::telem::Rate rate = ::x::telem::Rate(1);
     /// @brief endpoints contains the endpoints to poll.
     std::vector<ReadEndpoint> endpoints;
@@ -260,7 +260,7 @@ struct ReadConfig : public ::synnax::task::config::BasePersist {
 
 /// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
 /// whenever a value is written to an endpoint's command channel.
-struct WriteConfig : public ::synnax::task::config::BaseStart {
+struct WriteConfig : public ::synnax::task::StartConfig {
     /// @brief device is the key of the HTTP server device to write to.
     ::synnax::device::Key device = "";
     /// @brief endpoints contains the endpoints to write to.

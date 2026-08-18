@@ -60,7 +60,7 @@ type Schematic struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the schematic.
 	Name string `json:"name" msgpack:"name"`
-	// Snapshot indicates whether this schematic represents a saved snapshot state.
+	// Snapshot is true if this schematic is an immutable snapshot copy.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Nodes contains all diagram nodes in the schematic.
 	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`

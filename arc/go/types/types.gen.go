@@ -70,8 +70,7 @@ type Params = versions.Params
 // channels.
 type Channels = versions.Channels
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 type Dimensions = versions.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.

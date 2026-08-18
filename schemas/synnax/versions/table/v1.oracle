@@ -1,0 +1,84 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Key = v0.Key
+
+Cell struct {
+    key     string {
+        @doc value "is the unique identifier for this cell within the table."
+    }
+    variant string {
+        @doc value """
+            is the cell variant identifier (e.g. "text", "value"). The variant
+            determines the shape of props and which Pluto cell component renders the
+            cell.
+        """
+    }
+    props   record {
+        @doc value """
+            is the variant-specific cell configuration. The shape is determined by the
+            variant; the wire format intentionally stores it as an opaque record so new
+            variants can be added without a schema migration.
+        """
+    }
+
+    @doc value  "is a single cell in a table, identified by key and variant."
+    @go marshal
+}
+
+Row struct {
+    size  float64  {
+        @doc value "is the height of the row in pixels."
+    }
+    cells string[] {
+        @doc value """
+            is the ordered list of cell keys in this row from left to right. Each key
+            points at an entry in the table's cells map.
+        """
+    }
+
+    @doc value  "is a single row in a table, with height and ordered cell keys."
+    @go marshal
+}
+
+Column struct {
+    size float64 {
+        @doc value "is the width of the column in pixels."
+    }
+
+    @doc value  "is a single column in a table, with width."
+    @go marshal
+}
+
+Table struct {
+    key     Key = create {
+        @doc value "is the unique identifier for this table."
+        @key
+    }
+    name    string            {
+        @doc value "is a human-readable name for the table."
+    }
+    rows    Row[] = [] {
+        @doc value "are the table rows in display order, top to bottom."
+    }
+    columns Column[] = [] {
+        @doc value "are the table columns in display order, left to right."
+    }
+    cells   map<string, Cell> = {} {
+        @doc value """
+            contains all cells in the table, keyed by cell key. Cell positions are
+            derived from rows[*].cells[*] references; cells not referenced by any row
+            are orphaned and will be pruned on the next structural edit.
+        """
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}

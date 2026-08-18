@@ -96,8 +96,8 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	if override := domain.GetStringFromType(entry, "go", "name"); override != "" {
 		name = override
 	}
-	data.imports.AddExternal("encoding/json")
-	data.imports.AddExternal("github.com/synnaxlabs/x/errors")
+	data.AddExternal("encoding/json")
+	data.AddExternal("github.com/synnaxlabs/x/errors")
 
 	ud := unionData{
 		Name:          name,
@@ -208,12 +208,12 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			ud.NeedsValidate = true
 		}
 		if hasSliceRecurse(vd.ValidateRecurse) {
-			data.imports.AddExternal(strconvImportPath)
+			data.AddExternal(strconvImportPath)
 		}
 		ud.Variants = append(ud.Variants, vd)
 	}
 	if ud.NeedsValidate {
-		data.imports.AddExternal(validateImportPath)
+		data.AddExternal(validateImportPath)
 	}
 	return ud
 }

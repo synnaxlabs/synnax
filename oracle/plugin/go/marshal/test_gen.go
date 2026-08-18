@@ -222,7 +222,7 @@ func generateTestCodecFile(
 				}
 				typeParams = append(typeParams, typeParamData{
 					Name:       tp.Name,
-					Constraint: typeParamConstraint(tp),
+					Constraint: typemap.TypeParamConstraint(tp),
 				})
 			}
 		}

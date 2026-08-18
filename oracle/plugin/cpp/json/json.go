@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/internal/includes"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
@@ -51,8 +52,6 @@ func (p *Plugin) Name() string { return "cpp/json" }
 func (p *Plugin) Domains() []string { return []string{"cpp"} }
 
 func (p *Plugin) Requires() []string { return []string{"cpp/types"} }
-
-func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -183,17 +182,17 @@ func (p *Plugin) generateFile(
 ) ([]byte, error) {
 	data := &templateData{
 		OutputPath:    outputPath,
-		Namespace:     deriveNamespace(outputPath),
+		Namespace:     cppnaming.Namespace(outputPath),
 		Serializers:   make([]serializerData, 0, len(structs)),
 		ArrayWrappers: make([]arrayWrapperData, 0),
-		includes:      newIncludeManager(),
+		Manager:       includes.NewManager(),
 		table:         req.Resolutions,
 		jsonPaths:     jsonPaths,
 		rawNs:         namespace,
 	}
 
-	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
-	data.includes.addInternal("x/cpp/json/json.h")
+	data.AddInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.AddInternal("x/cpp/json/json.h")
 
 	for _, s := range structs {
 		serializer, err := p.processStruct(s, data)
@@ -262,8 +261,8 @@ func (p *Plugin) resolveExtendsType(
 	if parent.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
-			data.includes.addInternal(data.jsonInclude(targetOutputPath))
-			ns := deriveNamespace(targetOutputPath)
+			data.AddInternal(data.jsonInclude(targetOutputPath))
+			ns := cppnaming.Namespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
@@ -309,7 +308,7 @@ func (p *Plugin) processStruct(
 	}
 
 	if len(typeParams) > 0 {
-		data.includes.addSystem("type_traits")
+		data.AddSystem("type_traits")
 	}
 
 	if resolver.CanUseInheritance(form, data.table) {
@@ -383,42 +382,21 @@ func (p *Plugin) processField(
 	data *templateData,
 ) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
-	jsonName := toSnakeCase(field.Name)
-
 	cppFieldName := domain.GetFieldName(field, "cpp")
 	if cppFieldName == field.Name {
-		cppFieldName = toSnakeCase(field.Name)
+		cppFieldName = casing.FieldSnake(field.Name)
 	}
 	cppFieldName = keywords.Escape(cppFieldName)
-
-	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
-		!field.Type.TypeParam.HasDefault()
-	typeParamName := ""
-	if isGenericField {
-		typeParamName = field.Type.TypeParam.Name
-	}
 
 	isSelfRef := field.Optional && isSelfReference(field.Type, parent, data.table)
 
 	parseExpr := p.parseExprForField(field, cppType, data, isSelfRef)
 	toJSONExpr := p.toJSONExprForField(field, data, isSelfRef)
 
-	var jsonParseExpr, structParseExpr string
-	if isGenericField {
-		jsonParseExpr, structParseExpr = p.genericParseExprsForField(field)
-	}
-
 	return fieldData{
-		Name:            cppFieldName,
-		CppType:         cppType,
-		JSONName:        jsonName,
-		ParseExpr:       parseExpr,
-		ToJSONExpr:      toJSONExpr,
-		IsGenericField:  isGenericField,
-		TypeParamName:   typeParamName,
-		IsOptional:      field.Optional,
-		JSONParseExpr:   jsonParseExpr,
-		StructParseExpr: structParseExpr,
+		Name:       cppFieldName,
+		ParseExpr:  parseExpr,
+		ToJSONExpr: toJSONExpr,
 	}
 }
 
@@ -432,12 +410,12 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		innerType := p.typeRefToCpp(typeRef.TypeArgs[0], data)
-		data.includes.addSystem("vector")
+		data.AddSystem("vector")
 		return fmt.Sprintf("std::vector<%s>", innerType)
 	}
 
 	if typeRef.Name == "Map" {
-		data.includes.addSystem("unordered_map")
+		data.AddSystem("unordered_map")
 		keyType := "std::string"
 		valueType := "void"
 		if len(typeRef.TypeArgs) > 0 {
@@ -455,9 +433,9 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		mapping.TargetType != "void" {
 		for _, imp := range mapping.Imports {
 			if imp.Category == "system" {
-				data.includes.addSystem(imp.Path)
+				data.AddSystem(imp.Path)
 			} else {
-				data.includes.addInternal(imp.Path)
+				data.AddInternal(imp.Path)
 			}
 		}
 		return mapping.TargetType
@@ -470,7 +448,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 
 	if enumForm, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 		if !enumForm.IsIntEnum {
-			data.includes.addSystem("string")
+			data.AddSystem("string")
 			return "std::string"
 		}
 		return resolved.Name
@@ -482,7 +460,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 				if targetResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(targetResolved, "cpp")
 					if targetOutputPath != "" {
-						data.includes.addInternal(data.jsonInclude(targetOutputPath))
+						data.AddInternal(data.jsonInclude(targetOutputPath))
 					}
 				}
 			}
@@ -509,8 +487,8 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 					includePath = data.jsonInclude(targetOutputPath)
 				}
 			}
-			data.includes.addInternal(includePath)
-			ns := deriveNamespace(targetOutputPath)
+			data.AddInternal(includePath)
+			ns := cppnaming.Namespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
@@ -533,7 +511,7 @@ func (p *Plugin) parseExprForField(
 	isSelfRef bool,
 ) string {
 	typeRef := field.Type
-	jsonName := toSnakeCase(field.Name)
+	jsonName := casing.FieldSnake(field.Name)
 	hasDefault := field.Optional || hasRenderableDefault(field, data.table)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
@@ -555,7 +533,7 @@ func (p *Plugin) parseExprForField(
 				if resolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(resolved, "cpp")
 					if targetOutputPath != "" {
-						ns := deriveNamespace(targetOutputPath)
+						ns := cppnaming.Namespace(targetOutputPath)
 						wrapperType = fmt.Sprintf("::%s::%s", ns, wrapperType)
 					}
 				}
@@ -589,7 +567,7 @@ func (p *Plugin) parseExprForField(
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
-						ns := deriveNamespace(targetOutputPath)
+						ns := cppnaming.Namespace(targetOutputPath)
 						structType = fmt.Sprintf("::%s::%s", ns, structType)
 					}
 				}
@@ -629,9 +607,9 @@ func (p *Plugin) parseExprForField(
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
-						ns := deriveNamespace(targetOutputPath)
+						ns := cppnaming.Namespace(targetOutputPath)
 						parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
-						data.includes.addInternal(data.jsonInclude(targetOutputPath))
+						data.AddInternal(data.jsonInclude(targetOutputPath))
 					}
 				}
 				return fmt.Sprintf(
@@ -688,7 +666,7 @@ func (p *Plugin) parseExprForField(
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
-					ns := deriveNamespace(targetOutputPath)
+					ns := cppnaming.Namespace(targetOutputPath)
 					enumType = fmt.Sprintf("::%s::%s", ns, enumType)
 				}
 			}
@@ -706,7 +684,7 @@ func (p *Plugin) parseExprForField(
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
-					ns := deriveNamespace(targetOutputPath)
+					ns := cppnaming.Namespace(targetOutputPath)
 					structType = fmt.Sprintf("::%s::%s", ns, structType)
 				}
 			}
@@ -749,9 +727,9 @@ func (p *Plugin) parseExprForField(
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
-					ns := deriveNamespace(targetOutputPath)
+					ns := cppnaming.Namespace(targetOutputPath)
 					parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
-					data.includes.addInternal(data.jsonInclude(targetOutputPath))
+					data.AddInternal(data.jsonInclude(targetOutputPath))
 				}
 			}
 			if field.Optional {
@@ -764,8 +742,8 @@ func (p *Plugin) parseExprForField(
 				)
 			}
 			if hasDefault {
-				// std::variant default-constructs its first alternative, so a
-				// default naming any other variant must be written out.
+				// std::variant default-constructs its first alternative, so a default
+				// naming any other variant must be written out.
 				fallback := cppType + "{}"
 				if uv, ok := validation.ResolveUnionVariant(
 					defaultIdent(field),
@@ -794,7 +772,7 @@ func (p *Plugin) parseExprForField(
 					if resolved.Namespace != data.rawNs {
 						targetOutputPath := output.GetPath(resolved, "cpp")
 						if targetOutputPath != "" {
-							ns := deriveNamespace(targetOutputPath)
+							ns := cppnaming.Namespace(targetOutputPath)
 							aliasType = fmt.Sprintf("::%s::%s", ns, aliasType)
 						}
 					}
@@ -869,44 +847,17 @@ func (p *Plugin) parseExprForField(
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
-func (p *Plugin) genericParseExprsForField(
-	field resolution.Field,
-) (jsonParseExpr, structParseExpr string) {
-	jsonName := toSnakeCase(field.Name)
-	typeParamName := field.Type.TypeParam.Name
-
-	if field.Optional {
-		jsonParseExpr = fmt.Sprintf(
-			`parser.field<std::optional<x::json::json::object_t>>("%s")`,
-			jsonName,
-		)
-		structParseExpr = fmt.Sprintf(
-			`parser.field<std::optional<%s>>("%s")`,
-			typeParamName,
-			jsonName,
-		)
-	} else {
-		jsonParseExpr = fmt.Sprintf(
-			`parser.field<x::json::json::object_t>("%s")`,
-			jsonName,
-		)
-		structParseExpr = fmt.Sprintf(`parser.field<%s>("%s")`, typeParamName, jsonName)
-	}
-
-	return jsonParseExpr, structParseExpr
-}
-
 func (p *Plugin) toJSONExprForField(
 	field resolution.Field,
 	data *templateData,
 	isSelfRef bool,
 ) string {
 	typeRef := field.Type
-	jsonName := toSnakeCase(field.Name)
+	jsonName := casing.FieldSnake(field.Name)
 
 	fieldName := domain.GetFieldName(field, "cpp")
 	if fieldName == field.Name {
-		fieldName = toSnakeCase(field.Name)
+		fieldName = casing.FieldSnake(field.Name)
 	}
 	fieldName = keywords.Escape(fieldName)
 
@@ -983,8 +934,8 @@ func (p *Plugin) toJSONExprForField(
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
-						data.includes.addInternal(data.jsonInclude(targetOutputPath))
-						qualifier = "::" + deriveNamespace(targetOutputPath)
+						data.AddInternal(data.jsonInclude(targetOutputPath))
+						qualifier = "::" + cppnaming.Namespace(targetOutputPath)
 					}
 				}
 				return fmt.Sprintf(`{
@@ -993,11 +944,10 @@ func (p *Plugin) toJSONExprForField(
         j["%s"] = arr;
     }`, fieldName, qualifier, jsonName)
 			}
-			// Nested-array-of-struct case: outer element resolves to another
-			// array (e.g., Members = []Member) whose inner element is a
-			// struct. nlohmann_json can't serialize vector<vector<Struct>>
-			// directly — serialize each inner array via to_array and bundle
-			// them in a JSON array.
+			// Nested-array-of-struct case: outer element resolves to another array
+			// (e.g., Members = []Member) whose inner element is a struct. nlohmann_json
+			// can't serialize vector<vector<Struct>> directly — serialize each inner
+			// array via to_array and bundle them in a JSON array.
 			if innerElem, ok := p.resolveToArrayElement(elemType, data); ok {
 				if innerResolved, ok := innerElem.Resolve(data.table); ok {
 					if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
@@ -1044,14 +994,14 @@ func (p *Plugin) toJSONExprForField(
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 		}
 		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
-			// Qualify the free to_json: unqualified lookup inside a member
-			// to_json() finds the member and never reaches the overload.
+			// Qualify the free to_json: unqualified lookup inside a member to_json()
+			// finds the member and never reaches the overload.
 			qualifier := "::" + data.Namespace
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
-					data.includes.addInternal(data.jsonInclude(targetOutputPath))
-					qualifier = "::" + deriveNamespace(targetOutputPath)
+					data.AddInternal(data.jsonInclude(targetOutputPath))
+					qualifier = "::" + cppnaming.Namespace(targetOutputPath)
 				}
 			}
 			if field.Optional {
@@ -1115,9 +1065,9 @@ func (p *Plugin) toJSONExprForField(
 }
 
 // hasRenderableDefault reports whether the field declares a default the parse
-// expression can honor. Struct and array defaults count (their branches render
-// them); identifier defaults count only when they resolve to an enum variant, a
-// boolean literal, or the create sentinel on a UUID field.
+// expression can honor. Struct and array defaults count (their branches render them);
+// identifier defaults count only when they resolve to an enum variant, a boolean
+// literal, or the create sentinel on a UUID field.
 func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool {
 	if field.Default == nil {
 		return false
@@ -1128,8 +1078,8 @@ func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool 
 	return jsonDefaultLiteral(field, table) != ""
 }
 
-// defaultIdent returns the field's identifier default, or "" when it has no
-// default or the default is not an identifier.
+// defaultIdent returns the field's identifier default, or "" when it has no default or
+// the default is not an identifier.
 func defaultIdent(field resolution.Field) string {
 	if field.Default == nil || field.Default.Kind != resolution.ValueKindIdent {
 		return ""
@@ -1137,8 +1087,8 @@ func defaultIdent(field resolution.Field) string {
 	return field.Default.IdentValue
 }
 
-// isScalarDefault reports whether the default renders as a bare string, integer,
-// or float literal, the three kinds a distinct type's constructor must wrap.
+// isScalarDefault reports whether the default renders as a bare string, integer, or
+// float literal, the three kinds a distinct type's constructor must wrap.
 func isScalarDefault(val *resolution.ExpressionValue) bool {
 	if val == nil {
 		return false
@@ -1192,8 +1142,8 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 			resolution.PrimitiveBase(field.Type, table) == "uuid" {
 			return "x::uuid::create()"
 		}
-		// A union default renders in the union parse branch, not as a
-		// parser.field fallback, so report it renderable without a literal here.
+		// A union default renders in the union parse branch, not as a parser.field
+		// fallback, so report it renderable without a literal here.
 		if _, ok := validation.ResolveUnionVariant(
 			v.IdentValue,
 			field.Type,
@@ -1201,8 +1151,8 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		); ok {
 			return "{}"
 		}
-		// Other unresolvable idents (magic defaults like now) have no C++
-		// rendering; the field stays required.
+		// Other unresolvable idents (magic defaults like now) have no C++ rendering;
+		// the field stays required.
 		return ""
 	}
 	return ""
@@ -1232,69 +1182,6 @@ func defaultValueForPrimitive(primitive string) string {
 		return "{}"
 	default:
 		return "{}"
-	}
-}
-
-// toSnakeCase routes through casing.FieldSnake rather than lo.SnakeCase, which
-// splits a trailing digit off a single-letter word: "r0" becomes "r_0". Schema
-// field names are already snake_case, and the JSON key is the wire name, so a
-// split here disagrees with every other language.
-func toSnakeCase(s string) string {
-	return casing.FieldSnake(s)
-}
-
-func deriveNamespace(outputPath string) string {
-	parts := strings.Split(outputPath, "/")
-	if len(parts) == 0 {
-		return "synnax"
-	}
-
-	var topLevel string
-	rest := parts[len(parts)-1:]
-	switch {
-	case len(parts) >= 2 && parts[0] == "x" && parts[1] == "cpp":
-		topLevel = "x"
-		rest = parts[2:]
-	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
-		topLevel = "synnax"
-		rest = parts[2:]
-	case len(parts) >= 2 && parts[0] == "arc" && parts[1] == "cpp":
-		topLevel = "arc"
-		rest = parts[2:]
-	case parts[0] == "driver":
-		topLevel = "driver"
-		rest = parts[1:]
-	default:
-		topLevel = "synnax"
-	}
-
-	if len(rest) == 0 {
-		return topLevel
-	}
-	return topLevel + "::" + strings.Join(rest, "::")
-}
-
-type includeManager struct {
-	system   []string
-	internal []string
-}
-
-func newIncludeManager() *includeManager {
-	return &includeManager{
-		system:   make([]string, 0),
-		internal: make([]string, 0),
-	}
-}
-
-func (m *includeManager) addSystem(name string) {
-	if !lo.Contains(m.system, name) {
-		m.system = append(m.system, name)
-	}
-}
-
-func (m *includeManager) addInternal(path string) {
-	if !lo.Contains(m.internal, path) {
-		m.internal = append(m.internal, path)
 	}
 }
 
@@ -1336,7 +1223,7 @@ func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
 }
 
 type templateData struct {
-	includes      *includeManager
+	*includes.Manager
 	table         *resolution.Table
 	jsonPaths     set.Set[string]
 	OutputPath    string
@@ -1360,18 +1247,6 @@ type arrayWrapperData struct {
 	ElementNeedsConvert bool
 }
 
-func (d *templateData) HasIncludes() bool {
-	return len(d.includes.system) > 0 || len(d.includes.internal) > 0
-}
-
-func (d *templateData) SystemIncludes() []string {
-	return d.includes.system
-}
-
-func (d *templateData) InternalIncludes() []string {
-	return d.includes.internal
-}
-
 type serializerData struct {
 	Name           string
 	TypeParamNames string
@@ -1392,14 +1267,7 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name            string
-	CppType         string
-	JSONName        string
-	ParseExpr       string
-	ToJSONExpr      string
-	TypeParamName   string
-	JSONParseExpr   string
-	StructParseExpr string
-	IsGenericField  bool
-	IsOptional      bool
+	Name       string
+	ParseExpr  string
+	ToJSONExpr string
 }

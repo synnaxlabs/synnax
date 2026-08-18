@@ -25,20 +25,18 @@ import (
 )
 
 // OntologyID returns the unique ID to identify the status within the Synnax ontology.
-func OntologyID(
-	k string,
-) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeStatus, Key: k}
 }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
-func OntologyIDs(keys []string) []ontology.ID {
-	return lo.Map(keys, func(k string, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
 // KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys.
-func KeysFromOntologyIDs(ids []ontology.ID) []string {
-	return lo.Map(ids, func(id ontology.ID, _ int) string { return id.Key })
+func KeysFromOntologyIDs(ids []ontology.ID) []Key {
+	return lo.Map(ids, func(id ontology.ID, _ int) Key { return id.Key })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -59,14 +57,14 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-type change = xchange.Change[string, Status[any]]
+type change = xchange.Change[Key, Status[any]]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeStatus }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
 	ctx context.Context,
-	key string,
+	key Key,
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
 	var st Status[any]
@@ -91,7 +89,7 @@ func translateChange(c change) ontology.Change {
 func (s *Service) OnChange(
 	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Status[any]]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Status[any]]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

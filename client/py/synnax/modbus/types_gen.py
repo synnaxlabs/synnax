@@ -77,7 +77,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures a Modbus scan task."""
 
     def __hash__(self) -> int:
@@ -110,8 +110,8 @@ class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
     string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
 
 
-# Is a single Modbus read channel. The type field selects the register
-# space the channel reads from and the fields that accompany it.
+# Is a single Modbus read channel. The type field selects the register space the
+# channel reads from and the fields that accompany it.
 ReadChannel = Annotated[
     Union[
         CoilReadChannel,
@@ -135,15 +135,15 @@ class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
     type: Literal["holding_register"] = "holding_register"
 
 
-# Is a single Modbus write channel. The type field selects the register
-# space the channel writes to and the fields that accompany it.
+# Is a single Modbus write channel. The type field selects the register space the
+# channel writes to and the fields that accompany it.
 WriteChannel = Annotated[
     Union[CoilWriteChannel, HoldingRegisterWriteChannel],
     Field(discriminator="type"),
 ]
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(task.ReadConfig):
     """Configures a Modbus read task.
 
     Attributes:
@@ -158,7 +158,7 @@ class ReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(task.WriteConfig):
     """Configures a Modbus write task.
 
     Attributes:

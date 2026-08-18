@@ -15,46 +15,42 @@ import v0 "github.com/synnaxlabs/arc/types/versions/v0"
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
-type Kind uint8
-
-//go:generate stringer -type=Kind
+type Kind = v0.Kind
 
 const (
-	KindInvalid Kind = iota
-	KindU8
-	KindU16
-	KindU32
-	KindU64
-	KindI8
-	KindI16
-	KindI32
-	KindI64
-	KindF32
-	KindF64
-	KindString
-	KindChan
-	KindSeries
-	KindVariable
-	KindNumericConstant
-	KindIntegerConstant
-	KindFloatConstant
-	KindExactIntegerFloatConstant
-	KindFunction
-	KindSequence
-	KindStage
-	KindVarRef
+	KindInvalid                   Kind = v0.KindInvalid
+	KindU8                        Kind = v0.KindU8
+	KindU16                       Kind = v0.KindU16
+	KindU32                       Kind = v0.KindU32
+	KindU64                       Kind = v0.KindU64
+	KindI8                        Kind = v0.KindI8
+	KindI16                       Kind = v0.KindI16
+	KindI32                       Kind = v0.KindI32
+	KindI64                       Kind = v0.KindI64
+	KindF32                       Kind = v0.KindF32
+	KindF64                       Kind = v0.KindF64
+	KindString                    Kind = v0.KindString
+	KindChan                      Kind = v0.KindChan
+	KindSeries                    Kind = v0.KindSeries
+	KindVariable                  Kind = v0.KindVariable
+	KindNumericConstant           Kind = v0.KindNumericConstant
+	KindIntegerConstant           Kind = v0.KindIntegerConstant
+	KindFloatConstant             Kind = v0.KindFloatConstant
+	KindExactIntegerFloatConstant Kind = v0.KindExactIntegerFloatConstant
+	KindFunction                  Kind = v0.KindFunction
+	KindSequence                  Kind = v0.KindSequence
+	KindStage                     Kind = v0.KindStage
+	KindVarRef                    Kind = v0.KindVarRef
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection uint8
-
-//go:generate stringer -type=ChanDirection
+type ChanDirection = v0.ChanDirection
 
 const (
-	ChanDirectionNone ChanDirection = iota
-	ChanDirectionRead
-	ChanDirectionWrite
-	ChanDirectionReadWrite
+	ChanDirectionNone      ChanDirection = v0.ChanDirectionNone
+	ChanDirectionRead      ChanDirection = v0.ChanDirectionRead
+	ChanDirectionWrite     ChanDirection = v0.ChanDirectionWrite
+	ChanDirectionReadWrite ChanDirection = v0.ChanDirectionReadWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.
@@ -100,8 +96,7 @@ type Params []Param
 // channels.
 type Channels = v0.Channels
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 type Dimensions = v0.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.

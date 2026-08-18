@@ -59,7 +59,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				return nil
 			}
 
-			statusKeys := lo.Map(devices, func(d Device, _ int) string {
+			statusKeys := lo.Map(devices, func(d Device, _ int) status.Key {
 				return d.OntologyID().String()
 			})
 			var existingStatuses []status.Status[StatusDetails]
@@ -69,7 +69,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 				return err
 			}
-			existingKeys := make(set.Set[string])
+			existingKeys := make(set.Set[status.Key])
 			for _, stat := range existingStatuses {
 				existingKeys.Add(stat.Key)
 			}

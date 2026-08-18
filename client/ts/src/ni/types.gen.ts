@@ -246,7 +246,7 @@ export interface Sensitivity extends z.infer<typeof sensitivityZ> {}
 export const currentExcitationZ = z.object({
   /** currentExcitSource selects the source of the current excitation signal. */
   currentExcitSource: excitationSourceZ.default("Internal"),
-  /** currentExcitVal is the current excitation level, in amps. */
+  /** currentExcitVal is the current excitation level, in Amps. */
   currentExcitVal: z.number().default(0),
 });
 export interface CurrentExcitation extends z.infer<typeof currentExcitationZ> {}
@@ -255,7 +255,7 @@ export interface CurrentExcitation extends z.infer<typeof currentExcitationZ> {}
 export const voltageExcitationZ = z.object({
   /** voltageExcitSource selects the source of the voltage excitation signal. */
   voltageExcitSource: excitationSourceZ.default("Internal"),
-  /** voltageExcitVal is the voltage excitation level, in volts. */
+  /** voltageExcitVal is the voltage excitation level, in Volts. */
   voltageExcitVal: z.number().default(0),
 });
 export interface VoltageExcitation extends z.infer<typeof voltageExcitationZ> {}
@@ -264,7 +264,7 @@ export interface VoltageExcitation extends z.infer<typeof voltageExcitationZ> {}
 export const bridgeZ = z.object({
   /** bridgeConfig selects the physical bridge wiring. */
   bridgeConfig: bridgeConfigZ.default("FullBridge"),
-  /** nominalBridgeResistance is the nominal resistance of the bridge, in ohms. */
+  /** nominalBridgeResistance is the nominal resistance of the bridge, in Ohms. */
   nominalBridgeResistance: z.number().default(1),
 });
 export interface Bridge extends z.infer<typeof bridgeZ> {}
@@ -355,7 +355,7 @@ export interface BaseAIChannel extends z.infer<typeof baseAIChannelZ> {}
 export const zIndexZ = z.object({
   /** zIndexEnable is true when the encoder's Z index resets the count. */
   zIndexEnable: z.boolean().default(false),
-  /** zIndexVal is the count value the Z index resets to. */
+  /** zIndexVal is the value the measurement resets to when the Z index is active. */
   zIndexVal: z.number().default(0),
   /** zIndexPhase selects the A/B states at which the Z index is active. */
   zIndexPhase: zIndexPhaseZ.default("AHighBHigh"),
@@ -438,12 +438,12 @@ export const doChannelZ = z.object({
 });
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 
-export const writeConfigZ = task.baseWriteConfigZ.extend({
+export const writeConfigZ = task.writeConfigZ.extend({
   stateRate: z.number().default(10),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-export const scanConfigZ = task.baseScanConfigZ.extend({
+export const scanConfigZ = task.scanConfigZ.extend({
   ignoredModels: z.string().array().default(["^cRIO.*", "^nown.*"]),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
@@ -595,7 +595,7 @@ export const SCALE_SCHEMAS: {
   none: noneScaleZ,
 };
 
-export const digitalReadConfigZ = task.baseReadConfigZ.extend({
+export const digitalReadConfigZ = task.readConfigZ.extend({
   device: device.keyZ.default(""),
   channels: diChannelZ.array().default(() => []),
 });
@@ -665,7 +665,7 @@ export const aiCurrentChannelZ = baseAIChannelZ
     units: unitsZ.default("Amps"),
     /** shuntResistorLoc selects where the shunt resistor is located. */
     shuntResistorLoc: shuntResistorLocationZ.default("Default"),
-    /** extShuntResistorVal is the external shunt resistor value, in ohms. */
+    /** extShuntResistorVal is the external shunt resistor value, in Ohms. */
     extShuntResistorVal: z.number().default(1),
   });
 export interface AICurrentChannel extends z.infer<typeof aiCurrentChannelZ> {}
@@ -806,7 +806,7 @@ export const aiRTDChannelZ = baseAIChannelZ
     units: temperatureUnitsZ.default("DegC"),
     /** rtdType selects the RTD resistance-temperature curve. */
     rtdType: rtdTypeZ.default("Pt3750"),
-    /** r0 is the sensor resistance at 0 degrees Celsius, in ohms. */
+    /** r0 is the sensor resistance at 0 degrees Celsius, in Ohms. */
     r0: z.number().default(0),
   });
 export interface AIRTDChannel extends z.infer<typeof aiRTDChannelZ> {}
@@ -826,11 +826,11 @@ export const aiStrainGaugeChannelZ = baseAIChannelZ
     gageFactor: z.number().default(0),
     /** initialBridgeVoltage is the bridge output voltage in the unloaded state. */
     initialBridgeVoltage: z.number().default(0),
-    /** nominalGageResistance is the nominal gauge resistance, in ohms. */
+    /** nominalGageResistance is the nominal gauge resistance, in Ohms. */
     nominalGageResistance: z.number().default(0),
-    /** poissonRatio is the Poisson ratio of the gauge material. */
+    /** poissonRatio is the Poisson ratio of the measured material. */
     poissonRatio: z.number().default(0),
-    /** leadWireResistance is the resistance of the lead wires, in ohms. */
+    /** leadWireResistance is the resistance of the lead wires, in Ohms. */
     leadWireResistance: z.number().default(0),
   });
 export interface AIStrainGaugeChannel extends z.infer<typeof aiStrainGaugeChannelZ> {}
@@ -949,7 +949,7 @@ export const aiAccelChargeChannelZ = baseAIChannelZ
     units: accelUnitsZ.default("g"),
     /** sensitivity is the sensitivity of the accelerometer. */
     sensitivity: z.number().default(0),
-    /** sensitivityUnits are the units of the accelerometer's sensitivity rating. */
+    /** sensitivityUnits are the units of the accelerometer sensitivity. */
     sensitivityUnits: accelSensitivityUnitsZ.default("mVoltsPerG"),
   });
 export interface AIAccelChargeChannel extends z.infer<typeof aiAccelChargeChannelZ> {}
@@ -977,7 +977,7 @@ export const aiCurrentRMSChannelZ = baseAIChannelZ
     units: unitsZ.default("Amps"),
     /** shuntResistorLoc selects where the shunt resistor is located. */
     shuntResistorLoc: shuntResistorLocationZ.default("Default"),
-    /** extShuntResistorVal is the external shunt resistor value, in ohms. */
+    /** extShuntResistorVal is the external shunt resistor value, in Ohms. */
     extShuntResistorVal: z.number().default(1),
   });
 export interface AICurrentRMSChannel extends z.infer<typeof aiCurrentRMSChannelZ> {}
@@ -1073,7 +1073,7 @@ export const aiThermistorVexChannelZ = baseAIChannelZ
     b: z.number().default(0),
     /** c is the third Steinhart-Hart coefficient. */
     c: z.number().default(0),
-    /** r1 is the reference resistor value, in ohms. */
+    /** r1 is the reference resistor value, in Ohms. */
     r1: z.number().default(0),
   });
 export interface AIThermistorVexChannel extends z.infer<
@@ -1312,9 +1312,9 @@ export interface CIEdgeCountChannel extends z.infer<typeof ciEdgeCountChannelZ> 
 /** CIPeriodChannel measures signal period. */
 export const ciPeriodChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
   type: z.literal("ci_period"),
-  /** minVal is the minimum expected period, in seconds. */
+  /** minVal is the minimum expected period, in the selected units. */
   minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected period, in seconds. */
+  /** maxVal is the maximum expected period, in the selected units. */
   maxVal: z.number().default(0.1),
   /** units are the units of the period measurement. */
   units: ciTimeUnitsZ.default("Seconds"),
@@ -1334,9 +1334,9 @@ export interface CIPeriodChannel extends z.infer<typeof ciPeriodChannelZ> {}
 /** CIPulseWidthChannel measures pulse width. */
 export const ciPulseWidthChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
   type: z.literal("ci_pulse_width"),
-  /** minVal is the minimum expected pulse width, in seconds. */
+  /** minVal is the minimum expected pulse width, in the selected units. */
   minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected pulse width, in seconds. */
+  /** maxVal is the maximum expected pulse width, in the selected units. */
   maxVal: z.number().default(0.1),
   /** units are the units of the pulse-width measurement. */
   units: ciTimeUnitsZ.default("Seconds"),
@@ -1350,9 +1350,9 @@ export interface CIPulseWidthChannel extends z.infer<typeof ciPulseWidthChannelZ
 /** CISemiPeriodChannel measures semi-period. */
 export const ciSemiPeriodChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
   type: z.literal("ci_semi_period"),
-  /** minVal is the minimum expected semi-period, in seconds. */
+  /** minVal is the minimum expected semi-period, in the selected units. */
   minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected semi-period, in seconds. */
+  /** maxVal is the maximum expected semi-period, in the selected units. */
   maxVal: z.number().default(0.1),
   /** units are the units of the semi-period measurement. */
   units: ciTimeUnitsZ.default("Seconds"),
@@ -1364,9 +1364,9 @@ export interface CISemiPeriodChannel extends z.infer<typeof ciSemiPeriodChannelZ
 /** CITwoEdgeSepChannel measures the separation between two edges. */
 export const ciTwoEdgeSepChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
   type: z.literal("ci_two_edge_sep"),
-  /** minVal is the minimum expected separation, in seconds. */
+  /** minVal is the minimum expected separation, in the selected units. */
   minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected separation, in seconds. */
+  /** maxVal is the maximum expected separation, in the selected units. */
   maxVal: z.number().default(1),
   /** units are the units of the two-edge-separation measurement. */
   units: ciTimeUnitsZ.default("Seconds"),
@@ -1567,7 +1567,7 @@ export const aoFuncGenChannelZ = baseAOChannelZ.extend({
   type: z.literal("ao_func_gen"),
   /** waveType selects the waveform to generate. */
   waveType: waveTypeZ.default("Sine"),
-  /** frequency is the waveform frequency, in hertz. */
+  /** frequency is the waveform frequency, in Hertz. */
   frequency: z.number().default(0),
   /** amplitude is the waveform amplitude. */
   amplitude: z.number().default(0),
@@ -1610,12 +1610,12 @@ export const AO_CHANNEL_SCHEMAS: {
   ao_voltage: aoVoltageChannelZ,
 };
 
-export const analogReadConfigZ = task.baseReadConfigZ.extend({
+export const analogReadConfigZ = task.readConfigZ.extend({
   channels: aiChannelZ.array().default(() => []),
 });
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
 
-export const counterReadConfigZ = task.baseReadConfigZ.extend({
+export const counterReadConfigZ = task.readConfigZ.extend({
   channels: ciChannelZ.array().default(() => []),
 });
 export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}

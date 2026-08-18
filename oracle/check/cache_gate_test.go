@@ -105,6 +105,17 @@ var _ = Describe("CacheGate", func() {
 			To(Equal(check.StatusPass))
 	})
 
+	It("ignores files without a cache entry", func(ctx SpecContext) {
+		gate := check.NewCacheGate(format.LoadCache(repoRoot))
+		Expect(
+			gate.Run(
+				ctx,
+				resultWith([]byte("hi")),
+				check.Env{RepoRoot: repoRoot},
+			).Status,
+		).To(Equal(check.StatusPass))
+	})
+
 	It("ignores cache miss (different raw hash)", func(ctx SpecContext) {
 		// On a raw mismatch, sync would reformat - this is just a cache
 		// miss, not poisoning. The gate must not fail.

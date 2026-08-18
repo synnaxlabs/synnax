@@ -52,12 +52,12 @@ func (w Writer[D]) SetWithParent(
 	if err := w.validate(*s); err != nil {
 		return err
 	}
-	exists, err := gorp.NewRetrieve[string, Status[D]]().Where(gorp.MatchKeys[string, Status[D]](s.Key)).
+	exists, err := gorp.NewRetrieve[Key, Status[D]]().Where(gorp.MatchKeys[Key, Status[D]](s.Key)).
 		Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
-	if err = gorp.NewCreate[string, Status[D]]().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[Key, Status[D]]().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := s.OntologyID()
@@ -137,9 +137,9 @@ func (w Writer[D]) SetManyWithParent(
 }
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
-func (w Writer[D]) Delete(ctx context.Context, keys ...string) error {
-	if err := gorp.NewDelete[string, Status[D]]().
-		Where(gorp.MatchKeys[string, Status[D]](keys...)).
+func (w Writer[D]) Delete(ctx context.Context, keys ...Key) error {
+	if err := gorp.NewDelete[Key, Status[D]]().
+		Where(gorp.MatchKeys[Key, Status[D]](keys...)).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
