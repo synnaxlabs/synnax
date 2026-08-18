@@ -93,6 +93,17 @@ func assertNoLeakedGoroutines(snapshot []gleak.Goroutine) {
 		// whichever spec was running. An unclosed DB is still caught through its other
 		// long-lived goroutines (e.g. pebble's cleanupManager.mainLoop).
 		gleak.IgnoringCreator("github.com/cockroachdb/pebble/v2/record.NewLogWriter"),
+		// The distribution control service subscribes to every peer for as long as
+		// both nodes live, and each subscription parks a server-side handler. The
+		// subscription opens from a gossip observer, which delivers asynchronously,
+		// so against a cluster shared across specs the handler can appear mid-spec
+		// and the per-spec check would misattribute it to whichever spec was
+		// running. An unclosed service is still caught through its client-side
+		// subscription loops, which run under the service's signal shutdown.
+		gleak.IgnoringTopFunction(
+			"github.com/synnaxlabs/synnax/pkg/distribution/control.(*Service)" +
+				".handleSubscribe [select]",
+		),
 	}
 	gomega.Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(args...))
 }

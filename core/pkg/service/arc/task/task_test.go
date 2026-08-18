@@ -118,10 +118,9 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:       node.Framer,
-			Channel:      channelSvc,
-			Status:       statusSvc,
-			HostProvider: node.Cluster,
+			Framer:  node.Framer,
+			Channel: channelSvc,
+			Status:  statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,

@@ -23,14 +23,11 @@ namespace driver::task {
 x::errors::Error Manager::open_streamer() {
     VLOG(1) << "opening streamer";
 
-    auto node_key = synnax::rack::rack_key_node(this->rack.key);
-    const auto control_ch_name = "sy_node_" + std::to_string(node_key) + "_control";
-
     std::vector chan_names{
         synnax::task::SET_CHANNEL,
         synnax::task::DELETE_CHANNEL,
         synnax::task::CMD_CHANNEL,
-        control_ch_name,
+        synnax::control::CHANNEL_NAME,
     };
 
     auto [channels, retrieve_err] = this->ctx->client->channels.retrieve(chan_names);
@@ -47,7 +44,7 @@ x::errors::Error Manager::open_streamer() {
             this->channels.task_delete = channel;
         else if (channel.name == synnax::task::CMD_CHANNEL)
             this->channels.task_cmd = channel;
-        else if (channel.name == control_ch_name)
+        else if (channel.name == synnax::control::CHANNEL_NAME)
             this->channels.control_state = channel;
 
     if (this->exit_early) return x::errors::NIL;
@@ -172,6 +169,9 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
         this->stop_all_tasks();
         return x::errors::NIL;
     }
+    // Read after the streamer opens so a transfer arriving during the read is held by
+    // the stream instead of lost; the read loop then applies it on top.
+    this->retrieve_initial_control_states();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
     do {
@@ -196,6 +196,18 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
     return c_err;
+}
+
+void Manager::retrieve_initial_control_states() {
+    auto [states, err] = this->ctx->client->control.retrieve();
+    if (err) {
+        // The mirror treats an absent entry as uncontrolled and the Core arbitrates
+        // every write, so a Driver with an empty mirror starts optimistic and
+        // converges as transfers arrive on the stream.
+        LOG(WARNING) << "failed to retrieve initial control state: " << err;
+        return;
+    }
+    this->control_states_->set(states);
 }
 
 void Manager::process_task_set(const x::telem::Series &series) {

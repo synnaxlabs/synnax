@@ -12,8 +12,10 @@ package mock
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distcontrol "github.com/synnaxlabs/synnax/pkg/distribution/control"
 	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer"
 	"github.com/synnaxlabs/x/address"
 )
@@ -24,11 +26,16 @@ import (
 type Network struct {
 	channel *channel.Network
 	framer  *framer.Network
+	control *control.Network
 }
 
 // NewNetwork constructs a Network with freshly initialized channel and framer networks.
 func NewNetwork() *Network {
-	return &Network{channel: channel.NewNetwork(), framer: framer.NewNetwork()}
+	return &Network{
+		channel: channel.NewNetwork(),
+		framer:  framer.NewNetwork(),
+		control: control.NewNetwork(),
+	}
 }
 
 // New provisions an in-memory distribution.Transport for the node at addr. buffers sets
@@ -37,14 +44,18 @@ func (n *Network) New(addr address.Address, buffers ...int) distribution.Transpo
 	return transport{
 		channel: n.channel.New(addr),
 		framer:  n.framer.New(addr, buffers...),
+		control: n.control.New(addr, buffers...),
 	}
 }
 
 type transport struct {
 	channel distchannel.Transport
 	framer  distframer.Transport
+	control distcontrol.Transport
 }
 
 func (t transport) Channel() distchannel.Transport { return t.channel }
 
 func (t transport) Framer() distframer.Transport { return t.framer }
+
+func (t transport) Control() distcontrol.Transport { return t.control }

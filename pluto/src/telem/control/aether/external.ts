@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/telem/control/aether/chip";
+export * from "@/telem/control/aether/colors";
 export * from "@/telem/control/aether/controller";
 export * from "@/telem/control/aether/indicator";
 export * from "@/telem/control/aether/legend";
+export * from "@/telem/control/aether/queries";
 export * from "@/telem/control/aether/registry";
-export * from "@/telem/control/aether/state";

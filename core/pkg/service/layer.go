@@ -26,6 +26,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
@@ -205,6 +206,9 @@ type Layer struct {
 	// Channel is the highest-level channel service and owns calculated channel
 	// behavior.
 	Channel *channel.Service
+	// Control reads the control state of channels across the cluster and publishes
+	// every transfer on the control channel.
+	Control *control.Service
 	// Verification verifies that the universe remains as it is.
 	Verification *verification.Service
 	// Arc is used for validating, saving, and executing arc automations.
@@ -336,7 +340,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Status:          l.Status,
-			HostProvider:    cfg.Distribution.Cluster,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
@@ -382,6 +385,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.Signals,
 		signals.GorpPublisherConfigString(l.Status.Observe()),
 	); !ok(err, closer) {
+		return nil, err
+	}
+	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
+		Instrumentation: cfg.Child("control"),
+		Control:         cfg.Distribution.Control,
+		Signals:         l.Signals,
+	}); !ok(err, l.Control) {
 		return nil, err
 	}
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
