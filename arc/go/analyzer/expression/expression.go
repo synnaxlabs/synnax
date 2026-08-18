@@ -28,12 +28,7 @@ import (
 
 func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
-
-// isInteger accepts untyped integer constants: they resolve to an integer type
-// through unification or the i64 default.
-func isInteger(t basetypes.Type) bool {
-	return t.IsInteger() || t.Kind == basetypes.KindIntegerConstant
-}
+func isInteger(t basetypes.Type) bool { return t.IsInteger() }
 
 // resolveConstraint replaces an unresolved constant's type variable with its
 // constraint so operand checks can classify it. Concrete types pass through.
@@ -782,5 +777,6 @@ func isValidCast(source, target basetypes.Type) bool {
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {
 		return false
 	}
-	return source.IsNumeric() && target.IsNumeric()
+	return (source.IsNumeric() || source.Kind == basetypes.KindBool) &&
+		target.IsNumeric()
 }

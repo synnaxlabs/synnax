@@ -70,7 +70,7 @@ func compileUnary(
 					innerType.Unwrap(),
 				)
 			}
-			ctx.Resolver.EmitSeriesNotBool(ctx.Writer, ctx.WriterID)
+			ctx.Resolver.EmitSeriesNot(ctx.Writer, ctx.WriterID)
 			return innerType, nil
 		}
 

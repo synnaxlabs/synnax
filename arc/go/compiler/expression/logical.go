@@ -36,7 +36,7 @@ func compileLogicalOrImpl(
 				return types.Type{}, err
 			}
 			if err := ctx.Resolver.EmitSeriesLogical(
-				ctx.Writer, ctx.WriterID, "or", elemType,
+				ctx.Writer, ctx.WriterID, "or",
 				rhsType.Kind != types.KindSeries,
 			); err != nil {
 				return types.Type{}, err
@@ -86,7 +86,7 @@ func compileLogicalAndImpl(
 				return types.Type{}, err
 			}
 			if err := ctx.Resolver.EmitSeriesLogical(
-				ctx.Writer, ctx.WriterID, "and", elemType,
+				ctx.Writer, ctx.WriterID, "and",
 				rhsType.Kind != types.KindSeries,
 			); err != nil {
 				return types.Type{}, err

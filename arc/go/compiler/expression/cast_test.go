@@ -409,18 +409,25 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry("typed numeric", `bool(i32(5))`),
 	)
 
-	DescribeTable(
-		"should reject bool to numeric casts (analyzer-gated)",
-		func(bCtx SpecContext, source string) {
-			expr := MustSucceed(parser.ParseExpression(source))
-			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
-			aexpression.Analyze(analyzerCtx)
-			Expect(analyzerCtx.Diagnostics.Ok()).To(BeFalse())
-			Expect(analyzerCtx.Diagnostics.String()).To(ContainSubstring("cannot cast"))
-		},
-		Entry("bool to u8", `u8(true)`),
-		Entry("bool to i64", `i64(true)`),
-		Entry("bool to f64", `f64(false)`),
+	DescribeTable("should compile bool to numeric casts",
+		expectExpression,
+		Entry("bool to u8", `u8(true)`, types.U8(), OpI32Const, int32(1)),
+		Entry(
+			"bool to i64",
+			`i64(true)`,
+			types.I64(),
+			OpI32Const,
+			int32(1),
+			OpI64ExtendI32U,
+		),
+		Entry(
+			"bool to f64",
+			`f64(false)`,
+			types.F64(),
+			OpI32Const,
+			int32(0),
+			OpF64ConvertI32U,
+		),
 	)
 
 	It("Should propagate literal parsing errors", func(bCtx SpecContext) {

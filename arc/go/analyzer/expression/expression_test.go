@@ -1910,9 +1910,9 @@ var _ = Describe("Expressions", func() {
 			`),
 		)
 
-		DescribeTable("rejected bool to numeric casts",
+		DescribeTable("accepted bool to numeric casts",
 			func(ctx SpecContext, code string) {
-				expectFailure(ctx, code, nil, "cannot cast bool to")
+				expectSuccess(ctx, code, nil)
 			},
 			Entry("bool to u8", `
 				func testFunc() {

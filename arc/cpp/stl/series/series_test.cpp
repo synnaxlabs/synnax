@@ -821,7 +821,7 @@ ALL_CMP_TESTS(f64)
 #undef TEST_SCMP_NULL
 #undef ALL_CMP_TESTS
 
-////////////////////// Chunk 5: negate, not_bool, len, slice ///////////////////////////
+////////////////////// Chunk 5: negate, not, len, slice ///////////////////////////
 
 std::string build_negate_wat(const std::string &suffix) {
     std::string wt = wasm_type_str(suffix);
@@ -1162,7 +1162,7 @@ const std::string_view MISC_WAT = R"wat(
   (import "series" "create_empty_bool" (func $create_empty_bool (param i32) (result i32)))
   (import "series" "set_element_bool" (func $set_element_bool (param i32 i32 i32) (result i32)))
   (import "series" "index_bool" (func $index_bool (param i32 i32) (result i32)))
-  (import "series" "not_bool" (func $not_bool (param i32) (result i32)))
+  (import "series" "not" (func $not (param i32) (result i32)))
   (import "series" "len" (func $len (param i32) (result i64)))
   (import "series" "slice" (func $slice (param i32 i32 i32) (result i32)))
   (import "series" "create_empty_i32" (func $create_empty_i32 (param i32) (result i32)))
@@ -1181,8 +1181,8 @@ const std::string_view MISC_WAT = R"wat(
     (call $set_element_bool (local.get 0) (local.get 1) (local.get 2)))
   (func (export "index_bool") (param i32 i32) (result i32)
     (call $index_bool (local.get 0) (local.get 1)))
-  (func (export "not_bool") (param i32) (result i32)
-    (call $not_bool (local.get 0)))
+  (func (export "not") (param i32) (result i32)
+    (call $not (local.get 0)))
   (func (export "len") (param i32) (result i64)
     (call $len (local.get 0)))
   (func (export "slice") (param i32 i32 i32) (result i32)
@@ -1223,7 +1223,7 @@ int32_t index_bool(Fixture &f, int32_t handle, int32_t index) {
 TEST(SeriesModule, NotBoolInvertsBooleanSeries) {
     Fixture f{std::string(MISC_WAT)};
     auto h = make_bool_series(f, {1, 0});
-    auto result = f.get("not_bool").call(f.store, {wasmtime::Val(h)}).unwrap();
+    auto result = f.get("not").call(f.store, {wasmtime::Val(h)}).unwrap();
     auto rh = result[0].i32();
     EXPECT_GT(rh, 0);
     EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
@@ -1233,9 +1233,7 @@ TEST(SeriesModule, NotBoolInvertsBooleanSeries) {
 
 TEST(SeriesModule, NotBoolNullHandleReturnsZero) {
     Fixture f{std::string(MISC_WAT)};
-    auto result = f.get("not_bool")
-                      .call(f.store, {wasmtime::Val(int32_t{999})})
-                      .unwrap();
+    auto result = f.get("not").call(f.store, {wasmtime::Val(int32_t{999})}).unwrap();
     EXPECT_EQ(result[0].i32(), 0);
 }
 
@@ -1278,10 +1276,10 @@ const std::string_view BOOL_OPS_WAT = R"wat(
   (import "series" "create_empty_bool" (func $create_empty_bool (param i32) (result i32)))
   (import "series" "set_element_bool" (func $set_element_bool (param i32 i32 i32) (result i32)))
   (import "series" "index_bool" (func $index_bool (param i32 i32) (result i32)))
-  (import "series" "and_bool" (func $and_bool (param i32 i32) (result i32)))
-  (import "series" "or_bool" (func $or_bool (param i32 i32) (result i32)))
-  (import "series" "and_scalar_bool" (func $and_scalar_bool (param i32 i32) (result i32)))
-  (import "series" "or_scalar_bool" (func $or_scalar_bool (param i32 i32) (result i32)))
+  (import "series" "and" (func $and (param i32 i32) (result i32)))
+  (import "series" "or" (func $or (param i32 i32) (result i32)))
+  (import "series" "and_scalar" (func $and_scalar (param i32 i32) (result i32)))
+  (import "series" "or_scalar" (func $or_scalar (param i32 i32) (result i32)))
 
   (func (export "create_empty_bool") (param i32) (result i32)
     (call $create_empty_bool (local.get 0)))
@@ -1289,14 +1287,14 @@ const std::string_view BOOL_OPS_WAT = R"wat(
     (call $set_element_bool (local.get 0) (local.get 1) (local.get 2)))
   (func (export "index_bool") (param i32 i32) (result i32)
     (call $index_bool (local.get 0) (local.get 1)))
-  (func (export "and_bool") (param i32 i32) (result i32)
-    (call $and_bool (local.get 0) (local.get 1)))
-  (func (export "or_bool") (param i32 i32) (result i32)
-    (call $or_bool (local.get 0) (local.get 1)))
-  (func (export "and_scalar_bool") (param i32 i32) (result i32)
-    (call $and_scalar_bool (local.get 0) (local.get 1)))
-  (func (export "or_scalar_bool") (param i32 i32) (result i32)
-    (call $or_scalar_bool (local.get 0) (local.get 1)))
+  (func (export "and") (param i32 i32) (result i32)
+    (call $and (local.get 0) (local.get 1)))
+  (func (export "or") (param i32 i32) (result i32)
+    (call $or (local.get 0) (local.get 1)))
+  (func (export "and_scalar") (param i32 i32) (result i32)
+    (call $and_scalar (local.get 0) (local.get 1)))
+  (func (export "or_scalar") (param i32 i32) (result i32)
+    (call $or_scalar (local.get 0) (local.get 1)))
 )
 )wat";
 
@@ -1304,7 +1302,7 @@ TEST(SeriesModule, AndBoolTruthTable) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto ha = make_bool_series(f, {1, 1, 0, 0});
     auto hb = make_bool_series(f, {1, 0, 1, 0});
-    auto result = f.get("and_bool")
+    auto result = f.get("and")
                       .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
                       .unwrap();
     auto rh = result[0].i32();
@@ -1321,7 +1319,7 @@ TEST(SeriesModule, OrBoolTruthTable) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto ha = make_bool_series(f, {1, 1, 0, 0});
     auto hb = make_bool_series(f, {1, 0, 1, 0});
-    auto result = f.get("or_bool")
+    auto result = f.get("or")
                       .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
                       .unwrap();
     auto rh = result[0].i32();
@@ -1337,7 +1335,7 @@ TEST(SeriesModule, AndBoolBroadcastsShorterRhs) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto ha = make_bool_series(f, {1, 1, 1, 1, 1});
     auto hb = make_bool_series(f, {1, 0});
-    auto result = f.get("and_bool")
+    auto result = f.get("and")
                       .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
                       .unwrap();
     auto rh = result[0].i32();
@@ -1353,7 +1351,7 @@ TEST(SeriesModule, OrBoolBroadcastsShorterLhs) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto ha = make_bool_series(f, {1, 0});
     auto hb = make_bool_series(f, {0, 0, 0, 0, 0});
-    auto result = f.get("or_bool")
+    auto result = f.get("or")
                       .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
                       .unwrap();
     auto rh = result[0].i32();
@@ -1368,7 +1366,7 @@ TEST(SeriesModule, OrBoolBroadcastsShorterLhs) {
 TEST(SeriesModule, AndScalarBoolTrueIsIdentity) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto h = make_bool_series(f, {1, 0, 1});
-    auto result = f.get("and_scalar_bool")
+    auto result = f.get("and_scalar")
                       .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{1})})
                       .unwrap();
     auto rh = result[0].i32();
@@ -1382,7 +1380,7 @@ TEST(SeriesModule, AndScalarBoolTrueIsIdentity) {
 TEST(SeriesModule, AndScalarBoolFalseZeroes) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto h = make_bool_series(f, {1, 0, 1});
-    auto result = f.get("and_scalar_bool")
+    auto result = f.get("and_scalar")
                       .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{0})})
                       .unwrap();
     auto rh = result[0].i32();
@@ -1394,7 +1392,7 @@ TEST(SeriesModule, AndScalarBoolFalseZeroes) {
 TEST(SeriesModule, OrScalarBoolTrueFills) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto h = make_bool_series(f, {1, 0, 1});
-    auto result = f.get("or_scalar_bool")
+    auto result = f.get("or_scalar")
                       .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{1})})
                       .unwrap();
     auto rh = result[0].i32();
@@ -1406,7 +1404,7 @@ TEST(SeriesModule, OrScalarBoolTrueFills) {
 TEST(SeriesModule, OrScalarBoolFalseIsIdentity) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto h = make_bool_series(f, {1, 0, 1});
-    auto result = f.get("or_scalar_bool")
+    auto result = f.get("or_scalar")
                       .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{0})})
                       .unwrap();
     auto rh = result[0].i32();
@@ -1418,7 +1416,7 @@ TEST(SeriesModule, OrScalarBoolFalseIsIdentity) {
 
 TEST(SeriesModule, AndBoolNullHandleReturnsZero) {
     Fixture f{std::string(BOOL_OPS_WAT)};
-    auto result = f.get("and_bool")
+    auto result = f.get("and")
                       .call(
                           f.store,
                           {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{998})}
@@ -1429,7 +1427,7 @@ TEST(SeriesModule, AndBoolNullHandleReturnsZero) {
 
 TEST(SeriesModule, OrBoolNullHandleReturnsZero) {
     Fixture f{std::string(BOOL_OPS_WAT)};
-    auto result = f.get("or_bool")
+    auto result = f.get("or")
                       .call(
                           f.store,
                           {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{998})}
@@ -1440,7 +1438,7 @@ TEST(SeriesModule, OrBoolNullHandleReturnsZero) {
 
 TEST(SeriesModule, AndScalarBoolNullHandleReturnsZero) {
     Fixture f{std::string(BOOL_OPS_WAT)};
-    auto result = f.get("and_scalar_bool")
+    auto result = f.get("and_scalar")
                       .call(
                           f.store,
                           {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{1})}
@@ -1451,7 +1449,7 @@ TEST(SeriesModule, AndScalarBoolNullHandleReturnsZero) {
 
 TEST(SeriesModule, OrScalarBoolNullHandleReturnsZero) {
     Fixture f{std::string(BOOL_OPS_WAT)};
-    auto result = f.get("or_scalar_bool")
+    auto result = f.get("or_scalar")
                       .call(
                           f.store,
                           {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{1})}

@@ -144,7 +144,7 @@ func NewSymbols() []*symbol.Symbol {
 			resultOut,
 		),
 		symbol.InternalHostFunc(
-			"not_bool",
+			"not",
 			types.Params{{Name: "handle", Type: i32}},
 			resultOut,
 		),
@@ -238,7 +238,7 @@ func NewHost(
 			result := telem.Series{DataType: telem.BooleanT}
 			op.Not(ser, &result)
 			return s.Store(result)
-		}).Export("not_bool")
+		}).Export("not")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -286,8 +286,8 @@ func bindBool(
 		name string
 		fn   func(telem.Series, telem.Series, *telem.Series)
 	}{
-		{"and_bool", op.And},
-		{"or_bool", op.Or},
+		{"and", op.And},
+		{"or", op.Or},
 	} {
 		builder = bindSeriesBinary(
 			builder, s, entry.name, "logical operation", telem.BooleanT, entry.fn,
@@ -297,8 +297,8 @@ func bindBool(
 		name string
 		or   bool
 	}{
-		{"and_scalar_bool", false},
-		{"or_scalar_bool", true},
+		{"and_scalar", false},
+		{"or_scalar", true},
 	} {
 		isOr := entry.or
 		builder = builder.NewFunctionBuilder().

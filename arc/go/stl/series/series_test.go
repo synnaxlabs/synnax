@@ -987,19 +987,19 @@ var _ = Describe("Series", func() {
 	})
 
 	Describe("NewSymbols", func() {
-		It("Should register the logical and not_bool host funcs", func() {
+		It("Should register the logical host funcs", func() {
 			mod := series.NewSymbols()[0]
 			names := make([]string, 0, len(mod.Children()))
 			for _, child := range mod.Children() {
 				names = append(names, child.Name)
 			}
 			Expect(names).To(ContainElements(
-				"and", "or", "and_scalar", "or_scalar", "not_bool",
+				"and", "or", "and_scalar", "or_scalar", "not",
 			))
 		})
 	})
 
-	Describe("not_bool", func() {
+	Describe("not", func() {
 		It("Should logically negate a bool series", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_bool", testutil.U32(2))
 			callU32(
@@ -1016,7 +1016,7 @@ var _ = Describe("Series", func() {
 				testutil.U32(1),
 				testutil.U32(1),
 			)
-			rh := callU32(ctx, "not_bool", testutil.U32(h))
+			rh := callU32(ctx, "not", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
 			Expect(telem.ValueAt[bool](ser, 0)).To(BeTrue())
@@ -1052,9 +1052,9 @@ var _ = Describe("Series", func() {
 					Expect(telem.ValueAt[bool](ser, i)).To(Equal(e != 0), "index %d", i)
 				}
 			},
-			Entry("and truth table", "and_bool",
+			Entry("and truth table", "and",
 				[]uint32{0, 0, 1, 1}, []uint32{0, 1, 0, 1}, []uint32{0, 0, 0, 1}),
-			Entry("or truth table", "or_bool",
+			Entry("or truth table", "or",
 				[]uint32{0, 0, 1, 1}, []uint32{0, 1, 0, 1}, []uint32{0, 1, 1, 1}),
 		)
 
@@ -1072,13 +1072,13 @@ var _ = Describe("Series", func() {
 					Expect(telem.ValueAt[bool](ser, i)).To(Equal(e != 0), "index %d", i)
 				}
 			},
-			Entry("and true is identity", "and_scalar_bool",
+			Entry("and true is identity", "and_scalar",
 				[]uint32{0, 1}, uint32(1), []uint32{0, 1}),
-			Entry("and false zeroes", "and_scalar_bool",
+			Entry("and false zeroes", "and_scalar",
 				[]uint32{0, 1}, uint32(0), []uint32{0, 0}),
-			Entry("or true fills", "or_scalar_bool",
+			Entry("or true fills", "or_scalar",
 				[]uint32{0, 1}, uint32(1), []uint32{1, 1}),
-			Entry("or false is identity", "or_scalar_bool",
+			Entry("or false is identity", "or_scalar",
 				[]uint32{0, 1}, uint32(0), []uint32{0, 1}),
 		)
 
@@ -1088,10 +1088,10 @@ var _ = Describe("Series", func() {
 					callU32(ctx, fn, testutil.U32(9999), testutil.U32(9998)),
 				).To(BeZero())
 			},
-			Entry("and_bool", "and_bool"),
-			Entry("or_bool", "or_bool"),
-			Entry("and_scalar_bool", "and_scalar_bool"),
-			Entry("or_scalar_bool", "or_scalar_bool"),
+			Entry("and", "and"),
+			Entry("or", "or"),
+			Entry("and_scalar", "and_scalar"),
+			Entry("or_scalar", "or_scalar"),
 		)
 	})
 
@@ -1107,8 +1107,8 @@ var _ = Describe("Series", func() {
 			Entry("arithmetic", "create_empty_i32", "series_add_i32"),
 			Entry("comparison", "create_empty_i32", "compare_gt_i32"),
 			Entry("bitwise", "create_empty_i32", "series_band_i32"),
-			Entry("logical and", "create_empty_bool", "and_bool"),
-			Entry("logical or", "create_empty_bool", "or_bool"),
+			Entry("logical and", "create_empty_bool", "and"),
+			Entry("logical or", "create_empty_bool", "or"),
 		)
 	})
 

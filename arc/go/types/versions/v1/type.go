@@ -177,11 +177,13 @@ func (t Type) IsNumeric() bool {
 	}
 }
 
-// IsInteger returns true if the type is an integer type (signed or unsigned).
+// IsInteger returns true if the type is an integer type (signed or unsigned) or an
+// untyped integer constant.
 func (t Type) IsInteger() bool {
 	switch t.Kind {
 	case KindU8, KindU16, KindU32, KindU64,
-		KindI8, KindI16, KindI32, KindI64:
+		KindI8, KindI16, KindI32, KindI64,
+		KindIntegerConstant:
 		return true
 	default:
 		return false

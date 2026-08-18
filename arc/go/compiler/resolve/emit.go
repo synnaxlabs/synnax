@@ -331,7 +331,6 @@ func (r *Resolver) EmitSeriesLogical(
 	w *wasm.Writer,
 	wID int,
 	op string,
-	elemType types.Type,
 	isScalar bool,
 ) error {
 	if op != "and" && op != "or" {
@@ -340,17 +339,21 @@ func (r *Resolver) EmitSeriesLogical(
 	if isScalar {
 		op += "_scalar"
 	}
-	r.emitSeriesBinary(w, wID, op, elemType)
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.EmitImportCall(w, wID, "series", op, ct)
 	return nil
 }
 
-// EmitSeriesNotBool emits a call to series.not_bool.
-func (r *Resolver) EmitSeriesNotBool(w *wasm.Writer, wID int) {
+// EmitSeriesNot emits a call to series.not.
+func (r *Resolver) EmitSeriesNot(w *wasm.Writer, wID int) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCall(w, wID, "series", "not_bool", ct)
+	r.EmitImportCall(w, wID, "series", "not", ct)
 }
 
 // EmitSeriesLen emits a call to series.len.

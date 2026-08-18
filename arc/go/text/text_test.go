@@ -3523,6 +3523,34 @@ sensor -> stable.for{duration=1s} -> output`
 			)
 
 			It(
+				"Should reject a variable-length stable.for input",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "sensor",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.String()),
+							ID:   100,
+						},
+						{
+							Name: "output",
+							Kind: symbol.KindChannel,
+							Type: types.WriteChan(types.String()),
+							ID:   200,
+						},
+					}
+					source := `import stable
+sensor -> stable.for{duration=1s} -> output`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+					Expect(diags.Ok()).To(BeFalse())
+					Expect(diags.String()).To(
+						ContainSubstring("must be a numeric or bool type"),
+					)
+				},
+			)
+
+			It(
 				"Should emit deprecation warning for bare set_status",
 				func(ctx SpecContext) {
 					statusFnType := types.Function(types.FunctionProperties{

@@ -586,7 +586,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     linker
         .func_wrap(
             MODULE_NAME,
-            "and_bool",
+            "and",
             [ss](uint32_t a, uint32_t b) -> uint32_t {
                 auto *sa = ss->get(a);
                 auto *sb = ss->get(b);
@@ -599,7 +599,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     linker
         .func_wrap(
             MODULE_NAME,
-            "or_bool",
+            "or",
             [ss](uint32_t a, uint32_t b) -> uint32_t {
                 auto *sa = ss->get(a);
                 auto *sb = ss->get(b);
@@ -612,7 +612,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     linker
         .func_wrap(
             MODULE_NAME,
-            "and_scalar_bool",
+            "and_scalar",
             [ss](uint32_t handle, uint32_t scalar) -> uint32_t {
                 auto *s = ss->get(handle);
                 if (s == nullptr) return 0;
@@ -624,7 +624,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     linker
         .func_wrap(
             MODULE_NAME,
-            "or_scalar_bool",
+            "or_scalar",
             [ss](uint32_t handle, uint32_t scalar) -> uint32_t {
                 auto *s = ss->get(handle);
                 if (s == nullptr) return 0;
@@ -662,7 +662,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     linker
         .func_wrap(
             MODULE_NAME,
-            "not_bool",
+            "not",
             [ss](uint32_t handle) -> uint32_t {
                 auto *s = ss->get(handle);
                 if (s == nullptr) return 0;

@@ -199,46 +199,34 @@ var _ = Describe("Emit", func() {
 	})
 
 	Describe("EmitSeriesLogical", func() {
-		It("Should emit and_bool for a series right operand", func() {
+		It("Should emit and for a series right operand", func() {
 			Expect(
-				resolver.EmitSeriesLogical(
-					writer,
-					writerID,
-					"and",
-					types.Bool(),
-					false,
-				),
+				resolver.EmitSeriesLogical(writer, writerID, "and", false),
 			).To(Succeed())
 			resolver.Finalize(wasmModule)
-			Expect(wasmModule.ImportNames()).To(ConsistOf("and_bool"))
+			Expect(wasmModule.ImportNames()).To(ConsistOf("and"))
 		})
 
-		It("Should emit or_scalar_bool for a scalar right operand", func() {
+		It("Should emit or_scalar for a scalar right operand", func() {
 			Expect(
-				resolver.EmitSeriesLogical(writer, writerID, "or", types.Bool(), true),
+				resolver.EmitSeriesLogical(writer, writerID, "or", true),
 			).To(Succeed())
 			resolver.Finalize(wasmModule)
-			Expect(wasmModule.ImportNames()).To(ConsistOf("or_scalar_bool"))
+			Expect(wasmModule.ImportNames()).To(ConsistOf("or_scalar"))
 		})
 
 		It("Should return an error for an unknown operator", func() {
 			Expect(
-				resolver.EmitSeriesLogical(
-					writer,
-					writerID,
-					"xor",
-					types.Bool(),
-					false,
-				),
+				resolver.EmitSeriesLogical(writer, writerID, "xor", false),
 			).To(MatchError(ContainSubstring("unknown logical operator")))
 		})
 	})
 
-	Describe("EmitSeriesNotBool", func() {
-		It("Should emit a not_bool series import", func() {
-			resolver.EmitSeriesNotBool(writer, writerID)
+	Describe("EmitSeriesNot", func() {
+		It("Should emit a not series import", func() {
+			resolver.EmitSeriesNot(writer, writerID)
 			resolver.Finalize(wasmModule)
-			Expect(wasmModule.ImportNames()).To(ConsistOf("not_bool"))
+			Expect(wasmModule.ImportNames()).To(ConsistOf("not"))
 		})
 	})
 })

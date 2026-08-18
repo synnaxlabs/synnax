@@ -17,14 +17,15 @@ export const components = mdxOverrides;
 
 ## Arithmetic Operators
 
-| Operator | Name           | Example  | Result                              |
-| -------- | -------------- | -------- | ----------------------------------- |
-| `+`      | Addition       | `3 + 2`  | `5`                                 |
-| `-`      | Subtraction    | `5 - 2`  | `3`                                 |
-| `*`      | Multiplication | `3 * 4`  | `12`                                |
-| `/`      | Division       | `10 / 3` | `3` (integer) or `3.333...` (float) |
-| `%`      | Modulo         | `10 % 3` | `1`                                 |
-| `**`     | Exponentiation | `2 ** 8` | `256`                               |
+| Operator    | Name           | Example  | Result                              |
+| ----------- | -------------- | -------- | ----------------------------------- |
+| `+`         | Addition       | `3 + 2`  | `5`                                 |
+| `-`         | Subtraction    | `5 - 2`  | `3`                                 |
+| `-` (unary) | Negation       | `-5`     | `-5`                                |
+| `*`         | Multiplication | `3 * 4`  | `12`                                |
+| `/`         | Division       | `10 / 3` | `3` (integer) or `3.333...` (float) |
+| `%`         | Modulo         | `10 % 3` | `1`                                 |
+| `**`        | Exponentiation | `2 ** 8` | `256`                               |
 
 ### Division Behavior
 
@@ -111,23 +112,6 @@ Bitwise operators take integer operands and return the operand type.
 | `^`      | Bitwise XOR | `12 ^ 10`  | `6`    |
 | `<<`     | Left shift  | `1 << 4`   | `16`   |
 | `>>`     | Right shift | `16 >> 4`  | `1`    |
-
-<Divider.Divider x />
-
-## Unary Operators
-
-| Operator | Name        | Example    | Result        |
-| -------- | ----------- | ---------- | ------------- |
-| `-`      | Negation    | `-5`       | `-5`          |
-| `~`      | Bitwise NOT | `~12`      | `-13` (`i64`) |
-| `not`    | Logical NOT | `not true` | `false`       |
-
-Unary minus applies to numeric values:
-
-```arc
-x := 5
-y := -x // -5
-```
 
 <Divider.Divider x />
 
