@@ -28,6 +28,10 @@ export const rectZ = z.object({
 });
 export type Rect = z.infer<typeof rectZ>;
 
+/** Sprite the synthetic cursor shows after arriving at a move's target. */
+export const cursorKindZ = z.enum(["default", "pointer", "text"]);
+export type CursorKind = z.infer<typeof cursorKindZ>;
+
 /** Cursor travels to (x, y), arriving at `tick`, departing `tick - duration`. */
 export const moveEventZ = z.object({
   type: z.literal("move"),
@@ -38,6 +42,8 @@ export const moveEventZ = z.object({
   duration: z.int().nonnegative(),
   /** Rect of the resolved target element, when the move targeted one. */
   rect: rectZ.optional(),
+  /** Computed CSS cursor of the target, mapped to a sprite kind. */
+  cursor: cursorKindZ.optional(),
 });
 
 export const pointerDownEventZ = z.object({

@@ -16,7 +16,7 @@ import {
   CURSOR_SPRING,
 } from "@/director/constants";
 import { at2D, settleLag, step2D } from "@/director/spring";
-import { clicks, type Point, type Timeline } from "@/timeline";
+import { clicks, type CursorKind, type Point, type Timeline } from "@/timeline";
 
 /** One cursor sample per output frame. */
 export interface CursorSample {
@@ -28,6 +28,8 @@ export interface CursorSample {
   /** Sprite scale, animating to CLICK_SHRINK_SCALE while pressed. */
   scale: number;
   pressed: boolean;
+  /** Sprite kind: the last arrived move's target cursor. */
+  kind: CursorKind;
 }
 
 export type CursorTrack = CursorSample[];
@@ -79,6 +81,7 @@ export const synthesize = (tl: Timeline): CursorTrack => {
 
   let state = at2D(tl.origin.x, tl.origin.y);
   let scale = 1;
+  const moves = tl.events.filter((e) => e.type === "move");
   const track: CursorTrack = [];
 
   for (let f = 0; f < frames; f++) {
@@ -105,6 +108,7 @@ export const synthesize = (tl: Timeline): CursorTrack => {
     if (pressed) scale = Math.max(CLICK_SHRINK_SCALE, scale - shrinkPerFrame);
     else scale = Math.min(1, scale + shrinkPerFrame);
 
+    const arrived = [...moves].reverse().find((m) => m.tick <= f);
     track.push({
       x: state.x.position,
       y: state.y.position,
@@ -112,6 +116,7 @@ export const synthesize = (tl: Timeline): CursorTrack => {
       vy: (state.y.position - prev.y.position) * fps,
       scale,
       pressed,
+      kind: arrived?.cursor ?? "default",
     });
   }
   return track;

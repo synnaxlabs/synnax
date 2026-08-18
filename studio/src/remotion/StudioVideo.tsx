@@ -81,6 +81,7 @@ export const StudioVideo = ({
         scale={cur.scale}
         pressed={cur.pressed}
         dsf={dsf}
+        kind={cur.kind}
       />
     </AbsoluteFill>
   );

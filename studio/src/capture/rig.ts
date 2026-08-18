@@ -26,6 +26,7 @@ import {
   TRAVEL_SCALE_S,
 } from "@/director/constants";
 import {
+  type CursorKind,
   type Event,
   type Meta,
   type Point,
@@ -246,14 +247,20 @@ export class CaptureSession {
 
   private async resolve(
     target: Locator | Point,
-  ): Promise<{ point: Point; rect?: Rect }> {
+  ): Promise<{ point: Point; rect?: Rect; cursor?: CursorKind }> {
     if ("x" in target && typeof target.x === "number") return { point: target };
     const locator = target as Locator;
     const box = await locator.boundingBox();
     if (box == null) throw new Error("capture target has no bounding box");
+    const style = await locator
+      .evaluate((el) => getComputedStyle(el).cursor)
+      .catch(() => "default");
+    const cursor: CursorKind =
+      style === "pointer" ? "pointer" : style === "text" ? "text" : "default";
     return {
       point: { x: box.x + box.width / 2, y: box.y + box.height / 2 },
       rect: box,
+      cursor,
     };
   }
 
@@ -274,10 +281,10 @@ export class CaptureSession {
    * arrival, matching the synthesized cursor's arrival in post.
    */
   async moveTo(target: Locator | Point): Promise<Point> {
-    const { point: to, rect } = await this.resolve(target);
+    const { point: to, rect, cursor } = await this.resolve(target);
     const duration = this.travelTicks(to);
     for (let i = 0; i < duration; i++) await this.tick();
-    this.events.push({ type: "move", tick: this.frame, ...to, duration, rect });
+    this.events.push({ type: "move", tick: this.frame, ...to, duration, rect, cursor });
     await this.page.mouse.move(to.x, to.y);
     this.cursor = to;
     this.cursorRect = rect;
