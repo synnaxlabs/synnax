@@ -9,50 +9,46 @@
 
 import "@/platform/fs/PickerRow.css";
 
-import { Button, Flex, Icon } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
 export interface PickerRowProps extends Omit<
-  Flex.BoxProps,
+  Button.ButtonProps,
   "value" | "onChange" | "onClick"
 > {
-  /** The displayed path or file name; empty shows the placeholder. */
+  /** The displayed path or file name; empty shows the select prompt. */
   value: string;
   /** Opens the picker. */
   onClick: () => void;
 }
 
-/** The packed display-and-pick row InputPath and InputFile share. */
+/** The single-button pick-and-display row InputPath and InputFile share. */
 export const PickerRow = ({
   value,
   onClick,
   ...rest
 }: PickerRowProps): ReactElement => (
-  <Flex.Box pack className={CSS.B("picker-row")} borderColor={6} {...rest}>
-    <Button.Button
-      level="small"
-      className={CSS.B("path")}
-      variant="outlined"
-      grow
-      onClick={onClick}
-      size="medium"
-      textColor={9}
-      weight={450}
-    >
-      {primitive.isNonZero(value) ? (
-        <>
-          <Icon.Attachment className={CSS.BE("picker-row", "icon")} />
-          {value}
-        </>
-      ) : (
-        "No file selected"
-      )}
-    </Button.Button>
-    <Button.Button variant="outlined" className={CSS.B("select")} onClick={onClick}>
-      Select file
-    </Button.Button>
-  </Flex.Box>
+  <Button.Button
+    level="small"
+    className={CSS.B("picker-row")}
+    variant="outlined"
+    justify="start"
+    onClick={onClick}
+    size="medium"
+    textColor={9}
+    weight={450}
+    {...rest}
+  >
+    {primitive.isNonZero(value) ? (
+      <>
+        <Icon.Attachment className={CSS.BE("picker-row", "icon")} />
+        {value}
+      </>
+    ) : (
+      "Select file"
+    )}
+  </Button.Button>
 );

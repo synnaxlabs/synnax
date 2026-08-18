@@ -43,16 +43,16 @@ describe("FS.InputPath", () => {
     vi.restoreAllMocks();
   });
 
-  it("should show a placeholder without a path and the path once one is set", async () => {
+  it("should show the select prompt without a path and the path once one is set", async () => {
     const { rerender } = await renderWithConsole(
       <FS.InputPath value="" onChange={vi.fn()} title="Select file" />,
     );
-    expect(screen.getByText("No file selected")).toBeTruthy();
+    expect(screen.getByText("Select file")).toBeTruthy();
     rerender(
       <FS.InputPath value="/tmp/config.json" onChange={vi.fn()} title="Select file" />,
     );
     expect(screen.getByText("/tmp/config.json")).toBeTruthy();
-    expect(screen.queryByText("No file selected")).toBeNull();
+    expect(screen.queryByText("Select file")).toBeNull();
   });
 
   it("should surface an error and not call onChange when clicked in the browser", async () => {

@@ -160,38 +160,20 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                   label="Client certificate"
                   path="properties.connection.clientCertificate"
                 >
-                  {({ value, onChange }) => (
-                    <FS.InputPath
-                      value={value}
-                      onChange={onChange}
-                      title="Select a client certificate"
-                    />
-                  )}
+                  {clientCertField}
                 </Form.Field>
                 <Form.Field<string>
                   label="Client private key"
                   path="properties.connection.clientPrivateKey"
                 >
-                  {({ value, onChange }) => (
-                    <FS.InputPath
-                      value={value}
-                      onChange={onChange}
-                      title="Select a client private key"
-                    />
-                  )}
+                  {clientPrivateKeyField}
                 </Form.Field>
                 <Form.Field<string>
                   grow
                   label="Server certificate"
                   path="properties.connection.serverCertificate"
                 >
-                  {({ value, onChange }) => (
-                    <FS.InputPath
-                      value={value}
-                      onChange={onChange}
-                      title="Select a server certificate"
-                    />
-                  )}
+                  {serverCertField}
                 </Form.Field>
               </>
             )}
@@ -219,6 +201,18 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
     );
   },
 );
+
+const clientCertField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a client certificate" />
+));
+
+const clientPrivateKeyField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a client private key" />
+));
+
+const serverCertField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a server certificate" />
+));
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "opc" };
 
