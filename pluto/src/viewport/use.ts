@@ -154,11 +154,10 @@ export const use = ({
   const [maskBox, setMaskBox, maskBoxRef] = useCombinedStateAndRef<box.Box>(box.ZERO);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
-  // We store the START of the previous pan in statRef, which means
-  // that even if the viewport didn't change significantly, our equality
-  // comparison will still trigger a re-render. So we track the previous
-  // pan update in this ref here, that stores the result of the previous
-  // pan update.
+  // We store the START of the previous pan in statRef, which means that even if the
+  // viewport didn't change significantly, our equality comparison will still trigger a
+  // re-render. So we track the previous pan update in this ref here, that stores the
+  // result of the previous pan update.
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);

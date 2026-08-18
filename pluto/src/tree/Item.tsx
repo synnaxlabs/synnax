@@ -57,6 +57,9 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       style={itemStyle}
       gap="small"
       align="center"
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-expanded={hasChildren ? expanded : undefined}
       {...rest}
     >
       {hasChildren && (

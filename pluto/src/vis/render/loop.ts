@@ -103,8 +103,6 @@ export class Loop {
    * 2. If a request with the same key exists, replace it if the new request has a
    * greater or equal priority and a greater or equal number of canvases that are
    * being rendered to.
-   *
-   * @param req - The request to set.
    */
   set(req: Request): void {
     const existing = this.requests.get(req.key);

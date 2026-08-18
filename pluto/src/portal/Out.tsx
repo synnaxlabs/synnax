@@ -58,9 +58,8 @@ export interface OutProps
     Omit<ComponentPropsWithoutRef<"div">, "children" | keyof HostHandlers>,
     HostHandlers {
   /**
-   * itemKey addresses the {@link In} content to host. While null or not yet
-   * registered, the Out renders an empty host and attaches the content as
-   * soon as it appears.
+   * itemKey addresses the {@link In} content to host. While null or not yet registered,
+   * the Out renders an empty host and attaches the content as soon as it appears.
    */
   itemKey?: string | null;
 }

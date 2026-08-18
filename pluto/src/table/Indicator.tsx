@@ -127,6 +127,7 @@ export const Indicator = ({
     ),
   });
   const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
+  const label = dir === "x" ? ALPHABET[index] : index + 1;
   return (
     <td
       id={`resizer-${dir}-${index}`}
@@ -142,11 +143,11 @@ export const Indicator = ({
       onContextMenu={(e) => onSelect(index, e)}
     >
       <Text.Text full="x" justify="center" align="center" square={false}>
-        {dir === "x" ? ALPHABET[index] : index + 1}
+        {label}
       </Text.Text>
       {editable && (
         <button
-          aria-label={dir === "x" ? "Resize column" : "Resize row"}
+          aria-label={`Resize ${dir === "x" ? "column" : "row"} ${label}`}
           tabIndex={-1}
           className={Cursor.DRAG_CLASS}
           onClick={stopPropagation}

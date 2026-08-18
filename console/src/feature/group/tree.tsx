@@ -175,7 +175,6 @@ const TreeItem = Tree.createItem({
   type: "group",
   icon: <Icon.Group />,
   canDrop: () => true,
-  // This haul item allows the group to be dragged between nodes in the tree.
   haulItems: ({ id }) => [id],
   ContextMenu: TreeContextMenu,
 });

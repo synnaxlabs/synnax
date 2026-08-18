@@ -59,10 +59,9 @@ const NOOP = () => {};
 
 /**
  * createPresence mints a typed presence context: a Provider that publishes at most one
- * present key and hooks that read it. Presence is a single-valued membership: the hovered
- * item, the active item, the keyboard cursor. Call once per use case so each presence
- * carries its own React context and nests independently of other presences.
- *
+ * present key and hooks that read it. Presence is a single-valued membership: the
+ * hovered item, the active item, the keyboard cursor. Call once per use case so each
+ * presence carries its own React context and nests independently of other presences.
  * @param name identifies the presence in the context display name.
  */
 export const createPresence = (name: string): Presence => {

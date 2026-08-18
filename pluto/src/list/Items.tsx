@@ -17,12 +17,16 @@ import { Flex } from "@/flex";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp } from "@/list/Item";
 
+/** Props for {@link Items}. */
 export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
   Flex.BoxProps,
   "children" | "ref"
 > {
+  /** Renders one item. It is called once per visible key. */
   children: ItemRenderProp<K>;
+  /** Rendered in place of the items when the list is empty. */
   emptyContent?: ReactNode;
+  /** Sizes the list to hold this many items before it scrolls. */
   displayItems?: number;
   /**
    * Smooths the height change when the item count changes. Set it only when the list
@@ -111,4 +115,8 @@ const BaseItems = <
   );
 };
 
+/**
+ * The scroll container for a {@link Frame}. It renders the visible items, handles
+ * virtualization, and shows `emptyContent` when there are none.
+ */
 export const Items = memo(BaseItems) as typeof BaseItems;

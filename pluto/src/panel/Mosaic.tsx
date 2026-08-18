@@ -295,10 +295,9 @@ const PortalIn = memo(
 );
 PortalIn.displayName = "Panel.Mosaic.PortalIn";
 
-// Content renders into portaled elements hosted from each leaf, so moving a tab
-// around the mosaic does not remount it: the destination leaf's Out re-parents
-// the same element, preserving DOM state and expensive resources like WebGL
-// contexts.
+// Content renders into portaled elements hosted from each leaf, so moving a tab around
+// the mosaic does not remount it: the destination leaf's Out re-parents the same
+// element, preserving DOM state and expensive resources like WebGL contexts.
 const PortaledContents = memo(
   ({ children }: Pick<MosaicProps, "children">): ReactElement => {
     const keys = useTabKeys();

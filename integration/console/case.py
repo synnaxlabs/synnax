@@ -156,7 +156,7 @@ class ConsoleCase(TestCase):
 
         if self._cleanup_pages:
             try:
-                self.console.project.delete_pages(self._cleanup_pages)
+                self.console.pages.delete_many(self._cleanup_pages)
             except PlaywrightTimeoutError:
                 pass
         # Delete the per-test project through the client. Server-side delete is

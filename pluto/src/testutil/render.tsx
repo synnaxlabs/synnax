@@ -63,10 +63,9 @@ export const renderHookSuspended = async <Result, Props>(
 /**
  * Render a React component with a Synnax provider stack already mounted on the worker
  * side, so the component's `Aether.use` calls register under the stack without the test
- * scaffolding a multi-level provider tree by hand.
- *
- * Use this for tests that exercise the React + worker boundary (clicks, form input,
- * dispatched actions). For pure worker-side renderer testing, use `renderAether`.
+ * scaffolding a multi-level provider tree by hand. Use this for tests that exercise the
+ * React + worker boundary (clicks, form input, dispatched actions). For pure
+ * worker-side renderer testing, use `renderAether`.
  */
 export const render = (ui: ReactElement, options: RenderOptions = {}): RenderResult => {
   const { rtl, ...providerOptions } = options;

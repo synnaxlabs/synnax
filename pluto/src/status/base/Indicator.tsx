@@ -43,12 +43,17 @@ const ConcentricSVG: Icon.SVGFC = ({ color, style, ...rest }) => (
 
 const Concentric = Icon.wrapSVGIcon(ConcentricSVG, "status-concentric");
 
+/** Props for {@link Indicator}. */
 export interface IndicatorProps extends Icon.IconProps {
   variant?: status.Variant;
   /** Replaces the concentric glyph, tinted with the variant color. */
   children?: ReactElement<Icon.IconProps>;
 }
 
+/**
+ * The dot that carries a status variant's color. A loading variant spins instead, and
+ * a child icon takes the color in place of the dot.
+ */
 export const Indicator = ({
   variant,
   children,

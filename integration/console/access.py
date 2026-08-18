@@ -25,13 +25,11 @@ from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
-from console.context_menu import ContextMenu
+from console.base import ResourceClient
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
-from console.tree import Tree
 
 
-class AccessClient:
+class AccessClient(ResourceClient):
     """Console RBAC client for existing role/user UI functionality."""
 
     SHORTCUT_KEY = "u"
@@ -39,10 +37,7 @@ class AccessClient:
     USER_ITEM_PREFIX = "user:"
 
     def __init__(self, layout: LayoutClient):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
-        self.tree = Tree(layout.page)
+        super().__init__(layout)
         # Name of the test's project, set by ConsoleCase. Logout clears the
         # active project, so login() re-selects it to return to the app.
         self.bootstrap_project: str | None = None
@@ -183,7 +178,7 @@ class AccessClient:
         first_name: str,
         last_name: str,
         role_name: str,
-    ) -> bool:
+    ) -> None:
         """Register a new user via Console UI command palette.
 
         :param username: The username for the new user.
@@ -191,7 +186,7 @@ class AccessClient:
         :param first_name: First name of the user.
         :param last_name: Last name of the user.
         :param role_name: Role to assign to the user (required).
-        :returns: True if the user was created successfully.
+        :raises AssertionError: If registration surfaces an error notification.
         """
         self.notifications.close_all()
 
@@ -212,15 +207,13 @@ class AccessClient:
         sy.sleep(0.5)
 
         if self.layout.check_for_errors("user"):
-            return False
-
-        return True
+            raise AssertionError(f"Failed to register user {username!r}")
 
     # -------------------------------------------------------------------------
     # Role Assignment (context menu → modal)
     # -------------------------------------------------------------------------
 
-    def assign_role_to_user(self, *, username: str, role_name: str) -> bool:
+    def assign_role_to_user(self, *, username: str, role_name: str) -> None:
         """Assign a role to a user via the context menu modal.
 
         This uses the "Change role" context menu option on a user,
@@ -228,7 +221,6 @@ class AccessClient:
 
         :param username: The username of the user.
         :param role_name: The name of the role to assign.
-        :returns: True if successful.
         """
         self._show_users_panel()
 
@@ -249,14 +241,11 @@ class AccessClient:
         self.layout.page.get_by_role("button", name="Assign", exact=True).click()
         sy.sleep(0.3)
 
-        return True
-
-    def drag_user_to_role(self, username: str, role_name: str) -> bool:
+    def drag_user_to_role(self, username: str, role_name: str) -> None:
         """Assign a role to a user via drag-drop in the ontology tree.
 
         :param username: The username of the user to drag.
         :param role_name: The name of the role to drop onto.
-        :returns: True if successful.
         """
         self._show_users_panel()
 
@@ -271,18 +260,15 @@ class AccessClient:
         user_item.drag_to(role_item)
         sy.sleep(0.3)
 
-        return True
-
     # -------------------------------------------------------------------------
     # User Rename/Delete
     # -------------------------------------------------------------------------
 
-    def rename_user(self, *, username: str, new_username: str) -> bool:
+    def rename_user(self, *, username: str, new_username: str) -> None:
         """Rename a user via the "Change username" context menu action.
 
         :param username: The current username.
         :param new_username: The new username.
-        :returns: True if successful.
         """
         user_item = self._find_user_item(username)
         if user_item is None:
@@ -296,13 +282,10 @@ class AccessClient:
         self.layout.press_enter()
         sy.sleep(1)
 
-        return True
-
-    def delete_user(self, username: str) -> bool:
+    def delete_user(self, username: str) -> None:
         """Delete a user via context menu with confirmation.
 
         :param username: The username to delete.
-        :returns: True if successful.
         """
         user_item = self._find_user_item(username)
         if user_item is None:
@@ -310,13 +293,11 @@ class AccessClient:
 
         self.layout.delete_with_confirmation(user_item)
         self.tree.wait_for_removal(self.USER_ITEM_PREFIX, username)
-        return True
 
-    def delete_users(self, usernames: list[str]) -> bool:
+    def delete_users(self, usernames: list[str]) -> None:
         """Delete multiple users via multi-select and context menu.
 
         :param usernames: List of usernames to delete.
-        :returns: True if successful.
         """
         self._show_users_panel()
 
@@ -339,20 +320,17 @@ class AccessClient:
         for username in usernames:
             self.tree.wait_for_removal(self.USER_ITEM_PREFIX, username)
 
-        return True
-
     # -------------------------------------------------------------------------
     # Role Rename/Delete (context menu)
     # -------------------------------------------------------------------------
 
-    def rename_role(self, *, old_name: str, new_name: str) -> bool:
+    def rename_role(self, *, old_name: str, new_name: str) -> None:
         """Rename a role via context menu.
 
         Note: Internal/system roles cannot be renamed.
 
         :param old_name: The current name of the role.
         :param new_name: The new name for the role.
-        :returns: True if successful.
         """
         role_item = self._find_role_item(old_name)
         if role_item is None:
@@ -366,15 +344,13 @@ class AccessClient:
         self.layout.press_enter()
         sy.sleep(0.2)
 
-        return True
-
-    def delete_role(self, name: str) -> bool:
+    def delete_role(self, name: str) -> None:
         """Delete a role via context menu.
 
         Note: Internal/system roles cannot be deleted.
 
         :param name: The name of the role to delete.
-        :returns: True if successful.
+        :raises AssertionError: If the delete surfaces an error notification.
         """
         role_item = self._find_role_item(name)
         if role_item is None:
@@ -388,11 +364,8 @@ class AccessClient:
             ).first.click()
             sy.sleep(0.3)
 
-        # Check for error notifications
         if self.layout.check_for_errors("delete"):
-            return False
-
-        return True
+            raise AssertionError(f"Failed to delete role {name!r}")
 
     def is_role_modifiable(self, name: str) -> bool:
         """Check if a role can be renamed/deleted (i.e., is not internal).

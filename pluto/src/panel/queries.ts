@@ -125,7 +125,6 @@ export const useNodeVariant = Scope.bindHook(
   ),
 );
 
-// useLeafNode selects the leaf node at the given path, including its tab keys.
 export const useLeafNode = Scope.bindHook(
   createSelector<Omit<panel.LeafNode, "tabs"> & { tabs: panel.TabKey[] }, NodeParams>(
     ({ root }, { nodeKey }) => {
@@ -160,9 +159,8 @@ const tabKeysOf = (root: panel.Node): string[] => {
   return tabKeys.sort();
 };
 
-// useTabKeys selects every leaf's tab keys, array-equal compared so the mosaic
-// root re-renders only when tab membership changes, not on a resize or a content
-// change.
+// useTabKeys selects every leaf's tab keys, array-equal compared so the mosaic root
+// re-renders only when tab membership changes, not on a resize or a content change.
 export const useTabKeys = Scope.bindHook(
   createSelector<string[]>(
     ({ root }) => tabKeysOf(root),
@@ -170,7 +168,6 @@ export const useTabKeys = Scope.bindHook(
   ),
 );
 
-// useRoot selects the panel's raw stored tree root.
 export const useRoot = Scope.bindHook(createSelector(({ root }) => root));
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));

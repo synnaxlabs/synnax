@@ -14,14 +14,22 @@ import { type channel } from "@/channel";
 import { keyZ } from "@/channel/types.gen";
 import { framer } from "@/framer";
 
+/** How strongly a writer claims a channel. The highest authority holds control. */
 export type Authority = control.Authority;
+/** The highest authority. A writer holding it cannot be displaced. */
 export const ABSOLUTE_AUTHORITY = control.ABSOLUTE_AUTHORITY;
+/** The lowest authority. Any other writer displaces it. */
 export const ZERO_AUTHORITY = control.ZERO_AUTHORITY;
+/** Control of one channel moving between writers, or being released. */
 export type Transfer = control.Transfer<typeof channel.keyZ>;
+/** Who holds control of a channel, and at what authority. */
 export interface State extends control.State<typeof channel.keyZ> {}
+/** A named party that can hold control. */
 export interface Subject extends control.Subject {}
+/** Zod schema for {@link State}. */
 export const stateZ = control.stateZ(z.number());
 
+/** Renders a {@link Transfer} as readable text, for logs and status messages. */
 export const transferString = (t: Transfer): string => {
   const fromResource = t.from?.resource;
   const toResource = t.to?.resource;
@@ -41,6 +49,10 @@ const updateZ = z.object({
 
 export interface Update extends z.infer<typeof updateZ> {}
 
+/**
+ * Tracks who holds control of every channel on a Core, updating as control moves. It
+ * observes {@link Transfer} batches; close it to release the underlying stream.
+ */
 export class StateTracker
   extends framer.ObservableStreamer<Transfer[]>
   implements observe.ObservableAsyncCloseable<Transfer[]>

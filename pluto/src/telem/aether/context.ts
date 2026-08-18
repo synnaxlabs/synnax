@@ -19,9 +19,7 @@ import {
 import { PipelineFactory } from "@/telem/aether/pipeline";
 import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
 
-/**
- * Provides utilities for creating and managing telemetry sources and sinks.
- */
+/** Provides utilities for creating and managing telemetry sources and sinks. */
 export class Context {
   private factory: CompoundFactory;
   readonly key: string;

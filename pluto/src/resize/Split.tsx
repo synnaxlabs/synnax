@@ -63,9 +63,8 @@ const HALF_SPLIT = 0.5;
 
 /**
  * A pair of panes that can be resized relative to one another by dragging the handle
- * between them. Both panes are sized as percentages of the container, so the split ratio
- * is preserved as the container resizes.
- *
+ * between them. Both panes are sized as percentages of the container, so the split
+ * ratio is preserved as the container resizes.
  * @param props - The component props. Unlisted props are forwarded to the underlying
  * {@link Flex.Box}. Exactly two children should be provided; the first is placed on the
  * left/top and the second on the right/bottom.

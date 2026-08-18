@@ -75,6 +75,7 @@ const Base = ({
             size="medium"
             variant="text"
             reveal={!selected}
+            aria-label="Select"
           />
           <Flex.Box x align="center" gap="tiny">
             <Form.Field<NumericTimeRange>

@@ -21,23 +21,37 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 
+/** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
 /** The rest-state emphasis of the button chassis. */
 export type Variant = "filled" | "outlined" | "text";
 
+/** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
   extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
+  /** The rest-state emphasis. Defaults to "outlined". */
   variant?: Variant;
+  /** A keyboard trigger that clicks the button while it is mounted. */
   trigger?: Triggers.Trigger;
+  /** Renders the trigger's keys beside the label. true shows `trigger`; a trigger of
+   * its own shows that instead, for a button whose real shortcut lives elsewhere. */
   triggerIndicator?: boolean | Triggers.Trigger;
+  /** Overrides the label color without moving the chassis off its variant. */
   textColor?: Text.TextProps["color"];
+  /** The text variant of the label. */
   textVariant?: Text.Variant;
+  /** Blocks interaction and dims the button. */
   disabled?: boolean;
-  /** Renders a non-interactive, chrome-less display of the button. */
+  /** Renders the button flat and inert, for a preview of an interface. */
   preview?: boolean;
+  /** Swallows the click without calling onClick. Use for a button that is momentarily
+   * inapplicable but must not read as disabled. */
   preventClick?: boolean;
+  /** Lets the click reach an ancestor's handler. Clicks stop at the button otherwise. */
   propagateClick?: boolean;
+  /** Holds onClick until the button has been held this long, filling a progress bar
+   * meanwhile. Use it to guard a destructive action. */
   onClickDelay?: number | TimeSpan;
   /** Marks the button as a hidden action its pluto--reveals container shows. */
   reveal?: boolean;
@@ -63,20 +77,18 @@ const resolveTriggerIndicator = (
 
 /**
  * Use is a basic button component.
- *
- * @param props - Props for the component, which are passed down to the underlying button
- * element.
- * @param props.size - The size of button render.
+ * @param props - Props for the component, which are passed down to the underlying
+ * button element.
  * @param props.variant - The variant to render for the button. Options are "filled",
  * "outlined" (default), and "text".
  * @param props.startIcon - An optional icon to render before the start of the button
- * text. This can be a single icon or an array of icons. The icons will be formatted
- * to match the color and size of the button.
+ * text. This can be a single icon or an array of icons. The icons will be formatted to
+ * match the color and size of the button.
  * @param props.endIcon - The same as {@link startIcon}, but renders after the button
  * text.
- * @param props.iconSpacing - The spacing between the optional start and end icons
- * and the button text. Can be "small", "medium", "large", or a number representing
- * the spacing in rem.
+ * @param props.iconSpacing - The spacing between the optional start and end icons and
+ * the button text. Can be "small", "medium", "large", or a number representing the
+ * spacing in rem.
  * @param props.onClickDelay - An optional delay to wait before calling the `onClick`
  * handler. This will cause the button to render a progress bar that fills up over the
  * specified time before calling the handler.
@@ -253,4 +265,12 @@ const Base = <E extends ElementType = "button">({
   );
 };
 
+/**
+ * The standard clickable. Renders as a `button` unless `el` names another
+ * {@link ElementType}, carries an optional keyboard trigger and tooltip, and lays its
+ * icons and label out on the shared size scale.
+ *
+ * @example <Button.Button onClick={save}><Icon.Save />Save</Button.Button>
+ * @example <Button.Button variant="text" trigger={["Control", "S"]} triggerIndicator />
+ */
 export const Button = Tooltip.wrap(Base) as typeof Base;

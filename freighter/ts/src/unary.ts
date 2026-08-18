@@ -21,8 +21,6 @@ import { type Transport } from "@/transport";
 export interface UnaryClient extends Transport {
   /**
    * Sends a request to the target server and waits until a response is received.
-   * @param target - The target server to send the request to.
-   * @param req - The request to send.
    * @param resSchema - The schema to validate the response against.
    * @returns the decoded response.
    * @throws Error: if the server returns an error or the transport fails.

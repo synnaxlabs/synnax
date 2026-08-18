@@ -52,7 +52,6 @@ export interface FallbackProps extends PropsWithChildren {
  * @example
  * // With default retry button
  * <Fallback error={error} resetErrorBoundary={reset} />
- *
  * @example
  * // With custom actions
  * <Fallback error={error} resetErrorBoundary={reset} icon={<Logo />}>

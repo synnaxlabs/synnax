@@ -127,7 +127,6 @@ export class NodeLayout {
 
   static fromFlow(key: string, flow: ReactFlowInstance): NodeLayout {
     const nodeBox = selectNodeBox(flow, key);
-    // grab all child elements with the class 'react-flow__handle'
     const nodeEl = selectNode(key);
     const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
     const nodeElBox = box.construct(nodeEl);

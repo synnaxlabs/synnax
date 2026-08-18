@@ -10,9 +10,9 @@
 """Test that Viewer role has read-only permissions and cannot actuate controls."""
 
 import synnax as sy
-from console.case import ConsoleCase
 from console.schematic import Setpoint, Valve
 from console.schematic.schematic import Schematic
+from tests.console.user.role_case import RoleCase
 from x import random_name
 
 F64_CHANNEL = f"viewer_perm_f64_{random_name()}"
@@ -22,8 +22,10 @@ VALVE_INDEX = f"viewer_perm_vlv_idx_{random_name()}"
 SCHEMATIC_NAME = "viewer_perm_schematic"
 
 
-class RoleViewerPermissions(ConsoleCase):
+class RoleViewerPermissions(RoleCase):
     """Test that Viewer role is read-only and cannot create or actuate."""
+
+    role_name = "Viewer"
 
     def setup(self) -> None:
         f64_idx = self.client.channels.create(
@@ -53,7 +55,7 @@ class RoleViewerPermissions(ConsoleCase):
 
     def test_owner_creates_schematic(self) -> None:
         """As Owner: create a schematic with f64 setpoint and boolean button."""
-        schematic = self.console.project.create_schematic(SCHEMATIC_NAME)
+        schematic = self.console.pages.create(Schematic, SCHEMATIC_NAME)
         self._cleanup_pages.append(schematic.page_name)
 
         setpoint = schematic.create_symbol(
@@ -83,114 +85,11 @@ class RoleViewerPermissions(ConsoleCase):
     def run(self) -> None:
         self.test_owner_creates_schematic()
 
-        # Create a new user with Viewer role
-        username = f"viewer_{random_name()}"
-        password = "testpassword123"
-        first_name = "Viewer"
-        last_name = "Test"
-        role_name = "Viewer"
-
-        self.log(f"Registering viewer user: {username}")
-
-        success = self.console.access.register_user(
-            username=username,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-            role_name=role_name,
-        )
-        assert success, f"Failed to register user {username}"
-
-        # Log out and log in as the viewer
-        self.log("Logging out and logging in as viewer...")
-        self.console.access.logout()
-        self.console.access.login(username=username, password=password)
-
-        # Verify logged in as viewer
-        user_badge = self.page.get_by_text(first_name, exact=True)
-        user_badge.wait_for(state="visible", timeout=10000)
-        self.log(f"Logged in as viewer: {first_name}")
-
-        # Test 1: Users toolbar should be hidden
-        self.log("Testing: Users toolbar should be hidden for viewer...")
-        self.page.keyboard.press("u")
-        sy.sleep(0.5)
-
-        role_elements = self.page.locator("div[id^='role:']")
-        users_visible = role_elements.count() > 0 and role_elements.first.is_visible()
-
-        if users_visible:
-            self.log("WARNING: Users toolbar is visible to viewer (unexpected)")
-        else:
-            self.log("PASS: Users toolbar is hidden for viewer")
-
-        self.console.layout.press_escape()
-        sy.sleep(0.3)
-
-        # Test 2: Try to create a project
-        self.log("Testing: Viewer should not be able to create project...")
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
-
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
-        )
-        palette_input.fill(">Create a project", timeout=2000)
-        sy.sleep(0.3)
-
-        project_cmd = self.page.get_by_text("Create project", exact=True)
-        project_cmd_exists = project_cmd.count() > 0
-
-        self.console.layout.press_escape()
-        sy.sleep(0.2)
-
-        if project_cmd_exists:
-            self.log("WARNING: Create project command exists for viewer")
-        else:
-            self.log("PASS: Create project command not available for viewer")
-
-        # Test 3: Try to create a line plot
-        self.log("Testing: Viewer should not be able to create line plot...")
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
-
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
-        )
-        palette_input.fill(">Create a line plot", timeout=2000)
-        sy.sleep(0.3)
-
-        lineplot_cmd = self.page.get_by_text("Create line plot", exact=True)
-        lineplot_cmd_exists = lineplot_cmd.count() > 0
-
-        self.console.layout.press_escape()
-        sy.sleep(0.2)
-
-        if lineplot_cmd_exists:
-            self.log("WARNING: Create line plot command exists for viewer")
-        else:
-            self.log("PASS: Create line plot command not available for viewer")
-
-        # Test 4: Try to create a channel
-        self.log("Testing: Viewer should not be able to create channel...")
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
-
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
-        )
-        palette_input.fill(">Create a channel", timeout=2000)
-        sy.sleep(0.3)
-
-        channel_cmd = self.page.get_by_text("Create channel", exact=True)
-        channel_cmd_exists = channel_cmd.count() > 0
-
-        self.console.layout.press_escape()
-
-        if channel_cmd_exists:
-            self.log("WARNING: Create channel command exists for viewer")
-        else:
-            self.log("PASS: Create channel command not available for viewer")
+        self.login_as_role()
+        self.assert_users_toolbar_hidden()
+        self.assert_command_hidden("Create project")
+        self.assert_command_hidden("Create line plot")
+        self.assert_command_hidden("Create channel")
 
         self.test_viewer_can_view_schematic()
         self.test_viewer_cannot_actuate()
@@ -198,7 +97,7 @@ class RoleViewerPermissions(ConsoleCase):
     def test_viewer_can_view_schematic(self) -> None:
         """Viewer should be able to open and view an existing schematic."""
         self.log("Testing: Viewer can view schematic")
-        self._viewer_schematic = self.console.project.open_from_search(
+        self._viewer_schematic = self.console.pages.open_from_search(
             Schematic, SCHEMATIC_NAME
         )
 

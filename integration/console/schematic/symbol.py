@@ -14,7 +14,6 @@ from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
 
 """ Symbol Box helpers """
 
@@ -92,7 +91,7 @@ class Symbol(ABC):
 
         self.page = layout.page
         self.layout = layout
-        self.notifications = NotificationsClient(layout.page)
+        self.notifications = layout.notifications
 
         toolbar = SymbolToolbar(self.layout)
         self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)

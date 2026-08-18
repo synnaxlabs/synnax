@@ -19,11 +19,16 @@ import { Icon } from "@/icon";
 import { type Control } from "@/input/types";
 import { preventDefault } from "@/util/event";
 
+/** Drag behavior an input passes down to its {@link DragButton}. */
 export interface DragButtonExtraProps {
   direction?: direction.Crude;
+  /** Restricts scrubbing to one axis. Both axes are live when unset. */
   dragDirection?: direction.Crude;
+  /** Value change per pixel dragged, per axis. */
   dragScale?: xy.Crude | number;
+  /** Pixels the pointer must travel before scrubbing starts. */
   dragThreshold?: xy.Crude | number;
+  /** Value a double click restores. */
   resetValue?: number;
 }
 
@@ -66,6 +71,10 @@ const calculateValue = (
   return value;
 };
 
+/**
+ * A handle that scrubs a number as the pointer drags across it, horizontally by the x
+ * scale and vertically by the y. A double click restores `resetValue`.
+ */
 export const DragButton = ({
   direction,
   className,

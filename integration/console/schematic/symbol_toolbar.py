@@ -15,9 +15,7 @@ from typing import Any
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from console.context_menu import ContextMenu
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
 from console.schematic.symbol_editor import SymbolEditor
 from framework.run_dir import resolve_results_path
 
@@ -28,8 +26,8 @@ class SymbolToolbar:
     def __init__(self, layout: LayoutClient):
         self.page = layout.page
         self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
+        self.ctx_menu = layout.ctx_menu
+        self.notifications = layout.notifications
 
     @property
     def toolbar(self) -> Locator:
@@ -140,7 +138,7 @@ class SymbolToolbar:
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for_group_hidden(self, name: str) -> None:
+    def wait_for_group_removed(self, name: str) -> None:
         """Wait for a symbol group to be hidden/removed."""
         group_btn = self._group_tab(name)
         self.layout.wait_for_hidden(group_btn)
@@ -185,7 +183,7 @@ class SymbolToolbar:
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for_symbol_hidden(self, name: str) -> None:
+    def wait_for_symbol_removed(self, name: str) -> None:
         """Wait for a symbol to be hidden/removed."""
         symbol = self.get_symbol(name)
         symbol.wait_for(state="hidden", timeout=5000)
@@ -214,6 +212,20 @@ class SymbolToolbar:
             confirm_btn.click()
 
         symbol.wait_for(state="hidden", timeout=5000)
+
+    def import_symbol(self, path: str) -> None:
+        """Import a symbol envelope into the selected group via the toolbar.
+
+        Only drives the file chooser; callers assert the outcome via
+        ``symbol_exists`` or the notifications client. Requires a remote
+        (user-created) group to be selected: the button is disabled otherwise.
+
+        :param path: Path to the symbol JSON file to import.
+        """
+        button = self.toolbar.get_by_role("button", name="Import symbol", exact=True)
+        with self.page.expect_file_chooser() as fc_info:
+            button.click()
+        fc_info.value.set_files(path)
 
     def export_symbol(self, name: str) -> dict[str, Any]:
         """Export a symbol via context menu and return the JSON content."""

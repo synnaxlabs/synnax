@@ -52,8 +52,10 @@ const wireReqZ = z.object({
   offset: z.int().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
+/** Everything an ontology retrieval can filter on. */
 export interface RetrieveRequest extends z.infer<typeof wireReqZ> {}
 
+/** The filters a retrieval accepts alongside its IDs. */
 export interface RetrieveOptions extends Pick<
   RetrieveRequest,
   "excludeFieldData" | "types"
@@ -141,6 +143,7 @@ const retrieveMultiParamsZ = retrieveRequestZ.or(
   idZ.array().transform((ids): NormalizedRequest => ({ ids: normalizeIDs(ids) })),
 );
 
+/** Params for an ontology retrieval. A bare ID array is shorthand for `{ ids }`. */
 export type RetrieveParams = z.input<typeof retrieveRequestZ>;
 
 const singleParamsZ = z
@@ -148,9 +151,8 @@ const singleParamsZ = z
   .transform((id) => idToString(id));
 
 /**
- * Client-side matching for a request: exact for id and type sets.
- * Server-computed shapes (search, limit/offset) never reach this filter; they
- * refetch instead.
+ * Client-side matching for a request: exact for id and type sets. Server-computed
+ * shapes (search, limit/offset) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: NormalizedRequest): ((r: Resource) => boolean) => {
   const idSet = primitive.isNonZero(req.ids) ? new Set(req.ids) : undefined;
@@ -162,12 +164,17 @@ const requestFilter = (req: NormalizedRequest): ((r: Resource) => boolean) => {
   };
 };
 
+/** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
 }
 
-/** The main client class for executing queries against a Synnax cluster ontology */
+/**
+ * Reads the ontology on a Core: the resources and the relationships that join them.
+ * Reach it through `client.ontology`. Reads are served from a cache that a change
+ * stream keeps current.
+ */
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   string,
@@ -243,9 +250,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Reads the resources the params address.
-   * The ID-array form remains for migration only: query with `{ ids }`,
-   * `children.retrieve`, or `parents.retrieve` instead.
+   * Reads the resources the params address. The ID-array form remains for migration
+   * only: query with `{ ids }`, `children.retrieve`, or `parents.retrieve` instead.
    */
   retrieve(
     ids: Array<ID | string>,
@@ -299,11 +305,7 @@ export class Client extends query.Retriever<
     return await this.parents.retrieve({ ids, ...options });
   }
 
-  /**
-   * Adds children to a resource in the ontology.
-   * @param id - The ID of the resource to add children to.
-   * @param children - The IDs of the children to add.
-   */
+  /** Adds children to a resource in the ontology. */
   async addChildren(id: ID, ...children: ID[]): Promise<void> {
     await this.writer.addChildren(id, ...children);
     children.forEach((child) => {
@@ -312,11 +314,7 @@ export class Client extends query.Retriever<
     });
   }
 
-  /**
-   * Removes children from a resource in the ontology.
-   * @param id - The ID of the resource to remove children from.
-   * @param children - The IDs of the children to remove.
-   */
+  /** Removes children from a resource in the ontology. */
   async removeChildren(id: ID, ...children: ID[]): Promise<void> {
     await this.writer.removeChildren(id, ...children);
     children.forEach((child) =>
@@ -324,12 +322,7 @@ export class Client extends query.Retriever<
     );
   }
 
-  /**
-   * Moves children from one resource to another in the ontology.
-   * @param from - The ID of the resource to move children from.
-   * @param to - The ID of the resource to move children to.
-   * @param children - The IDs of the children to move.
-   */
+  /** Moves children from one resource to another in the ontology. */
   async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
     const move = (): destructor.Destructor[] => {
       const deletions = children.map((child) =>

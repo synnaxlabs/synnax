@@ -52,12 +52,10 @@ export const createShortIdentifiers = (name: string): string[] => {
   const words = name.split(" ");
   const identifiers = new Set<string>();
 
-  // create initials
   const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
   identifiers.add(initials.replace(/-/g, "_"));
   identifiers.add(initials.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_")); // Insert underscores
 
-  // Create combinations with numbers
   const regex = /\d+/g;
   const hasNumbers = name.match(regex);
 
@@ -74,14 +72,12 @@ export const createShortIdentifiers = (name: string): string[] => {
       }
     });
 
-  // Create other potential combinations
   const wordAbbreviations = words.map((word) =>
     (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
   );
   identifiers.add(wordAbbreviations.join("").replace(/-/g, "_"));
   identifiers.add(wordAbbreviations.join("_").replace(/-/g, "_"));
 
-  // Limit length of identifiers and ensure they don't start with numbers
   const filteredIdentifiers = Array.from(identifiers).filter(
     (id) => id.length >= 2 && id.length <= 12 && !/^\d/.test(id),
   );

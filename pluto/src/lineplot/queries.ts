@@ -162,14 +162,12 @@ export const useYAxisChannels = Scope.bindHook(
   ),
 );
 
-// useXAxisChannel selects the single channel plotted on an x-axis.
 export const useXAxisChannel = Scope.bindHook(
   createSelector<lineplot.Channels[lineplot.XAxisKey], XAxisParams>(
     ({ channels }, { axisKey }) => channels[axisKey],
   ),
 );
 
-// useXAxisRanges selects the range keys plotted against an x-axis.
 export const useXAxisRanges = Scope.bindHook(
   createSelector<lineplot.Ranges[lineplot.XAxisKey], XAxisParams>(
     ({ ranges }, { axisKey }) => ranges[axisKey],

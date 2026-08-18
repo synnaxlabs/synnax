@@ -129,7 +129,6 @@ export const useContextMenu = (): UseContextMenuReturn => {
       let keys: string[] = [];
       if (typeof e === "object" && "preventDefault" in e) {
         e.preventDefault();
-        // Prevent parent context menus from opening.
         e.stopPropagation();
         const target = findTarget(e.target as HTMLElement);
         const selected = findSelected(target);
@@ -238,6 +237,7 @@ const Internal = ({
     <Flex.Box
       className={CSS(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
       ref={ref}
+      role="menu"
       style={menuStyle}
       onClick={(e) => {
         close();

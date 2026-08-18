@@ -32,8 +32,7 @@ export type ReadChannel = labjack.ReadChannel;
 export type ReadChannelType = labjack.ReadChannelType;
 export const READ_CHANNEL_SCHEMAS = labjack.READ_CHANNEL_SCHEMAS;
 
-// The scale union has no schema default, so analog and thermocouple seed it
-// explicitly.
+// The scale union has no schema default, so analog and thermocouple seed it explicitly.
 const READ_CHANNEL_SEEDS: Record<ReadChannelType, object> = {
   analog: { type: "analog", scale: NO_SCALE },
   digital: { type: "digital" },

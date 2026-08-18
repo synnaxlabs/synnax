@@ -367,9 +367,8 @@ describe("Fallback", () => {
           resetErrorBoundary={mockReset}
         />,
       );
-      // resolveStack never rejects in production; an unexpected rejection keeps the
-      // raw stack and is surfaced via console.warn rather than crashing the crash
-      // screen.
+      // resolveStack never rejects in production; an unexpected rejection keeps the raw
+      // stack and is surfaced via console.warn rather than crashing the crash screen.
       await waitFor(() => {
         expect(warnSpy).toHaveBeenCalledTimes(1);
       });

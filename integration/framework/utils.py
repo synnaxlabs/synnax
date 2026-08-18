@@ -25,6 +25,27 @@ import synnax as sy
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
 
+# The Core's service directory, holding the canonical import golden files
+# (e.g. lineplot/versions/testdata/import_v5.json). Referenced directly so the
+# integration suite and the Core's own tests share one corpus.
+CORE_SERVICE_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "..", "core", "pkg", "service"
+)
+
+
+def get_core_fixture_path(relative: str) -> str:
+    """Get the full path of a golden file in the Core's service testdata.
+
+    :param relative: Path relative to ``core/pkg/service``, e.g.
+        ``lineplot/versions/testdata/import_v5.json``.
+    :returns: Full path to the golden file.
+    :raises FileNotFoundError: If the golden file doesn't exist.
+    """
+    path = os.path.join(CORE_SERVICE_DIR, relative)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Core golden file not found: {path}")
+    return path
+
 
 def get_fixture_path(filename: str) -> str:
     """Get the full path for a test fixture file.
@@ -42,6 +63,34 @@ def get_fixture_path(filename: str) -> str:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Test fixture not found: {path}")
     return path
+
+
+def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
+    """Read the latest sample written to a channel, or None if none arrived.
+
+    Retries with short delays: an empty read_latest falls back to a read over
+    the last three seconds, three times, absorbing CI resource stalls.
+
+    :param client: The Synnax client to read through.
+    :param channel_name: The channel to read.
+    :returns: The latest sample as a float, or None.
+    :raises RuntimeError: If a read fails.
+    """
+    try:
+        for attempt in range(3):
+            latest = client.read_latest(channel_name)
+            if latest is not None and len(latest) > 0:
+                return float(latest[-1])
+            now = sy.TimeStamp.now()
+            recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
+            frame = client.read(recent_range, channel_name)
+            if len(frame) > 0:
+                return float(frame[-1])
+            if attempt < 2:
+                sy.sleep(0.2)
+        return None
+    except Exception as e:
+        raise RuntimeError(f'Could not get value for channel "{channel_name}": {e}')
 
 
 def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:

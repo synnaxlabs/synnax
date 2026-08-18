@@ -23,8 +23,7 @@ const multiCoercedOp =
     return func(Number(a), Number(b)) as V;
   };
 
-/**
- * @returns the product of a and b, coercing b to the type of a if necessary. */
+/** @returns the product of a and b, coercing b to the type of a if necessary. */
 export const sub = multiCoercedOp((a, b) => a - b);
 
 /** @returns the sum of a and b, coercing b to the type of a if necessary. */

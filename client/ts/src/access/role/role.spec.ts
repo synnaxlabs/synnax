@@ -43,7 +43,6 @@ describe("role", () => {
     });
 
     it("should filter by internal flag when retrieving roles", async () => {
-      // Create a non-internal role
       const created = await client.access.roles.create({
         name: "test-non-internal",
         description: "test",
@@ -55,7 +54,6 @@ describe("role", () => {
       expect(internalRoles.every((r) => r.internal === true)).toBe(true);
       expect(internalRoles.find((r) => r.key === created.key)).toBeUndefined();
 
-      // Retrieve only non-internal roles
       const nonInternalRoles = await client.access.roles.retrieve({ internal: false });
       expect(nonInternalRoles.every((r) => r.internal !== true)).toBe(true);
       expect(nonInternalRoles.find((r) => r.key === created.key)).toBeDefined();

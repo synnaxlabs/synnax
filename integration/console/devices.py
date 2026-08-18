@@ -12,27 +12,22 @@ import json
 from playwright.sync_api import Locator
 
 import synnax as sy
-from console.context_menu import ContextMenu
+from console.base import ResourceClient
 from console.layout import LayoutClient
-from console.tree import Tree
 
 
-class DevicesClient:
+class DevicesClient(ResourceClient):
     """Device and rack management for Console UI automation."""
 
     RACK_PREFIX = "rack:"
     DEVICE_PREFIX = "device:"
-    ICON_NAME = "device"
-
     def __init__(self, layout: LayoutClient, client: sy.Synnax):
-        self.layout = layout
+        super().__init__(layout)
         self.client = client
-        self.ctx_menu = ContextMenu(layout.page)
-        self.tree = Tree(layout.page)
 
     def show_toolbar(self) -> None:
         """Show the devices toolbar in the left sidebar."""
-        self.layout.show_resource_toolbar(self.ICON_NAME)
+        self.layout.show_resource_toolbar("Devices")
 
     def _find_item(self, prefix: str, name: str) -> Locator | None:
         """Find an item in the tree by prefix and name."""

@@ -15,7 +15,9 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Triggers } from "@/triggers";
 
+/** Props for {@link useHover}. */
 export interface UseHoverProps<K extends record.Key> {
+  /** Index hovered when the dialog opens. Defaults to none. */
   initialHover?: number;
   data: K[];
   onSelect: (key: K) => void;
@@ -29,10 +31,16 @@ const TRIGGERS: Triggers.Trigger[] = [UP_TRIGGER, DOWN_TRIGGER, SELECT_TRIGGER];
 const INITIAL_HOVER_DELAY = TimeSpan.milliseconds(200).milliseconds;
 const HOVER_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
 
+/** Return value for {@link useHover}. */
 export interface UseHoverReturn<K extends record.Key> {
+  /** The key the arrow keys currently rest on. */
   hover: K;
 }
 
+/**
+ * Moves a hover cursor through the list with the arrow keys and selects with Enter,
+ * scrolling the hovered item into view. Holding an arrow key repeats.
+ */
 export const useHover = <K extends record.Key>({
   data,
   initialHover = -1,

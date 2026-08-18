@@ -632,7 +632,6 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
           continue;
         }
 
-        // create a new channel
         const dt = new DataType(field.dataType);
         const chName = primitive.isNonZero(field.name)
           ? field.name

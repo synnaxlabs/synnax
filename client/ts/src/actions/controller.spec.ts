@@ -767,10 +767,9 @@ describe("actions.Controller", () => {
     it("re-applies own echoes when their dispatchKey is unknown (registration lost the race against the echo)", () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      // No registration: simulate the case where the echo arrived before the
-      // dispatch promise resolved, so the originator never got to register.
-      // The substrate treats this as foreign and reduces — safer than
-      // silently dropping the action.
+      // No registration: simulate the case where the echo arrived before the dispatch
+      // promise resolved, so the originator never got to register. The substrate treats
+      // this as foreign and reduces — safer than silently dropping the action.
       controller.applyRemote("k", 1, "stranger", [{ type: "set", key: "a", value: 7 }]);
       expect(docs.get("k")).toEqual({ values: { a: 7 } });
     });

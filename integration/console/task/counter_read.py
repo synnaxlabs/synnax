@@ -44,7 +44,7 @@ COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
 class CounterRead(NITask):
     """NI Counter Read Task automation interface."""
 
-    page_type: str = "NI counter read task"
+    page_type = "NI counter read task"
     pluto_label: str = ".console-task-configure--ni_counter_read"
 
     def add_channel(

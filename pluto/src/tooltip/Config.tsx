@@ -57,12 +57,9 @@ export { useConfig };
 
 /**
  * Sets the configuration for all tooltips in its children.
- *
- * @param props - The props for the tooltip config.
  * @param props.delay - The delay before a tooltip opens on hover.
  * @default 700ms.
- * @param props.skipDelay - How long after a tooltip closes a new hover opens
- * instantly.
+ * @param props.skipDelay - How long after a tooltip closes a new hover opens instantly.
  * @default 300ms.
  */
 export const Config = ({

@@ -78,7 +78,6 @@ describe("zod", () => {
     interface Spec {
       path: string;
     }
-    // just assert not null
     const spec: Spec[] = [
       { path: "a.b.c" },
       { path: "array.0.0.0" },

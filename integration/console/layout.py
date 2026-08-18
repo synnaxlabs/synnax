@@ -19,6 +19,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import synnax as sy
 from console.context_menu import ContextMenu
 from console.notifications import NotificationsClient
+from console.tree import Tree
 
 AriaRole = Literal[
     "alert",
@@ -126,8 +127,9 @@ class LayoutClient:
 
     def __init__(self, page: Page):
         self.page = page
-        self.ctx_menu = ContextMenu(self.page)  # For internal tab operations
+        self.ctx_menu = ContextMenu(self.page)
         self.notifications = NotificationsClient(self.page)
+        self.tree = Tree(self)
 
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
@@ -138,6 +140,18 @@ class LayoutClient:
             error_prefix="Command palette",
             retries=retries,
         )
+
+    def choose_import_file(self, path: str | list[str]) -> None:
+        """Send ``path`` through the "Import components" palette file chooser.
+
+        Only drives the chooser; callers assert the import's outcome on their
+        own surface (project tree, Arc panel, notifications).
+
+        :param path: Path, or list of paths, of the JSON file(s) to import.
+        """
+        with self.page.expect_file_chooser() as fc_info:
+            self.command_palette("Import components")
+        fc_info.value.set_files(path)
 
     def search_palette(self, query: str, retries: int = 3) -> None:
         """Search for a resource via the command palette (without > prefix)."""
@@ -227,6 +241,43 @@ class LayoutClient:
             target_result.click(timeout=5000)
             return
 
+    def command_exists(self, command: str) -> bool:
+        """Report whether the command palette offers ``command``.
+
+        Opens the palette, types the command name, checks for a matching
+        entry, and closes the palette again. Access-controlled commands are
+        hidden from the palette, so this is the probe for permission checks.
+
+        :param command: The exact visible label of the palette command.
+        :returns: True if the command is offered.
+        """
+        palette_btn = self.page.locator(".console-palette button").first
+        palette_btn.wait_for(state="visible", timeout=5000)
+        palette_btn.click(timeout=5000)
+        palette_input = self.page.locator(
+            ".console-palette__input input[role='textbox']"
+        )
+        palette_input.wait_for(state="visible", timeout=5000)
+        palette_input.press("ControlOrMeta+a")
+        palette_input.type(f">{command}", timeout=5000)
+        entry = (
+            self.page.locator(".console-palette__list .pluto-list__item")
+            .filter(has_text=command)
+            .first
+        )
+        no_results = self.page.get_by_text("No commands found")
+        # A hidden command can still leave fuzzy matches in the list, in which
+        # case neither the entry nor the empty message ever shows: fall through
+        # to a plain visibility check after the wait.
+        try:
+            entry.or_(no_results).first.wait_for(state="visible", timeout=3000)
+        except PlaywrightTimeoutError:
+            pass
+        exists = entry.is_visible()
+        self.press_escape()
+        palette_input.wait_for(state="hidden", timeout=5000)
+        return exists
+
     def is_modal_open(self) -> bool:
         """Check if a modal dialog is currently open."""
         return self.page.locator(self.MODAL_SELECTOR).count() > 0
@@ -248,32 +299,23 @@ class LayoutClient:
         return False
 
     # Resource toolbar toggles live in the left navbar's main content section. The
-    # end section holds the Component toggle, whose icon mirrors the focused tab.
+    # end section holds the Component toggle.
     _RESOURCE_NAV_ITEMS = (
         ".pluto-navbar.pluto--location-left "
         ".pluto-navbar__content:not(.pluto--end) button.console-main-nav__item"
     )
 
-    def show_resource_toolbar(self, resource: str) -> None:
-        """Show a resource toolbar by clicking its icon in the sidebar."""
+    def show_resource_toolbar(self, name: str) -> None:
+        """Show a resource toolbar by its nav item's name (e.g. "Tasks")."""
         nav_drawer = self.page.locator(
             ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
         )
-        items = self.page.locator(f"div[id^='{resource}:']")
-        drawer_count = nav_drawer.count()
-        items_count = items.count()
-        items_visible = items.first.is_visible() if items_count > 0 else False
-        if drawer_count > 0 and items_count > 0 and items_visible:
+        item = self.page.get_by_role("menuitem", name=name, exact=True)
+        selected = "pluto--selected" in (item.get_attribute("class") or "")
+        if selected and nav_drawer.count() > 0 and nav_drawer.first.is_visible():
             return
-
-        # Scope to the main content section: the Component toggle in the end section
-        # mirrors the focused tab's icon and can duplicate any resource icon.
-        button = self.page.locator(self._RESOURCE_NAV_ITEMS).filter(
-            has=self.page.locator(f"svg.pluto-icon--{resource}")
-        )
-        btn_class = button.first.get_attribute("class") or ""
-        if "selected" not in btn_class:
-            button.click(timeout=5000)
+        if not selected:
+            item.click(timeout=5000)
         nav_drawer.wait_for(state="visible", timeout=5000)
 
     def close_left_toolbar(self) -> None:
@@ -720,14 +762,6 @@ class LayoutClient:
         tab.click()
         self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
 
-    # The bottom Component toolbar's toggle is the single nav menu item in the left
-    # navbar's end section. Its icon mirrors the focused tab's icon, so it cannot be
-    # located by icon like the resource toolbars.
-    _COMPONENT_TOOLBAR_TOGGLE = (
-        ".pluto-navbar.pluto--location-left .pluto-navbar__content.pluto--end "
-        "button.console-main-nav__item"
-    )
-
     def show_visualization_toolbar(self) -> None:
         """Show the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
@@ -736,7 +770,7 @@ class LayoutClient:
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
             return
 
-        self.page.locator(self._COMPONENT_TOOLBAR_TOGGLE).click()
+        self.page.get_by_role("menuitem", name="Component", exact=True).click()
         bottom_drawer.wait_for(state="visible", timeout=5000)
 
     def hide_visualization_toolbar(self) -> None:
@@ -747,7 +781,7 @@ class LayoutClient:
         if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
             return
 
-        self.page.locator(self._COMPONENT_TOOLBAR_TOGGLE).click()
+        self.page.get_by_role("menuitem", name="Component", exact=True).click()
         bottom_drawer.wait_for(state="hidden", timeout=5000)
 
     def get_visualization_toolbar_title(self) -> str:
@@ -799,10 +833,6 @@ class LayoutClient:
     def press_enter(self) -> None:
         """Press the Enter key."""
         self.page.keyboard.press("Enter")
-
-    def press_meta_enter(self) -> None:
-        """Press Ctrl/Cmd+Enter."""
-        self.page.keyboard.press("ControlOrMeta+Enter")
 
     def press_delete(self) -> None:
         """Press the Delete key."""
@@ -896,18 +926,6 @@ class LayoutClient:
             The clipboard text.
         """
         return str(self.page.evaluate("navigator.clipboard.readText()"))
-
-    def context_menu_action(
-        self, item: Locator, action: str, *, exact: bool = True
-    ) -> None:
-        """Perform a context menu action on an item.
-
-        Args:
-            item: The Locator for the element to right-click.
-            action: The exact text of the menu action to click.
-            exact: If True, match the action text exactly.
-        """
-        self.ctx_menu.action(item, action, exact=exact)
 
     def show_toolbar(self, shortcut_key: str, item_prefix: str) -> None:
         """Show a navigation toolbar using keyboard shortcut.

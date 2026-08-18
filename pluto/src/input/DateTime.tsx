@@ -30,9 +30,14 @@ import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
+/** Props for {@link DateTime}. The value is UTC nanoseconds since the Unix epoch. */
 export interface DateTimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {}
 
+/**
+ * A combined date and time field over UTC nanoseconds, shown in local time. A dropdown
+ * offers plain-language entry ("yesterday at 3pm") and a nanosecond offset.
+ */
 export const DateTime = ({
   value,
   onChange,

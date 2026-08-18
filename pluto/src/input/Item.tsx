@@ -11,12 +11,35 @@ import "@/input/Item.css";
 
 import { type status } from "@synnaxlabs/client";
 import { direction } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import {
+  createContext,
+  type ReactElement,
+  type ReactNode,
+  useContext,
+  useId,
+} from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
+
+const LabelIDContext = createContext<string | undefined>(undefined);
+LabelIDContext.displayName = "Input.LabelIDContext";
+
+/**
+ * Resolves a control's aria-labelledby: an explicit value wins, then the enclosing
+ * {@link Item}'s label id, unless the control carries its own aria-label.
+ */
+export const useLabelledBy = (props: {
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
+}): string | undefined => {
+  const labelID = useContext(LabelIDContext);
+  return (
+    props["aria-labelledby"] ?? (props["aria-label"] == null ? labelID : undefined)
+  );
+};
 
 export interface ItemProps extends Flex.BoxProps {
   label?: string;
@@ -54,6 +77,7 @@ export const Item = ({
   ...rest
 }: ItemProps): ReactNode => {
   const dir = Flex.parseDirection(direction, x, y, false);
+  const labelID = useId();
   let inputAndHelp: ReactElement;
   const actuallyShowHelpText = showHelpText && helpText != null && helpText.length > 0;
   const actuallyShowLabel = showLabel && label != null && label.length > 0;
@@ -78,15 +102,21 @@ export const Item = ({
     );
 
   return (
-    <Flex.Box
-      className={CSS(CSS.BE("input", "item"), className)}
-      direction={dir}
-      gap={size}
-      align={maybeDefaultAlignment(align, dir)}
-      {...rest}
-    >
-      {actuallyShowLabel && <Label required={required}>{label}</Label>}
-      {inputAndHelp}
-    </Flex.Box>
+    <LabelIDContext value={actuallyShowLabel ? labelID : undefined}>
+      <Flex.Box
+        className={CSS(CSS.BE("input", "item"), className)}
+        direction={dir}
+        gap={size}
+        align={maybeDefaultAlignment(align, dir)}
+        {...rest}
+      >
+        {actuallyShowLabel && (
+          <Label id={labelID} required={required}>
+            {label}
+          </Label>
+        )}
+        {inputAndHelp}
+      </Flex.Box>
+    </LabelIDContext>
   );
 };

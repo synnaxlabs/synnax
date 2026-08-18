@@ -23,10 +23,14 @@ from typing import Any, Literal, overload
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import STATUS, SYMBOLS, SynnaxConnection
-from framework.notifications import StatusNotifications
+from framework.recorder import Notifications, TaskStatus
 from framework.streamer import Streamer
 from framework.telemetry import TelemetryWriter
-from framework.utils import create_indexed_channel, create_time_index
+from framework.utils import (
+    create_indexed_channel,
+    create_time_index,
+    read_latest_value,
+)
 from framework.writer import Writer
 from synnax.telem import SampleValue
 from x import (
@@ -71,6 +75,10 @@ class TestCase(ABC):
     # Opt-in: when True, the base lifecycle records cluster status notifications
     # for the duration of the test so wait_for_notification can match them.
     collect_notifications: bool = False
+    # Opt-in: when True, the base lifecycle records per-task status updates for
+    # the duration of the test so wait_for_task_status / task_is_running can
+    # read them.
+    collect_task_status: bool = False
 
     log_client: LogClient
 
@@ -113,7 +121,8 @@ class TestCase(ABC):
 
         self.loop = sy.Loop(self.STOP_POLL_RATE)
         self._telemetry_writer: TelemetryWriter | None = None
-        self._notifications: StatusNotifications | None = None
+        self._notifications: Notifications | None = None
+        self._task_status: TaskStatus | None = None
         self.streamer = Streamer(
             client=self.client,
             read_timeout=self.read_timeout,
@@ -323,26 +332,7 @@ class TestCase(ABC):
 
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""
-        try:
-            # Retry with short delays for CI resource constraints
-            for attempt in range(3):
-                latest_value = self.client.read_latest(channel_name)
-                if latest_value is not None and len(latest_value) > 0:
-                    return float(latest_value[-1])
-
-                # If read_latest is empty, read recent time range
-                now = sy.TimeStamp.now()
-                recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
-                frame = self.client.read(recent_range, channel_name)
-                if len(frame) > 0:
-                    return float(frame[-1])
-                if attempt < 2:
-                    sy.sleep(0.2)
-
-            return None
-
-        except Exception:
-            raise RuntimeError(f'Could not get value for channel "{channel_name}"')
+        return read_latest_value(self.client, channel_name)
 
     def _wait_for_condition(
         self,
@@ -474,6 +464,30 @@ class TestCase(ABC):
             )
         return self._notifications.wait_for(text, timeout)
 
+    def wait_for_task_status(
+        self, task_key: sy.task.Key, text: str, timeout: float = 5.0
+    ) -> bool:
+        """Return True if a status for task_key containing text has surfaced.
+
+        Requires collect_task_status = True so the base lifecycle records task
+        status updates for the duration of the test.
+        """
+        if self._task_status is None:
+            raise RuntimeError(
+                "wait_for_task_status requires collect_task_status = True"
+            )
+        return self._task_status.wait_for(task_key, text, timeout)
+
+    def task_is_running(self, task_key: sy.task.Key) -> bool:
+        """Return True if the latest status reports task_key as running.
+
+        Requires collect_task_status = True so the base lifecycle records task
+        status updates for the duration of the test.
+        """
+        if self._task_status is None:
+            raise RuntimeError("task_is_running requires collect_task_status = True")
+        return self._task_status.is_running(task_key)
+
     @property
     def name(self) -> str:
         """Get the name of the test case."""
@@ -583,6 +597,14 @@ class TestCase(ABC):
 
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
+        phase_started = sy.TimeStamp.now()
+
+        def log_phase(phase: str) -> None:
+            nonlocal phase_started
+            now = sy.TimeStamp.now()
+            self.log(f"{phase} took {sy.TimeSpan(now - phase_started)}")
+            phase_started = now
+
         try:
             # Set STATUS at the top level as opposed to within
             # the override methods. Ensures that the status is set
@@ -590,16 +612,22 @@ class TestCase(ABC):
 
             self.STATUS = STATUS.INITIALIZING
             self.setup()
+            log_phase("setup")
 
             if self.collect_notifications:
-                self._notifications = StatusNotifications(self.client)
+                self._notifications = Notifications(self.client)
                 self._notifications.open()
+
+            if self.collect_task_status:
+                self._task_status = TaskStatus(self.client)
+                self._task_status.open()
 
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
             if not self._auto_pass:
                 self.run()
+            log_phase("run")
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
@@ -616,12 +644,16 @@ class TestCase(ABC):
                     self._error_message = str(e)
                 self._error_traceback = tb
         finally:
+            phase_started = sy.TimeStamp.now()
             try:
                 self.teardown()
             except Exception as teardown_error:
                 self.log(f"Teardown error: {teardown_error}")
+            log_phase("teardown")
             if self._notifications is not None:
                 self._notifications.close()
+            if self._task_status is not None:
+                self._task_status.close()
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()

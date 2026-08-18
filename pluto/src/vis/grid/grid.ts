@@ -21,7 +21,6 @@ export const gridZ = z.record(z.string(), regionZ);
 
 /**
  * An entry for a particular region in the grid, defined by a size, order, and location.
- *
  * @property {string} key - The unique key for the region.
  * @property {number} size - The size of the region.
  * @property {number} order - The order of the region. A higher order means the region
@@ -36,7 +35,6 @@ export const gridZ = z.record(z.string(), regionZ);
  *  loc: "bottom",
  * };
  * // This region will be positioned on the bottom of the container.
- *
  */
 export type Region = z.input<typeof regionZ>;
 
@@ -78,8 +76,6 @@ export type Grid = z.input<typeof gridZ>;
 
 /**
  * Extracts the regions for a particular location on the grid, sorted by order.
- * @param loc The location to extract regions for.
- * @param grid The grid to extract regions from.
  * @returns The regions for the specified location.
  */
 export const regions = (loc: location.Outer, grid: Grid): Region[] =>
@@ -87,11 +83,8 @@ export const regions = (loc: location.Outer, grid: Grid): Region[] =>
     .filter(({ loc: l }) => l === loc)
     .sort((a, b) => b.order - a.order);
 /**
- * Calculates the X and Y coordinates of the top-left corner of a region in the grid based
- * on a containing box.
- *
- * @param key The key of the region to calculate the position for.
- * @param grid The grid to calculate the position from.
+ * Calculates the X and Y coordinates of the top-left corner of a region in the grid
+ * based on a containing box.
  * @param container The container to calculate the position within.
  * @returns The X and Y coordinates for the region.
  */

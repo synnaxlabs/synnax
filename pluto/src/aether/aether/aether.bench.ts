@@ -103,7 +103,6 @@ function createBenchmarkTree() {
     parent: null,
   });
 
-  // Initialize the root
   root._updateState({
     path: ["root"],
     type: "bench",

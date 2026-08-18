@@ -15,10 +15,6 @@ import { type Comparator, newF } from "@/compare/compare";
  * undefined. If the value is not found, the index of the first element greater than the
  * value is returned. If the value is greater than all elements in the array, the length
  * of the array is returned.
- *
- * @param array - The array to search.
- * @param value - The value to search for.
- * @param comparator - The comparator to use.
  * @returns The index of the value in the array.
  */
 export const search = <T>(array: T[], value: T, comparator?: Comparator<T>): number => {
@@ -39,10 +35,6 @@ export const search = <T>(array: T[], value: T, comparator?: Comparator<T>): num
  * Inserts a value into the given sorted array and maintains the sort order of the
  * array. If the array is not sorted, or the comparator does not correctly order the
  * values, the behavior of this function is undefined.
- *
- * @param array - The array to insert the value into.
- * @param value - The value to insert.
- * @param comparator - The comparator to use.
  */
 export const insert = <T>(array: T[], value: T, comparator?: Comparator<T>): void => {
   const idx = search(array, value, comparator);

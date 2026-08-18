@@ -366,7 +366,6 @@ const use = ({
     if (containerRef.current == null) return;
     const container = containerRef.current;
 
-    // Create model with custom URI if this is a block
     let model: Monaco.editor.ITextModel | null = null;
     if (customURI != null) {
       const uri = monaco.Uri.parse(customURI);

@@ -32,7 +32,6 @@ export const REGISTRY = {
   ...StableFor.REGISTRY,
 } as const;
 
-// Type is the union of registered function type discriminants.
 export type Type = keyof typeof REGISTRY;
 
 // configZ validates a node config against the registered function types, discriminating
@@ -49,8 +48,6 @@ export const configZ = z.discriminatedUnion("type", [
 export type Config = z.infer<typeof configZ>;
 export type ConfigOf<T extends Type> = Extract<Config, { type: T }>;
 
-// resolveSpec returns the Spec for the given function type. It throws NotFoundError if
-// the type is not registered.
 export const resolveSpec = (type: string): Spec<Type, Config> => {
   const spec = (REGISTRY as Record<string, Spec>)[type];
   if (spec == null) throw new NotFoundError(`Arc function ${type} not found`);

@@ -12,24 +12,15 @@ from re import search as re_search
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from console.context_menu import ContextMenu
-from console.layout import LayoutClient
-from console.notifications import NotificationsClient
-from console.tree import Tree
+from console.base import ResourceClient
 from x.color import Color
 
 _MODAL_SELECTOR = ".console-label__edit"
 _LABEL_ITEM_SELECTOR = ".console-label__list-item"
 
 
-class LabelClient:
+class LabelClient(ResourceClient):
     """Console label client for managing labels via the UI."""
-
-    def __init__(self, layout: LayoutClient):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
-        self.tree = Tree(layout.page)
 
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.

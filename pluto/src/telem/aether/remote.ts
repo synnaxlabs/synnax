@@ -94,13 +94,10 @@ export class StreamChannelValue
 
   cleanup(): void {
     this.generation++;
-    // Start off by stopping telemetry streaming.
     this.removeStreamHandler?.();
     // Set valid to false so if we read again, we know to update the buffer.
     this.valid = false;
-    // Release the leading buffer.
     this.leadingBuffer?.release();
-    // Clear out references.
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
   }
@@ -184,7 +181,6 @@ const channelDataSourcePropsZ = z.object({
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
 
-// ChannelData reads a fixed time range of data from a particular channel or its index.
 export class ChannelData
   extends AbstractSource<typeof channelDataSourcePropsZ>
   implements SeriesSource

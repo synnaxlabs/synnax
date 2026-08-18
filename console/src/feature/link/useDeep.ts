@@ -48,7 +48,6 @@ export const useDeep = (
     try {
       dispatch(Drift.focusWindow({}));
 
-      // Processing URL, making sure is has valid form
       if (urls.length === 0 || !urls[0].startsWith(Link.PREFIX))
         throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
       const urlParts = urls[0].slice(Link.PREFIX.length).split("/");

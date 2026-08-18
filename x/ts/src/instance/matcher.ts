@@ -25,18 +25,17 @@ export interface Discriminated {
 }
 
 /**
- * Creates a type guard function that checks if a value is an instance of a class
- * using a discriminator property. It is up to the caller to ensure that the
- * discriminator property is unique, consistent across all instances of the class,
- * and will not appear in objects that are not instances of the class.
- *
- * This is particularly useful when working with instances of classes that have
- * been duplicated or mangled by a bundler.
- *
+ * Creates a type guard function that checks if a value is an instance of a class using
+ * a discriminator property. It is up to the caller to ensure that the discriminator
+ * property is unique, consistent across all instances of the class, and will not appear
+ * in objects that are not instances of the class. This is particularly useful when
+ * working with instances of classes that have been duplicated or mangled by a bundler.
  * @typeParam T - The type that extends Discriminated
- * @param discriminator - The string value to match against the object's discriminator property
+ * @param discriminator - The string value to match against the object's discriminator
+ * property
  * @param cls - The class constructor to check for instanceof
- * @returns A type guard function that returns true if the value matches either condition
+ * @returns A type guard function that returns true if the value matches either
+ * condition
  *
  * @example
  * ```typescript
@@ -59,7 +58,6 @@ export interface Discriminated {
  *   console.log(obj.name); // TypeScript knows obj is a User
  * }
  * ```
- *
  * @example
  * ```typescript
  * // Working with multiple types

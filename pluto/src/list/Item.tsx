@@ -67,6 +67,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   onClick,
   hovered,
   style,
+  role,
   ...rest
 }: ItemProps<K, E>): ReactElement => {
   // Offset with `top`, not a transform. A transform leaves the row's real box at the
@@ -101,6 +102,10 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       )}
       style={itemStyle}
       square={false}
+      role={role}
+      // aria-selected is only valid on selectable roles (treeitem, option, ...),
+      // so a role-less generic row omits it.
+      aria-selected={role != null ? selected : undefined}
       {...rest}
     />
   );

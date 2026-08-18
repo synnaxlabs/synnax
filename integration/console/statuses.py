@@ -9,22 +9,16 @@
 
 from playwright.sync_api import Locator
 
-from console.context_menu import ContextMenu
+from console.base import ResourceClient
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
 
 
-class StatusesClient:
+class StatusesClient(ResourceClient):
     """Console statuses client for managing statuses via the UI."""
 
     TOOLBAR_ITEM_SELECTOR = ".console-status-list-item"
     EXPLORER_ITEM_SELECTOR = ".console-status__list-item"
     SEARCH_INPUT_PLACEHOLDER = "Search statuses..."
-
-    def __init__(self, layout: LayoutClient):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
 
     # ── Private Helpers ──────────────────────────────────────────────────
 
@@ -258,7 +252,7 @@ class StatusesClient:
 
     def show_toolbar(self) -> None:
         """Show the statuses toolbar in the left sidebar."""
-        self.layout.show_resource_toolbar("notification")
+        self.layout.show_resource_toolbar("Statuses")
 
     def hide_toolbar(self) -> None:
         """Hide the statuses toolbar."""

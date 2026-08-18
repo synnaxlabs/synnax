@@ -20,8 +20,10 @@ import { type IconBaseProps } from "react-icons";
 import { CSS } from "@/css";
 import { type Theming } from "@/theming";
 
+/** Props for every icon in the set. */
 export interface IconProps extends Omit<IconBaseProps, "color" | "children"> {
   ref?: Ref<SVGSVGElement>;
+  /** Fill color. A number selects that step on the theme gray scale. */
   color?: color.Crude | Theming.Shade;
 }
 
@@ -59,12 +61,14 @@ const createSubIcon = (
   );
 };
 
+/** An icon component. Every member of the icon set has this type. */
 export interface FC extends ReactFC<IconProps> {}
 
 interface WrapIconOpts {
   className?: string;
 }
 
+/** A raw SVG component, as generated from an icon file. Wrap it with {@link wrapSVGIcon}. */
 export interface SVGFC extends ReactFC<IconBaseProps> {}
 
 const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
@@ -72,6 +76,10 @@ const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
   return color.cssString(c);
 };
 
+/**
+ * Turns a raw SVG component into an {@link FC}, applying the icon class names, an
+ * `aria-label` of `pluto-icon--{name}`, and theme-aware color parsing.
+ */
 export const wrapSVGIcon = (
   Base: SVGFC,
   name: string,
@@ -138,6 +146,12 @@ export const createStacked = (Base: FC): FC => {
   return Stacked;
 };
 
+/**
+ * @returns an icon that draws Base with a smaller icon badged into any of its four
+ * corners. Base itself is returned when no corner is given.
+ *
+ * @example createComposite(Icon.Channel, { bottomRight: Icon.Add })
+ */
 export const createComposite = (
   Base: FC,
   { topRight, topLeft, bottomLeft, bottomRight }: Record<string, FC | undefined>,

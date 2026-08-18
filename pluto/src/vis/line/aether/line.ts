@@ -62,19 +62,12 @@ export type ParsedState = z.infer<typeof stateZ>;
 const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
 export interface FindResult {
-  // The line key that the point belongs to.
   key: string;
-  // The decimal position of the point in the region.
   position: xy.XY;
-  // The data value of the point.
   value: xy.XY;
-  // The color of the line.
   color: color.Color;
-  // The label of the line.
   label?: string;
-  // The units of the line.
   units?: string;
-  // The minimum and maximum values of the line.
   bounds: bounds.Bounds;
 }
 
@@ -88,9 +81,8 @@ export const ZERO_FIND_RESULT: FindResult = {
 
 export interface LineProps {
   /**
-   * A box in pixel space representing the region of the display that the line
-   * should be rendered in. The root of the pixel coordinate system is the top
-   * left of the canvas.
+   * A box in pixel space representing the region of the display that the line should be
+   * rendered in. The root of the pixel coordinate system is the top left of the canvas.
    */
   region: box.Box;
   /** An XY scale that maps from the data space to decimal space. */
@@ -166,7 +158,6 @@ export class GLProgram extends render.GLProgram {
     const density = dataType.density.valueOf();
 
     if (dataType.equals(DataType.UINT8))
-      // Use gl.vertexAttribIPointer for integer attributes
       gl.vertexAttribIPointer(
         aLoc,
         1,
@@ -175,7 +166,6 @@ export class GLProgram extends render.GLProgram {
         density * alignment,
       );
     else
-      // Use gl.vertexAttribPointer for float attributes
       gl.vertexAttribPointer(
         aLoc,
         1,
@@ -210,11 +200,10 @@ export class GLProgram extends render.GLProgram {
 
   /**
    * We apply stroke width by drawing the line multiple times, each time with a slight
-   * transformation. This is done as simply as possible. We draw the "centered" line
-   * and then four more lines: one to the left, one to the right, one above, and one
-   * below. We can repeat this process an arbitrary number of times to make the line
-   * thicker. As we increase the stroke width, we also increase the cost of drawing the
-   * line.
+   * transformation. This is done as simply as possible. We draw the "centered" line and
+   * then four more lines: one to the left, one to the right, one above, and one below.
+   * We can repeat this process an arbitrary number of times to make the line thicker.
+   * As we increase the stroke width, we also increase the cost of drawing the line.
    */
   private attrStrokeWidth(strokeWidth: number): number {
     const { gl } = this.renderCtx;
@@ -346,7 +335,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       // a valid index is not a valid value.
       const valid = v >= 0 && v < x.length;
       if (valid) [index, series] = [v, i];
-      // We can stop the search if we have found a valid value.
       return valid;
     });
     const { key } = this;

@@ -140,7 +140,6 @@ export const Canvas = ({
     (el: HTMLCanvasElement | null) => {
       if (el == null) return;
 
-      // Store the canvas
       if (el.className.includes("gl")) canvases.current.gl = el;
       else if (el.className.includes("upper2d")) canvases.current.upper2d = el;
       else canvases.current.lower2d = el;
@@ -148,7 +147,6 @@ export const Canvas = ({
 
       if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
 
-      // Bootstrap the canvas
       canvases.current.bootstrapped = true;
       const glCanvas = gl.transferControlToOffscreen();
       const upper2dCanvas = upper2d.transferControlToOffscreen();

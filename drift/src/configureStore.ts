@@ -69,9 +69,8 @@ const configureStoreInternal = async <
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | Action>> => {
   await runtime.configure();
-  // This needs to remain as a `let` definition, because we need to be
-  // able to return the dynamically assigned store instance within the
-  // receivePreloadedStateAndListen.
+  // This needs to remain as a `let` definition, because we need to be able to return
+  // the dynamically assigned store instance within the receivePreloadedStateAndListen.
   let store: EnhancedStore<S, A | Action> | undefined;
   // eslint-disable-next-line prefer-const
   store = base<S, A, M, E>({
@@ -106,7 +105,6 @@ const receivePreloadedStateAndListen = async <
   defaultWindowProps: Omit<WindowProps, "key"> | undefined,
   preloadedState: (() => Promise<S | undefined>) | S | undefined,
 ): Promise<S | undefined> => {
-  // If we're in the main window, we use the preloaded state passed into configureStore.
   if (runtime.isMain()) {
     await runtime.subscribe(({ action, emitter, sendState }) => {
       const store = getStore();
@@ -169,7 +167,6 @@ const receivePreloadedStateAndListen = async <
  * configureStore replaces the standard Redux Toolkit configureStore function with one
  * that enables drift to synchronize state between windows. The API is identical to the
  * standard configureStore function, except for two important differences.
- *
  * @param options.runtime - The main runtime of the application. This should be chosen
  * based on the platform you are running on (Tauri, etc.).
  * @param options.debug - If true, drift will log debug information to the console.
@@ -180,8 +177,6 @@ const receivePreloadedStateAndListen = async <
  * @param props.defaultWindowProps - A partial set of window props to merge with the
  * props passed to drift.createWindow. This is useful for setting default window
  * properties, especially with prerendering. @default {}
- * @param options - The standard Redux Toolkit configureStore options.
- *
  * @returns A !PROMISE! that resolves to a Redux store. This is necessary because the
  * store must receive it's initial state from the main window, which is an asynchronous
  * operation. The promise will resolve when the store is configured and the window is

@@ -194,8 +194,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
    * naming the project. Two members of one directory that take the same file name keep
    * distinct names through a numeric suffix. The caller pipes the stream wherever it
    * likes without the client buffering the whole archive.
-   *
-   * @param key - the key of the project to export.
    * @param options - the export options, including the serialization member files are
    * written in.
    * @returns the bundle as a stream of zip bytes.

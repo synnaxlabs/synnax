@@ -263,7 +263,6 @@ const reduceCreateWindow = (
     payload.size ?? s.config.defaultWindowProps.size,
   );
 
-  // If the window already exists, un-minimize and focus it
   if (key in s.keyLabels) {
     log(s.config.debug, "window already exists, un-minimize and focus it");
     const existingLabel = s.keyLabels[payload.key];
@@ -282,7 +281,6 @@ const reduceCreateWindow = (
   const ordinal = s.nextOrdinal;
   s.nextOrdinal += 1;
 
-  // If we have an available pre-rendered window, use it.
   if (availableLabel != null) {
     log(s.config.debug, "using available pre-rendered window");
     s.windows[availableLabel] = {
@@ -297,7 +295,6 @@ const reduceCreateWindow = (
     s.labelKeys[availableLabel] = payload.key;
     s.keyLabels[payload.key] = availableLabel;
   } else {
-    // If we don't, just create the window directly.
     log(s.config.debug, "creating new window");
     s.windows[label] = {
       ...s.config.defaultWindowProps,

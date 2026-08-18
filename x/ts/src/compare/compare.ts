@@ -14,11 +14,9 @@ import { unique } from "@/unique";
 export type Comparator<T> = (a: T, b: T) => number;
 
 /**
- * Creates the appropriate compare function for sorting the given
- * primitive type.
- *
- * @param v The primitive value to create a compare function for.
- * This is used to determine the type of comparison to perform.
+ * Creates the appropriate compare function for sorting the given primitive type.
+ * @param v The primitive value to create a compare function for. This is used to
+ * determine the type of comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
 export const newF = <T>(v: T, reverse: boolean = false): Comparator<T> => {
@@ -53,10 +51,8 @@ export const newF = <T>(v: T, reverse: boolean = false): Comparator<T> => {
 
 /**
  * Creates a compare function that compares the field of the given object.
- *
- * @param key The key of the field to compare.
- * @param value The object to compare the field of. This is used to determine the type of
- * comparison to perform.
+ * @param value The object to compare the field of. This is used to determine the type
+ * of comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
 export const newFieldF = <T>(
@@ -70,10 +66,9 @@ export const newFieldF = <T>(
 
 /**
  * Compares the two primitive arrays.
- * @param a The first array to compare.
- * @param b The second array to compare.
  * @returns The array with the greater length if the array lengths are not equal. If the
- * arrays are the same length, returns 0 if all elements are equal, otherwise returns -1.
+ * arrays are the same length, returns 0 if all elements are equal, otherwise returns
+ * -1.
  */
 export const primitiveArrays = <T extends primitive.Value>(
   a: readonly T[] | T[],
@@ -169,7 +164,6 @@ export const isEqualTo = (n: number): boolean => n === EQUAL;
 export const stringsWithNumbers = (a: string, b: string): number => {
   const alphaNumericRegex = /([a-zA-Z]+)|(\d+)/g;
 
-  // Remove separators and split into parts
   const aParts = a.replace(/[\s_.-]+/g, "").match(alphaNumericRegex);
   const bParts = b.replace(/[\s_.-]+/g, "").match(alphaNumericRegex);
 

@@ -39,18 +39,18 @@ const contains = (el: HTMLElement, target: Node | null): boolean => {
   return false;
 };
 
+/** Props for {@link useClickOutside}. */
 export interface UseClickOutsideProps {
   ref: RefObject<HTMLElement | null>;
+  /** Elements, or a predicate over the event, whose clicks do not count as outside. */
   exclude?: Array<RefObject<HTMLElement>> | ((e: MouseEvent) => boolean);
   onClickOutside: () => void;
 }
 
 /**
- * A hooks that calls the provided callback when a click event occurs outside of the
- * provided ref.
- * @param ref - The ref to check for clicks outside of.
- * @param onClickOutside - The callback to call when a click event occurs outside of the
- * provided ref.
+ * Calls back on a click outside the element, treating a portaled subtree as inside the
+ * element it renders from. Clicks past the viewport edge, such as on a scrollbar, do
+ * not count.
  */
 export const useClickOutside = ({
   ref,

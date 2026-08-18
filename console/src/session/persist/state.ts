@@ -204,9 +204,7 @@ class Partition<S extends object> {
   }
 }
 
-/**
- * Clear the entire store and reload the page.
- */
+/** Clear the entire store and reload the page. */
 export const hardClearAndReload = () => {
   if (!Runtime.isMainWindow()) return;
   openSugaredKV(STORE_PATH)
@@ -234,7 +232,6 @@ class Engine<S extends object> {
   /**
    * Opens an engine over the persisted store and composes the state it holds for the
    * context it finds.
-   * @param config - The configuration for the engine.
    */
   static async open<S extends object>(config: Config<S>): Promise<Engine<S>> {
     const engine = new Engine(config);

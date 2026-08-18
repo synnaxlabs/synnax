@@ -36,10 +36,7 @@ class NoDevice(HardwareCase, ConsoleCase):
 
         self.log("Creating NI Analog Read Task Page")
         rand_int = random.randint(100, 999)
-        ni_ai = self.console.project.create_task(
-            "NI analog read task",
-            f"USB-6000_{rand_int}",
-        )
+        ni_ai = self.console.pages.create(AnalogRead, f"USB-6000_{rand_int}")
 
         rack_name = f"TestRack_{rand_int}"
         dev_name = f"USB-6000_{rand_int}"

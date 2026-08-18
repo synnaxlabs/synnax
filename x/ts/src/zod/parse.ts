@@ -39,12 +39,11 @@ const parentPath = (path: ReadonlyArray<PropertyKey>): ReadonlyArray<PropertyKey
 
 /**
  * Returns a concise "expected X" phrase for a single zod issue. This is the core
- * description used everywhere: in the margin-annotated parent view as the reason
- * text, and as a prefix for the flat root-level form that appends `, received Y`.
- *
- * The `received` value is intentionally NOT part of this phrase; callers that need
- * to show it append it separately depending on whether they have a local value or
- * the root itself is the failing one.
+ * description used everywhere: in the margin-annotated parent view as the reason text,
+ * and as a prefix for the flat root-level form that appends `, received Y`. The
+ * `received` value is intentionally NOT part of this phrase; callers that need to show
+ * it append it separately depending on whether they have a local value or the root
+ * itself is the failing one.
  */
 const describeCore = (issue: z.core.$ZodIssue): string => {
   switch (issue.code) {
@@ -199,14 +198,11 @@ interface Mark {
 /**
  * Renders an object or array with margin markers (`✗`) on the keys that have issues,
  * annotating each bad key with the expected type. Synthetic `<missing>` entries are
- * appended for keys the schema expected but the input didn't contain.
- *
- * `baseIndent` is the column at which the opening brace sits. Marked lines place the
- * marker two columns to the left of where the key's quote begins so that content
- * still aligns with unmarked lines.
- *
- * For array parents, the truncation window is extended to include any marked
- * index so that the reader can always see the annotated element.
+ * appended for keys the schema expected but the input didn't contain. `baseIndent` is
+ * the column at which the opening brace sits. Marked lines place the marker two columns
+ * to the left of where the key's quote begins so that content still aligns with
+ * unmarked lines. For array parents, the truncation window is extended to include any
+ * marked index so that the reader can always see the annotated element.
  */
 const renderParentView = (
   parent: unknown,
@@ -422,16 +418,13 @@ export interface ParseErrorParams {
 /**
  * An error thrown by `zod.parse` when a value fails to parse. It retains the original
  * input, a human-readable label, and optional context so that callers and the status
- * system can render a richer failure message than a raw `ZodError`.
- *
- * Extends the typed error system in `@/errors` so callers can match against it with
+ * system can render a richer failure message than a raw `ZodError`. Extends the typed
+ * error system in `@/errors` so callers can match against it with
  * `ParseError.matches(err)` rather than `instanceof`, which is robust across worker
- * boundaries and network hops.
- *
- * Note that `err.issues.length` and the `(N issues)` count shown in `err.message` can
- * differ: the message counts "leaves" after union/element flattening and
- * unrecognized-keys expansion, while `err.issues` exposes the original zod array
- * unchanged for programmatic consumers.
+ * boundaries and network hops. Note that `err.issues.length` and the `(N issues)` count
+ * shown in `err.message` can differ: the message counts "leaves" after union/element
+ * flattening and unrecognized-keys expansion, while `err.issues` exposes the original
+ * zod array unchanged for programmatic consumers.
  */
 export class ParseError extends errors.createTyped(PARSE_ERROR_TYPE) {
   readonly issues: ReadonlyArray<z.core.$ZodIssue>;

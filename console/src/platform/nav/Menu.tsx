@@ -128,7 +128,7 @@ const MenuItem = ({
   onToggle,
   onPin,
 }: MenuItemProps): ReactElement | null => {
-  const { key, icon, trigger, useVisible } = item;
+  const { key, icon, tooltip, trigger, useVisible } = item;
   const isVisible = useVisible?.() ?? true;
   const itemProps = useItem({
     trigger,
@@ -149,6 +149,9 @@ const MenuItem = ({
       itemKey={key}
       size="medium"
       triggerIndicator={trigger}
+      // The visible content is an icon plus a trigger-key hint, neither of
+      // which names the item, so the tooltip doubles as the accessible name.
+      aria-label={tooltip}
     >
       {icon}
     </PMenu.Item>

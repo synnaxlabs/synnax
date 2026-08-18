@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs } from "@/hooks";
+import { useLabelledBy } from "@/input/Item";
 import { type InputProps, type Variant } from "@/input/types";
 import { Text as BaseText } from "@/text";
 import { type Tooltip } from "@/tooltip";
@@ -153,6 +154,8 @@ export const Text = ({
 
   const inputStyle = useMemo(() => ({ fontWeight: weight }), [weight]);
 
+  const ariaLabelledBy = useLabelledBy(rest);
+
   const showPlaceholder =
     (value == null || value.length === 0) &&
     tempValue == null &&
@@ -249,6 +252,7 @@ export const Text = ({
         placeholder={typeof placeholder === "string" ? placeholder : undefined}
         style={inputStyle}
         {...rest}
+        aria-labelledby={ariaLabelledBy}
       />
       {endContent != null && (
         <BaseText.Text

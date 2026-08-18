@@ -72,9 +72,8 @@ const deleteResZ = z.object({});
 const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
 
 /**
- * Client-side matching for a request: key sets and the internal flag.
- * Server-computed shapes (subjects, pagination) never reach this filter; they
- * refetch instead.
+ * Client-side matching for a request: key sets and the internal flag. Server-computed
+ * shapes (subjects, pagination) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;

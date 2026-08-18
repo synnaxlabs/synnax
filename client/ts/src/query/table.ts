@@ -131,13 +131,12 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
 /**
- * The sole owner of one resource's record content and tombstones. Everything
- * else in the cache holds keys into it: answers store key lists, dispatch
- * bookkeeping rides entry deletion, and consumers assemble content at read time.
- *
- * An equal-value set announces nothing: writers echoing state the table
- * already holds (server echoes of optimistic writes, idempotent backfills)
- * are silenced by the equality check rather than by writer identity.
+ * The sole owner of one resource's record content and tombstones. Everything else in
+ * the cache holds keys into it: answers store key lists, dispatch bookkeeping rides
+ * entry deletion, and consumers assemble content at read time. An equal-value set
+ * announces nothing: writers echoing state the table already holds (server echoes of
+ * optimistic writes, idempotent backfills) are silenced by the equality check rather
+ * than by writer identity.
  */
 export class Table<
   Key extends record.Key = record.Key,
@@ -214,9 +213,8 @@ export class Table<
   }
 
   /**
-   * Sets the value for the given key, or applies a setter to the previous
-   * value. A setter producing null/undefined, or a value equal to the current
-   * one, is a no-op.
+   * Sets the value for the given key, or applies a setter to the previous value. A
+   * setter producing null/undefined, or a value equal to the current one, is a no-op.
    * @returns A rollback that undoes the set.
    */
   set(key: Key, value: state.SetArg<Value | undefined>): destructor.Destructor;
@@ -308,12 +306,11 @@ export class Table<
   }
 
   /**
-   * Resolves the given keys to records: serves cached entries and fetches the
-   * misses through the table's fetch, hydrating results under the declared
-   * mode. With refresh, every key is fetched regardless of presence. Returns
-   * the table's entries for the found keys in input order, deduplicated; keys
-   * the cluster no longer has are omitted. Tables without a fetch serve
-   * cached entries only.
+   * Resolves the given keys to records: serves cached entries and fetches the misses
+   * through the table's fetch, hydrating results under the declared mode. With refresh,
+   * every key is fetched regardless of presence. Returns the table's entries for the
+   * found keys in input order, deduplicated; keys the cluster no longer has are
+   * omitted. Tables without a fetch serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {
@@ -504,10 +501,9 @@ export class Table<
 }
 
 /**
- * A mirror listener declaration: keeps the owning table current from one
- * stream channel. Built with {@link createSetListener},
- * {@link createDeleteListener}, or {@link createFetchListener}; bound to its
- * table by the cache.
+ * A mirror listener declaration: keeps the owning table current from one stream
+ * channel. Built with {@link createSetListener}, {@link createDeleteListener}, or
+ * {@link createFetchListener}; bound to its table by the cache.
  */
 export interface ListenerSpec<
   Key extends record.Key = record.Key,

@@ -23,9 +23,8 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-// makeClipboardEvent fakes the minimum DataTransfer surface useClipboard
-// reads/writes. preventDefault is captured so tests can assert handlers
-// actually claimed the event.
+// makeClipboardEvent fakes the minimum DataTransfer surface useClipboard reads/writes.
+// preventDefault is captured so tests can assert handlers actually claimed the event.
 const makeClipboardEvent = (
   initialData: Record<string, string> = {},
 ): ReactClipboardEvent<HTMLElement> & { _data: Record<string, string> } => {

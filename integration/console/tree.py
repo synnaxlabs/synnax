@@ -11,12 +11,15 @@
 
 import re
 import time
+from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
-from console.layout import LayoutClient
+
+if TYPE_CHECKING:
+    from console.layout import LayoutClient
 
 CONTAINER = ".pluto-tree"
 VIRTUALIZER = ".pluto-list__virtualizer"
@@ -38,13 +41,13 @@ class Tree:
     """
 
     page: Page
-    layout: LayoutClient
+    layout: "LayoutClient"
     ctx_menu: ContextMenu
 
-    def __init__(self, page: Page):
-        self.page = page
-        self.layout = LayoutClient(page)
-        self.ctx_menu = ContextMenu(page)
+    def __init__(self, layout: "LayoutClient"):
+        self.layout = layout
+        self.page = layout.page
+        self.ctx_menu = layout.ctx_menu
 
     def by_id(self, item_id: str) -> Locator:
         """Locate a tree item by its ID.

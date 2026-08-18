@@ -75,9 +75,7 @@ export const resetTransientState = (window: WindowState): WindowState => ({
 /** State of a window managed by drift  */
 export interface WindowState extends WindowProps, WindowStateExtensionProps {}
 
-/**
- * The properties to provide when creating a window.
- */
+/** The properties to provide when creating a window. */
 export interface WindowProps {
   /* A unique key for the window. If not provided, a unique key will be created. */
   key: string;

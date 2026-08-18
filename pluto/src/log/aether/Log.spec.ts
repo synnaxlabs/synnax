@@ -145,7 +145,6 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
 
-      // First update: not scrolling
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -154,7 +153,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Second update: start scrolling
       updateState({
         region: REGION_500,
         wheelPos: 100,
@@ -163,7 +161,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Scrollback should be initialized with current entry count
       expect(log.scrollState.offset).toBe(entries.length);
       expect(log.scrollState.offsetRef).toBe(entries.length);
       expect(log.scrollState.scrollRef).toBe(100);
@@ -337,7 +334,6 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
 
-      // First update: not scrolling
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -346,7 +342,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Enter scrollback
       updateState({
         region: REGION_500,
         wheelPos: 100,
@@ -358,7 +353,6 @@ describe("log/aether/Log", () => {
       const initialOffset = log.scrollState.offset;
       expect(initialOffset).toBe(entries.length);
 
-      // Continue scrolling (wheel position changes)
       updateState({
         region: REGION_500,
         wheelPos: 200,
@@ -367,7 +361,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Offset should have changed based on the wheel delta
       expect(log.scrollState.offset).toBeLessThanOrEqual(entries.length);
       expect(log.scrollState.offset).toBeGreaterThan(0);
     });
@@ -392,7 +385,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Scroll back down past the end (large negative delta from scrollRef)
       updateState({
         region: REGION_500,
         wheelPos: -5000,
@@ -401,7 +393,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Should have exited scrollback
       expect(log.state.scrolling).toBe(false);
     });
   });
@@ -421,12 +412,10 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      // Simulate eviction via the onChange callback
       source.evictedCount = 3;
       source.setEntries(entries.slice(3));
       source.notify();
 
-      // Selection should be adjusted by evictedCount
       expect(log.state.selectionStart).toBe(2);
       expect(log.state.selectionEnd).toBe(7);
     });
@@ -445,7 +434,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
 
-      // Evict more than the selection range
       source.evictedCount = 5;
       source.setEntries(entries.slice(5));
       source.notify();
@@ -469,7 +457,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      // No eviction
       source.evictedCount = 0;
       source.notify();
 
@@ -506,7 +493,6 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, source, updateState } = setup(entries);
 
-      // First update: not scrolling
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -515,7 +501,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Enter scrollback
       updateState({
         region: REGION_500,
         wheelPos: 100,
@@ -526,7 +511,6 @@ describe("log/aether/Log", () => {
 
       const offsetBeforeEviction = log.scrollState.offset;
 
-      // Simulate eviction
       source.evictedCount = 10;
       source.setEntries(entries.slice(10));
       source.notify();
@@ -562,7 +546,6 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 50 }, (_, i) => makeEntry(i));
       const { log } = setup(entries);
       log.render();
-      // visibleStart should be set to the start of the visible slice
       const expectedStart = Math.max(0, entries.length - log.visibleLineCount);
       expect(log.state.visibleStart).toBe(expectedStart);
     });
@@ -588,7 +571,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Enter scrollback
       updateState({
         region: REGION_500,
         wheelPos: 100,
@@ -599,7 +581,6 @@ describe("log/aether/Log", () => {
 
       const result = log.render();
       expect(result).toBeTypeOf("function");
-      // visibleStart should reflect the scrolled position
       expect(log.state.visibleStart).toBeLessThan(entries.length);
     });
   });
@@ -615,7 +596,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      // selectedText should contain the channel name
       expect(log.state.selectedText).toContain("Sensor1");
     });
 
@@ -627,7 +607,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      // selectedText should NOT contain the channel name
       expect(log.state.selectedText).not.toContain("Sensor1");
     });
 
@@ -883,7 +862,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 5,
       });
       log.render();
-      // selectedLines should contain entries 2 through 5 inclusive
       expect(log.state.selectedLines).toHaveLength(4);
       expect(log.state.selectedText).toContain("\n");
     });
@@ -905,7 +883,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      // Should still produce correct selected text (min to max)
       expect(log.state.selectedLines).toHaveLength(4);
     });
 

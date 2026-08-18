@@ -28,6 +28,7 @@ Usage with ConsoleCase:
         sim_daq_class = PressSimDAQ
 """
 
+
 from examples.simulators.simdaq import SimDAQ
 
 from framework.models import SynnaxConnection

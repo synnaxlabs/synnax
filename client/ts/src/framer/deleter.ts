@@ -22,10 +22,8 @@ interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({});
 
+/** Deletes a time range of telemetry from a Core. Reach it through `client.telem`. */
 export class Deleter {
-  /*
-  Deleter is used to delete a time range of telemetry from the data cache.
-   */
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {

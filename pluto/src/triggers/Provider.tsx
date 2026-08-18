@@ -32,10 +32,12 @@ import {
   type Trigger,
 } from "@/triggers/triggers";
 
+/** Subscribes to every trigger event, returning the unsubscribe. */
 export interface Listen {
   (callback: Callback, priority?: number): destructor.Destructor;
 }
 
+/** State the {@link Provider} publishes. */
 export interface ContextValue {
   listen: Listen;
 }
@@ -67,7 +69,9 @@ const DOUBLE_PRESS_WINDOW = TimeSpan.milliseconds(300).valueOf();
 // lack working native undo, so app-level undo is usually what the user wants.
 const NATIVE_TEXT_EDIT_KEYS: Key[] = ["A", "C", "V", "X"];
 
+/** Props for {@link Provider}. */
 export interface ProviderProps extends PropsWithChildren {
+  /** Triggers whose browser default is suppressed, such as the browser's own find. */
   preventDefaultOn?: Trigger[];
   preventDefaultOptions?: MatchOptions;
 }
@@ -94,6 +98,11 @@ const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
   return true;
 };
 
+/**
+ * Listens for keyboard and mouse input on the window and fans it out to every
+ * {@link use} subscriber, highest priority first. Mount one near the root of the app.
+ * Keystrokes inside a text field reach subscribers only when they carry a modifier.
+ */
 export const Provider = ({
   children,
   preventDefaultOn,
@@ -106,12 +115,10 @@ export const Provider = ({
   }, []);
 
   // All registered triggers and callbacks, kept sorted by priority descending.
-  // Same-priority entries are stored in insertion order. Higher priority
-  // subscribers receive events first and can stop propagation to lower priority
-  // subscribers.
+  // Same-priority entries are stored in insertion order. Higher priority subscribers
+  // receive events first and can stop propagation to lower priority subscribers.
   const registry = useRef<Array<{ callback: Callback; priority: number }>>([]);
 
-  // The current trigger.
   const [, setCurr] = useStateRef<RefState>({ ...ZERO_REF_STATE });
 
   const updateListeners = useCallback((state: RefState, target: HTMLElement): void => {
@@ -187,9 +194,8 @@ export const Provider = ({
   }, []);
 
   /**
-   * If the mouse leaves the window, we want to clear all triggers. This prevents
-   * issues with the user holding down a key and then moving the mouse out of the
-   * window.
+   * If the mouse leaves the window, we want to clear all triggers. This prevents issues
+   * with the user holding down a key and then moving the mouse out of the window.
    */
   const handlePageVisibility = useCallback((event: Event): void => {
     setCurr((prevS) => {

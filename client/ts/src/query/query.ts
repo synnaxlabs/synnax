@@ -27,12 +27,11 @@ const hashes = new WeakMap<object, string>();
 
 /**
  * Deterministically serializes query params to a stable string. Keys are sorted
- * recursively so `{a: 1, b: 2}` and `{b: 2, a: 1}` collapse to the same key,
- * and explicitly-undefined fields hash like absent ones (matching JSON
- * semantics). Class instances implementing {@link primitive.Hashable}
- * delegate to their `hash()` method; plain objects and arrays recurse
- * structurally, memoized per object identity ({@link Params} is readonly, so
- * an object's hash never changes).
+ * recursively so `{a: 1, b: 2}` and `{b: 2, a: 1}` collapse to the same key, and
+ * explicitly-undefined fields hash like absent ones (matching JSON semantics). Class
+ * instances implementing {@link primitive.Hashable} delegate to their `hash()` method;
+ * plain objects and arrays recurse structurally, memoized per object identity ({@link
+ * Params} is readonly, so an object's hash never changes).
  */
 export const hash = (params: Params): string => {
   if (params === null) return "null";
@@ -256,14 +255,12 @@ interface Query<
 }
 
 /**
- * Cached read path for one query space of a domain client: deduped fetches,
- * per-query lifecycle, subscriptions, and deletion delivery. Answers hold
- * only key lists; record content lives in tables and is assembled at read
- * time, so answer content cannot diverge from the record cache.
- *
- * Answers are maintained only while subscribed. An unsubscribed read
- * refetches; an unsubscribed getCached serves the retained (possibly stale)
- * answer, recomposed against live tables.
+ * Cached read path for one query space of a domain client: deduped fetches, per-query
+ * lifecycle, subscriptions, and deletion delivery. Answers hold only key lists; record
+ * content lives in tables and is assembled at read time, so answer content cannot
+ * diverge from the record cache. Answers are maintained only while subscribed. An
+ * unsubscribed read refetches; an unsubscribed getCached serves the retained (possibly
+ * stale) answer, recomposed against live tables.
  */
 export class Space<
   P extends Params,
@@ -355,10 +352,9 @@ export class Space<
   }
 
   /**
-   * Resolves a keys-only query's key list against the table: deduped, in params
-   * order, tombstoned keys omitted to match the fetch answer. Returns null when any
-   * key is unknown, since only a fetch can tell an uncached record from a
-   * nonexistent one.
+   * Resolves a keys-only query's key list against the table: deduped, in params order,
+   * tombstoned keys omitted to match the fetch answer. Returns null when any key is
+   * unknown, since only a fetch can tell an uncached record from a nonexistent one.
    */
   private composableMembersOf(keys: K[]): K[] | null {
     const { table } = this.config;
@@ -375,11 +371,10 @@ export class Space<
   }
 
   /**
-   * Subscribes to changes in the query's cached answer. The handler fires with
-   * the new answer on every change or deletion. Maintenance for the query runs
-   * while at least one subscriber exists and survives the last unsubscribe by
-   * the grace window, so a quick remount skips the reconfirm refetch. Returns
-   * a destructor that unsubscribes.
+   * Subscribes to changes in the query's cached answer. The handler fires with the new
+   * answer on every change or deletion. Maintenance for the query runs while at least
+   * one subscriber exists and survives the last unsubscribe by the grace window, so a
+   * quick remount skips the reconfirm refetch. Returns a destructor that unsubscribes.
    */
   onChange(params: P, handler: ChangeHandler<D>): destructor.Destructor {
     void this.startStreaming();
@@ -397,10 +392,9 @@ export class Space<
   }
 
   /**
-   * Resets every answer to unfetched and notifies subscribers that their
-   * answer was invalidated, so the next read refetches. Maintenance
-   * subscriptions stay mounted. Called by the cache when the cluster behind
-   * the connection is replaced.
+   * Resets every answer to unfetched and notifies subscribers that their answer was
+   * invalidated, so the next read refetches. Maintenance subscriptions stay mounted.
+   * Called by the cache when the cluster behind the connection is replaced.
    */
   reset(): void {
     this.queries.forEach((query) => {
@@ -483,10 +477,9 @@ export class Space<
     return query;
   }
 
-  // Streaming failure must never block reads, so the change stream opens in
-  // the background rather than being awaited. A denial belongs to the
-  // connection, which reports it once, not to every query that reads.
-  // Never rejects.
+  // Streaming failure must never block reads, so the change stream opens in the
+  // background rather than being awaited. A denial belongs to the connection, which
+  // reports it once, not to every query that reads. Never rejects.
   private async startStreaming(): Promise<void> {
     try {
       await this.hooks.ensureStreaming?.();

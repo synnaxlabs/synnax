@@ -68,7 +68,6 @@ interface IndividualConfigProps {
 
 const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null => {
   const config = Schematic.useElementConfig({ elKey });
-  // A true invariant that should never occur.
   if (config == null) throw new Error(`Element with key ${elKey} not found`);
   const schematicKey = Schematic.useKey();
   const dispatch = Schematic.useSingleDispatch();

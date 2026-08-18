@@ -155,7 +155,6 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     i.tsLen =
       this.state.timestampPrecision === 0 ? 8 : 9 + this.state.timestampPrecision;
 
-    // Decompose merged channel entries into keys and config map.
     const channelEntries = this.state.channels;
     const prevEntries = this.prevState.channels;
     const channelsChanged = channelEntries !== prevEntries;
@@ -233,7 +232,6 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         this.setState((s) => ({ ...s, scrolling: false }));
     }
 
-    // Pull current entries and subscribe to new data from the telem source.
     this.entries = this.internal.telem.value();
     this.checkEmpty();
     i.stopListeningTelem?.();

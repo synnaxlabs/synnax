@@ -84,9 +84,8 @@ const unassignResZ = z.object({});
 const SERVER_FIELDS = ["limit", "offset"] as const;
 
 /**
- * Client-side matching for a request: key sets and the internal flag.
- * Server-computed shapes (pagination) never reach this filter; they refetch
- * instead.
+ * Client-side matching for a request: key sets and the internal flag. Server-computed
+ * shapes (pagination) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((r: Role) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;

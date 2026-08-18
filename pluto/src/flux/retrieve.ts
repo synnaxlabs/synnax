@@ -86,11 +86,10 @@ export interface CreateRetrieveParams<
    */
   normalizeQuery?: <Q extends Query>(query: Q) => Q;
   /**
-   * Holds a not-found pending for a short wait instead of settling it, for
-   * documents a reference can reach a reader ahead of: a panel tab minted in
-   * another window names its view before that view's create broadcast lands.
-   * Every other reader shows absence at once. Requires `onChange` and
-   * `getCached`.
+   * Holds a not-found pending for a short wait instead of settling it, for documents a
+   * reference can reach a reader ahead of: a panel tab minted in another window names
+   * its view before that view's create broadcast lands. Every other reader shows
+   * absence at once. Requires `onChange` and `getCached`.
    */
   awaitCreation?: boolean;
 }

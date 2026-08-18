@@ -13,6 +13,7 @@ import { Button, type ButtonProps } from "@/button/Button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 
+/** Props for {@link Close}. */
 export interface CloseProps extends ButtonProps {}
 
 /**

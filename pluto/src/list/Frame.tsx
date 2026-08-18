@@ -25,15 +25,11 @@ import { context } from "@/context";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
 
-/**
- * Function interface for getting items from a list by key(s).
- *
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
+/** Function interface for getting items from a list by key(s). */
 export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined>
   extends GetSingleItem<K, E>, GetMultipleItems<K, E> {}
 
+/** Reads one item by key. */
 export interface GetSingleItem<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
@@ -41,6 +37,7 @@ export interface GetSingleItem<
   (key: K): E | undefined;
 }
 
+/** Reads many items at once, dropping any key with no item. */
 export interface GetMultipleItems<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
@@ -48,6 +45,7 @@ export interface GetMultipleItems<
   (keys: K[]): E[];
 }
 
+/** Joins a single-key and a multi-key reader into one {@link GetItem}. */
 export const createGetItem = <
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
@@ -60,9 +58,11 @@ export const createGetItem = <
     return first(key);
   }) as GetItem<K, E>;
 
+/** One item the enclosing frame asks its children to render. */
 export interface ItemSpec<K extends record.Key = record.Key> {
   key: K;
   index: number;
+  /** Pixel offset from the top of the list, set only when virtualized. */
   translate?: number;
 }
 
@@ -100,18 +100,25 @@ export const useUtilContext = <
 >(): UtilContextValue<K, E> =>
   useUtilCtx("List.useUtilContext") as unknown as UtilContextValue<K, E>;
 
+/** Props for {@link Frame}. A data hook such as `useStaticData` supplies most of them. */
 export interface FrameProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >
   extends PropsWithChildren, Pick<UtilContextValue<K, E>, "getItem" | "subscribe"> {
+  /** The keys to render, in order. */
   data: K[];
+  /** Whether to render only the visible window. Needed above a few hundred items. */
   virtual?: boolean;
+  /** Extra items to render past each edge of the visible window. */
   overscan?: number;
+  /** Row height in pixels. Virtualization estimates from it. */
   itemHeight?: number;
+  /** Called when the list scrolls near its end. */
   onFetchMore?: () => void;
 }
 
+/** @returns a scroller for the enclosing {@link Frame}, stable as the list scrolls. */
 export const useScroller = <K extends record.Key = record.Key>(): Pick<
   UtilContextValue<K>,
   "scrollToIndex"
@@ -127,6 +134,11 @@ export const useScroller = <K extends record.Key = record.Key>(): Pick<
 export const useItemHeight = (): number | undefined =>
   useUtilCtx("List.useItemHeight").itemHeight;
 
+/**
+ * Reads the item for a key from the enclosing {@link Frame} and re-renders the caller
+ * when that one item changes. Use it inside a list item, so the list does not re-render
+ * on every entry update.
+ */
 export const useItem = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -149,6 +161,11 @@ export const useItem = <
   );
 };
 
+/**
+ * Reads the full state of the enclosing {@link Frame}: the keys, the visible window,
+ * and the item readers. It re-renders on every scroll, so prefer {@link useItem} inside
+ * an item.
+ */
 export const useData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -221,7 +238,6 @@ const useIntersectionFetchMore = (
   const containerElRef = useRef<HTMLDivElement | null>(null);
   const sentinelElRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset fetching flag when data length changes (new data arrived)
   const prevDataLength = usePrevious(dataLength);
   if (prevDataLength !== undefined && dataLength !== prevDataLength)
     isFetchingRef.current = false;
@@ -407,6 +423,7 @@ const StaticFrame = <
   );
 };
 
+/** {@link Frame} before memoization. Prefer `Frame`. */
 export const BaseFrame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -416,4 +433,13 @@ export const BaseFrame = <
 }: FrameProps<K, E>): ReactElement =>
   virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />;
 
+/**
+ * Holds the data for a list and hands it to its children through context. It renders no
+ * element of its own: pair it with {@link Items} for the scroll container.
+ *
+ * @example
+ * <List.Frame {...List.useStaticData({ data })}>
+ *   <List.Items>{(p) => <List.Item {...p} />}</List.Items>
+ * </List.Frame>
+ */
 export const Frame = memo(BaseFrame) as typeof BaseFrame;

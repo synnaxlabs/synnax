@@ -114,12 +114,11 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
-  // The inverse of SetConfig is imperfect for keys the action newly
-  // introduces: SetConfig only merges, so it cannot remove keys that did not
-  // previously exist. The inverse here restores values for keys that DID
-  // exist before the merge; keys added by the action remain on undo as
-  // phantom fields. A future ReplaceConfig action can close the gap by
-  // enabling wholesale replacement.
+  // The inverse of SetConfig is imperfect for keys the action newly introduces:
+  // SetConfig only merges, so it cannot remove keys that did not previously exist. The
+  // inverse here restores values for keys that DID exist before the merge; keys added
+  // by the action remain on undo as phantom fields. A future ReplaceConfig action can
+  // close the gap by enabling wholesale replacement.
   setConfig: (state, payload) => {
     const existingRaw = state.configs[payload.key];
     if (existingRaw != null) {
@@ -157,11 +156,10 @@ export const createOf = (action: Action) =>
 
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";
-  // A drag dispatches a stream of `set_node_position` per frame, plus
-  // `set_config` companions synthesized by augmentWithEdgeSegments for any
-  // affected edges. Both shapes are part of one user gesture and must coalesce
-  // together; classify them all as "move" so the per-kind coalesce window
-  // collapses them into a single undoable.
+  // A drag dispatches a stream of `set_node_position` per frame, plus `set_config`
+  // companions synthesized by augmentWithEdgeSegments for any affected edges. Both
+  // shapes are part of one user gesture and must coalesce together; classify them all
+  // as "move" so the per-kind coalesce window collapses them into a single undoable.
   const hasMove = actions.some((a) => a.type === "set_node_position");
   const onlyMoveOrSegment = actions.every(
     (a) => a.type === "set_node_position" || a.type === "set_config",

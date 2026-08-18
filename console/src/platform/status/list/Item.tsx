@@ -55,6 +55,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
           onChange={onSelect}
           size="medium"
           reveal={!selected}
+          aria-label="Select"
         />
         <Text.Text level="p" weight={450}>
           <Status.Indicator variant={variant} />

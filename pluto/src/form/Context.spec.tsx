@@ -54,7 +54,6 @@ const mockOverride: Form.ContextValue = {
   getStatuses: () => [],
 };
 
-// Wrapper that provides Form context
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   const methods = Form.use({
     values: mockInitialValues,
@@ -172,7 +171,6 @@ describe("useContext", () => {
         wrapper: FormWrapper,
       });
 
-      // Should not throw any errors
       expect(() => result.current).not.toThrow();
     });
 
@@ -186,7 +184,6 @@ describe("useContext", () => {
         wrapper: FormWrapper,
       });
 
-      // Should not throw any errors and return the expected value
       expect(() => result.current).not.toThrow();
     });
   });
@@ -232,7 +229,6 @@ describe("useContext", () => {
       const { result } = renderHook(
         () => {
           const ctx = useContext();
-          // These should be type-safe operations
           const fieldState = ctx.get("name");
           return {
             hasGetMethod: typeof ctx.get === "function",

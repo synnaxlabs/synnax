@@ -28,9 +28,11 @@ import {
   UNDO,
 } from "@/triggers/triggers";
 
+/** The event {@link use} hands its callback. */
 export interface UseEvent {
   target: HTMLElement;
   prevTriggers: Trigger[];
+  /** The matched triggers this stage applies to. */
   triggers: Trigger[];
   stage: Stage;
   cursor: xy.XY;
@@ -42,10 +44,13 @@ export interface UseEvent {
   stopPropagation: () => void;
 }
 
+/** Props for {@link use}. */
 export interface UseProps extends MatchOptions {
   triggers?: Trigger | Trigger[];
+  /** Fires only while the cursor sits inside this element. */
   region?: RefObject<HTMLElement | null>;
   callback?: (e: UseEvent) => void;
+  /** Whether the event target must be the region itself, not a descendant. */
   regionMustBeElement?: boolean;
   /**
    * Withholds events from this subscriber while it resolves false. Use it for conditions
@@ -61,6 +66,14 @@ export interface UseProps extends MatchOptions {
   priority?: number;
 }
 
+/**
+ * Binds a keyboard or mouse shortcut for as long as the caller is mounted. The callback
+ * fires on press and again on release, and only while the enclosing {@link Scope} is
+ * the active one.
+ *
+ * @example
+ * Triggers.use({ triggers: [["Control", "S"]], callback: ({ stage }) => save(stage) });
+ */
 export const use = ({
   triggers,
   callback: f,
@@ -150,6 +163,7 @@ const UNDO_REDO_CONFIG: ModeConfig<"undo" | "redo" | "default"> = {
 };
 const UNDO_REDO_TRIGGERS = flattenConfig(UNDO_REDO_CONFIG);
 
+/** Props for {@link useUndoRedo}. */
 export interface UseUndoRedoProps {
   undo: () => void;
   redo: () => void;
@@ -174,16 +188,23 @@ export const useUndoRedo = ({ undo, redo, enabled }: UseUndoRedoProps): void => 
   });
 };
 
+/** Which of the watched triggers are down right now. */
 export interface UseHeldReturn {
   triggers: Trigger[];
   held: boolean;
 }
 
+/** Props for {@link useHeld} and {@link useHeldRef}. */
 export interface UseHeldProps {
   triggers: Trigger[];
+  /** Whether a superset of a trigger still counts as held. */
   loose?: boolean;
 }
 
+/**
+ * Tracks which of the given triggers are down, in a ref rather than state. Use it in an
+ * event handler that reads the modifier keys, where a re-render per keypress is waste.
+ */
 export const useHeldRef = ({
   triggers,
   loose,
@@ -208,6 +229,10 @@ export const useHeldRef = ({
   return ref;
 };
 
+/**
+ * Tracks which of the given triggers are down and re-renders the caller on every
+ * change. Prefer {@link useHeldRef} when only an event handler reads the result.
+ */
 export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
   const [held, setHeld] = useState<UseHeldReturn>({ triggers: [], held: false });
   use({

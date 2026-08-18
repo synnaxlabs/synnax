@@ -16,8 +16,10 @@ import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
+/** Which segments of a breadcrumb are drawn in the full text color. */
 export type HighlightVariant = "last" | "first" | "all";
 
+/** Props for {@link Breadcrumb}. */
 export type BreadcrumbProps<E extends Generic.ElementType = "p"> = Omit<
   Text.TextProps<E>,
   "children"
@@ -30,8 +32,10 @@ const Separator = () => (
   <Icon.Caret.Right className={CSS.BE("breadcrumb", "separator")} />
 );
 
+/** Props for {@link Segment}. */
 export type SegmentProps<E extends Generic.ElementType = "span"> = Text.TextProps<E>;
 
+/** One step of a {@link Breadcrumb}. A plain string child becomes one on its own. */
 export const Segment = <E extends Generic.ElementType = "span">({
   children,
   ...rest
@@ -41,6 +45,11 @@ export const Segment = <E extends Generic.ElementType = "span">({
   </Text.Text>
 );
 
+/**
+ * A path rendered as segments with carets between them.
+ *
+ * @example <Breadcrumb.Breadcrumb highlightVariant="last">{parts}</Breadcrumb.Breadcrumb>
+ */
 export const Breadcrumb = ({
   children,
   highlightVariant,
@@ -74,6 +83,7 @@ interface MapURLSegmentsProps {
   index: number;
 }
 
+/** Renders one element per path segment, each given the URL up to that point. */
 export const mapURLSegments = (
   url: string,
   callback: (props: MapURLSegmentsProps) => ReactElement,

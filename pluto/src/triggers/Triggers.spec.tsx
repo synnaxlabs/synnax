@@ -207,11 +207,9 @@ describe("Triggers", () => {
         </Triggers.Provider>,
       );
 
-      // Press Control first
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       expect(callback).not.toHaveBeenCalled();
 
-      // Then press A
       fireEvent.keyDown(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenCalledWith({
         target: document.body,
@@ -222,7 +220,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release A first
       fireEvent.keyUp(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenLastCalledWith({
         target: document.body,
@@ -233,7 +230,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release Control
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
     });
 
@@ -289,7 +285,6 @@ describe("Triggers", () => {
         </Triggers.Provider>,
       );
 
-      // First press
       fireEvent.keyDown(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "KeyA" });
 
@@ -375,7 +370,6 @@ describe("Triggers", () => {
         </Triggers.Provider>,
       );
 
-      // Try Control + A
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       fireEvent.keyDown(document.body, { code: "KeyA" });
 
@@ -391,7 +385,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
 
-      // Try Control + B
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       fireEvent.keyDown(document.body, { code: "KeyB" });
 
@@ -830,7 +823,6 @@ describe("Triggers", () => {
 
       vi.advanceTimersByTime(500);
 
-      // Mouse click inside region
       fireEvent.mouseMove(regionRef.current, { clientX: 10, clientY: 10 });
       fireEvent.mouseDown(regionRef.current, { button: 0 });
       expect(callback).toHaveBeenCalledWith({
@@ -897,7 +889,6 @@ describe("Triggers", () => {
       const input = getByTestId("input");
       fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
 
-      // Press Control first
       fireEvent.keyDown(input, { code: "ControlLeft" });
       expect(callback).not.toHaveBeenCalled();
 
@@ -914,7 +905,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release in correct order
       fireEvent.keyUp(input, { code: "KeyB", ctrlKey: true });
       fireEvent.keyUp(input, { code: "ControlLeft" });
     });
@@ -1014,7 +1004,6 @@ describe("Triggers", () => {
       vi.advanceTimersByTime(500);
       expect(callback).not.toHaveBeenCalled();
 
-      // Ctrl+key should trigger
       fireEvent.keyDown(editable, { code: "ControlLeft" });
       fireEvent.keyDown(editable, { code: "KeyB", ctrlKey: true });
       vi.advanceTimersByTime(500);
@@ -1050,7 +1039,6 @@ describe("Triggers", () => {
       const input = getByTestId("input");
       fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
 
-      // Escape should trigger
       fireEvent.keyDown(input, { code: "Escape" });
       vi.advanceTimersByTime(500);
 
@@ -1066,7 +1054,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(input, { code: "Escape" });
       vi.advanceTimersByTime(500);
 
-      // Arrow keys should trigger
       fireEvent.keyDown(input, { code: "ArrowUp" });
       vi.advanceTimersByTime(500);
 
@@ -1112,7 +1099,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Press Meta (Command) first
       fireEvent.keyDown(target, { code: "MetaLeft" });
       expect(callback).not.toHaveBeenCalled();
 
@@ -1129,7 +1115,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release in correct order
       fireEvent.keyUp(target, { code: "KeyA", metaKey: true });
       fireEvent.keyUp(target, { code: "MetaLeft" });
     });
@@ -1152,7 +1137,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Test with Control
       fireEvent.keyDown(target, { code: "ControlLeft" });
       fireEvent.keyDown(target, { code: "KeyS", ctrlKey: true });
       vi.advanceTimersByTime(500);
@@ -1170,7 +1154,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(target, { code: "ControlLeft" });
       vi.advanceTimersByTime(500);
 
-      // Test with Meta
       fireEvent.keyDown(target, { code: "MetaLeft" });
       fireEvent.keyDown(target, { code: "KeyS", metaKey: true });
       vi.advanceTimersByTime(500);
@@ -1302,7 +1285,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Press Shift first
       fireEvent.keyDown(target, { code: "ShiftLeft", shiftKey: true });
       expect(callback).not.toHaveBeenCalled();
 
@@ -1341,7 +1323,6 @@ describe("Triggers", () => {
       fireEvent.keyDown(target, { code: "KeyC", shiftKey: false });
       expect(callback).toHaveBeenCalledTimes(2);
 
-      // Cleanup
       fireEvent.keyUp(target, { code: "KeyA", shiftKey: false });
       fireEvent.keyUp(target, { code: "KeyB", shiftKey: false });
       fireEvent.keyUp(target, { code: "KeyC", shiftKey: false });

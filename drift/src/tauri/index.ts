@@ -97,9 +97,7 @@ const isPositionVisible = async (position: xy.XY): Promise<boolean> => {
   return boxes.some((b) => box.contains(b, position));
 };
 
-/**
- * A Tauri backed implementation of the drift Runtime.
- */
+/** A Tauri backed implementation of the drift Runtime. */
 export class TauriRuntime<
   S extends StoreState,
   A extends Action = UnknownAction,

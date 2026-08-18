@@ -108,87 +108,33 @@ export class Scale<T extends numeric.Value = number> {
     this.ops = [];
   }
 
-  /**
-   * @returns a new scale with a translation as its first operation. Any number provided
-   * to the {@link pos} operation on the scale will be translated by the specified value.
-   * @param value - The amount to translate by.
-   */
+  /** @returns a new scale whose first operation translates by value. */
   static translate<T extends numeric.Value = number>(value: T): Scale<T> {
     return new Scale<T>().translate(value);
   }
 
-  /**
-   * @returns a new scale with a magnification as its first operation. Any number provided
-   * to the {@link pos} or {@link dim} operation will be multiplied by the specified value.
-   * @param value - The amount to translate by.
-   */
+  /** @returns a new scale whose first operation multiplies by value. */
   static magnify<T extends numeric.Value = number>(value: T): Scale<T> {
     return new Scale<T>().magnify(value);
   }
 
   /**
-   * @returns a new scale that uses the given lower and upper bounds as it's initial
-   * scale. This scale will be used to define the initial 'band' of values defined within
-   * the scale. Once the scale is created, call {@link scale} again to scale the initial
-   * band to the new scaled band.
+   * @returns a new scale whose initial band is the given bounds. Call {@link scale}
+   * again to map that band onto another. A lone upper implies a lower of 0.
    *
-   * @example
-   *    const s = Scale.scale<number>(1).scale(100)
-   *    console.log(s.pos(0))
-   *    // 0
-   *    console.log(s.pos(1))
-   *    // 100
-   *
-   * @param upper - The upper bound of the scale. This overload assumes that the lower
-   * bound is 0.
+   * @example Scale.scale<number>(1).scale(100).pos(1) // => 100
    */
   static scale<T extends numeric.Value>(upper: T): Scale<T>;
 
-  /**
-   * @returns a new scale that uses the given lower and upper bounds as it's initial
-   * scale. This scale will be used to define the initial 'band' of values defined within
-   * the scale. Once the scale is created, call {@link scale} again to scale the initial
-   * band to the new scaled band.
-   *
-   * @example
-   *    const s = Scale.scale<number>(0, 1).scale(0, 100)
-   *    console.log(s.pos(0))
-   *    // 0
-   *    console.log(s.pos(1))
-   *    // 100
-   *
-   * @param lower - The lower bound of the scale.
-   * @param upper - The upper bound of the scale.
-   */
   static scale<T extends numeric.Value>(lower: T, upper: T): Scale<T>;
 
-  /**
-   * @returns a new scale that uses the given bounds as it's initial
-   * scale. This scale will be used to define the initial 'band' of values defined within
-   * the scale. Once the scale is created, call {@link scale} again to scale the initial
-   * band to the new scaled band.
-   *
-   * @example
-   *    const s = Scale.scale<number>({ lower: 0, upper: 1 }).scale({lower: 0, upper: 100 })
-   *    console.log(s.pos(0))
-   *    // 0
-   *    console.log(s.pos(1))
-   *    // 100
-   *
-   * @param bound - The bound to scale by. See {@link bounds.Bounds} for more info.
-   */
   static scale<T extends numeric.Value>(bound: bounds.Bounds<T>): Scale<T>;
 
   static scale<T extends numeric.Value = number>(upperOrBound: T, upper?: T): Scale<T> {
     return new Scale<T>().scale(upperOrBound, upper);
   }
 
-  /**
-   * @returns a copy of the scale with a translation as its next operation. Any
-   * number provided to the {@link pos} method on the scale will be translated by the
-   * specified value.
-   * @param value - The amount to translate by.
-   */
+  /** @returns a copy whose next operation translates by value. */
   translate(value: T): Scale<T> {
     const next = this.new();
     const f = curriedTranslate(value) as TypedOperation<T>;
@@ -197,12 +143,7 @@ export class Scale<T extends numeric.Value = number> {
     return next;
   }
 
-  /**
-   * @returns a copy of the scale with a translation as its next operation. Any number
-   * provided to the {@link pos} or {@link dim} method on the scale will be multiplied
-   * by the specified value.
-   * @param value - The amount to magnify by.
-   */
+  /** @returns a copy whose next operation multiplies by value. */
   magnify(value: T): Scale<T> {
     const next = this.new();
     const f = curriedMagnify(value) as TypedOperation<T>;
@@ -211,50 +152,15 @@ export class Scale<T extends numeric.Value = number> {
     return next;
   }
   /**
-   * @returns a copy of the scale with a 're-scaling' as its next operation. This will
-   * translate numbers provided to {@link pos} and {@link dim} to the new scale.
+   * @returns a copy whose next operation re-scales onto the given bounds. A lone upper
+   * implies a lower of 0.
    *
-   * @example
-   *    const s = Scale.scale<number>(1).scale(100)
-   *    console.log(s.pos(0))
-   *    // 0
-   *    console.log(s.pos(1))
-   *    // 100
-   *
-   * @param upper - The upper bound of the scale. This overload assumes that the lower
-   * bound is 0.
+   * @example Scale.scale<number>(1).scale(100).pos(1) // => 100
    */
   scale(upper: T): Scale<T>;
 
-  /**
-   * @returns a copy of the scale with a 're-scaling' as its next operation. This will
-   * translate numbers provided to {@link pos} and {@link dim} to the new scale.
-   *
-   * @example
-   *    const s = Scale.scale<number>(0, 1).scale(0, 100)
-   *    console.log(s.pos(0))
-   *    // 0
-   *    console.log(s.pos(1))
-   *    // 100
-   *
-   * @param lower - The lower bound of the new scale.
-   * @param upper - The upper bound of the new scale.
-   */
   scale(lower: T, upper: T): Scale<T>;
 
-  /**
-   * @returns a copy of the scale with a 're-scaling' as its next operation. This will
-   * translate numbers provided to {@link pos} and {@link dim} to the new scale.
-   *
-   * @example
-   *    const s = Scale.scale<number>({ lower: 0, upper: 1 }).scale({lower: 0, upper: 100 })
-   *    console.log(s.pos(0))
-   *    // 0
-   *    console.log(s.pos(1))
-   *    // 100
-   *
-   * @param bound - The bound to scale by. See {@link bounds.Bounds} for more info.
-   */
   scale(bounds: bounds.Bounds<T>): Scale<T>;
 
   /** This overload is for internal use only */
@@ -270,44 +176,15 @@ export class Scale<T extends numeric.Value = number> {
   }
 
   /**
-   * @returns a copy of the scale with a clamping operation applied. Any number passed
-   * to the scale wil be clamped to the specified bounds.
+   * @returns a copy that clamps every value to the given bounds. A lone upper implies a
+   * lower of 0.
    *
-   * @example
-   *  const s = Scale.scale(0, 1).clamp(0, 0.5)
-   *  console.log(s.pos(1))
-   *  // 0.5
-   *
-   * @param upper - The upper bound to clamp by. WARNING: This operation assumes
-   * that the lower bound of the clamp is 0.
+   * @example Scale.scale(0, 1).clamp(0, 0.5).pos(1) // => 0.5
    */
   clamp(upper: T): Scale<T>;
 
-  /**
-   * @returns a copy of the scale with a clamping operation applied. Any number passed
-   * to the scale wil be clamped to the specified bounds.
-   *
-   * @example
-   *  const s = Scale.scale(0, 1).clamp(0, 0.5)
-   *  console.log(s.pos(1))
-   *  // 0.5
-   *
-   * @param lower - The lower bound of the scale.
-   * @param upper - The upper bound of the scale.
-   */
   clamp(lower: T, upper: T): Scale<T>;
 
-  /**
-   * @returns a copy of the scale with a clamping operation applied. Any number passed
-   * to the scale will be clamped to the specified bounds.
-   *
-   * @example
-   *  const s = Scale.scale(0, 1).clamp({ lower: 0, upper: 0.5 })
-   *  console.log(s.pos(1))
-   *  // 0.5
-   *
-   * @param bounds - The bounds to clamp by.
-   */
   clamp(bounds: bounds.Bounds<T>): Scale<T>;
 
   clamp(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
@@ -320,23 +197,13 @@ export class Scale<T extends numeric.Value = number> {
   }
 
   /**
-   * @returns a copy of the scale with a re-bounding operation applied. This operation
-   * adjusts the bounds of the scale WITHOUT applying a scaling operation to values
-   * passed through the scale.
-   *
-   * @example
-   *  const s = Scale.scale(0, 1).reBound(0, 100)
-   *  console.log(s.bound)
-   *
-   * @param lower - The new lower bound.
-   * @param upper - The new upper bound.
+   * @returns a copy whose bounds are replaced, with no scaling applied to the values
+   * passing through it.
    */
   reBound(lower: T, upper?: T): Scale<T>;
 
   /**
    * @returns a copy of he scale with a re-bounding operation applied. This operation
-   *
-   * @param bound
    */
   reBound(bound: bounds.Bounds<T>): Scale<T>;
 

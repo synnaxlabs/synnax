@@ -42,6 +42,7 @@ export const Item = ({
       size={size}
       gap={gap}
       propagateClick
+      role="menuitem"
       {...rest}
     />
   );

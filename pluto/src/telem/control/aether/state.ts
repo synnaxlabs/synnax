@@ -76,8 +76,6 @@ export class StateProvider extends aether.Composite<
 
   /**
    * Grabs the state provider from the current aether context.
-   *
-   * @param ctx - The component's current aether context.
    * @throws {Error} if the state provider is not in the context.
    */
   static use(ctx: aether.Context): StateProvider {
@@ -188,10 +186,8 @@ export class StateProvider extends aether.Composite<
     const subKeys = sub.map((s) => s.key);
     const colors = Array.from(this.colors.values());
 
-    // Purge colors that are no longer in use
     this.colors.forEach((_, key) => !subKeys.includes(key) && this.colors.delete(key));
 
-    // Add colors for new subjects
     const { palette } = this.internal;
     sub.forEach((s) => {
       if (this.colors.has(s.key)) return;

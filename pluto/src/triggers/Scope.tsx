@@ -14,6 +14,7 @@ import { context } from "@/context";
 /** Condition is a boolean, or a getter read at the moment a trigger fires. */
 export type Condition = boolean | (() => boolean);
 
+/** @returns the value of a {@link Condition}, calling it when it is a getter. */
 export const resolveCondition = (cond: Condition): boolean =>
   typeof cond === "function" ? cond() : cond;
 
@@ -23,6 +24,7 @@ const [Context, useScope] = context.create<() => boolean>({
 });
 export { useScope };
 
+/** Props for {@link Scope}. */
 export interface ScopeProps extends PropsWithChildren {
   active: Condition;
 }
@@ -30,10 +32,9 @@ export interface ScopeProps extends PropsWithChildren {
 /**
  * Scope withholds trigger events from every {@link use} subscriber in its subtree while
  * active resolves false. Scopes nest: an inner scope cannot re-enable triggers that an
- * outer one has switched off.
- *
- * Keep active's identity stable. Every subscriber in the subtree re-renders when it
- * changes, so an inline arrow re-renders all of them on every render of this scope.
+ * outer one has switched off. Keep active's identity stable. Every subscriber in the
+ * subtree re-renders when it changes, so an inline arrow re-renders all of them on
+ * every render of this scope.
  */
 export const Scope = ({ active, children }: ScopeProps): ReactElement => {
   const parent = useScope();

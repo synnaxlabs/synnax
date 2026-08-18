@@ -160,7 +160,6 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
       const toCreate: AIChannel[] = [];
       for (const channel of config.channels) {
         if (channel.device !== dev.key) continue;
-        // check if the channel is in properties
         const exKey = dev.properties.analogInput.channels[channel.port.toString()];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else

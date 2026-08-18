@@ -15,6 +15,7 @@ import { Icon } from "@/icon";
 import { Text as Base } from "@/text";
 import { type Key, type Trigger } from "@/triggers/triggers";
 
+/** Props for {@link Text}. */
 export type TextProps<E extends Generic.ElementType = "p"> = Base.TextProps<E> & {
   trigger: Trigger;
 };
@@ -49,9 +50,16 @@ const sortTriggers = (trigger: Trigger): Trigger =>
     return 0;
   });
 
+/** @returns the icons and letters a trigger reads as, per the current platform. */
 export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
   trigger.map((t) => getCustomText(t));
 
+/**
+ * Renders a shortcut as keycaps followed by its label, with the platform's own modifier
+ * symbols.
+ *
+ * @example <Triggers.Text trigger={["Control", "S"]}>Save</Triggers.Text>
+ */
 export const Text = <E extends Generic.ElementType = "p">({
   trigger,
   children,

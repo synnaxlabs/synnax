@@ -50,6 +50,13 @@ describe("nav Menu", () => {
     expect(screen.queryByLabelText("icon-bravo")).toBeNull();
   });
 
+  it("should name each item by its tooltip", async () => {
+    await renderWithConsole(
+      <Nav.Menu items={item("alpha")} onSelect={vi.fn()} {...noop} />,
+    );
+    expect(screen.getByRole("menuitem", { name: "alpha" })).toBeTruthy();
+  });
+
   it("should call onSelect with the item key when an item is clicked", async () => {
     const onSelect = vi.fn();
     await renderWithConsole(

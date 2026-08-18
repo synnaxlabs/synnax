@@ -292,7 +292,6 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.data).toHaveLength(1));
       expect(result.current.data).not.toContain(r2.key);
-      // add a new range with the label
       const r3 = await client.ranges.create({
         name: "Labeled Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
@@ -588,7 +587,6 @@ describe("queries", () => {
         parent: parentRange,
       });
 
-      // Test grandparent's children
       const { result: grandparentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
@@ -602,7 +600,6 @@ describe("queries", () => {
       expect(grandparentResult.current.data).toContain(parentRange.key);
       expect(grandparentResult.current.data).not.toContain(childRange.key);
 
-      // Test parent's children
       const { result: parentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });

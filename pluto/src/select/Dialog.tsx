@@ -23,6 +23,7 @@ import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
 import { Status } from "@/status/base";
 import { Text } from "@/text";
 
+/** Props for {@link Dialog}. */
 export interface DialogProps<K extends record.Key>
   extends
     Omit<BaseDialog.DialogProps, "children">,
@@ -34,6 +35,7 @@ export interface DialogProps<K extends record.Key>
   footer?: ReactNode;
 }
 
+/** Props for the content shown when a selection has nothing to offer. */
 export interface DefaultEmptyContentProps extends Status.SummaryProps {
   resourceName: string;
 }
@@ -154,6 +156,10 @@ const Base = memo(
   },
 );
 Base.displayName = "Select.Dialog";
+/**
+ * The dropdown of a selection: its search field, its list, and its empty and error
+ * content. It sizes the list to whole rows, so its growth animates.
+ */
 export const Dialog = Base as <K extends record.Key>(
   props: DialogProps<K>,
 ) => ReactElement;

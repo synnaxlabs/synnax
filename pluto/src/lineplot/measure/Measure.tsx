@@ -98,10 +98,8 @@ export const Measure = ({
 
   useEffect(() => {
     if (ref.current === null) return;
-    // Select the parent node of the tooltip
     const parent = ref.current.parentElement;
     if (parent == null) return;
-    // Bind a hover listener to the parent node
     parent.addEventListener("mousemove", handleMove);
     parent.addEventListener("mouseleave", handleLeave);
     return () => {

@@ -34,7 +34,6 @@ type RequireWindowKey<Payload extends OptionalKeyParams> = require.Require<
  * Builds a reducer wrapper that scopes a handler to a single window's state. The
  * returned wrapper resolves (and lazily creates from schema defaults) the per-window
  * state for the action's windowKey, then invokes handler with it.
- *
  * @param schema the zod schema used to default a window's state on first access.
  * @throws {UnexpectedError} if the dispatched action has no windowKey, which should
  * already have been injected by createInjectKeyMiddleware.
@@ -73,7 +72,6 @@ type KeyActionMatcher = Pick<ActionCreatorWithPayload<OptionalKeyParams>, "match
  * actions that were dispatched without an explicit windowKey. Actions that already
  * carry a windowKey pass through unchanged; matching actions dispatched before a window
  * key is available are dropped.
- *
  * @param actionCreators the action creator(s) whose payloads should be key-injected.
  */
 export const createInjectKeyMiddleware = <StoreState>(

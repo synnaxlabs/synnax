@@ -93,11 +93,10 @@ const repairMembership = async (params: Params): Promise<void> => {
   applyMembership(params, panels);
 };
 
-// The session's strip order and selection both follow the project's live
-// membership: the order converges first, then the selection, so a repaired
-// selection always lands on the strip's leftmost pill. The selection outlives
-// the project it was made in, so a panel outside the active project must
-// never stay selected.
+// The session's strip order and selection both follow the project's live membership:
+// the order converges first, then the selection, so a repaired selection always lands
+// on the strip's leftmost pill. The selection outlives the project it was made in, so a
+// panel outside the active project must never stay selected.
 const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
   reconcile: repairMembership,
   listen: (params) => {

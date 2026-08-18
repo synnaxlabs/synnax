@@ -190,11 +190,10 @@ const { actions, reducer } = createSlice({
     startOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.isOverlaid = true;
     }),
-    // reconcileSelection converges a panel's selection to its live tree: one tab
-    // per leaf, most recent first. A leaf that lost its selected tab, to a close or
-    // to a drag into another leaf, shows the tab beside it; one that never had a
-    // selection shows its first tab, the same tab the mosaic shows until the
-    // selection lands.
+    // reconcileSelection converges a panel's selection to its live tree: one tab per
+    // leaf, most recent first. A leaf that lost its selected tab, to a close or to a
+    // drag into another leaf, shows the tab beside it; one that never had a selection
+    // shows its first tab, the same tab the mosaic shows until the selection lands.
     reconcileSelection: withWindowKey<ReconcileSelectionPayload, SliceState>(
       (win, { payload: { key, leaves, previous = [] } }) => {
         const pan = panelState(win, key);

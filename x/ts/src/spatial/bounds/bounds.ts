@@ -22,93 +22,17 @@ export type Crude<T extends numeric.Value = number> = Bounds<T> | NumberCouple<T
  */
 export type PartialCrude = Partial<Bounds<number>>;
 
-/** Options for the `construct` function. */
 interface ConstructOptions {
-  /**
-   * If true (default), automatically swaps the lower and upper bounds if the lower bound
-   * is greater than the upper bound. This ensures the resulting bounds are valid.
-   *
-   * @example
-   * // With makeValid: true (default)
-   * construct(10, 0) // => { lower: 0, upper: 10 }
-   *
-   * @example
-   * // With makeValid: false
-   * construct(10, 0, { makeValid: false }) // => { lower: 10, upper: 0 }
-   */
+  /** Swaps lower and upper when lower is greater. Defaults to true. */
   makeValid?: boolean;
 }
 
+/**
+ * Constructs bounds from a bounds object, a `[lower, upper]` couple, a single value
+ * (taken as the upper, with a lower of 0), or a lower and an upper. Number and bigint
+ * bounds are both supported.
+ */
 export interface Construct {
-  /**
-   * Constructs a bounds object from various input formats. The function supports multiple
-   * overloads to handle different input types:
-   *
-   * 1. From a crude bounds object or array:
-   * ```typescript
-   * construct({ lower: 0, upper: 10 }) // => { lower: 0, upper: 10 }
-   * construct([0, 10]) // => { lower: 0, upper: 10 }
-   * ```
-   *
-   * 2. From separate lower and upper values:
-   * ```typescript
-   * construct(0, 10) // => { lower: 0, upper: 10 }
-   * construct(10) // => { lower: 0, upper: 10 }
-   * ```
-   *
-   * The function supports both number and bigint types through the generic parameter T.
-   * By default, T is number.
-   *
-   * Options:
-   * - makeValid: If true (default), swaps lower and upper bounds if lower > upper
-   *
-   * 3. From a partial bounds object. A missing lower defaults to -Infinity and a
-   * missing upper defaults to Infinity:
-   * ```typescript
-   * construct({ lower: 0 }) // => { lower: 0, upper: Infinity }
-   * construct({ upper: 10 }) // => { lower: -Infinity, upper: 10 }
-   * ```
-   *
-   * @param bounds - The input bounds to construct from. Can be:
-   *   - A bounds object with lower and upper properties
-   *   - A partial bounds object with only lower or only upper. The missing bound
-   *     defaults to -Infinity (lower) or Infinity (upper)
-   *   - An array of length 2 [lower, upper]
-   *   - A single number/bigint (treated as upper bound, with lower = 0)
-   *   - Two numbers/bigints (lower and upper bounds)
-   * @param options - Optional configuration for bounds construction
-   * @returns A bounds object with lower and upper properties
-   *
-   * @example
-   * // From bounds object
-   * construct({ lower: 0, upper: 10 })
-   * // => { lower: 0, upper: 10 }
-   *
-   * @example
-   * // From array
-   * construct([0, 10])
-   * // => { lower: 0, upper: 10 }
-   *
-   * @example
-   * // From separate values
-   * construct(0, 10)
-   * // => { lower: 0, upper: 10 }
-   *
-   * @example
-   * // Single value (upper bound only)
-   * construct(10)
-   * // => { lower: 0, upper: 10 }
-   *
-   * @example
-   * // With bigint
-   * construct(0n, 10n)
-   * // => { lower: 0n, upper: 10n }
-   *
-   * @example
-   * // Invalid bounds (lower > upper)
-   * construct(10, 0)
-   * // => { lower: 0, upper: 10 } (bounds are swapped)
-   */
   /**
    * Constructs a bounds object from a partial bounds object. A missing lower defaults
    * to -Infinity and a missing upper defaults to Infinity. Only valid for number
@@ -121,14 +45,6 @@ export interface Construct {
     options?: ConstructOptions,
   ): Bounds<T>;
 
-  /**
-   * Constructs a bounds object from separate lower and upper values.
-   *
-   * @param lower - The lower bound value
-   * @param upper - The upper bound value. If omitted, lower is used as the upper bound
-   * and 0 is used as the lower bound
-   * @returns A bounds object with lower and upper properties
-   */
   <T extends numeric.Value = number>(lower: T, upper?: T | ConstructOptions): Bounds<T>;
 
   <T extends numeric.Value = number>(
@@ -167,27 +83,17 @@ export const construct: Construct = <T extends numeric.Value>(
   return options?.makeValid ? makeValid<T>(b) : b;
 };
 
-/** A lower and upper bound of 0. */
 export const ZERO: Bounds = Object.freeze({ lower: 0, upper: 0 });
-/** A lower bound of -Infinity and an upper bound of Infinity. */
 export const INFINITE: Bounds = Object.freeze({ lower: -Infinity, upper: Infinity });
 /**
  * Bounds containing no values: the identity for {@link max} unions and the dual of
  * {@link INFINITE}. Use as the "no data" sentinel; {@link isFinite} rejects it.
  */
 export const INVALID: Bounds = Object.freeze({ lower: Infinity, upper: -Infinity });
-/** A lower bound of 0 and an upper bound of 1. */
 export const DECIMAL: Bounds = Object.freeze({ lower: 0, upper: 1 });
 /** Clip space bounds i.e. a lower bound of -1 and an upper bound of 1. */
 export const CLIP = Object.freeze({ lower: -1, upper: 1 });
 
-/**
- * Checks whether the given bounds are equal.
- *
- * @param _a - The first bounds to compare.
- * @param _b - The second bounds to compare.
- * @returns True if the bounds are equal, false otherwise.
- */
 export const equals = <T extends numeric.Value = number>(
   _a?: Crude<T>,
   _b?: Crude<T>,
@@ -198,12 +104,7 @@ export const equals = <T extends numeric.Value = number>(
   const b = construct(_b);
   return a?.lower === b?.lower && a?.upper === b?.upper;
 };
-/**
- * Makes the given bounds valid by swapping the lower and upper bounds if the lower bound
- * is greater than the upper bound.
- * @param a  - The bounds to make valid.
- * @returns The valid bounds.
- */
+/** @returns a, with lower and upper swapped when lower is greater. */
 export const makeValid = <T extends numeric.Value = number>(
   a: Bounds<T>,
 ): Bounds<T> => {
@@ -215,14 +116,9 @@ export const makeValid = <T extends numeric.Value = number>(
  * Projects the target onto the closed interval [lower, upper]. Returns lower if the
  * target is below it, upper if the target is above it, and the target otherwise.
  *
- * The returned value may equal upper, which is intentionally not contained by the
- * half-open bounds (see contains). clamp answers "nearest valid magnitude", not "which
- * half-open bucket"; those are different operations. To clamp an integer index into the
- * half-open range [lower, upper), clamp against upper - 1.
- *
- * @param bounds - The bounds to clamp the target to.
- * @param target - The target value to clamp.
- * @returns The clamped target value.
+ * The result may equal upper, which {@link contains} rejects. clamp answers "nearest
+ * valid magnitude", not "which half-open bucket". To clamp an index into
+ * [lower, upper), clamp against upper - 1.
  */
 export const clamp = <T extends numeric.Value>(bounds: Crude<T>, target: T): T => {
   const _bounds = construct<T>(bounds);
@@ -232,11 +128,8 @@ export const clamp = <T extends numeric.Value>(bounds: Crude<T>, target: T): T =
 };
 
 /**
- * Checks whether the given target value or bounds are within the given bounds.
- *
- * @param bounds - The bounds to check against.
- * @param target - The target value to check. Can either be a number or a bounds object.
- * @returns True if the target is within the bounds, false otherwise.
+ * @returns true if target lies in the half-open interval [lower, upper). A bounds
+ * target is instead tested closed on both ends.
  */
 export const contains = <T extends numeric.Value>(
   bounds: Crude<T>,
@@ -249,13 +142,7 @@ export const contains = <T extends numeric.Value>(
   return _target.lower >= _bounds.lower && _target.upper <= _bounds.upper;
 };
 
-/**
- * Checks whether the given bounds overlap with each other.
- *
- * @param a - The first bounds to check.
- * @param b - The second bounds to check.
- * @returns True if the bounds overlap, false otherwise.
- */
+/** @returns true if a and b share at least one value. */
 export const overlapsWith = <T extends numeric.Value>(
   a: Crude<T>,
   b: Crude<T>,
@@ -305,17 +192,7 @@ export const isFinite = (a: Crude): boolean => {
   return Number.isFinite(_a.lower) && Number.isFinite(_a.upper);
 };
 
-/**
- * Returns the mean value between the lower and upper bounds.
- *
- * @param a - The bounds to find the mean of. Can be either a strict bounds object
- * with 'lower' and 'upper' properties or an array of length 2.
- * @returns The mean value between the lower and upper bounds.
- *
- * @example
- * bounds.mean([0, 10]) // => 5
- * bounds.mean({ lower: 0, upper: 10 }) // => 5
- */
+/** @returns the midpoint between the lower and upper bounds. */
 export const mean = (a: Crude): number => {
   const _a = construct(a);
   return (_a.upper + _a.lower) / 2;
@@ -357,81 +234,11 @@ export const linspace = <T extends numeric.Value = number>(bounds: Crude<T>): T[
 };
 
 /**
- * Finds the index and position where a target value should be inserted into an array
- * of bounds.
+ * Finds where target belongs in an ordered, non-overlapping array of bounds.
  *
- * Crucially, this function assumes that the bounds are ORDERED and NON-OVERLAPPING.
- *
- * @template T
- * @param {Array<Crude<T>>} bounds - An array of crude bounds. Each bound can either be
- * an array of length 2 or an object with `lower` and `upper` properties.
- * @param {T} target - The target value to insert.
- *
- * @returns {{ index: number, position: number }} An object containing:
- * - `index`: The index in the bounds array where the target belongs.
- * - `position`: The position within the bound where the target fits. If the target is
- * outside all bounds, the index will be where a new bound can be inserted.
- *
- * @example
- * // Target within an existing bound
- * const bounds = [[0, 10], [20, 30]];
- * const target = 5;
- * const result = findInsertPosition(bounds, target);
- * // { index: 0, position: 5 }
- *
- * @example
- * // Target greater than all bounds
- * const bounds = [[0, 10], [20, 30]];
- * const target = 35;
- * const result = findInsertPosition(bounds, target);
- *  // { index: 2, position: 0 }
- *
- * @example
- * // Target less than all bounds
- * const bounds = [[10, 20], [30, 40]];
- * const target = 5;
- * const result = findInsertPosition(bounds, target);
- *  // { index: 0, position: 0 }
- *
- * @example
- * // Target overlaps between bounds
- * const bounds = [[0, 10], [20, 30]];
- * const target = 15;
- * const result = findInsertPosition(bounds, target);
- *  // { index: 1, position: 0 }
- *
- * @example
- * // Empty bounds array
- * const bounds = [];
- * const target = 5;
- * const result = findInsertPosition(bounds, target);
- *  // { index: 0, position: 0 }
- *
- * @example
- * // Target exactly at lower bound
- * const bounds = [[0, 10], [20, 30]];
- * const target = 10;
- * const result = findInsertPosition(bounds, target);
- *  // { index: 1, position: 0 }
- *
- * @example
- * // Target exactly at upper bound
- * const bounds = [[0, 10], [20, 30]];
- * const target = 30;
- * const result = findInsertPosition(bounds, target);
- *  // { index: 2, position: 0 }
- *
- * @example
- * // Target inside bounds with exact fit
- * const bounds = [[0, 5], [5, 10]];
- * const target = 5;
- * const result = findInsertPosition(bounds, target);
- *  // { index: 1, position: 0 }
- *
- * @throws {Error} If invalid bounds are provided, such as bounds arrays not being of
- * length 2.
- *
- * See {@link construct} for constructing valid bounds.
+ * @returns `index`, the bounds entry the target falls in, or where a new entry would
+ * be inserted when it falls outside every one; and `position`, the offset of the
+ * target inside that entry, or 0 when it falls outside.
  */
 export const findInsertPosition = <T extends numeric.Value>(
   bounds: Array<Crude<T>>,
@@ -445,9 +252,7 @@ export const findInsertPosition = <T extends numeric.Value>(
   return { index, position: 0 };
 };
 
-/**
- * A plan for inserting a new bound into an ordered array of bounds.
- */
+/** A plan for splicing a new bound into an ordered array of bounds. */
 export interface InsertionPlan {
   /** How much to increase the lower bound of the new bound or decrease the upper bound
    * of the previous bound. */
@@ -469,22 +274,9 @@ const ZERO_PLAN: InsertionPlan = {
 };
 
 /**
- * Build a plan for inserting a new bound into an ordered array of bounds. This function
- * is particularly useful for inserting a new array into a sorted array of array of arrays
- * that may overlap. The plan is used to determine how to splice the new array into the
- * existing array. The following are important constraints:
+ * Builds a plan for splicing value into an ordered, non-overlapping array of bounds.
  *
- * Crucially, this function assumes that the bounds are ORDERED and NON-OVERLAPPING.
- *
- * 1. If the new bound is entirely contained within an existing bound, the new bound
- * is not inserted and the plan is null.
- *
- * @param bounds - An ordered array of bounds, where each bound is valid (i.e., lower <= upper)
- * and the lower bound of each bound is less than the upper bound of the next bound.
- * @param value - The new bound to insert.
- * @returns A plan for inserting the new bound into the array of bounds, or null if the
- * new bound is entirely contained within an existing bound. See the {@link InsertionPlan}
- * type for more details.
+ * @returns null when value already lies entirely inside an existing bound.
  */
 export const buildInsertionPlan = <T extends numeric.Value>(
   bounds: Array<Crude<T>>,
@@ -492,16 +284,14 @@ export const buildInsertionPlan = <T extends numeric.Value>(
 ): InsertionPlan | null => {
   const _bounds = bounds.map((b) => construct<T>(b));
   const _target = construct(value);
-  // No bounds to insert into, so just insert the new bound at the beginning of the array.
   if (_bounds.length === 0) return ZERO_PLAN;
   const lower = findInsertPosition<T>(_bounds, _target.lower);
   const upper = findInsertPosition<T>(_bounds, _target.upper);
-  // Greater than all bounds,
+  // Target starts past every bound.
   if (lower.index === bounds.length) return { ...ZERO_PLAN, insertInto: bounds.length };
-  // Less than all bounds,
+  // Target ends before every bound.
   if (upper.index === 0) return { ...ZERO_PLAN, removeAfter: upper.position };
   if (lower.index === upper.index) {
-    // The case where the bound is entirely contained within an existing bound.
     if (lower.position !== 0 && upper.position !== 0) return null;
     return {
       removeAfter: upper.position,
@@ -513,12 +303,9 @@ export const buildInsertionPlan = <T extends numeric.Value>(
   let deleteInBetween = upper.index - lower.index;
   let insertInto = lower.index;
   let removeBefore = math.sub(Number(span(_bounds[lower.index])), lower.position);
-  // If we're overlapping with the previous bound, we need to slice out one less
-  // and insert one further up.
   if (lower.position !== 0) {
     deleteInBetween -= 1;
     insertInto += 1;
-    // We're not overlapping with the previous bound, so don't need to remove anything
   } else removeBefore = 0;
   return {
     removeBefore,
@@ -529,90 +316,12 @@ export const buildInsertionPlan = <T extends numeric.Value>(
 };
 
 /**
- * Traverse the given bounds by the specified distance, starting from a given point, and
- * return the end point of the traversal. The traversal 'skips' over integers that are
- * not within the array of bounds, moving only within the defined bounds. Traversing
- * across multiple bounds is handled smoothly, with direction determined by the sign of
- * the distance.
+ * Walks `dist` from `start` through an ordered, non-overlapping array of bounds,
+ * skipping the values between them. A negative distance walks backwards. A start
+ * outside every bound resumes from the nearest one in the direction of travel.
+ * Running out of bounds stops at the last value in that direction.
  *
- * Crucially, this function assumes that the bounds are ORDERED and NON-OVERLAPPING.
- *
- * If the distance takes the traversal beyond the bounds, it returns the last valid point
- * within the bounds or the first valid point depending on direction.
- *
- * @template T
- * @param {Array<Crude<T>>} bounds - An array of crude bounds (array of length 2 or
- * objects with `lower` and `upper` properties).
- * @param {T} start - The starting point of the traversal.
- * @param {T} dist - The distance to traverse. Positive values move forwards, and
- * negative values move backwards.
- *
- * Edge Cases:
- *
- * 1. **Traversal beyond the last bound**: If the traversal moves beyond the last
- * bound (in either direction), the traversal ends at the last valid position within
- * the bounds.
- *    - Example: `traverse([[0, 10], [20, 30]], 25, 10); // => 30`
- *      (stops at the upper limit of the last bound)
- *
- * 2. **Traversal from a point outside the bounds**: If the starting point is outside
- *      the bounds and the traversal distance would move within bounds, it finds the
- *      closest bound and continues traversal from there.
- *    - Example: `traverse([[0, 10], [20, 30]], 15, 5); // => 25` (enters the second bound)
- *
- * 3. **Distance of 0**: If the distance is `0`, the traversal will return the starting
- *      point without moving.
- *    - Example: `traverse([[0, 10], [20, 30]], 5, 0); // => 5`
- *
- * @returns {T} The end point of the traversal within the bounds.
- *
- * @example
- * // Traversing 5 units forward from 5, ending exactly at the upper bound of the first
- * range.
- * traverse([[0, 10], [20, 30]], 5, 5);
- * // => 10
- *
- * @example
- * // Traversing 10 units forward from 5, crossing from the first range to the second.
- * traverse([[0, 10], [20, 30]], 5, 10);
- * // => 25
- *
- * @example
- * // Traversing 5 units forward starting outside the bounds, the traversal enters the
- * // second bound.
- * traverse([[0, 10], [20, 30]], 15, 5);
- * // => 25
- *
- * @example
- * // Traversing 30 units forward, stopping at the upper end of the second bound.
- * traverse([[0, 10], [20, 30]], 15, 30);
- * // => 30
- *
- * @example
- * // Traversing 7 units backward starting from 17, moving into the first bound.
- * traverse([[0, 5], [5, 10], [15, 20]], 17, -7);
- * // => 5
- *
- * @example
- * // Traversing beyond the last bound in a positive direction.
- * traverse([[0, 10], [20, 30]], 25, 10);
- * // => 30 (stops at the upper limit of the last bound)
- *
- * @example
- * // Traversing backward from a point not within any bound.
- * traverse([[0, 5], [10, 15]], 20, -10);
- * // => 15 (stops at the upper limit of the nearest previous bound)
- *
- * @example
- * // Traversing a distance of 0 from a point returns the starting point.
- * traverse([[0, 10], [20, 30]], 5, 0);
- * // => 5
- *
- * @throws {Error} If invalid bounds are provided, such as bounds arrays not being of
- * length 2.
- *
- * See {@link construct} for constructing valid bounds.
- *
+ * @example traverse([[0, 10], [20, 30]], 5, 10) // => 25
  */
 export const traverse = <T extends numeric.Value = number>(
   bounds: Array<Crude<T>>,
@@ -623,14 +332,12 @@ export const traverse = <T extends numeric.Value = number>(
 
   const dir = dist > 0 ? 1 : dist < 0 ? -1 : 0;
 
-  // If there's no distance to traverse, return the starting point
   if (dir === 0) return start;
 
   let remainingDist = dist;
   let currentPosition = start;
 
   while (math.equal(remainingDist, 0) === false) {
-    // Find the bound we're currently in or adjacent to
     const index = _bounds.findIndex((b) => {
       if (dir > 0) return currentPosition >= b.lower && currentPosition < b.upper;
       return currentPosition > b.lower && currentPosition <= b.upper;
@@ -647,25 +354,19 @@ export const traverse = <T extends numeric.Value = number>(
         currentPosition = math.add(currentPosition, dir > 0 ? moveDist : -moveDist);
         remainingDist = math.sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
 
-        // If we've exhausted the distance, return the current position
         if (math.equal(remainingDist, 0)) return currentPosition;
         continue;
       }
     }
 
-    // If we're not inside any bound, or we've reached the boundary
     if (dir > 0) {
-      // Move to the next bound's lower value
       const nextBounds = _bounds.filter((b) => b.lower > currentPosition);
       if (nextBounds.length > 0) currentPosition = nextBounds[0].lower;
-      // No more bounds in this direction
       else return currentPosition;
     } else {
-      // Move to the previous bound's upper value
       const prevBounds = _bounds.filter((b) => b.upper < currentPosition);
       if (prevBounds.length > 0)
         currentPosition = prevBounds[prevBounds.length - 1].upper;
-      // No more bounds in this direction
       else return currentPosition;
     }
   }
@@ -673,42 +374,10 @@ export const traverse = <T extends numeric.Value = number>(
 };
 
 /**
- * Returns the number of values within the given bounds, 'skip'ing over values that are
- * not within the bounds.
+ * @returns the count of values between a and b that fall inside an ordered,
+ * non-overlapping array of bounds, skipping the values between them.
  *
- * Crucially, this function assumes that the bounds are ORDERED and NON-OVERLAPPING.
- *
- * @example
- * bounds.distance(
- *  [[0, 10], [20, 30]]
- *  5,
- *  5,
- * ) // => 0
- *
- * @example
- * bounds.distance(
- * [[0, 10], [20, 30]]
- * 5,
- * 25,
- * ) // => 10
- *
- * @example
- * bounds.distance(
- * [[0, 10], [20, 30]]
- * 15,
- * 25,
- * ) // => 5
- *
- * @example
- * bounds.distance(
- * [[0, 10], [20, 30]]
- * 15,
- * 5,
- * ) // => 5
- *
- * @param bounds
- * @param a - The start value.
- * @param b  - The end value.
+ * @example distance([[0, 10], [20, 30]], 5, 25) // => 10
  */
 export const distance = <T extends numeric.Value = number>(
   bounds: Array<Crude<T>>,
@@ -717,20 +386,16 @@ export const distance = <T extends numeric.Value = number>(
 ): T => {
   const _bounds = bounds.map((b) => construct<T>(b));
 
-  // If start and end are the same, the distance is zero
   if (a === b) return (typeof a === "bigint" ? 0n : 0) as T;
 
-  // Determine the interval between a and b
   const interval = a < b ? construct([a, b]) : construct([b, a]);
 
   let totalDistance: T = (typeof a === "bigint" ? 0n : 0) as T;
 
   for (const bound of _bounds) {
-    // Find the overlap between the interval and the current bound
     const overlapLower = bound.lower > interval.lower ? bound.lower : interval.lower;
     const overlapUpper = bound.upper < interval.upper ? bound.upper : interval.upper;
 
-    // If there is an overlap, add its span to the total distance
     if (overlapLower < overlapUpper) {
       const overlapSpan = (overlapUpper - overlapLower) as T;
       // @ts-expect-error - typescript doesn't recognize that totalDistance is a number

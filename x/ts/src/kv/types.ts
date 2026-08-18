@@ -28,7 +28,6 @@ export interface KV<R = unknown, W = R> extends Reader<R>, Writer<W>, Deleter {}
 
 /** A readable key-value store. */
 export interface AsyncReader<V = unknown> {
-  /** Get the value for a given key. */
   get: (key: string) => Promise<V | null>;
 }
 

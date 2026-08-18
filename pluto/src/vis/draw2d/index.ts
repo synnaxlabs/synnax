@@ -169,7 +169,6 @@ export class Draw2D {
     const endAngle = angle?.upper ?? 2 * Math.PI;
 
     if (stroke != null && typeof radius === "object") {
-      // Stroke mode for rings - draw as a thick arc with rounded caps
       const { inner, outer } = radius;
       const midRadius = (inner + outer) / 2;
       const arcWidth = outer - inner;
@@ -182,7 +181,6 @@ export class Draw2D {
       ctx.stroke();
       if (lineDash != null) ctx.setLineDash([]);
     } else if (stroke != null && typeof radius === "number") {
-      // Stroke mode for simple circles
       ctx.arc(...xy.couple(position), radius, startAngle, endAngle, false);
       ctx.strokeStyle = color.hex(stroke);
       ctx.lineWidth = strokeWidth ?? 1;
@@ -191,23 +189,17 @@ export class Draw2D {
       ctx.stroke();
       if (lineDash != null) ctx.setLineDash([]);
     } else if (fill != null) {
-      // Fill mode (original behavior)
       ctx.fillStyle = color.hex(fill);
 
       if (typeof radius === "number") {
-        // Simple filled circle or arc
         ctx.arc(...xy.couple(position), radius, startAngle, endAngle);
         ctx.fill();
       } else {
-        // Ring or arc segment with inner and outer radius
         const { inner, outer } = radius;
-        // Draw outer arc
         ctx.arc(...xy.couple(position), outer, startAngle, endAngle, false);
-        // Draw line to inner arc start
         const innerStartX = position.x + inner * Math.cos(endAngle);
         const innerStartY = position.y + inner * Math.sin(endAngle);
         ctx.lineTo(innerStartX, innerStartY);
-        // Draw inner arc (reverse direction)
         ctx.arc(...xy.couple(position), inner, endAngle, startAngle, true);
         ctx.closePath();
         ctx.fill();

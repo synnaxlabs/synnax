@@ -15,7 +15,6 @@ import { record } from "@/record";
 describe("record", () => {
   describe("types", () => {
     it("should allow string and number keys", () => {
-      // Test Key type
       const stringKey: record.Key = "test";
       const numberKey: record.Key = 123;
 
@@ -24,7 +23,6 @@ describe("record", () => {
     });
 
     it("should allow unknown values", () => {
-      // Test Unknown type
       const unknown: record.Unknown = {
         string: "value",
         number: 42,
@@ -41,7 +39,6 @@ describe("record", () => {
     });
 
     it("should support Keyed interface", () => {
-      // Test Keyed interface
       const keyedString: record.Keyed<string> = { key: "test" };
       const keyedNumber: record.Keyed<number> = { key: 123 };
 
@@ -50,7 +47,6 @@ describe("record", () => {
     });
 
     it("should support KeyedNamed interface", () => {
-      // Test KeyedNamed interface
       const keyedNamed: record.KeyedNamed = { key: "test", name: "Test Item" };
       const keyedNamedNumber: record.KeyedNamed<number> = {
         key: 123,
@@ -290,7 +286,6 @@ describe("record", () => {
     it("should work together: entries -> map -> deleteUndefined", () => {
       const original = { a: 1, b: undefined, c: 3, d: null };
 
-      // Get entries
       const entries = record.entries(original);
       expect(entries).toEqual([
         ["a", 1],
@@ -305,7 +300,6 @@ describe("record", () => {
       );
       expect(mapped).toEqual({ a: 2, b: undefined, c: 6, d: null });
 
-      // Remove undefined/null
       const cleaned = record.purgeUndefined(mapped);
       expect(cleaned).toEqual({ a: 2, c: 6, d: null });
     });

@@ -212,8 +212,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * file name keep distinct names through a numeric suffix, and children that are not
    * symbols are skipped. The caller pipes the stream wherever it likes without the
    * client buffering the whole archive.
-   *
-   * @param key - the key of the group to export.
    * @param options - the export options, including the serialization member files are
    * written in.
    * @returns the bundle as a stream of zip bytes.
@@ -235,8 +233,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * beside a manifest.json naming the group. The Core creates a fresh group under the
    * permanent symbol group and imports every member in a single transaction, so a
    * failure leaves nothing behind.
-   *
-   * @param data - the bundle as zip bytes.
    * @returns the created group.
    * @throws {ValidationError} if the manifest is missing, malformed, or of another
    * bundle kind, if two member names collide, or if a member is not a symbol.
@@ -263,8 +259,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * Deletes the group and every symbol in it. The Core removes both in a single
    * transaction, so a failure leaves the group and its symbols untouched. A child that
    * is not a symbol survives: the Core moves it to the permanent symbol group.
-   *
-   * @param key - the key of the group to delete.
    */
   async deleteGroup(key: group.Key): Promise<void> {
     const groupID = group.ontologyID(key);
