@@ -382,7 +382,7 @@ describe("Panel.Mosaic overlay", () => {
     });
     const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
     const { wrapper, store } = await setup(withSelectedProject(proj.key));
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     act(() => {
       store.dispatch(Session.Panel.select({ key: pan.key }));
