@@ -199,7 +199,7 @@ func validateLeaseOption(maybeLease []any) (node.Key, error) {
 		l, ok := maybeLease[0].(node.Key)
 		if !ok {
 			return 0, errors.New(
-				"[aspen] - Leaseholder option must be of type node.Name",
+				"[aspen] - leaseholder option must be of type node.Key",
 			)
 		}
 		lease = l

@@ -131,12 +131,12 @@ var _ = Describe("txn", func() {
 			})
 
 			It(
-				"Should return an error if the lease option is not a node Name",
+				"Should return an error if the lease option is not a node Key",
 				func(ctx SpecContext) {
 					kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 					Expect(
 						kv.Set(ctx, []byte("key"), []byte("value"), "2"),
-					).To(HaveOccurred())
+					).To(MatchError(ContainSubstring("must be of type node.Key")))
 				},
 			)
 		})
