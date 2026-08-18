@@ -428,7 +428,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.copy_python_code_from_overview()
         notifications = self.console.notifications.check(timeout=10)
         messages = [n.get("message", "") for n in notifications]
-        assert any("Python code to retrieve" in msg for msg in messages), (
+        assert any("Python code for" in msg for msg in messages), (
             "Should show Python code copied notification"
         )
         self.console.notifications.close_all()
@@ -444,7 +444,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.copy_typescript_code_from_overview()
         notifications = self.console.notifications.check(timeout=2)
         messages = [n.get("message", "") for n in notifications]
-        assert any("TypeScript code to retrieve" in msg for msg in messages), (
+        assert any("TypeScript code for" in msg for msg in messages), (
             "Should show TypeScript code copied notification"
         )
         self.console.notifications.close_all()
@@ -528,16 +528,8 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.navigate_to_parent(self.staged_range_name)
         self.console.ranges.wait_for_overview(self.staged_range_name)
 
-        self.console.ranges.create_child_range_from_overview()
         self.new_child_range_name = f"NewChild_{self.rand_suffix}"
-        name_input = self.page.locator(
-            f"input[placeholder='{self.console.ranges.NAME_INPUT_PLACEHOLDER}']"
-        )
-        name_input.fill(self.new_child_range_name)
-        save_button = self.page.get_by_role("button", name="Save to Core")
-        save_button.click(timeout=2000)
-        modal = self.page.locator(self.console.ranges.CREATE_MODAL_SELECTOR)
-        modal.wait_for(state="hidden", timeout=5000)
+        self.console.ranges.create_child_range_from_overview(self.new_child_range_name)
 
         self.console.ranges.open_explorer()
         assert self.console.ranges.exists_in_explorer(self.new_child_range_name), (

@@ -277,7 +277,9 @@ class RangesClient:
         Assumes the modal is already open and visible.
         """
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
-        name_input = self.layout.page.locator(
+        # Scope to the modal: the range overview page has a name input with the
+        # same placeholder.
+        name_input = modal.locator(
             f"input[placeholder='{self.NAME_INPUT_PLACEHOLDER}']"
         )
         name_input.fill(name)
@@ -334,9 +336,9 @@ class RangesClient:
             self.layout.press_escape()
 
         if persisted:
-            save_button = self.layout.page.get_by_role("button", name="Save to Core")
+            save_button = modal.get_by_role("button", name="Save to Core")
         else:
-            save_button = self.layout.page.get_by_role("button", name="Save locally")
+            save_button = modal.get_by_role("button", name="Save locally")
 
         save_button.click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)
@@ -887,14 +889,19 @@ class RangesClient:
         item.wait_for(state="visible", timeout=5000)
         item.click()
 
-    def create_child_range_from_overview(self) -> None:
-        """Click the Add button in the Child Ranges section to create a new child range."""
+    def create_child_range_from_overview(self, name: str) -> None:
+        """Create a child range from the Child Ranges section of the overview.
+
+        Args:
+            name: The name for the new child range.
+        """
         self.notifications.close_all()
         section = self._get_child_ranges_section()
         add_btn = section.locator("button:has(svg.pluto-icon--add)")
         add_btn.click(timeout=5000)
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
+        self._fill_create_modal(name)
 
     def set_child_range_stage(self, name: str, stage: str) -> None:
         """Change the stage of a child range in the Child Ranges section.
