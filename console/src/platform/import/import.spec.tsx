@@ -33,8 +33,7 @@ interface HarnessProps {
 }
 
 const Inner = ({ onReady }: Pick<HarnessProps, "onReady">): ReactElement => {
-  // TODO: should maybe be `Import.use`?
-  const run = Import.useImport();
+  const run = Import.use();
   useEffect(() => onReady(run), [onReady, run]);
   return <span>ready</span>;
 };
@@ -48,7 +47,7 @@ const Harness = ({ onReady, onStatuses }: HarnessProps): ReactElement => (
 );
 Harness.displayName = "Harness";
 
-describe("useImport", () => {
+describe("use", () => {
   it("reads each picked file and streams its contents to the Core", async () => {
     const picker = interceptFilePicker();
     const client = createTestClient();

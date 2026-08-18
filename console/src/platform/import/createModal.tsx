@@ -121,14 +121,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
             <Text.Text level="small" color={8}>
               or click to browse
             </Text.Text>
-            <Button.Button
-              variant="text"
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePickDirectory();
-              }}
-            >
+            <Button.Button variant="text" size="small" onClick={handlePickDirectory}>
               Select folder
             </Button.Button>
           </FS.DropZone>

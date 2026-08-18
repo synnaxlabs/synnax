@@ -7,16 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
-
-import { Command } from "@/platform/command";
-import { Import } from "@/platform/import";
-
-export const ImportCommand = Command.create({
-  key: "import",
-  name: "Import components",
-  icon: <Icon.Import />,
-  useOnSelect: Import.use,
-});
-
-export const COMMANDS = [ImportCommand];
+export * as zip from "@/zip/external";

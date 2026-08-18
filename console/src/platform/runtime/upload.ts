@@ -9,21 +9,7 @@
 
 import { type UploadBody } from "@synnaxlabs/freighter";
 
-// Feature-detects streaming request bodies: constructing a Request with a stream body
-// reads duplex and leaves Content-Type unset only on engines that support them
-// (Chromium family, Node); elsewhere the stream is stringified.
-const supportsRequestStreams = (() => {
-  let duplexAccessed = false;
-  const hasContentType = new Request("http://localhost/", {
-    body: new ReadableStream(),
-    method: "POST",
-    get duplex() {
-      duplexAccessed = true;
-      return "half";
-    },
-  } as RequestInit).headers.has("Content-Type");
-  return duplexAccessed && !hasContentType;
-})();
+import { supportsRequestStreams } from "@/platform/runtime/requestStreams";
 
 /**
  * Adapts body to the most performant form the runtime's fetch can stream. Case 1:
@@ -32,6 +18,6 @@ const supportsRequestStreams = (() => {
  * bodies. Case 3: elsewhere the stream is buffered into a single Blob.
  */
 export const uploadBody = async (body: UploadBody): Promise<UploadBody> => {
-  if (!(body instanceof ReadableStream) || supportsRequestStreams) return body;
+  if (!(body instanceof ReadableStream) || supportsRequestStreams()) return body;
   return await new Response(body).blob();
 };

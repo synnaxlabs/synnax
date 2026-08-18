@@ -78,7 +78,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const createTable = Table.useCreate({ project: projectKey });
   const firstID = selection.ids[0];
   const createSchematic = Schematic.useCreate({ project: projectKey });
-  const importComponent = Import.useImport();
+  const importComponent = Import.use();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Export.use();
   const handleRename = useRename(props);

@@ -197,8 +197,8 @@ var _ = Describe("txn", func() {
 				Expect(engine.Set(ctx, []byte("direct-key"), []byte("direct-value"))).
 					To(Succeed())
 				v, closer := MustSucceed2(kv.Get(ctx, []byte("direct-key")))
-				Expect(closer.Close()).To(Succeed())
 				Expect(v).To(Equal([]byte("direct-value")))
+				Expect(closer.Close()).To(Succeed())
 				Expect(kv.Delete(ctx, []byte("direct-key"))).To(Succeed())
 				Expect(kv.Get(ctx, []byte("direct-key"))).Error().
 					To(MatchError(query.ErrNotFound))

@@ -110,9 +110,11 @@ const pickFilesBrowser = ({
     input.click();
   });
 
-// PickFiles narrows the return by the multiple flag: every selected file with
-// multiple, the one selected file without.
-interface PickFiles {
+/**
+ * PickFiles narrows the return by the multiple flag: every selected file with multiple,
+ * the one selected file without.
+ */
+export interface PickFiles {
   (params: PickFilesParams & { multiple: true }): Promise<PickedFile[] | null>;
   (params: PickFilesParams & { multiple?: false }): Promise<PickedFile | null>;
 }
