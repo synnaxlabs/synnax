@@ -59,7 +59,8 @@ func openControlStreamer(ctx SpecContext) confluence.Outlet[framer.StreamerRespo
 		Exec(ctx, nil),
 	).To(Succeed())
 	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: channel.Keys{ch.Key()},
+		Keys:        channel.Keys{ch.Key()},
+		SendOpenAck: true,
 	}))
 	requests, responses := confluence.Attach(streamer, 10)
 	sCtx, cancel := signal.Isolated()
@@ -70,9 +71,9 @@ func openControlStreamer(ctx SpecContext) confluence.Outlet[framer.StreamerRespo
 		Expect(shutdown.Close()).To(Succeed())
 	})
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	// The streamer needs a moment to register its demand with the relay before an
-	// update can reach it.
-	time.Sleep(10 * time.Millisecond)
+	// The open ack is the barrier: once it arrives, the relay has applied the
+	// streamer's demand, so any transfer after it reaches the outlet.
+	Eventually(responses.Outlet()).Should(Receive())
 	return responses
 }
 
