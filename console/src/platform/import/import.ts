@@ -14,6 +14,7 @@ import {
   project,
   type Synnax as Client,
 } from "@synnaxlabs/client";
+import { type UploadBody } from "@synnaxlabs/freighter";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -31,11 +32,7 @@ interface BundleImporterContext {
  * archive or folder's name, the Core's fallback for naming the imported resource.
  */
 export interface BundleImporter {
-  (
-    name: string,
-    bundle: Uint8Array<ArrayBuffer>,
-    ctx: BundleImporterContext,
-  ): Promise<void>;
+  (name: string, bundle: UploadBody, ctx: BundleImporterContext): Promise<void>;
 }
 
 export const useImport = (): ((projectKey?: string) => void) => {
@@ -61,9 +58,9 @@ export const useImport = (): ((projectKey?: string) => void) => {
         const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
         await importBatch({
           // importBatch names failures after the item, so the path doubles as the name.
-          items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
+          items: files.map((file) => ({ name: file.path, read: file.read })),
           importItem: async (file) =>
-            await client.imex.import(await file.readBytes(), {
+            await client.imex.import(await file.read(), {
               ...imex.JSON_OPTIONS,
               fileName: file.name,
               parent: project.ontologyID(activeProjectKeyAfter),

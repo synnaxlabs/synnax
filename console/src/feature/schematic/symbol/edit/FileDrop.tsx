@@ -66,7 +66,9 @@ export const FileDrop = ({
         extension: "svg",
       });
       if (file == null) return;
-      loadSVG(file.path, async () => new TextDecoder().decode(await file.readBytes()));
+      loadSVG(file.path, async () =>
+        new TextDecoder().decode(await Runtime.toBytes(await file.read())),
+      );
     }, "Failed to load SVG file");
 
   return (

@@ -14,6 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { FS } from "@/platform/fs";
 import {
+  createFile,
   fakeFileEntry,
   FileDragSource,
   fireFileDrop,
@@ -71,7 +72,7 @@ describe("FS.DropZone", () => {
     const onDrop = vi.fn();
     const { zone } = await renderZone({ onDrop });
     startFileDrag();
-    fireFileDrop(zone, [fakeFileEntry(new File(["{}"], "bundle.zip"))]);
+    fireFileDrop(zone, [fakeFileEntry(createFile("bundle.zip", "{}"))]);
     expect(onDrop).toHaveBeenCalledTimes(1);
     const entries = onDrop.mock.calls[0][0];
     expect(entries).toHaveLength(1);
@@ -93,7 +94,7 @@ describe("FS.DropZone", () => {
     fireEvent.click(screen.getByText(TWO_FILE_DRAG));
     fireEvent.dragOver(zone);
     expect(zone.className).not.toContain("dragging-over");
-    fireFileDrop(zone, [fakeFileEntry(new File(["{}"], "a.json"))]);
+    fireFileDrop(zone, [fakeFileEntry(createFile("a.json", "{}"))]);
     expect(onDrop).not.toHaveBeenCalled();
   });
 });

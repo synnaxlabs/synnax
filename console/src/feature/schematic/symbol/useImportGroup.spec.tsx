@@ -21,6 +21,7 @@ import {
   createSymbolPayload,
 } from "@/feature/schematic/testutil";
 import {
+  createFile,
   createJSONFile,
   fakeDirectoryEntry,
   fakeFileEntry,
@@ -135,7 +136,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       const { statuses } = await renderModal();
       startFileDrag();
       fireFileDrop(screen.getByText(ZONE_TEXT), [
-        fakeFileEntry(new File([bytes], `${groupName}.zip`)),
+        fakeFileEntry(createFile(`${groupName}.zip`, bytes)),
       ]);
       await awaitStatus(statuses, "success", successMessage(groupName));
       const groups = await importedGroupsNamed(groupName);

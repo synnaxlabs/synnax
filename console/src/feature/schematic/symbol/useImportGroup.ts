@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError } from "@synnaxlabs/client";
+import { type UploadBody } from "@synnaxlabs/freighter";
 import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -20,7 +21,7 @@ export const useImportGroup = Import.createModal({
   useOnImport: () => {
     const client = Synnax.use();
     return useCallback(
-      async (bundle: Uint8Array<ArrayBuffer>) => {
+      async (bundle: UploadBody) => {
         if (client == null) throw new DisconnectedError();
         const imported = await client.schematics.symbols.importGroup(bundle);
         return imported.name;

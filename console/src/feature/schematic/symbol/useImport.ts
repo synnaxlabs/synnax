@@ -31,10 +31,10 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
         if (files == null) return;
         const parent = group.ontologyID(parentGroup);
         await importBatch({
-          items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
+          items: files.map((file) => ({ name: file.path, read: file.read })),
           // The created ID is swallowed: symbols live in the symbol tree, not tabs.
           importItem: async (file) => {
-            await client.imex.import(await file.readBytes(), {
+            await client.imex.import(await file.read(), {
               ...imex.JSON_OPTIONS,
               fileName: file.name,
               parent,

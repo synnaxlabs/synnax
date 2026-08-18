@@ -17,6 +17,8 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  bodyBytes,
+  createFile,
   createJSONFile,
   fakeDirectoryEntry,
   fakeFileDropEvent,
@@ -121,7 +123,7 @@ describe("Import.useFileDrop", () => {
     );
     await waitFor(() => expect(importBundle).toHaveBeenCalledTimes(1));
     expect(importBundle.mock.calls[0][0]).toBe("my-directory");
-    const entries = unzipSync(importBundle.mock.calls[0][1]);
+    const entries = unzipSync(await bodyBytes(importBundle.mock.calls[0][1]));
     expect(Object.keys(entries)).toEqual(["a.json"]);
     expect(JSON.parse(new TextDecoder().decode(entries["a.json"]))).toEqual({
       type: "log",
@@ -138,17 +140,17 @@ describe("Import.useFileDrop", () => {
         event: fakeFileDropEvent([
           fakeDirectoryEntry("my-directory", [
             createJSONFile("a.json", { type: "log" }),
-            new File(["\x00\x01"], ".DS_Store"),
+            createFile(".DS_Store", "\x00\x01"),
             fakeDirectoryEntry("nested", [
               createJSONFile("b.json", { type: "log" }),
-              new File(["junk"], "notes.txt", { type: "text/plain" }),
+              createFile("notes.txt", "junk"),
             ]),
           ]),
         ]),
       }),
     );
     await waitFor(() => expect(importBundle).toHaveBeenCalledTimes(1));
-    const entries = unzipSync(importBundle.mock.calls[0][1]);
+    const entries = unzipSync(await bodyBytes(importBundle.mock.calls[0][1]));
     expect(Object.keys(entries).toSorted()).toEqual(["a.json", "nested/b.json"]);
   });
 
@@ -156,16 +158,18 @@ describe("Import.useFileDrop", () => {
     const importBundle = vi.fn<Import.BundleImporter>();
     const { result } = await renderFileDrop({ importBundle });
     const bytes = zipSync({ "manifest.json": new TextEncoder().encode("{}") });
+    const droppedZip = createFile("My Project.zip", bytes);
     act(() =>
       result.current({
         nodeKey: panel.ROOT_NODE_KEY,
         location: "center",
-        event: fakeFileDropEvent([fakeFileEntry(new File([bytes], "My Project.zip"))]),
+        event: fakeFileDropEvent([fakeFileEntry(droppedZip)]),
       }),
     );
     await waitFor(() => expect(importBundle).toHaveBeenCalledTimes(1));
     expect(importBundle.mock.calls[0][0]).toBe("My Project.zip");
-    expect(importBundle.mock.calls[0][1]).toEqual(bytes);
+    // The dropped File itself reaches the importer, so the upload streams it.
+    expect(importBundle.mock.calls[0][1]).toBe(droppedZip);
   });
 
   it("reports a non-JSON file and still imports the rest of the drop", async () => {
@@ -178,7 +182,7 @@ describe("Import.useFileDrop", () => {
         nodeKey: panel.ROOT_NODE_KEY,
         location: "center",
         event: fakeFileDropEvent([
-          fakeFileEntry(new File(["hello"], "notes.txt", { type: "text/plain" })),
+          fakeFileEntry(createFile("notes.txt", "hello")),
           fakeFileEntry(createJSONFile("Survivor.json", LEGACY_LOG_STATE)),
         ]),
       }),

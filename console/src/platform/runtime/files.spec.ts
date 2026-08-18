@@ -54,13 +54,16 @@ describe("Runtime files", () => {
   });
 
   describe("pickFiles (browser)", () => {
-    it("should map the selected file into path/readBytes handles", async () => {
+    it("should map the selected file into path/read handles", async () => {
       const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
       picker.selectFiles([fakePickedFile("manifest.json", "{}")]);
       const result = await p;
       assertDefined(result);
       expect(result.path).toBe("manifest.json");
-      expect(new TextDecoder().decode(await result.readBytes())).toBe("{}");
+      const decoded = new TextDecoder().decode(
+        await Runtime.toBytes(await result.read()),
+      );
+      expect(decoded).toBe("{}");
     });
 
     it("should return null when no files are selected", async () => {
@@ -126,7 +129,7 @@ describe("Runtime files", () => {
       const result = await Runtime.pickFiles({ title: "Pick", extension: "json" });
       assertDefined(result);
       expect(result.path).toBe("config.json");
-      await result.readBytes();
+      await result.read();
       expect(readFileMock).toHaveBeenCalledWith("/tmp/data/config.json");
     });
 
@@ -180,9 +183,9 @@ describe("Runtime files", () => {
       assertDefined(result);
       expect(result.name).toBe("project");
       expect(result.files.map((f) => f.path)).toEqual(["a.json", "nested/b.json"]);
-      await result.files[0].readBytes();
+      await result.files[0].read();
       expect(readFileMock).toHaveBeenCalledWith("/tmp/project/a.json");
-      await result.files[1].readBytes();
+      await result.files[1].read();
       expect(readFileMock).toHaveBeenCalledWith("/tmp/project/nested/b.json");
     });
   });

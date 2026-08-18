@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/**
- * A source file: a path relative to its root in forward-slash form and lazily read
- * bytes.
- */
+/** A source file: a path relative to its root in forward-slash form, read lazily. */
 export interface SourceFile {
   path: string;
-  readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
+  /** Reads the file: the backing File in the browser, bytes on Tauri. */
+  read: () => Promise<Uint8Array<ArrayBuffer> | File>;
 }
 
 /**
@@ -63,10 +61,7 @@ const walkDirectory = async (
       if (isDirectoryEntry(child)) files.push(...(await walkDirectory(child, path)));
       else if (isFileEntry(child)) {
         const file = await readEntryFile(child);
-        files.push({
-          path,
-          readBytes: async () => new Uint8Array(await file.arrayBuffer()),
-        });
+        files.push({ path, read: async () => file });
       }
     }
   }

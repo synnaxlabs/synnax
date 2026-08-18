@@ -30,9 +30,19 @@ export interface PickedFile {
    * pickFiles this is just the file's name.
    */
   path: string;
-  /** Reads the file's raw bytes. */
-  readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
+  /**
+   * Reads the file: the File itself in the browser, so uploads stream it from disk;
+   * its bytes on Tauri, where the filesystem plugin reads over IPC. Convert with
+   * toBytes when raw bytes are needed.
+   */
+  read: () => Promise<Uint8Array<ArrayBuffer> | File>;
 }
+
+/** Reads a picked file's contents into raw bytes. */
+export const toBytes = async (
+  data: Uint8Array<ArrayBuffer> | File,
+): Promise<Uint8Array<ArrayBuffer>> =>
+  data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer());
 
 // The Tauri dialog wants a named filter group; the name is just the dialog's label for
 // the extension.
@@ -69,7 +79,7 @@ const pickFilesTauri = async ({
   const separator = sep();
   return paths.map((path) => ({
     path: path.split(separator).pop() ?? path,
-    readBytes: () => readFile(path),
+    read: () => readFile(path),
   }));
 };
 
@@ -92,10 +102,7 @@ const pickFilesBrowser = ({
       const files = input.files;
       if (files == null || files.length === 0) return settle(null);
       settle(
-        Array.from(files).map((file) => ({
-          path: file.name,
-          readBytes: async () => new Uint8Array(await file.arrayBuffer()),
-        })),
+        Array.from(files).map((file) => ({ path: file.name, read: async () => file })),
       );
     });
     input.addEventListener("cancel", () => settle(null));
@@ -178,8 +185,7 @@ const pickDirectoryTauri = async ({
         const fullPath = absolute + separator + entry.name;
         const relPath = relative === "" ? entry.name : `${relative}/${entry.name}`;
         if (entry.isDirectory) return await walk(fullPath, relPath);
-        if (entry.isFile)
-          return [{ path: relPath, readBytes: () => readFile(fullPath) }];
+        if (entry.isFile) return [{ path: relPath, read: () => readFile(fullPath) }];
         return [];
       }),
     );
@@ -210,10 +216,7 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
           const rel = file.webkitRelativePath.startsWith(`${rootName}/`)
             ? file.webkitRelativePath.slice(rootName.length + 1)
             : file.webkitRelativePath;
-          return {
-            path: rel,
-            readBytes: async () => new Uint8Array(await file.arrayBuffer()),
-          };
+          return { path: rel, read: async () => file };
         }),
       });
     });

@@ -9,6 +9,7 @@
 
 import "@/platform/import/createModal.css";
 
+import { type UploadBody } from "@synnaxlabs/freighter";
 import { Button, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
@@ -28,10 +29,7 @@ export interface CreateModalArgs {
    * archive or folder's name and returns the imported resource's name for the success
    * status.
    */
-  useOnImport: () => (
-    bundle: Uint8Array<ArrayBuffer>,
-    fileName: string,
-  ) => Promise<string>;
+  useOnImport: () => (bundle: UploadBody, fileName: string) => Promise<string>;
 }
 
 /**
@@ -48,7 +46,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
     const errorMessage = `Failed to import ${resourceName}`;
 
     const importZip = useCallback(
-      async (bundle: Uint8Array<ArrayBuffer>, fileName: string): Promise<void> => {
+      async (bundle: UploadBody, fileName: string): Promise<void> => {
         const name = await onImport(bundle, fileName);
         addStatus({
           variant: "success",
@@ -66,7 +64,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
           extension: "zip",
         });
         if (file == null) return;
-        await importZip(await file.readBytes(), file.path);
+        await importZip(await file.read(), file.path);
       }, errorMessage);
 
     const handlePickDirectory = (): void =>
@@ -75,7 +73,10 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
           title: `Import ${resourceName}`,
         });
         if (directory == null) return;
-        await importZip(await zipFiles(directory.files), directory.name);
+        await importZip(
+          await Runtime.uploadBody(zipFiles(directory.files)),
+          directory.name,
+        );
       }, errorMessage);
 
     const handleDrop = useCallback(
@@ -86,7 +87,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
           const [entry] = entries;
           if (FS.isDirectoryEntry(entry)) {
             await importZip(
-              await zipFiles(await FS.readDirectoryFiles(entry)),
+              await Runtime.uploadBody(zipFiles(await FS.readDirectoryFiles(entry))),
               entry.name,
             );
             return;
@@ -95,7 +96,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
             throw new Error("dropped item is not a file or folder");
           const file = await FS.readEntryFile(entry);
           if (!isZipFile(file.name)) throw new Error(`${file.name} is not a .zip file`);
-          await importZip(new Uint8Array(await file.arrayBuffer()), file.name);
+          await importZip(file, file.name);
         }, errorMessage),
       [handleError, importZip],
     );

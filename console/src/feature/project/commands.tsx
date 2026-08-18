@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, imex, project } from "@synnaxlabs/client";
+import { type UploadBody } from "@synnaxlabs/freighter";
 import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -35,7 +36,7 @@ const useImportModal = Import.createModal({
     const client = Synnax.use();
     const store = Session.useStore();
     return useCallback(
-      async (bundle: Uint8Array<ArrayBuffer>, fileName: string) => {
+      async (bundle: UploadBody, fileName: string) => {
         if (client == null) throw new DisconnectedError();
         const imported = await client.projects.import(bundle, { fileName });
         store.dispatch(Session.Project.select(imported.key));

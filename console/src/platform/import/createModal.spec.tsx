@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UploadBody } from "@synnaxlabs/freighter";
 import { Haul, type Status } from "@synnaxlabs/pluto";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { unzipSync, zipSync } from "fflate";
@@ -14,6 +15,8 @@ import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  bodyBytes,
+  createFile,
   createJSONFile,
   fakeDirectoryEntry,
   fakeFileEntry,
@@ -36,8 +39,7 @@ afterEach(() => {
 
 const ZONE_TEXT = "Drop a .zip or folder here";
 
-const importFn =
-  vi.fn<(bundle: Uint8Array<ArrayBuffer>, fileName: string) => Promise<string>>();
+const importFn = vi.fn<(bundle: UploadBody, fileName: string) => Promise<string>>();
 
 const useTestImport = Import.createModal({
   header: "Widget.Import",
@@ -81,7 +83,7 @@ describe("Import.createModal", () => {
     ]);
     await waitFor(() => expect(importFn).toHaveBeenCalledTimes(1));
     expect(importFn.mock.calls[0][1]).toBe("my-widget");
-    const entries = unzipSync(importFn.mock.calls[0][0]);
+    const entries = unzipSync(await bodyBytes(importFn.mock.calls[0][0]));
     expect(Object.keys(entries)).toEqual(["a.json"]);
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain('Imported widget "My Widget"'),
@@ -93,12 +95,12 @@ describe("Import.createModal", () => {
     await renderModal();
     importFn.mockResolvedValue("Zipped");
     const bytes = zipSync({ "manifest.json": new TextEncoder().encode("{}") });
+    const dropped = createFile("My Widget.zip", bytes);
     startFileDrag();
-    fireFileDrop(screen.getByText(ZONE_TEXT), [
-      fakeFileEntry(new File([bytes], "My Widget.zip")),
-    ]);
+    fireFileDrop(screen.getByText(ZONE_TEXT), [fakeFileEntry(dropped)]);
     await waitFor(() => expect(importFn).toHaveBeenCalledTimes(1));
-    expect(importFn.mock.calls[0][0]).toEqual(bytes);
+    // The dropped File itself reaches the importer, so the upload streams it.
+    expect(importFn.mock.calls[0][0]).toBe(dropped);
     expect(importFn.mock.calls[0][1]).toBe("My Widget.zip");
   });
 
@@ -106,7 +108,7 @@ describe("Import.createModal", () => {
     const { statuses } = await renderModal();
     startFileDrag();
     fireFileDrop(screen.getByText(ZONE_TEXT), [
-      fakeFileEntry(new File(["junk"], "notes.txt")),
+      fakeFileEntry(createFile("notes.txt", "junk")),
     ]);
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain("Failed to import widget"),
@@ -119,8 +121,8 @@ describe("Import.createModal", () => {
     const { statuses } = await renderModal();
     startFileDrag();
     fireFileDrop(screen.getByText(ZONE_TEXT), [
-      fakeFileEntry(new File(["{}"], "a.zip")),
-      fakeFileEntry(new File(["{}"], "b.zip")),
+      fakeFileEntry(createFile("a.zip", "{}")),
+      fakeFileEntry(createFile("b.zip", "{}")),
     ]);
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain("Failed to import widget"),
@@ -138,9 +140,11 @@ describe("Import.createModal", () => {
     fireEvent.click(screen.getByText(ZONE_TEXT));
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     expect(picker.lastInput().accept).toBe(".zip");
-    picker.selectFiles([fakePickedFile("picked.zip", bytes)]);
+    const picked = fakePickedFile("picked.zip", bytes);
+    picker.selectFiles([picked]);
     await waitFor(() => expect(importFn).toHaveBeenCalledTimes(1));
-    expect(importFn.mock.calls[0][0]).toEqual(bytes);
+    // The picked File itself reaches the importer, so the upload streams it.
+    expect(importFn.mock.calls[0][0]).toBe(picked);
     expect(importFn.mock.calls[0][1]).toBe("picked.zip");
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain('Imported widget "Picked"'),
@@ -157,7 +161,7 @@ describe("Import.createModal", () => {
     picker.selectFiles([fakePickedFile("a.json", "{}", "my-widget/a.json")]);
     await waitFor(() => expect(importFn).toHaveBeenCalledTimes(1));
     expect(importFn.mock.calls[0][1]).toBe("my-widget");
-    const entries = unzipSync(importFn.mock.calls[0][0]);
+    const entries = unzipSync(await bodyBytes(importFn.mock.calls[0][0]));
     expect(Object.keys(entries)).toEqual(["a.json"]);
   });
 
@@ -167,7 +171,7 @@ describe("Import.createModal", () => {
     const bytes = zipSync({ "manifest.json": new TextEncoder().encode("{}") });
     startFileDrag();
     fireFileDrop(screen.getByText(ZONE_TEXT), [
-      fakeFileEntry(new File([bytes], "broken.zip")),
+      fakeFileEntry(createFile("broken.zip", bytes)),
     ]);
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain("Failed to import widget"),

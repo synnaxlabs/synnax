@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { File as NodeFile } from "node:buffer";
+
+import { type UploadBody } from "@synnaxlabs/freighter";
 import { Haul } from "@synnaxlabs/pluto";
 import { act, createEvent, fireEvent, screen } from "@testing-library/react";
 import { type DragEvent, type ReactElement } from "react";
@@ -30,9 +33,22 @@ export const startFileDrag = (): void => {
   });
 };
 
+/**
+ * Builds a File whose bytes undici's fetch accepts as a request body — jsdom's File is
+ * another realm's Blob and would be stringified.
+ */
+export const createFile = (
+  name: string,
+  contents: string | Uint8Array<ArrayBuffer>,
+): File => new NodeFile([contents], name) as unknown as File;
+
 /** Builds a JSON file the drop path accepts. */
 export const createJSONFile = (name: string, contents: unknown): File =>
-  new File([JSON.stringify(contents)], name, { type: "application/json" });
+  createFile(name, JSON.stringify(contents));
+
+/** Buffers an upload body — bytes, Blob, or stream — into bytes for assertions. */
+export const bodyBytes = async (body: UploadBody): Promise<Uint8Array<ArrayBuffer>> =>
+  new Uint8Array(await new Response(body as BodyInit).arrayBuffer());
 
 /**
  * Builds the FileSystemFileEntry surface the drop path reads. jsdom cannot construct
@@ -72,9 +88,9 @@ export const fakeDirectoryEntry = (
           const batch = children.slice(offset, offset + batchSize);
           offset += batchSize;
           resolve(
-            batch.map((child) =>
-              child instanceof File ? fakeFileEntry(child) : child,
-            ),
+            // A node:buffer File fails jsdom's instanceof File, so entries are told
+            // apart by their isFile marker instead.
+            batch.map((child) => ("isFile" in child ? child : fakeFileEntry(child))),
           );
         },
       };
