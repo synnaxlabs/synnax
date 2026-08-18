@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
@@ -94,18 +95,17 @@ type legacyGroupManifest struct {
 }
 
 // ImportGroup creates a group named by the manifest under the permanent symbol group,
-// then imports every member into it on tx. The decoder's extension names the manifest
-// file and selects member files. A version 1 manifest lists its members; version 2
-// infers them from the files beside the manifest. It returns a validation error naming
-// the offending file for a missing or invalid manifest, member names that collide
-// case-folded, or a member that is not a schematic symbol.
+// then imports every member into it on tx. Bundles are JSON: the manifest is
+// manifest.json and members are the JSON files beside it. A version 1 manifest lists
+// its members; version 2 infers them from the files beside the manifest. It returns a
+// validation error naming the offending file for a missing or invalid manifest, member
+// names that collide case-folded, or a member that is not a schematic symbol.
 func (s *Service) ImportGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	files zip.Files,
-	decoder encoding.FileDecoder,
 ) (group.Group, error) {
-	manifestFileName := imex.ManifestBaseName + decoder.Extension()
+	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
 	if !ok {
 		return group.Group{}, errors.Wrapf(
@@ -113,7 +113,7 @@ func (s *Service) ImportGroup(
 		)
 	}
 	var manifest imex.Manifest
-	if err := decoder.Decode(ctx, manifestData, &manifest); err != nil {
+	if err := json.Codec.Decode(ctx, manifestData, &manifest); err != nil {
 		return group.Group{}, errors.Wrap(err, manifestFileName)
 	}
 	if manifest.Type != manifestType {
@@ -138,15 +138,9 @@ func (s *Service) ImportGroup(
 	)
 	switch manifest.Version {
 	case legacyManifestVersion:
-		members, err = declaredMembers(
-			ctx,
-			decoder,
-			manifestData,
-			files,
-			manifestFileName,
-		)
+		members, err = declaredMembers(ctx, manifestData, files, manifestFileName)
 	case manifestVersion:
-		members = inferredMembers(files, manifestFileName, decoder.Extension())
+		members = inferredMembers(files, manifestFileName, json.Codec.Extension())
 	default:
 		err = errors.Wrapf(
 			validate.ErrValidation, "unsupported manifest version %d", manifest.Version,
@@ -166,7 +160,6 @@ func (s *Service) ImportGroup(
 		if err = s.importMember(
 			ctx,
 			tx,
-			decoder,
 			name,
 			files[name],
 			g.OntologyID(),
@@ -181,13 +174,12 @@ func (s *Service) ImportGroup(
 // rejecting a listed file the bundle does not hold and a manifest that lists itself.
 func declaredMembers(
 	ctx context.Context,
-	decoder encoding.Decoder,
 	manifestData []byte,
 	files zip.Files,
 	manifestFileName string,
 ) ([]string, error) {
 	var legacy legacyGroupManifest
-	if err := decoder.Decode(ctx, manifestData, &legacy); err != nil {
+	if err := json.Codec.Decode(ctx, manifestData, &legacy); err != nil {
 		return nil, errors.Wrap(err, manifestFileName)
 	}
 	foldedManifest := filename.Fold(manifestFileName)
@@ -255,13 +247,12 @@ func validateMemberNames(members []string) error {
 func (s *Service) importMember(
 	ctx context.Context,
 	tx gorp.Tx,
-	decoder encoding.Decoder,
 	name string,
 	data []byte,
 	parent ontology.ID,
 ) error {
 	var env imex.Envelope
-	if err := decoder.Decode(ctx, data, &env); err != nil {
+	if err := json.Codec.Decode(ctx, data, &env); err != nil {
 		return errors.Wrap(err, name)
 	}
 	typ, err := s.cfg.ImEx.ResolveType(env)

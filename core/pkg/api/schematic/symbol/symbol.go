@@ -297,7 +297,7 @@ func (s *Service) ImportGroup(
 	}); err != nil {
 		return ImportGroupResponse{}, err
 	}
-	g, err := s.internal.ImportGroup(ctx, tx, req, imex.JSONCodec)
+	g, err := s.internal.ImportGroup(ctx, tx, req)
 	if err != nil {
 		return ImportGroupResponse{}, err
 	}

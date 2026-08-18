@@ -25,14 +25,6 @@ type Decoder interface {
 	DecodeStream(context.Context, io.Reader, any) error
 }
 
-// FileDecoder is a Decoder that names the file extension it reads, so a caller reading
-// a directory can pick the files that belong to it.
-type FileDecoder interface {
-	Decoder
-	// Extension returns the file extension the decoder reads, leading dot included.
-	Extension() string
-}
-
 // Encoder encodes values into binary.
 type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along with any
