@@ -155,23 +155,21 @@ func (tr TxRequest) commitTo(db kv.Atomic) (err error) {
 	defer func() {
 		tr.Operations = nil
 		if err != nil {
-			err = tx.Close()
-		} else if commitErr := tx.Commit(tr.Context); commitErr != nil {
-			err = commitErr
+			err = errors.Combine(err, tx.Close())
+		} else {
+			err = tx.Commit(tr.Context)
 		}
 		tr.done(err)
 	}()
 	for _, op := range tr.Operations {
-		if applyErr := op.apply(tr.Context, tx); applyErr != nil {
-			err = applyErr
+		if err = op.apply(tr.Context, tx); err != nil {
 			return err
 		}
-		if applyErr := op.Digest().apply(tr.Context, tx); applyErr != nil {
-			err = applyErr
+		if err = op.Digest().apply(tr.Context, tx); err != nil {
 			return err
 		}
 	}
-	return err
+	return nil
 }
 
 func (tr TxRequest) done(err error) {

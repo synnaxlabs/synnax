@@ -42,17 +42,17 @@ func (la *leaseAllocator) allocate(
 				)
 			}
 		} else if lh != op.Leaseholder {
-			// If the Leaseholder doesn't match the previous Leaseholder,
-			// we return an error.
+			// If the Leaseholder doesn't match the previous Leaseholder, we return an
+			// error.
 			return Operation{}, errors.New("cannot transfer lease")
 		}
 	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantSet {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {
-			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder
+			// If we can't find the leaseholder, and the op doesn't have a leaseholder
 			// assigned, we assign the leaseAlloc to the cluster host.
 			op.Leaseholder = la.Cluster.HostKey()
 		}
-		// If we can't find the Leaseholder, and the op has a Leaseholder assigned, that
+		// If we can't find the leaseholder, and the op has a leaseholder assigned, that
 		// means it's a new key, so we let it choose its own leaseAlloc.
 	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantDelete {
 		// The key has no digest (e.g. it was written directly or through a recovery
@@ -90,12 +90,18 @@ func (lp *leaseProxy) switch_(
 	_ context.Context,
 	txReq TxRequest,
 ) (address.Address, bool, error) {
-	route := lo.Ternary(txReq.Leaseholder == lp.Cluster.HostKey(), lp.localTo, lp.remoteTo)
+	route := lo.Ternary(
+		txReq.Leaseholder == lp.Cluster.HostKey(),
+		lp.localTo,
+		lp.remoteTo,
+	)
 	return route, true, nil
 }
 
 type (
+	// LeaseTransportClient is the client for the lease transport.
 	LeaseTransportClient = freighter.UnaryClient[TxRequest, types.Nil]
+	// LeaseTransportServer is the server for the lease transport.
 	LeaseTransportServer = freighter.UnaryServer[TxRequest, types.Nil]
 )
 
@@ -110,14 +116,14 @@ func newLeaseSender(cfg Config) sink {
 	return ls
 }
 
-func (ls *leaseSender) send(_ context.Context, br TxRequest) error {
-	addr, err := ls.Cluster.Resolve(br.Leaseholder)
-	defer func() { br.done(err) }()
+func (ls *leaseSender) send(_ context.Context, txReq TxRequest) error {
+	addr, err := ls.Cluster.Resolve(txReq.Leaseholder)
+	defer func() { txReq.done(err) }()
 	if err != nil {
 		return nil
 	}
-	_, err = ls.LeaseTransportClient.Send(br.Context, addr, br)
-	return nil
+	_, err = ls.LeaseTransportClient.Send(txReq.Context, addr, txReq)
+	return err
 }
 
 type leaseReceiver struct {
@@ -132,7 +138,10 @@ func newLeaseReceiver(cfg Config) source {
 	return lr
 }
 
-func (lr *leaseReceiver) receive(_ context.Context, txReq TxRequest) (types.Nil, error) {
+func (lr *leaseReceiver) receive(
+	_ context.Context,
+	txReq TxRequest,
+) (types.Nil, error) {
 	bc := txCoordinator{}
 	bc.add(&txReq)
 	lr.Out.Inlet() <- txReq
