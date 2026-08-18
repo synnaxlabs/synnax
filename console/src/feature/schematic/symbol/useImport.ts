@@ -34,10 +34,11 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
           items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
           // The created ID is swallowed: symbols live in the symbol tree, not tabs.
           importItem: async (file) => {
-            await Import.importServer(
-              JSON.parse(new TextDecoder().decode(await file.readBytes())),
-              { client, parent, fileName: file.name },
-            );
+            await Import.importServer(await file.readBytes(), {
+              client,
+              parent,
+              fileName: file.name,
+            });
           },
           onSuccess: ({ name }) =>
             addStatus({ variant: "success", message: `Imported ${name}` }),

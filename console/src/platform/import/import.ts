@@ -22,7 +22,7 @@ import { useImportBatch } from "@/platform/import/useImportBatch";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-export interface FileImporterContext {
+export interface ImportServerContext {
   client: Client | null;
   /** The ontology resource the created resource is parented to. */
   parent: ontology.ID;
@@ -31,17 +31,6 @@ export interface FileImporterContext {
    * the resource after the file when the file's contents carry no name.
    */
   fileName: string;
-}
-
-/**
- * Creates the resource the data describes and returns its ID. Opening a tab for it
- * belongs to the caller, which decides where it lands.
- */
-export interface FileImporter {
-  (
-    data: unknown,
-    ctx: FileImporterContext,
-  ): void | ontology.ID | Promise<void | ontology.ID>;
 }
 
 interface BundleImporterContext {
@@ -62,21 +51,17 @@ export interface BundleImporter {
 }
 
 /**
- * Imports data by streaming its bytes to the Core, which owns envelope decoding, type
- * resolution for typeless legacy Console states, legacy-version migration, file-name
- * naming, and project parenting.
+ * Imports a resource by streaming its serialized bytes to the Core, which owns envelope
+ * decoding, type resolution for typeless legacy Console states, legacy-version
+ * migration, file-name naming, and parenting. Returns the created resource's ID.
  * @throws {DisconnectedError} if no Core is connected.
  */
-export const importServer: FileImporter = async (
-  data,
-  { client, parent, fileName },
-) => {
+export const importServer = async (
+  data: Uint8Array<ArrayBuffer>,
+  { client, parent, fileName }: ImportServerContext,
+): Promise<ontology.ID> => {
   if (client == null) throw new DisconnectedError();
-  return await client.imex.import(JSON.stringify(data), {
-    ...imex.JSON_OPTIONS,
-    fileName,
-    parent,
-  });
+  return await client.imex.import(data, { ...imex.JSON_OPTIONS, fileName, parent });
 };
 
 export const useImport = (): ((projectKey?: string) => void) => {
@@ -104,14 +89,11 @@ export const useImport = (): ((projectKey?: string) => void) => {
           // importBatch names failures after the item, so the path doubles as the name.
           items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
           importItem: async (file) =>
-            await importServer(
-              JSON.parse(new TextDecoder().decode(await file.readBytes())),
-              {
-                client,
-                parent: project.ontologyID(activeProjectKeyAfter),
-                fileName: file.name,
-              },
-            ),
+            await importServer(await file.readBytes(), {
+              client,
+              parent: project.ontologyID(activeProjectKeyAfter),
+              fileName: file.name,
+            }),
         });
       }),
     [store, client, handleError, importBatch],

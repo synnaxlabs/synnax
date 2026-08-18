@@ -13,8 +13,8 @@ import { type Import } from "@/platform/import";
 import { Session } from "@/session";
 
 /**
- * Imports a zipped project bundle through the Core and selects the created project.
- * The Core owns the bundle format — the current manifest layout and legacy LAYOUT.json
+ * Imports a zipped project bundle through the Core and selects the created project. The
+ * Core owns the bundle format — the current manifest layout and legacy LAYOUT.json
  * directories alike — and imports atomically.
  */
 export const importBundle: Import.BundleImporter = async (

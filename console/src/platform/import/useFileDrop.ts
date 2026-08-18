@@ -18,8 +18,6 @@ import { useImportBatch } from "@/platform/import/useImportBatch";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Session } from "@/session";
 
-const readJSON = async (file: File): Promise<unknown> => JSON.parse(await file.text());
-
 interface ImportContext {
   client: Client | null;
   importBundle: BundleImporter;
@@ -46,7 +44,7 @@ const importEntry = async (
       store,
     });
   if (file.type !== "application/json") throw new Error("not a JSON file");
-  return await importServer(await readJSON(file), {
+  return await importServer(new Uint8Array(await file.arrayBuffer()), {
     client,
     parent: project.ontologyID(projectKey),
     fileName: file.name,
@@ -60,15 +58,7 @@ export interface UseFileDropParams {
   importBundle: BundleImporter;
 }
 
-/**
- * A drop the mosaic reports, or one with no leaf to place into: the Console has no
- * panel open, so the tabs open in a panel created for them.
- */
-export interface FileDropProps extends Partial<Mosaic.OnFileDropProps> {
-  event: Mosaic.OnFileDropProps["event"];
-}
-
-export type FileDrop = (props: FileDropProps) => void;
+export type FileDrop = (props: Mosaic.OnFileDropProps) => void;
 
 /**
  * Returns a file drop handler that imports every dropped JSON file and directory
@@ -81,13 +71,12 @@ export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
   const handleError = Status.useErrorHandler();
   const importBatch = useImportBatch();
   return useCallback(
-    ({ nodeKey, location, event }: FileDropProps) => {
+    ({ nodeKey, location, event }: Mosaic.OnFileDropProps) => {
       const entries = FS.captureEntries(event.dataTransfer);
       // A dropped project selects itself once imported, so every file in the drop takes
       // the project open when it landed instead of whichever one wins the race.
       const projectKey = Session.Project.selectSelected(store.getState());
-      const placement =
-        nodeKey != null && location != null ? { leaf: nodeKey, location } : undefined;
+      const placement = { leaf: nodeKey, location };
       handleError(
         async () =>
           await importBatch({

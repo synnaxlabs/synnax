@@ -29,9 +29,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const createFileImporterContext = (
-  overrides: Partial<Import.FileImporterContext> = {},
-): Import.FileImporterContext => ({
+const createImportServerContext = (
+  overrides: Partial<Import.ImportServerContext> = {},
+): Import.ImportServerContext => ({
   client: null,
   parent: project.ontologyID("project-1"),
   fileName: "test.json",
@@ -41,7 +41,7 @@ const createFileImporterContext = (
 describe("importServer", () => {
   it("fails when disconnected", async () => {
     await expect(
-      Import.importServer({ key: "x" }, createFileImporterContext()),
+      Import.importServer(new TextEncoder().encode("{}"), createImportServerContext()),
     ).rejects.toThrow(DisconnectedError);
   });
 
@@ -55,10 +55,10 @@ describe("importServer", () => {
     const stream = await client.imex.export(log.ontologyID(original.key), {
       encoding: "JSON",
     });
-    const data = JSON.parse(await new Response(stream).text());
+    const data = new Uint8Array(await new Response(stream).arrayBuffer());
     const id = await Import.importServer(
       data,
-      createFileImporterContext({ client, parent: project.ontologyID(proj.key) }),
+      createImportServerContext({ client, parent: project.ontologyID(proj.key) }),
     );
     assertDefined(id, "server import returned no resource");
     const created = await client.logs.retrieve({ key: id.key });
@@ -75,8 +75,8 @@ describe("importServer", () => {
     // recognizes it by its frozen channels-array marker and names it after the file.
     const state = { version: "0.0.0", channels: [1, 2, 3], remoteCreated: false };
     const id = await Import.importServer(
-      state,
-      createFileImporterContext({
+      new TextEncoder().encode(JSON.stringify(state)),
+      createImportServerContext({
         client,
         parent: project.ontologyID(proj.key),
         fileName: "Legacy Log.json",
@@ -101,8 +101,8 @@ describe("importServer", () => {
       alerts: [],
     };
     const id = await Import.importServer(
-      legacy,
-      createFileImporterContext({
+      new TextEncoder().encode(JSON.stringify(legacy)),
+      createImportServerContext({
         client,
         parent: project.ontologyID(proj.key),
         fileName: "PD Alerts.json",

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
+import { panel } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Haul, Icon, Panel as PPanel, Text, Triggers } from "@synnaxlabs/pluto";
@@ -191,8 +191,8 @@ describe("Panel.Mosaic keep-alive", () => {
   });
 
   // With no panel open there is no leaf to drop onto, so the empty state is the
-  // drop target itself. It reports no leaf, which opens the tabs in a new panel.
-  it("should report a file dropped on the empty state with no leaf", async () => {
+  // drop target itself, standing in with the root key and center.
+  it("should report a file dropped on the empty state at the root", async () => {
     const onFileDrop = vi.fn();
     const { wrapper } = await setup();
     render(
@@ -208,7 +208,10 @@ describe("Panel.Mosaic keep-alive", () => {
       fakeFileEntry(createJSONFile("widget.json", { type: "log" })),
     ]);
     await waitFor(() => expect(onFileDrop).toHaveBeenCalledTimes(1));
-    expect(onFileDrop.mock.calls[0][0]).not.toHaveProperty("nodeKey");
+    expect(onFileDrop.mock.calls[0][0]).toMatchObject({
+      nodeKey: panel.ROOT_NODE_KEY,
+      location: "center",
+    });
   });
 
   it("should show the empty state while keeping visited panels mounted", async () => {

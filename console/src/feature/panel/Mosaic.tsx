@@ -9,7 +9,7 @@
 
 import "@/feature/panel/Mosaic.css";
 
-import { NotFoundError, ontology, type panel } from "@synnaxlabs/client";
+import { NotFoundError, ontology, panel } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Button,
@@ -313,7 +313,9 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       setOver(false);
       if (event == null) return [];
-      onFileDrop?.({ event });
+      // No leaf exists to target, so the root key and center stand in; the handler
+      // creates a fresh panel and the placement never applies.
+      onFileDrop?.({ nodeKey: panel.ROOT_NODE_KEY, location: "center", event });
       return items;
     },
     [onFileDrop],

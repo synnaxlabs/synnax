@@ -9,7 +9,6 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { type status } from "@synnaxlabs/client";
 import { Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -19,11 +18,6 @@ import { FS } from "@/platform/fs";
 import { Runtime } from "@/platform/runtime";
 
 const isSVGFile = (name: string): boolean => name.toLowerCase().endsWith(".svg");
-
-const INVALID_FILE_TYPE_STATUS: status.Crude = {
-  variant: "error",
-  message: "Invalid file type. Expected an SVG file.",
-};
 
 export interface FileDropProps extends Omit<Flex.BoxProps, "onDrop" | "onClick"> {
   onContentsChange: (contents: string, filename?: string) => void;
@@ -41,7 +35,10 @@ export const FileDrop = ({
 
   const loadSVG = (name: string, read: () => Promise<string>): void => {
     if (!isSVGFile(name)) {
-      addStatus(INVALID_FILE_TYPE_STATUS);
+      addStatus({
+        variant: "error",
+        message: "Invalid file type. Expected an SVG file.",
+      });
       return;
     }
     handleError(async () => {
