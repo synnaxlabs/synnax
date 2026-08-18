@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-var ErrLeaseNotTransferable = errors.New("[aspen] - cannot transfer lease")
+var ErrLeaseNotTransferable = errors.New("cannot transfer lease")
 
 const nodeKeyDefaultLeaseholder node.Key = 0
 
