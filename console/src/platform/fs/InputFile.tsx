@@ -17,14 +17,16 @@ import { Runtime } from "@/platform/runtime";
 
 export interface InputFileProps<P extends z.ZodType = z.ZodString> extends Omit<
   PickerRowProps,
-  "value" | "onClick" | "onChange"
+  "value" | "onClick" | "onChange" | "title"
 > {
   /** The displayed name of the loaded file. The caller owns it. */
   value: string;
   /** Receives the decoded contents and the file's name. */
   onChange: (value: z.infer<P>, name: string) => void;
+  /** Titles the native dialog. */
+  title: string;
   /** Restricts the picker to files with this extension, without the leading dot. */
-  extension?: string;
+  extension: string;
   schema?: P;
   decoder?: binary.Codec;
 }
@@ -38,6 +40,7 @@ export interface InputFileProps<P extends z.ZodType = z.ZodString> extends Omit<
 export const InputFile = <P extends z.ZodType = z.ZodString>({
   value,
   onChange,
+  title,
   extension,
   decoder = binary.TEXT_CODEC,
   schema,
@@ -46,7 +49,7 @@ export const InputFile = <P extends z.ZodType = z.ZodString>({
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
-      const files = await Runtime.pickFiles({ extension });
+      const files = await Runtime.pickFiles({ title, extension });
       if (files == null) return;
       const [file] = files;
       onChange(decoder.decode<P>(await file.readBytes(), schema), file.path);

@@ -64,7 +64,10 @@ export const FileDrop = ({
 
   const handleFileSelect = () =>
     handleError(async () => {
-      const files = await Runtime.pickFiles({ extension: "svg" });
+      const files = await Runtime.pickFiles({
+        title: "Select an SVG file",
+        extension: "svg",
+      });
       if (files == null) return;
       const [file] = files;
       loadSVG(file.path, async () => new TextDecoder().decode(await file.readBytes()));

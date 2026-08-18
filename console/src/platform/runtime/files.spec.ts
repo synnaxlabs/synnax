@@ -55,7 +55,7 @@ describe("Runtime files", () => {
 
   describe("pickFiles (browser)", () => {
     it("should map selected files into path/readBytes handles", async () => {
-      const p = Runtime.pickFiles({});
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
       picker.selectFiles([fakePickedFile("manifest.json", "{}")]);
       const result = await p;
       assertDefined(result);
@@ -65,29 +65,22 @@ describe("Runtime files", () => {
     });
 
     it("should return null when no files are selected", async () => {
-      const p = Runtime.pickFiles({});
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
       picker.selectFiles([]);
       await expect(p).resolves.toBeNull();
     });
 
     it("should return null when the picker is cancelled", async () => {
-      const p = Runtime.pickFiles({});
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
       picker.cancel();
       await expect(p).resolves.toBeNull();
     });
 
     it("should build the accept attribute from the extension", async () => {
-      const p = Runtime.pickFiles({ extension: "json", multiple: true });
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json", multiple: true });
       const input = picker.lastInput();
       expect(input.accept).toBe(".json");
       expect(input.multiple).toBe(true);
-      picker.cancel();
-      await p;
-    });
-
-    it("should leave accept unset when there is no extension", async () => {
-      const p = Runtime.pickFiles({});
-      expect(picker.lastInput().accept).toBe("");
       picker.cancel();
       await p;
     });
@@ -100,13 +93,15 @@ describe("Runtime files", () => {
 
     it("should return null when the dialog is cancelled", async () => {
       openMock.mockResolvedValue(null);
-      await expect(Runtime.pickFiles({})).resolves.toBeNull();
+      await expect(
+        Runtime.pickFiles({ title: "Pick", extension: "json" }),
+      ).resolves.toBeNull();
     });
 
     it("should resolve a single selected path to its basename", async () => {
       openMock.mockResolvedValue("/tmp/data/config.json");
       readFileMock.mockResolvedValue(new Uint8Array([1]));
-      const result = await Runtime.pickFiles({ title: "Pick" });
+      const result = await Runtime.pickFiles({ title: "Pick", extension: "json" });
       assertDefined(result);
       expect(result).toHaveLength(1);
       expect(result[0].path).toBe("config.json");
@@ -116,14 +111,20 @@ describe("Runtime files", () => {
 
     it("should resolve multiple selected paths", async () => {
       openMock.mockResolvedValue(["/a/one.json", "/b/two.json"]);
-      const result = await Runtime.pickFiles({ multiple: true });
+      const result = await Runtime.pickFiles({
+        title: "Pick",
+        extension: "json",
+        multiple: true,
+      });
       assertDefined(result);
       expect(result.map((f) => f.path)).toEqual(["one.json", "two.json"]);
     });
 
     it("should return null when the dialog resolves an empty array", async () => {
       openMock.mockResolvedValue([]);
-      await expect(Runtime.pickFiles({})).resolves.toBeNull();
+      await expect(
+        Runtime.pickFiles({ title: "Pick", extension: "json" }),
+      ).resolves.toBeNull();
     });
   });
 
@@ -134,12 +135,12 @@ describe("Runtime files", () => {
 
     it("should return null when cancelled", async () => {
       openMock.mockResolvedValue(null);
-      await expect(Runtime.pickDirectory()).resolves.toBeNull();
+      await expect(Runtime.pickDirectory({ title: "Pick" })).resolves.toBeNull();
     });
 
     it("should return null when the dialog resolves an array", async () => {
       openMock.mockResolvedValue(["/a", "/b"]);
-      await expect(Runtime.pickDirectory()).resolves.toBeNull();
+      await expect(Runtime.pickDirectory({ title: "Pick" })).resolves.toBeNull();
     });
 
     it("should collect files recursively with relative paths", async () => {
@@ -153,7 +154,7 @@ describe("Runtime files", () => {
           : [{ name: "b.json", isFile: true, isDirectory: false, isSymlink: false }],
       );
       readFileMock.mockResolvedValue(new Uint8Array([1]));
-      const result = await Runtime.pickDirectory();
+      const result = await Runtime.pickDirectory({ title: "Pick" });
       assertDefined(result);
       expect(result.name).toBe("project");
       expect(result.files.map((f) => f.path)).toEqual(["a.json", "nested/b.json"]);
@@ -166,7 +167,7 @@ describe("Runtime files", () => {
 
   describe("pickDirectory (browser)", () => {
     it("should derive the root name and relative paths", async () => {
-      const p = Runtime.pickDirectory();
+      const p = Runtime.pickDirectory({ title: "Pick" });
       expect(picker.lastInput().webkitdirectory).toBe(true);
       picker.selectFiles([
         fakePickedFile("foo.json", "1", "myroot/foo.json"),
@@ -179,13 +180,13 @@ describe("Runtime files", () => {
     });
 
     it("should return null when nothing is selected", async () => {
-      const p = Runtime.pickDirectory();
+      const p = Runtime.pickDirectory({ title: "Pick" });
       picker.selectFiles([]);
       await expect(p).resolves.toBeNull();
     });
 
     it("should return null when cancelled", async () => {
-      const p = Runtime.pickDirectory();
+      const p = Runtime.pickDirectory({ title: "Pick" });
       picker.cancel();
       await expect(p).resolves.toBeNull();
     });
@@ -193,7 +194,7 @@ describe("Runtime files", () => {
 
   describe("pickPath", () => {
     it("should reject in the browser without opening a dialog", async () => {
-      await expect(Runtime.pickPath()).rejects.toThrow(
+      await expect(Runtime.pickPath({ title: "Pick" })).rejects.toThrow(
         "File paths can only be selected in the Synnax desktop app.",
       );
       expect(openMock).not.toHaveBeenCalled();
@@ -206,14 +207,14 @@ describe("Runtime files", () => {
 
       it("should return the chosen absolute path", async () => {
         openMock.mockResolvedValue("/tmp/cert.pem");
-        await expect(Runtime.pickPath({ extension: "pem" })).resolves.toBe(
-          "/tmp/cert.pem",
-        );
+        await expect(
+          Runtime.pickPath({ title: "Pick", extension: "pem" }),
+        ).resolves.toBe("/tmp/cert.pem");
       });
 
       it("should return null when cancelled", async () => {
         openMock.mockResolvedValue(null);
-        await expect(Runtime.pickPath()).resolves.toBeNull();
+        await expect(Runtime.pickPath({ title: "Pick" })).resolves.toBeNull();
       });
     });
   });

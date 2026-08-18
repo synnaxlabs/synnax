@@ -45,10 +45,12 @@ describe("FS.InputPath", () => {
 
   it("should show a placeholder without a path and the path once one is set", async () => {
     const { rerender } = await renderWithConsole(
-      <FS.InputPath value="" onChange={vi.fn()} />,
+      <FS.InputPath value="" onChange={vi.fn()} title="Select file" />,
     );
     expect(screen.getByText("No file selected")).toBeTruthy();
-    rerender(<FS.InputPath value="/tmp/config.json" onChange={vi.fn()} />);
+    rerender(
+      <FS.InputPath value="/tmp/config.json" onChange={vi.fn()} title="Select file" />,
+    );
     expect(screen.getByText("/tmp/config.json")).toBeTruthy();
     expect(screen.queryByText("No file selected")).toBeNull();
   });
@@ -58,7 +60,7 @@ describe("FS.InputPath", () => {
     let statuses: Status.NotificationSpec[] = [];
     await renderWithConsole(
       <>
-        <FS.InputPath value="" onChange={onChange} />
+        <FS.InputPath value="" onChange={onChange} title="Select file" />
         <CaptureStatuses onStatuses={(s) => (statuses = s)} />
       </>,
     );
@@ -83,12 +85,17 @@ describe("FS.InputPath", () => {
       openMock.mockResolvedValue("/tmp/picked.json");
       const onChange = vi.fn();
       await renderWithConsole(
-        <FS.InputPath value="" onChange={onChange} extension="json" />,
+        <FS.InputPath
+          value=""
+          onChange={onChange}
+          title="Select file"
+          extension="json"
+        />,
       );
       fireEvent.click(screen.getByText("Select file"));
       await waitFor(() => expect(onChange).toHaveBeenCalledWith("/tmp/picked.json"));
       expect(openMock).toHaveBeenCalledWith({
-        title: undefined,
+        title: "Select file",
         directory: false,
         multiple: false,
         filters: [{ name: "JSON", extensions: ["json"] }],
@@ -98,7 +105,9 @@ describe("FS.InputPath", () => {
     it("should not call onChange when the dialog is cancelled", async () => {
       openMock.mockResolvedValue(null);
       const onChange = vi.fn();
-      await renderWithConsole(<FS.InputPath value="" onChange={onChange} />);
+      await renderWithConsole(
+        <FS.InputPath value="" onChange={onChange} title="Select file" />,
+      );
       fireEvent.click(screen.getByText("Select file"));
       await waitFor(() => expect(openMock).toHaveBeenCalled());
       expect(onChange).not.toHaveBeenCalled();

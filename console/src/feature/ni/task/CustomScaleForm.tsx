@@ -232,6 +232,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           <FS.InputFile<typeof tableSchema>
             value={fileName}
             onChange={handleFileChange}
+            title="Select a table CSV"
             extension="csv"
             schema={tableSchema}
             decoder={binary.CSV_CODEC}

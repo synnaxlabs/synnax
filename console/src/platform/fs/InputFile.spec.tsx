@@ -78,7 +78,14 @@ describe("FS.InputFile", () => {
 
   it("should show the caller's file name without reading anything", async () => {
     const onChange = vi.fn();
-    await renderWithConsole(<FS.InputFile value="table.csv" onChange={onChange} />);
+    await renderWithConsole(
+      <FS.InputFile
+        value="table.csv"
+        onChange={onChange}
+        title="Select file"
+        extension="csv"
+      />,
+    );
     expect(screen.getByText("table.csv")).toBeTruthy();
     expect(readFileMock).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
@@ -87,7 +94,9 @@ describe("FS.InputFile", () => {
   it("should read a file picked in the browser", async () => {
     const picker = interceptFilePicker();
     const onChange = vi.fn();
-    await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
+    await renderWithConsole(
+      <FS.InputFile value="" onChange={onChange} title="Select file" extension="txt" />,
+    );
     fireEvent.click(screen.getByText("Select file"));
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.selectFiles([fakePickedFile("notes.txt", "file body")]);
@@ -104,6 +113,8 @@ describe("FS.InputFile", () => {
       <FS.InputFile
         value=""
         onChange={onChange}
+        title="Select file"
+        extension="json"
         schema={schema}
         decoder={binary.JSON_CODEC}
       />,
@@ -131,7 +142,14 @@ describe("FS.InputFile", () => {
       await writeFile(path, "chosen body");
       openMock.mockResolvedValue(path);
       const onChange = vi.fn();
-      await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
+      await renderWithConsole(
+        <FS.InputFile
+          value=""
+          onChange={onChange}
+          title="Select file"
+          extension="txt"
+        />,
+      );
       fireEvent.click(screen.getByText("Select file"));
       await waitFor(() =>
         expect(onChange).toHaveBeenCalledWith("chosen body", "chosen.txt"),
@@ -142,7 +160,14 @@ describe("FS.InputFile", () => {
       const path = join(dir, "missing.txt");
       openMock.mockResolvedValue(path);
       const onChange = vi.fn();
-      await renderWithConsole(<FS.InputFile value="" onChange={onChange} />);
+      await renderWithConsole(
+        <FS.InputFile
+          value=""
+          onChange={onChange}
+          title="Select file"
+          extension="txt"
+        />,
+      );
       fireEvent.click(screen.getByText("Select file"));
       await waitFor(() => expect(readFileMock).toHaveBeenCalledWith(path));
       expect(onChange).not.toHaveBeenCalled();

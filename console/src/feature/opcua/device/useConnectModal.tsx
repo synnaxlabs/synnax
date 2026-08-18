@@ -160,20 +160,38 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                   label="Client certificate"
                   path="properties.connection.clientCertificate"
                 >
-                  {FS.InputPath}
+                  {({ value, onChange }) => (
+                    <FS.InputPath
+                      value={value}
+                      onChange={onChange}
+                      title="Select a client certificate"
+                    />
+                  )}
                 </Form.Field>
                 <Form.Field<string>
                   label="Client private key"
                   path="properties.connection.clientPrivateKey"
                 >
-                  {FS.InputPath}
+                  {({ value, onChange }) => (
+                    <FS.InputPath
+                      value={value}
+                      onChange={onChange}
+                      title="Select a client private key"
+                    />
+                  )}
                 </Form.Field>
                 <Form.Field<string>
                   grow
                   label="Server certificate"
                   path="properties.connection.serverCertificate"
                 >
-                  {FS.InputPath}
+                  {({ value, onChange }) => (
+                    <FS.InputPath
+                      value={value}
+                      onChange={onChange}
+                      title="Select a server certificate"
+                    />
+                  )}
                 </Form.Field>
               </>
             )}

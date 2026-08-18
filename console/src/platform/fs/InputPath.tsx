@@ -14,7 +14,9 @@ import { PickerRow, type PickerRowProps } from "@/platform/fs/PickerRow";
 import { Runtime } from "@/platform/runtime";
 
 export interface InputPathProps
-  extends Input.Control<string>, Omit<PickerRowProps, "value" | "onClick"> {
+  extends Input.Control<string>, Omit<PickerRowProps, "value" | "onClick" | "title"> {
+  /** Titles the native dialog. */
+  title: string;
   /** Restricts the picker to files with this extension, without the leading dot. */
   extension?: string;
 }
@@ -26,13 +28,14 @@ export interface InputPathProps
 export const InputPath = ({
   value,
   onChange,
+  title,
   extension,
   ...rest
 }: InputPathProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
-      const path = await Runtime.pickPath({ extension });
+      const path = await Runtime.pickPath({ title, extension });
       if (path == null) return;
       onChange(path);
     }, "Failed to open file");

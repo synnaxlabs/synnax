@@ -26,9 +26,10 @@ export interface PickedFile {
 
 /** Options for pickFiles. */
 export interface PickFilesParams {
-  title?: string;
+  /** Titles the native dialog. */
+  title: string;
   /** Restricts the picker to files with this extension, without the leading dot. */
-  extension?: string;
+  extension: string;
   multiple?: boolean;
 }
 
@@ -38,6 +39,17 @@ const tauriFilters = (extension?: string) =>
   extension == null
     ? undefined
     : [{ name: extension.toUpperCase(), extensions: [extension] }];
+
+/** Options for pickPath. */
+export interface PickPathParams {
+  /** Titles the native dialog. */
+  title: string;
+  /**
+   * Restricts the picker to files with this extension, without the leading dot. Left
+   * unset, the picker accepts any file.
+   */
+  extension?: string;
+}
 
 /**
  * Resolves a settle callback after the user appears to have dismissed a file picker but
@@ -80,7 +92,7 @@ const pickFilesBrowser = ({
     const input = document.createElement("input");
     input.type = "file";
     if (multiple) input.multiple = true;
-    if (extension != null) input.accept = `.${extension}`;
+    input.accept = `.${extension}`;
     let settled = false;
     const settle = (value: PickedFile[] | null) => {
       if (settled) return;
@@ -112,22 +124,16 @@ export const pickFiles = (params: PickFilesParams): Promise<PickedFile[] | null>
     ? pickFilesTauri(params)
     : pickFilesBrowser(params);
 
-/** Options for pickPath. */
-export interface PickPathParams {
-  title?: string;
-  /** Restricts the picker to files with this extension, without the leading dot. */
-  extension?: string;
-}
-
 /**
  * Opens a native file picker and returns the chosen file's absolute path, or null if
  * the user cancels. Only the desktop app can produce a path, so this rejects in the
  * browser; callers that need contents instead of a path use pickFiles, which works in
  * both runtimes.
  */
-export const pickPath = async ({ title, extension }: PickPathParams = {}): Promise<
-  string | null
-> => {
+export const pickPath = async ({
+  title,
+  extension,
+}: PickPathParams): Promise<string | null> => {
   if (Session.Runtime.ENGINE !== "tauri")
     throw new Error("File paths can only be selected in the Synnax desktop app.");
   const result = await open({
@@ -149,7 +155,8 @@ export interface PickedDirectory {
 
 /** Options for pickDirectory. */
 export interface PickDirectoryParams {
-  title?: string;
+  /** Titles the native dialog. */
+  title: string;
 }
 
 const pickDirectoryTauri = async ({
@@ -217,7 +224,7 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
  * relative to the picked root in forward-slash form. Returns null if the user cancels.
  */
 export const pickDirectory = (
-  params: PickDirectoryParams = {},
+  params: PickDirectoryParams,
 ): Promise<PickedDirectory | null> =>
   Session.Runtime.ENGINE === "tauri"
     ? pickDirectoryTauri(params)
