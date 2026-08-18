@@ -357,7 +357,6 @@ var _ = Describe("Export", func() {
 	})
 })
 
-// bundleManifest builds a version 1 project manifest file.
 func bundleManifest(name string) []byte {
 	GinkgoHelper()
 	return MustSucceed(json.Marshal(map[string]any{
@@ -365,7 +364,6 @@ func bundleManifest(name string) []byte {
 	}))
 }
 
-// bundleLog builds a member file holding a current-format log envelope.
 func bundleLog(name string) []byte {
 	GinkgoHelper()
 	return MustSucceed(json.Marshal(map[string]any{
@@ -373,8 +371,6 @@ func bundleLog(name string) []byte {
 	}))
 }
 
-// bundlePanel builds a member file holding a panel envelope whose leaf carries one
-// resource tab per path.
 func bundlePanel(name string, paths ...string) []byte {
 	GinkgoHelper()
 	tabs := make([]any, len(paths))
@@ -391,7 +387,6 @@ func bundlePanel(name string, paths ...string) []byte {
 	}))
 }
 
-// retrievePanel reads the panel behind id on the per-spec tx.
 func retrievePanel(ctx SpecContext, id ontology.ID) panel.Panel {
 	GinkgoHelper()
 	keys := MustSucceed(panel.KeysFromOntologyIDs([]ontology.ID{id}))
@@ -403,7 +398,6 @@ func retrievePanel(ctx SpecContext, id ontology.ID) panel.Panel {
 	return p
 }
 
-// firstTabResource returns the ontology ID the panel's first resource tab displays.
 func firstTabResource(p panel.Panel) ontology.ID {
 	GinkgoHelper()
 	l, ok := p.Root.Variant.(panel.LeafNode)
@@ -414,7 +408,6 @@ func firstTabResource(p panel.Panel) ontology.ID {
 	return r.Resource
 }
 
-// childOfType returns the single child of the given type, failing when none matches.
 func childOfType(
 	children []ontology.Resource, t ontology.ResourceType,
 ) ontology.Resource {

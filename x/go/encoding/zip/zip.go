@@ -151,6 +151,15 @@ func (codec) Decode(_ context.Context, data []byte, value any) error {
 
 // junk reports whether name is archiver metadata rather than content: the __MACOSX
 // tree, AppleDouble ._* files, and .DS_Store.
+// ParentDir returns the directory holding the entry at name, or "" at the archive
+// root.
+func ParentDir(name string) string {
+	if i := strings.LastIndexByte(name, '/'); i >= 0 {
+		return name[:i]
+	}
+	return ""
+}
+
 func junk(name string) bool {
 	if name == "__MACOSX" || strings.HasPrefix(name, "__MACOSX/") {
 		return true

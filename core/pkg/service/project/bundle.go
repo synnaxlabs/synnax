@@ -350,7 +350,7 @@ func (s *Service) Import(
 			return Project{}, errors.Wrap(err, m.path)
 		}
 		refs[m.path] = id
-		dir := parentDir(m.path)
+		dir := zip.ParentDir(m.path)
 		// A task parents under its rack's task group, never the project: it entered
 		// the bundle through a panel reference, so it stays where its importer put it.
 		if dir == "" || id.Type == ontology.ResourceTypeTask {
@@ -382,7 +382,7 @@ func (s *Service) Import(
 			p.Name = filename.Stem(m.path)
 		}
 		parent := projID
-		if dir := parentDir(m.path); dir != "" {
+		if dir := zip.ParentDir(m.path); dir != "" {
 			parent = groups[dir]
 		}
 		p.Parent = &parent
@@ -460,7 +460,7 @@ func (s *Service) ImportObjects(
 		add(resourceType)
 	}
 	for _, m := range members {
-		if parentDir(m.path) != "" {
+		if zip.ParentDir(m.path) != "" {
 			add(ontology.ResourceTypeGroup)
 			break
 		}
@@ -575,8 +575,7 @@ func validateMemberPaths(paths []string) error {
 			} else if !prev.dir || !isDir || prev.name != seg {
 				return errors.Wrapf(
 					validate.ErrValidation,
-					"members %q and %q have the same file name; "+
-						"rename one and import again",
+					"members %q and %q have the same file name; rename one and import again",
 					prev.path,
 					path,
 				)
@@ -585,14 +584,6 @@ func validateMemberPaths(paths []string) error {
 		}
 	}
 	return nil
-}
-
-// parentDir returns the directory holding path, or "" at the bundle root.
-func parentDir(path string) string {
-	if i := strings.LastIndexByte(path, '/'); i >= 0 {
-		return path[:i]
-	}
-	return ""
 }
 
 // createGroups recreates each bundle directory as a group, outer before inner, rooted
@@ -606,7 +597,7 @@ func (s *Service) createGroups(
 ) (map[string]ontology.ID, error) {
 	dirs := set.New[string]()
 	for _, m := range members {
-		for dir := parentDir(m.path); dir != ""; dir = parentDir(dir) {
+		for dir := zip.ParentDir(m.path); dir != ""; dir = zip.ParentDir(dir) {
 			dirs.Add(dir)
 		}
 	}
@@ -616,7 +607,7 @@ func (s *Service) createGroups(
 	)
 	for _, dir := range slices.Sorted(maps.Keys(dirs)) {
 		name := dir[strings.LastIndexByte(dir, '/')+1:]
-		g, err := writer.Create(ctx, name, groups[parentDir(dir)])
+		g, err := writer.Create(ctx, name, groups[zip.ParentDir(dir)])
 		if err != nil {
 			return nil, errors.Wrap(err, dir)
 		}
