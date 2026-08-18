@@ -15,6 +15,7 @@ import {
   Color,
   Component,
   CSS as PCSS,
+  Dialog,
   Divider,
   Flex,
   type Flux,
@@ -24,7 +25,6 @@ import {
   Label,
   List,
   Text,
-  useClickOutside,
 } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -66,17 +66,13 @@ const LabelListItem = ({
     if (isCreate && visible) inputRef.current?.focus();
   }, [isCreate, visible]);
   const ref = useRef<HTMLDivElement>(null);
-  const [colorPickerVisible, setColorPickerVisible] = useState(false);
-  useClickOutside({
+  Dialog.useClickOutside({
     ref,
     onClickOutside: useCallback(() => {
       if (!isCreate) return;
-      // The color picker portals out of the row, so picking a color reads as a
-      // click outside it.
-      if (colorPickerVisible) return;
       if (form.validate()) save();
       else onClose?.();
-    }, [isCreate, colorPickerVisible, form, save, onClose]),
+    }, [isCreate, form, save, onClose]),
   });
   return (
     <List.Item
@@ -98,13 +94,7 @@ const LabelListItem = ({
             padHelpText={false}
             showLabel={false}
           >
-            {(p) => (
-              <Color.Swatch
-                onlyChangeOnBlur
-                onVisibleChange={setColorPickerVisible}
-                {...p}
-              />
-            )}
+            {(p) => <Color.Swatch onlyChangeOnBlur {...p} />}
           </Form.Field>
           <Form.TextField
             showLabel={false}
