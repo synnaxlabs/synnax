@@ -31,7 +31,6 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
         const parentID = group.ontologyID(parentGroup);
         await Promise.all(
           files.map(async (file) => {
-            // More performant importing will come in w/ project importing.
             try {
               const data = await file.read();
               await client.imex.import(data, {

@@ -127,6 +127,36 @@ export const pickFiles = (params: PickFilesParams): Promise<PickedFile[] | null>
     ? pickFilesTauri(params)
     : pickFilesBrowser(params);
 
+export interface PickPathParams {
+  title?: string;
+  filters?: FileFilter[];
+}
+
+/**
+ * Opens a native file picker and returns the chosen file's absolute path, or null if
+ * the user cancels. Only the desktop app can produce a path, so this rejects in the
+ * browser; callers that need contents instead of a path use pickFiles, which works in
+ * both runtimes.
+ */
+export const pickPath = async ({ title, filters }: PickPathParams = {}): Promise<
+  string | null
+> => {
+  if (Session.Runtime.ENGINE !== "tauri")
+    throw new Error("File paths can only be selected in the Synnax desktop app.");
+  const result = await open({ title, filters, directory: false, multiple: false });
+  return typeof result === "string" ? result : null;
+};
+
+/**
+ * Reads the file at the given absolute path, as picked by pickPath. Only the desktop
+ * app can read a path, so this rejects in the browser.
+ */
+export const readPath = async (path: string): Promise<Uint8Array<ArrayBuffer>> => {
+  if (Session.Runtime.ENGINE !== "tauri")
+    throw new Error("File paths can only be read in the Synnax desktop app.");
+  return await readFile(path);
+};
+
 export interface PickedDirectory {
   /** The picked directory's basename. */
   name: string;

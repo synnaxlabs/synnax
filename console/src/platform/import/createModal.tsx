@@ -9,12 +9,12 @@
 
 import "@/platform/import/createModal.css";
 
-import { Button, Flex, Haul, Icon, Status, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useState } from "react";
+import { Button, Icon, Status, Text } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
+import { DropZone } from "@/platform/import/DropZone";
 import {
-  captureEntries,
   isDirectoryEntry,
   isFileEntry,
   readDirectoryFiles,
@@ -23,9 +23,6 @@ import {
 import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
-
-const canDrop: Haul.CanDrop = ({ items }) =>
-  items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;
 
 export interface CreateModalArgs {
   /** The modal's header text, e.g. "Project.Import". */
@@ -54,7 +51,6 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
     const onImport = useOnImport();
     const handleError = Status.useErrorHandler();
     const addStatus = Status.useAdder();
-    const [draggingOver, setDraggingOver] = useState(false);
     const errorMessage = `Failed to import ${resourceName}`;
 
     const importZip = useCallback(
@@ -89,11 +85,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
       }, errorMessage);
 
     const handleDrop = useCallback(
-      ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-        if (event == null) return items;
-        event.preventDefault();
-        setDraggingOver(false);
-        const entries = captureEntries(event.dataTransfer);
+      (entries: FileSystemEntry[]): void =>
         handleError(async () => {
           if (entries.length !== 1)
             throw new Error("drop a single .zip file or folder");
@@ -110,35 +102,20 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
           const file = await readEntryFile(entry);
           if (!isZipFile(file.name)) throw new Error(`${file.name} is not a .zip file`);
           await importZip(new Uint8Array(await file.arrayBuffer()), file.name);
-        }, errorMessage);
-        return items;
-      },
+        }, errorMessage),
       [handleError, importZip],
     );
-
-    const dropProps = Haul.useDrop({
-      type: Haul.FILE_TYPE,
-      onDrop: handleDrop,
-      canDrop,
-      onDragOver: () => setDraggingOver(true),
-    });
 
     return (
       <Modals.Frame className={CSS.B("import-modal")}>
         <Modals.Header icon={<Icon.Import />}>{header}</Modals.Header>
         <Modals.Body>
-          <Flex.Box
+          <DropZone
             className={CSS.BE("import-modal", "zone")}
             y
-            align="center"
-            justify="center"
             gap="small"
-            bordered
-            rounded="small"
-            borderColor={draggingOver ? 9 : 6}
-            onDragLeave={() => setDraggingOver(false)}
+            onDrop={handleDrop}
             onClick={handlePickZip}
-            {...dropProps}
           >
             <Text.Text level="h1" color={9}>
               <Icon.Import />
@@ -159,7 +136,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
             >
               Select folder
             </Button.Button>
-          </Flex.Box>
+          </DropZone>
         </Modals.Body>
       </Modals.Frame>
     );

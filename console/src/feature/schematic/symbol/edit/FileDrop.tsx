@@ -10,15 +10,13 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type status } from "@synnaxlabs/client";
-import { Flex, Haul, Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
-
-const canDrop: Haul.CanDrop = ({ items }) =>
-  items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;
 
 const isSVGFile = (name: string): boolean => name.toLowerCase().endsWith(".svg");
 
@@ -27,7 +25,7 @@ const INVALID_FILE_TYPE_STATUS: status.Crude = {
   message: "Invalid file type. Expected an SVG file.",
 };
 
-export interface FileDropProps extends Flex.BoxProps {
+export interface FileDropProps extends Omit<Flex.BoxProps, "onDrop" | "onClick"> {
   onContentsChange: (contents: string, filename?: string) => void;
   enabled?: boolean;
 }
@@ -40,26 +38,28 @@ export const FileDrop = ({
 }: FileDropProps): ReactElement => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const [draggingOver, setDraggingOver] = useState(false);
-  const handleFileDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-    if (event == null) return items;
-    event.preventDefault();
-    setDraggingOver(false);
-    if (event.dataTransfer.files.length === 0) return items;
 
-    const file = event.dataTransfer.files[0];
-    if (!isSVGFile(file.name)) {
+  const loadSVG = (name: string, read: () => Promise<string>): void => {
+    if (!isSVGFile(name)) {
       addStatus(INVALID_FILE_TYPE_STATUS);
-      return items;
+      return;
     }
-
     handleError(async () => {
-      const svg = await file.text();
-      const nameWithoutExt = file.name.replace(/\.svg$/i, "");
-      const properName = caseconv.toProperNoun(nameWithoutExt);
-      onContentsChange(svg, properName);
+      const contents = await read();
+      const nameWithoutExt = name.replace(/\.svg$/i, "");
+      const properName =
+        nameWithoutExt === "" ? undefined : caseconv.toProperNoun(nameWithoutExt);
+      onContentsChange(contents, properName);
+    }, "Failed to load SVG file");
+  };
+
+  const handleDrop = (entries: FileSystemEntry[]): void => {
+    const [entry] = entries;
+    if (entry == null || !Import.isFileEntry(entry)) return;
+    handleError(async () => {
+      const file = await Import.readEntryFile(entry);
+      loadSVG(file.name, () => file.text());
     }, "Failed to load dropped SVG file");
-    return items;
   };
 
   const handleFileSelect = () =>
@@ -69,40 +69,19 @@ export const FileDrop = ({
       });
       if (files == null) return;
       const [file] = files;
-      if (!isSVGFile(file.name)) {
-        addStatus(INVALID_FILE_TYPE_STATUS);
-        return;
-      }
-      const contents = await file.read();
-      const nameWithoutExt = file.name.replace(/\.svg$/i, "");
-      const properName =
-        nameWithoutExt === "" ? undefined : caseconv.toProperNoun(nameWithoutExt);
-      onContentsChange(contents, properName);
+      loadSVG(file.name, file.read);
     }, "Failed to load SVG file");
 
-  const dropProps = Haul.useDrop({
-    type: Haul.FILE_TYPE,
-    onDrop: handleFileDrop,
-    canDrop,
-    onDragOver: () => setDraggingOver(true),
-  });
   return (
-    <Flex.Box
+    <Import.DropZone
       grow
-      align="center"
-      justify="center"
-      bordered
       className={CSS(
         CSS.B("file-drop"),
         CSS.B("schematic-file-drop"),
-        draggingOver && CSS.M("dragging-over"),
         enabled && CSS.M("enabled"),
       )}
-      onDragLeave={() => setDraggingOver(false)}
-      rounded="small"
+      onDrop={handleDrop}
       onClick={enabled ? handleFileSelect : undefined}
-      {...dropProps}
-      borderColor={6}
       {...rest}
     >
       {enabled && (
@@ -121,6 +100,6 @@ export const FileDrop = ({
         </Flex.Box>
       )}
       {children}
-    </Flex.Box>
+    </Import.DropZone>
   );
 };

@@ -11,17 +11,15 @@ import "@/platform/fs/LoadFileContents.css";
 
 import { Button, Flex, Icon, type Input, Status } from "@synnaxlabs/pluto";
 import { binary, primitive } from "@synnaxlabs/x";
-import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useEffect, useState } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
+import { Runtime } from "@/platform/runtime";
 
 export interface InputFilePathProps
   extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
-  filters?: DialogFilter[];
+  filters?: Runtime.FileFilter[];
 }
 
 export const InputFilePath = ({
@@ -34,11 +32,7 @@ export const InputFilePath = ({
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
-      if (Session.Runtime.ENGINE !== "tauri")
-        throw new Error(
-          "Cannot open a file dialog when running Synnax in the browser.",
-        );
-      const path = await open({ directory: false, filters });
+      const path = await Runtime.pickPath({ filters });
       if (path == null) return;
       onChange(path);
     }, "Failed to open file");
@@ -99,7 +93,7 @@ export const InputFileContents = <P extends z.ZodType = z.ZodString>({
   }, [initialPath]);
   const handleChange = (path: string) =>
     handleError(async () => {
-      const contents = await readFile(path);
+      const contents = await Runtime.readPath(path);
       onChange(decoder.decode<P>(contents, schema), path);
       setPath(path);
     }, "Failed to read file");

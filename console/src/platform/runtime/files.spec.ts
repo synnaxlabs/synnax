@@ -22,11 +22,12 @@ vi.mock("@tauri-apps/api/path", () => ({ sep: vi.fn(() => "/") }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readDir: vi.fn(),
+  readFile: vi.fn(),
   readTextFile: vi.fn(),
 }));
 
 import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
+import { readDir, readFile, readTextFile } from "@tauri-apps/plugin-fs";
 
 import { Runtime } from "@/platform/runtime";
 import {
@@ -38,6 +39,7 @@ import {
 
 const openMock = vi.mocked(open);
 const readDirMock = vi.mocked(readDir);
+const readFileMock = vi.mocked(readFile);
 const readTextFileMock = vi.mocked(readTextFile);
 
 let picker: FilePickerInterceptor;
@@ -45,7 +47,8 @@ let picker: FilePickerInterceptor;
 describe("Runtime files", () => {
   beforeEach(() => {
     mocks.engine = "web";
-    for (const m of [openMock, readDirMock, readTextFileMock]) m.mockReset();
+    for (const m of [openMock, readDirMock, readFileMock, readTextFileMock])
+      m.mockReset();
     picker = interceptFilePicker();
   });
   afterEach(() => {
@@ -192,6 +195,51 @@ describe("Runtime files", () => {
       const p = Runtime.pickDirectory();
       picker.cancel();
       await expect(p).resolves.toBeNull();
+    });
+  });
+
+  describe("pickPath", () => {
+    it("should reject in the browser without opening a dialog", async () => {
+      await expect(Runtime.pickPath()).rejects.toThrow(
+        "File paths can only be selected in the Synnax desktop app.",
+      );
+      expect(openMock).not.toHaveBeenCalled();
+    });
+
+    describe("tauri engine", () => {
+      beforeEach(() => {
+        mocks.engine = "tauri";
+      });
+
+      it("should return the chosen absolute path", async () => {
+        openMock.mockResolvedValue("/tmp/cert.pem");
+        await expect(
+          Runtime.pickPath({ filters: [{ name: "PEM", extensions: ["pem"] }] }),
+        ).resolves.toBe("/tmp/cert.pem");
+      });
+
+      it("should return null when cancelled", async () => {
+        openMock.mockResolvedValue(null);
+        await expect(Runtime.pickPath()).resolves.toBeNull();
+      });
+    });
+  });
+
+  describe("readPath", () => {
+    it("should reject in the browser without touching the filesystem", async () => {
+      await expect(Runtime.readPath("/tmp/cert.pem")).rejects.toThrow(
+        "File paths can only be read in the Synnax desktop app.",
+      );
+      expect(readFileMock).not.toHaveBeenCalled();
+    });
+
+    it("should read the path's bytes on tauri", async () => {
+      mocks.engine = "tauri";
+      readFileMock.mockResolvedValue(new Uint8Array([1, 2, 3]));
+      await expect(Runtime.readPath("/tmp/cert.pem")).resolves.toEqual(
+        new Uint8Array([1, 2, 3]),
+      );
+      expect(readFileMock).toHaveBeenCalledWith("/tmp/cert.pem");
     });
   });
 });

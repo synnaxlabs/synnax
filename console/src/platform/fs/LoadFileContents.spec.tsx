@@ -40,7 +40,9 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-fs", async () => {
   const { readFile } = await import("node:fs/promises");
   return {
+    readDir: vi.fn(),
     readFile: vi.fn(async (path: string) => new Uint8Array(await readFile(path))),
+    readTextFile: vi.fn(),
   };
 });
 
@@ -120,7 +122,9 @@ describe("FS.InputFilePath", () => {
       fireEvent.click(screen.getByText("Select file"));
       await waitFor(() => expect(onChange).toHaveBeenCalledWith("/tmp/picked.json"));
       expect(openMock).toHaveBeenCalledWith({
+        title: undefined,
         directory: false,
+        multiple: false,
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
     });

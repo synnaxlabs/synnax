@@ -9,7 +9,6 @@
 
 import { Flex, Form, Icon, Input, Select, state } from "@synnaxlabs/pluto";
 import { binary, deep, type record } from "@synnaxlabs/x";
-import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
 import { z } from "zod";
 
@@ -22,6 +21,7 @@ import {
   type Units,
 } from "@/feature/ni/task/types";
 import { FS } from "@/platform/fs";
+import { type Runtime } from "@/platform/runtime";
 
 const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,
@@ -99,7 +99,7 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   },
 });
 
-const FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
+const FILTERS: Runtime.FileFilter[] = [{ name: "CSV", extensions: ["csv"] }];
 
 export interface CustomScaleFormProps {
   prefix: string;
