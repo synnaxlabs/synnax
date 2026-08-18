@@ -70,6 +70,11 @@ positions the crop to contain it. Scripts can also author the camera directly:
 `session.zoom(locator)` opens an override framing the element (amount derived from
 its rect unless given) and suppresses auto-zoom until `session.endZoom()`.
 
+The synthetic cursor fades out after sitting still for 1.5s and fades back in the
+moment it moves or presses again, matching Screen Studio's idle behavior. The fade
+is computed in the director from actual sample motion, so click anticipation and
+spring settle count as movement.
+
 Captures run under a fixed virtual-clock epoch, so main-thread timestamps are
 identical across runs and between the light/dark videos of a pair. Plot axis labels
 are not: they come from the Aether worker, which the virtual clock does not reach

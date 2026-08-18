@@ -14,6 +14,10 @@ import {
   CLICK_SPRING,
   CLICK_STIFFEN_S,
   CURSOR_SPRING,
+  IDLE_EPSILON_PX,
+  IDLE_FADE_DELAY_S,
+  IDLE_FADE_IN_S,
+  IDLE_FADE_OUT_S,
 } from "@/director/constants";
 import { at2D, settleLag, step2D } from "@/director/spring";
 import { clicks, type CursorKind, type Point, type Timeline } from "@/timeline";
@@ -30,6 +34,8 @@ export interface CursorSample {
   pressed: boolean;
   /** Sprite kind: the last arrived move's target cursor. */
   kind: CursorKind;
+  /** Sprite opacity in [0, 1]: fades out after the cursor sits still. */
+  opacity: number;
 }
 
 export type CursorTrack = CursorSample[];
@@ -81,6 +87,8 @@ export const synthesize = (tl: Timeline): CursorTrack => {
 
   let state = at2D(tl.origin.x, tl.origin.y);
   let scale = 1;
+  let opacity = 1;
+  let idleS = 0;
   const moves = tl.events.filter((e) => e.type === "move");
   const track: CursorTrack = [];
 
@@ -108,6 +116,19 @@ export const synthesize = (tl: Timeline): CursorTrack => {
     if (pressed) scale = Math.max(CLICK_SHRINK_SCALE, scale - shrinkPerFrame);
     else scale = Math.min(1, scale + shrinkPerFrame);
 
+    const movedPx = Math.hypot(
+      state.x.position - prev.x.position,
+      state.y.position - prev.y.position,
+    );
+    if (movedPx > IDLE_EPSILON_PX || pressed) {
+      idleS = 0;
+      opacity = Math.min(1, opacity + dt / IDLE_FADE_IN_S);
+    } else {
+      idleS += dt;
+      if (idleS >= IDLE_FADE_DELAY_S)
+        opacity = Math.max(0, opacity - dt / IDLE_FADE_OUT_S);
+    }
+
     const arrived = [...moves].reverse().find((m) => m.tick <= f);
     track.push({
       x: state.x.position,
@@ -117,6 +138,7 @@ export const synthesize = (tl: Timeline): CursorTrack => {
       scale,
       pressed,
       kind: arrived?.cursor ?? "default",
+      opacity,
     });
   }
   return track;

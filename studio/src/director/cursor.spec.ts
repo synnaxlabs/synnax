@@ -98,4 +98,25 @@ describe("synthesize", () => {
   it("should be deterministic", () => {
     expect(synthesize(timeline(events))).toEqual(synthesize(timeline(events)));
   });
+
+  it("should fade the cursor out after it sits idle", () => {
+    const track = synthesize(timeline(events, 20 * FPS));
+    expect(track[200].opacity).toEqual(1);
+    expect(track.at(-1)!.opacity).toEqual(0);
+  });
+
+  it("should keep the cursor visible while it travels", () => {
+    const track = synthesize(timeline(events));
+    for (let f = 80; f <= 160; f++) expect(track[f].opacity).toEqual(1);
+  });
+
+  it("should fade back in when the cursor moves again", () => {
+    const wake: Event[] = [
+      ...events,
+      { type: "move", tick: 900, x: 200, y: 200, duration: 40 },
+    ];
+    const track = synthesize(timeline(wake, 20 * FPS));
+    expect(track[820].opacity).toEqual(0);
+    expect(track[920].opacity).toEqual(1);
+  });
 });

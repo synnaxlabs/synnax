@@ -106,6 +106,7 @@ export const StudioVideo = ({
         pressed={cur.pressed}
         dsf={dsf}
         kind={cur.kind}
+        opacity={cur.opacity ?? 1}
       />
     </AbsoluteFill>
   );

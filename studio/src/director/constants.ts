@@ -84,3 +84,15 @@ export const RECT_ZOOM_MAX = 2.5;
 export const TRAVEL_MIN_S = 0.25;
 export const TRAVEL_SCALE_S = 0.35;
 export const TRAVEL_MAX_S = 1.1;
+
+/** Seconds the cursor must be still before it starts fading out. */
+export const IDLE_FADE_DELAY_S = 1.5;
+
+/** Seconds the idle fade-out takes. */
+export const IDLE_FADE_OUT_S = 0.5;
+
+/** Seconds the wake fade-in takes when the cursor moves again. */
+export const IDLE_FADE_IN_S = 0.15;
+
+/** Raw-path movement (px/frame) below which the cursor counts as still. */
+export const IDLE_EPSILON_PX = 0.1;
