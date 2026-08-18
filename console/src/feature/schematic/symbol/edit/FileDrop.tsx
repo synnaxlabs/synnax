@@ -64,12 +64,11 @@ export const FileDrop = ({
 
   const handleFileSelect = () =>
     handleError(async () => {
-      const files = await Runtime.pickFiles({
+      const file = await Runtime.pickFiles({
         title: "Select an SVG file",
         extension: "svg",
       });
-      if (files == null) return;
-      const [file] = files;
+      if (file == null) return;
       loadSVG(file.path, async () => new TextDecoder().decode(await file.readBytes()));
     }, "Failed to load SVG file");
 

@@ -114,15 +114,29 @@ const pickFilesBrowser = ({
     input.click();
   });
 
+// PickFiles narrows the return by the multiple flag: every selected file with
+// multiple, the one selected file without.
+interface PickFiles {
+  (params: PickFilesParams & { multiple: true }): Promise<PickedFile[] | null>;
+  (params: PickFilesParams & { multiple?: false }): Promise<PickedFile | null>;
+}
+
 /**
- * Opens a native file picker and returns the selected files. On Tauri this uses the OS
+ * Opens a native file picker and returns the chosen file — every chosen file with
+ * multiple — or null if the user cancels or selects nothing. On Tauri this uses the OS
  * dialog and reads via the filesystem plugin; in the browser it uses an
- * <input type="file">. Returns null if the user cancels or selects nothing.
+ * <input type="file">.
  */
-export const pickFiles = (params: PickFilesParams): Promise<PickedFile[] | null> =>
-  Session.Runtime.ENGINE === "tauri"
-    ? pickFilesTauri(params)
-    : pickFilesBrowser(params);
+export const pickFiles = (async (
+  params: PickFilesParams,
+): Promise<PickedFile | PickedFile[] | null> => {
+  const files =
+    Session.Runtime.ENGINE === "tauri"
+      ? await pickFilesTauri(params)
+      : await pickFilesBrowser(params);
+  if (files == null) return null;
+  return params.multiple === true ? files : files[0];
+}) as PickFiles;
 
 /**
  * Opens a native file picker and returns the chosen file's absolute path, or null if

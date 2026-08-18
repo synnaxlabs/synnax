@@ -49,9 +49,8 @@ export const InputFile = <P extends z.ZodType = z.ZodString>({
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
-      const files = await Runtime.pickFiles({ title, extension });
-      if (files == null) return;
-      const [file] = files;
+      const file = await Runtime.pickFiles({ title, extension });
+      if (file == null) return;
       onChange(decoder.decode<P>(await file.readBytes(), schema), file.path);
     }, "Failed to read file");
   return <PickerRow value={value} onClick={handleClick} {...rest} />;
