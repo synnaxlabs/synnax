@@ -28,6 +28,9 @@ const CONTROLLER_KEY = "controller-1";
 const CONTROLLER_NAME = "Valve Controller";
 const AUTHORITY = 200;
 const POLL = { timeout: 5000 };
+// Each test creates channels, connects a client, and takes control, so the default
+// per-test budget is too small.
+const SUITE = { timeout: 30_000 };
 
 const openWriters: framer.Writer[] = [];
 
@@ -104,7 +107,7 @@ const setup = async (key: channel.Key) => {
   return { colors: h.component, controller, source };
 };
 
-describe("control/aether/AuthoritySource", () => {
+describe("control/aether/AuthoritySource", SUITE, () => {
   it("should report no channel when the source is bound to key zero", async () => {
     const { source, controller } = await setup(0);
     const status = source.value();

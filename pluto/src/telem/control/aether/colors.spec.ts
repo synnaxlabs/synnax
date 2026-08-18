@@ -22,6 +22,9 @@ const THEME = theming.themeZ.parse(theming.SYNNAX_LIGHT);
 const PALETTE = THEME.colors.visualization.palettes.default;
 const DEFAULT_COLOR = THEME.colors.gray.l9;
 const POLL = { timeout: 5000 };
+// Each test creates channels, connects a client, and takes control, so the default
+// per-test budget is too small.
+const SUITE = { timeout: 30_000 };
 
 const openWriters: framer.Writer[] = [];
 
@@ -89,7 +92,7 @@ const assigned = async (colors: Colors, subject: string): Promise<color.Color> =
   return colors.get(subject);
 };
 
-describe("control/aether/Colors", () => {
+describe("control/aether/Colors", SUITE, () => {
   it("should assign a palette color to a subject holding control", async () => {
     const [ch] = await createChannels(1);
     const colors = await setup([ch]);
@@ -166,7 +169,7 @@ describe("control/aether/Colors", () => {
     await expect.poll(() => handler.mock.calls.length > 0, POLL).toBe(true);
   });
 
-  describe("setOverrides", () => {
+  describe("setOverrides", SUITE, () => {
     it("should prefer an override over the assigned color", async () => {
       const [ch] = await createChannels(1);
       const colors = await setup([ch]);
