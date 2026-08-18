@@ -60,10 +60,6 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	if err != nil {
 		return Type{}, err
 	}
-	kind, err := autoMigrateKind(ctx, old.Kind)
-	if err != nil {
-		return Type{}, err
-	}
 	var elem *Type
 	if old.Elem != nil {
 		v, err := MigrateType(ctx, *old.Elem)
@@ -82,15 +78,11 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}
 	return Type{
 		FunctionProperties: functionProperties,
-		Kind:               kind,
+		Kind:               old.Kind,
 		Name:               old.Name,
 		Elem:               elem,
 		Unit:               old.Unit,
 		Constraint:         constraint,
 		ChanDirection:      old.ChanDirection,
 	}, nil
-}
-
-func autoMigrateKind(_ context.Context, old v0.Kind) (Kind, error) {
-	return Kind(old), nil
 }
