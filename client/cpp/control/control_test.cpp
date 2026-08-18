@@ -23,7 +23,7 @@ TEST(ControlTests, testRetrieveHeld) {
             std::vector{ch.key},
             x::telem::TimeStamp::now(),
             std::vector{x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"philadelphia"},
+            x::control::Subject{"philadelphia", "philadelphia"},
         }
     ));
     const auto states = ASSERT_NIL_P(client.control.retrieve(std::vector{ch.key}));
@@ -52,7 +52,7 @@ TEST(ControlTests, testRetrieveAll) {
             std::vector{ch.key},
             x::telem::TimeStamp::now(),
             std::vector{x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"denver"},
+            x::control::Subject{"denver", "denver"},
         }
     ));
     const auto states = ASSERT_NIL_P(client.control.retrieve());

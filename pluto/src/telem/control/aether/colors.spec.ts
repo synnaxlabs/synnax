@@ -153,10 +153,20 @@ describe("control/aether/Colors", SUITE, () => {
     const channels = await createChannels(PALETTE.length + 1);
     const colors = await setup(channels);
     const holders = await Promise.all(channels.map(hold));
-    const assignedColors = await Promise.all(
-      holders.map(async ({ subject }) => await assigned(colors, subject)),
+    // One poll over the whole fan-in: the transfers arrive in any order, so a
+    // per-subject window would starve whichever lands last.
+    await expect
+      .poll(
+        () =>
+          holders.every(
+            ({ subject }) => !color.equals(colors.get(subject), DEFAULT_COLOR),
+          ),
+        { timeout: 20_000 },
+      )
+      .toBe(true);
+    const distinct = new Set(
+      holders.map(({ subject }) => color.hex(colors.get(subject))),
     );
-    const distinct = new Set(assignedColors.map((c) => color.hex(c)));
     expect(distinct.size).toBeLessThan(holders.length);
   });
 
