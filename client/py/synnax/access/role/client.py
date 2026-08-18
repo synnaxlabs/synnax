@@ -27,6 +27,7 @@ _CreateResponse = _CreateRequest
 
 class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
+    search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
     internal: bool | None = None
@@ -91,6 +92,7 @@ class Client:
         self,
         *,
         keys: list[UUID] | None = None,
+        search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
         internal: bool | None = None,
@@ -100,6 +102,7 @@ class Client:
         self,
         key: UUID | None = None,
         keys: list[UUID] | None = None,
+        search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
         internal: bool | None = None,
@@ -107,7 +110,13 @@ class Client:
         is_single = key is not None
         if is_single and key is not None:
             keys = [key]
-        req = _RetrieveRequest(keys=keys, limit=limit, offset=offset, internal=internal)
+        req = _RetrieveRequest(
+            keys=keys,
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            internal=internal,
+        )
         res = self._client.send("/access/role/retrieve", req, _RetrieveResponse)
         return res.roles[0] if is_single else res.roles
 
