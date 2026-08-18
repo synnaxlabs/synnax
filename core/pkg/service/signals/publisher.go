@@ -61,6 +61,10 @@ const (
 	nonFree    = "Signals can only work with free channels. Received leaseholder %s that is not equal to Free"
 )
 
+// requestBufferSize keeps an observable's handler from blocking on send. Handlers run
+// inline under the caller's locks, where a stalled send spreads back into the caller.
+const requestBufferSize = 300
+
 // Validate implements config.Config.
 func (c ObservablePublisherConfig) Validate() error {
 	v := validate.New("signals.observable_publisher_config")
@@ -218,7 +222,7 @@ func (p *Provider) PublishFromObservable(
 		},
 	}
 	plumber.SetSink(pl, "responses", responses)
-	plumber.MustConnect[framer.WriterRequest](pl, "source", "writer", 10)
+	plumber.MustConnect[framer.WriterRequest](pl, "source", "writer", requestBufferSize)
 	plumber.MustConnect[framer.WriterResponse](pl, "writer", "responses", 10)
 	name := cfg.Name
 	if name == "" {

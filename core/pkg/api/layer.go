@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
+	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
@@ -79,6 +80,8 @@ type Transport struct {
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
 	FrameStreamer freighter.StreamServer[framer.StreamerRequest, framer.StreamerResponse]
 	FrameDelete   freighter.UnaryServer[framer.DeleteRequest, types.Nil]
+	// CONTROL
+	ControlRetrieve freighter.UnaryServer[control.RetrieveRequest, control.RetrieveResponse]
 	// RANGE
 	RangeCreate   freighter.UnaryServer[ranger.CreateRequest, ranger.CreateResponse]
 	RangeRetrieve freighter.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse]
@@ -205,6 +208,7 @@ type Layer struct {
 	User         *user.Service
 	Framer       *framer.Service
 	Channel      *channel.Service
+	Control      *control.Service
 	Connectivity *connectivity.Service
 	Ontology     *ontology.Service
 	Range        *ranger.Service
@@ -276,6 +280,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.FrameIterator,
 		t.FrameStreamer,
 		t.FrameDelete,
+
+		// CONTROL
+		t.ControlRetrieve,
 
 		// ONTOLOGY
 		t.OntologyRetrieve,
@@ -444,6 +451,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
 	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
+
+	// CONTROL
+	t.ControlRetrieve.BindHandler(l.Control.Retrieve)
 
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
@@ -640,6 +650,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Channel, err = channel.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Control, err = control.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(cfg); err != nil {

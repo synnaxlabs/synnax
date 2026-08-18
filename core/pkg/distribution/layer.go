@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -37,6 +38,8 @@ type Transport interface {
 	// Framer returns the transport for frame write, iterate, relay, and delete
 	// operations.
 	Framer() framer.Transport
+	// Control returns the transport for control state retrieve and subscribe RPCs.
+	Control() control.Transport
 }
 
 // LayerConfig is the configuration for opening the distribution layer.
@@ -129,7 +132,10 @@ type Layer struct {
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
-	closer io.MultiCloser
+	// Control is for reading and observing the control state of channels across the
+	// cluster.
+	Control *control.Service
+	closer  io.MultiCloser
 }
 
 // Open opens the distribution Layer using the provided configuration(s). Later
@@ -192,6 +198,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Transport:       cfg.Transport.Framer(),
 		HostResolver:    l.Cluster,
 	}); !ok(err, l.Framer) {
+		return nil, err
+	}
+
+	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
+		Instrumentation: cfg.Child("control"),
+		Cluster:         l.Cluster,
+		TS:              cfg.Storage.TS,
+		Transport:       cfg.Transport.Control(),
+	}); !ok(err, l.Control) {
 		return nil, err
 	}
 

@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, control, type observe } from "@synnaxlabs/x";
+import { control } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { keyZ } from "@/channel/types.gen";
-import { framer } from "@/framer";
 
 export type Authority = control.Authority;
 export const ABSOLUTE_AUTHORITY = control.ABSOLUTE_AUTHORITY;
@@ -21,6 +20,13 @@ export type Transfer = control.Transfer<typeof channel.keyZ>;
 export interface State extends control.State<typeof channel.keyZ> {}
 export interface Subject extends control.Subject {}
 export const stateZ = control.stateZ(z.number());
+
+/**
+ * A control state stored under the channel it controls, which is how the client
+ * caches it.
+ */
+export const keyedStateZ = stateZ.transform((s) => ({ key: s.resource, ...s }));
+export interface KeyedState extends z.infer<typeof keyedStateZ> {}
 
 export const transferString = (t: Transfer): string => {
   const fromResource = t.from?.resource;
@@ -35,41 +41,8 @@ export const transferString = (t: Transfer): string => {
   } (${t.to.authority.toString()})`;
 };
 
-const updateZ = z.object({
+export const updateZ = z.object({
   transfers: z.array(control.transferZ(keyZ)),
 });
 
 export interface Update extends z.infer<typeof updateZ> {}
-
-export class StateTracker
-  extends framer.ObservableStreamer<Transfer[]>
-  implements observe.ObservableAsyncCloseable<Transfer[]>
-{
-  readonly states: Map<channel.Key, State>;
-  private readonly codec: binary.JSONCodec;
-
-  constructor(streamer: framer.Streamer) {
-    super(streamer, (frame) => {
-      const raw = Array.from(frame.series[0].as("string"));
-      const updates: Update[] = raw.map((r) => this.codec.decodeString(r, updateZ));
-      updates.forEach((u) => this.merge(u));
-      return [updates.flatMap((u) => u.transfers), true];
-    });
-    this.states = new Map();
-    this.codec = new binary.JSONCodec();
-  }
-
-  subjects(): Subject[] {
-    const subjects = new Map<string, Subject>();
-    this.states.forEach((s) => subjects.set(s.subject.key, s.subject));
-    return Array.from(subjects.values());
-  }
-
-  private merge(update: Update): void {
-    update.transfers.forEach((t) => {
-      if (t.from == null && t.to == null) console.warn("Invalid transfer: ", t);
-      if (t.to == null) this.states.delete(t.from.resource);
-      else this.states.set(t.to.resource, t.to);
-    });
-  }
-}
