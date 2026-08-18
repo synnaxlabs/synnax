@@ -14,16 +14,14 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // migrateDevice lifts a v0 device into the v1 shape, dropping the persisted
 // status and parent.
-func migrateDevice(ctx context.Context, old v0.Device) (Device, error) {
-	return autoMigrateDevice(ctx, old)
+func migrateDevice(old v0.Device) (Device, error) {
+	return autoMigrateDevice(old)
 }
 
 // Migration lifts stored devices from v0 to v1, dropping the persisted status and

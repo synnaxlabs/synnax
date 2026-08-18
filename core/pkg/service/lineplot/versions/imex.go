@@ -39,7 +39,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 				body, "a line plot", "axes", "channels",
 			); err == nil {
 				lp, err = v5.MigrateLinePlot(
-					ctx, v0.LinePlot{Name: env.Name, Data: body},
+					v0.LinePlot{Name: env.Name, Data: body},
 				)
 			}
 		}

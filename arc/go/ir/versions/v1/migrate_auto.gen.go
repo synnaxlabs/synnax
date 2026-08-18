@@ -12,23 +12,21 @@
 package v1
 
 import (
-	"context"
-
 	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v1"
 )
 
-func autoMigrateFunction(ctx context.Context, old v0.Function) (Function, error) {
+func autoMigrateFunction(old v0.Function) (Function, error) {
 	inputs, err := lo.MapErr(old.Inputs, func(v typesv0.Param, _ int) (types.Param, error) {
-		return types.MigrateParam(ctx, v)
+		return types.MigrateParam(v)
 	})
 	if err != nil {
 		return Function{}, err
 	}
 	outputs, err := lo.MapErr(old.Outputs, func(v typesv0.Param, _ int) (types.Param, error) {
-		return types.MigrateParam(ctx, v)
+		return types.MigrateParam(v)
 	})
 	if err != nil {
 		return Function{}, err

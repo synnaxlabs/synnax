@@ -12,12 +12,10 @@
 package v2
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 )
 
-func autoMigrateLog(_ context.Context, old v0.Log) (Log, error) {
+func autoMigrateLog(old v0.Log) (Log, error) {
 	return Log{
 		Key:  old.Key,
 		Name: old.Name,

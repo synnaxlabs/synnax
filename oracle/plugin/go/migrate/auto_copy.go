@@ -77,7 +77,6 @@ type funcData struct {
 	TypeParamsDecl string // "" for non-generic, "[Details any]" for generic
 	OldTypeName    string
 	NewTypeName    string
-	UsesCtx        bool
 	ZeroValue      string
 	Kind           string // "struct", "slice", "cast"
 	Preamble       []step
@@ -108,7 +107,6 @@ type classification struct {
 	needsPreamble bool
 	inline        string
 	step          step
-	usesCtx       bool
 }
 
 // --- Template ---
@@ -119,20 +117,17 @@ var autoCopyTmpl = template.Must(
 package {{.Package}}
 
 import (
-	"context"
-{{- if .Imports}}
-{{end}}
 {{- range .Imports}}
 	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
 {{range $fn := .Funcs}}
 {{- if eq $fn.Kind "cast"}}
-func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}(old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 	return {{$fn.NewTypeName}}(old), nil
 }
 {{else if eq $fn.Kind "slice"}}
-func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}(old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 {{- if $fn.SliceHasErr}}
 	return lo.MapErr(old, func(v {{$fn.SliceOldElem}}, _ int) ({{$fn.SliceNewElem}}, error) {
 		return {{$fn.SliceElemExpr}}
@@ -144,7 +139,7 @@ func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 {{- end}}
 }
 {{else if eq $fn.Kind "struct"}}
-func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}(old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 {{- range $fn.Preamble}}
 {{- if eq .Kind "migrate"}}
 	{{.VarName}}, err := {{.Call}}
@@ -226,8 +221,6 @@ func (c *collector) collect(types []resolution.Type) fileData {
 	if c.usesLo {
 		c.imports["github.com/samber/lo"] = importEntry{Path: "github.com/samber/lo"}
 	}
-	// context renders as its own standard-library group in the template;
-	// every function signature includes context.Context.
 	imps := make([]importEntry, 0, len(c.imports))
 	for _, imp := range c.imports {
 		imps = append(imps, imp)
@@ -403,7 +396,6 @@ func (c *collector) addField(
 	if cls.needsPreamble {
 		fn.Preamble = append(fn.Preamble, cls.step)
 		fn.Fields = append(fn.Fields, field{Name: goName, Value: cls.step.VarName})
-		fn.UsesCtx = fn.UsesCtx || cls.usesCtx
 	} else {
 		fn.Fields = append(fn.Fields, field{Name: goName, Value: cls.inline})
 	}
@@ -438,8 +430,8 @@ func (c *collector) sliceFunc(
 		c.usesLo = true
 		return funcData{
 			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
-			Kind: "slice", UsesCtx: true, SliceHasErr: true,
-			SliceElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
+			Kind: "slice", SliceHasErr: true,
+			SliceElemExpr: c.requireFunc(elemResolved) + "(v)",
 			SliceOldElem:  c.resolveTypeName(elemResolved, c.oldTable),
 			SliceNewElem:  c.resolveNewTypeName(elemResolved),
 		}
@@ -492,14 +484,14 @@ func (c *collector) classifyField(
 	helper := c.requireFunc(resolved)
 	if isOptional {
 		newType := c.resolveNewTypeName(resolved)
-		return classification{needsPreamble: true, usesCtx: true, step: step{
+		return classification{needsPreamble: true, step: step{
 			Kind: "optionalMigrate", VarName: varName, Accessor: accessor,
-			Call: fmt.Sprintf("%s(ctx, *%s)", helper, accessor), Type: newType,
+			Call: fmt.Sprintf("%s(*%s)", helper, accessor), Type: newType,
 		}}
 	}
-	return classification{needsPreamble: true, usesCtx: true, step: step{
+	return classification{needsPreamble: true, step: step{
 		Kind: "migrate", VarName: varName,
-		Call: fmt.Sprintf("%s(ctx, %s)", helper, accessor),
+		Call: fmt.Sprintf("%s(%s)", helper, accessor),
 	}}
 }
 
@@ -518,9 +510,9 @@ func (c *collector) classifySlice(
 	}
 	varName := naming.LowerFirst(goName)
 	c.usesLo = true
-	return classification{needsPreamble: true, usesCtx: true, step: step{
+	return classification{needsPreamble: true, step: step{
 		Kind: "sliceMigrate", VarName: varName, Accessor: accessor,
-		ElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
+		ElemExpr: c.requireFunc(elemResolved) + "(v)",
 		OldElem:  c.resolveTypeName(elemResolved, c.oldTable),
 		NewElem:  c.resolveNewTypeName(elemResolved),
 	}}

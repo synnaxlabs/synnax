@@ -10,8 +10,6 @@
 package v1
 
 import (
-	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
@@ -26,8 +24,8 @@ import (
 // as legacy.Data. v0 is the last snapshot in which Table.Data is untyped; future
 // migrations transform one typed snapshot into another and never need this blob
 // handling.
-func MigrateTable(ctx context.Context, old v0.Table) (Table, error) {
-	out, err := autoMigrateTable(ctx, old)
+func MigrateTable(old v0.Table) (Table, error) {
+	out, err := autoMigrateTable(old)
 	if err != nil {
 		return Table{}, err
 	}

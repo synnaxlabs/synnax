@@ -19,14 +19,14 @@ import (
 
 // migrateType lifts a v0 type through MigrateParam, the package's exported
 // migration surface.
-func migrateType(ctx SpecContext, old v0.Type) v1.Type {
-	migrated := MustSucceed(v1.MigrateParam(ctx, v0.Param{Name: "p", Type: old}))
+func migrateType(old v0.Type) v1.Type {
+	migrated := MustSucceed(v1.MigrateParam(v0.Param{Name: "p", Type: old}))
 	return migrated.Type
 }
 
 var _ = Describe("MigrateParam", func() {
 	It("Should carry the name, type, and value", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateParam(ctx, v0.Param{
+		migrated := MustSucceed(v1.MigrateParam(v0.Param{
 			Name:  "rate",
 			Type:  v0.Type{Kind: v0.KindF64},
 			Value: "100",
@@ -37,7 +37,7 @@ var _ = Describe("MigrateParam", func() {
 	})
 
 	It("Should carry the type's kind, name, and unit", func(ctx SpecContext) {
-		migrated := migrateType(ctx, v0.Type{
+		migrated := migrateType(v0.Type{
 			Kind: v0.KindF64,
 			Name: "f64",
 			Unit: new(v0.Unit{Scale: 1, Name: "psi"}),
@@ -48,7 +48,7 @@ var _ = Describe("MigrateParam", func() {
 	})
 
 	It("Should migrate the element type of compound types", func(ctx SpecContext) {
-		migrated := migrateType(ctx, v0.Type{
+		migrated := migrateType(v0.Type{
 			Kind: v0.KindChan,
 			Elem: new(v0.Type{Kind: v0.KindF32}),
 		})
@@ -58,7 +58,7 @@ var _ = Describe("MigrateParam", func() {
 	It(
 		"Should carry function inputs and outputs while dropping the removed config",
 		func(ctx SpecContext) {
-			migrated := migrateType(ctx, v0.Type{
+			migrated := migrateType(v0.Type{
 				FunctionProperties: v0.FunctionProperties{
 					Inputs:  v0.Params{{Name: "in"}},
 					Outputs: v0.Params{{Name: "out"}},

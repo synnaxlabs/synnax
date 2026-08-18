@@ -10,15 +10,13 @@
 package v2
 
 import (
-	"context"
-
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // migrateRack lifts a v1 rack into the v2 shape, dropping the local task-key counter
 // made obsolete by UUID task keys.
-func migrateRack(_ context.Context, old v1.Rack) (Rack, error) {
+func migrateRack(old v1.Rack) (Rack, error) {
 	return Rack{
 		Key:          old.Key,
 		Name:         old.Name,

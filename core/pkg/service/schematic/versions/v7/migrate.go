@@ -10,7 +10,6 @@
 package v7
 
 import (
-	"context"
 	"encoding/json"
 	"math"
 
@@ -38,10 +37,9 @@ import (
 // snapshot in which Schematic.Data is untyped; future migrations transform one typed
 // snapshot into another and never need this blob handling.
 func MigrateSchematic(
-	ctx context.Context,
 	old v0.Schematic,
 ) (Schematic, error) {
-	out, err := autoMigrateSchematic(ctx, old)
+	out, err := autoMigrateSchematic(old)
 	if err != nil {
 		return Schematic{}, err
 	}

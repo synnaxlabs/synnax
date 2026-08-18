@@ -12,12 +12,10 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 )
 
-func autoMigrateArc(_ context.Context, old v0.Arc) (Arc, error) {
+func autoMigrateArc(old v0.Arc) (Arc, error) {
 	return Arc{
 		Key:   old.Key,
 		Name:  old.Name,

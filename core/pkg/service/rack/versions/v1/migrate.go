@@ -14,15 +14,13 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // migrateRack lifts a v0 rack into the v1 shape, dropping the persisted status.
-func migrateRack(ctx context.Context, old v0.Rack) (Rack, error) {
-	return autoMigrateRack(ctx, old)
+func migrateRack(old v0.Rack) (Rack, error) {
+	return autoMigrateRack(old)
 }
 
 // Migration lifts stored racks from v0 to v1, dropping the persisted status field.

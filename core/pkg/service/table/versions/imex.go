@@ -41,7 +41,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 			if err = imex.RequireFields(
 				body, "a table", "layout", "cells",
 			); err == nil {
-				t, err = v1.MigrateTable(ctx, v0.Table{Name: env.Name, Data: body})
+				t, err = v1.MigrateTable(v0.Table{Name: env.Name, Data: body})
 			}
 		}
 	}

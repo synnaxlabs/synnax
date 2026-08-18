@@ -125,7 +125,7 @@ func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	projects := make([]Project, len(stale))
 	keys := make([]Key, len(stale))
 	for i, ws := range stale {
-		if projects[i], err = autoMigrateProject(ctx, ws); err != nil {
+		if projects[i], err = autoMigrateProject(ws); err != nil {
 			return err
 		}
 		keys[i] = ws.Key

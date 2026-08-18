@@ -12,12 +12,10 @@
 package v7
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 )
 
-func autoMigrateSchematic(_ context.Context, old v0.Schematic) (Schematic, error) {
+func autoMigrateSchematic(old v0.Schematic) (Schematic, error) {
 	return Schematic{
 		Key:      old.Key,
 		Name:     old.Name,

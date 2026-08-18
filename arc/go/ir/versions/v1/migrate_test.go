@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("MigrateFunction", func() {
 	It("Should carry a Function's fields to the next version", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateFunction(ctx, v0.Function{
+		migrated := MustSucceed(v1.MigrateFunction(v0.Function{
 			Key:  "scale",
 			Body: v0.Body{Raw: "x * 2"},
 		}))

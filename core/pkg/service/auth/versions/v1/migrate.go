@@ -10,8 +10,6 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -22,7 +20,7 @@ import (
 // under.
 var Migration = gorp.NewEntryMigration(
 	"v1_orc_credentials",
-	func(_ context.Context, old v0.SecureCredentials) (SecureCredentials, error) {
+	func(old v0.SecureCredentials) (SecureCredentials, error) {
 		return SecureCredentials{Username: old.Username, Password: old.Password}, nil
 	},
 )

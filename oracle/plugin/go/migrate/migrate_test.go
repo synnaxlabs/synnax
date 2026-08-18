@@ -446,7 +446,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				tmpl := fileContent(resp, "out/versions/v2/migrate.go")
 				Expect(tmpl).To(ContainSubstring("package v2"))
 				Expect(tmpl).To(ContainSubstring("func migrateEntry"))
-				Expect(tmpl).To(ContainSubstring("autoMigrateEntry(ctx, old)"))
+				Expect(tmpl).To(ContainSubstring("autoMigrateEntry(old)"))
 			})
 		})
 
@@ -952,7 +952,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Expect(transform).To(ContainSubstring(") (Entry[Details], error)"))
 					Expect(
 						transform,
-					).To(ContainSubstring("autoMigrateEntry[Details](ctx, old)"))
+					).To(ContainSubstring("autoMigrateEntry[Details](old)"))
 				},
 			)
 
@@ -1229,7 +1229,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				)
 				content := fileContent(resp, "migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("func autoMigrateItems"))
-				Expect(content).To(ContainSubstring("MigrateItem(ctx, v)"))
+				Expect(content).To(ContainSubstring("MigrateItem(v)"))
 			})
 		})
 
@@ -1509,42 +1509,6 @@ var _ = Describe("Go Migrate Plugin", func() {
 				content := fileContent(resp, "migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("autoMigrateEntry"))
 				Expect(content).To(ContainSubstring("autoMigrateBase"))
-			})
-		})
-
-		Context("unused context parameter", func() {
-			It("Should use _ for context when not needed", func() {
-				oldSchema := `
-					@go output "out"
-					Key = uuid {
-					    @go version 1
-					}
-					Entry struct {
-					    @go version 1
-						key Key   {@key}
-						name string
-						@go migrate
-					}
-				`
-				newSchema := `
-					@go output "out"
-					Key = uuid {
-					    @go version 2
-					}
-					Entry struct {
-					    @go version 2
-						key Key   {@key}
-						name string
-						age int32
-						@go migrate
-					}
-				`
-				resp := MustSucceed(
-					generate(ctx, oldSchema, newSchema, "test", loader, p),
-				)
-				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("_ context.Context"))
-				Expect(content).To(ContainSubstring(`"context"`))
 			})
 		})
 
@@ -1990,7 +1954,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Expect(tmpl).To(ContainSubstring("func migrateInner"))
 					Expect(tmpl).NotTo(ContainSubstring("func MigrateEntry"))
 					auto := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
-					Expect(auto).To(ContainSubstring("migrateInner(ctx,"))
+					Expect(auto).To(ContainSubstring("migrateInner("))
 				},
 			)
 		})
@@ -2144,10 +2108,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 	})
 
 	Describe("Auto-copy signature", func() {
-		It(
-			"Should generate auto-copy functions with context and error propagation",
-			func() {
-				oldSchema := `
+		It("Should generate auto-copy functions with error propagation", func() {
+			oldSchema := `
 				@go output "out"
 				Key = uuid {
 				    @go version 1
@@ -2163,7 +2125,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					@go migrate
 				}
 			`
-				newSchema := `
+			newSchema := `
 				@go output "out"
 				Key = uuid {
 				    @go version 2
@@ -2179,15 +2141,13 @@ var _ = Describe("Go Migrate Plugin", func() {
 					@go migrate
 				}
 			`
-				resp := MustSucceed(
-					generate(ctx, oldSchema, newSchema, "test", loader, p),
-				)
-				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("context.Context"))
-				Expect(content).To(ContainSubstring("error"))
-				Expect(content).To(ContainSubstring("if err != nil"))
-			},
-		)
+			resp := MustSucceed(
+				generate(ctx, oldSchema, newSchema, "test", loader, p),
+			)
+			content := fileContent(resp, "migrate_auto.gen.go")
+			Expect(content).To(ContainSubstring("error"))
+			Expect(content).To(ContainSubstring("if err != nil"))
+		})
 	})
 
 	Describe("Changed value-type dependency", func() {
@@ -2306,12 +2266,12 @@ var _ = Describe("Go Migrate Plugin", func() {
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 			autoCopy := fileContent(resp, "migrate_auto.gen.go")
 			Expect(autoCopy).To(ContainSubstring("autoMigrateMembers"))
-			Expect(autoCopy).To(ContainSubstring("MigrateMember(ctx, v)"))
+			Expect(autoCopy).To(ContainSubstring("MigrateMember(v)"))
 		})
 	})
 
-	Describe("context.Context in generated code", func() {
-		It("Should use context.Context in developer transform template", func() {
+	Describe("context in generated code", func() {
+		It("Should not take a context in the developer transform template", func() {
 			oldSchema := `
 				@go output "out"
 				Key = uuid {
@@ -2339,12 +2299,10 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 			content := fileContent(resp, "out/versions/v2/migrate.go")
-			Expect(content).To(ContainSubstring("context.Context"))
-			Expect(content).NotTo(ContainSubstring("MigrationContext"))
-			Expect(content).To(ContainSubstring(`"context"`))
+			Expect(content).NotTo(ContainSubstring("context"))
 		})
 
-		It("Should pass ctx to nested autoMigrate calls", func() {
+		It("Should call nested migrate helpers without a context", func() {
 			oldSchema := `
 				@go output "out"
 				Key = uuid {
@@ -2379,8 +2337,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 			content := fileContent(resp, "migrate_auto.gen.go")
-			Expect(content).To(ContainSubstring("= MigrateInner(ctx,"))
-			Expect(content).To(ContainSubstring("ctx context.Context"))
+			Expect(content).To(ContainSubstring("= MigrateInner("))
+			Expect(content).NotTo(ContainSubstring("context.Context"))
 		})
 
 		It("Should not reference gorp in auto-copy imports", func() {
@@ -2412,7 +2370,6 @@ var _ = Describe("Go Migrate Plugin", func() {
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 			content := fileContent(resp, "migrate_auto.gen.go")
 			Expect(content).NotTo(ContainSubstring(`"github.com/synnaxlabs/x/gorp"`))
-			Expect(content).To(ContainSubstring(`"context"`))
 		})
 	})
 

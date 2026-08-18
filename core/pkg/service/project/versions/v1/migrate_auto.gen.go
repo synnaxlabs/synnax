@@ -12,12 +12,10 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 )
 
-func autoMigrateProject(_ context.Context, old v0.Workspace) (Project, error) {
+func autoMigrateProject(old v0.Workspace) (Project, error) {
 	return Project{
 		Key:    old.Key,
 		Name:   old.Name,

@@ -12,12 +12,10 @@
 package v5
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 )
 
-func autoMigrateLinePlot(_ context.Context, old v0.LinePlot) (LinePlot, error) {
+func autoMigrateLinePlot(old v0.LinePlot) (LinePlot, error) {
 	return LinePlot{
 		Key:  old.Key,
 		Name: old.Name,

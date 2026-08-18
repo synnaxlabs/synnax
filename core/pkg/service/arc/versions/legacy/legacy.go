@@ -17,7 +17,6 @@
 package legacy
 
 import (
-	"context"
 	"maps"
 
 	"github.com/synnaxlabs/arc/graph"
@@ -96,8 +95,8 @@ func MigrateData(blob msgpack.EncodedJSON) (Document, error) {
 
 // MigrateExport lifts the Console's own export into a Document, running the Arc graph
 // migration that keys the export's edges and folds per-node config into inputs.
-func MigrateExport(ctx context.Context, e Export) (Document, error) {
-	g, err := graphv1.MigrateGraph(ctx, e.Graph.Lift())
+func MigrateExport(e Export) (Document, error) {
+	g, err := graphv1.MigrateGraph(e.Graph.Lift())
 	if err != nil {
 		return Document{}, err
 	}

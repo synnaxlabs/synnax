@@ -10,26 +10,24 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/arc/graph/versions/v0"
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 )
 
 // MigrateGraph lifts a v0 graph into the v1 shape; arc's generated
 // migrations consume it cross-package.
-func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
-	return autoMigrateGraph(ctx, old)
+func MigrateGraph(old v0.Graph) (Graph, error) {
+	return autoMigrateGraph(old)
 }
 
 // migrateEdge lifts a v0 IR edge into the v1 keyed graph edge, assigning a
 // fresh key.
-func migrateEdge(ctx context.Context, old irv0.Edge) (Edge, error) {
-	return autoMigrateEdge(ctx, old)
+func migrateEdge(old irv0.Edge) (Edge, error) {
+	return autoMigrateEdge(old)
 }
 
 // migrateNode lifts a v0 node into the v1 shape, dropping the config and type
 // fields that moved to Graph.Inputs.
-func migrateNode(ctx context.Context, old v0.Node) (Node, error) {
-	return autoMigrateNode(ctx, old)
+func migrateNode(old v0.Node) (Node, error) {
+	return autoMigrateNode(old)
 }

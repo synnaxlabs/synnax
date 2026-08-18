@@ -461,14 +461,12 @@ var transformTmpl = template.Must(template.New("transform").Parse(
 package {{.Package}}
 
 import (
-	"context"
-
 	{{.VersionDir}} "{{.MigrationsImport}}"
 )
 {{end}}
 // {{.FuncName}} lifts a {{.VersionDir}} {{.GoName}} into the current shape.
-func {{.FuncName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}{{.TypeParamsRef}}) ({{.GoName}}{{.TypeParamsRef}}, error) {
-	return autoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
+func {{.FuncName}}{{.TypeParamsDecl}}(old {{.VersionDir}}.{{.GoName}}{{.TypeParamsRef}}) ({{.GoName}}{{.TypeParamsRef}}, error) {
+	return autoMigrate{{.GoName}}{{.TypeParamsRef}}(old)
 }
 `))
 
@@ -508,15 +506,14 @@ var typeMigrateTmpl = template.Must(template.New("typeMigrate").Parse(
 package {{.Package}}
 
 import (
-	"context"
-{{range .Imports}}
+{{- range .Imports}}
 	{{.Alias}} "{{.Path}}"
 {{- end}}
 )
 {{range .Functions}}
 // {{.FuncName}} lifts a {{.OldTypeName}} into the current shape.
-func {{.FuncName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
-	migrated, err := autoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
+func {{.FuncName}}{{.TypeParamsDecl}}(old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
+	migrated, err := autoMigrate{{.GoName}}{{.TypeParamsRef}}(old)
 	if err != nil {
 		return {{.NewTypeName}}{}, err
 	}

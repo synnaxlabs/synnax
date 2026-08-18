@@ -12,14 +12,12 @@
 package v1
 
 import (
-	"context"
-
 	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/types/versions/v0"
 )
 
-func autoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
-	typeVal, err := migrateType(ctx, old.Type)
+func autoMigrateParam(old v0.Param) (Param, error) {
+	typeVal, err := migrateType(old.Type)
 	if err != nil {
 		return Param{}, err
 	}
@@ -30,14 +28,14 @@ func autoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
 	}, nil
 }
 
-func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
-	functionProperties, err := migrateFunctionProperties(ctx, old.FunctionProperties)
+func autoMigrateType(old v0.Type) (Type, error) {
+	functionProperties, err := migrateFunctionProperties(old.FunctionProperties)
 	if err != nil {
 		return Type{}, err
 	}
 	var elem *Type
 	if old.Elem != nil {
-		v, err := migrateType(ctx, *old.Elem)
+		v, err := migrateType(*old.Elem)
 		if err != nil {
 			return Type{}, err
 		}
@@ -45,7 +43,7 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}
 	var constraint *Type
 	if old.Constraint != nil {
-		v, err := migrateType(ctx, *old.Constraint)
+		v, err := migrateType(*old.Constraint)
 		if err != nil {
 			return Type{}, err
 		}
@@ -62,15 +60,15 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}, nil
 }
 
-func autoMigrateFunctionProperties(ctx context.Context, old v0.FunctionProperties) (FunctionProperties, error) {
+func autoMigrateFunctionProperties(old v0.FunctionProperties) (FunctionProperties, error) {
 	inputs, err := lo.MapErr(old.Inputs, func(v v0.Param, _ int) (Param, error) {
-		return MigrateParam(ctx, v)
+		return MigrateParam(v)
 	})
 	if err != nil {
 		return FunctionProperties{}, err
 	}
 	outputs, err := lo.MapErr(old.Outputs, func(v v0.Param, _ int) (Param, error) {
-		return MigrateParam(ctx, v)
+		return MigrateParam(v)
 	})
 	if err != nil {
 		return FunctionProperties{}, err

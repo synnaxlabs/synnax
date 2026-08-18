@@ -12,12 +12,10 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 )
 
-func autoMigrateTask(_ context.Context, old v0.Task) (Task, error) {
+func autoMigrateTask(old v0.Task) (Task, error) {
 	return Task{
 		Key:      old.Key,
 		Name:     old.Name,

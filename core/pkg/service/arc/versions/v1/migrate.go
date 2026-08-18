@@ -10,8 +10,6 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -19,12 +17,12 @@ import (
 )
 
 // migrateArc lifts a v0 Arc into the v1 shape, dropping the persisted program status.
-func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
-	return autoMigrateArc(ctx, old)
+func migrateArc(old v0.Arc) (Arc, error) {
+	return autoMigrateArc(old)
 }
 
 // renameSetStatus rewrites every deprecated set_status flow node in a to status.set.
-func renameSetStatus(_ context.Context, a Arc) (Arc, error) {
+func renameSetStatus(a Arc) (Arc, error) {
 	for i, n := range a.Graph.Nodes {
 		if n.Type != "set_status" {
 			continue

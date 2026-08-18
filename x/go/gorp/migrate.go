@@ -87,7 +87,7 @@ func (p *progressLogger) shouldLogProgress() bool {
 // MigrationContext.
 func NewEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
 	key string,
-	transform func(context.Context, I) (O, error),
+	transform func(I) (O, error),
 ) migrate.Migration {
 	return NewMigration(
 		key,
@@ -109,7 +109,7 @@ func NewEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
 				if err = iter.Error(); err != nil {
 					return err
 				}
-				newEntry, err = transform(ctx, *old)
+				newEntry, err = transform(*old)
 				if err != nil {
 					return errors.Wrapf(err, "entry %v (transform)", (*old).GorpKey())
 				}

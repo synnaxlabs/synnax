@@ -10,8 +10,6 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -21,7 +19,7 @@ import (
 // label relationship.
 var Migration = gorp.NewEntryMigration(
 	"v54_drop_labels",
-	func(_ context.Context, old v0.Status[any]) (Status[any], error) {
+	func(old v0.Status[any]) (Status[any], error) {
 		return Status[any]{
 			Key:         old.Key,
 			Name:        old.Name,

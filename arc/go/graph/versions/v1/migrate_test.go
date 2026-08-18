@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("MigrateGraph", func() {
 	It("Should move node types and configs into inputs", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateGraph(ctx, v0.Graph{
+		migrated := MustSucceed(v1.MigrateGraph(v0.Graph{
 			Functions: irv0.Functions{{Key: "f"}},
 			Edges:     irv0.Edges{{Kind: irv0.EdgeKindContinuous}},
 			Nodes: v0.Nodes{{
@@ -42,7 +42,7 @@ var _ = Describe("MigrateGraph", func() {
 	})
 
 	It("Should carry edge endpoints and assign fresh edge keys", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateGraph(ctx, v0.Graph{
+		migrated := MustSucceed(v1.MigrateGraph(v0.Graph{
 			Edges: irv0.Edges{{
 				Source: irv0.Handle{Node: "a", Param: "out"},
 				Target: irv0.Handle{Node: "b", Param: "in"},
@@ -57,7 +57,7 @@ var _ = Describe("MigrateGraph", func() {
 	})
 
 	It("Should carry node keys and positions", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateGraph(ctx, v0.Graph{
+		migrated := MustSucceed(v1.MigrateGraph(v0.Graph{
 			Nodes: v0.Nodes{{Key: "n1", Position: spatial.XY{X: 1, Y: 2}}},
 		}))
 		node := migrated.Nodes[0]

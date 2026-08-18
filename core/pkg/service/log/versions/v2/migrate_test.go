@@ -64,7 +64,7 @@ var _ = Describe("MigrateLog", func() {
 				"showReceiptTimestamp": true,
 			},
 		}
-		out := MustSucceed(v2.MigrateLog(ctx, old))
+		out := MustSucceed(v2.MigrateLog(old))
 		Expect(out.Key).To(Equal(old.Key))
 		Expect(out.Name).To(Equal("my-log"))
 		Expect(out.TimestampPrecision).To(Equal(int32(2)))
@@ -97,7 +97,7 @@ var _ = Describe("MigrateLog", func() {
 					},
 				},
 			}
-			out := MustSucceed(v2.MigrateLog(ctx, old))
+			out := MustSucceed(v2.MigrateLog(old))
 			Expect(out.Channels).To(HaveLen(1))
 			Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatISO))
 			Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
@@ -117,7 +117,7 @@ var _ = Describe("MigrateLog", func() {
 					},
 				},
 			}
-			out := MustSucceed(v2.MigrateLog(ctx, old))
+			out := MustSucceed(v2.MigrateLog(old))
 			Expect(out.Channels).To(HaveLen(1))
 			Expect(
 				out.Channels[0].Timestamp.Format,
@@ -141,13 +141,13 @@ var _ = Describe("MigrateLog", func() {
 					"channels": []any{},
 				},
 			}
-			Expect(v2.MigrateLog(ctx, old)).Error().ToNot(HaveOccurred())
+			Expect(v2.MigrateLog(old)).Error().ToNot(HaveOccurred())
 		},
 	)
 
 	It("Should be a no-op for an empty Data blob", func(ctx SpecContext) {
 		old := v0.Log{Key: uuid.New(), Name: "empty"}
-		out := MustSucceed(v2.MigrateLog(ctx, old))
+		out := MustSucceed(v2.MigrateLog(old))
 		Expect(out.Name).To(Equal("empty"))
 		Expect(out.Channels).To(BeEmpty())
 	})
@@ -165,7 +165,7 @@ var _ = Describe("MigrateLog", func() {
 					},
 				},
 			}
-			out := MustSucceed(v2.MigrateLog(ctx, old))
+			out := MustSucceed(v2.MigrateLog(old))
 			Expect(out.Channels).To(HaveLen(1))
 			Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
 		},
@@ -192,7 +192,7 @@ var _ = Describe("MigrateLog", func() {
 					},
 				},
 			}
-			out := MustSucceed(v2.MigrateLog(ctx, old))
+			out := MustSucceed(v2.MigrateLog(old))
 			Expect(out.Channels).To(HaveLen(1))
 			Expect(out.Channels[0].Channel).To(BeEquivalentTo(7))
 			Expect(out.Channels[0].Color).To(Equal(color.Color{}))
@@ -219,7 +219,7 @@ var _ = Describe("MigrateLog", func() {
 					},
 				},
 			}
-			out := MustSucceed(v2.MigrateLog(ctx, old))
+			out := MustSucceed(v2.MigrateLog(old))
 			Expect(out.Key).To(Equal(old.Key))
 			Expect(out.Name).To(Equal("unparseable"))
 			Expect(out.Channels).To(BeEmpty())
@@ -229,7 +229,7 @@ var _ = Describe("MigrateLog", func() {
 	Describe("from testdata fixtures", func() {
 		It("Should fully migrate a well-formed v1 body", func(ctx SpecContext) {
 			out := MustSucceed(v2.MigrateLog(
-				ctx, loadV55("../testdata/import_v1.json"),
+				loadV55("../testdata/import_v1.json"),
 			))
 			Expect(out.Name).To(Equal("Test Log V1"))
 			Expect(out.Channels).To(HaveLen(2))
@@ -249,7 +249,7 @@ var _ = Describe("MigrateLog", func() {
 			"Should default a malformed color hex to the zero color",
 			func(ctx SpecContext) {
 				out := MustSucceed(v2.MigrateLog(
-					ctx, loadV55("../testdata/import_invalid_color.json"),
+					loadV55("../testdata/import_invalid_color.json"),
 				))
 				Expect(out.Name).To(Equal("Invalid Color"))
 				Expect(out.Channels).To(HaveLen(1))
@@ -262,7 +262,7 @@ var _ = Describe("MigrateLog", func() {
 			"Should lift a Console v0 body forward through the chain",
 			func(ctx SpecContext) {
 				out := MustSucceed(v2.MigrateLog(
-					ctx, loadV55("../testdata/import_v0.json"),
+					loadV55("../testdata/import_v0.json"),
 				))
 				Expect(out.Name).To(Equal("Test Log V0"))
 				Expect(out.Channels).To(HaveLen(3))
@@ -277,7 +277,7 @@ var _ = Describe("MigrateLog", func() {
 			"Should keep Key and Name but yield no channels for an undecodable body",
 			func(ctx SpecContext, path, name string) {
 				old := loadV55(path)
-				out := MustSucceed(v2.MigrateLog(ctx, old))
+				out := MustSucceed(v2.MigrateLog(old))
 				Expect(out.Key).To(Equal(old.Key))
 				Expect(out.Name).To(Equal(name))
 				Expect(out.Channels).To(BeEmpty())

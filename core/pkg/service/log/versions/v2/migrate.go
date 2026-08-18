@@ -10,8 +10,6 @@
 package v2
 
 import (
-	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
@@ -30,8 +28,8 @@ import (
 // Key and Name alone, so the Gorp boot migration never fails on a single corrupt row.
 // v0 is the last snapshot in which Log.Data is untyped; future migrations transform one
 // typed snapshot into another and never need this blob handling.
-func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
-	out, err := autoMigrateLog(ctx, old)
+func MigrateLog(old v0.Log) (Log, error) {
+	out, err := autoMigrateLog(old)
 	if err != nil {
 		return Log{}, err
 	}

@@ -195,7 +195,7 @@ var _ = Describe("MigrateExport", func() {
 	It("Should key the export's edges and fold node config into the inputs", func(
 		ctx SpecContext,
 	) {
-		doc := MustSucceed(legacy.MigrateExport(ctx, legacy.Export{
+		doc := MustSucceed(legacy.MigrateExport(legacy.Export{
 			Mode: "graph",
 			Text: text.Text{Raw: "a = 1"},
 			Graph: console.Graph{
@@ -231,7 +231,7 @@ var _ = Describe("MigrateExport", func() {
 	})
 
 	It("Should produce a zero document from a zero export", func(ctx SpecContext) {
-		doc := MustSucceed(legacy.MigrateExport(ctx, legacy.Export{}))
+		doc := MustSucceed(legacy.MigrateExport(legacy.Export{}))
 
 		Expect(doc.Graph.Nodes).To(BeEmpty())
 		Expect(doc.Graph.Edges).To(BeEmpty())

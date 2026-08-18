@@ -12,12 +12,10 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
 )
 
 // MigrateFunction lifts a v0 function into the v1 shape.
-func MigrateFunction(ctx context.Context, old v0.Function) (Function, error) {
-	return autoMigrateFunction(ctx, old)
+func MigrateFunction(old v0.Function) (Function, error) {
+	return autoMigrateFunction(old)
 }

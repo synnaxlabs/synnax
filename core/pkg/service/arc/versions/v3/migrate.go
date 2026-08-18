@@ -14,15 +14,13 @@
 package v3
 
 import (
-	"context"
-
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // migrateArc lifts a v1 Arc into the v3 shape.
-func migrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
-	return autoMigrateArc(ctx, old)
+func migrateArc(old v1.Arc) (Arc, error) {
+	return autoMigrateArc(old)
 }
 
 // Migration lifts stored arcs from v1 to v3, converting deploy state to the live

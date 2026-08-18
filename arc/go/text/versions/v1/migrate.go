@@ -12,13 +12,11 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/arc/text/versions/v0"
 )
 
 // MigrateText lifts a v0 text into the v1 shape, seeding the replicated document from
 // the previously persisted raw source. Raw is derived and no longer persisted.
-func MigrateText(_ context.Context, old v0.Text) (Text, error) {
+func MigrateText(old v0.Text) (Text, error) {
 	return Text{Doc: Create(old.Raw)}, nil
 }

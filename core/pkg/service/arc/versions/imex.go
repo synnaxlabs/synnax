@@ -68,7 +68,7 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, err
 		if err != nil {
 			return legacy.Document{}, err
 		}
-		return legacy.MigrateExport(ctx, e)
+		return legacy.MigrateExport(e)
 	}
 	// "0.0.0".."2.0.0" Console states embed the graph inline. Nothing newer exists: the
 	// shipped Console never wrote a later state format.

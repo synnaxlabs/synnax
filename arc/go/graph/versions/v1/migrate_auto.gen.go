@@ -12,7 +12,6 @@
 package v1
 
 import (
-	"context"
 	"maps"
 
 	"github.com/google/uuid"
@@ -23,21 +22,21 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
+func autoMigrateGraph(old v0.Graph) (Graph, error) {
 	functions, err := lo.MapErr(old.Functions, func(v irv0.Function, _ int) (ir.Function, error) {
-		return ir.MigrateFunction(ctx, v)
+		return ir.MigrateFunction(v)
 	})
 	if err != nil {
 		return Graph{}, err
 	}
 	edges, err := lo.MapErr(old.Edges, func(v irv0.Edge, _ int) (Edge, error) {
-		return migrateEdge(ctx, v)
+		return migrateEdge(v)
 	})
 	if err != nil {
 		return Graph{}, err
 	}
 	nodes, err := lo.MapErr(old.Nodes, func(v v0.Node, _ int) (Node, error) {
-		return migrateNode(ctx, v)
+		return migrateNode(v)
 	})
 	if err != nil {
 		return Graph{}, err
@@ -57,11 +56,11 @@ func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	}, nil
 }
 
-func autoMigrateEdge(_ context.Context, old irv0.Edge) (Edge, error) {
+func autoMigrateEdge(old irv0.Edge) (Edge, error) {
 	return Edge{Edge: old, Key: uuid.NewString()}, nil
 }
 
-func autoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
+func autoMigrateNode(old v0.Node) (Node, error) {
 	return Node{
 		Key:      old.Key,
 		Position: old.Position,

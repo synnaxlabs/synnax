@@ -14,15 +14,13 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // migrateTask lifts a v0 task into the v1 shape, dropping the persisted status.
-func migrateTask(ctx context.Context, old v0.Task) (Task, error) {
-	return autoMigrateTask(ctx, old)
+func migrateTask(old v0.Task) (Task, error) {
+	return autoMigrateTask(old)
 }
 
 // Migration lifts stored tasks from v0 to v1, dropping the persisted status field.

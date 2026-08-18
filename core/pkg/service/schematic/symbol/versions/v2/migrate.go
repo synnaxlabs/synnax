@@ -10,8 +10,6 @@
 package v2
 
 import (
-	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
@@ -23,7 +21,7 @@ import (
 // Migration lifts stored symbols out of the untyped v0 shape into the typed v2 shape.
 var Migration = gorp.NewEntryMigration("v2_typed_symbol", migrateSymbol)
 
-func migrateSymbol(_ context.Context, old v0.Symbol) (Symbol, error) {
+func migrateSymbol(old v0.Symbol) (Symbol, error) {
 	out := Symbol{Key: old.Key, Name: old.Name}
 	if len(old.Data) > 0 {
 		b, err := msgpack.Marshal(old.Data)

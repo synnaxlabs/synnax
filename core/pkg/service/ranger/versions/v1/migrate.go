@@ -10,8 +10,6 @@
 package v1
 
 import (
-	"context"
-
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -23,7 +21,7 @@ import (
 // migration leaves behind.
 var Migration = gorp.NewEntryMigration(
 	"range_color_nullable",
-	func(_ context.Context, old v0.Range) (Range, error) {
+	func(old v0.Range) (Range, error) {
 		rng := Range{Key: old.Key, Name: old.Name, TimeRange: old.TimeRange}
 		if !old.Color.IsZero() {
 			c := old.Color

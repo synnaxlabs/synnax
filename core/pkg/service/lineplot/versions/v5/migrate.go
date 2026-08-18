@@ -10,8 +10,6 @@
 package v5
 
 import (
-	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
@@ -30,8 +28,8 @@ import (
 // dropped; they live on the Console slice and never reach the server. v0 is the last
 // snapshot in which LinePlot.Data is untyped; future migrations transform one typed
 // snapshot into another and never need this blob handling.
-func MigrateLinePlot(ctx context.Context, old v0.LinePlot) (LinePlot, error) {
-	out, err := autoMigrateLinePlot(ctx, old)
+func MigrateLinePlot(old v0.LinePlot) (LinePlot, error) {
+	out, err := autoMigrateLinePlot(old)
 	if err != nil {
 		return LinePlot{}, err
 	}

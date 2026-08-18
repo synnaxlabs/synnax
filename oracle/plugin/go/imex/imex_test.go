@@ -274,11 +274,10 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"core/pkg/service/log/versions/imex.gen.go",
 				).ToContain(
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v2"`,
-					"func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) "+
-						"(Log, error)",
+					"func autoDecodeEnvelope(env imex.Envelope) (Log, error)",
 					"case v2.Version:",
 					"t2, err := imex.Decode[v2.Log](env)",
-					"t3, err := v3.MigrateLog(ctx, t2)",
+					"t3, err := v3.MigrateLog(t2)",
 					"return t3, nil",
 				).
 					ToBeValidGoSource()
