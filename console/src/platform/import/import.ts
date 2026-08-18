@@ -18,11 +18,11 @@ import {
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useIngestBatch } from "@/platform/import/useIngestBatch";
+import { useImportBatch } from "@/platform/import/useImportBatch";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-export interface FileIngesterContext {
+export interface FileImporterContext {
   client: Client | null;
   projectKey: project.Key;
   /**
@@ -36,14 +36,14 @@ export interface FileIngesterContext {
  * Creates the resource the data describes and returns its ID. Opening a tab for it
  * belongs to the caller, which decides where it lands.
  */
-export interface FileIngester {
+export interface FileImporter {
   (
     data: unknown,
-    ctx: FileIngesterContext,
+    ctx: FileImporterContext,
   ): void | ontology.ID | Promise<void | ontology.ID>;
 }
 
-interface BundleIngesterContext {
+interface BundleImporterContext {
   client: Client | null;
   store: Store;
 }
@@ -52,11 +52,11 @@ interface BundleIngesterContext {
  * Imports a zipped bundle read from a picked or dropped source. name is the source
  * archive or folder's name, the Core's fallback for naming the imported resource.
  */
-export interface BundleIngester {
+export interface BundleImporter {
   (
     name: string,
     bundle: Uint8Array<ArrayBuffer>,
-    ctx: BundleIngesterContext,
+    ctx: BundleImporterContext,
   ): Promise<void>;
 }
 
@@ -66,7 +66,7 @@ export interface BundleIngester {
  * naming, and project parenting.
  * @throws {DisconnectedError} if no Core is connected.
  */
-export const ingestServer: FileIngester = async (
+export const importServer: FileImporter = async (
   data,
   { client, projectKey, fileName },
 ) => {
@@ -82,7 +82,7 @@ export const useImport = (): ((projectKey?: string) => void) => {
   const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const ingestBatch = useIngestBatch();
+  const importBatch = useImportBatch();
   return useCallback(
     (projectKey?: string) =>
       handleError(async () => {
@@ -99,16 +99,16 @@ export const useImport = (): ((projectKey?: string) => void) => {
           store.dispatch(Session.Project.select(proj.key));
         }
         const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
-        await ingestBatch({
-          // ingestBatch names failures after the item, so the path doubles as the name.
+        await importBatch({
+          // importBatch names failures after the item, so the path doubles as the name.
           items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
-          ingest: async (file) =>
-            await ingestServer(
+          importItem: async (file) =>
+            await importServer(
               JSON.parse(new TextDecoder().decode(await file.readBytes())),
               { client, projectKey: activeProjectKeyAfter, fileName: file.name },
             ),
         });
       }),
-    [store, client, handleError, ingestBatch],
+    [store, client, handleError, importBatch],
   );
 };

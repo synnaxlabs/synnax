@@ -31,11 +31,11 @@ const createLogID = async (): Promise<ontology.ID> => {
 };
 
 interface RenderResult {
-  ingestBatch: Import.IngestBatch;
+  importBatch: Import.ImportBatch;
   store: TestStore;
 }
 
-const renderIngestBatch = async (
+const renderImportBatch = async (
   onStatuses?: (statuses: Status.NotificationSpec[]) => void,
 ): Promise<RenderResult> => {
   const { wrapper: Panel, store } = await createPanelWrapper({ client });
@@ -45,8 +45,8 @@ const renderIngestBatch = async (
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
     </Panel>
   );
-  const { result } = renderHook(() => Import.useIngestBatch(), { wrapper });
-  return { ingestBatch: result.current, store };
+  const { result } = renderHook(() => Import.useImportBatch(), { wrapper });
+  return { importBatch: result.current, store };
 };
 
 const awaitPanel = async (store: TestStore): Promise<panel.Key> =>
@@ -65,15 +65,15 @@ const resourceKeys = async (panelKey: panel.Key): Promise<string[]> => {
   });
 };
 
-describe("Import.useIngestBatch", () => {
+describe("Import.useImportBatch", () => {
   it("opens the created resources as one batch of tabs in item order", async () => {
     const [first, second] = [await createLogID(), await createLogID()];
-    const { ingestBatch, store } = await renderIngestBatch();
+    const { importBatch, store } = await renderImportBatch();
     await act(
       async () =>
-        await ingestBatch({
+        await importBatch({
           items: [{ name: "a.json" }, { name: "b.json" }],
-          ingest: async ({ name }) => (name === "a.json" ? first : second),
+          importItem: async ({ name }) => (name === "a.json" ? first : second),
         }),
     );
     const panelKey = await awaitPanel(store);
@@ -86,12 +86,12 @@ describe("Import.useIngestBatch", () => {
   // creates no resource for the batch to open.
   it("opens no tab for an item that created no resource", async () => {
     const id = await createLogID();
-    const { ingestBatch, store } = await renderIngestBatch();
+    const { importBatch, store } = await renderImportBatch();
     await act(
       async () =>
-        await ingestBatch({
+        await importBatch({
           items: [{ name: "my-project" }, { name: "a.json" }],
-          ingest: async ({ name }) => (name === "a.json" ? id : undefined),
+          importItem: async ({ name }) => (name === "a.json" ? id : undefined),
         }),
     );
     const panelKey = await awaitPanel(store);
@@ -101,12 +101,12 @@ describe("Import.useIngestBatch", () => {
   it("reports a failed item by name and still opens tabs for the rest", async () => {
     const id = await createLogID();
     let statuses: Status.NotificationSpec[] = [];
-    const { ingestBatch, store } = await renderIngestBatch((s) => (statuses = s));
+    const { importBatch, store } = await renderImportBatch((s) => (statuses = s));
     await act(
       async () =>
-        await ingestBatch({
+        await importBatch({
           items: [{ name: "notes.txt" }, { name: "a.json" }],
-          ingest: async ({ name }) => {
+          importItem: async ({ name }) => {
             if (name === "notes.txt") throw new Error("not a JSON file");
             return id;
           },
@@ -119,19 +119,19 @@ describe("Import.useIngestBatch", () => {
     await waitFor(async () => expect(await resourceKeys(panelKey)).toEqual([id.key]));
   });
 
-  it("ingests concurrently and orders tabs by item, not by finish order", async () => {
+  it("imports concurrently and orders tabs by item, not by finish order", async () => {
     let release = (): void => {};
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
     const [slow, fast] = [await createLogID(), await createLogID()];
     const finished: string[] = [];
-    const { ingestBatch, store } = await renderIngestBatch();
+    const { importBatch, store } = await renderImportBatch();
     let batch!: Promise<void>;
     act(() => {
-      batch = ingestBatch({
+      batch = importBatch({
         items: [{ name: "slow.json" }, { name: "fast.json" }],
-        ingest: async ({ name }) => {
+        importItem: async ({ name }) => {
           const isSlow = name === "slow.json";
           if (isSlow) await held;
           finished.push(name);

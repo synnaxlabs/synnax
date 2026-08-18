@@ -11,7 +11,7 @@ import { Haul } from "@synnaxlabs/pluto";
 import { act, createEvent, fireEvent, screen } from "@testing-library/react";
 import { type DragEvent, type ReactElement } from "react";
 
-import { type FileIngesterContext } from "@/platform/import/import";
+import { type FileImporterContext } from "@/platform/import/import";
 
 const START_FILE_DRAG = "start file drag";
 
@@ -33,12 +33,12 @@ export const startFileDrag = (): void => {
 };
 
 /**
- * Builds a FileIngesterContext with no connected cluster. Merge overrides over it for
+ * Builds a FileImporterContext with no connected cluster. Merge overrides over it for
  * spec-specific fields.
  */
-export const createFileIngesterContext = (
-  overrides: Partial<FileIngesterContext> = {},
-): FileIngesterContext => ({
+export const createFileImporterContext = (
+  overrides: Partial<FileImporterContext> = {},
+): FileImporterContext => ({
   client: null,
   projectKey: "project-1",
   fileName: "test.json",

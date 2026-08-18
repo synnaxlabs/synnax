@@ -17,38 +17,38 @@ import { Panel } from "@/platform/panel";
 const resourceTabs = (ids: (ontology.ID | void)[]): panel.NewTab[] =>
   ids.filter((id) => id != null).map((resource) => ({ variant: "resource", resource }));
 
-export interface IngestBatchParams<I extends { name: string }> {
-  /** The items to ingest. An item's name identifies it when its ingest fails. */
+export interface ImportBatchParams<I extends { name: string }> {
+  /** The items to import. An item's name identifies it when its import fails. */
   items: I[];
   /** Creates the resource the item describes, or nothing when it opens no tab. TODO:
    * should probably NOT return `void`. */
-  ingest: (item: I) => Promise<void | ontology.ID>;
+  importItem: (item: I) => Promise<void | ontology.ID>;
   /** Places the tabs in a specific leaf instead of beside the current one. */
   placement?: Panel.Placement;
 }
 
-export interface IngestBatch {
-  <I extends { name: string }>(params: IngestBatchParams<I>): Promise<void>;
+export interface ImportBatch {
+  <I extends { name: string }>(params: ImportBatchParams<I>): Promise<void>;
 }
 
 /**
- * Returns a batch ingester: it ingests every item concurrently, then opens the
+ * Returns a batch importer: it imports every item concurrently, then opens the
  * resources they created as one batch of tabs. An item that fails is reported on its
  * own and leaves the rest of the batch running.
  */
-export const useIngestBatch = (): IngestBatch => {
+export const useImportBatch = (): ImportBatch => {
   const handleError = Status.useErrorHandler();
   const openTabs = Panel.useOpenTabs();
   return useCallback(
     async <I extends { name: string }>({
       items,
-      ingest,
+      importItem,
       placement,
-    }: IngestBatchParams<I>): Promise<void> => {
+    }: ImportBatchParams<I>): Promise<void> => {
       const ids = await Promise.all(
         items.map(async (item) => {
           try {
-            return await ingest(item);
+            return await importItem(item);
           } catch (e) {
             handleError(e, `Failed to import ${item.name}`);
           }

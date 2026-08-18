@@ -19,16 +19,16 @@ import {
   readDirectoryFiles,
   readEntryFile,
 } from "@/platform/import/entries";
-import { type BundleIngester, ingestServer } from "@/platform/import/import";
-import { useIngestBatch } from "@/platform/import/useIngestBatch";
+import { type BundleImporter, importServer } from "@/platform/import/import";
+import { useImportBatch } from "@/platform/import/useImportBatch";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Session } from "@/session";
 
 const readJSON = async (file: File): Promise<unknown> => JSON.parse(await file.text());
 
-interface IngestContext {
+interface ImportContext {
   client: Client | null;
-  ingestBundle: BundleIngester;
+  importBundle: BundleImporter;
   projectKey: project.Key;
   store: Store;
 }
@@ -36,23 +36,23 @@ interface IngestContext {
 // Returns the resource the entry created, or nothing for a bundle: a project import
 // brings its own panels, so it opens no tab here. A dropped directory is zipped with
 // its files' relative paths; the Core owns the bundle format.
-const ingestEntry = async (
+const importEntry = async (
   entry: FileSystemEntry,
-  { client, ingestBundle, projectKey, store }: IngestContext,
+  { client, importBundle, projectKey, store }: ImportContext,
 ): Promise<void | ontology.ID> => {
   if (isDirectoryEntry(entry)) {
     const bundle = await zipFiles(await readDirectoryFiles(entry));
-    return await ingestBundle(entry.name, bundle, { client, store });
+    return await importBundle(entry.name, bundle, { client, store });
   }
   if (!isFileEntry(entry)) return;
   const file = await readEntryFile(entry);
   if (isZipFile(file.name))
-    return await ingestBundle(file.name, new Uint8Array(await file.arrayBuffer()), {
+    return await importBundle(file.name, new Uint8Array(await file.arrayBuffer()), {
       client,
       store,
     });
   if (file.type !== "application/json") throw new Error("not a JSON file");
-  return await ingestServer(await readJSON(file), {
+  return await importServer(await readJSON(file), {
     client,
     projectKey,
     fileName: file.name,
@@ -61,9 +61,9 @@ const ingestEntry = async (
 
 export interface UseFileDropParams {
   /**
-   * Ingests a dropped directory or .zip as a bundle. Injected by the composition root.
+   * Imports a dropped directory or .zip as a bundle. Injected by the composition root.
    */
-  ingestBundle: BundleIngester;
+  importBundle: BundleImporter;
 }
 
 /**
@@ -81,11 +81,11 @@ export type FileDrop = (props: FileDropProps) => void;
  * concurrently, then opens the resources they created as one batch of tabs in the leaf
  * the drop landed on. A file that fails is reported on its own.
  */
-export const useFileDrop = ({ ingestBundle }: UseFileDropParams): FileDrop => {
+export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
   const client = Synnax.use();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
-  const ingestBatch = useIngestBatch();
+  const importBatch = useImportBatch();
   return useCallback(
     ({ nodeKey, location, event }: FileDropProps) => {
       const entries = captureEntries(event.dataTransfer);
@@ -96,14 +96,14 @@ export const useFileDrop = ({ ingestBundle }: UseFileDropParams): FileDrop => {
         nodeKey != null && location != null ? { leaf: nodeKey, location } : undefined;
       handleError(
         async () =>
-          await ingestBatch({
+          await importBatch({
             items: entries,
-            ingest: async (entry) =>
-              await ingestEntry(entry, { client, ingestBundle, projectKey, store }),
+            importItem: async (entry) =>
+              await importEntry(entry, { client, importBundle, projectKey, store }),
             placement,
           }),
       );
     },
-    [client, ingestBundle, ingestBatch, store, handleError],
+    [client, importBundle, importBatch, store, handleError],
   );
 };
