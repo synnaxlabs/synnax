@@ -24,7 +24,6 @@ import (
 	xiter "github.com/synnaxlabs/x/iter"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
-	"go.uber.org/zap"
 )
 
 // tx is an aspen-managed key-value transaction. It's important to note that aspen does
@@ -109,8 +108,9 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		if op.Variant == change.VariantSet {
 			v, closer, err := b.Get(ctx, dig.Key)
 			if errors.Is(err, query.ErrNotFound) {
-				zap.S().
-					Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
+				// A tx has a single writer, so a set key missing from the buffer can
+				// only mean a later delete in the same tx superseded it; only the
+				// delete needs to batch.
 				continue
 			}
 			if err != nil {

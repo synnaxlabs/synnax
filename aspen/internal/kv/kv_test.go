@@ -157,6 +157,21 @@ var _ = Describe("txn", func() {
 			Expect(v).To(Equal([]byte("value2")))
 			Expect(closer.Close()).To(Succeed())
 		})
+
+		It("Should commit a key set and then deleted in one tx as absent", func(
+			ctx SpecContext,
+		) {
+			kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			txn := kv.OpenTx()
+			Expect(txn.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Expect(txn.Set(ctx, []byte("kept"), []byte("value"))).To(Succeed())
+			Expect(txn.Delete(ctx, []byte("key"))).To(Succeed())
+			Expect(txn.Commit(ctx)).To(Succeed())
+			Expect(kv.Get(ctx, []byte("key"))).Error().To(MatchError(query.ErrNotFound))
+			v, closer := MustSucceed2(kv.Get(ctx, []byte("kept")))
+			Expect(v).To(Equal([]byte("value")))
+			Expect(closer.Close()).To(Succeed())
+		})
 	})
 
 	Describe("delete", func() {
