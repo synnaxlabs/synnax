@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/pluto";
-import { binary } from "@synnaxlabs/x";
+import { type binary } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
 import { PickerRow, type PickerRowProps } from "@/platform/fs/PickerRow";
 import { Runtime } from "@/platform/runtime";
 
-export interface InputFileProps<P extends z.ZodType = z.ZodString> extends Omit<
+export interface InputFileProps<P extends z.ZodType> extends Omit<
   PickerRowProps,
   "value" | "onClick" | "onChange" | "title"
 > {
@@ -27,8 +27,10 @@ export interface InputFileProps<P extends z.ZodType = z.ZodString> extends Omit<
   title: string;
   /** Restricts the picker to files with this extension, without the leading dot. */
   extension: string;
-  schema?: P;
-  decoder?: binary.Codec;
+  /** Validates the decoded contents. */
+  schema: P;
+  /** Decodes the file's raw bytes. */
+  decoder: binary.Codec;
 }
 
 /**
@@ -37,12 +39,12 @@ export interface InputFileProps<P extends z.ZodType = z.ZodString> extends Omit<
  * the decoded contents alongside it. A file that fails to read or decode reports an
  * error status and leaves the value untouched.
  */
-export const InputFile = <P extends z.ZodType = z.ZodString>({
+export const InputFile = <P extends z.ZodType>({
   value,
   onChange,
   title,
   extension,
-  decoder = binary.TEXT_CODEC,
+  decoder,
   schema,
   ...rest
 }: InputFileProps<P>): ReactElement => {

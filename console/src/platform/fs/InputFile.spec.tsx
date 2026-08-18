@@ -84,6 +84,8 @@ describe("FS.InputFile", () => {
         onChange={onChange}
         title="Select file"
         extension="csv"
+        schema={z.string()}
+        decoder={binary.TEXT_CODEC}
       />,
     );
     expect(screen.getByText("table.csv")).toBeTruthy();
@@ -95,7 +97,14 @@ describe("FS.InputFile", () => {
     const picker = interceptFilePicker();
     const onChange = vi.fn();
     await renderWithConsole(
-      <FS.InputFile value="" onChange={onChange} title="Select file" extension="txt" />,
+      <FS.InputFile
+        value=""
+        onChange={onChange}
+        title="Select file"
+        extension="txt"
+        schema={z.string()}
+        decoder={binary.TEXT_CODEC}
+      />,
     );
     fireEvent.click(screen.getByText("Select file"));
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
@@ -148,6 +157,8 @@ describe("FS.InputFile", () => {
           onChange={onChange}
           title="Select file"
           extension="txt"
+          schema={z.string()}
+          decoder={binary.TEXT_CODEC}
         />,
       );
       fireEvent.click(screen.getByText("Select file"));
@@ -166,6 +177,8 @@ describe("FS.InputFile", () => {
           onChange={onChange}
           title="Select file"
           extension="txt"
+          schema={z.string()}
+          decoder={binary.TEXT_CODEC}
         />,
       );
       fireEvent.click(screen.getByText("Select file"));

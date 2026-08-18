@@ -76,7 +76,7 @@ export const Toolbar = (): ReactElement | null => {
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
           <Flex.Box x empty className={CSS.BE("arc-toolbar", "actions")}>
-            <Export.ToolbarButton getID={() => arc.ontologyID(key)} />
+            <Export.ToolbarButton id={arc.ontologyID(key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={arc.ontologyID(key)}

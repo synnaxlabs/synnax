@@ -36,10 +36,9 @@ export interface PickedFile {
 
 // The Tauri dialog wants a named filter group; the name is just the dialog's label for
 // the extension.
-const tauriFilters = (extension?: string) =>
-  extension == null
-    ? undefined
-    : [{ name: extension.toUpperCase(), extensions: [extension] }];
+const tauriFilters = (extension: string) => [
+  { name: extension.toUpperCase(), extensions: [extension] },
+];
 
 /**
  * Resolves a settle callback after the user appears to have dismissed a file picker but
@@ -132,11 +131,6 @@ export const pickFiles = (async (
 export interface PickPathParams {
   /** Titles the native dialog. */
   title: string;
-  /**
-   * Restricts the picker to files with this extension, without the leading dot. Left
-   * unset, the picker accepts any file.
-   */
-  extension?: string;
 }
 
 /**
@@ -145,18 +139,10 @@ export interface PickPathParams {
  * browser; callers that need contents instead of a path use pickFiles, which works in
  * both runtimes.
  */
-export const pickPath = async ({
-  title,
-  extension,
-}: PickPathParams): Promise<string | null> => {
+export const pickPath = async ({ title }: PickPathParams): Promise<string | null> => {
   if (Session.Runtime.ENGINE !== "tauri")
     throw new Error("File paths can only be selected in the Synnax desktop app.");
-  return await open({
-    title,
-    filters: tauriFilters(extension),
-    directory: false,
-    multiple: false,
-  });
+  return await open({ title, directory: false, multiple: false });
 };
 
 /** A directory chosen through a picker, with its files read lazily. */

@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, log, project } from "@synnaxlabs/client";
+import { log, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
 import { act, render, waitFor } from "@testing-library/react";
 import { type ReactElement, useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 
 import { Import } from "@/platform/import";
 import {
-  assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
   fakePickedFile,
@@ -27,101 +25,6 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-const createImportServerContext = (
-  overrides: Partial<Import.ImportServerContext> = {},
-): Import.ImportServerContext => ({
-  client: null,
-  parent: project.ontologyID("project-1"),
-  fileName: "test.json",
-  ...overrides,
-});
-
-describe("importServer", () => {
-  it("fails when disconnected", async () => {
-    await expect(
-      Import.importServer(new TextEncoder().encode("{}"), createImportServerContext()),
-    ).rejects.toThrow(DisconnectedError);
-  });
-
-  it("streams typed data to the Core and returns the created resource", async () => {
-    const client = createTestClient();
-    const proj = await client.projects.create({
-      name: uniqueName("project"),
-      layout: {},
-    });
-    const original = await client.logs.create(proj.key, { name: uniqueName("log") });
-    const stream = await client.imex.export(log.ontologyID(original.key), {
-      encoding: "JSON",
-    });
-    const data = new Uint8Array(await new Response(stream).arrayBuffer());
-    const id = await Import.importServer(
-      data,
-      createImportServerContext({ client, parent: project.ontologyID(proj.key) }),
-    );
-    assertDefined(id, "server import returned no resource");
-    const created = await client.logs.retrieve({ key: id.key });
-    expect(created.name).toBe(original.name);
-  });
-
-  it("routes a typeless legacy state to the Core, naming it after the file", async () => {
-    const client = createTestClient();
-    const proj = await client.projects.create({
-      name: uniqueName("project"),
-      layout: {},
-    });
-    // A legacy Console log state: version-stamped, no type, no name. The server
-    // recognizes it by its frozen channels-array marker and names it after the file.
-    const state = { version: "0.0.0", channels: [1, 2, 3], remoteCreated: false };
-    const id = await Import.importServer(
-      new TextEncoder().encode(JSON.stringify(state)),
-      createImportServerContext({
-        client,
-        parent: project.ontologyID(proj.key),
-        fileName: "Legacy Log.json",
-      }),
-    );
-    assertDefined(id, "server import returned no resource");
-    const created = await client.logs.retrieve({ key: id.key });
-    expect(created.name).toBe("Legacy Log");
-  });
-
-  it("migrates a legacy task config through the Core on import", async () => {
-    const client = createTestClient();
-    const proj = await client.projects.create({
-      name: uniqueName("project"),
-      layout: {},
-    });
-    // A legacy Console task export: the camelCase config with only a type marker.
-    const legacy = {
-      type: "pagerduty_alert",
-      routingKey: "R016395AF23B4E62B7A2BF7B24C1EF31",
-      autoStart: true,
-      alerts: [],
-    };
-    const id = await Import.importServer(
-      new TextEncoder().encode(JSON.stringify(legacy)),
-      createImportServerContext({
-        client,
-        parent: project.ontologyID(proj.key),
-        fileName: "PD Alerts.json",
-      }),
-    );
-    assertDefined(id, "server import returned no resource");
-    const created = await client.tasks.retrieve({
-      key: id.key,
-      schemas: {
-        type: z.literal("pagerduty_alert"),
-        config: z.looseObject({ routingKey: z.string(), autoStart: z.boolean() }),
-        statusData: z.unknown(),
-      },
-    });
-    expect(created.name).toBe("PD Alerts");
-    expect(created.rack).toBe(0);
-    expect(created.config.routingKey).toBe("R016395AF23B4E62B7A2BF7B24C1EF31");
-    expect(created.config.autoStart).toBe(true);
-  });
 });
 
 interface HarnessProps {
@@ -185,7 +88,7 @@ describe("useImport", () => {
     let run: ((projectKey?: string) => void) | undefined;
     let statuses: Status.NotificationSpec[] = [];
     const { wrapper } = await createConsoleWrapper({
-      client: null,
+      client: createTestClient(),
       preloadedState: { project: { version: 0, selected: "project-1" } },
     });
     render(<Harness onReady={(r) => (run = r)} onStatuses={(s) => (statuses = s)} />, {

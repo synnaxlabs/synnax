@@ -85,12 +85,7 @@ describe("FS.InputPath", () => {
       openMock.mockResolvedValue("/tmp/picked.json");
       const onChange = vi.fn();
       await renderWithConsole(
-        <FS.InputPath
-          value=""
-          onChange={onChange}
-          title="Select file"
-          extension="json"
-        />,
+        <FS.InputPath value="" onChange={onChange} title="Select file" />,
       );
       fireEvent.click(screen.getByText("Select file"));
       await waitFor(() => expect(onChange).toHaveBeenCalledWith("/tmp/picked.json"));
@@ -98,7 +93,6 @@ describe("FS.InputPath", () => {
         title: "Select file",
         directory: false,
         multiple: false,
-        filters: [{ name: "JSON", extensions: ["json"] }],
       });
     });
 

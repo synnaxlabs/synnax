@@ -48,7 +48,7 @@ const Internal = (): ReactElement => {
           </Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
-              <Export.ToolbarButton getID={() => log.ontologyID(key)} />
+              <Export.ToolbarButton id={log.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}

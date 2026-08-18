@@ -11,7 +11,6 @@ import { type Store } from "@reduxjs/toolkit";
 import {
   DisconnectedError,
   imex,
-  type ontology,
   project,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -21,17 +20,6 @@ import { useCallback } from "react";
 import { useImportBatch } from "@/platform/import/useImportBatch";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
-
-export interface ImportServerContext {
-  client: Client | null;
-  /** The ontology resource the created resource is parented to. */
-  parent: ontology.ID;
-  /**
-   * The name of the file the data was read from, extension included. The Core names
-   * the resource after the file when the file's contents carry no name.
-   */
-  fileName: string;
-}
 
 interface BundleImporterContext {
   client: Client | null;
@@ -50,20 +38,6 @@ export interface BundleImporter {
   ): Promise<void>;
 }
 
-/**
- * Imports a resource by streaming its serialized bytes to the Core, which owns envelope
- * decoding, type resolution for typeless legacy Console states, legacy-version
- * migration, file-name naming, and parenting. Returns the created resource's ID.
- * @throws {DisconnectedError} if no Core is connected.
- */
-export const importServer = async (
-  data: Uint8Array<ArrayBuffer>,
-  { client, parent, fileName }: ImportServerContext,
-): Promise<ontology.ID> => {
-  if (client == null) throw new DisconnectedError();
-  return await client.imex.import(data, { ...imex.JSON_OPTIONS, fileName, parent });
-};
-
 export const useImport = (): ((projectKey?: string) => void) => {
   const store = Session.useStore();
   const client = Synnax.use();
@@ -72,6 +46,7 @@ export const useImport = (): ((projectKey?: string) => void) => {
   return useCallback(
     (projectKey?: string) =>
       handleError(async () => {
+        if (client == null) throw new DisconnectedError();
         const files = await Runtime.pickFiles({
           title: "Import",
           extension: "json",
@@ -80,7 +55,6 @@ export const useImport = (): ((projectKey?: string) => void) => {
         if (files == null) return;
         const activeProjectKey = Session.Project.selectSelected(store.getState());
         if (projectKey != null && activeProjectKey !== projectKey) {
-          if (client == null) throw new DisconnectedError();
           const proj = await client.projects.retrieve(projectKey);
           store.dispatch(Session.Project.select(proj.key));
         }
@@ -89,10 +63,10 @@ export const useImport = (): ((projectKey?: string) => void) => {
           // importBatch names failures after the item, so the path doubles as the name.
           items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
           importItem: async (file) =>
-            await importServer(await file.readBytes(), {
-              client,
-              parent: project.ontologyID(activeProjectKeyAfter),
+            await client.imex.import(await file.readBytes(), {
+              ...imex.JSON_OPTIONS,
               fileName: file.name,
+              parent: project.ontologyID(activeProjectKeyAfter),
             }),
         });
       }),

@@ -45,7 +45,11 @@ export const readEntryFile = async (entry: FileSystemFileEntry): Promise<File> =
  */
 export const readDirectoryFiles = async (
   entry: FileSystemDirectoryEntry,
-  prefix: string = "",
+): Promise<SourceFile[]> => await walkDirectory(entry, "");
+
+const walkDirectory = async (
+  entry: FileSystemDirectoryEntry,
+  prefix: string,
 ): Promise<SourceFile[]> => {
   const reader = entry.createReader();
   const files: SourceFile[] = [];
@@ -56,8 +60,7 @@ export const readDirectoryFiles = async (
     if (entries.length === 0) break;
     for (const child of entries) {
       const path = prefix === "" ? child.name : `${prefix}/${child.name}`;
-      if (isDirectoryEntry(child))
-        files.push(...(await readDirectoryFiles(child, path)));
+      if (isDirectoryEntry(child)) files.push(...(await walkDirectory(child, path)));
       else if (isFileEntry(child)) {
         const file = await readEntryFile(child);
         files.push({

@@ -229,12 +229,11 @@ describe("Runtime files", () => {
 
       it("should return the chosen absolute path", async () => {
         openMock.mockResolvedValue("/tmp/cert.pem");
-        await expect(
-          Runtime.pickPath({ title: "Pick", extension: "pem" }),
-        ).resolves.toBe("/tmp/cert.pem");
+        await expect(Runtime.pickPath({ title: "Pick" })).resolves.toBe(
+          "/tmp/cert.pem",
+        );
         expect(openMock).toHaveBeenCalledWith({
           title: "Pick",
-          filters: [{ name: "PEM", extensions: ["pem"] }],
           directory: false,
           multiple: false,
         });

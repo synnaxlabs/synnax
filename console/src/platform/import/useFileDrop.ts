@@ -8,12 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, project, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  imex,
+  type ontology,
+  project,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { FS } from "@/platform/fs";
-import { type BundleImporter, importServer } from "@/platform/import/import";
+import { type BundleImporter } from "@/platform/import/import";
 import { useImportBatch } from "@/platform/import/useImportBatch";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Session } from "@/session";
@@ -43,11 +49,12 @@ const importEntry = async (
       client,
       store,
     });
-  if (file.type !== "application/json") throw new Error("not a JSON file");
-  return await importServer(new Uint8Array(await file.arrayBuffer()), {
-    client,
-    parent: project.ontologyID(projectKey),
+  if (!file.name.toLowerCase().endsWith(".json")) throw new Error("not a JSON file");
+  if (client == null) throw new DisconnectedError();
+  return await client.imex.import(new Uint8Array(await file.arrayBuffer()), {
+    ...imex.JSON_OPTIONS,
     fileName: file.name,
+    parent: project.ontologyID(projectKey),
   });
 };
 
