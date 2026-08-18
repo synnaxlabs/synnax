@@ -1,0 +1,36 @@
+{
+  "name": "@synnaxlabs/studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Automated docs video production pipeline for Synnax",
+  "repository": "https://github.com/synnaxlabs/synnax/tree/main/studio",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
+    "test": "vitest",
+    "lint": "eslint",
+    "fix": "eslint --fix",
+    "produce": "tsx src/cli/produce.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "playwright": "^1.50.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "remotion": "^4.0.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "eslint": "catalog:",
+    "tsx": "^4.19.0",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
