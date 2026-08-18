@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { CSS } from "@/css";
 import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
+import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
 import { getRootElement } from "@/util/rootElement";
 
@@ -34,6 +35,7 @@ export const Dialog = ({
 }: DialogProps) => {
   const {
     ref,
+    id,
     targetCorner,
     dialogCorner,
     style: ctxStyle,
@@ -70,6 +72,7 @@ export const Dialog = ({
       align="stretch"
       style={dialogStyle}
       {...rest}
+      {...{ [PORTAL_OWNER_ATTR]: id }}
     >
       {children}
     </Flex.Box>

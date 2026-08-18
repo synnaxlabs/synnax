@@ -139,5 +139,8 @@ class Console:
             tab = self._find_tab_to_close(except_tabs)
             if tab is None:
                 return
+            # The close button reveals on tab hover; the tab icon covers it until
+            # then.
+            tab.hover()
             tab.get_by_label("Close", exact=True).click()
             self._dismiss_unsaved_changes_dialog()
