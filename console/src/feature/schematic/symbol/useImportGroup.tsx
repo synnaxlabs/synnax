@@ -143,7 +143,6 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
         <Flex.Box
           className={CSS.BE("schematic", "symbol-import-group", "zone")}
           y
-          grow
           align="center"
           justify="center"
           gap="small"
