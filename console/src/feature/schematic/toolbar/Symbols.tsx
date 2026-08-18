@@ -30,10 +30,8 @@ import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import {
-  useImport as useImportSymbol,
-  useImportGroup,
-} from "@/feature/schematic/symbol/import";
+import { useImport as useImportSymbol } from "@/feature/schematic/symbol/import";
+import { useImportGroup } from "@/feature/schematic/symbol/useImportGroup";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -330,7 +328,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   const openEdit = Symbol.Edit.useModal();
-  const importSymbol = useImportSymbol(selectedGroup);
+  const importSymbol = useImportSymbol();
   const importGroup = useImportGroup();
   const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   const hasCreateSymbolPermission = Access.useCreateGranted(
@@ -399,7 +397,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
             size="small"
             tooltip="Import symbol"
             disabled={!isRemoteGroup}
-            onClick={importSymbol}
+            onClick={() => importSymbol(selectedGroup)}
           >
             <ImportSymbolIcon />
           </Button.Button>

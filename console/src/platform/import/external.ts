@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/import/canParseFile";
+export * from "@/platform/import/entries";
 export * from "@/platform/import/import";
 export * from "@/platform/import/ingestBatch";
 export * from "@/platform/import/ingester";

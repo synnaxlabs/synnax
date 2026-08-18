@@ -9,10 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-theme-modal {
-    width: 40rem;
-
-    .console-modal__body {
-        padding: 0;
-    }
+.console-schematic__symbol-import-group-zone {
+    min-height: 50rem;
+    cursor: pointer;
 }
