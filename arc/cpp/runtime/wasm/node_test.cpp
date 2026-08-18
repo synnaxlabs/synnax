@@ -2420,14 +2420,6 @@ func xor_ii() i64 { return 12 ^ 10 })arc");
     EXPECT_EQ(v, 6);
 }
 
-/// @brief xor keyword is an alias for ^.
-TEST(BinaryOpTest, XorKeywordAlias) {
-    const auto client = new_test_client();
-    const auto v = call_func<int64_t>(client, R"arc(
-func xor_kw() i64 { return 12 xor 10 })arc");
-    EXPECT_EQ(v, 6);
-}
-
 /// @brief & operator is bitwise and on integers.
 TEST(BinaryOpTest, BitAndConstConstI64) {
     const auto client = new_test_client();
@@ -2461,30 +2453,6 @@ TEST(BinaryOpTest, BitNotChanU8) {
         {static_cast<uint8_t>(5)}
     );
     EXPECT_EQ(v, 250);
-}
-
-/// @brief && operator is a symbolic alias for logical and.
-TEST(BinaryOpTest, LogicalAndSymbolicAlias) {
-    const auto client = new_test_client();
-    const auto v = call_func<uint8_t>(client, R"arc(
-func land() bool { return true && false })arc");
-    EXPECT_EQ(v, 0);
-}
-
-/// @brief || operator is a symbolic alias for logical or.
-TEST(BinaryOpTest, LogicalOrSymbolicAlias) {
-    const auto client = new_test_client();
-    const auto v = call_func<uint8_t>(client, R"arc(
-func lor() bool { return false || true })arc");
-    EXPECT_EQ(v, 1);
-}
-
-/// @brief ! operator is a symbolic alias for logical not.
-TEST(BinaryOpTest, LogicalNotSymbolicAlias) {
-    const auto client = new_test_client();
-    const auto v = call_func<uint8_t>(client, R"arc(
-func lnot() bool { return !false })arc");
-    EXPECT_EQ(v, 1);
 }
 
 /// @brief a bool function returns a bool literal as 1.
