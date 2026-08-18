@@ -21,92 +21,89 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
-	xiter "github.com/synnaxlabs/x/iter"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 )
 
-// tx is an aspen-managed key-value transaction. It's important to note that aspen does
+// tx is an Aspen-managed key-value transaction. It's important to note that Aspen does
 // not support atomicity on transactions with lease cardinality greater than one i.e.,
 // if a transaction contains operations with different leaseholders, then the
 // transaction is not guaranteed to be atomic. See
 // https://github.com/synnaxlabs/synnax/issues/102 for more details.
 type tx struct {
 	// Tx is the underlying key-value transaction. This transaction is not actually
-	// applied, and simply serves as a cache for the operations that are applied.
-	// It also serves all read operations.
-	xkv.Tx
+	// applied, and simply serves as a cache for the operations that are applied. It
+	// also serves all read operations.
+	kv.Tx
 	lease *leaseAllocator
-	apply func(reqs []TxRequest) error
+	apply func([]TxRequest) error
 	alamos.Instrumentation
 	digests []Digest
 }
 
-var _ xkv.Tx = (*tx)(nil)
+var _ kv.Tx = (*tx)(nil)
 
-// Set implements xkv.Tx.
-func (b *tx) Set(ctx context.Context, key, value []byte, options ...any) error {
+// Set implements kv.Tx.
+func (t *tx) Set(ctx context.Context, key, value []byte, options ...any) error {
 	lease, err := validateLeaseOption(options)
 	if err != nil {
 		return err
 	}
-	return b.applyOp(ctx, Operation{
-		Change:      xkv.Change{Key: key, Value: value, Variant: change.VariantSet},
+	return t.applyOp(ctx, Operation{
+		Change:      kv.Change{Key: key, Value: value, Variant: change.VariantSet},
 		Leaseholder: lease,
 	})
 }
 
 // Delete implements xkv.Tx.
-func (b *tx) Delete(ctx context.Context, key []byte, _ ...any) error {
-	op := Operation{Change: xkv.Change{Key: key, Variant: change.VariantDelete}}
-	return b.applyOp(ctx, op)
+func (t *tx) Delete(ctx context.Context, key []byte, _ ...any) error {
+	op := Operation{Change: kv.Change{Key: key, Variant: change.VariantDelete}}
+	return t.applyOp(ctx, op)
 }
 
 // Close implements kv.Tx.
-func (b *tx) Close() error {
-	b.digests = nil
-	return b.Tx.Close()
-}
+func (t *tx) Close() error { t.digests = nil; return t.Tx.Close() }
 
 // Commit implements kv.Tx.
-func (b *tx) Commit(ctx context.Context, _ ...any) error {
+func (t *tx) Commit(ctx context.Context, _ ...any) error {
 	if ctx == nil {
-		b.L.DPanic("aspen encountered a nil context when committing transaction")
+		t.L.DPanic("Aspen encountered a nil context when committing a transaction")
 	}
-	ctx, span := b.T.Prod(ctx, "tx-commit")
-	data, err := b.toRequests(ctx)
+	ctx, span := t.T.Prod(ctx, "tx-commit")
+	data, err := t.toRequests(ctx)
 	if err != nil {
 		return span.EndWith(err)
 	}
-	return span.EndWith(b.apply(data))
+	return span.EndWith(t.apply(data))
 }
 
-func (b *tx) applyOp(ctx context.Context, op Operation) error {
+func (t *tx) applyOp(ctx context.Context, op Operation) error {
 	var err error
-	op, err = b.lease.allocate(ctx, op)
+	op, err = t.lease.allocate(ctx, op)
 	if err != nil {
 		return err
 	}
 	if op.Variant == change.VariantDelete {
-		if err := b.Tx.Delete(ctx, op.Key); err != nil {
+		if err := t.Tx.Delete(ctx, op.Key); err != nil {
 			return err
 		}
 	} else {
-		if err := b.Tx.Set(ctx, op.Key, op.Value); err != nil {
+		if err := t.Tx.Set(ctx, op.Key, op.Value); err != nil {
 			return err
 		}
 	}
 	op.Key = bytes.Clone(op.Key)
-	b.digests = append(b.digests, op.Digest())
+	t.digests = append(t.digests, op.Digest())
 	return nil
 }
 
-func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
+func (t *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	dm := make(map[node.Key]TxRequest)
-	for _, dig := range b.digests {
+	for _, dig := range t.digests {
 		op := dig.Operation()
 		if op.Variant == change.VariantSet {
-			v, closer, err := b.Get(ctx, dig.Key)
+			v, closer, err := t.Get(ctx, dig.Key)
 			if errors.Is(err, query.ErrNotFound) {
 				// A tx has a single writer, so a set key missing from the buffer can
 				// only mean a later delete in the same tx superseded it; only the
@@ -121,33 +118,29 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 				return nil, err
 			}
 		}
-		br, ok := dm[op.Leaseholder]
+		req, ok := dm[op.Leaseholder]
 		if !ok {
-			br.Operations = []Operation{op}
+			req.Operations = []Operation{op}
 		} else {
-			br.Operations = append(br.Operations, op)
+			req.Operations = append(req.Operations, op)
 		}
-		br.Leaseholder = op.Leaseholder
-		br.Context, br.span = b.T.Debug(
+		req.Leaseholder = op.Leaseholder
+		req.Context, req.span = t.T.Debug(
 			ctx,
-			fmt.Sprintf("tx-%d", br.Leaseholder),
+			fmt.Sprintf("tx-%d", req.Leaseholder),
 		)
-		dm[op.Leaseholder] = br
+		dm[op.Leaseholder] = req
 	}
-	data := make([]TxRequest, 0, len(dm))
-	for _, d := range dm {
-		data = append(data, d)
-	}
-	return data, nil
+	return lo.MapToSlice(dm, func(k node.Key, r TxRequest) TxRequest { return r }), nil
 }
 
 type TxRequest struct {
 	// Context is the context for the transaction. This context is important for
-	// cancellation and tracing, but is extremely easy to misuse. If you don't know
-	// what you're doing, be careful when passing this context around.
+	// cancellation and tracing, but is extremely easy to misuse. If you don't know what
+	// you're doing, be careful when passing this context around.
 	Context     context.Context
 	span        alamos.Span
-	doneF       func(err error)
+	doneF       func(error)
 	Operations  []Operation
 	Leaseholder node.Key
 	Sender      node.Key
@@ -157,24 +150,24 @@ func (tr TxRequest) empty() bool { return len(tr.Operations) == 0 }
 
 func (tr TxRequest) size() int { return len(tr.Operations) }
 
-func (tr TxRequest) commitTo(db xkv.Atomic) (err error) {
-	b := db.OpenTx()
+func (tr TxRequest) commitTo(db kv.Atomic) (err error) {
+	tx := db.OpenTx()
 	defer func() {
 		tr.Operations = nil
 		if err != nil {
-			err = b.Close()
-		} else if _err := b.Commit(tr.Context); _err != nil {
-			err = _err
+			err = tx.Close()
+		} else if commitErr := tx.Commit(tr.Context); commitErr != nil {
+			err = commitErr
 		}
 		tr.done(err)
 	}()
 	for _, op := range tr.Operations {
-		if _err := op.apply(tr.Context, b); _err != nil {
-			err = _err
+		if applyErr := op.apply(tr.Context, tx); applyErr != nil {
+			err = applyErr
 			return err
 		}
-		if _err := op.Digest().apply(tr.Context, b); _err != nil {
-			err = _err
+		if applyErr := op.Digest().apply(tr.Context, tx); applyErr != nil {
+			err = applyErr
 			return err
 		}
 	}
@@ -190,12 +183,10 @@ func (tr TxRequest) done(err error) {
 	}
 }
 
-func extractOpChange(op Operation) xkv.Change {
-	return op.Change
-}
+func extractOpChange(op Operation) kv.Change { return op.Change }
 
-func (tr TxRequest) reader() xkv.TxReader {
-	return xiter.Map(slices.Values(tr.Operations), extractOpChange)
+func (tr TxRequest) reader() kv.TxReader {
+	return iter.Map(slices.Values(tr.Operations), extractOpChange)
 }
 
 func (tr TxRequest) digests() []Digest {
@@ -224,23 +215,19 @@ type txCoordinator struct {
 	wg sync.WaitGroup
 }
 
-func (bc *txCoordinator) done(err error) {
+func (tc *txCoordinator) done(err error) {
 	if err != nil {
-		bc.mu.Lock()
-		bc.mu.err = errors.Combine(bc.mu.err, err)
-		bc.mu.Unlock()
+		tc.mu.Lock()
+		tc.mu.err = errors.Combine(tc.mu.err, err)
+		tc.mu.Unlock()
 	}
-	bc.wg.Done()
+	tc.wg.Done()
 }
 
-func (bc *txCoordinator) wait() error {
-	bc.wg.Wait()
-	// At this point no other processes are writing to bc.mu.err, so no need to
-	// lock.
-	return bc.mu.err
+func (tc *txCoordinator) wait() error {
+	tc.wg.Wait()
+	// At this point no other processes are writing to tc.mu.err, so no need to lock.
+	return tc.mu.err
 }
 
-func (bc *txCoordinator) add(data *TxRequest) {
-	bc.wg.Add(1)
-	data.doneF = bc.done
-}
+func (tc *txCoordinator) add(data *TxRequest) { tc.wg.Add(1); data.doneF = tc.done }

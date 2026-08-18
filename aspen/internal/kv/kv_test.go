@@ -162,15 +162,15 @@ var _ = Describe("txn", func() {
 			ctx SpecContext,
 		) {
 			kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
-			txn := kv.OpenTx()
-			Expect(txn.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
-			Expect(txn.Set(ctx, []byte("kept"), []byte("value"))).To(Succeed())
-			Expect(txn.Delete(ctx, []byte("key"))).To(Succeed())
-			Expect(txn.Commit(ctx)).To(Succeed())
+			tx := kv.OpenTx()
+			Expect(tx.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Expect(tx.Set(ctx, []byte("kept"), []byte("value"))).To(Succeed())
+			Expect(tx.Delete(ctx, []byte("key"))).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(kv.Get(ctx, []byte("key"))).Error().To(MatchError(query.ErrNotFound))
 			v, closer := MustSucceed2(kv.Get(ctx, []byte("kept")))
+			DeferClose(closer)
 			Expect(v).To(Equal([]byte("value")))
-			Expect(closer.Close()).To(Succeed())
 		})
 	})
 

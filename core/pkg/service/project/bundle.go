@@ -426,8 +426,19 @@ func (s *Service) ImportObjects(
 				validate.ErrValidation, "bundle holds no %s", manifestFileName,
 			)
 		}
-		if members, err = s.legacyMembers(ctx, layoutData, files); err != nil {
+		var slice legacySlice
+		if err = json.Codec.Decode(ctx, layoutData, &slice); err != nil {
+			return nil, errors.Wrap(err, legacyLayoutFileName)
+		}
+		legMembers, err := s.legacyMembers(ctx, slice, files)
+		if err != nil {
 			return nil, err
+		}
+		for _, m := range legMembers {
+			members = append(members, m.importMember)
+		}
+		if legacyHasPanels(ctx, layoutData, legMembers) {
+			add(ontology.ResourceTypePanel)
 		}
 	} else {
 		if _, err = decodeManifest(ctx, manifestData, manifestFileName); err != nil {

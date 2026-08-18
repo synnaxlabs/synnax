@@ -238,8 +238,9 @@ relative paths. The server recognizes each historical layout:
    group importer migrates it. Every other pair is the current format: guard the
    version, then match the type against the endpoint.
 2. No `manifest.json`, `LAYOUT.json` present: the legacy project directory every stable
-   release writes (version 0). Recreate documents; drop the mosaic tiling (matches
-   current Console behavior, SY-4370 TODO).
+   release writes (version 0). Recreate documents, then each window's mosaic tiling as a
+   panel of resource tabs. Tiling is best-effort: an unrecognized mosaics shape drops
+   the tiling instead of failing the import.
 3. Neither present: a validation error.
 
 The interim `PANELS.json` layout exists only in rc pre-releases and gets no migration
