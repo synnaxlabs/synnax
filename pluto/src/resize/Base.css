@@ -76,6 +76,13 @@
     }
 }
 
+/* Single in-flow child, since the handle is absolute, and that child carries its own
+   100%/100%. Block spares WebKit a flex pass per drag frame. Paired with .pluto-flex
+   to outrank it regardless of bundle order. */
+.pluto-flex.pluto-resize {
+    display: block;
+}
+
 /* The divider is the container's own border. The handle stays transparent and paints
    the bar only while hovered or dragged, so the edge never doubles up. */
 .pluto-resize__handle {

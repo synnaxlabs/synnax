@@ -47,6 +47,23 @@ export const firePointerDown = (target: Element, cursor: xy.XY): void => {
   fireEvent(target, event);
 };
 
+/**
+ * Gives every element a fixed box in jsdom, which otherwise reports zero for all of
+ * them. A virtualized list measures its scroll container this way, so without it no
+ * item is ever inside the window.
+ */
+export const mockGeometry = (width: number, height: number): void => {
+  Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, width, height);
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+    configurable: true,
+    get: () => height,
+  });
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => width,
+  });
+};
+
 export const mockBoundingClientRect = (
   top: number,
   left: number,

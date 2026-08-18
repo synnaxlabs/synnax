@@ -33,14 +33,18 @@ class RangesClient:
 
     TOOLBAR_ITEM_SELECTOR = ".console-range-list-item"
     EXPLORER_ITEM_SELECTOR = ".console-range__list-item"
-    EXPLORER_LIST_SELECTOR = ".console-range-explorer .pluto-list__items"
+    # The view tabs above the ranges are a list too, so exclude them: they carry no
+    # range rows and scrolling them does nothing.
+    EXPLORER_LIST_SELECTOR = (
+        ".console-range-explorer .pluto-list__items:not(.console-view__views)"
+    )
     FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
     UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
     NAME_INPUT_PLACEHOLDER = "Name"
-    # Polls the explorer list must stay the same height at the bottom before it counts
-    # as fully paged in.
-    SCROLL_SETTLED_POLLS = 3
+    # The explorer list must stay the same height at the bottom for longer than a page
+    # fetch before it counts as fully paged in.
+    SCROLL_SETTLE = 1500 * sy.TimeSpan.MILLISECOND
 
     def __init__(
         self,
@@ -157,9 +161,9 @@ class RangesClient:
         return item
 
     def _scroll_explorer_to(
-        self, item: Locator, budget: sy.TimeSpan = 3 * sy.TimeSpan.SECOND
+        self, item: Locator, budget: sy.TimeSpan = 30 * sy.TimeSpan.SECOND
     ) -> None:
-        """Scroll the explorer list until item renders, or the budget runs out.
+        """Scroll the explorer list until item renders, or the list runs out.
 
         The explorer mounts only the rows in view and pages in more as it nears
         the bottom, so a range further down has no element to wait on. Filtering
@@ -168,16 +172,16 @@ class RangesClient:
 
         Args:
             item: Locator for the range row to reveal.
-            budget: How long to keep scrolling before giving up. Callers that
-                probe for a range that is not there pay this in full.
+            budget: Backstop on the whole sweep. Callers that probe for a range
+                that is not there page through the entire list.
         """
         lst = self.layout.page.locator(self.EXPLORER_LIST_SELECTOR).first
         if lst.count() == 0:
             return
         lst.evaluate("el => { el.scrollTop = 0; }")
         timer = sy.Timer()
+        settle = sy.Timer()
         prev_height = -1
-        settled = 0
         while timer.elapsed() < budget:
             if item.count() > 0:
                 return
@@ -186,10 +190,11 @@ class RangesClient:
                 "el => el.scrollTop + el.clientHeight >= el.scrollHeight - 1"
             )
             # The pager appends on reaching the bottom, so only give up once the list
-            # stops growing there. One unchanged poll proves nothing: the next page
-            # can still be in flight.
-            settled = settled + 1 if at_bottom and height == prev_height else 0
-            if settled >= self.SCROLL_SETTLED_POLLS:
+            # stops growing there. A short pause proves nothing: the next page can
+            # still be in flight.
+            if not at_bottom or height != prev_height:
+                settle.reset()
+            elif settle.elapsed() >= self.SCROLL_SETTLE:
                 return
             prev_height = height
             lst.evaluate("el => { el.scrollTop += el.clientHeight * 0.8; }")
@@ -309,31 +314,7 @@ class RangesClient:
             ).click(timeout=5000)
 
         if labels is not None:
-            label_button = self.layout.page.get_by_text("Select labels", exact=True)
-            label_button.click(timeout=5000)
-            label_dialog = self.layout.page.locator(
-                ".pluto-select__dialog.pluto--visible"
-            )
-            label_dialog.wait_for(state="visible", timeout=5000)
-            for label_name in labels:
-                label_item = (
-                    label_dialog.locator(".pluto-list__item")
-                    .filter(has_text=label_name)
-                    .first
-                )
-                try:
-                    label_item.wait_for(state="visible", timeout=3000)
-                    label_item.click(timeout=2000)
-                except PlaywrightTimeoutError:
-                    all_labels = label_dialog.locator(".pluto-list__item").all()
-                    available_labels = [
-                        lbl.text_content() for lbl in all_labels if lbl.is_visible()
-                    ]
-                    raise RuntimeError(
-                        f"Error selecting label '{label_name}'. "
-                        f"Available labels: {available_labels}."
-                    )
-            self.layout.press_escape()
+            self.layout.select_labels(labels)
 
         if persisted:
             save_button = modal.get_by_role("button", name="Save to Core")

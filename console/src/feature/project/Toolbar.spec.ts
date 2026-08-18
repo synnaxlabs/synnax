@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { renderToolbar } from "@/platform/tree/menuTestutil";
+import { findTreeRow } from "@/platform/tree/treeTestutil";
 import { getIconButton, getIconButtons, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -30,7 +31,7 @@ describe("project toolbar", () => {
     });
     await renderToolbar(Project.TOOLBAR.content, { client });
     expect(screen.getByText("Projects")).toBeTruthy();
-    expect(await screen.findByText(firstChild.name)).toBeTruthy();
+    expect(await findTreeRow(firstChild.name)).toBeTruthy();
   });
 
   it("should open the create modal from the create action", async () => {

@@ -121,7 +121,9 @@ const itemRenderProp = Component.renderProp(
       onDragOver: useCallback(() => setDraggingOver(true), []),
     });
 
-    if (resource == null) return null;
+    // The virtualizer has already reserved this row's slot. Rendering nothing would
+    // leave a gap, so the row stays empty until the resource loads.
+    if (resource == null) return <Base.Item {...rest} />;
 
     return (
       <Item

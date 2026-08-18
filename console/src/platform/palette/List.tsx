@@ -127,6 +127,7 @@ export const BaseList = <E extends record.Keyed<string>>({
         bordered
         borderColor={8}
         displayItems={10}
+        animateHeight
       >
         {listItem}
       </Base.Items>

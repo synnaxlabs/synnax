@@ -34,7 +34,7 @@ describe("device/Toolbar", () => {
     });
     await screen.findByText("Devices");
     fireEvent.click(await findTreeRow(rack.name));
-    await screen.findByText(dev.name);
+    expect(await findTreeRow(dev.name)).toBeTruthy();
   });
 });
 

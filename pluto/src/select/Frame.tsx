@@ -98,6 +98,7 @@ export const Frame = <
   itemHeight,
   multiple,
   onFetchMore,
+  overscan,
   virtual = false,
   value,
   onChange,
@@ -109,6 +110,7 @@ export const Frame = <
     subscribe={subscribe}
     onFetchMore={onFetchMore}
     itemHeight={itemHeight}
+    overscan={overscan}
     virtual={virtual}
   >
     {multiple ? (
