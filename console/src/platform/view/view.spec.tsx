@@ -141,16 +141,18 @@ describe("View permissions", () => {
     await enableEditing();
     await screen.findByText("All channels");
     expect(screen.queryByPlaceholderText("Search channels...")).toBeNull();
-    expect(queryIconButton(getBySelector(document.body, ".console-controls"), "add"))
-      .toBeNull();
+    expect(
+      queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+    ).toBeNull();
   });
 
   it("should withhold the view create button from a subject who cannot create views", async () => {
     await renderHarness(await createSubject({ update: [view.TYPE_ONTOLOGY_ID] }));
     await enableEditing();
     await screen.findByPlaceholderText("Search channels...");
-    expect(queryIconButton(getBySelector(document.body, ".console-controls"), "add"))
-      .toBeNull();
+    expect(
+      queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+    ).toBeNull();
   });
 
   it("should offer the view create button to a subject who may create views", async () => {

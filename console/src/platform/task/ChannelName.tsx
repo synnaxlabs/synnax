@@ -28,6 +28,7 @@ import { location, type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
+import { useIsPreview } from "@/platform/task/Form";
 import { Session } from "@/session";
 
 export interface ChannelNameProps extends optional.Optional<
@@ -51,7 +52,7 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   // Roles carry channel update across the whole type, so the grant is read there.
   // A form in preview mode has nothing to write into for a channel not yet created.
   const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
-  const { mode } = Form.useContext();
+  const isPreview = useIsPreview();
   const { update } = Channel.useRename();
   const handleRename = useCallback(
     (name: string) => {
@@ -66,7 +67,7 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
       level="small"
       value={name}
       onChange={handleRename}
-      disabled={mode === "preview" || (channel !== 0 && !canRename)}
+      disabled={isPreview || (channel !== 0 && !canRename)}
       allowDoubleClick={false}
       overflow="ellipsis"
       {...rest}

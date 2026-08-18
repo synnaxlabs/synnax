@@ -332,6 +332,17 @@ describe("task/Toolbar", () => {
       expect(screen.queryByText("Stop")).toBeNull();
     });
 
+    // Waiting for Start proves the menu is fully populated, so the missing item
+    // reads as the permission gate rather than a race.
+    it("withholds Edit configuration from an operator", async () => {
+      const t = await createStoppedTask();
+      const operator = await roles.get("Operator");
+      await renderToolbar(operator);
+      await screen.findByText(t.name);
+      await openContextMenuUntil(t.name, "Start");
+      expect(screen.queryByText("Edit configuration")).toBeNull();
+    });
+
     // An Operator holds every framer action but only retrieve on the task, so this
     // fails the moment the gate is read on the task instead of the framer.
     it("offers the start/stop button and its items to an operator", async () => {

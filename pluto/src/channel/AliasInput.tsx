@@ -84,6 +84,7 @@ export const AliasInput = ({
       <Text.Text level="small">Sync alias for {name} with this label</Text.Text>
     );
 
+  if (rest.preview === true) return <Input.Text selectOnFocus {...rest} />;
   return (
     <Input.Text selectOnFocus {...rest}>
       {onReset != null && isDefault === false && (

@@ -107,7 +107,7 @@ export const MultipleTrigger = <
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
-}: MultipleTriggerProps<K, E>): ReactElement => {
+}: MultipleTriggerProps<K, E>): ReactElement | null => {
   const value = useSelected<K>();
   const valueRef = useSyncedRef(value);
   const { setSelected } = useContext<K>();
@@ -155,15 +155,18 @@ export const MultipleTrigger = <
     [startDrag, handleSuccessfulDrop, haulType, createHaulItem, getItem],
   );
   const dragging = Haul.useDraggingState();
-  const showAddButton = variant === "text" && value.length !== 0;
+  const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
 
-  if (hideTags)
+  // A hideTags trigger displays no value, so a preview has nothing to show.
+  if (hideTags) {
+    if (preview === true) return null;
     return (
-      <Dialog.Trigger variant={variant} preview={preview} {...dropProps}>
+      <Dialog.Trigger variant={variant} {...dropProps}>
         {icon}
         {placeholder}
       </Dialog.Trigger>
     );
+  }
 
   return (
     <Tag.Tags
@@ -184,14 +187,20 @@ export const MultipleTrigger = <
     >
       {value.length === 0 && (
         <Text.Text className={CSS.B("select-multiple-trigger-placeholder")}>
-          {icon}
-          {placeholder}
+          {preview === true ? (
+            "None"
+          ) : (
+            <>
+              {icon}
+              {placeholder}
+            </>
+          )}
         </Text.Text>
       )}
       {value.map((v) =>
         children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon, renderIcon }),
       )}
-      {variant !== "text" && (
+      {variant !== "text" && preview !== true && (
         <Caret.Animated
           className={CSS.level("p")}
           enabled={visible}

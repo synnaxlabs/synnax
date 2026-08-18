@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  panel,
-  project,
-  ranger,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { panel, project, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import {
   type BuiltInRole,
   createTestClient,
@@ -460,12 +455,15 @@ describe("Panel.useCanOpenTab", () => {
   };
 
   // With a panel in scope, opening a tab rewrites it; with none, it mints one.
-  it.each<BuiltInRole>(["Viewer", "Operator"])("should refuse both to a %s", async (role) => {
-    const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
-    const { result } = await renderCan(await roles.get(role), existing.key);
-    await waitFor(() => expect(result.current.edit).toBe(false));
-    expect(result.current.open).toBe(false);
-  });
+  it.each<BuiltInRole>(["Viewer", "Operator"])(
+    "should refuse both to a %s",
+    async (role) => {
+      const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
+      const { result } = await renderCan(await roles.get(role), existing.key);
+      await waitFor(() => expect(result.current.edit).toBe(false));
+      expect(result.current.open).toBe(false);
+    },
+  );
 
   it("should allow both for an engineer", async () => {
     const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));

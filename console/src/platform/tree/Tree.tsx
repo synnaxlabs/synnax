@@ -110,7 +110,9 @@ const itemRenderProp = Component.renderProp(
           if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
           return Access.updateGranted({
             client,
-            id: Base.filterHaulItems(entities).map(({ key }) => ontology.idZ.parse(key)),
+            id: Base.filterHaulItems(entities).map(({ key }) =>
+              ontology.idZ.parse(key),
+            ),
           });
         },
         [itemKey, client],

@@ -30,12 +30,7 @@ import {
   getMosaicLeaf,
   primePanel,
 } from "@/platform/panel/testutil";
-import {
-  assertDefined,
-  awaitGranted,
-  renderSuspended,
-  uniqueName,
-} from "@/testutil";
+import { assertDefined, awaitGranted, renderSuspended, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

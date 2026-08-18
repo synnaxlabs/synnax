@@ -18,6 +18,7 @@ import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState } from "@/select/Context";
 import { Frame, type FrameProps } from "@/select/Frame";
+import { Text } from "@/text";
 
 const [PreviewContext, usePreview] = context.create<boolean>({
   defaultValue: false,
@@ -42,6 +43,7 @@ export const Buttons = <K extends record.Key = record.Key>({
   allowNone,
   multiple,
   preview = false,
+  children,
   ...rest
 }: ButtonsProps<K>): ReactElement => {
   const listProps = List.useKeysData<K>(keys);
@@ -53,6 +55,7 @@ export const Buttons = <K extends record.Key = record.Key>({
     value,
     onChange,
   } as FrameProps<K, record.Keyed<K>>;
+  const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
   return (
     <Frame<K, record.Keyed<K>>
       closeDialogOnSelect={false}
@@ -60,7 +63,9 @@ export const Buttons = <K extends record.Key = record.Key>({
       {...selectionProps}
     >
       <PreviewContext value={preview}>
-        <Flex.Box pack {...rest} />
+        <Flex.Box pack {...rest}>
+          {preview && isEmpty ? <Text.Text color={8}>None</Text.Text> : children}
+        </Flex.Box>
       </PreviewContext>
     </Frame>
   );
@@ -80,6 +85,8 @@ export const Button = <K extends record.Key = record.Key>({
 }: ButtonProps<K>): ReactElement | null => {
   const { selected, onSelect } = useItemState<K>(itemKey);
   const preview = usePreview();
+  // A preview shows the value, not the choices: only the selected option renders.
+  if (preview && !selected) return null;
   return (
     <Base.Toggle
       preview={preview}

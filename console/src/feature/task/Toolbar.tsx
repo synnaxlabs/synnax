@@ -408,7 +408,7 @@ const ContextMenu = ({
         </>
       )}
       <Menu.Divider />
-      {isSingle && (
+      {hasUpdatePermission && isSingle && (
         <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
           <Icon.Edit />
           Edit configuration

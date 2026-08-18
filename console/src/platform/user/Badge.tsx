@@ -49,7 +49,11 @@ export const Badge = (): ReactElement | null => {
         <Icon.User />
         {firstName != null && firstName !== "" ? firstName : username}
       </Dialog.Trigger>
-      <Dialog.Dialog bordered borderColor={7} className={CSS.BE("user-badge", "dialog")}>
+      <Dialog.Dialog
+        bordered
+        borderColor={7}
+        className={CSS.BE("user-badge", "dialog")}
+      >
         <Flex.Box y gap="medium" className={CSS.BE("user-badge", "body")}>
           <Flex.Box y gap="tiny">
             <Text.Text weight={500} color={11} overflow="ellipsis">

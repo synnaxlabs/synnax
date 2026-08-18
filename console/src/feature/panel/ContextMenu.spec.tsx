@@ -325,7 +325,10 @@ describe("Panel.TabMenuItems", () => {
 });
 
 describe("Panel.TabMenuItems permissions", () => {
-  const setupAs = async (as: Client, tab: panel.Tab): Promise<FC<PropsWithChildren>> => {
+  const setupAs = async (
+    as: Client,
+    tab: panel.Tab,
+  ): Promise<FC<PropsWithChildren>> => {
     const existing = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
     const { key } = await client.projects.create({
       name: uniqueName("project"),

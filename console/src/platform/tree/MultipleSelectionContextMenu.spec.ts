@@ -103,7 +103,11 @@ describe("Tree.MultipleSelectionContextMenu permissions", () => {
   // needs its own grant to create one.
   it("should withhold grouping from a subject who cannot create groups", async () => {
     const writer = await createTestClientWithGrants(client, {
-      retrieve: [group.TYPE_ONTOLOGY_ID, ranger.TYPE_ONTOLOGY_ID, label.TYPE_ONTOLOGY_ID],
+      retrieve: [
+        group.TYPE_ONTOLOGY_ID,
+        ranger.TYPE_ONTOLOGY_ID,
+        label.TYPE_ONTOLOGY_ID,
+      ],
       update: [group.TYPE_ONTOLOGY_ID, ranger.TYPE_ONTOLOGY_ID],
     });
     await setupMixedSelection(writer);

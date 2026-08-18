@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { device, type Synnax, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -295,6 +298,36 @@ describe("wrapForm", () => {
       const updated = await client.tasks.retrieve({ key: draft.key });
       expect(updated.name).toBe("New Test Task");
       expect(updated.rack).toBe(rack.key);
+    });
+
+    // An Operator may command tasks but not write them, so deploying must skip the
+    // configure-and-save pipeline and issue the start command directly.
+    it("should start without saving for a subject who cannot update the task", async () => {
+      const client = createTestClient();
+      const operator = await createTestClientWithRole(client, "Operator");
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const deployed = await client.tasks.create({
+        ...getInitialValues({}),
+        rack: rack.key,
+      });
+      const onConfigure = vi.fn<Task.OnConfigure<(typeof schemas)["config"]>>(
+        async (_client, config) => [config, 0],
+      );
+      const Renderer = createRenderer({ onConfigure });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          as: operator,
+          taskKey: deployed.key,
+        });
+        await clickDeploy(container);
+        const cmd = await awaitCommand(streamer, deployed.key);
+        expect(cmd.type).toBe("start");
+      } finally {
+        streamer.close();
+      }
+      expect(onConfigure).not.toHaveBeenCalled();
     });
   });
 });

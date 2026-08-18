@@ -75,7 +75,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
         }
     }
 
-    .pluto-header {
+    .pluto-datetime-modal-header {
         padding-left: 1rem;
     }
 

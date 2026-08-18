@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/pluto";
+import { device } from "@synnaxlabs/client";
+import { Access, Form } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -39,13 +39,14 @@ export const wrapTaskForm = <
 }: WrapTaskFormParams<D>): FC<{}> => {
   const Configured = ({ deviceKey }: { deviceKey: device.Key }) => {
     const isSnapshot = Task.useIsSnapshot();
+    const canUpdate = Access.useUpdateGranted(device.ontologyID(deviceKey));
     const configure = useConfigure();
     const dev = use({ key: deviceKey });
     if (!dev.configured)
       return (
         <Unconfigured
           device={dev}
-          canConfigure={!isSnapshot}
+          canConfigure={!isSnapshot && canUpdate}
           onConfigure={(deviceKey) => configure({ deviceKey })}
         />
       );

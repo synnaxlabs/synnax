@@ -256,6 +256,18 @@
         }
     }
 
+    &.pluto--selected {
+        --pluto-bg: var(--pluto-selected-bg);
+        --pluto-hover-bg: var(--pluto-selected-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-active-bg);
+        --pluto-border-color: var(--pluto-selected-border-color);
+        --pluto-hover-border-color: var(--pluto-selected-border-color);
+        --pluto-active-border-color: var(--pluto-selected-border-color);
+        color: var(--pluto-selected-color);
+    }
+
+    /* Placed after the selected block so a preview strips the selected chassis
+       too: the value reads as plain text, never as a still-active control. */
     &.pluto-btn--preview {
         cursor: default;
         pointer-events: none;
@@ -268,6 +280,10 @@
         --pluto-border-color: transparent;
         --pluto-hover-border-color: transparent;
         --pluto-active-border-color: transparent;
+
+        &.pluto--selected {
+            color: var(--pluto-text-color);
+        }
 
         &:focus-visible {
             outline: none;
@@ -284,16 +300,6 @@
         &.pluto--status-error {
             color: var(--pluto-error-p1);
         }
-    }
-
-    &.pluto--selected {
-        --pluto-bg: var(--pluto-selected-bg);
-        --pluto-hover-bg: var(--pluto-selected-hover-bg);
-        --pluto-active-bg: var(--pluto-selected-active-bg);
-        --pluto-border-color: var(--pluto-selected-border-color);
-        --pluto-hover-border-color: var(--pluto-selected-border-color);
-        --pluto-active-border-color: var(--pluto-selected-border-color);
-        color: var(--pluto-selected-color);
     }
 
     /* Inline glyph action: a chassis-nested micro-button (tab close, tag close).

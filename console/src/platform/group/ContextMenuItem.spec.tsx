@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  group,
-  ontology,
-  ranger,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { group, ontology, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";

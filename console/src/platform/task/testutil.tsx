@@ -324,6 +324,8 @@ export const renderInTaskFormWithClient = async (
 export interface RenderTaskFormTabOptions {
   /** Client backing the console wrapper; falls back to a shared test client. */
   client?: Client | null;
+  /** Client the console renders as; the panel and task are created with `client`. */
+  as?: Client;
   /** Key of the task row the form edits. */
   taskKey?: task.Key;
   /** Row to create and open when `taskKey` is omitted. */
@@ -351,17 +353,24 @@ export const renderTaskFormTab = async (
 ): Promise<RenderTaskFormTabResult> => {
   const { onStatuses } = options;
   const client = options.client ?? defaultClient;
+  const as = options.as ?? client;
   const taskKey =
     options.taskKey ??
     (options.task == null ? "" : (await client.tasks.create(options.task)).key);
   const store = await createTestStore();
-  const { wrapper } = await createConsoleWrapper({ client, store });
+  const { wrapper } = await createConsoleWrapper({ client: as, store });
   const tab: panel.Tab = {
     variant: "resource",
     key: uuid.create(),
     resource: task.ontologyID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
+  if (as !== client) {
+    // The panel scopes resolve against the rendering client's cache, so prime it
+    // the same way createSelectedPanel primes the creating client's.
+    onTestFinished(as.panels.onChange(created.panelKey, () => {}));
+    await as.panels.retrieve(created.panelKey);
+  }
   const result = await renderSuspended(
     <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
       <Form taskKey={taskKey} />

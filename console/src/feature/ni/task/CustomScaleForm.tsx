@@ -221,6 +221,10 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       updateValue();
     };
 
+    // The CSV picker and column selects only write into the scale fields, so a
+    // read-only form drops them instead of rendering dead inputs.
+    if (preScaledField.preview) return <CustomScaleUnitsFields prefix={prefix} />;
+
     return (
       <>
         <CustomScaleUnitsFields prefix={prefix} />

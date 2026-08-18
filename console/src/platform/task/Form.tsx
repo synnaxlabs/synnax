@@ -86,6 +86,14 @@ export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
 
+/**
+ * Whether the surrounding task form renders read-only: the task is a snapshot or the
+ * subject holds no update grant. Edit affordances gate on this, not on useIsSnapshot.
+ */
+export const useIsPreview = <Schema extends z.ZodType>(
+  ctx?: PForm.ContextValue<Schema>,
+) => PForm.useContext<Schema>(ctx).mode === "preview";
+
 interface HeaderProps {
   isSnapshot: boolean;
 }
@@ -137,30 +145,37 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       autoSaveDebounce: AUTO_SAVE_DEBOUNCE,
     });
 
+    // The form saves on every edit, so a subject who cannot write the task gets it
+    // read-only rather than fields that revert once the save is refused.
+    const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
+
     // Deploy pipeline: resolve channels and rack through onConfigure, persist
-    // the row, then issue the start command so the driver picks it up.
+    // the row, then issue the start command so the driver picks it up. A subject
+    // who cannot write the task starts the stored config directly.
     const handleDeploy = useCallback(() => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
-        const { config, name } = form.value();
-        const result = deployConfigZ.safeParse(config);
-        if (!result.success) {
-          let blocked = false;
-          result.error.issues.forEach((issue) => {
-            const variant = issueVariant(issue);
-            if (variant !== "warning") blocked = true;
-            const path = ["config", ...issue.path].join(".");
-            form.setStatus(path, { key: path, variant, message: issue.message });
-          });
-          if (blocked) return;
+        if (canEdit) {
+          const { config, name } = form.value();
+          const result = deployConfigZ.safeParse(config);
+          if (!result.success) {
+            let blocked = false;
+            result.error.issues.forEach((issue) => {
+              const variant = issueVariant(issue);
+              if (variant !== "warning") blocked = true;
+              const path = ["config", ...issue.path].join(".");
+              form.setStatus(path, { key: path, variant, message: issue.message });
+            });
+            if (blocked) return;
+          }
+          const [newConfig, newRack] = await onConfigure(client, config, name);
+          form.set("config", newConfig, SKIP_AUTOSAVE);
+          if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
+          if (!(await saveAsync())) return;
         }
-        const [newConfig, newRack] = await onConfigure(client, config, name);
-        form.set("config", newConfig, SKIP_AUTOSAVE);
-        if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
-        if (!(await saveAsync())) return;
         await client.tasks.executeCommand({ task: taskKey, type: "start" });
       }, "Failed to start task");
-    }, [client, form, saveAsync, taskKey, handleError]);
+    }, [client, form, saveAsync, taskKey, handleError, canEdit]);
 
     const handleStop = useCallback(() => {
       handleError(async () => {
@@ -170,9 +185,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     }, [client, taskKey, handleError]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
-    // The form saves on every edit, so a subject who cannot write the task gets it
-    // read-only rather than fields that revert once the save is refused.
-    const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
     return (
       <Flex.Box
         y

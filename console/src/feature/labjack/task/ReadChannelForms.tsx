@@ -213,10 +213,11 @@ export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
           hideIfNull
           label="CJC source"
         >
-          {({ value, onChange }) => (
+          {({ value, onChange, preview }) => (
             <SelectCJCSourceField
               value={value}
               onChange={onChange}
+              preview={preview}
               model={deviceModel}
             />
           )}
