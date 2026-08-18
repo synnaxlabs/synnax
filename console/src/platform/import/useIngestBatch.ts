@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type panel } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { type Panel } from "@/platform/panel";
+import { Panel } from "@/platform/panel";
 
 /** Maps the resources ingest created to the tabs that open them. */
 const resourceTabs = (ids: (ontology.ID | void)[]): panel.NewTab[] =>
@@ -22,32 +23,39 @@ export interface IngestBatchParams<I extends { name: string }> {
   /** Creates the resource the item describes, or nothing when it opens no tab. TODO:
    * should probably NOT return `void`. */
   ingest: (item: I) => Promise<void | ontology.ID>;
-  handleError: Status.ErrorHandler;
-  openTabs: Panel.OpenTabs;
   /** Places the tabs in a specific leaf instead of beside the current one. */
   placement?: Panel.Placement;
 }
 
+export interface IngestBatch {
+  <I extends { name: string }>(params: IngestBatchParams<I>): Promise<void>;
+}
+
 /**
- * Ingests every item concurrently, then opens the resources they created as one batch
- * of tabs. An item that fails is reported on its own and leaves the rest of the batch
- * running.
+ * Returns a batch ingester: it ingests every item concurrently, then opens the
+ * resources they created as one batch of tabs. An item that fails is reported on its
+ * own and leaves the rest of the batch running.
  */
-export const ingestBatch = async <I extends { name: string }>({
-  items,
-  ingest,
-  handleError,
-  openTabs,
-  placement,
-}: IngestBatchParams<I>): Promise<void> => {
-  const ids = await Promise.all(
-    items.map(async (item) => {
-      try {
-        return await ingest(item);
-      } catch (e) {
-        handleError(e, `Failed to import ${item.name}`);
-      }
-    }),
+export const useIngestBatch = (): IngestBatch => {
+  const handleError = Status.useErrorHandler();
+  const openTabs = Panel.useOpenTabs();
+  return useCallback(
+    async <I extends { name: string }>({
+      items,
+      ingest,
+      placement,
+    }: IngestBatchParams<I>): Promise<void> => {
+      const ids = await Promise.all(
+        items.map(async (item) => {
+          try {
+            return await ingest(item);
+          } catch (e) {
+            handleError(e, `Failed to import ${item.name}`);
+          }
+        }),
+      );
+      openTabs(resourceTabs(ids), { placement });
+    },
+    [handleError, openTabs],
   );
-  openTabs(resourceTabs(ids), { placement });
 };

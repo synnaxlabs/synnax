@@ -20,9 +20,8 @@ import {
   readEntryFile,
 } from "@/platform/import/entries";
 import { type BundleIngester, ingestServer } from "@/platform/import/import";
-import { ingestBatch } from "@/platform/import/ingestBatch";
+import { useIngestBatch } from "@/platform/import/useIngestBatch";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
-import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
 const readJSON = async (file: File): Promise<unknown> => JSON.parse(await file.text());
@@ -85,8 +84,8 @@ export type FileDrop = (props: FileDropProps) => void;
 export const useFileDrop = ({ ingestBundle }: UseFileDropParams): FileDrop => {
   const client = Synnax.use();
   const store = Session.useStore();
-  const openTabs = Panel.useOpenTabs();
   const handleError = Status.useErrorHandler();
+  const ingestBatch = useIngestBatch();
   return useCallback(
     ({ nodeKey, location, event }: FileDropProps) => {
       const entries = captureEntries(event.dataTransfer);
@@ -101,12 +100,10 @@ export const useFileDrop = ({ ingestBundle }: UseFileDropParams): FileDrop => {
             items: entries,
             ingest: async (entry) =>
               await ingestEntry(entry, { client, ingestBundle, projectKey, store }),
-            handleError,
-            openTabs,
             placement,
           }),
       );
     },
-    [client, ingestBundle, openTabs, store, handleError],
+    [client, ingestBundle, ingestBatch, store, handleError],
   );
 };

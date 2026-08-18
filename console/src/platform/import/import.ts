@@ -18,8 +18,7 @@ import {
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { ingestBatch } from "@/platform/import/ingestBatch";
-import { Panel } from "@/platform/panel";
+import { useIngestBatch } from "@/platform/import/useIngestBatch";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
@@ -79,58 +78,37 @@ export const ingestServer: FileIngester = async (
   });
 };
 
-interface ImportComponentParams {
-  handleError: Status.ErrorHandler;
-  client: Client | null;
-  openTabs: Panel.OpenTabs;
-  store: Store;
-  projectKey?: string;
-}
-
-const importComponent = ({
-  store,
-  client,
-  openTabs,
-  handleError,
-  projectKey,
-}: ImportComponentParams): void => {
-  handleError(async () => {
-    const files = await Runtime.pickFiles({
-      title: "Import",
-      extension: "json",
-      multiple: true,
-    });
-    if (files == null) return;
-    const storeState = store.getState();
-    const activeProjectKey = Session.Project.selectSelected(storeState);
-    if (projectKey != null && activeProjectKey !== projectKey) {
-      if (client == null) throw new DisconnectedError();
-      const proj = await client.projects.retrieve(projectKey);
-      store.dispatch(Session.Project.select(proj.key));
-    }
-    const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
-    await ingestBatch({
-      // ingestBatch names failures after the item, so the path doubles as the name.
-      items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
-      ingest: async (file) =>
-        await ingestServer(
-          JSON.parse(new TextDecoder().decode(await file.readBytes())),
-          { client, projectKey: activeProjectKeyAfter, fileName: file.name },
-        ),
-      handleError,
-      openTabs,
-    });
-  });
-};
-
 export const useImport = (): ((projectKey?: string) => void) => {
-  const openTabs = Panel.useOpenTabs();
   const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
+  const ingestBatch = useIngestBatch();
   return useCallback(
     (projectKey?: string) =>
-      importComponent({ store, openTabs, client, handleError, projectKey }),
-    [store, openTabs, client, handleError],
+      handleError(async () => {
+        const files = await Runtime.pickFiles({
+          title: "Import",
+          extension: "json",
+          multiple: true,
+        });
+        if (files == null) return;
+        const activeProjectKey = Session.Project.selectSelected(store.getState());
+        if (projectKey != null && activeProjectKey !== projectKey) {
+          if (client == null) throw new DisconnectedError();
+          const proj = await client.projects.retrieve(projectKey);
+          store.dispatch(Session.Project.select(proj.key));
+        }
+        const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
+        await ingestBatch({
+          // ingestBatch names failures after the item, so the path doubles as the name.
+          items: files.map((file) => ({ name: file.path, readBytes: file.readBytes })),
+          ingest: async (file) =>
+            await ingestServer(
+              JSON.parse(new TextDecoder().decode(await file.readBytes())),
+              { client, projectKey: activeProjectKeyAfter, fileName: file.name },
+            ),
+        });
+      }),
+    [store, client, handleError, ingestBatch],
   );
 };
