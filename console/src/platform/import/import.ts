@@ -41,8 +41,6 @@ export const ingestServer: FileIngester = async (
   });
 };
 
-const FILTERS = [{ name: "JSON", extensions: ["json"] }];
-
 interface ImportComponentParams {
   handleError: Status.ErrorHandler;
   client: Client | null;
@@ -61,7 +59,7 @@ const importComponent = ({
   handleError(async () => {
     const files = await Runtime.pickFiles({
       title: "Import",
-      filters: FILTERS,
+      extension: "json",
       multiple: true,
     });
     if (files == null) return;

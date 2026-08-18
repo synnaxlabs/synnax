@@ -76,19 +76,16 @@ describe("Runtime files", () => {
       await expect(p).resolves.toBeNull();
     });
 
-    it("should build the accept attribute from filters", async () => {
-      const p = Runtime.pickFiles({
-        filters: [{ name: "data", extensions: ["json", "csv"] }],
-        multiple: true,
-      });
+    it("should build the accept attribute from the extension", async () => {
+      const p = Runtime.pickFiles({ extension: "json", multiple: true });
       const input = picker.lastInput();
-      expect(input.accept).toBe(".json,.csv");
+      expect(input.accept).toBe(".json");
       expect(input.multiple).toBe(true);
       picker.cancel();
       await p;
     });
 
-    it("should leave accept unset when there are no filters", async () => {
+    it("should leave accept unset when there is no extension", async () => {
       const p = Runtime.pickFiles({});
       expect(picker.lastInput().accept).toBe("");
       picker.cancel();
@@ -209,9 +206,9 @@ describe("Runtime files", () => {
 
       it("should return the chosen absolute path", async () => {
         openMock.mockResolvedValue("/tmp/cert.pem");
-        await expect(
-          Runtime.pickPath({ filters: [{ name: "PEM", extensions: ["pem"] }] }),
-        ).resolves.toBe("/tmp/cert.pem");
+        await expect(Runtime.pickPath({ extension: "pem" })).resolves.toBe(
+          "/tmp/cert.pem",
+        );
       });
 
       it("should return null when cancelled", async () => {

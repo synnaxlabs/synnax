@@ -69,7 +69,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
       handleError(async () => {
         const files = await Runtime.pickFiles({
           title: `Import ${resourceName}`,
-          filters: [{ name: "Zip", extensions: ["zip"] }],
+          extension: "zip",
         });
         if (files == null) return;
         await importZip(await files[0].readBytes(), files[0].path);

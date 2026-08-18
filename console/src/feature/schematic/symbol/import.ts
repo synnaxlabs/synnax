@@ -24,7 +24,7 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
         if (client == null) throw new DisconnectedError();
         const files = await Runtime.pickFiles({
           title: "Import symbol",
-          filters: [{ name: "JSON", extensions: ["json"] }],
+          extension: "json",
           multiple: true,
         });
         if (files == null) return;

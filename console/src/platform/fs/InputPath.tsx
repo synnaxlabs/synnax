@@ -15,7 +15,8 @@ import { Runtime } from "@/platform/runtime";
 
 export interface InputPathProps
   extends Input.Control<string>, Omit<PickerRowProps, "value" | "onClick"> {
-  filters?: Runtime.FileFilter[];
+  /** Restricts the picker to files with this extension, without the leading dot. */
+  extension?: string;
 }
 
 /**
@@ -25,13 +26,13 @@ export interface InputPathProps
 export const InputPath = ({
   value,
   onChange,
-  filters,
+  extension,
   ...rest
 }: InputPathProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
-      const path = await Runtime.pickPath({ filters });
+      const path = await Runtime.pickPath({ extension });
       if (path == null) return;
       onChange(path);
     }, "Failed to open file");

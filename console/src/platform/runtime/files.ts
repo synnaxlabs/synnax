@@ -13,12 +13,6 @@ import { readDir, readFile } from "@tauri-apps/plugin-fs";
 
 import { Session } from "@/session";
 
-/** A named group of file extensions a picker accepts, e.g. { "CSV", ["csv"] }. */
-export interface FileFilter {
-  name: string;
-  extensions: string[];
-}
-
 /** A file chosen through a picker, read lazily. */
 export interface PickedFile {
   /**
@@ -33,16 +27,17 @@ export interface PickedFile {
 /** Options for pickFiles. */
 export interface PickFilesParams {
   title?: string;
-  filters?: FileFilter[];
+  /** Restricts the picker to files with this extension, without the leading dot. */
+  extension?: string;
   multiple?: boolean;
 }
 
-const browserAccept = (filters?: FileFilter[]): string | undefined => {
-  if (filters == null || filters.length === 0) return undefined;
-  return filters
-    .flatMap(({ extensions }) => extensions.map((ext) => `.${ext}`))
-    .join(",");
-};
+// The Tauri dialog wants a named filter group; the name is just the dialog's label
+// for the extension.
+const tauriFilters = (extension?: string) =>
+  extension == null
+    ? undefined
+    : [{ name: extension.toUpperCase(), extensions: [extension] }];
 
 /**
  * Resolves a settle callback after the user appears to have dismissed a file picker but
@@ -58,12 +53,12 @@ const settleOnFocusReturn = (settle: () => void): void => {
 
 const pickFilesTauri = async ({
   title,
-  filters,
+  extension,
   multiple,
 }: PickFilesParams): Promise<PickedFile[] | null> => {
   const result = await open({
     title,
-    filters,
+    filters: tauriFilters(extension),
     multiple: multiple ?? false,
     directory: false,
   });
@@ -78,15 +73,14 @@ const pickFilesTauri = async ({
 };
 
 const pickFilesBrowser = ({
-  filters,
+  extension,
   multiple,
 }: PickFilesParams): Promise<PickedFile[] | null> =>
   new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
     if (multiple) input.multiple = true;
-    const accept = browserAccept(filters);
-    if (accept != null) input.accept = accept;
+    if (extension != null) input.accept = `.${extension}`;
     let settled = false;
     const settle = (value: PickedFile[] | null) => {
       if (settled) return;
@@ -121,7 +115,8 @@ export const pickFiles = (params: PickFilesParams): Promise<PickedFile[] | null>
 /** Options for pickPath. */
 export interface PickPathParams {
   title?: string;
-  filters?: FileFilter[];
+  /** Restricts the picker to files with this extension, without the leading dot. */
+  extension?: string;
 }
 
 /**
@@ -130,12 +125,17 @@ export interface PickPathParams {
  * browser; callers that need contents instead of a path use pickFiles, which works in
  * both runtimes.
  */
-export const pickPath = async ({ title, filters }: PickPathParams = {}): Promise<
+export const pickPath = async ({ title, extension }: PickPathParams = {}): Promise<
   string | null
 > => {
   if (Session.Runtime.ENGINE !== "tauri")
     throw new Error("File paths can only be selected in the Synnax desktop app.");
-  const result = await open({ title, filters, directory: false, multiple: false });
+  const result = await open({
+    title,
+    filters: tauriFilters(extension),
+    directory: false,
+    multiple: false,
+  });
   return typeof result === "string" ? result : null;
 };
 

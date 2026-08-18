@@ -21,7 +21,6 @@ import {
   type Units,
 } from "@/feature/ni/task/types";
 import { FS } from "@/platform/fs";
-import { type Runtime } from "@/platform/runtime";
 
 const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,
@@ -98,8 +97,6 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
     data: unitsData,
   },
 });
-
-const FILTERS: Runtime.FileFilter[] = [{ name: "CSV", extensions: ["csv"] }];
 
 const tableSchema = z.record(z.string(), z.array(z.unknown()));
 
@@ -235,7 +232,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           <FS.InputFile<typeof tableSchema>
             value={fileName}
             onChange={handleFileChange}
-            filters={FILTERS}
+            extension="csv"
             schema={tableSchema}
             decoder={binary.CSV_CODEC}
           />

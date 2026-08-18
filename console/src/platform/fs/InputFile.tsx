@@ -23,7 +23,8 @@ export interface InputFileProps<P extends z.ZodType = z.ZodString> extends Omit<
   value: string;
   /** Receives the decoded contents and the file's name. */
   onChange: (value: z.infer<P>, name: string) => void;
-  filters?: Runtime.FileFilter[];
+  /** Restricts the picker to files with this extension, without the leading dot. */
+  extension?: string;
   schema?: P;
   decoder?: binary.Codec;
 }
@@ -37,7 +38,7 @@ export interface InputFileProps<P extends z.ZodType = z.ZodString> extends Omit<
 export const InputFile = <P extends z.ZodType = z.ZodString>({
   value,
   onChange,
-  filters,
+  extension,
   decoder = binary.TEXT_CODEC,
   schema,
   ...rest
@@ -45,7 +46,7 @@ export const InputFile = <P extends z.ZodType = z.ZodString>({
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
-      const files = await Runtime.pickFiles({ filters });
+      const files = await Runtime.pickFiles({ extension });
       if (files == null) return;
       const [file] = files;
       onChange(decoder.decode<P>(await file.readBytes(), schema), file.path);
