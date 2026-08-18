@@ -266,7 +266,6 @@ describe("app/triggers", () => {
       });
       const { store, canEditPanel } = await renderLiveTriggers(pan.key);
       focusTab(store, pan.key, closed.key);
-      // The shortcut is gated on being able to restructure the panel.
       await waitFor(() => expect(canEditPanel()).toBe(true));
       act(() => press(CONTROL, "KeyW"));
       await waitFor(async () => expect(await leafTabs(pan.key)).toEqual([kept]));

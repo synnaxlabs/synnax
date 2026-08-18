@@ -244,8 +244,6 @@ describe("connection guard permissions", () => {
       { wrapper },
     );
     await waitFor(() => expect(result.current).toBe(true), { timeout: 10000 });
-    // A child that rendered before the policies landed would read the empty set as
-    // a denial, so a single false recorded here is the defect this guards.
     expect(verdicts).not.toContain(false);
   });
 

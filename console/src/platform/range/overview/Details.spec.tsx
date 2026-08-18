@@ -158,7 +158,6 @@ describe("Range.Details", () => {
       const range = await createRange();
       const viewer = await roles.get("Viewer");
       await renderDetails(range.key, viewer);
-      // Preview renders the name as static text, so no input carries it.
       await waitFor(() => {
         const name = screen.getByText(range.name);
         expect(name.closest(".pluto-btn--preview")).not.toBeNull();

@@ -55,7 +55,6 @@ describe("Arc.ContextMenu", () => {
     expect(await screen.findByText("Delete")).toBeTruthy();
   });
 
-  // The link copy is the read-only affordance, so its presence proves the menu drew.
   it.each(["Viewer", "Operator"] as const)(
     "should withhold the write actions from a %s",
     async (role) => {

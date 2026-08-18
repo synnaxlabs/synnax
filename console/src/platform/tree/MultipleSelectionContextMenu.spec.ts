@@ -99,8 +99,6 @@ describe("Tree.MultipleSelectionContextMenu permissions", () => {
     expect(screen.queryByText("Group selection")).toBeNull();
   });
 
-  // Grouping mints a group, so a subject who may rewrite the selected resources still
-  // needs its own grant to create one.
   it("should withhold grouping from a subject who cannot create groups", async () => {
     const writer = await createTestClientWithGrants(client, {
       retrieve: [

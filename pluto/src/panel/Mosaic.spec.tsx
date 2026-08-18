@@ -967,8 +967,6 @@ describe("Panel.Mosaic", () => {
     });
   });
 
-  // A subject without update on the panel cannot persist any structural change, so
-  // the mosaic offers none: every gesture here reduces to the same dispatch.
   describe("without update permission", () => {
     let readOnly: FC<PropsWithChildren>;
 

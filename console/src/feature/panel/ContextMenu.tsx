@@ -18,8 +18,7 @@ import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Session } from "@/session";
 
-// The name belongs to the resource behind the tab, so the grant is read on it and
-// not on the panel. Split out because useTabResource throws on a view tab.
+// Split out because useTabResource throws on a view tab.
 const ResourceRenameItem = (): ReactElement | null => {
   const tabKey = Panel.useTabKey();
   const resource = Panel.useTabResource({});
@@ -92,7 +91,6 @@ const MoveToPanelItem = (): ReactElement | null => {
 const MoveToNewWindowItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const tearOff = useTearOffTab();
-  // Tearing off mints a panel to hold the tab, then takes the tab out of this one.
   const canEdit = Panel.useCanEdit({});
   const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
   const handleMove = useCallback(() => {

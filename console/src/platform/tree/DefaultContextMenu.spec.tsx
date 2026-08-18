@@ -43,7 +43,6 @@ describe("Tree.DefaultContextMenu", () => {
     expect(await screen.findByText("New group")).toBeTruthy();
   });
 
-  // The reload item is ungated, so its presence proves the menu drew.
   it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should withhold the new group item from a %s",
     async (role) => {

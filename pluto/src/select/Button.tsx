@@ -85,7 +85,6 @@ export const Button = <K extends record.Key = record.Key>({
 }: ButtonProps<K>): ReactElement | null => {
   const { selected, onSelect } = useItemState<K>(itemKey);
   const preview = usePreview();
-  // A preview shows the value, not the choices: only the selected option renders.
   if (preview && !selected) return null;
   return (
     <Base.Toggle

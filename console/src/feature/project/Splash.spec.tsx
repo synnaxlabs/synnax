@@ -40,8 +40,6 @@ describe("project/Splash", () => {
       expect(screen.queryByText("No projects")).toBeNull();
     });
 
-    // The Core refuses the list read, so the splash must blame the missing grant rather
-    // than report an empty cluster.
     it("should name the denial when the list read is refused", async () => {
       await client.projects.create({ name: uniqueName("argon"), layout: {} });
       const denied = await createTestClientWithPolicy(client, {

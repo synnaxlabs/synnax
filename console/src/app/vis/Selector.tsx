@@ -19,7 +19,6 @@ export const useSelectorVisible = (): boolean => {
   const anySelectable = AppSelector.VIS_SELECTABLES.map(
     (s) => s.useVisible?.() ?? true,
   ).some(Boolean);
-  // The selector itself opens in a tab, which a viewer cannot write.
   return Panel.useCanOpenTab() && anySelectable;
 };
 

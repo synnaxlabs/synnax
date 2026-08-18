@@ -153,8 +153,6 @@ describe("Controls.Controls", () => {
       expect(screen.queryByText("Redeploy")).toBeNull();
     });
 
-    // An Operator holds every framer action but only retrieve on the task, so this
-    // fails the moment the gate is read on the task instead of the framer.
     it("should offer an operator the full action row", async () => {
       const operator = await roles.get("Operator");
       const { container } = await renderInTaskFormWithClient(

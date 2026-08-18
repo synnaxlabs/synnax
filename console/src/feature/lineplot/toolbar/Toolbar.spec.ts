@@ -115,8 +115,6 @@ describe("lineplot/toolbar/Toolbar permissions", () => {
   it("should withhold the editing controls from a viewer", async () => {
     const { name } = await renderToolbar(undefined, await roles.get("Viewer"));
     expect(await screen.findByText(`${name} is not editable`)).toBeTruthy();
-    // The active tab is data, whose controls would otherwise render under the
-    // withheld tab strip.
     expect(screen.queryByText("Y2")).toBeNull();
   });
 });

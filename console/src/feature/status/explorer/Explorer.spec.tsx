@@ -53,10 +53,6 @@ describe("status explorer", () => {
 });
 
 describe("status explorer permissions", () => {
-  // Editing the view is what puts the toolbar on screen, so the subject needs the view
-  // grants before the status grant it is under test for can matter. The view create
-  // button sits outside the toolbar and answers to the same policy read, so waiting for
-  // it proves the reads have resolved before the toolbar is judged empty.
   const createEditor = async (creatable: ontology.ID[] = []) =>
     await createTestClientWithGrants(client, {
       retrieve: [

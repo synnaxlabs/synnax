@@ -149,9 +149,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     // read-only rather than fields that revert once the save is refused.
     const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
 
-    // Deploy pipeline: resolve channels and rack through onConfigure, persist
-    // the row, then issue the start command so the driver picks it up. A subject
-    // who cannot write the task starts the stored config directly.
     const handleDeploy = useCallback(() => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();

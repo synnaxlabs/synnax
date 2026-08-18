@@ -488,7 +488,6 @@ describe("Panel.Selector", () => {
     });
   });
 
-  // A subject without panel create cannot mint one, so the strip offers no way to.
   describe("without create permission", () => {
     it("should offer no create button", async () => {
       const proj = await client.projects.create({

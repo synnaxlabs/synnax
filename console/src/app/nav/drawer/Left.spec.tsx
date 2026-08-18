@@ -37,9 +37,6 @@ describe("app/nav/drawer/Left", () => {
     expect(await within(container).findByText("Users")).toBeTruthy();
   });
 
-  // A session that changes users keeps the toolbar the last one had open, so the
-  // drawer has to answer to the same gate as the bar item that opens it. The role
-  // client holds its policies before it renders, so the gate answers on first render.
   it("should collapse a toolbar the subject may not open", async () => {
     const { container } = await renderBar(
       <Drawer.Left />,

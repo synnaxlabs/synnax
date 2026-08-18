@@ -454,7 +454,6 @@ describe("Panel.useCanOpenTab", () => {
     );
   };
 
-  // With a panel in scope, opening a tab rewrites it; with none, it mints one.
   it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should refuse both to a %s",
     async (role) => {

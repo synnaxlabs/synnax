@@ -149,7 +149,6 @@ describe("ChannelList", () => {
       expect(screen.queryByText("Duplicate")).toBeNull();
       expect(screen.queryByText("Disable")).toBeNull();
       expect(screen.queryByText("Enable")).toBeNull();
-      // Tare is a command, not an edit, so a read-only subject keeps it.
       expect(screen.getByText("Tare")).toBeTruthy();
     });
   });

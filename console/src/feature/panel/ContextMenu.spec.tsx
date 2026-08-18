@@ -348,7 +348,6 @@ describe("Panel.TabMenuItems permissions", () => {
     mocks.engine = "tauri";
   });
 
-  // An operator runs the console but does not restructure it: no rename, no moves.
   it.each<BuiltInRole>(["Viewer", "Operator"])(
     "should withhold rename and both moves from a %s",
     async (role) => {
@@ -371,8 +370,6 @@ describe("Panel.TabMenuItems permissions", () => {
     expect(await screen.findByText("Move to new window")).toBeTruthy();
   });
 
-  // Tearing off mints a panel, so the subject needs create on top of the panel write
-  // that puts the rest of the menu on screen.
   it("should withhold the tear-off from a subject who cannot create panels", async () => {
     const tab = resourceTab();
     const editor = await createTestClientWithGrants(client, {

@@ -300,8 +300,6 @@ describe("wrapForm", () => {
       expect(updated.rack).toBe(rack.key);
     });
 
-    // An Operator may command tasks but not write them, so deploying must skip the
-    // configure-and-save pipeline and issue the start command directly.
     it("should start without saving for a subject who cannot update the task", async () => {
       const client = createTestClient();
       const operator = await createTestClientWithRole(client, "Operator");

@@ -317,8 +317,6 @@ describe("task/Toolbar", () => {
   });
 
   describe("permission to command tasks", () => {
-    // A stopped task is what makes Start eligible, so whether the item appears reads
-    // as the permission gate rather than the status gate.
     const createStoppedTask = async () => await createTask({ running: false });
 
     it("withholds the start/stop button and its items from a viewer", async () => {
@@ -332,8 +330,6 @@ describe("task/Toolbar", () => {
       expect(screen.queryByText("Stop")).toBeNull();
     });
 
-    // Waiting for Start proves the menu is fully populated, so the missing item
-    // reads as the permission gate rather than a race.
     it("withholds Edit configuration from an operator", async () => {
       const t = await createStoppedTask();
       const operator = await roles.get("Operator");
@@ -343,8 +339,6 @@ describe("task/Toolbar", () => {
       expect(screen.queryByText("Edit configuration")).toBeNull();
     });
 
-    // An Operator holds every framer action but only retrieve on the task, so this
-    // fails the moment the gate is read on the task instead of the framer.
     it("offers the start/stop button and its items to an operator", async () => {
       const t = await createStoppedTask();
       const operator = await roles.get("Operator");

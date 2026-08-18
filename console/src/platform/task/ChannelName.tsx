@@ -49,8 +49,6 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   // populated. Eventually we should strongly type the Form so we don't need to worry
   // about this.
   const onChange = Form.useField<string>(namePath, { optional: true })?.onChange;
-  // Roles carry channel update across the whole type, so the grant is read there.
-  // A form in preview mode has nothing to write into for a channel not yet created.
   const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
   const isPreview = useIsPreview();
   const { update } = Channel.useRename();

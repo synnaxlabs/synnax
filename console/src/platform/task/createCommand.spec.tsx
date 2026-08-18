@@ -49,7 +49,6 @@ describe("Task.createCommand permissions", () => {
     expect(result.current.visible).toBe(false);
   });
 
-  // Starting and stopping tasks is an operator's job, but minting one is not.
   it("should withhold the command from an operator", async () => {
     const { result } = await renderHookWithConsole(() => Command.useVisible?.(), {
       client: await roles.get("Operator"),

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, id } from "@synnaxlabs/x";
+import { array, errors, id } from "@synnaxlabs/x";
 
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
@@ -16,23 +16,15 @@ import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 import { user } from "@/user";
 
-/**
- * Reports whether the error, or any error it wraps, is an access denial.
- * {@link AccessDeniedError.matches} reads only the error it is given, so a wrapped
- * denial hides its type behind the wrapper.
- */
+/** Reports whether the error, or any error in its cause chain, is an access denial. */
 const isDenial = (err: unknown): boolean =>
   AccessDeniedError.matches(err) ||
   (err instanceof Error && err.cause != null && isDenial(err.cause));
 
 /**
- * Connects as a new user, tolerating the change-stream refusal a restricted subject
- * gets. The Core refuses that stream by design; logging the refusal prints after
- * teardown, which vitest counts as an unhandled error. The returned client already
- * holds the subject's policies, so a guard reading them answers on its first render
- * rather than reporting a pending read as a denial. A subject whose grants exclude
- * policy retrieve cannot prime that cache; the denial is theirs to assert, not a
- * setup failure.
+ * Connects as a new user and primes its policy cache. Denials are tolerated: the Core
+ * refuses restricted subjects by design, and the change-stream refusal logs after
+ * teardown, which vitest counts as an unhandled error.
  */
 const connectAs = async (username: string, key: user.Key) => {
   const client = createTestClient({
@@ -45,7 +37,7 @@ const connectAs = async (username: string, key: user.Key) => {
   try {
     await client.access.policies.retrieveForSubject(user.ontologyID(key));
   } catch (err) {
-    if (!isDenial(err)) throw err;
+    if (!isDenial(err)) throw errors.fromUnknown(err);
   }
   return client;
 };

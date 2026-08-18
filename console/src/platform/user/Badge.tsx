@@ -15,8 +15,6 @@ import { type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
-// The subject's roles name what they can do, which is the first thing a user checks
-// when a surface they expected is missing.
 const Roles = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
   const { data: roles } = Access.Role.useResultForUser(

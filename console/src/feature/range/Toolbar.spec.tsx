@@ -276,8 +276,6 @@ describe("range/ContextMenu permissions", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  // The plot items answer to the plot grants, not the range ones, so a subject who may
-  // rewrite ranges still cannot put one on a plot.
   it("should withhold the plot items from a subject who may only write ranges", async () => {
     const rng = await createTestRange(client);
     await renderToolbar({

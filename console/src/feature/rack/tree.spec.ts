@@ -144,8 +144,6 @@ describe("permission to write the rack", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  // Toggling the scanner rewrites the scan task's config, so the item answers to task
-  // create and not to the rack write that puts the rest of the menu on screen.
   it("should withhold the scanner toggle from a subject who cannot create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
     await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));

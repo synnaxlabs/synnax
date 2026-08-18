@@ -157,7 +157,6 @@ export const MultipleTrigger = <
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
 
-  // A hideTags trigger displays no value, so a preview has nothing to show.
   if (hideTags) {
     if (preview === true) return null;
     return (

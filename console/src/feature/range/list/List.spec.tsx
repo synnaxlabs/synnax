@@ -142,8 +142,6 @@ describe("range/list/List permissions", () => {
     });
   };
 
-  // A range spanning now sits in the in-progress stage, so its selector carries that
-  // icon. Editing the stage rewrites the range's time range.
   const showRange = async (container: HTMLElement): Promise<void> => {
     const rng = await createTestRange(client);
     const input = await waitFor(() =>

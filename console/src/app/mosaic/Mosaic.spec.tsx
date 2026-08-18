@@ -63,8 +63,6 @@ describe("Mosaic file drop", () => {
       panelKey: existing.key,
       project: proj.key,
     });
-    // The mosaic withholds the drop target until the import grant resolves, which
-    // production guarantees by loading policies above the workspace.
     await awaitGranted(client, project.ontologyID(proj.key), "update");
     await primePanel(Console, existing.key);
     const Harness = ({ children }: PropsWithChildren): ReactElement => (

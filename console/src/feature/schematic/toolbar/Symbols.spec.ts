@@ -244,8 +244,6 @@ describe("schematic/toolbar/Symbols permissions", () => {
       create: creatable,
     });
 
-  // The symbol library is a cluster-wide resource, so a subject who may edit the
-  // schematic still needs its own grant to add to the library.
   it("should withhold the creation actions from an editor who cannot add symbols", async () => {
     const { result } = await renderSymbolsToolbar(await createEditor());
     await screen.findByText("Gauge");

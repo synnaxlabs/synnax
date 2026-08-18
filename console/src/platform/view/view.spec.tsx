@@ -134,8 +134,6 @@ describe("View permissions", () => {
       retrieve: [channelClient.TYPE_ONTOLOGY_ID, view.TYPE_ONTOLOGY_ID],
     });
 
-  // The toggle shows on the built-in view for everyone, so the grant is what decides
-  // whether pressing it does anything.
   it("should leave the view read-only for a subject who cannot update views", async () => {
     await renderHarness(await createSubject({}));
     await enableEditing();

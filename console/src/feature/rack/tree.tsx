@@ -89,7 +89,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
-  // Toggling the scanner rewrites the scan task's config, which is a task create.
   const hasTaskCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
