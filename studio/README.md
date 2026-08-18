@@ -36,7 +36,29 @@ pnpm produce --script scripts/line-plot.ts --out out/line-plot --skip-capture
 
 # dark theme pair
 pnpm produce --script scripts/line-plot.ts --out out/line-plot-dark --theme dark
+
+# output resolution target (default: native capture resolution, width*dsf)
+pnpm produce --script scripts/line-plot.ts --out out/line-plot --target 1080p
 ```
+
+## Resolution
+
+Capture happens at `--width x --height` CSS pixels (default 1920x1080) with device
+scale factor `--dsf` (default 2), so native frames are 3840x2160. `--target`
+(`1080p | 1440p | 4k | <pixels>`) sets the rendered video's width independently of
+the capture. Targets below native are supersampled, which also buys zoom headroom:
+crisp zoom tops out at `(width * dsf) / target`, so a 1080p target from a dsf-2
+capture keeps 2x zooms pixel-perfect, while a 4k target upscales during them. For
+deeper crisp zooms at 4k, capture with `--dsf 3`.
+
+## Pacing
+
+`session.setSpeed(factor)` changes presentation speed mid-capture: each output frame
+samples `factor` frames of app time, so `> 1` fast-forwards (speed through typing)
+and `< 1` is slow motion. Because the clock is virtual, slow motion is exact
+resampling, not frame interpolation. Durations passed to `hold`/`type` stay in app
+time. `commandPalette` accepts `{ typeSpeed }` (default 1.5) and restores natural
+speed before the selection.
 
 Docs videos ship as themed pairs (`<id>-light.mp4` / `<id>-dark.mp4`) uploaded to the
 docs CDN; run each script once per theme.

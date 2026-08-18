@@ -27,9 +27,37 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --out <dir>       output directory for frames, timeline, and video
   --url <url>       Console URL (default http://localhost:5173)
   --theme <t>       light | dark (default light)
+  --width <px>      capture viewport width in CSS px (default 1920)
+  --height <px>     capture viewport height in CSS px (default 1080)
+  --dsf <n>         capture device scale factor (default 2)
+  --target <t>      output width: 1080p | 1440p | 4k | <pixels>
+                    (default native capture resolution, width*dsf)
+  --hide-caret      hide the text caret during capture
   --headed          run the capture browser headed
   --skip-capture    reuse <out>/timeline.json and frames from a prior run
   --capture-only    stop after capture (no render)`;
+
+const parseDim = (flag: string, value: string): number => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) throw new Error(`invalid ${flag}: ${value}`);
+  return n;
+};
+
+const TARGET_PRESETS: Record<string, number> = {
+  "1080p": 1920,
+  "1440p": 2560,
+  "4k": 3840,
+  "5k": 5120,
+};
+
+/** parseTarget resolves --target to an output width in pixels. */
+const parseTarget = (value: string | undefined, native: number): number => {
+  if (value == null) return native;
+  const width = TARGET_PRESETS[value.toLowerCase()] ?? Number(value);
+  if (!Number.isFinite(width) || width <= 0)
+    throw new Error(`invalid --target: ${value}`);
+  return width;
+};
 
 const main = async (): Promise<void> => {
   const { values } = parseArgs({
@@ -38,6 +66,11 @@ const main = async (): Promise<void> => {
       out: { type: "string" },
       url: { type: "string", default: "http://localhost:5173" },
       theme: { type: "string", default: "light" },
+      width: { type: "string" },
+      height: { type: "string" },
+      dsf: { type: "string" },
+      target: { type: "string" },
+      "hide-caret": { type: "boolean", default: false },
       headed: { type: "boolean", default: false },
       "skip-capture": { type: "boolean", default: false },
       "capture-only": { type: "boolean", default: false },
@@ -67,6 +100,10 @@ const main = async (): Promise<void> => {
       outDir,
       theme,
       headed: values.headed,
+      hideCaret: values["hide-caret"],
+      ...(values.width != null && { width: parseDim("--width", values.width) }),
+      ...(values.height != null && { height: parseDim("--height", values.height) }),
+      ...(values.dsf != null && { dsf: parseDim("--dsf", values.dsf) }),
     });
     try {
       await mod.default(session);
@@ -103,13 +140,24 @@ const main = async (): Promise<void> => {
     inputProps,
   });
 
+  const native = Math.round(timeline.meta.width * timeline.meta.dsf);
+  const targetWidth = parseTarget(values.target, native);
+  // Remotion's scale renders the composition at a multiple of its native size;
+  // <1 downscales (supersampled output), >1 upscales.
+  const scale = targetWidth / native;
+
   const outputLocation = path.join(outDir, `video-${theme}.mp4`);
-  console.log(`rendering ${composition.durationInFrames} frames...`);
+  const outH = Math.round((timeline.meta.height / timeline.meta.width) * targetWidth);
+  console.log(
+    `rendering ${composition.durationInFrames} frames at ${targetWidth}x${outH}...`,
+  );
   await renderMedia({
     composition,
     serveUrl,
     codec: "h264",
-    crf: 16,
+    crf: 14,
+    x264Preset: "slow",
+    scale,
     pixelFormat: "yuv420p",
     colorSpace: "bt709",
     imageFormat: "png",

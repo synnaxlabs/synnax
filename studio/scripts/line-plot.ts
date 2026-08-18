@@ -15,13 +15,16 @@ import { type CaptureSession } from "@/capture/rig";
  * palette, and open its data tab.
  */
 export default async (session: CaptureSession): Promise<void> => {
-  await login(session, { username: "synnax", password: "seldon" });
+  // A fresh project per capture keeps the workspace empty and the shot clean;
+  // prior runs' visualizations persist inside a reused project.
+  const project = `Docs Videos ${Date.now().toString(36)}`;
+  await login(session, { username: "synnax", password: "seldon" }, project);
 
   session.startRecording();
   await session.hold(800);
 
   await commandPalette(session, "Create a Line Plot");
-  await session.waitFor(session.page.locator(".pluto-line-plot"));
+  await session.waitFor(session.page.locator(".pluto-line-plot").first());
   await session.hold(1200);
 
   const dataTab = session.page.locator("#data");

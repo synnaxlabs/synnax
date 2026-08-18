@@ -36,6 +36,11 @@ export interface CaptureOptions {
   fps?: number;
   theme?: "light" | "dark";
   headed?: boolean;
+  /**
+   * Hides the text caret. The native caret blinks on renderer wall time, which
+   * capture cannot step, so it blinks fps/wall-rate times too fast in output.
+   */
+  hideCaret?: boolean;
 }
 
 /**
@@ -78,6 +83,7 @@ export class CaptureSession {
   private readonly events: Event[] = [];
   private frame = 0;
   private recording = false;
+  private speed = 1;
   private cursor: Point;
   private origin: Point | null = null;
 
@@ -102,6 +108,7 @@ export class CaptureSession {
       fps: 60,
       theme: "light",
       headed: false,
+      hideCaret: false,
       ...options,
     };
     const browser = await chromium.launch({
@@ -116,6 +123,12 @@ export class CaptureSession {
     const page = await context.newPage();
     await page.clock.install();
     await page.addInitScript(ANIMATION_STEPPER);
+    if (opts.hideCaret)
+      await page.addInitScript(`document.addEventListener("DOMContentLoaded", () => {
+        const style = document.createElement("style");
+        style.textContent = "* { caret-color: transparent !important; }";
+        document.head.appendChild(style);
+      });`);
     await page.goto(opts.url, { timeout: 30_000 });
     const cdp = await context.newCDPSession(page);
     await mkdir(path.join(opts.outDir, "frames"), { recursive: true });
@@ -126,19 +139,47 @@ export class CaptureSession {
     return 1000 / this.opts.fps;
   }
 
+  /** App-time milliseconds represented by one captured output frame. */
+  private get stepMs(): number {
+    return this.tickMs * this.speed;
+  }
+
+  /**
+   * setSpeed changes the presentation speed of subsequent capture: each output
+   * frame represents `factor` frames of app time, so factor > 1 fast-forwards
+   * (e.g. speed through typing) and factor < 1 is smooth slow motion (each
+   * captured frame samples a smaller clock step; no interpolation involved).
+   * Durations passed to hold/type remain in app time, so a hold(1000) at speed
+   * 2 occupies half a second of video.
+   */
+  setSpeed(factor: number): void {
+    if (!(factor > 0)) throw new Error(`speed must be positive, got ${factor}`);
+    this.speed = factor;
+  }
+
   /** tick advances the virtual clock one frame and captures it if recording. */
   async tick(): Promise<void> {
-    await this.page.clock.runFor(this.tickMs);
+    await this.page.clock.runFor(this.stepMs);
     await this.page.evaluate(
       (dt) => (window as any).__studioStepAnimations?.(dt),
-      this.tickMs,
+      this.stepMs,
     );
     if (!this.recording) return;
+    // A plain surface capture returns CSS-pixel resolution even when the context
+    // emulates a higher device scale factor; the clip's scale forces rendering at
+    // full device resolution (width*dsf x height*dsf).
     const { data } = await this.cdp.send("Page.captureScreenshot", {
       format: "png",
       fromSurface: true,
       optimizeForSpeed: true,
       captureBeyondViewport: false,
+      clip: {
+        x: 0,
+        y: 0,
+        width: this.opts.width,
+        height: this.opts.height,
+        scale: this.opts.dsf,
+      },
     });
     const name = String(this.frame).padStart(6, "0");
     await writeFile(
@@ -166,9 +207,9 @@ export class CaptureSession {
     this.origin = { ...this.cursor };
   }
 
-  /** hold captures ms of unchanged (but still ticking) screen time. */
+  /** hold captures ms of app time (scaled to video time by the current speed). */
   async hold(ms: number): Promise<void> {
-    const ticks = Math.round(ms / this.tickMs);
+    const ticks = Math.round(ms / this.stepMs);
     for (let i = 0; i < ticks; i++) await this.tick();
   }
 
@@ -188,7 +229,7 @@ export class CaptureSession {
       TRAVEL_MAX_S,
       TRAVEL_MIN_S + TRAVEL_SCALE_S * Math.sqrt(d / diag),
     );
-    return Math.round(s * fps);
+    return Math.round((s * fps) / this.speed);
   }
 
   /**
@@ -243,7 +284,9 @@ export class CaptureSession {
       if (await locator.isVisible().catch(() => false)) return;
       await this.tick();
     }
-    throw new Error(`timed out waiting for ${String(locator)}`);
+    const shot = path.join(this.opts.outDir, "waitfor-timeout.png");
+    await this.page.screenshot({ path: shot }).catch(() => {});
+    throw new Error(`timed out waiting for ${String(locator)}; state in ${shot}`);
   }
 
   /** finish writes the timeline and closes the browser, returning the timeline. */
