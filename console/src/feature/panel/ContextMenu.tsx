@@ -66,6 +66,12 @@ const useOrigin = (): (() => TabOrigin | undefined) => {
   }, [key, tabKey, client]);
 };
 
+const SplitItems = (): ReactElement | null => {
+  const isOverlaid = Session.Panel.useSelectIsTabOverlaid();
+  if (isOverlaid) return null;
+  return <Panel.SplitTabMenuItems />;
+};
+
 const MoveToPanelItem = (): ReactElement => {
   const getOrigin = useOrigin();
   const openPicker = useMovePicker();
@@ -106,7 +112,7 @@ export const TabMenuItems = ({ keys }: Menu.ContextMenuMenuProps): ReactElement 
       <RenameItem />
       <FocusItem />
       <Menu.Divider />
-      <Panel.SplitTabMenuItems />
+      <SplitItems />
       <MoveToPanelItem />
       <MoveToNewWindowItem />
       <Menu.Divider />

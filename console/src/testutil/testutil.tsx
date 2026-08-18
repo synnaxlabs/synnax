@@ -12,6 +12,7 @@ import {
   type access,
   type ontology,
   panel,
+  type project,
   type Synnax as Client,
   type SynnaxParams,
 } from "@synnaxlabs/client";
@@ -154,6 +155,19 @@ export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
 };
 
 export type ConsolePreloadedState = Partial<Session.State>;
+
+// withSelectedProject seeds the selected project for surfaces that production mounts
+// inside Project.Guard.
+export const withSelectedProject = (
+  key: project.Key,
+  state: ConsolePreloadedState = {},
+): ConsolePreloadedState => ({
+  ...state,
+  [Session.Project.SLICE_NAME]: {
+    ...Session.Project.ZERO_SLICE_STATE,
+    selected: key,
+  },
+});
 
 export interface ConsoleTestProviderOptions {
   preloadedState?: ConsolePreloadedState;
