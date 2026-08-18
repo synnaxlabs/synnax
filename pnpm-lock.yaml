@@ -878,6 +878,9 @@ importers:
       '@remotion/renderer':
         specifier: ^4.0.0
         version: 4.0.512(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@synnaxlabs/client':
+        specifier: workspace:^
+        version: link:../client/ts
       playwright:
         specifier: ^1.50.0
         version: 1.62.1

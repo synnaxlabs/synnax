@@ -27,6 +27,12 @@ Remotion. `capture/` owns Playwright; `remotion/` owns compositing; `cli/` glues
 Requires a running Core (localhost:9090) and the Console dev server
 (`pnpm dev:console-vite`, localhost:5173).
 
+Restart the core regularly between capture sessions (`synnax start -mi` from
+`core/`). A long-lived core accumulates state that pollutes shots: stale driver
+racks surface warning notifications, and every capture adds a project. A fresh
+in-memory core guarantees a clean environment; per-capture ephemeral cores are the
+eventual CI answer.
+
 ```bash
 # capture + direct + render
 pnpm produce --script scripts/line-plot.ts --out out/line-plot

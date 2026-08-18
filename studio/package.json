@@ -16,6 +16,7 @@
   "dependencies": {
     "@remotion/bundler": "^4.0.0",
     "@remotion/renderer": "^4.0.0",
+    "@synnaxlabs/client": "workspace:^",
     "playwright": "^1.50.0",
     "react": "catalog:",
     "react-dom": "catalog:",

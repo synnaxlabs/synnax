@@ -281,9 +281,14 @@ export class CaptureSession {
    * arrival, matching the synthesized cursor's arrival in post.
    */
   async moveTo(target: Locator | Point): Promise<Point> {
-    const { point: to, rect, cursor } = await this.resolve(target);
+    let { point: to, rect, cursor } = await this.resolve(target);
     const duration = this.travelTicks(to);
     for (let i = 0; i < duration; i++) await this.tick();
+    // Layout can shift while travel ticks elapse (drawer/dialog animations), so
+    // re-resolve locators right before input dispatch; raw mouse events land on
+    // coordinates, not elements, and stale ones hit the wrong target.
+    if (!("x" in target && typeof target.x === "number"))
+      ({ point: to, rect, cursor } = await this.resolve(target));
     this.events.push({ type: "move", tick: this.frame, ...to, duration, rect, cursor });
     await this.page.mouse.move(to.x, to.y);
     this.cursor = to;

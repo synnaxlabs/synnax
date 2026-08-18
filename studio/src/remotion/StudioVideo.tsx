@@ -32,13 +32,30 @@ export const StudioVideo = ({
   events,
 }: StudioVideoProps): ReactElement => {
   const frame = useCurrentFrame();
-  const cam = tracks.camera[Math.min(frame, tracks.camera.length - 1)];
+  const idx = Math.min(frame, tracks.camera.length - 1);
+  const cam = tracks.camera[idx];
+  const prev = tracks.camera[Math.max(0, idx - 1)];
   const cur = tracks.cursor[Math.min(frame, tracks.cursor.length - 1)];
   const { width, height, dsf } = meta;
 
   const c = crop(cam, width, height);
   const scale = cam.amount * dsf;
   const name = String(Math.min(frame, meta.frames - 1)).padStart(6, "0");
+
+  // Directional motion blur from per-frame camera travel, plus a light
+  // isotropic term while the zoom amount changes. Sub-threshold blur is
+  // dropped so settled frames stay tack sharp.
+  const cPrev = crop(prev, width, height);
+  const zoomBlur = Math.abs(cam.amount - prev.amount) * 14 * dsf;
+  const blurX = Math.min(
+    12 * dsf,
+    Math.abs(c.x - cPrev.x) * scale * 0.25 + zoomBlur,
+  );
+  const blurY = Math.min(
+    12 * dsf,
+    Math.abs(c.y - cPrev.y) * scale * 0.25 + zoomBlur,
+  );
+  const blurred = blurX > 0.4 * dsf || blurY > 0.4 * dsf;
 
   const toScreen = (x: number, y: number): { left: number; top: number } => ({
     left: (x - c.x) * scale,
@@ -51,6 +68,13 @@ export const StudioVideo = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
+      {blurred && (
+        <svg width={0} height={0} style={{ position: "absolute" }}>
+          <filter id="camera-blur">
+            <feGaussianBlur stdDeviation={`${blurX} ${blurY}`} />
+          </filter>
+        </svg>
+      )}
       <Img
         src={staticFile(`frames/${name}.png`)}
         style={{
@@ -59,7 +83,7 @@ export const StudioVideo = ({
           height: height * scale,
           left: -c.x * scale,
           top: -c.y * scale,
-          imageRendering: cam.amount * dsf <= dsf ? "auto" : "auto",
+          filter: blurred ? "url(#camera-blur)" : undefined,
         }}
       />
       {ripples.map((e, i) => {
