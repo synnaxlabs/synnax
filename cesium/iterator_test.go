@@ -47,7 +47,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Key:      index1Key,
 						Name:     "Magellan",
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					}
 					data1 = cesium.Channel{
 						Key:      data1Key,
@@ -59,7 +59,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Key:      index2Key,
 						Name:     "DaGama",
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					}
 					data2 = cesium.Channel{
 						Key:      data2Key,
@@ -381,7 +381,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Amundsen",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,
@@ -517,7 +517,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Shackleton",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,
@@ -608,7 +608,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Nansen",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,
@@ -685,7 +685,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      varIdxKey,
 							Name:     "var-iter-idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      varDataKey,
@@ -792,7 +792,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      mixIdx,
 							Name:     "mix-iter-idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      fixedKey,
@@ -884,7 +884,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(db.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Cook",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						i := MustSucceed(
@@ -913,7 +913,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Drake",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
@@ -938,7 +938,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Polo",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
@@ -961,7 +961,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
 						Name:     "Zheng",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())

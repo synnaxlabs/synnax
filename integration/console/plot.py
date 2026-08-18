@@ -359,7 +359,7 @@ class Plot(ConsolePage):
             state="visible", timeout=5000
         )
         self.page.get_by_role("textbox", name="Name").fill(range_name)
-        self.page.get_by_role("button", name="Save to Synnax").click()
+        self.page.get_by_role("button", name="Save to Core").click()
 
     def get_annotation_toggle(self) -> Locator:
         """Return the range-annotation visibility toggle button.
@@ -386,9 +386,9 @@ class Plot(ConsolePage):
     ) -> None:
         """Assert the annotation visibility toggle reflects the given state.
 
-        Pluto's Button.Toggle renders the "filled" variant when on.
+        Pluto's Button.Toggle carries pluto--selected when on.
         """
-        pattern = re.compile(r"pluto-btn--filled")
+        pattern = re.compile(r"pluto--selected")
         toggle = expect(self.get_annotation_toggle())
         if visible:
             toggle.to_have_class(pattern, timeout=timeout)

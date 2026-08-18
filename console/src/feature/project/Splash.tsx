@@ -99,7 +99,12 @@ export const Splash = (): ReactElement => {
               Projects
             </Header.Title>
             <Header.Actions>
-              <PButton.Button variant="text" color={9} size="medium" onClick={logout}>
+              <PButton.Button
+                variant="text"
+                textColor={9}
+                size="medium"
+                onClick={logout}
+              >
                 <Icon.Logout />
                 Log out
               </PButton.Button>

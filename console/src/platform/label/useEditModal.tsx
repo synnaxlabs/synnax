@@ -15,6 +15,7 @@ import {
   Color,
   Component,
   CSS as PCSS,
+  Dialog,
   Divider,
   Flex,
   type Flux,
@@ -24,7 +25,6 @@ import {
   Label,
   List,
   Text,
-  useClickOutside,
 } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -66,7 +66,7 @@ const LabelListItem = ({
     if (isCreate && visible) inputRef.current?.focus();
   }, [isCreate, visible]);
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside({
+  Dialog.useClickOutside({
     ref,
     onClickOutside: useCallback(() => {
       if (!isCreate) return;

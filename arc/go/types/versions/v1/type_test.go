@@ -661,8 +661,8 @@ var _ = Describe("Type", func() {
 			Entry("F32", types.F32(), telem.Float32T),
 			Entry("F64", types.F64(), telem.Float64T),
 			Entry("String", types.String(), telem.StringT),
-			Entry("TimeStamp", types.TimeStamp(), telem.TimeStampT),
-			Entry("TimeSpan", types.TimeSpan(), telem.TimeStampT),
+			Entry("TimeStamp", types.TimeStamp(), telem.TimestampT),
+			Entry("TimeSpan", types.TimeSpan(), telem.TimestampT),
 		)
 
 		It("Should return UnknownT for types that don't map to telem", func() {

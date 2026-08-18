@@ -62,7 +62,7 @@ var _ = Describe("Series", func() {
 				Entry("int64 with 5 bytes", telem.Int64T, 5),
 				Entry("int16 with 3 bytes", telem.Int16T, 3),
 				Entry("uuid with 17 bytes", telem.UUIDT, 17),
-				Entry("timestamp with 9 bytes", telem.TimeStampT, 9),
+				Entry("timestamp with 9 bytes", telem.TimestampT, 9),
 			)
 		})
 
@@ -261,7 +261,7 @@ var _ = Describe("Series", func() {
 			Specify("int64", valueAtTest(int64(1), telem.Int64T))
 			Specify("float32", valueAtTest(float32(1.0), telem.Float32T))
 			Specify("float64", valueAtTest(float64(1.0), telem.Float64T))
-			Specify("timestamp", valueAtTest(telem.TimeStamp(1), telem.TimeStampT))
+			Specify("timestamp", valueAtTest(telem.TimeStamp(1), telem.TimestampT))
 			Specify("uuid", valueAtTest(uuid.New(), telem.UUIDT))
 		})
 		Describe("Negative Index", func() {
@@ -968,7 +968,7 @@ var _ = Describe("Series", func() {
 				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				ms := telem.NewMultiSeriesV(s1, s2)
-				Expect(ms.DataType()).To(Equal(telem.TimeStampT))
+				Expect(ms.DataType()).To(Equal(telem.TimestampT))
 			})
 		})
 

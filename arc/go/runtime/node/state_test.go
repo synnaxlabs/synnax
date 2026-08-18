@@ -2012,7 +2012,7 @@ var _ = Describe("ProgramState", func() {
 				src := s.Node("src")
 				Expect(src.Output(0).DataType).To(Equal(telem.Int32T))
 				Expect(src.Output(0).Len()).To(BeZero())
-				Expect(src.OutputTime(0).DataType).To(Equal(telem.TimeStampT))
+				Expect(src.OutputTime(0).DataType).To(Equal(telem.TimestampT))
 			},
 		)
 	})

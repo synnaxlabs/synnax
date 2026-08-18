@@ -42,7 +42,7 @@ var _ = Describe("Delete", func() {
 					Channel: channel.Channel{
 						Name:     "John",
 						Key:      index,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 						Index:    index,
 					},
@@ -1586,7 +1586,7 @@ var _ = Describe("Delete", func() {
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -1668,7 +1668,7 @@ var _ = Describe("Delete", func() {
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -1756,7 +1756,7 @@ var _ = Describe("Delete", func() {
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -1841,7 +1841,7 @@ var _ = Describe("Delete", func() {
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},

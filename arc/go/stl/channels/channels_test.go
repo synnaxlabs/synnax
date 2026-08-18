@@ -433,7 +433,7 @@ var _ = Describe("Channel", func() {
 				).To(telem.MatchSeries(telem.NewSeriesV[int32](100, 200)))
 				Expect(
 					progState.Node("source").OutputTime(0).DataType,
-				).To(Equal(telem.TimeStampT))
+				).To(Equal(telem.TimestampT))
 			})
 
 			It("Should not trigger on empty channel", func(ctx SpecContext) {

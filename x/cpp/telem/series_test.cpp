@@ -218,24 +218,24 @@ TEST(TestSeries, testConstructionSingleValue) {
 /// @brief it should correctly construct a series of size 1 from a bool.
 TEST(TestSeries, testConstructionSingleBool) {
     const auto s_true = Series(true);
-    ASSERT_EQ(s_true.data_type(), BOOL_T);
+    ASSERT_EQ(s_true.data_type(), BOOLEAN_T);
     ASSERT_EQ(s_true.size(), 1);
     ASSERT_EQ(s_true.byte_size(), 1);
     ASSERT_EQ(s_true.at<uint8_t>(0), 0x01);
 
     const auto s_false = Series(false);
-    ASSERT_EQ(s_false.data_type(), BOOL_T);
+    ASSERT_EQ(s_false.data_type(), BOOLEAN_T);
     ASSERT_EQ(s_false.at<uint8_t>(0), 0x00);
 }
 
-/// @brief DataType::infer<bool>() should return BOOL_T.
+/// @brief DataType::infer<bool>() should return BOOLEAN_T.
 TEST(DataTypeTests, testInferBool) {
-    ASSERT_EQ(DataType::infer<bool>(), BOOL_T);
+    ASSERT_EQ(DataType::infer<bool>(), BOOLEAN_T);
 }
 
-/// @brief casting a numeric SampleValue to BOOL_T should normalize nonzero to 1.
+/// @brief casting a numeric SampleValue to BOOLEAN_T should normalize nonzero to 1.
 TEST(DataTypeTests, testCastToBoolNormalizesNonzero) {
-    const auto bool_t = BOOL_T;
+    const auto bool_t = BOOLEAN_T;
     ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{int32_t{0}})), 0);
     ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{int32_t{1}})), 1);
     ASSERT_EQ(std::get<uint8_t>(bool_t.cast(SampleValue{int32_t{42}})), 1);

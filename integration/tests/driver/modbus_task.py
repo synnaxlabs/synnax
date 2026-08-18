@@ -44,7 +44,6 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
             device=device.key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
-            data_saving=True,
             channels=channels,
         )
 
