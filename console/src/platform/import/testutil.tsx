@@ -11,7 +11,7 @@ import { Haul } from "@synnaxlabs/pluto";
 import { act, createEvent, fireEvent, screen } from "@testing-library/react";
 import { type DragEvent, type ReactElement } from "react";
 
-import { type FileIngesterContext } from "@/platform/import/ingester";
+import { type FileIngesterContext } from "@/platform/import/import";
 
 const START_FILE_DRAG = "start file drag";
 

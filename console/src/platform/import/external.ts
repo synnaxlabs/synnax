@@ -12,5 +12,4 @@ export * from "@/platform/import/DropZone";
 export * from "@/platform/import/entries";
 export * from "@/platform/import/import";
 export * from "@/platform/import/ingestBatch";
-export * from "@/platform/import/ingester";
 export * from "@/platform/import/useFileDrop";

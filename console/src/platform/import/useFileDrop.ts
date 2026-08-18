@@ -19,9 +19,8 @@ import {
   readDirectoryFiles,
   readEntryFile,
 } from "@/platform/import/entries";
-import { ingestServer } from "@/platform/import/import";
+import { type BundleIngester, ingestServer } from "@/platform/import/import";
 import { ingestBatch } from "@/platform/import/ingestBatch";
-import { type BundleIngester } from "@/platform/import/ingester";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
@@ -62,8 +61,9 @@ const ingestEntry = async (
 };
 
 export interface UseFileDropParams {
-  /** Ingests a dropped directory or .zip as a bundle. Injected by the composition root.
-   * */
+  /**
+   * Ingests a dropped directory or .zip as a bundle. Injected by the composition root.
+   */
   ingestBundle: BundleIngester;
 }
 

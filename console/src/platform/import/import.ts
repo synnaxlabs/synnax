@@ -11,6 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import {
   DisconnectedError,
   imex,
+  type ontology,
   project,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -18,10 +19,47 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { ingestBatch } from "@/platform/import/ingestBatch";
-import { type FileIngester } from "@/platform/import/ingester";
 import { Panel } from "@/platform/panel";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
+
+export interface FileIngesterContext {
+  client: Client | null;
+  projectKey: project.Key;
+  /**
+   * The name of the file the data was read from, extension included. The Core names
+   * the resource after the file when the file's contents carry no name.
+   */
+  fileName: string;
+}
+
+/**
+ * Creates the resource the data describes and returns its ID. Opening a tab for it
+ * belongs to the caller, which decides where it lands.
+ */
+export interface FileIngester {
+  (
+    data: unknown,
+    ctx: FileIngesterContext,
+  ): void | ontology.ID | Promise<void | ontology.ID>;
+}
+
+interface BundleIngesterContext {
+  client: Client | null;
+  store: Store;
+}
+
+/**
+ * Imports a zipped bundle read from a picked or dropped source. name is the source
+ * archive or folder's name, the Core's fallback for naming the imported resource.
+ */
+export interface BundleIngester {
+  (
+    name: string,
+    bundle: Uint8Array<ArrayBuffer>,
+    ctx: BundleIngesterContext,
+  ): Promise<void>;
+}
 
 /**
  * Imports data by streaming its bytes to the Core, which owns envelope decoding, type
