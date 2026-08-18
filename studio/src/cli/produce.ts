@@ -16,6 +16,7 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 
 import { type CaptureSession } from "@/capture/rig";
 import { direct } from "@/director/director";
+import { type Core } from "@/fixtures/core";
 import { parse, type Timeline } from "@/timeline";
 
 export interface VideoScript {
@@ -26,6 +27,11 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --script <path>   video script module (default export: async (session) => {})
   --out <dir>       output directory for frames, timeline, and video
   --url <url>       Console URL (default http://localhost:5173)
+  --core <mode>     ephemeral | external (default ephemeral): ephemeral starts a
+                    fresh in-memory core on 9090 for the capture; external uses
+                    whatever is already listening there
+  --core-bin <path> synnax binary for --core ephemeral (default: $SYNNAX_CORE_BIN
+                    or core/synnax found walking up from the studio)
   --theme <t>       light | dark (default light)
   --width <px>      capture viewport width in CSS px (default 1920)
   --height <px>     capture viewport height in CSS px (default 1080)
@@ -65,6 +71,8 @@ const main = async (): Promise<void> => {
       script: { type: "string" },
       out: { type: "string" },
       url: { type: "string", default: "http://localhost:5173" },
+      core: { type: "string", default: "ephemeral" },
+      "core-bin": { type: "string" },
       theme: { type: "string", default: "light" },
       width: { type: "string" },
       height: { type: "string" },
@@ -90,25 +98,35 @@ const main = async (): Promise<void> => {
       JSON.parse(await readFile(path.join(outDir, "timeline.json"), "utf8")),
     );
   } else {
-    console.log("capturing...");
-    const { CaptureSession } = await import("@/capture/rig");
-    const mod = (await import(path.resolve(values.script))) as {
-      default: VideoScript;
-    };
-    const session = await CaptureSession.launch({
-      url: values.url,
-      outDir,
-      theme,
-      headed: values.headed,
-      hideCaret: values["hide-caret"],
-      ...(values.width != null && { width: parseDim("--width", values.width) }),
-      ...(values.height != null && { height: parseDim("--height", values.height) }),
-      ...(values.dsf != null && { dsf: parseDim("--dsf", values.dsf) }),
-    });
+    let core: Core | undefined;
+    if (values.core !== "external") {
+      console.log("starting core...");
+      const { startCore } = await import("@/fixtures/core");
+      core = await startCore({ outDir, binary: values["core-bin"] });
+    }
     try {
-      await mod.default(session);
+      console.log("capturing...");
+      const { CaptureSession } = await import("@/capture/rig");
+      const mod = (await import(path.resolve(values.script))) as {
+        default: VideoScript;
+      };
+      const session = await CaptureSession.launch({
+        url: values.url,
+        outDir,
+        theme,
+        headed: values.headed,
+        hideCaret: values["hide-caret"],
+        ...(values.width != null && { width: parseDim("--width", values.width) }),
+        ...(values.height != null && { height: parseDim("--height", values.height) }),
+        ...(values.dsf != null && { dsf: parseDim("--dsf", values.dsf) }),
+      });
+      try {
+        await mod.default(session);
+      } finally {
+        timeline = await session.finish();
+      }
     } finally {
-      timeline = await session.finish();
+      await core?.stop();
     }
     console.log(`captured ${timeline.meta.frames} frames`);
   }

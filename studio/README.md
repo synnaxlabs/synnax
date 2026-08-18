@@ -24,14 +24,18 @@ Remotion. `capture/` owns Playwright; `remotion/` owns compositing; `cli/` glues
 
 ## Usage
 
-Requires a running Core (localhost:9090) and the Console dev server
-(`pnpm dev:console-vite`, localhost:5173).
-
-Restart the core regularly between capture sessions (`synnax start -mi` from
-`core/`). A long-lived core accumulates state that pollutes shots: stale driver
-racks surface warning notifications, and every capture adds a project. A fresh
-in-memory core guarantees a clean environment; per-capture ephemeral cores are the
-eventual CI answer.
+Requires the Console dev server (`pnpm dev:console-vite`, localhost:5173). The
+core is managed by the studio: each capture spawns a fresh in-memory core on 9090
+(`--no-driver`, logs to `<out>/core.log`) and stops it when the capture ends, so
+every capture sees an empty cluster. A long-lived shared core pollutes shots:
+stale driver racks surface warning notifications, integration test runs leave
+ranges that render as annotations on any plot whose window overlaps them, and
+every capture adds a project. The port must be 9090 because the dev Console
+hardcodes its connection there (`detectConnection`); if something else already
+holds 9090, produce refuses with instructions rather than capturing against
+contaminated state. Pass `--core external` to use the running core anyway, and
+`--core-bin <path>` (or `SYNNAX_CORE_BIN`) if `core/synnax` isn't built at the
+repo root.
 
 ```bash
 # capture + direct + render
