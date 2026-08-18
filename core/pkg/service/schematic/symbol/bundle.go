@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filename"
@@ -31,20 +30,14 @@ const (
 	manifestVersion       = 2
 	legacyManifestVersion = 1
 	manifestType          = "symbol_group"
-	// layoutFileName is reserved for legacy project bundles and is never a member.
-	layoutFileName = "LAYOUT.json"
 )
 
 // ExportGroup serializes every symbol in the group identified by key into a flat file
-// namespace: one envelope named after each symbol, beside a manifest naming the group.
-// It also returns the ontology ID of every exported symbol, sorted by name and then by
-// ID, so a caller can enforce access on them. The encoder decides both the
-// serialization and the extension every file takes. A symbol whose file name is too
-// long is shortened; one whose file name is taken or reserved gains a numeric suffix.
-//
-// Children that are not schematic symbols are skipped and logged as a warning.
-//
-// It returns query.ErrNotFound if no group has key.
+// namespace: one envelope per symbol, encoded by encoder, beside a manifest naming the
+// group. File names are sanitized and deduplicated. It also returns the sorted ontology
+// IDs of the exported symbols so a caller can enforce access on them. Children that are
+// not schematic symbols are skipped with a warning. It returns query.ErrNotFound if no
+// group has key.
 func (s *Service) ExportGroup(
 	ctx context.Context,
 	key group.Key,
@@ -92,30 +85,27 @@ func (s *Service) ExportGroup(
 	return files, members, nil
 }
 
-// legacyGroupManifest is the version 1 manifest body the Console wrote before group
-// export moved server-side. Its symbols list declares membership; version 2 infers
-// membership from the files beside the manifest instead.
+// legacyGroupManifest is the version 1 manifest body the Console wrote; its symbols
+// list declares membership.
 type legacyGroupManifest struct {
 	Symbols []struct {
 		File string `json:"file"`
 	} `json:"symbols"`
 }
 
-// ImportGroup imports a symbol group bundle on tx: it creates a fresh group named by
-// the manifest under the permanent symbol group, then imports every member into it
-// through the leaf importer. Serialization is keyed by file extension, JSON being the
-// only one supported: the manifest is manifest.json, and members are the JSON files
-// beside it. A version 1 manifest declares members in its symbols list, version 2
-// infers them from the files beside the manifest. It returns an error naming the
-// offending file when the manifest is missing, malformed, of another bundle kind, or of
-// an unsupported version, when two member names compare equal case-folded, or when a
-// member is not a schematic symbol.
+// ImportGroup creates a group named by the manifest under the permanent symbol group,
+// then imports every member into it on tx. The decoder's extension names the manifest
+// file and selects member files. A version 1 manifest lists its members; version 2
+// infers them from the files beside the manifest. It returns a validation error naming
+// the offending file for a missing or invalid manifest, member names that collide
+// case-folded, or a member that is not a schematic symbol.
 func (s *Service) ImportGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	files zip.Files,
+	decoder encoding.FileDecoder,
 ) (group.Group, error) {
-	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
+	manifestFileName := imex.ManifestBaseName + decoder.Extension()
 	manifestData, ok := files[manifestFileName]
 	if !ok {
 		return group.Group{}, errors.Wrapf(
@@ -123,7 +113,7 @@ func (s *Service) ImportGroup(
 		)
 	}
 	var manifest imex.Manifest
-	if err := json.Codec.Decode(ctx, manifestData, &manifest); err != nil {
+	if err := decoder.Decode(ctx, manifestData, &manifest); err != nil {
 		return group.Group{}, errors.Wrap(err, manifestFileName)
 	}
 	if manifest.Type != manifestType {
@@ -148,9 +138,15 @@ func (s *Service) ImportGroup(
 	)
 	switch manifest.Version {
 	case legacyManifestVersion:
-		members, err = declaredMembers(ctx, manifestData, files, manifestFileName)
+		members, err = declaredMembers(
+			ctx,
+			decoder,
+			manifestData,
+			files,
+			manifestFileName,
+		)
 	case manifestVersion:
-		members = inferredMembers(files, manifestFileName, json.Codec.Extension())
+		members = inferredMembers(files, manifestFileName, decoder.Extension())
 	default:
 		err = errors.Wrapf(
 			validate.ErrValidation, "unsupported manifest version %d", manifest.Version,
@@ -170,6 +166,7 @@ func (s *Service) ImportGroup(
 		if err = s.importMember(
 			ctx,
 			tx,
+			decoder,
 			name,
 			files[name],
 			g.OntologyID(),
@@ -181,15 +178,16 @@ func (s *Service) ImportGroup(
 }
 
 // declaredMembers reads a version 1 manifest's membership from its symbols list,
-// validating that every listed file is in the bundle and none names the manifest.
+// rejecting a listed file the bundle does not hold and a manifest that lists itself.
 func declaredMembers(
 	ctx context.Context,
+	decoder encoding.Decoder,
 	manifestData []byte,
 	files zip.Files,
 	manifestFileName string,
 ) ([]string, error) {
 	var legacy legacyGroupManifest
-	if err := json.Codec.Decode(ctx, manifestData, &legacy); err != nil {
+	if err := decoder.Decode(ctx, manifestData, &legacy); err != nil {
 		return nil, errors.Wrap(err, manifestFileName)
 	}
 	foldedManifest := filename.Fold(manifestFileName)
@@ -214,19 +212,16 @@ func declaredMembers(
 }
 
 // inferredMembers reads a version 2 bundle's membership from the directory: every file
-// in the given extension beside the manifest, minus the reserved names. Files under a
-// subdirectory are not beside the manifest, so they are skipped.
+// in the given extension beside the manifest. Files under a subdirectory are skipped.
 func inferredMembers(files zip.Files, manifestFileName, ext string) []string {
 	var (
 		foldedManifest = filename.Fold(manifestFileName)
-		foldedLayout   = filename.Fold(layoutFileName)
 		foldedExt      = filename.Fold(ext)
 		members        = make([]string, 0, len(files))
 	)
 	for name := range files {
 		folded := filename.Fold(name)
-		if folded == foldedManifest || folded == foldedLayout ||
-			strings.ContainsRune(name, '/') ||
+		if folded == foldedManifest || strings.ContainsRune(name, '/') ||
 			!strings.HasSuffix(folded, foldedExt) {
 			continue
 		}
@@ -260,12 +255,13 @@ func validateMemberNames(members []string) error {
 func (s *Service) importMember(
 	ctx context.Context,
 	tx gorp.Tx,
+	decoder encoding.Decoder,
 	name string,
 	data []byte,
 	parent ontology.ID,
 ) error {
 	var env imex.Envelope
-	if err := json.Codec.Decode(ctx, data, &env); err != nil {
+	if err := decoder.Decode(ctx, data, &env); err != nil {
 		return errors.Wrap(err, name)
 	}
 	typ, err := s.cfg.ImEx.ResolveType(env)
