@@ -18,10 +18,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-vi.mock("@tauri-apps/api/path", () => ({
-  sep: vi.fn(() => "/"),
-  join: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
-}));
+vi.mock("@tauri-apps/api/path", () => ({ sep: vi.fn(() => "/") }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readDir: vi.fn(),

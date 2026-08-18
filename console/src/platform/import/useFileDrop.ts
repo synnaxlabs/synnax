@@ -43,15 +43,7 @@ const ingestEntry = async (
   { client, ingestBundle, projectKey, store }: IngestContext,
 ): Promise<void | ontology.ID> => {
   if (isDirectoryEntry(entry)) {
-    const files = await readDirectoryFiles(entry);
-    const bundle = zipFiles(
-      await Promise.all(
-        files.map(async ({ file, path }) => ({
-          path,
-          bytes: new Uint8Array(await file.arrayBuffer()),
-        })),
-      ),
-    );
+    const bundle = await zipFiles(await readDirectoryFiles(entry));
     return await ingestBundle(entry.name, bundle, { client, store });
   }
   if (!isFileEntry(entry)) return;

@@ -109,7 +109,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-// createUser creates a fresh user so each spec's grants stay isolated.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { join, sep } from "@tauri-apps/api/path";
+import { sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readDir, readFile, readTextFile } from "@tauri-apps/plugin-fs";
 
@@ -149,7 +149,9 @@ const pickDirectoryTauri = async ({
   const files: PickedFile[] = [];
   const walk = async (absolute: string, relative: string): Promise<void> => {
     for (const entry of await readDir(absolute)) {
-      const fullPath = await join(absolute, entry.name);
+      // Joined by hand: path.join is a Tauri IPC round-trip, and a large tree would
+      // pay one per entry before reading a byte.
+      const fullPath = absolute + separator + entry.name;
       const relPath = relative === "" ? entry.name : `${relative}/${entry.name}`;
       if (entry.isDirectory) await walk(fullPath, relPath);
       else if (entry.isFile)

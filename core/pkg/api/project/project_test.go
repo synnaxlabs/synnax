@@ -78,7 +78,6 @@ var (
 	logType     = ontology.ID{Type: ontology.ResourceTypeLog}
 )
 
-// newBundle returns a version 1 project bundle holding one log.
 func newBundle(name string) apiproject.ImportRequest {
 	return zip.Files{
 		"manifest.json": []byte(
@@ -90,7 +89,6 @@ func newBundle(name string) apiproject.ImportRequest {
 	}
 }
 
-// importCtx returns an authed context carrying the file_name import param.
 func importCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := AuthedCtx(ctx, u)
 	fctx.Set("params", `{"file_name":"Imported.zip"}`)

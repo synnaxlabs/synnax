@@ -71,9 +71,9 @@ var legacyTaskTypes = set.New(
 	"pagerduty_alert",
 )
 
-// importLegacy recreates the documents of a legacy (version 0) project directory,
-// named after the extension-stripped fileName. The mosaic tiling is dropped
-// (SY-4370), so only the documents are recreated.
+// importLegacy recreates the documents of a legacy (version 0) project directory, named
+// after the extension-stripped fileName. The mosaic tiling is dropped (SY-4370), so
+// only the documents are recreated.
 func (s *Service) importLegacy(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -102,8 +102,8 @@ func (s *Service) importLegacy(
 }
 
 // legacyMembers locates the component file behind each importable layout record, in
-// layout-key order, each decoded and resolved to its registration type. A record
-// whose component file the directory does not hold is a validation error.
+// layout-key order, each decoded and resolved to its registration type. A record whose
+// component file the directory does not hold is a validation error.
 func (s *Service) legacyMembers(
 	ctx context.Context,
 	layoutData []byte,

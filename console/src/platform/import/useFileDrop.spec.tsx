@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { unzipSync } from "fflate";
+import { unzipSync, zipSync } from "fflate";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -128,7 +128,7 @@ describe("Import.useFileDrop", () => {
     });
   });
 
-  it("zips nested files with their relative paths", async () => {
+  it("zips nested files with their paths and drops files the Core ignores", async () => {
     const ingestBundle = vi.fn<Import.BundleIngester>();
     const { result } = await renderFileDrop({ ingestBundle });
     act(() =>
@@ -138,7 +138,11 @@ describe("Import.useFileDrop", () => {
         event: fakeFileDropEvent([
           fakeDirectoryEntry("my-directory", [
             createJSONFile("a.json", { type: "log" }),
-            fakeDirectoryEntry("nested", [createJSONFile("b.json", { type: "log" })]),
+            new File(["\x00\x01"], ".DS_Store"),
+            fakeDirectoryEntry("nested", [
+              createJSONFile("b.json", { type: "log" }),
+              new File(["junk"], "notes.txt", { type: "text/plain" }),
+            ]),
           ]),
         ]),
       }),
@@ -151,9 +155,7 @@ describe("Import.useFileDrop", () => {
   it("hands a dropped zip archive to the ingester untouched", async () => {
     const ingestBundle = vi.fn<Import.BundleIngester>();
     const { result } = await renderFileDrop({ ingestBundle });
-    const bytes = Import.zipFiles([
-      { path: "manifest.json", bytes: new TextEncoder().encode("{}") },
-    ]);
+    const bytes = zipSync({ "manifest.json": new TextEncoder().encode("{}") });
     act(() =>
       result.current({
         nodeKey: panel.ROOT_NODE_KEY,
@@ -163,9 +165,7 @@ describe("Import.useFileDrop", () => {
     );
     await waitFor(() => expect(ingestBundle).toHaveBeenCalledTimes(1));
     expect(ingestBundle.mock.calls[0][0]).toBe("My Project.zip");
-    expect(new Uint8Array(ingestBundle.mock.calls[0][1])).toEqual(
-      new Uint8Array(bytes),
-    );
+    expect(ingestBundle.mock.calls[0][1]).toEqual(bytes);
   });
 
   it("reports a non-JSON file and still imports the rest of the drop", async () => {

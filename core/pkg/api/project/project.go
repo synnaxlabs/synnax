@@ -213,9 +213,9 @@ type (
 	}
 )
 
-// Import imports a project bundle in a single transaction. It requires create access
-// on the project type and on every resource kind the bundle carries, all enforced
-// before any import work runs.
+// Import imports a project bundle in a single transaction. It requires create access on
+// the project type and on every resource kind the bundle carries, all enforced before
+// any import work runs.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
