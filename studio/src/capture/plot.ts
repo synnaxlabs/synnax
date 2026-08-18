@@ -24,6 +24,20 @@ export const showVisualizationToolbar = async (
   await session.waitFor(y1);
 };
 
+/**
+ * hideVisualizationToolbar closes the bottom visualization drawer if it is
+ * open, so a shot can start on an unobstructed visualization.
+ */
+export const hideVisualizationToolbar = async (
+  session: CaptureSession,
+): Promise<void> => {
+  const { page } = session;
+  const y1 = page.locator("label").filter({ hasText: "Y1" }).first();
+  if (!(await y1.isVisible().catch(() => false))) return;
+  await session.click(page.locator(".console-main-nav__item").last());
+  await session.waitForHidden(y1);
+};
+
 export interface AddChannelsOptions {
   /** Query typed into the channel search before selecting. */
   search?: string;

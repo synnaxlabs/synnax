@@ -244,10 +244,24 @@ export class CaptureSession {
     }
   }
 
-  /** startRecording begins frame capture; the cursor origin is its position now. */
+  /**
+   * settleWall waits real time without advancing the virtual clock. Live
+   * telemetry streams and the Aether render loop run on wall time, so setup
+   * uses this to let a plot's stream buffer fill before recording starts.
+   */
+  async settleWall(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * startRecording begins frame capture: the cursor origin is its position now
+   * and input events from setup are dropped, so scripts can stage the shot with
+   * the same helpers they record with.
+   */
   startRecording(): void {
     this.recording = true;
     this.origin = { ...this.cursor };
+    this.events.length = 0;
   }
 
   /** hold captures ms of app time (scaled to video time by the current speed). */
@@ -436,6 +450,19 @@ export class CaptureSession {
     const shot = path.join(this.opts.outDir, "waitfor-timeout.png");
     await this.page.screenshot({ path: shot }).catch(() => {});
     throw new Error(`timed out waiting for ${String(locator)}; state in ${shot}`);
+  }
+
+  /** waitForHidden polls until the locator disappears, advancing virtual time. */
+  async waitForHidden(locator: Locator, timeoutTicks = 600): Promise<void> {
+    for (let i = 0; i < timeoutTicks; i++) {
+      if (!(await locator.isVisible().catch(() => false))) return;
+      await this.tick();
+    }
+    const shot = path.join(this.opts.outDir, "waitfor-timeout.png");
+    await this.page.screenshot({ path: shot }).catch(() => {});
+    throw new Error(
+      `timed out waiting for ${String(locator)} to hide; state in ${shot}`,
+    );
   }
 
   /** finish writes the timeline and closes the browser, returning the timeline. */

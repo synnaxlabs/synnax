@@ -102,6 +102,39 @@ export const openToolbar = async (
   );
 };
 
+/**
+ * resizeToolbar sets the open left drawer's width by driving its resize
+ * handle with synthetic events. The width is per-rail state, so a setup-time
+ * resize persists for every toolbar opened on that rail during recording.
+ * Clamped by the active toolbar's min/max size.
+ */
+export const resizeToolbar = async (
+  session: CaptureSession,
+  width: number,
+): Promise<void> => {
+  const { page } = session;
+  const drawer = page
+    .locator(".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)")
+    .first();
+  await session.waitFor(drawer);
+  await drawer.evaluate((el, target) => {
+    const handle = el.querySelector(".pluto-resize__handle");
+    if (handle == null) throw new Error("drawer resize handle not found");
+    const rect = handle.getBoundingClientRect();
+    const x0 = rect.x + rect.width / 2;
+    const y = rect.y + rect.height / 2;
+    const x1 = x0 + (target - el.getBoundingClientRect().width);
+    handle.dispatchEvent(
+      new DragEvent("dragstart", { bubbles: true, clientX: x0, clientY: y }),
+    );
+    window.dispatchEvent(
+      new MouseEvent("mousemove", { clientX: x1, clientY: y, buttons: 1 }),
+    );
+    window.dispatchEvent(new MouseEvent("mouseup", { clientX: x1, clientY: y }));
+  }, width);
+  await session.settle(300);
+};
+
 /** closeToolbar closes the open side toolbar by clicking its selected nav icon. */
 export const closeToolbar = async (session: CaptureSession): Promise<void> => {
   const { page } = session;
@@ -117,6 +150,20 @@ export const closeToolbar = async (session: CaptureSession): Promise<void> => {
 };
 
 /**
+ * clearPaletteInput empties the palette input when it retains the previous
+ * query; the palette keeps its text across opens, so typing without clearing
+ * appends to the stale query and searches for garbage.
+ */
+const clearPaletteInput = async (
+  session: CaptureSession,
+  input: Locator,
+): Promise<void> => {
+  if ((await input.inputValue().catch(() => "")) === "") return;
+  await session.press("ControlOrMeta+a");
+  await session.press("Delete");
+};
+
+/**
  * searchPalette opens the palette in search mode, types the query, and selects
  * the first matching result, as recorded input.
  */
@@ -129,6 +176,7 @@ export const searchPalette = async (
   await session.click(page.locator(".console-palette button").first());
   const input = page.locator(".console-palette__input input[role='textbox']");
   await session.waitFor(input);
+  await clearPaletteInput(session, input);
   session.setSpeed(typeSpeed);
   await session.zoom(
     page.locator(".pluto-dialog__dialog:has(.console-palette__input)").first(),
@@ -180,6 +228,19 @@ export const selectTab = async (
   await session.click(tab(session.page, name));
 };
 
+/** closeTab closes the mosaic tab with the given title via its close button. */
+export const closeTab = async (
+  session: CaptureSession,
+  name: string,
+): Promise<void> => {
+  const target = tab(session.page, name)
+    .locator("..")
+    .getByLabel("pluto-tabs__close")
+    .first();
+  await session.click(target);
+  await session.waitForHidden(tab(session.page, name));
+};
+
 /**
  * treeItem returns a resource-tree item by its ontology type prefix (e.g.
  * "range:", "user:", "channel:") and display name, for clicks, drags, and
@@ -208,6 +269,7 @@ export const commandPalette = async (
   await session.click(page.locator(".console-palette button").first());
   const input = page.locator(".console-palette__input input[role='textbox']");
   await session.waitFor(input);
+  await clearPaletteInput(session, input);
   session.setSpeed(typeSpeed);
   await session.type(">");
   await session.zoom(

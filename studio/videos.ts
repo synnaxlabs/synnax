@@ -15,5 +15,9 @@ import { manifest } from "@/index";
  * every entry; `pnpm upload` pushes them to the docs CDN.
  */
 export default manifest.define([
+  {
+    id: "console/ui-overview/open-toolbars",
+    script: "scripts/ui-overview-open-toolbars.ts",
+  },
   { id: "console/line-plots/data-tab", script: "scripts/line-plot-data.ts" },
 ]);
