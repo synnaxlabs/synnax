@@ -56,5 +56,5 @@ export * from "@/unique";
 export * from "@/url";
 export * from "@/uuid";
 export * from "@/verbs";
-export * from "@/zod";
 export * from "@/zip";
+export * from "@/zod";
