@@ -230,8 +230,8 @@ from the manifest, and imports each symbol under it through the leaf symbol impo
 
 ### 4.5 Legacy formats
 
-The Console zips the picked directory's top-level files and uploads the archive
-unconditionally. The server recognizes each historical layout:
+The Console uploads a picked `.zip` unchanged, or zips a directory's files with their
+relative paths. The server recognizes each historical layout:
 
 1. `manifest.json` present: route on its `{version, type}`. A `symbol_group` manifest at
    version 1 is the legacy Console-written format (`{file, key, name}` entries); the
@@ -269,15 +269,15 @@ nothing and go unenforced.
 
 ### 4.7 Console changes
 
-The Console's role shrinks to: pick a directory, zip or unzip, stream, report status.
+The Console's role shrinks to: pick a `.zip` or directory, zip, stream, report status.
 Once all phases land, the Console deletes the project export/import orchestration (panel
 walking, `EXPORTABLE_TYPES`, `remapNode`, `ingestLegacy`, the legacy Zod schemas), the
 symbol-group flows with `Symbol.GroupManifest`, and the `FILE_INGESTERS` registry with
 each feature's client-side ingest ladder as Phase 1 lands.
 
-New Console code: client methods for the four endpoints, and a zip utility at the
-runtime boundary for the import upload (library choice in §7). Export needs none: it
-streams the wire archive straight to disk (§6.15).
+New Console code: client methods for the four endpoints, and a zip utility (fflate) at
+the runtime boundary for the import upload. Export needs none: it streams the wire
+archive straight to disk (§6.15).
 
 ### 4.8 Name collisions
 
@@ -364,9 +364,10 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   than fix-and-rerun.
 - **6.14 Strictly additive import.** Duplicate names are allowed. Auto-rename and merge
   were rejected (RFC 0039 §6.6).
-- **6.15 Console UX is directory-in, zip-out.** Export saves the wire archive through
-  the platform save dialog; import picks a directory until the `.zip` picker path (§7)
-  lands.
+- **6.15 Console UX is zip-or-directory-in, zip-out.** Export saves the wire archive
+  through the platform save dialog. Import takes a `.zip` export or its extracted
+  folder: each import command opens a drop-zone modal that also browses for a `.zip` or
+  picks a folder, and the mosaic accepts both dropped directly.
 - **6.16 Import returns the full created resource.** `project.Project` and
   `group.Group`, not just a key.
 - **6.17 Serialization is a file-extension property.** JSON is the only codec this RFC
@@ -386,10 +387,6 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   carries the source cluster's keys, which resolve correctly only there. This is a
   standing gap, not a regression; decide before strongly typed tasks or channels join a
   project bundle.
-- **Console zip library**: A small TS dependency (e.g. `fflate`) or a Tauri-side Rust
-  implementation behind `Runtime`. Decide in Phase 2.
-- **`.zip` picker paths**: Accept a `.zip` in the import picker and offer "save as zip".
-  Cheap; deferred until there is demand.
 - **Re-import as update**: Stable identity and idempotent re-import need a cross-cluster
   identity design, excluded here as in RFC 0039 §6.6.
 - **Bundle size limits**: Beyond transport defaults.
