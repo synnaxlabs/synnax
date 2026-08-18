@@ -169,9 +169,9 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
         this->stop_all_tasks();
         return x::errors::NIL;
     }
-    // Seeded after the streamer opens so a transfer arriving during the seed is held
-    // by the stream instead of lost; the read loop then applies it on top.
-    this->seed_control_states();
+    // Read after the streamer opens so a transfer arriving during the read is held by
+    // the stream instead of lost; the read loop then applies it on top.
+    this->retrieve_initial_control_states();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
     do {
@@ -198,13 +198,13 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
     return c_err;
 }
 
-void Manager::seed_control_states() {
+void Manager::retrieve_initial_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) {
         // The mirror treats an absent entry as uncontrolled and the Core arbitrates
-        // every write, so an unseeded Driver starts optimistic and converges as
-        // transfers arrive on the stream.
-        LOG(WARNING) << "failed to seed control state: " << err;
+        // every write, so a Driver with an empty mirror starts optimistic and
+        // converges as transfers arrive on the stream.
+        LOG(WARNING) << "failed to retrieve initial control state: " << err;
         return;
     }
     this->control_states_->set(states);

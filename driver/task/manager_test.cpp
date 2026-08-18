@@ -1362,24 +1362,24 @@ TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
     ASSERT_NIL(writer.close());
 }
 
-TEST_F(TaskManagerTest, SeedsControlStateOnStart) {
+TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
     auto index_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("seed_test_idx"),
+        make_unique_channel_name("initial_state_idx"),
         x::telem::TIMESTAMP_T,
         0,
         true
     ));
     auto data_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("seed_test_data"),
+        make_unique_channel_name("initial_state_data"),
         x::telem::FLOAT32_T,
         index_ch.key,
         false
     ));
 
-    const x::control::Subject writer_sub{"seed_writer", "sw-1"};
+    const x::control::Subject writer_sub{"initial_writer", "sw-1"};
     const x::control::Subject other_sub{"other", "other-2"};
     // Opened before the manager starts, so the transfer never crosses the stream and
-    // only the seed can put it in the mirror.
+    // only the initial retrieve can put it in the mirror.
     auto writer = ASSERT_NIL_P(client->telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = {index_ch.key, data_ch.key},
@@ -1395,7 +1395,7 @@ TEST_F(TaskManagerTest, SeedsControlStateOnStart) {
 
     auto task = synnax::task::Task{
         .rack = rack.key,
-        .name = "seed_capture_task",
+        .name = "initial_state_capture_task",
         .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
