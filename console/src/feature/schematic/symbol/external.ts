@@ -9,8 +9,8 @@
 
 export * from "@/feature/schematic/symbol/edit";
 export * from "@/feature/schematic/symbol/import";
-export * from "@/feature/schematic/symbol/ImportGroupModal";
 export * from "@/feature/schematic/symbol/MissingForm";
 export * from "@/feature/schematic/symbol/SelectVariant";
 export * from "@/feature/schematic/symbol/tree";
 export * from "@/feature/schematic/symbol/useDeleteGroup";
+export * from "@/feature/schematic/symbol/useImportGroup";

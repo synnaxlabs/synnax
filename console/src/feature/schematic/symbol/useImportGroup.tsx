@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/useImportGroup.css";
+
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Button, Flex, Haul, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { zipSync } from "fflate";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Import } from "@/platform/import";
@@ -50,14 +52,17 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
   const addStatus = Status.useAdder();
   const [draggingOver, setDraggingOver] = useState(false);
 
-  const importZip = async (bundle: Uint8Array<ArrayBuffer>): Promise<void> => {
-    const imported = await importBundle(client, bundle);
-    addStatus({
-      variant: "success",
-      message: `Imported symbol group "${imported.name}"`,
-    });
-    close();
-  };
+  const importZip = useCallback(
+    async (bundle: Uint8Array<ArrayBuffer>): Promise<void> => {
+      const imported = await importBundle(client, bundle);
+      addStatus({
+        variant: "success",
+        message: `Imported symbol group "${imported.name}"`,
+      });
+      close();
+    },
+    [client, addStatus, close],
+  );
 
   const handlePickZip = (): void =>
     handleError(async () => {
@@ -86,38 +91,41 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
       );
     }, "Failed to import symbol group");
 
-  const handleDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-    if (event == null) return items;
-    event.preventDefault();
-    setDraggingOver(false);
-    const entries = Import.captureEntries(event.dataTransfer);
-    handleError(async () => {
-      if (entries.length !== 1) throw new Error("drop a single .zip file or folder");
-      const [entry] = entries;
-      if (Import.isDirectoryEntry(entry)) {
-        const files = await Import.readDirectoryFiles(entry);
-        await importZip(
-          zipFiles(
-            await Promise.all(
-              files
-                .filter(({ path }) => !path.includes("/"))
-                .map(async ({ file, path }) => ({
-                  name: path,
-                  bytes: new Uint8Array(await file.arrayBuffer()),
-                })),
+  const handleDrop = useCallback(
+    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+      if (event == null) return items;
+      event.preventDefault();
+      setDraggingOver(false);
+      const entries = Import.captureEntries(event.dataTransfer);
+      handleError(async () => {
+        if (entries.length !== 1) throw new Error("drop a single .zip file or folder");
+        const [entry] = entries;
+        if (Import.isDirectoryEntry(entry)) {
+          const files = await Import.readDirectoryFiles(entry);
+          await importZip(
+            zipFiles(
+              await Promise.all(
+                files
+                  .filter(({ path }) => !path.includes("/"))
+                  .map(async ({ file, path }) => ({
+                    name: path,
+                    bytes: new Uint8Array(await file.arrayBuffer()),
+                  })),
+              ),
             ),
-          ),
-        );
-        return;
-      }
-      if (!Import.isFileEntry(entry))
-        throw new Error("dropped item is not a file or folder");
-      const file = await Import.readEntryFile(entry);
-      if (!isZipFile(file.name)) throw new Error(`${file.name} is not a .zip file`);
-      await importZip(new Uint8Array(await file.arrayBuffer()));
-    }, "Failed to import symbol group");
-    return items;
-  };
+          );
+          return;
+        }
+        if (!Import.isFileEntry(entry))
+          throw new Error("dropped item is not a file or folder");
+        const file = await Import.readEntryFile(entry);
+        if (!isZipFile(file.name)) throw new Error(`${file.name} is not a .zip file`);
+        await importZip(new Uint8Array(await file.arrayBuffer()));
+      }, "Failed to import symbol group");
+      return items;
+    },
+    [handleError, importZip],
+  );
 
   const dropProps = Haul.useDrop({
     type: Haul.FILE_TYPE,
@@ -133,6 +141,7 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
       </Modals.Header>
       <Modals.Body>
         <Flex.Box
+          className={CSS.BE("schematic", "symbol-import-group", "zone")}
           y
           grow
           align="center"
@@ -143,7 +152,6 @@ export const useImportGroup = Modals.create(({ close }): ReactElement => {
           borderColor={draggingOver ? 9 : 6}
           onDragLeave={() => setDraggingOver(false)}
           onClick={handlePickZip}
-          style={{ minHeight: 300, cursor: "pointer" }}
           {...dropProps}
         >
           <Text.Text level="h1" color={9}>

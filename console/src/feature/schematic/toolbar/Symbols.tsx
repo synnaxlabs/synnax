@@ -31,7 +31,7 @@ import { type ReactElement, useCallback, useEffect, useMemo, useState } from "re
 
 import { Symbol } from "@/feature/schematic/symbol";
 import { useImport as useImportSymbol } from "@/feature/schematic/symbol/import";
-import { useImportGroup } from "@/feature/schematic/symbol/ImportGroupModal";
+import { useImportGroup } from "@/feature/schematic/symbol/useImportGroup";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
