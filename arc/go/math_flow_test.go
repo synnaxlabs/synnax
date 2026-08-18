@@ -313,7 +313,7 @@ my_sensor -> math.max{} -> output_sensor`, resolver,
 					ctx,
 					`my_sensor -> derivative{} -> rate_out`,
 					resolver,
-					channels.Digest{Key: 99, DataType: telem.TimeStampT},
+					channels.Digest{Key: 99, DataType: telem.TimestampT},
 					channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)
@@ -351,7 +351,7 @@ my_sensor -> math.max{} -> output_sensor`, resolver,
 				})
 				h := newRuntimeHarness(ctx, `import math
 my_sensor -> math.derivative{} -> rate_out`, resolver,
-					channels.Digest{Key: 99, DataType: telem.TimeStampT},
+					channels.Digest{Key: 99, DataType: telem.TimestampT},
 					channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)

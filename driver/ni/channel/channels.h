@@ -108,11 +108,11 @@ static int32_t get_shunt_resistor_loc(const std::string &loc) {
 
 static int32_t get_rtd_type(const std::string &type) {
     if (type == "Pt3750") return DAQmx_Val_Pt3750;
-    if (type == "PT3851") return DAQmx_Val_Pt3851;
-    if (type == "PT3911") return DAQmx_Val_Pt3911;
-    if (type == "PT3916") return DAQmx_Val_Pt3916;
-    if (type == "PT3920") return DAQmx_Val_Pt3920;
-    if (type == "PT3928") return DAQmx_Val_Pt3928;
+    if (type == "Pt3851") return DAQmx_Val_Pt3851;
+    if (type == "Pt3911") return DAQmx_Val_Pt3911;
+    if (type == "Pt3916") return DAQmx_Val_Pt3916;
+    if (type == "Pt3920") return DAQmx_Val_Pt3920;
+    if (type == "Pt3928") return DAQmx_Val_Pt3928;
     if (type == "Custom") return DAQmx_Val_Custom;
     return DAQmx_Val_Pt3750;
 }

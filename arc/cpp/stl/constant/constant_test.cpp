@@ -197,7 +197,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
 
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Bool) {
     TestSetup setup(types::Kind::Bool, true);
-    Constant node(setup.make_node(), static_cast<uint8_t>(1), x::telem::BOOL_T, true);
+    Constant node(setup.make_node(), static_cast<uint8_t>(1), x::telem::BOOLEAN_T, true);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -205,7 +205,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_Bool) {
     const auto checker = setup.make_node();
     const auto &output = checker.output(0);
     EXPECT_EQ(output->size(), 1);
-    EXPECT_EQ(output->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(output->data_type(), x::telem::BOOLEAN_T);
     EXPECT_EQ(output->at<uint8_t>(0), 1);
 }
 
@@ -223,7 +223,7 @@ TEST(ConstantModuleTest, CreatesBoolConstantFromJsonTrue) {
     auto checker = setup.make_node();
     const auto &output = checker.output(0);
     EXPECT_EQ(output->size(), 1);
-    EXPECT_EQ(output->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(output->data_type(), x::telem::BOOLEAN_T);
     EXPECT_EQ(output->at<uint8_t>(0), 1);
 }
 

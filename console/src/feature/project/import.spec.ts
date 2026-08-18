@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ontology,
-  panel,
-  project,
-  schematic,
-  type Synnax,
-  table,
-} from "@synnaxlabs/client";
+import { type ontology, project, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
@@ -54,30 +47,7 @@ const TABLE_DATA = {
   cells: { c1: { key: "c1", variant: "text", props: { value: "hello" } } },
 };
 
-// An exported panel with a schematic and a table tab, each referencing the resource
-// key in the corresponding component file.
-const exportedPanels = (): panel.Panel[] => [
-  panel.panelZ.parse({
-    name: "Main",
-    root: {
-      variant: "leaf",
-      tabs: [
-        {
-          variant: "resource",
-          key: uuid.create(),
-          resource: schematic.ontologyID(OPERATOR_KEY),
-        },
-        {
-          variant: "resource",
-          key: uuid.create(),
-          resource: table.ontologyID(THERMO_KEY),
-        },
-      ],
-    },
-  }),
-];
-
-// A legacy (layout-slice era) export tiling file for the same two components.
+// A legacy (layout-slice era) export tiling file for the two component files.
 const legacyLayoutSlice = (): unknown => ({
   layouts: {
     [OPERATOR_KEY]: {
@@ -131,32 +101,85 @@ describe("project import", () => {
     { name: "Thermocouples.json", data: TABLE_DATA },
   ];
 
-  const files = (): Import.File[] => [
-    { name: Project.PANELS_FILE_NAME, data: exportedPanels() },
-    ...componentFiles(),
-  ];
+  describe("manifest bundles", () => {
+    const bundleFiles = (name: string): Import.File[] => [
+      {
+        name: Project.MANIFEST_FILE_NAME,
+        path: Project.MANIFEST_FILE_NAME,
+        data: { version: 1, type: "project", name },
+      },
+      { name: "Operator.json", path: "Propulsion/Operator.json", data: SCHEMATIC_DATA },
+      {
+        name: "Main.json",
+        path: "Main.json",
+        data: {
+          version: 0,
+          type: "panel",
+          name: "Main",
+          root: {
+            variant: "leaf",
+            tabs: [
+              {
+                key: uuid.create(),
+                variant: "resource",
+                resource: "Propulsion/Operator.json",
+              },
+            ],
+          },
+        },
+      },
+    ];
 
-  it("creates the project's panels with tabs pointing at the created resources", async () => {
-    const store = await runImport(files());
-    const projectKey = selectImportedProject(store);
-    const children = await retrieveProjectChildren(projectKey);
-    const panelKeys = children
-      .filter(({ id }) => id.type === "panel")
-      .map(({ id }) => id.key);
-    expect(panelKeys).toHaveLength(1);
-    const [imported] = await client.panels.retrieve({ keys: panelKeys });
-    expect(imported.name).toBe("Main");
-    assert(imported.root.variant === "leaf", "expected a leaf root");
-    const resources = imported.root.tabs.map((tab) => {
-      assert(tab.variant === "resource", "expected resource tabs");
-      return tab.resource;
+    it("recreates groups and resolves path references", async () => {
+      const name = `bundle-${id.create()}`;
+      const store = await runImport(bundleFiles(name));
+      const projectKey = selectImportedProject(store);
+      const imported = await client.projects.retrieve(projectKey);
+      expect(imported.name).toBe(name);
+      const children = await retrieveProjectChildren(projectKey);
+      const grp = children.find(({ id }) => id.type === "group");
+      assertDefined(grp, "no group created for the bundle directory");
+      expect(grp.name).toBe("Propulsion");
+      const grouped = await client.ontology.children.retrieve({ ids: grp.id });
+      expect(grouped.map(({ id }) => id.type)).toEqual([SCHEMATIC_TYPE]);
+      const panelChild = children.find(({ id }) => id.type === "panel");
+      assertDefined(panelChild, "no panel created from the bundle");
+      const [imported2] = await client.panels.retrieve({ keys: [panelChild.id.key] });
+      assert(imported2.root.variant === "leaf", "expected a leaf root");
+      const [tab] = imported2.root.tabs;
+      assert(tab.variant === "resource", "expected a resource tab");
+      expect(tab.resource).toEqual(grouped[0].id);
     });
-    expect(resources.map(({ type }) => type)).toEqual([SCHEMATIC_TYPE, TABLE_TYPE]);
-    const [schematicID, tableID] = resources;
-    const importedSchematic = await client.schematics.retrieve(schematicID.key);
-    expect(importedSchematic.name).toBe("Operator");
-    const importedTable = await client.tables.retrieve(tableID.key);
-    expect(importedTable.name).toBe("Thermocouples");
+
+    it("imports a root LAYOUT.json member when a manifest is present", async () => {
+      const files = bundleFiles(`bundle-${id.create()}`);
+      files.push({
+        name: Project.LAYOUT_FILE_NAME,
+        path: Project.LAYOUT_FILE_NAME,
+        data: { ...SCHEMATIC_DATA, key: uuid.create(), name: "LAYOUT" },
+      });
+      const store = await runImport(files);
+      const projectKey = selectImportedProject(store);
+      const children = await retrieveProjectChildren(projectKey);
+      const member = children.find(({ name }) => name === "LAYOUT");
+      assertDefined(member, "LAYOUT.json member was not imported");
+      expect(member.id.type).toBe(SCHEMATIC_TYPE);
+    });
+
+    it("rejects a bundle of another kind", async () => {
+      const files = bundleFiles(`bundle-${id.create()}`);
+      files[0] = { ...files[0], data: { version: 1, type: "symbol_group", name: "g" } };
+      await expect(runImport(files)).rejects.toThrow(
+        "Cannot import a symbol_group bundle",
+      );
+    });
+
+    it("errors when a panel references a file that is not in the bundle", async () => {
+      const files = bundleFiles(`bundle-${id.create()}`).filter(
+        ({ path }) => path !== "Propulsion/Operator.json",
+      );
+      await expect(runImport(files)).rejects.toThrow("Propulsion/Operator.json");
+    });
   });
 
   it("recreates the visualization documents of a legacy export without panels", async () => {

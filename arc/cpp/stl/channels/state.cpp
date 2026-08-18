@@ -111,7 +111,7 @@ IMPL_WRITE_CHANNEL(i32, int32_t, x::telem::INT32_T)
 IMPL_WRITE_CHANNEL(i64, int64_t, x::telem::INT64_T)
 IMPL_WRITE_CHANNEL(f32, float, x::telem::FLOAT32_T)
 IMPL_WRITE_CHANNEL(f64, double, x::telem::FLOAT64_T)
-IMPL_WRITE_CHANNEL(bool, bool, x::telem::BOOL_T)
+IMPL_WRITE_CHANNEL(bool, bool, x::telem::BOOLEAN_T)
 
 #undef IMPL_WRITE_CHANNEL
 

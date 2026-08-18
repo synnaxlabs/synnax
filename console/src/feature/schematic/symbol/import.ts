@@ -10,12 +10,13 @@
 import {
   DisconnectedError,
   group,
+  imex,
   type ontology,
   status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Group, Status, Synnax } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { uuid, zod } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import {
@@ -35,7 +36,7 @@ const importSymbolFromData = async (
   fileName: string,
 ): Promise<string> => {
   const id = await client.imex.import(data, {
-    encoding: "JSON",
+    ...imex.JSON_OPTIONS,
     fileName,
     parent: parentID,
   });
@@ -71,7 +72,7 @@ export const useImport = (parentGroup?: string): (() => void) => {
             const name = await importSymbolFromData(client, data, parentID, file.name);
             addStatus({
               variant: "success",
-              message: `Successfully imported symbol: ${name}`,
+              message: `Imported ${name}`,
             });
           } catch (e) {
             handleError(e, `Failed to import symbol from ${file.name}`);
@@ -96,7 +97,13 @@ export const useImportGroup = (): (() => void) => {
       const manifestFile = directory.files.find((f) => f.path === MANIFEST_FILE_NAME);
       if (manifestFile == null)
         throw new Error(`${MANIFEST_FILE_NAME} not found in selected directory`);
-      const manifest = groupManifestZ.parse(JSON.parse(await manifestFile.read()));
+      const manifest = zod.parse(
+        groupManifestZ,
+        JSON.parse(await manifestFile.read()),
+        {
+          label: "symbol manifest",
+        },
+      );
       const memberPaths =
         manifest.version === 1
           ? manifest.symbols.map(({ file }) => file)
@@ -133,7 +140,7 @@ export const useImportGroup = (): (() => void) => {
       if (successCount === memberPaths.length)
         addStatus({
           variant: "success",
-          message: `Successfully imported ${successCount} symbols into group "${manifest.name}"`,
+          message: `Imported ${successCount} symbols into ${manifest.name}`,
         });
       else if (successCount > 0)
         addStatus({

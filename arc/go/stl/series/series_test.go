@@ -229,7 +229,7 @@ var _ = Describe("Series", func() {
 					rh := callU32(ctx, name+suffix, testutil.U32(h1), testutil.U32(h2))
 					Expect(rh).ToNot(BeZero())
 					cmpSer := MustBeOk(ss.Get(rh))
-					Expect(cmpSer.DataType).To(Equal(telem.BoolT))
+					Expect(cmpSer.DataType).To(Equal(telem.BooleanT))
 				}
 
 				for _, name := range []string{
@@ -447,7 +447,7 @@ var _ = Describe("Series", func() {
 					rh := callU32(ctx, name+suffix, testutil.U32(h1), testutil.U32(h2))
 					Expect(rh).ToNot(BeZero())
 					cmpSer := MustBeOk(ss.Get(rh))
-					Expect(cmpSer.DataType).To(Equal(telem.BoolT))
+					Expect(cmpSer.DataType).To(Equal(telem.BooleanT))
 				}
 
 				for _, name := range []string{
@@ -650,7 +650,7 @@ var _ = Describe("Series", func() {
 					rh := callU32(ctx, name+"f32", testutil.U32(h1), testutil.U32(h2))
 					Expect(rh).ToNot(BeZero())
 					cmpSer := MustBeOk(ss.Get(rh))
-					Expect(cmpSer.DataType).To(Equal(telem.BoolT))
+					Expect(cmpSer.DataType).To(Equal(telem.BooleanT))
 				}
 
 				for _, name := range []string{
@@ -853,7 +853,7 @@ var _ = Describe("Series", func() {
 					rh := callU32(ctx, name+"f64", testutil.U32(h1), testutil.U32(h2))
 					Expect(rh).ToNot(BeZero())
 					cmpSer := MustBeOk(ss.Get(rh))
-					Expect(cmpSer.DataType).To(Equal(telem.BoolT))
+					Expect(cmpSer.DataType).To(Equal(telem.BooleanT))
 				}
 
 				for _, name := range []string{

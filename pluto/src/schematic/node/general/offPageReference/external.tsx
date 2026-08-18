@@ -23,16 +23,16 @@ export const defaultConfig = (): Config => ({
   variant: VARIANT,
   color: color.ZERO,
   orientation: "right",
-  label: Label.defaultConfig("Off Page Reference"),
+  label: Label.defaultConfig("Off page reference"),
 });
 
 const Preview = ({ label: _, ...rest }: Config): ReactElement => (
-  <OffPageReference label="Off Page" {...rest} orientation="right" />
+  <OffPageReference label="Off page" {...rest} orientation="right" />
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "Off Page",
+  name: "Off page",
   Form: OffPageReferenceForm,
   Node: Symbol,
   Preview,

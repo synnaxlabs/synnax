@@ -23,7 +23,7 @@ describe("HTTP.Device Commands", () => {
       client,
     });
     await openCommandPalette("Connect an HTTP");
-    await selectCommand("Connect an HTTP server");
+    await selectCommand("Connect HTTP server");
     expect(await screen.findByPlaceholderText("www.example.com")).toBeTruthy();
   });
 });

@@ -644,7 +644,7 @@ TEST(
         }
     }
     %start_cmd% => main)",
-        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::BOOL_T}}
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::BOOLEAN_T}}
     );
 
     h.trigger("start_cmd");
@@ -668,7 +668,7 @@ TEST(StatefulFlowVariablesTest, PersistsAToggledBoolStatefulAcrossStageReEntries
     }
     %start_cmd% => main)",
         {{"start_cmd", x::telem::UINT8_T},
-         {"out", x::telem::BOOL_T},
+         {"out", x::telem::BOOLEAN_T},
          {"go2", x::telem::UINT8_T},
          {"go1", x::telem::UINT8_T}}
     );

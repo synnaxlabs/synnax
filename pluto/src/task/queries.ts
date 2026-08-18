@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, query, rack, task } from "@synnaxlabs/client";
-import { array, type optional, verbs } from "@synnaxlabs/x";
+import { array, type optional, verbs, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { type Form } from "@/form";
 
 export const RESOURCE_NAME = "task";
-export const PLURAL_RESOURCE_NAME = "tasks";
+const PLURAL_RESOURCE_NAME = "tasks";
 
 export type RetrieveQuery = task.RetrieveSingleParams;
 
@@ -164,7 +164,9 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
         if (result.status != null)
           set(
             "status",
-            task.statusZ(z.unknown().optional()).parse(result.status),
+            zod.parse(task.statusZ(z.unknown().optional()), result.status, {
+              label: "task status",
+            }),
             RESET_OPTIONS,
           );
       }),

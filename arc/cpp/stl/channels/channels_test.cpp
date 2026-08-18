@@ -1383,21 +1383,21 @@ private:
 };
 
 TEST(BoolChannelTest, WritesAndReadsBackTrue) {
-    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOL_T, 0}});
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOLEAN_T, 0}});
     f.write_bool(4, 1);
     f.flush_and_ingest();
     EXPECT_EQ(f.read_bool(4), 1);
 }
 
 TEST(BoolChannelTest, WritesAndReadsBackFalse) {
-    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOL_T, 0}});
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOLEAN_T, 0}});
     f.write_bool(4, 0);
     f.flush_and_ingest();
     EXPECT_EQ(f.read_bool(4), 0);
 }
 
 TEST(BoolChannelTest, NormalizesNonzeroWriteToOne) {
-    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOL_T, 0}});
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOLEAN_T, 0}});
     f.write_bool(4, 42);
     f.flush_and_ingest();
     EXPECT_EQ(f.read_bool(4), 1);

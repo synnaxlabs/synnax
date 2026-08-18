@@ -78,7 +78,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		It("Should read written frames correctly", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "Matt",
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
 			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
@@ -112,7 +112,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				ShouldNotLeakGoroutines()
 				indexCh = &channel.Channel{
 					Name:     "time",
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
 				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
@@ -549,7 +549,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					ShouldNotLeakGoroutines()
 					threeDomainIndexCh = &channel.Channel{
 						Name:     "three_domain_time",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					}
 					Expect(channelWriter.Create(ctx, threeDomainIndexCh)).To(Succeed())
@@ -884,7 +884,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// gap
 						gapIndexCh := &channel.Channel{
 							Name:     "gap_domain_time",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						}
 						Expect(channelWriter.Create(ctx, gapIndexCh)).To(Succeed())
@@ -1083,13 +1083,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					// transform merges them before passing to the calculator.
 					idxA := &channel.Channel{
 						Name:     "interleaved_time_a",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					}
 					Expect(channelWriter.Create(ctx, idxA)).To(Succeed())
 					idxB := &channel.Channel{
 						Name:     "interleaved_time_b",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					}
 					Expect(channelWriter.Create(ctx, idxB)).To(Succeed())
@@ -1167,7 +1167,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		It("Should correctly downsample with a factor of 2", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "downsample_time_2",
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
@@ -1219,7 +1219,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		It("Should correctly downsample with a factor of 3", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "downsample_time_3",
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
@@ -1276,7 +1276,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}
 				indexCh := &channel.Channel{
 					Name:     "downsample_time" + suffix,
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
 				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
@@ -1324,7 +1324,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			func(ctx SpecContext) {
 				indexCh := &channel.Channel{
 					Name:     "downsample_calc_time",
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
 				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
@@ -1392,7 +1392,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			func(ctx SpecContext) {
 				indexCh := &channel.Channel{
 					Name:     "downsample_multi_time",
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}
 				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())

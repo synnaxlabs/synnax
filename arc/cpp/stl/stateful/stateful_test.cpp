@@ -83,7 +83,7 @@ private:
 };
 
 x::telem::Series make_bool_series(const std::vector<uint8_t> &values) {
-    return x::telem::Series(values, x::telem::BOOL_T);
+    return x::telem::Series(values, x::telem::BOOLEAN_T);
 }
 
 TEST(StatefulModule, LoadBoolSeedsInitialValueAndPersistsStores) {

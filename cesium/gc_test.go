@@ -65,7 +65,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							cesium.Channel{
 								Key:      index,
 								Name:     "Muir",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -169,7 +169,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							cesium.Channel{
 								Key:      index,
 								Name:     "Leopold",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -292,7 +292,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							cesium.Channel{
 								Key:      index,
 								Name:     "Attenborough",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{

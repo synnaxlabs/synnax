@@ -41,7 +41,6 @@ var _ = Describe("Sanitize", func() {
 		Entry("a trailing dot", "report.", "report"),
 		Entry("a trailing space", "report ", "report"),
 		Entry("both, repeated", "report. . ", "report"),
-		Entry("a leading dot", ".hidden", ".hidden"),
 	)
 	DescribeTable("Should name a file that sanitizes to nothing with an underscore",
 		func(name string) { Expect(sanitize(name)).To(Equal("_")) },
@@ -56,6 +55,11 @@ var _ = Describe("Sanitize", func() {
 		Entry("a device name with an extension", "aux.json", "_aux.json"),
 		Entry("a numbered device name", "COM1", "_COM1"),
 		Entry("a device name left bare by the trim", "prn.", "_prn"),
+	)
+	DescribeTable("Should push a hidden-file name out of the way",
+		func(name, expected string) { Expect(sanitize(name)).To(Equal(expected)) },
+		Entry("a leading dot", ".hidden", "_.hidden"),
+		Entry("a dotfile with an extension", ".env.json", "_.env.json"),
 	)
 	DescribeTable("Should leave a name that is already safe untouched",
 		func(name string) { Expect(sanitize(name)).To(Equal(name)) },
@@ -116,6 +120,22 @@ var _ = Describe("Sanitize", func() {
 			Expect(filename.Sanitize("report", extension)).
 				To(Equal("r" + extension))
 		})
+	})
+})
+
+var _ = Describe("WithSuffix", func() {
+	It("Should insert the suffix before the extension", func() {
+		Expect(filename.WithSuffix("New panel.json", " (1)", ".json")).
+			To(Equal("New panel (1).json"))
+	})
+	It("Should append the suffix to a name without an extension", func() {
+		Expect(filename.WithSuffix("Valves", " (1)", "")).To(Equal("Valves (1)"))
+	})
+	It("Should shorten the base until the result fits a path element", func() {
+		name := MustSucceed(filename.Sanitize(strings.Repeat("a", 300), ".json"))
+		suffixed := filename.WithSuffix(name, " (1)", ".json")
+		Expect(suffixed).To(HaveLen(maxLength))
+		Expect(suffixed).To(HaveSuffix(" (1).json"))
 	})
 })
 

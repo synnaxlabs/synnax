@@ -226,7 +226,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "LabJack Read Task", type: READ_TYPE, config: cfg };
+  return { name: "LabJack read task", type: READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
@@ -312,7 +312,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  title: "LabJack Read Task",
+  title: "LabJack read task",
   icon: <Icon.Logo.LabJack />,
   useOnSelect: useCreateRead,
 });

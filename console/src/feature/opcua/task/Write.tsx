@@ -85,7 +85,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "OPC UA Write Task", type: WRITE_TYPE, config: cfg };
+  return { name: "OPC UA write task", type: WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
@@ -167,7 +167,7 @@ export const useCreateWrite = Task.createUseCreate({
 
 export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  title: "OPC UA Write Task",
+  title: "OPC UA write task",
   icon: <Icon.Logo.OPCUA />,
   useOnSelect: useCreateWrite,
 });

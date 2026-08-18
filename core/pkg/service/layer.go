@@ -432,16 +432,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
-	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
-		Instrumentation: cfg.Child("project"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-		Group:           l.Group,
-		Signals:         l.Signals,
-	}); !ok(err, l.Project) {
-		return nil, err
-	}
 	l.ImEx = imex.NewService()
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		Instrumentation: cfg.Child("schematic"),
@@ -472,6 +462,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
+		return nil, err
+	}
+	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
+		Instrumentation: cfg.Child("panel"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Signals:         l.Signals,
+	}); !ok(err, l.Panel) {
+		return nil, err
+	}
+	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
+		Instrumentation: cfg.Child("project"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Group:           l.Group,
+		Signals:         l.Signals,
+		ImEx:            l.ImEx,
+		Panel:           l.Panel,
+	}); !ok(err, l.Project) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
@@ -593,15 +604,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
 	}); !ok(err, l.Task) {
-		return nil, err
-	}
-	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
-		Instrumentation: cfg.Child("panel"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-		Signals:         l.Signals,
-	}); !ok(err, l.Panel) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(

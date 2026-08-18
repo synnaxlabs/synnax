@@ -164,9 +164,10 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       parent: value.parent,
     });
   },
-  mountListeners: ({ client, query: { key }, reset }) =>
+  mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.ranges.onChange(key, (result) => {
       if (query.isLive(result)) reset(toFormValues(result));
+      else if (query.Deleted.matches(result)) abandon();
     }),
 });
 
@@ -209,7 +210,7 @@ export const useListMetaData = Flux.createList<
 
 export const kvPairFormSchema = ranger.kv.pairZ;
 
-export type KVFormQuery = ListMetaDataQuery;
+export type KVFormQuery = ListMetaDataQuery & { key: string };
 
 const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
   key: "",
@@ -225,6 +226,13 @@ export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchem
     const { key, value, range } = getPair();
     await client.ranges.getKV(range).set(key, value);
   },
+  mountListeners: ({ client, query: { rangeKey, key }, abandon }) =>
+    client.ranges.kv.onChange(rangeKey, (result) => {
+      // An undefined answer is an invalidation, not a deletion.
+      if (result === undefined) return;
+      if (query.isLive(result) && result.some((pair) => pair.key === key)) return;
+      abandon();
+    }),
 });
 
 export interface DeleteKVParams extends ListMetaDataQuery {

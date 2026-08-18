@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package actions emits a TypeScript discriminated-union action codec for any
-// oracle struct that declares one or more actions. Each action becomes a zod
-// payload schema, an Action union dispatches by literal type, and the plugin
-// emits a Handlers interface plus a createReduceAll factory that binds a
-// caller-provided Handlers object. HandlerResult, ReduceAllResult, and the
-// outer reduceAll loop live in the shared @synnaxlabs/client actions package;
-// this plugin emits type aliases and a thin wrapper that delegate to them.
-// The per-action handler functions are hand-written and supplied by the
-// caller; this plugin does not generate them.
+// Package actions emits a TypeScript discriminated-union action codec for any Oracle
+// struct that declares one or more actions. Each action becomes a Zod payload schema,
+// an Action union dispatches by literal type, and the plugin emits a Handlers interface
+// plus a createReduceAll factory that binds a caller-provided Handlers object.
+// HandlerResult, ReduceAllResult, and the outer reduceAll loop live in the shared
+// actions package; this plugin emits type aliases and a thin wrapper that delegate to
+// them. The per-action handler functions are hand-written and supplied by the caller;
+// this plugin does not generate them.
 package actions
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Options configures the actions plugin output.
@@ -44,18 +45,18 @@ func DefaultOptions() Options {
 }
 
 // Plugin emits the generated TS action codec.
-type Plugin struct{ Options Options }
+type Plugin struct{ opts Options }
 
 // New constructs a Plugin with the given options.
-func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+func New(opts Options) *Plugin { return &Plugin{opts: opts} }
 
-func (p *Plugin) Name() string                  { return "ts/actions" }
-func (p *Plugin) Domains() []string             { return []string{"ts"} }
-func (p *Plugin) Requires() []string            { return []string{"ts/types"} }
-func (p *Plugin) Check(_ *plugin.Request) error { return nil }
+func (*Plugin) Name() string                { return "ts/actions" }
+func (*Plugin) Domains() []string           { return []string{"ts"} }
+func (*Plugin) Requires() []string          { return []string{"ts/types"} }
+func (*Plugin) Check(*plugin.Request) error { return nil }
 
-// Generate emits one actions.gen.ts per output package containing structs that
-// declare actions. Structs without actions are skipped.
+// Generate emits one actions.gen.ts per output package containing structs that declare
+// actions. Structs without actions are skipped.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	for _, typ := range req.Resolutions.StructTypes() {
@@ -72,7 +73,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, err
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    outputPath + "/" + p.Options.FileNamePattern,
+			Path:    outputPath + "/" + p.opts.FileNamePattern,
 			Content: content,
 		})
 	}
@@ -94,9 +95,10 @@ func (p *Plugin) generateFile(
 	}
 
 	data := &templateData{
-		Manager:        mgr,
-		TargetType:     casing.TypeCamel(typ.Name),
-		TargetTypeName: typ.Name,
+		Manager:         mgr,
+		TargetType:      casing.TypeCamel(typ.Name),
+		TargetTypeName:  typ.Name,
+		TargetProseName: proseName(typ.Name),
 	}
 
 	for _, action := range form.Actions {
@@ -114,6 +116,7 @@ func (p *Plugin) generateFile(
 
 	mgr.AddImport("zod", "z")
 	mgr.AddImport("immer", "Draft")
+	mgr.AddImport("@synnaxlabs/x", "zod")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
 	mgr.AddImport(sameDir+"/types.gen", typ.Name)
 	mgr.AddImport(sameDir+"/types.gen", "keyZ")
@@ -126,11 +129,22 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
+// templateData's fields are read by fileTemplate, so they must stay exported.
 type templateData struct {
 	*imports.Manager
-	TargetType     string
-	TargetTypeName string
-	Actions        []actionData
+	TargetType      string
+	TargetTypeName  string
+	TargetProseName string
+	Actions         []actionData
+}
+
+var properNouns = set.New("Arc")
+
+func proseName(name string) string {
+	if properNouns.Contains(name) {
+		return name
+	}
+	return strings.ReplaceAll(casing.TypeSnake(name), "_", " ")
 }
 
 type actionData struct {
@@ -181,7 +195,9 @@ export type Action = z.infer<typeof actionZ>;
 {{range .Actions}}
 export const {{ camelCase .Name }} = (payload: z.input<typeof {{ camelCase .Name }}PayloadZ>): Action => ({
   type: "{{ .TypeName }}",
-  {{ camelCase .Name }}: {{ camelCase .Name }}PayloadZ.parse(payload),
+  {{ camelCase .Name }}: zod.parse({{ camelCase .Name }}PayloadZ, payload, {
+    label: "{{ $.TargetProseName }} {{ .TypeName }} action payload",
+  }),
 });
 {{end}}
 export type HandlerResult = actions.HandlerResult<Action>;

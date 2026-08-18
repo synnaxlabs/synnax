@@ -348,7 +348,7 @@ private:
                 [ch](uint32_t channel_id, uint32_t value) {
                     ch->write_channel_typed(
                         static_cast<types::ChannelKey>(channel_id),
-                        x::telem::BOOL_T,
+                        x::telem::BOOLEAN_T,
                         static_cast<bool>(value != 0)
                     );
                 }

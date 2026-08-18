@@ -95,7 +95,7 @@ class NITask(TaskPage):
 
         # Add first channel or subsequent channels
         if len(self.channels) == 0:
-            layout.click("Add a channel")
+            layout.click("Add channel")
         else:
             layout.page.locator("header:has-text('Channels') .pluto-icon--add").click()
 

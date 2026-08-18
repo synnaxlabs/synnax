@@ -116,7 +116,7 @@ var _ = Describe("Metrics", func() {
 				Exec(ctx, nil),
 			).To(Succeed())
 			Expect(ch.Name).To(Equal(expectedName))
-			Expect(ch.DataType).To(Equal(telem.TimeStampT))
+			Expect(ch.DataType).To(Equal(telem.TimestampT))
 			Expect(ch.IsIndex).To(BeTrue())
 		})
 		It("Should create CPU metric channel", func(ctx SpecContext) {
@@ -415,7 +415,7 @@ var _ = Describe("Metrics", func() {
 			// Write some data to time-series database so disk size metrics are non-zero
 			indexCh := &channel.Channel{
 				Name:     "metrics_test_index",
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(
@@ -501,7 +501,7 @@ var _ = Describe("Metrics", func() {
 			}).Should(Succeed())
 
 			timeSeries := series(names[0])
-			Expect(timeSeries.DataType).To(Equal(telem.TimeStampT))
+			Expect(timeSeries.DataType).To(Equal(telem.TimestampT))
 			Expect(timeSeries.Len()).To(Equal(int64(1)))
 
 			cpuSeries := series(names[1])

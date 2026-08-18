@@ -235,7 +235,7 @@ func NewHost(
 			if !ok {
 				return 0
 			}
-			result := telem.Series{DataType: telem.BoolT}
+			result := telem.Series{DataType: telem.BooleanT}
 			op.NotBool(ser, &result)
 			return s.Store(result)
 		}).Export("not_bool")
@@ -266,7 +266,7 @@ func bindBool(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	builder = bindCreateEmpty(builder, s, "bool", telem.BoolT)
+	builder = bindCreateEmpty(builder, s, "bool", telem.BooleanT)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() {
@@ -297,7 +297,7 @@ func bindBool(
 				if !ok1 || !ok2 {
 					return 0
 				}
-				result := telem.Series{DataType: telem.BoolT}
+				result := telem.Series{DataType: telem.BooleanT}
 				fn(s1, s2, &result)
 				return s.Store(result)
 			}).Export(entry.name)
@@ -317,7 +317,7 @@ func bindBool(
 					return 0
 				}
 				sv := scalar != 0
-				result := telem.MakeSeries(telem.BoolT, int(ser.Len()))
+				result := telem.MakeSeries(telem.BooleanT, int(ser.Len()))
 				for i := 0; i < int(ser.Len()); i++ {
 					v := telem.ValueAt[bool](ser, i)
 					if isOr {
@@ -689,7 +689,7 @@ func bindCompareScalarI32[T i32Scalar](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.BoolT}
+				result := telem.Series{DataType: telem.BooleanT}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -762,7 +762,7 @@ func bindCompareOps[T any](
 				if s1.Len() != s2.Len() {
 					panic("arc panic: series length mismatch in comparison")
 				}
-				result := telem.Series{DataType: telem.BoolT}
+				result := telem.Series{DataType: telem.BooleanT}
 				fn(s1, s2, &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -901,7 +901,7 @@ func bindI64Type[T uint64 | int64](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.BoolT}
+				result := telem.Series{DataType: telem.BooleanT}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -1027,7 +1027,7 @@ func bindFloatType[T float32 | float64](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.BoolT}
+				result := telem.Series{DataType: telem.BooleanT}
 				fn(ser, scalar, &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)

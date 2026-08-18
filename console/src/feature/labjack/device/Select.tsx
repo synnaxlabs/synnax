@@ -18,7 +18,7 @@ export const Select = () => {
   return (
     <Device.Select
       onConfigure={(deviceKey) => configure({ deviceKey })}
-      emptyContent="No LabJack devices connected."
+      emptyContent="No LabJack devices connected"
       make={MAKE}
       icon={<Icon.Logo.LabJack />}
     />

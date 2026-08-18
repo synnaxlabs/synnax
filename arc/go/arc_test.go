@@ -1051,7 +1051,7 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 		})
 		h := newRuntimeHarness(ctx, `x >= 10 -> out`, resolver,
 			channels.Digest{Key: 100, DataType: telem.Float32T},
-			channels.Digest{Key: 200, DataType: telem.BoolT},
+			channels.Digest{Key: 200, DataType: telem.BooleanT},
 		)
 		defer h.Close(ctx)
 
@@ -1084,7 +1084,7 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 			h := newRuntimeHarness(ctx, `a < b -> out`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
-				channels.Digest{Key: 300, DataType: telem.BoolT},
+				channels.Digest{Key: 300, DataType: telem.BooleanT},
 			)
 			defer h.Close(ctx)
 
@@ -1116,9 +1116,9 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 			"out": {types.Bool(), 300},
 		})
 		h := newRuntimeHarness(ctx, `a and b -> out`, resolver,
-			channels.Digest{Key: 100, DataType: telem.BoolT},
-			channels.Digest{Key: 200, DataType: telem.BoolT},
-			channels.Digest{Key: 300, DataType: telem.BoolT},
+			channels.Digest{Key: 100, DataType: telem.BooleanT},
+			channels.Digest{Key: 200, DataType: telem.BooleanT},
+			channels.Digest{Key: 300, DataType: telem.BooleanT},
 		)
 		defer h.Close(ctx)
 

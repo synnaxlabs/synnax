@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -22,11 +23,19 @@ interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<LightTelemFormT>(path);
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
+  const sourceP = zod.parse(telem.sourcePipelinePropsZ, value.source?.props, {
+    label: "source pipeline",
+  });
+  const source = zod.parse(
+    telem.streamChannelValuePropsZ,
     sourceP.segments.valueStream.props,
+    { label: "value stream source" },
   );
-  const threshold = telem.withinBoundsProps.parse(sourceP.segments.threshold.props);
+  const threshold = zod.parse(
+    telem.withinBoundsProps,
+    sourceP.segments.threshold.props,
+    { label: "threshold source" },
+  );
 
   const handleSourceChange = (v: channel.Key | null): void => {
     v ??= 0;

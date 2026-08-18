@@ -305,7 +305,7 @@ var _ = Describe("Vectorized Operations", func() {
 			It("should perform logical AND on equal length series", func() {
 				a := telem.NewSeriesV[bool](true, true, false, false)
 				b := telem.NewSeriesV[bool](true, false, true, false)
-				output := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BooleanT}
 
 				op.AndBool(a, b, &output)
 
@@ -319,7 +319,7 @@ var _ = Describe("Vectorized Operations", func() {
 				func() {
 					a := telem.NewSeriesV[bool](true, false)
 					b := telem.NewSeriesV[bool](true, true, true, true, true)
-					output := telem.Series{DataType: telem.BoolT}
+					output := telem.Series{DataType: telem.BooleanT}
 
 					op.AndBool(a, b, &output)
 
@@ -335,7 +335,7 @@ var _ = Describe("Vectorized Operations", func() {
 			It("should work with an all-true operand", func() {
 				a := telem.NewSeriesV[bool](true, true, true)
 				b := telem.NewSeriesV[bool](true, false, true)
-				output := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BooleanT}
 
 				op.AndBool(a, b, &output)
 
@@ -348,7 +348,7 @@ var _ = Describe("Vectorized Operations", func() {
 			It("should perform logical OR on equal length series", func() {
 				a := telem.NewSeriesV[bool](true, true, false, false)
 				b := telem.NewSeriesV[bool](true, false, true, false)
-				output := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BooleanT}
 
 				op.OrBool(a, b, &output)
 
@@ -362,7 +362,7 @@ var _ = Describe("Vectorized Operations", func() {
 				func() {
 					a := telem.NewSeriesV[bool](true, false)
 					b := telem.NewSeriesV[bool](false, false, false, false, false)
-					output := telem.Series{DataType: telem.BoolT}
+					output := telem.Series{DataType: telem.BooleanT}
 
 					op.OrBool(a, b, &output)
 
@@ -378,7 +378,7 @@ var _ = Describe("Vectorized Operations", func() {
 			It("should work with an all-true operand", func() {
 				a := telem.NewSeriesV[bool](true, true, true)
 				b := telem.NewSeriesV[bool](false, true, false)
-				output := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BooleanT}
 
 				op.OrBool(a, b, &output)
 
@@ -390,7 +390,7 @@ var _ = Describe("Vectorized Operations", func() {
 		Context("NOT Operation", func() {
 			It("should perform logical NOT", func() {
 				input := telem.NewSeriesV[bool](true, false, true, false)
-				output := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BooleanT}
 
 				op.NotBool(input, &output)
 
@@ -400,8 +400,8 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 
 			It("should handle empty series", func() {
-				input := telem.Series{DataType: telem.BoolT}
-				output := telem.Series{DataType: telem.BoolT}
+				input := telem.Series{DataType: telem.BooleanT}
+				output := telem.Series{DataType: telem.BooleanT}
 
 				op.NotBool(input, &output)
 
@@ -410,7 +410,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 			It("should handle single element", func() {
 				input := telem.NewSeriesV[bool](true)
-				output := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BooleanT}
 
 				op.NotBool(input, &output)
 
@@ -420,7 +420,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 			It("should work with all value combinations", func() {
 				input := telem.NewSeriesV[bool](true, false, true, false, true, false)
-				output := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BooleanT}
 
 				op.NotBool(input, &output)
 
@@ -436,10 +436,10 @@ var _ = Describe("Vectorized Operations", func() {
 				c := telem.NewSeriesV[bool](true, true, true, true)
 
 				// (a AND b) OR c
-				andResult := telem.Series{DataType: telem.BoolT}
+				andResult := telem.Series{DataType: telem.BooleanT}
 				op.AndBool(a, b, &andResult)
 
-				orResult := telem.Series{DataType: telem.BoolT}
+				orResult := telem.Series{DataType: telem.BooleanT}
 				op.OrBool(andResult, c, &orResult)
 
 				expected := []bool{true, true, true, true}
@@ -450,10 +450,10 @@ var _ = Describe("Vectorized Operations", func() {
 				a := telem.NewSeriesV[bool](true, true, false, false)
 				b := telem.NewSeriesV[bool](true, false, true, false)
 
-				andResult := telem.Series{DataType: telem.BoolT}
+				andResult := telem.Series{DataType: telem.BooleanT}
 				op.AndBool(a, b, &andResult)
 
-				notResult := telem.Series{DataType: telem.BoolT}
+				notResult := telem.Series{DataType: telem.BooleanT}
 				op.NotBool(andResult, &notResult)
 
 				// AND: [T, F, F, F]
@@ -1096,7 +1096,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeF64(
 				input,
@@ -1125,7 +1125,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			input1 := telem.NewSeriesV(0.0, 10.0)
 			time1 := telem.NewSeriesSecondsTSV(1, 2)
@@ -1164,7 +1164,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeF64(
 				input,
@@ -1188,7 +1188,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeF64(
 				input,
@@ -1217,7 +1217,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeI32(
 				input,
@@ -1237,12 +1237,12 @@ var _ = Describe("Vectorized Operations", func() {
 
 		It("should handle empty input", func() {
 			input := telem.Series{DataType: telem.Float64T}
-			inputTime := telem.Series{DataType: telem.TimeStampT}
+			inputTime := telem.Series{DataType: telem.TimestampT}
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeF64(
 				input,
@@ -1266,7 +1266,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeU8(
 				input,
@@ -1291,7 +1291,7 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			op.DerivativeU8(
 				input,

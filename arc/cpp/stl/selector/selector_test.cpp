@@ -106,7 +106,7 @@ void write_source(
 ) {
     source.output(
         0
-    ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOL_T);
+    ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 }

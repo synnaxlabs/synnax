@@ -242,7 +242,7 @@ var (
 // FromTelem converts a telemetry data type to an Arc type.
 func FromTelem(t telem.DataType) Type {
 	switch t {
-	case telem.BoolT:
+	case telem.BooleanT:
 		return Bool()
 	case telem.Uint8T:
 		return U8()
@@ -266,7 +266,7 @@ func FromTelem(t telem.DataType) Type {
 		return F64()
 	case telem.StringT, telem.JSONT, telem.UUIDT:
 		return String()
-	case telem.TimeStampT:
+	case telem.TimestampT:
 		return TimeStamp()
 	default:
 		return Type{Kind: KindInvalid}

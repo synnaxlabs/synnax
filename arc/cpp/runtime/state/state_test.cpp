@@ -875,10 +875,10 @@ TEST(StateTest, IsSeriesTruthy_BoolSeries) {
 
 /// @brief Test that is_series_truthy uses the last element of a bool series
 TEST(StateTest, IsSeriesTruthy_BoolSeriesLastElement) {
-    x::telem::Series ends_false(std::vector<uint8_t>{1, 1, 0}, x::telem::BOOL_T);
+    x::telem::Series ends_false(std::vector<uint8_t>{1, 1, 0}, x::telem::BOOLEAN_T);
     EXPECT_FALSE(Node::is_series_truthy(ends_false));
 
-    x::telem::Series ends_true(std::vector<uint8_t>{0, 0, 1}, x::telem::BOOL_T);
+    x::telem::Series ends_true(std::vector<uint8_t>{0, 0, 1}, x::telem::BOOLEAN_T);
     EXPECT_TRUE(Node::is_series_truthy(ends_true));
 }
 

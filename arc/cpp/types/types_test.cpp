@@ -133,5 +133,5 @@ TEST(TypesTest, BoolDensity) {
 TEST(TypesTest, BoolTelem) {
     arc::types::Type t;
     t.kind = arc::types::Kind::Bool;
-    ASSERT_EQ(t.telem(), x::telem::BOOL_T);
+    ASSERT_EQ(t.telem(), x::telem::BOOLEAN_T);
 }

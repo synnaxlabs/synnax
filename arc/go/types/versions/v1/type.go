@@ -276,11 +276,11 @@ func (t Type) Density() int {
 func (t Type) ToTelem() telem.DataType {
 	if t.Kind == KindI64 && t.Unit != nil &&
 		t.Unit.Dimensions.Equal(Dimensions{Time: 1}) && t.Unit.Name == "ns" {
-		return telem.TimeStampT
+		return telem.TimestampT
 	}
 	switch t.Kind {
 	case KindBool:
-		return telem.BoolT
+		return telem.BooleanT
 	case KindU8:
 		return telem.Uint8T
 	case KindU16:

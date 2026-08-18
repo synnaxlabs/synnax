@@ -50,7 +50,7 @@ const Internal = () => {
           <Button.Button
             onClick={handleCreate}
             tooltipLocation={location.BOTTOM_LEFT}
-            tooltip="Create a range"
+            tooltip="Create range"
             variant="filled"
           >
             <Icon.Add />

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -52,14 +53,21 @@ var (
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
-			projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+			panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
 				Search:   searchIdx,
 			}))
 		)
 		imexSvc = imex.NewService()
+		projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+			ImEx:     imexSvc,
+			Panel:    panelSvc,
+		}))
 		svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

@@ -13,7 +13,7 @@ import synnax as sy
 from framework.utils import create_virtual_channels
 from tests.arc.arc import ArcCase
 
-BOOL = sy.DataType.BOOL
+BOOL = sy.DataType.BOOLEAN
 INT32 = sy.DataType.INT32
 INT64 = sy.DataType.INT64
 UINT8 = sy.DataType.UINT8

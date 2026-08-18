@@ -16,7 +16,7 @@ export { configZ } from "@/arc/graph/node/source/config";
 
 export const SPEC: Spec<"on", Config> = {
   key: "on",
-  name: "Telemetry Source",
+  name: "Telemetry source",
   Form,
   Symbol,
   Preview: Symbol,

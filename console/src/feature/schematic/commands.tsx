@@ -15,7 +15,7 @@ import { Schematic } from "@/platform/schematic";
 
 const CreateCommand = Command.create({
   key: "create_schematic",
-  name: "Create a schematic",
+  name: "Create schematic",
   icon: <PSchematic.CreateIcon />,
   useOnSelect: Schematic.useCreate,
   useVisible: () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID),

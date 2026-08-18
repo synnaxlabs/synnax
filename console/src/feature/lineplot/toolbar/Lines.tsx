@@ -29,9 +29,8 @@ const EmptyContent = () => {
   const { onSelect } = Select.useContext<string>();
   return (
     <Empty.Action
-      x
-      message="No lines plotted. Select channels using the"
-      action="data tab."
+      message="No lines plotted"
+      action="Select channels in the data tab"
       onClick={(e) => {
         e.stopPropagation();
         onSelect("data");
@@ -111,7 +110,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         dragScale={STROKE_WIDTH_DRAG_SCALE}
         bounds={STROKE_WIDTH_BOUNDS}
         shrink={false}
-        tooltip="Stroke Width"
+        tooltip="Stroke width"
       />
       <Input.Numeric
         variant="shadow"
@@ -122,7 +121,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
         bounds={DOWNSAMPLE_BOUNDS}
         shrink={false}
         tooltip={
-          line.downsampleMode === "average" ? "Averaging Window" : "Downsampling Factor"
+          line.downsampleMode === "average" ? "Averaging window" : "Downsampling factor"
         }
       />
       <SelectDownsampleMode

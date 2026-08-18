@@ -50,7 +50,7 @@ describe("table/Toolbar", () => {
     expect(
       await screen.findByText(new RegExp(`${name} is not editable`)),
     ).toBeDefined();
-    fireEvent.click(await screen.findByText("enable editing."));
+    fireEvent.click(await screen.findByText("Enable editing"));
     await waitFor(() =>
       expect(
         Session.Table.selectSliceState(store.getState()).tables[key].editable,

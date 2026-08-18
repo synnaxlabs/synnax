@@ -158,7 +158,7 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("str_second", sy.DataType.STRING),
     ("str_third", sy.DataType.STRING),
     ("concat_xx_out", sy.DataType.INT64),
-    ("equal_xx_diff_out", sy.DataType.BOOL),
+    ("equal_xx_diff_out", sy.DataType.BOOLEAN),
     ("concat_nested_out", sy.DataType.INT64),
     ("multi_add_out", sy.DataType.INT64),
     # Format string inputs and outputs (all virtual to keep setup uniform).
@@ -226,11 +226,11 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("concat_cc_out", sy.DataType.INT64),
     ("concat_xc_out", sy.DataType.INT64),
     ("concat_cx_out", sy.DataType.INT64),
-    ("equal_cc_out", sy.DataType.BOOL),
-    ("equal_xc_match_out", sy.DataType.BOOL),
-    ("equal_xc_mismatch_out", sy.DataType.BOOL),
-    ("equal_cx_out", sy.DataType.BOOL),
-    ("equal_xx_same_out", sy.DataType.BOOL),
+    ("equal_cc_out", sy.DataType.BOOLEAN),
+    ("equal_xc_match_out", sy.DataType.BOOLEAN),
+    ("equal_xc_mismatch_out", sy.DataType.BOOLEAN),
+    ("equal_cx_out", sy.DataType.BOOLEAN),
+    ("equal_xx_same_out", sy.DataType.BOOLEAN),
 ]
 
 ALL_CHANNELS = [name for name, _ in VIRTUAL_CHANNELS]

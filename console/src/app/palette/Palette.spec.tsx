@@ -48,7 +48,7 @@ describe("Palette", () => {
     const { store, client } = await renderAppPalette();
     const input = await openPalette();
     fireEvent.change(input, { target: { value: ">Read the documentation" } });
-    const item = await screen.findByText("Read the documentation");
+    const item = await screen.findByText("Read documentation");
     await act(async () => {
       fireEvent.click(item, { detail: 1 });
     });

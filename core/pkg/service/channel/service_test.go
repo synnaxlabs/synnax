@@ -122,7 +122,7 @@ var _ = Describe("Service", func() {
 			defer disconnect()
 			ch := channel.Channel{
 				Name:        UniqueChannelName(),
-				DataType:    telem.TimeStampT,
+				DataType:    telem.TimestampT,
 				IsIndex:     true,
 				Leaseholder: 1,
 			}

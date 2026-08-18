@@ -156,7 +156,7 @@ export const useInfoModal = Modals.create(() => {
             Version {update.version} available
           </Status.Summary>
           <Button.Button variant="filled" onClick={() => start(update)}>
-            Update & Restart
+            Update and restart
           </Button.Button>
         </>
       );

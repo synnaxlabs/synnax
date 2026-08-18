@@ -27,7 +27,7 @@ class DocsClient:
 
     def open_via_command_palette(self) -> None:
         """Open the documentation page via the command palette."""
-        self.layout.command_palette("Read the documentation")
+        self.layout.command_palette("Read documentation")
         self._wait_for_docs_tab()
 
     def open_via_question_mark_icon(self) -> None:

@@ -218,7 +218,7 @@ x::telem::DataType Type::telem() const {
         case Kind::F64:
             return x::telem::FLOAT64_T;
         case Kind::Bool:
-            return x::telem::BOOL_T;
+            return x::telem::BOOLEAN_T;
         case Kind::String:
             return x::telem::STRING_T;
         default:

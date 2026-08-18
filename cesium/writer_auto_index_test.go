@@ -48,7 +48,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "auto_idx_1",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -98,7 +98,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "auto_idx_2",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -154,7 +154,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "mix_idx_1",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -207,7 +207,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "mix_idx_2",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -253,7 +253,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "mix_idx_3",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -308,7 +308,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "virt_idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -361,7 +361,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "shared_idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -413,7 +413,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx1,
 								Name:     "multi_idx_a",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -425,7 +425,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx2,
 								Name:     "multi_idx_b",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data2,
@@ -483,7 +483,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx1,
 								Name:     "coalign_idx_a",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -495,7 +495,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx2,
 								Name:     "coalign_idx_b",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data2,
@@ -547,7 +547,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx1,
 								Name:     "mixed_multi_idx_a",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -559,7 +559,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx2,
 								Name:     "mixed_multi_idx_b",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data2,
@@ -624,7 +624,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "default_start_idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -670,7 +670,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "default_start_reject_idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -707,7 +707,7 @@ var _ = Describe("Writer AutoIndex", func() {
 							Key:      idx,
 							Name:     "default_start_preserve_idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      data,
@@ -762,7 +762,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "off_idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -802,7 +802,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "auth_idx_1",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -863,7 +863,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "auth_idx_2",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -934,7 +934,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "auth_bcast_idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -998,7 +998,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "auth_lower_idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -1065,7 +1065,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "auth_chain_idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -1129,7 +1129,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "auth_idx_3",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -1188,7 +1188,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "open_idx_1",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -1243,7 +1243,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx,
 								Name:     "open_idx_2",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -1308,7 +1308,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx1,
 								Name:     "open_perindex_idx_a",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data1,
@@ -1320,7 +1320,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								Key:      idx2,
 								Name:     "open_perindex_idx_b",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data2,

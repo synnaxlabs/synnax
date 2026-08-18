@@ -808,7 +808,7 @@ INSTANTIATE_TEST_SUITE_P(
         ),
         make_preservation_case(types::Kind::F32, x::telem::FLOAT32_T, float{4.321f}),
         make_preservation_case(types::Kind::F64, x::telem::FLOAT64_T, double{4.321}),
-        make_preservation_case(types::Kind::Bool, x::telem::BOOL_T, uint8_t{1})
+        make_preservation_case(types::Kind::Bool, x::telem::BOOLEAN_T, uint8_t{1})
     )
 );
 }

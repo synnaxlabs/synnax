@@ -27,7 +27,7 @@ const LABELS: Record<connection.Status["variant"], string> = {
   info: "Connected",
   loading: "Connecting",
   warning: "Reconnecting",
-  error: "Failed",
+  error: "Unreachable",
   disabled: "Disconnected",
 };
 

@@ -602,7 +602,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
-        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);                    \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                    \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -645,7 +645,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
-        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);                    \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                    \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -681,7 +681,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
-        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);                    \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                    \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -696,7 +696,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
-        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);                    \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                    \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -726,7 +726,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
-        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);                    \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                    \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -756,7 +756,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
-        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);                    \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                    \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -1226,7 +1226,7 @@ TEST(SeriesModule, NotBoolInvertsBooleanSeries) {
     auto result = f.get("not_bool").call(f.store, {wasmtime::Val(h)}).unwrap();
     auto rh = result[0].i32();
     EXPECT_GT(rh, 0);
-    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
     EXPECT_EQ(index_bool(f, rh, 0), 0);
     EXPECT_EQ(index_bool(f, rh, 1), 1);
 }
@@ -1309,7 +1309,7 @@ TEST(SeriesModule, AndBoolTruthTable) {
                       .unwrap();
     auto rh = result[0].i32();
     EXPECT_GT(rh, 0);
-    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
     EXPECT_EQ(f.state->get(rh)->size(), 4);
     EXPECT_EQ(index_bool(f, rh, 0), 1);
     EXPECT_EQ(index_bool(f, rh, 1), 0);
@@ -1326,7 +1326,7 @@ TEST(SeriesModule, OrBoolTruthTable) {
                       .unwrap();
     auto rh = result[0].i32();
     EXPECT_GT(rh, 0);
-    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
     EXPECT_EQ(index_bool(f, rh, 0), 1);
     EXPECT_EQ(index_bool(f, rh, 1), 1);
     EXPECT_EQ(index_bool(f, rh, 2), 1);
@@ -1372,7 +1372,7 @@ TEST(SeriesModule, AndScalarBoolTrueIsIdentity) {
                       .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{1})})
                       .unwrap();
     auto rh = result[0].i32();
-    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
     EXPECT_EQ(f.state->get(rh)->size(), 3);
     EXPECT_EQ(index_bool(f, rh, 0), 1);
     EXPECT_EQ(index_bool(f, rh, 1), 0);
@@ -1410,7 +1410,7 @@ TEST(SeriesModule, OrScalarBoolFalseIsIdentity) {
                       .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{0})})
                       .unwrap();
     auto rh = result[0].i32();
-    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
     EXPECT_EQ(index_bool(f, rh, 0), 1);
     EXPECT_EQ(index_bool(f, rh, 1), 0);
     EXPECT_EQ(index_bool(f, rh, 2), 1);

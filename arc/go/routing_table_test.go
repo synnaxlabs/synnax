@@ -661,7 +661,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				        1 -> shut_cmd
 				    }
 				}`, resolver,
-					channels.Digest{Key: 100, DataType: telem.BoolT},
+					channels.Digest{Key: 100, DataType: telem.BooleanT},
 					channels.Digest{Key: 200, DataType: telem.Uint8T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
@@ -733,7 +733,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					}
 				}
 			`, resolver,
-				channels.Digest{Key: 100, DataType: telem.BoolT},
+				channels.Digest{Key: 100, DataType: telem.BooleanT},
 				channels.Digest{Key: 200, DataType: telem.Uint8T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)

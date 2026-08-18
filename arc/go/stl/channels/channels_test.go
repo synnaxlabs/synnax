@@ -40,7 +40,7 @@ var _ = Describe("Channel", func() {
 				{Key: 1, DataType: telem.Float64T},
 				{Key: 2, DataType: telem.Int32T},
 				{Key: 3, DataType: telem.StringT},
-				{Key: 4, DataType: telem.BoolT},
+				{Key: 4, DataType: telem.BooleanT},
 			})
 			ss = strings.NewProgramState()
 			_, err := channels.NewHost(ctx, rt.Underlying(), cs, ss)
@@ -486,7 +486,7 @@ var _ = Describe("Channel", func() {
 				).To(telem.MatchSeries(telem.NewSeriesV[int32](100, 200)))
 				Expect(
 					progState.Node("source").OutputTime(0).DataType,
-				).To(Equal(telem.TimeStampT))
+				).To(Equal(telem.TimestampT))
 			})
 
 			It("Should not trigger on empty channel", func(ctx SpecContext) {

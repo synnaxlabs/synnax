@@ -554,7 +554,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     // Registers the series operations valid on a bool series: allocation,
     // element access, and indexing. Bool series arise from element-wise
     // comparisons and support no arithmetic.
-    BIND_CREATE_EMPTY(bool, x::telem::BOOL_T)
+    BIND_CREATE_EMPTY(bool, x::telem::BOOLEAN_T)
     linker
         .func_wrap(
             MODULE_NAME,

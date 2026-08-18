@@ -19,7 +19,7 @@ class ValveThreeWay(Valve):
         label: str,
         state_channel: str,
         command_channel: str,
-        symbol_type: str = "Three Way",
+        symbol_type: str = "Three way",
         show_control_chip: bool = True,
         rotatable: bool = True,
     ):
@@ -30,7 +30,7 @@ class ValveThreeWay(Valve):
             state_channel: Channel name for valve state
             command_channel: Channel name for valve commands
             show_control_chip: Whether to show the control chip (optional)
-            symbol_type: The type of symbol (default: "Three Way")
+            symbol_type: The type of symbol (default: "Three way")
             rotatable: Whether the symbol can be rotated (default: True)
         """
         super().__init__(

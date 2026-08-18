@@ -477,7 +477,7 @@ CHANNELS: list[tuple[str, sy.DataType]] = (
     + [(name, sy.DataType.UINT32) for name in U32_CHANNELS]
     + [(name, sy.DataType.INT64) for name in I64_CHANNELS]
     + [(name, sy.DataType.STRING) for name in STR_CHANNELS]
-    + [(name, sy.DataType.BOOL) for name in BOOL_CHANNELS]
+    + [(name, sy.DataType.BOOLEAN) for name in BOOL_CHANNELS]
 )
 
 

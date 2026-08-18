@@ -67,7 +67,17 @@ class ConsoleCase(TestCase):
         self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
-        self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
+        # Playwright cannot drive the File System Access save picker, so remove the
+        # local pickers; exports then fall back to plain downloads, which
+        # expect_download captures. Inputs (expect_file_chooser) are unaffected.
+        launch_args = (
+            ["--disable-blink-features=FileSystemAccessLocal"]
+            if browser_engine.name == "chromium"
+            else []
+        )
+        self.browser = browser_engine.launch(
+            headless=not headed, slow_mo=slow_mo, args=launch_args
+        )
         self.context = self.browser.new_context(
             permissions=["clipboard-read", "clipboard-write"],
         )
@@ -110,7 +120,7 @@ class ConsoleCase(TestCase):
         password_input = self.page.locator(".pluto-field__password input").first
         password_input.fill(password)
 
-        self.page.get_by_role("button", name="Log In").click(timeout=2000)
+        self.page.get_by_role("button", name="Log in").click(timeout=2000)
 
         self.console = Console(self.page, self.client)
 

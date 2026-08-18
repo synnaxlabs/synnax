@@ -509,7 +509,7 @@ var _ = Describe("Sequence", func() {
 				    "after" -> log
 				}
 				1 => main`, resolver,
-					channels.Digest{Key: 100, DataType: telem.BoolT},
+					channels.Digest{Key: 100, DataType: telem.BooleanT},
 					channels.Digest{Key: 101, DataType: telem.StringT},
 				)
 				defer h.Close(ctx)
@@ -538,7 +538,7 @@ var _ = Describe("Sequence", func() {
 				    "after" -> log
 				}
 				1 => main`, resolver,
-					channels.Digest{Key: 100, DataType: telem.BoolT},
+					channels.Digest{Key: 100, DataType: telem.BooleanT},
 					channels.Digest{Key: 101, DataType: telem.StringT},
 				)
 				defer h.Close(ctx)
@@ -1899,9 +1899,9 @@ var _ = Describe("Sequence", func() {
 			prog := "\nsequence WU {\n stage watcher {\n trigger -> select{} -> {\n true: " + body + "\n }\n }\n}\nstart_cmd => WU"
 			return newRuntimeHarness(ctx, prog, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
-				channels.Digest{Key: 101, DataType: telem.BoolT},
+				channels.Digest{Key: 101, DataType: telem.BooleanT},
 				channels.Digest{Key: 102, DataType: telem.Float64T},
-				channels.Digest{Key: 103, DataType: telem.BoolT},
+				channels.Digest{Key: 103, DataType: telem.BooleanT},
 			)
 		}
 		enter := func(h *runtimeHarness, ctx SpecContext) {
@@ -2006,7 +2006,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, selectProg, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 					channels.Digest{Key: 103, DataType: telem.Uint8T},
 				)
@@ -2103,7 +2103,7 @@ var _ = Describe("Sequence", func() {
 				        false: stage { 1 -> false_out }
 				    }
 				}`, resolver,
-					channels.Digest{Key: 100, DataType: telem.BoolT},
+					channels.Digest{Key: 100, DataType: telem.BooleanT},
 					channels.Digest{Key: 101, DataType: telem.Uint8T},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
@@ -2136,7 +2136,7 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
@@ -2174,7 +2174,7 @@ var _ = Describe("Sequence", func() {
 				        }
 				    }
 				}`, resolver,
-					channels.Digest{Key: 100, DataType: telem.BoolT},
+					channels.Digest{Key: 100, DataType: telem.BooleanT},
 					channels.Digest{Key: 101, DataType: telem.Uint8T},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
@@ -2207,7 +2207,7 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
@@ -2248,7 +2248,7 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 					channels.Digest{Key: 103, DataType: telem.Uint8T},
 				)
@@ -2289,7 +2289,7 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
@@ -2328,7 +2328,7 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 					channels.Digest{Key: 103, DataType: telem.Uint8T},
 				)
@@ -4371,7 +4371,7 @@ var _ = Describe("Sequence", func() {
 				}
 				start_cmd => main`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
 				)
 				defer h.Close(ctx)
 
@@ -4404,7 +4404,7 @@ var _ = Describe("Sequence", func() {
 				}
 				start_cmd => main`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 					channels.Digest{Key: 103, DataType: telem.Uint8T},
 				)
