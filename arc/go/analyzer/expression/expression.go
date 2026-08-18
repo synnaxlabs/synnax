@@ -696,6 +696,14 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			// Validate that the cast is allowed
 			sourceType := types.InferFromExpression(context.Child(ctx, expr)).Unwrap()
 			if typeCtx := typeCast.Type_(); typeCtx != nil {
+				// bool casting is not allowed. User should explicitly define their
+				// numeric comparison. E.g. `x != 0` or `y == 1.0001`
+				if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+						"boolean conversions are not supported; define the "+
+							"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
+					return
+				}
 				targetType, _ := types.InferFromTypeContext(typeCtx)
 				if !isValidCast(sourceType, targetType) {
 					ctx.Diagnostics.Add(
@@ -824,11 +832,6 @@ func isValidCast(source, target basetypes.Type) bool {
 	}
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {
 		return false
-	}
-	// bool converts to and from numeric types: bool(x) normalizes to 0/1, and a
-	// numeric cast widens a bool's 0/1 value.
-	if source.Kind == basetypes.KindBool || target.Kind == basetypes.KindBool {
-		return source.IsNumeric() || target.IsNumeric()
 	}
 	return source.IsNumeric() && target.IsNumeric()
 }

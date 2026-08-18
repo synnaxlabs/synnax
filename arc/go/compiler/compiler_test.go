@@ -2189,8 +2189,8 @@ var _ = Describe("Compiler", func() {
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 2.0, 2.0]
 				t := a > b
-				return u8(t[1])
-			}`, uint8(1)),
+				return t[1]
+			}`, true),
 
 			// Integer series operations (i32)
 			Entry("integer series add i32", `{
@@ -2388,59 +2388,59 @@ var _ = Describe("Compiler", func() {
 				b series f64 := [3.0, 3.0]
 				c series f64 := [0.0, 0.0]
 				r := (a > b) and (a > c)
-				return u8(r[0])
-			}`, uint8(1)),
+				return r[0]
+			}`, true),
 			Entry("series and series (false element)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				c series f64 := [0.0, 0.0]
 				r := (a > b) and (a > c)
-				return u8(r[1])
-			}`, uint8(0)),
+				return r[1]
+			}`, false),
 			Entry("series or series (true element)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				c series f64 := [9.0, 9.0]
 				r := (a > b) or (a > c)
-				return u8(r[0])
-			}`, uint8(1)),
+				return r[0]
+			}`, true),
 			Entry("series or series (false element)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				c series f64 := [9.0, 9.0]
 				r := (a > b) or (a > c)
-				return u8(r[1])
-			}`, uint8(0)),
+				return r[1]
+			}`, false),
 			Entry("not series", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				r := not (a > b)
-				return u8(r[1])
-			}`, uint8(1)),
+				return r[1]
+			}`, true),
 			Entry("series and scalar true (identity)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				r := (a > b) and true
-				return u8(r[0])
-			}`, uint8(1)),
+				return r[0]
+			}`, true),
 			Entry("series and scalar false (zeroes)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				r := (a > b) and false
-				return u8(r[0])
-			}`, uint8(0)),
+				return r[0]
+			}`, false),
 			Entry("series or scalar true (fills)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				r := (a > b) or true
-				return u8(r[1])
-			}`, uint8(1)),
+				return r[1]
+			}`, true),
 			Entry("series or scalar false (identity)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				r := (a > b) or false
-				return u8(r[1])
-			}`, uint8(0)),
+				return r[1]
+			}`, false),
 			Entry("negate series", `{
 				x series f64 := [1.0, 2.0, 3.0]
 				r := -x

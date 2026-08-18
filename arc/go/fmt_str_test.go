@@ -235,7 +235,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 
 	Describe("Bool placeholders", func() {
 		DescribeTable(
-			"renders bool literals and bool-valued casts",
+			"renders bool literals",
 			func(ctx SpecContext, source, expected string) {
 				Expect(runFmtTrigger(ctx, source)).To(Equal(expected))
 			},
@@ -246,9 +246,6 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				`f"active={true}"`,
 				"active=true",
 			),
-			Entry("bool() of zero", `f"{bool(0)}"`, "false"),
-			Entry("bool() of nonzero", `f"{bool(5)}"`, "true"),
-			Entry("bool() of negative float", `f"{bool(-0.1)}"`, "true"),
 			Entry("two bool placeholders", `f"{true} and {false}"`, "true and false"),
 		)
 

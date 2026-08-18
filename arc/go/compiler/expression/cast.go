@@ -43,9 +43,6 @@ func extractType(typeCtx parser.ITypeContext) types.Type {
 		if prim.STR() != nil {
 			return types.String()
 		}
-		if prim.BOOL() != nil {
-			return types.Bool()
-		}
 		if num := prim.NumericType(); num != nil {
 			if intType := num.IntegerType(); intType != nil {
 				if intType.I8() != nil {
@@ -102,24 +99,6 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 			ctx.Scope,
 			from,
 		)
-	}
-	if to.Kind == types.KindBool {
-		// bool(x) is x != 0, normalizing any numeric to the 0/1 i32 bool value.
-		switch wasm.ConvertType(from) {
-		case wasm.I64:
-			ctx.Writer.WriteI64Const(0)
-			ctx.Writer.WriteOpcode(wasm.OpI64Ne)
-		case wasm.F32:
-			ctx.Writer.WriteF32Const(0)
-			ctx.Writer.WriteOpcode(wasm.OpF32Ne)
-		case wasm.F64:
-			ctx.Writer.WriteF64Const(0)
-			ctx.Writer.WriteOpcode(wasm.OpF64Ne)
-		default:
-			ctx.Writer.WriteI32Const(0)
-			ctx.Writer.WriteOpcode(wasm.OpI32Ne)
-		}
-		return nil
 	}
 	var (
 		fromWasm = wasm.ConvertType(from)

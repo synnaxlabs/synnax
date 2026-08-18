@@ -1872,19 +1872,123 @@ var _ = Describe("Expressions", func() {
 					y := u8(x)
 				}
 			`),
+			Entry("bool to str", `
+				func testFunc() {
+					x bool := true
+					y := str(x)
+				}
+			`),
+		)
+
+		DescribeTable("rejected boolean conversions",
+			func(ctx SpecContext, code string) {
+				expectFailure(ctx, code, nil, "boolean conversions are not supported")
+			},
+			Entry("bool() of a typed numeric", `
+				func testFunc() {
+					x i32 := 1
+					y := bool(x)
+				}
+			`),
+			Entry("bool() of an integer literal", `
+				func testFunc() {
+					y := bool(1)
+				}
+			`),
+			Entry("bool() of a float literal", `
+				func testFunc() {
+					y := bool(1.23)
+				}
+			`),
+			Entry("bool() of a bool", `
+				func testFunc() {
+					x bool := true
+					y := bool(x)
+				}
+			`),
+		)
+
+		DescribeTable("rejected bool to numeric casts",
+			func(ctx SpecContext, code string) {
+				expectFailure(ctx, code, nil, "cannot cast bool to")
+			},
 			Entry("bool to u8", `
 				func testFunc() {
 					x bool := true
 					y := u8(x)
 				}
 			`),
-			Entry("i32 to bool", `
+			Entry("bool to f64", `
 				func testFunc() {
-					x i32 := 1
-					y := bool(x)
+					x bool := true
+					y := f64(x)
 				}
 			`),
 		)
+
+		It(
+			"Should reject the outer cast of a nested boolean conversion",
+			func(ctx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+					func testFunc() {
+						y := str(bool(1))
+					}
+				`))
+				aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeFalse())
+				errs := aCtx.Diagnostics.Errors()
+				Expect(errs).To(HaveLen(2))
+				Expect(errs[0].Message).To(
+					ContainSubstring("boolean conversions are not supported"),
+				)
+				Expect(errs[1].Message).To(
+					ContainSubstring("cannot cast invalid to str"),
+				)
+			},
+		)
+
+		Context("in flow statements", func() {
+			flowChannels := []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "sensor",
+				Type: types.Chan(types.F64()),
+				ID:   21001,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "flag_in",
+				Type: types.Chan(types.Bool()),
+				ID:   21002,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "flag_out",
+				Type: types.Chan(types.Bool()),
+				ID:   21003,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "log_out",
+				Type: types.Chan(types.String()),
+				ID:   21004,
+			}}
+
+			DescribeTable("rejected boolean conversions",
+				func(ctx SpecContext, code string) {
+					expectFailure(
+						ctx,
+						code,
+						flowChannels,
+						"boolean conversions are not supported",
+					)
+				},
+				Entry("bool() of a literal", `bool(1) -> flag_out`),
+				Entry("bool() of a channel", `bool(sensor) -> flag_out`),
+				Entry("bool() nested in str()", `str(bool(sensor)) -> log_out`),
+			)
+
+			It("Should allow str() of a bool channel", func(ctx SpecContext) {
+				expectSuccess(ctx, `str(flag_in) -> log_out`, flowChannels)
+			})
+		})
 	})
 
 	Describe("IsLiteral and GetLiteral Edge Cases", func() {

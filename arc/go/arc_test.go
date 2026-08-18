@@ -19,8 +19,10 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -1017,3 +1019,126 @@ func parseWASMImports(wasm []byte) []wasmImport {
 	}
 	return nil
 }
+
+var _ = DescribeTable(
+	"bool() conversion rejection",
+	func(ctx SpecContext, source string) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		Expect(
+			arc.CompileText(ctx, arc.Text{Raw: source}, root),
+		).Error().To(MatchError(
+			ContainSubstring("boolean conversions are not supported"),
+		))
+	},
+	Entry("integer literal", `func f() { x := bool(1) }`),
+	Entry("float literal", `func f() { x := bool(1.23) }`),
+	Entry("bool literal", `func f() { x := bool(true) }`),
+	Entry("typed numeric", `func f() {
+		y f64 := 1.5
+		x := bool(y)
+	}`),
+	Entry("nested in str()", `func f() { x := str(bool(1)) }`),
+)
+
+// Boolean expression pipelines: an expression that yields bool (comparison or
+// logical) flows straight into a bool channel. Bitwise operators yield integers, not
+// bool, so those forms are not exercised here.
+var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
+	It("Should write a >= comparison result to a bool channel", func(ctx SpecContext) {
+		resolver := channelSymbols(map[string]channelDef{
+			"x":   {types.F32(), 100},
+			"out": {types.Bool(), 200},
+		})
+		h := newRuntimeHarness(ctx, `x >= 10 -> out`, resolver,
+			channels.Digest{Key: 100, DataType: telem.Float32T},
+			channels.Digest{Key: 200, DataType: telem.BoolT},
+		)
+		defer h.Close(ctx)
+
+		h.Ingest(100, telem.NewSeriesV[float32](15))
+		h.Tick(ctx, telem.Millisecond)
+		h.channelState.ClearReads()
+		out, changed := h.Flush()
+		Expect(changed).To(BeTrue())
+		Expect(
+			telem.UnmarshalSeries[bool](out.Get(200).Series[0]),
+		).To(Equal([]bool{true}))
+
+		h.Ingest(100, telem.NewSeriesV[float32](5))
+		h.Tick(ctx, 2*telem.Millisecond)
+		h.channelState.ClearReads()
+		out2, _ := h.Flush()
+		Expect(
+			telem.UnmarshalSeries[bool](out2.Get(200).Series[0]),
+		).To(Equal([]bool{false}))
+	})
+
+	It(
+		"Should write a < comparison of two channels to a bool channel",
+		func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"a":   {types.F32(), 100},
+				"b":   {types.F32(), 200},
+				"out": {types.Bool(), 300},
+			})
+			h := newRuntimeHarness(ctx, `a < b -> out`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.BoolT},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[float32](1))
+			h.Ingest(200, telem.NewSeriesV[float32](2))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+			out, changed := h.Flush()
+			Expect(changed).To(BeTrue())
+			Expect(
+				telem.UnmarshalSeries[bool](out.Get(300).Series[0]),
+			).To(Equal([]bool{true}))
+
+			h.Ingest(100, telem.NewSeriesV[float32](5))
+			h.Ingest(200, telem.NewSeriesV[float32](2))
+			h.Tick(ctx, 2*telem.Millisecond)
+			h.channelState.ClearReads()
+			out2, _ := h.Flush()
+			Expect(
+				telem.UnmarshalSeries[bool](out2.Get(300).Series[0]),
+			).To(Equal([]bool{false}))
+		},
+	)
+
+	It("Should write an and logical result to a bool channel", func(ctx SpecContext) {
+		resolver := channelSymbols(map[string]channelDef{
+			"a":   {types.Bool(), 100},
+			"b":   {types.Bool(), 200},
+			"out": {types.Bool(), 300},
+		})
+		h := newRuntimeHarness(ctx, `a and b -> out`, resolver,
+			channels.Digest{Key: 100, DataType: telem.BoolT},
+			channels.Digest{Key: 200, DataType: telem.BoolT},
+			channels.Digest{Key: 300, DataType: telem.BoolT},
+		)
+		defer h.Close(ctx)
+
+		h.Ingest(100, telem.NewSeriesV[bool](true))
+		h.Ingest(200, telem.NewSeriesV[bool](true))
+		h.Tick(ctx, telem.Millisecond)
+		h.channelState.ClearReads()
+		out, changed := h.Flush()
+		Expect(changed).To(BeTrue())
+		Expect(
+			telem.UnmarshalSeries[bool](out.Get(300).Series[0]),
+		).To(Equal([]bool{true}))
+
+		h.Ingest(100, telem.NewSeriesV[bool](true))
+		h.Ingest(200, telem.NewSeriesV[bool](false))
+		h.Tick(ctx, 2*telem.Millisecond)
+		h.channelState.ClearReads()
+		out2, _ := h.Flush()
+		Expect(
+			telem.UnmarshalSeries[bool](out2.Get(300).Series[0]),
+		).To(Equal([]bool{false}))
+	})
+})

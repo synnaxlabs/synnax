@@ -474,6 +474,10 @@ func inferPrimaryType(
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if typeCtx := typeCast.Type_(); typeCtx != nil {
+			// bool conversions are rejected, so the cast has no type.
+			if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+				return types.Type{}
+			}
 			t, _ := InferFromTypeContext(typeCtx)
 			return t
 		}

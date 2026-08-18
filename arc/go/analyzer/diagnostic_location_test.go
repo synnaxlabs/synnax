@@ -246,8 +246,8 @@ func test() {
 			diagnosticCase{
 				source: `
 func test() {
-	if 1 {
-		if 1 {
+	if true {
+		if true {
 			x := undefined
 		}
 	}
@@ -261,7 +261,7 @@ func test() {
 			diagnosticCase{
 				source: `
 func test() {
-	if 1 {
+	if true {
 		x := 1
 	} else {
 		y := undefined
