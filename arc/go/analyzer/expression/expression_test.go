@@ -1523,11 +1523,11 @@ var _ = Describe("Expressions", func() {
 				func testFunc() u8 {
 					return sensor and 1
 				}
-			`, resolver, "cannot use f32 in and operation: and takes bool operands.")
+			`, resolver, "cannot use f32 in and operation")
 			},
 		)
 
-		DescribeTable("counterpart operator suggestions",
+		DescribeTable("cross-family operand errors",
 			func(ctx SpecContext, code, expectedMsg string) {
 				expectFailure(ctx, code, nil, expectedMsg)
 			},
@@ -1537,53 +1537,49 @@ var _ = Describe("Expressions", func() {
 					y u8 := 2
 					z := x and y
 				}
-			`, "cannot use u8 in and operation: and takes bool operands. "+
-				"Did you mean & (bitwise and)?"),
+			`, "cannot use u8 in and operation"),
 			Entry("integer in or", `
 				func testFunc() {
 					x u8 := 1
 					y u8 := 2
 					z := x or y
 				}
-			`, "cannot use u8 in or operation: or takes bool operands. "+
-				"Did you mean | (bitwise or)?"),
+			`, "cannot use u8 in or operation"),
 			Entry("bool in &", `
 				func testFunc() {
 					x bool := true
 					y bool := false
 					z := x & y
 				}
-			`, "cannot use bool in & operation: & takes integer operands. "+
-				"Did you mean and (logical and)?"),
+			`, "cannot use bool in & operation"),
 			Entry("bool in |", `
 				func testFunc() {
 					x bool := true
 					y bool := false
 					z := x | y
 				}
-			`, "cannot use bool in | operation: | takes integer operands. "+
-				"Did you mean or (logical or)?"),
+			`, "cannot use bool in | operation"),
 			Entry("bool in ^", `
 				func testFunc() {
 					x bool := true
 					y bool := false
 					z := x ^ y
 				}
-			`, "cannot use bool in ^ operation: ^ takes integer operands."),
+			`, "cannot use bool in ^ operation"),
 			Entry("bool in <<", `
 				func testFunc() {
 					x bool := true
 					y bool := false
 					z := x << y
 				}
-			`, "cannot use bool in << operation: << takes integer operands."),
+			`, "cannot use bool in << operation"),
 			Entry("bool in >>", `
 				func testFunc() {
 					x bool := true
 					y bool := false
 					z := x >> y
 				}
-			`, "cannot use bool in >> operation: >> takes integer operands."),
+			`, "cannot use bool in >> operation"),
 		)
 	})
 
@@ -1903,6 +1899,12 @@ var _ = Describe("Expressions", func() {
 			Entry("bool() of a bool", `
 				func testFunc() {
 					x bool := true
+					y := bool(x)
+				}
+			`),
+			Entry("bool() of a string", `
+				func testFunc() {
+					x str := "hello"
 					y := bool(x)
 				}
 			`),

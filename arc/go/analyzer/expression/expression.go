@@ -129,53 +129,6 @@ func Analyze(ctx context.Context[parser.IExpressionContext]) {
 	}
 }
 
-// operatorOperands returns the operand family op takes and its counterpart in the
-// other family ("" when none). ok is false for operators outside the table.
-func operatorOperands(op string) (wants, counterpart string, ok bool) {
-	switch op {
-	case "and":
-		return "bool", "& (bitwise and)", true
-	case "or":
-		return "bool", "| (bitwise or)", true
-	case "not":
-		return "bool", "~ (bitwise not)", true
-	case "&":
-		return "integer", "and (logical and)", true
-	case "|":
-		return "integer", "or (logical or)", true
-	case "~":
-		return "integer", "not (logical not)", true
-	case "^", "<<", ">>":
-		return "integer", "", true
-	}
-	return "", "", false
-}
-
-// operatorSuggestion suggests op's counterpart when the rejected type t fits it.
-func operatorSuggestion(op string, t basetypes.Type) string {
-	wants, counterpart, ok := operatorOperands(op)
-	if !ok || counterpart == "" {
-		return ""
-	}
-	unwrapped := resolveConstraint(t.Unwrap())
-	fits := (wants == "bool" && isInteger(unwrapped)) ||
-		(wants == "integer" && unwrapped.IsBool())
-	if !fits {
-		return ""
-	}
-	return " Did you mean " + counterpart + "?"
-}
-
-// operatorHint states the operand types op takes and appends operatorSuggestion.
-// It is empty for operators outside the table.
-func operatorHint(op string, t basetypes.Type) string {
-	wants, _, ok := operatorOperands(op)
-	if !ok {
-		return ""
-	}
-	return ": " + op + " takes " + wants + " operands." + operatorSuggestion(op, t)
-}
-
 // isBitwiseNotOperand reports whether t is a valid ~ operand: an integer, an
 // integer channel or series, or an untyped integer constant.
 func isBitwiseNotOperand(t basetypes.Type) bool {
@@ -273,10 +226,9 @@ func validateType[T, N antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
 				ctx.AST,
-				"cannot use %s in %s operation%s",
+				"cannot use %s in %s operation",
 				firstType,
 				opName,
-				operatorHint(opName, firstType),
 			),
 		)
 		return
@@ -326,11 +278,10 @@ func validateType[T, N antlr.ParserRuleContext](
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
-						"type mismatch: cannot use %s and %s in %s operation%s",
+						"type mismatch: cannot use %s and %s in %s operation",
 						firstType,
 						nextType,
 						opName,
-						operatorHint(opName, nextType),
 					),
 				)
 				return
@@ -514,9 +465,8 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
-						"operator 'not' requires boolean operand, received %s%s",
+						"operator 'not' requires boolean operand, received %s",
 						operandType,
-						operatorSuggestion("not", operandType),
 					),
 				)
 				return
@@ -526,9 +476,8 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
-						"operator ~ requires integer operand, received %s%s",
+						"operator ~ requires integer operand, received %s",
 						operandType,
-						operatorSuggestion("~", operandType),
 					),
 				)
 				return

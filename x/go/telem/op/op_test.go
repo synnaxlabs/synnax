@@ -307,7 +307,7 @@ var _ = Describe("Vectorized Operations", func() {
 				b := telem.NewSeriesV[bool](true, false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
-				op.AndBool(a, b, &output)
+				op.And(a, b, &output)
 
 				// Truth table: T&&T=T, T&&F=F, F&&T=F, F&&F=F
 				expected := []bool{true, false, false, false}
@@ -321,7 +321,7 @@ var _ = Describe("Vectorized Operations", func() {
 					b := telem.NewSeriesV[bool](true, true, true, true, true)
 					output := telem.Series{DataType: telem.BooleanT}
 
-					op.AndBool(a, b, &output)
+					op.And(a, b, &output)
 
 					// a values: [T, F, F, F, F] (F repeats)
 					// b values: [T, T, T, T, T]
@@ -337,7 +337,7 @@ var _ = Describe("Vectorized Operations", func() {
 				b := telem.NewSeriesV[bool](true, false, true)
 				output := telem.Series{DataType: telem.BooleanT}
 
-				op.AndBool(a, b, &output)
+				op.And(a, b, &output)
 
 				expected := []bool{true, false, true}
 				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
@@ -350,7 +350,7 @@ var _ = Describe("Vectorized Operations", func() {
 				b := telem.NewSeriesV[bool](true, false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
-				op.OrBool(a, b, &output)
+				op.Or(a, b, &output)
 
 				// Truth table: T||T=T, T||F=T, F||T=T, F||F=F
 				expected := []bool{true, true, true, false}
@@ -364,7 +364,7 @@ var _ = Describe("Vectorized Operations", func() {
 					b := telem.NewSeriesV[bool](false, false, false, false, false)
 					output := telem.Series{DataType: telem.BooleanT}
 
-					op.OrBool(a, b, &output)
+					op.Or(a, b, &output)
 
 					// a values: [T, F, F, F, F] (F repeats)
 					// b values: [F, F, F, F, F]
@@ -380,7 +380,7 @@ var _ = Describe("Vectorized Operations", func() {
 				b := telem.NewSeriesV[bool](false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
-				op.OrBool(a, b, &output)
+				op.Or(a, b, &output)
 
 				expected := []bool{true, true, true}
 				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
@@ -392,7 +392,7 @@ var _ = Describe("Vectorized Operations", func() {
 				input := telem.NewSeriesV[bool](true, false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
-				op.NotBool(input, &output)
+				op.Not(input, &output)
 
 				// Logical NOT: !T=F, !F=T
 				expected := []bool{false, true, false, true}
@@ -403,7 +403,7 @@ var _ = Describe("Vectorized Operations", func() {
 				input := telem.Series{DataType: telem.BooleanT}
 				output := telem.Series{DataType: telem.BooleanT}
 
-				op.NotBool(input, &output)
+				op.Not(input, &output)
 
 				Expect(output.Len()).To(Equal(int64(0)))
 			})
@@ -412,7 +412,7 @@ var _ = Describe("Vectorized Operations", func() {
 				input := telem.NewSeriesV[bool](true)
 				output := telem.Series{DataType: telem.BooleanT}
 
-				op.NotBool(input, &output)
+				op.Not(input, &output)
 
 				expected := []bool{false}
 				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
@@ -422,7 +422,7 @@ var _ = Describe("Vectorized Operations", func() {
 				input := telem.NewSeriesV[bool](true, false, true, false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
-				op.NotBool(input, &output)
+				op.Not(input, &output)
 
 				expected := []bool{false, true, false, true, false, true}
 				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
@@ -437,10 +437,10 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// (a AND b) OR c
 				andResult := telem.Series{DataType: telem.BooleanT}
-				op.AndBool(a, b, &andResult)
+				op.And(a, b, &andResult)
 
 				orResult := telem.Series{DataType: telem.BooleanT}
-				op.OrBool(andResult, c, &orResult)
+				op.Or(andResult, c, &orResult)
 
 				expected := []bool{true, true, true, true}
 				Expect(telem.UnmarshalSeries[bool](orResult)).To(Equal(expected))
@@ -451,10 +451,10 @@ var _ = Describe("Vectorized Operations", func() {
 				b := telem.NewSeriesV[bool](true, false, true, false)
 
 				andResult := telem.Series{DataType: telem.BooleanT}
-				op.AndBool(a, b, &andResult)
+				op.And(a, b, &andResult)
 
 				notResult := telem.Series{DataType: telem.BooleanT}
-				op.NotBool(andResult, &notResult)
+				op.Not(andResult, &notResult)
 
 				// AND: [T, F, F, F]
 				// NOT: [F, T, T, T]

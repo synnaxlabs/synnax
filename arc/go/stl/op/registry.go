@@ -16,10 +16,10 @@ import (
 
 var (
 	logicalOps = map[string]op.Binary{
-		orSymbolName:  op.OrBool,
-		andSymbolName: op.AndBool,
+		orSymbolName:  op.Or,
+		andSymbolName: op.And,
 	}
-	unaryOps = map[string]op.Unary{notSymbolName: op.NotBool}
+	unaryOps = map[string]op.Unary{notSymbolName: op.Not}
 	typedOps = map[string]map[telem.DataType]op.Binary{
 		geSymbolName: {
 			telem.Float64T: op.GreaterThanOrEqualF64,

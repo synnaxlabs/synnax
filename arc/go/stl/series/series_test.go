@@ -1056,10 +1056,6 @@ var _ = Describe("Series", func() {
 				[]uint32{0, 0, 1, 1}, []uint32{0, 1, 0, 1}, []uint32{0, 0, 0, 1}),
 			Entry("or truth table", "or_bool",
 				[]uint32{0, 0, 1, 1}, []uint32{0, 1, 0, 1}, []uint32{0, 1, 1, 1}),
-			Entry("and broadcasts shorter rhs", "and_bool",
-				[]uint32{1, 1, 1}, []uint32{0}, []uint32{0, 0, 0}),
-			Entry("or broadcasts shorter lhs", "or_bool",
-				[]uint32{1}, []uint32{0, 1, 0}, []uint32{1, 1, 1}),
 		)
 
 		DescribeTable(
@@ -1096,6 +1092,23 @@ var _ = Describe("Series", func() {
 			Entry("or_bool", "or_bool"),
 			Entry("and_scalar_bool", "and_scalar_bool"),
 			Entry("or_scalar_bool", "or_scalar_bool"),
+		)
+	})
+
+	Describe("series-series length mismatch", func() {
+		DescribeTable("panics",
+			func(ctx SpecContext, create, fn string) {
+				h1 := callU32(ctx, create, testutil.U32(2))
+				h2 := callU32(ctx, create, testutil.U32(3))
+				Expect(func() {
+					call(ctx, fn, testutil.U32(h1), testutil.U32(h2))
+				}).To(PanicWith(ContainSubstring("length mismatch")))
+			},
+			Entry("arithmetic", "create_empty_i32", "series_add_i32"),
+			Entry("comparison", "create_empty_i32", "compare_gt_i32"),
+			Entry("bitwise", "create_empty_i32", "series_band_i32"),
+			Entry("logical and", "create_empty_bool", "and_bool"),
+			Entry("logical or", "create_empty_bool", "or_bool"),
 		)
 	})
 

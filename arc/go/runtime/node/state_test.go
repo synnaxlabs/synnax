@@ -1612,7 +1612,7 @@ var _ = Describe("ProgramState", func() {
 					Expect(diagnostics.Ok()).To(BeTrue())
 					s := node.New(prog)
 					n := s.Node("test")
-					*n.Output(0) = telem.NewSeriesV[bool](!last, last)
+					*n.Output(0) = telem.NewSeriesV(!last, last)
 					Expect(n.IsOutputTruthy(0)).To(Equal(last))
 				},
 				Entry("true last element", true),

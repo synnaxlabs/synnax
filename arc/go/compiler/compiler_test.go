@@ -3980,6 +3980,14 @@ var _ = Describe("Compiler", func() {
 			Entry("i32 ne true", `{ return i32(5) != i32(6) }`, true),
 			Entry("i32 ne false", `{ return i32(5) != i32(5) }`, false),
 			Entry("f64 ne true", `{ return 3.14 != 3.15 }`, true),
+
+			// Untyped integer literals
+			Entry("literal eq", `{ return 3 == 5 }`, false),
+			Entry("literal ne", `{ return 3 != 5 }`, true),
+			Entry("literal lt", `{ return 3 < 5 }`, true),
+			Entry("literal gt", `{ return 3 > 5 }`, false),
+			Entry("literal le", `{ return 3 <= 5 }`, true),
+			Entry("literal ge", `{ return 3 >= 5 }`, false),
 		)
 
 		DescribeTable(

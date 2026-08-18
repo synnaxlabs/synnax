@@ -214,13 +214,16 @@ b i64 := i64(a) // truncates to 3
 n i64 := 42
 s str := str(n) // numeric to string: "42"
 
-active := bool(n) // numeric to bool: n != 0
-level u8 := u8(active) // bool to numeric: 1 or 0
+active := n > 0
+state str := str(active) // bool to string: "true"
 ```
 
 <Note.Note variant="info">
-  Casting a string to a numeric or boolean is not supported.
+  Boolean conversions (`bool(x)`) and casts between `bool` and numeric types are not
+  supported. Use a comparison (`x != 0`) to derive a `bool`. Casting a string to a
+  numeric or boolean is not supported either.
 </Note.Note>
+
 ### Casting Rules
 
 | Conversion                          | Behavior                                     |
@@ -231,8 +234,6 @@ level u8 := u8(active) // bool to numeric: 1 or 0
 | Float to integer                    | Truncates toward zero, saturates on overflow |
 | Integer overflow                    | Two's-complement wrapping                    |
 | Numeric to string (e.g., `str(42)`) | Decimal text (e.g., `"42"`, `"3.14"`)        |
-| Numeric to `bool` (e.g., `bool(x)`) | `false` if `x` is zero, otherwise `true`     |
-| `bool` to numeric (e.g., `u8(b)`)   | `1` for `true`, `0` for `false`              |
 | `bool` to string (`str(b)`)         | `"true"` or `"false"`                        |
 
 Float values render without trailing zeros (`str(1.0)` returns `"1"`), and special

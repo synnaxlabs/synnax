@@ -183,7 +183,7 @@ routingEntry
     ;
 
 // TRUE and FALSE are lexer keywords but also valid routing-table keys
-// (select's outputs). Without these the IDENTIFIER-only rule rejects them.
+// (select's outputs). Without these the IDENTIFIER-only rule rejects them (SY-4619).
 routingKey
     : IDENTIFIER
     | TRUE

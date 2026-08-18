@@ -585,7 +585,7 @@ func main() {
 	}
 
 	// Generate logical operations (and, or, not) for the boolean type.
-	boolType := TypeInfo{Name: "Bool", GoType: "bool", Size: 1}
+	boolType := TypeInfo{Name: "", GoType: "bool", Size: 1}
 	lo.Must0(tmpl.Execute(&buf, map[string]any{
 		"Type":       boolType,
 		"Operations": boolLogicalOperations,

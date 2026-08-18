@@ -5512,7 +5512,7 @@ func ModuloU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
-func AndBool(lhs, rhs telem.Series, output *telem.Series) {
+func And(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
 	maxLen := lhsLen
@@ -5557,7 +5557,7 @@ func AndBool(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
-func OrBool(lhs, rhs telem.Series, output *telem.Series) {
+func Or(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
 	maxLen := lhsLen
@@ -5602,7 +5602,7 @@ func OrBool(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
-func NotBool(input telem.Series, output *telem.Series) {
+func Not(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
 

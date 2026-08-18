@@ -236,7 +236,7 @@ func NewHost(
 				return 0
 			}
 			result := telem.Series{DataType: telem.BooleanT}
-			op.NotBool(ser, &result)
+			op.Not(ser, &result)
 			return s.Store(result)
 		}).Export("not_bool")
 	if _, err := builder.Instantiate(ctx); err != nil {
@@ -286,21 +286,12 @@ func bindBool(
 		name string
 		fn   func(telem.Series, telem.Series, *telem.Series)
 	}{
-		{"and_bool", op.AndBool},
-		{"or_bool", op.OrBool},
+		{"and_bool", op.And},
+		{"or_bool", op.Or},
 	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
-				s1, ok1 := s.Get(h1)
-				s2, ok2 := s.Get(h2)
-				if !ok1 || !ok2 {
-					return 0
-				}
-				result := telem.Series{DataType: telem.BooleanT}
-				fn(s1, s2, &result)
-				return s.Store(result)
-			}).Export(entry.name)
+		builder = bindSeriesBinary(
+			builder, s, entry.name, "logical operation", telem.BooleanT, entry.fn,
+		)
 	}
 	for _, entry := range []struct {
 		name string
@@ -403,21 +394,14 @@ func bindBitwiseSeries[T any](
 		{"series_shl_", ops.shl},
 		{"series_shr_", ops.shr},
 	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
-				s1, ok1 := s.Get(h1)
-				s2, ok2 := s.Get(h2)
-				if !ok1 || !ok2 {
-					return 0
-				}
-				if s1.Len() != s2.Len() {
-					panic("arc panic: series length mismatch in bitwise operation")
-				}
-				result := telem.Series{DataType: s1.DataType}
-				fn(s1, s2, &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
+		builder = bindSeriesBinary(
+			builder,
+			s,
+			entry.name+suffix,
+			"bitwise operation",
+			telem.UnknownT,
+			entry.fn,
+		)
 	}
 	return builder
 }
@@ -697,6 +681,35 @@ func bindCompareScalarI32[T i32Scalar](
 	return builder
 }
 
+// bindSeriesBinary registers a host function that takes two series handles and
+// stores the result of fn. UnknownT as resultDT keeps the left operand's type.
+func bindSeriesBinary(
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+	name, opName string,
+	resultDT telem.DataType,
+	fn func(telem.Series, telem.Series, *telem.Series),
+) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
+			s1, ok1 := s.Get(h1)
+			s2, ok2 := s.Get(h2)
+			if !ok1 || !ok2 {
+				return 0
+			}
+			if s1.Len() != s2.Len() {
+				panic("arc panic: series length mismatch in " + opName)
+			}
+			dt := resultDT
+			if dt == telem.UnknownT {
+				dt = s1.DataType
+			}
+			result := telem.Series{DataType: dt}
+			fn(s1, s2, &result)
+			return s.Store(result)
+		}).Export(name)
+}
+
 func bindSeriesOps[T any](
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
@@ -714,22 +727,9 @@ func bindSeriesOps[T any](
 		{"series_div_", ops.div, "division"},
 		{"series_mod_", ops.mod, "modulo"},
 	} {
-		fn := entry.fn
-		opName := entry.op
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
-				s1, ok1 := s.Get(h1)
-				s2, ok2 := s.Get(h2)
-				if !ok1 || !ok2 {
-					return 0
-				}
-				if s1.Len() != s2.Len() {
-					panic("arc panic: series length mismatch in " + opName)
-				}
-				result := telem.Series{DataType: s1.DataType}
-				fn(s1, s2, &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
+		builder = bindSeriesBinary(
+			builder, s, entry.name+suffix, entry.op, telem.UnknownT, entry.fn,
+		)
 	}
 	return builder
 }
@@ -751,21 +751,9 @@ func bindCompareOps[T any](
 		{"compare_eq_", ops.eq},
 		{"compare_ne_", ops.ne},
 	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
-				s1, ok1 := s.Get(h1)
-				s2, ok2 := s.Get(h2)
-				if !ok1 || !ok2 {
-					return 0
-				}
-				if s1.Len() != s2.Len() {
-					panic("arc panic: series length mismatch in comparison")
-				}
-				result := telem.Series{DataType: telem.BooleanT}
-				fn(s1, s2, &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
+		builder = bindSeriesBinary(
+			builder, s, entry.name+suffix, "comparison", telem.BooleanT, entry.fn,
+		)
 	}
 	return builder
 }
