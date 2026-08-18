@@ -35,7 +35,6 @@ class NICounterReadForms(NIRackCase):
             task_name="CI_Test_task",
             sample_rate=100,
             stream_rate=20,
-            data_saving=True,
             auto_start=False,
         )
 

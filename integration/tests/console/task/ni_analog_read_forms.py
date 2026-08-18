@@ -35,7 +35,6 @@ class NIAnalogReadForms(NIRackCase):
             task_name="Test_task",
             sample_rate=100,
             stream_rate=20,
-            data_saving=True,
             auto_start=False,
         )
 

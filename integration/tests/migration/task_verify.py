@@ -85,7 +85,9 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         assert self.tsk._internal.type == self.task_type, (
             f"Expected type '{self.task_type}', got '{self.tsk._internal.type}'"
         )
-        assert self.tsk.config.data_saving is True, "data_saving should be True"
+        assert self.tsk.config.data_saving_disabled is False, (
+            "data saving should stay enabled"
+        )
         assert len(self.tsk.config.channels) == self.num_channels, (
             f"Expected {self.num_channels} channels, "
             f"got {len(self.tsk.config.channels)}"

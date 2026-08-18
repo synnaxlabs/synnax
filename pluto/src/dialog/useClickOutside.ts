@@ -10,7 +10,34 @@
 import { box, xy } from "@synnaxlabs/x";
 import { type RefObject, useCallback, useEffect } from "react";
 
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@/hooks";
+
+/**
+ * Marks an element as the logical parent of a portaled subtree. Set it on the element
+ * a portal renders from, and set {@link PORTAL_OWNER_ATTR} to the same value on the
+ * portaled element.
+ */
+export const PORTAL_ID_ATTR = "data-portal-id";
+
+/** Points a portaled element at the {@link PORTAL_ID_ATTR} of its logical parent. */
+export const PORTAL_OWNER_ATTR = "data-portal-owner";
+
+/**
+ * Whether the target sits inside el, following portal ownership links so a portaled
+ * subtree counts as inside the element it renders from.
+ */
+const contains = (el: HTMLElement, target: Node | null): boolean => {
+  let node: Node | null = target;
+  while (node != null) {
+    if (el.contains(node)) return true;
+    const element = node instanceof Element ? node : node.parentElement;
+    const portal = element?.closest(`[${PORTAL_OWNER_ATTR}]`);
+    if (portal == null) return false;
+    const owner = portal.getAttribute(PORTAL_OWNER_ATTR);
+    node = document.querySelector(`[${PORTAL_ID_ATTR}="${owner}"]`);
+  }
+  return false;
+};
 
 export interface UseClickOutsideProps {
   ref: RefObject<HTMLElement | null>;
@@ -45,7 +72,7 @@ export const useClickOutside = ({
 
       if (
         el == null ||
-        el.contains(e.target as Node) ||
+        contains(el, e.target as Node) ||
         box.contains(el, pos) ||
         !box.contains(windowBox, pos)
       )

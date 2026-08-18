@@ -223,10 +223,10 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("Opening renamed Arc")
         self.console.arc.open(self.new_name)
 
-        self.log("Re-configuring with new name")
+        self.log("Re-deploying with new name")
         assert self.rack is not None
         self.console.arc.select_rack(self.rack.name)
-        self.console.arc.configure()
+        self.console.arc.deploy()
 
         # Re-deploy auto-starts the task (auto_start is set in the task config
         # by load_arc), so the Arc is already running with the new name here.

@@ -37,7 +37,6 @@ class NIAnalogWriteForms(NIRackCase):
         ni_ao.set_parameters(
             task_name="AO_Test_task",
             state_update_rate=10,
-            data_saving=True,
             auto_start=False,
         )
 
