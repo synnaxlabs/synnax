@@ -205,12 +205,17 @@ export const StateOverrideForm = (): ReactElement => {
     [originalStates],
   );
 
+  // The form can swap to a different symbol's overrides beneath the locally
+  // held selection, so fall back to the first state when the key disappears.
+  const shownState =
+    selectedState != null && states.includes(selectedState) ? selectedState : states[0];
+
   return (
     <Flex.Box y align="stretch">
       {states.length > 1 && (
         <Select.Buttons
           keys={states}
-          value={selectedState}
+          value={shownState}
           onChange={setSelectedState}
           full="x"
         >
@@ -221,9 +226,9 @@ export const StateOverrideForm = (): ReactElement => {
           ))}
         </Select.Buttons>
       )}
-      {selectedState != null && (
+      {shownState != null && (
         <RegionList
-          selectedState={selectedState}
+          selectedState={shownState}
           onReset={resetRegion}
           getOriginalRegion={getOriginalRegion}
         />
