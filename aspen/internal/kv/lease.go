@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-var ErrLeaseNotTransferable = errors.New("cannot transfer lease")
+var errLeaseNotTransferable = errors.New("cannot transfer lease")
 
 const nodeKeyDefaultLeaseholder node.Key = 0
 
@@ -46,7 +46,7 @@ func (la *leaseAllocator) allocate(
 		} else if lh != op.Leaseholder {
 			// If the Leaseholder doesn't match the previous Leaseholder,
 			// we return an error.
-			return op, ErrLeaseNotTransferable
+			return op, errLeaseNotTransferable
 		}
 	} else if errors.Is(err, query.ErrNotFound) && op.Variant == change.VariantSet {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {

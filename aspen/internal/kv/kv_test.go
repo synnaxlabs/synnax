@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -108,9 +107,8 @@ var _ = Describe("txn", func() {
 					kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 					MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
-					err := kv1.Set(ctx, []byte("key"), []byte("value2"), node.Key(2))
-					Expect(err).To(HaveOccurred())
-					Expect(errors.Is(err, kv.ErrLeaseNotTransferable)).To(BeTrue())
+					Expect(kv1.Set(ctx, []byte("key"), []byte("value2"), node.Key(2))).
+						To(MatchError(ContainSubstring("cannot transfer lease")))
 				})
 		})
 
