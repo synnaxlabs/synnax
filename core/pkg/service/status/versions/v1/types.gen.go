@@ -29,13 +29,16 @@ const (
 	VariantDisabled Variant = v0.VariantDisabled
 )
 
+// Key is a unique identifier for a status.
+type Key = v0.Key
+
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] struct {
 	// Key is a unique identifier for this status, auto-generated if not provided.
-	Key string `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	// Name is an optional human-readable name for the status.
 	Name string `json:"name" msgpack:"name"`
 	// Variant indicates the severity of the status. One of success, info, warning,

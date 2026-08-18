@@ -23,10 +23,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/codegen"
 	"github.com/synnaxlabs/oracle/format"
-	"github.com/synnaxlabs/oracle/output"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
-	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"golang.org/x/sync/errgroup"
@@ -36,7 +34,7 @@ func newSyncCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
 		Short: "Sync generated code, only writing changed files",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := runSync(cmd); err != nil {
 				printError(err.Error())
 				return err
@@ -89,7 +87,7 @@ func runSync(cmd *cobra.Command) error {
 	printFormattingDone(formattedSchemas)
 
 	for name, files := range result.Outputs {
-		output.PluginDone(name, len(files))
+		printPluginDone(name, len(files))
 	}
 
 	formatters, err := format.Default(repoRoot)
@@ -120,21 +118,6 @@ func runSync(cmd *cobra.Command) error {
 		}
 	}
 
-	for pluginName, files := range syncResult.ByPlugin {
-		p := registry.Get(pluginName)
-		if pw, ok := p.(plugin.PostWriter); ok {
-			absPaths := make([]string, len(files))
-			for i, f := range files {
-				absPaths[i] = filepath.Join(repoRoot, f)
-			}
-			if err := pw.PostWrite(absPaths); err != nil {
-				printDim(
-					fmt.Sprintf("post-write hook for %s failed: %v", pluginName, err),
-				)
-			}
-		}
-	}
-
 	for _, files := range result.Deletions {
 		for _, deletePath := range files {
 			abs := filepath.Join(repoRoot, deletePath)
@@ -156,11 +139,10 @@ func runSync(cmd *cobra.Command) error {
 		printDim(fmt.Sprintf("save cache: %v", err))
 	}
 
-	// buf generate emits .pb.go and _grpc.pb.go files alongside their
-	// .proto sources without a license header. Run them through the
-	// same formatter chain the oracle plugin outputs use so the header
-	// is added and gofmt is applied. Idempotent on cached / unchanged
-	// files because the license formatter no-ops when a header is
+	// buf generate emits .pb.go and _grpc.pb.go files alongside their .proto sources
+	// without a license header. Run them through the same formatter chain the oracle
+	// plugin outputs use so the header is added and gofmt is applied. Idempotent on
+	// cached / unchanged files because the license formatter no-ops when a header is
 	// already present and gofmt is stable.
 	if !bufResult.Cached {
 		if _, err := codegen.FormatBufOutputs(
@@ -180,33 +162,31 @@ func runSync(cmd *cobra.Command) error {
 	return nil
 }
 
-// writeSchemaSources rewrites each schema file whose canonical formatted
-// bytes differ from the on-disk source. Returns the count of files actually
-// rewritten. The pipeline already produced FormattedSources in memory; this
-// is the on-disk projection of that step.
+// writeSchemaSources rewrites each schema file whose canonical bytes differ from the
+// on-disk source: the formatter's output, or the merged live projection for a versioned
+// resource. Returns the count of files actually rewritten.
 func writeSchemaSources(result *pipeline.Result, repoRoot string) (int, error) {
-	formatted := 0
+	written := 0
 	for _, rel := range result.Schemas {
-		canonical := result.FormattedSources[rel]
+		canonical := result.EffectiveSource(rel)
 		raw := result.Sources[rel]
 		if string(canonical) == string(raw) {
 			continue
 		}
 		abs := paths.Resolve(rel, repoRoot)
 		if err := os.WriteFile(abs, canonical, 0o644); err != nil {
-			return formatted, errors.Wrapf(err, "failed to write %s", abs)
+			return written, errors.Wrapf(err, "failed to write %s", abs)
 		}
-		formatted++
+		written++
 	}
-	return formatted, nil
+	return written, nil
 }
 
-// syncOutputs is the on-disk projection of the pipeline's plugin outputs.
-// For each generated file it consults the cache, formats only on cache
-// miss, byte-compares against the existing on-disk file, and writes only
-// when the canonical bytes differ. The cache stores the SHA-256 of the
-// raw (pre-format) plugin bytes for each path so repeat runs can skip the
-// formatter chain entirely when nothing has changed.
+// syncOutputs is the on-disk projection of the pipeline's plugin outputs. For each
+// generated file it consults the cache, formats only on cache miss, byte-compares
+// against the existing on-disk file, and writes only when the canonical bytes differ.
+// The cache stores the SHA-256 of the raw (pre-format) plugin bytes for each path so
+// repeat runs can skip the formatter chain entirely when nothing has changed.
 func syncOutputs(
 	ctx context.Context,
 	result *pipeline.Result,
@@ -244,12 +224,11 @@ func syncOutputs(
 				return nil, errors.Wrapf(err, "read existing %s", absPath)
 			}
 
-			// Skip the format + write only when the cache says BOTH the
-			// raw plugin output is unchanged AND the on-disk file still
-			// matches the canonical bytes the previous run wrote. The
-			// second check is what makes the cache safe across formatter
-			// upgrades and hand edits: if anything drifts, fall through
-			// and re-format.
+			// Skip the format + write only when the cache says BOTH the raw plugin
+			// output is unchanged AND the on-disk file still matches the canonical
+			// bytes the previous run wrote. The second check is what makes the cache
+			// safe across formatter upgrades and hand edits: if anything drifts, fall
+			// through and re-format.
 			if existing != nil {
 				if entry, hit := cache.Lookup(f.Path); hit &&
 					entry.Raw == rawHash &&
@@ -340,9 +319,9 @@ type syncResult struct {
 	Skipped   []string
 }
 
-// expandGlobs is preserved for `oracle fmt` which still accepts arbitrary
-// user-provided patterns (e.g. `oracle fmt schemas/rack.oracle`). The
-// canonical schema-discovery path is pipeline.DiscoverSchemas.
+// expandGlobs is preserved for `oracle fmt` which still accepts arbitrary user-provided
+// patterns (e.g. `oracle fmt schemas/rack.oracle`). The canonical schema-discovery path
+// is pipeline.DiscoverSchemas.
 func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 	var files []string
 	for _, pattern := range patterns {

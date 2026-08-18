@@ -53,9 +53,9 @@ var _ = Describe("v0 -> v1 Status migration", func() {
 				},
 			}
 			MustOpen(gorp.OpenTable(
-				ctx, gorp.TableConfig[string, v0.Status[any]]{DB: db},
+				ctx, gorp.TableConfig[v0.Key, v0.Status[any]]{DB: db},
 			))
-			Expect(gorp.NewCreate[string, v0.Status[any]]().
+			Expect(gorp.NewCreate[v0.Key, v0.Status[any]]().
 				Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -65,8 +65,8 @@ var _ = Describe("v0 -> v1 Status migration", func() {
 			})).To(Succeed())
 
 			var got v1.Status[any]
-			Expect(gorp.NewRetrieve[string, v1.Status[any]]().
-				Where(gorp.MatchKeys[string, v1.Status[any]](seed.Key)).
+			Expect(gorp.NewRetrieve[v1.Key, v1.Status[any]]().
+				Where(gorp.MatchKeys[v1.Key, v1.Status[any]](seed.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			Expect(got.Key).To(Equal(seed.Key))
 			Expect(got.Name).To(Equal(seed.Name))

@@ -1,0 +1,60 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/status/v0"
+
+Key uint32 {
+    @doc value  """
+        is a composite identifier for a rack. The high 16 bits contain the Core key, and
+        the low 16 bits contain the local sequential key. A rack is leased to the Core
+        named in its high bits, so writes route to the Core running its Driver.
+    """
+    @go marshal flex
+}
+
+StatusDetails struct {
+    rack Key {
+        @doc value "is the key of the rack this status pertains to."
+    }
+
+    @doc value "contains rack-specific status details."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is rack-specific status information including operational state."
+}
+
+Rack struct {
+    key          Key      {
+        @doc value "uniquely identifies the rack in the cluster."
+        @key
+    }
+    name         string   {
+        @doc value "is a human-readable name for the rack."
+    }
+    task_counter uint32 = 0 {
+        @doc value """
+            is the number of tasks ever created on the rack, used to issue sequential
+            local task keys.
+        """
+    }
+    embedded     bool = false {
+        @doc value "is true when the rack runs the node's embedded Driver."
+    }
+    status       Status?  {
+        @doc value "is the last known status of the rack, if any."
+    }
+    integrations string[] = [] {
+        @doc value "are the Driver integrations the rack supports."
+    }
+
+    @doc value  "is a manager for a collection of tasks deployed on a node."
+    @go marshal
+    @go migrate
+}

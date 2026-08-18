@@ -13,7 +13,7 @@ package versions
 
 import "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 
-// Units enumerates the engineering units an NI analog channel can report.
+// Units enumerates the engineering units for NI analog channel values.
 type Units = v2.Units
 
 const (
@@ -516,7 +516,7 @@ const (
 	CIMeasMethodDynamicAvg   CIMeasMethod = v2.CIMeasMethodDynamicAvg
 )
 
-// CIFreqUnits are the units of a frequency measurement.
+// CIFreqUnits are the unit options for a counter frequency channel.
 type CIFreqUnits = v2.CIFreqUnits
 
 const (

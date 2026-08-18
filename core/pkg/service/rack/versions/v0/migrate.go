@@ -118,7 +118,7 @@ func backfillStatuses(
 		return nil
 	}
 
-	statusKeys := lo.Map(racks, func(r Rack, _ int) string {
+	statusKeys := lo.Map(racks, func(r Rack, _ int) status.Key {
 		return r.OntologyID().String()
 	})
 	var existingStatuses []status.Status[StatusDetails]
@@ -128,7 +128,7 @@ func backfillStatuses(
 		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	existingKeys := make(set.Set[string])
+	existingKeys := make(set.Set[status.Key])
 	for _, stat := range existingStatuses {
 		existingKeys.Add(stat.Key)
 	}

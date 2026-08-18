@@ -23,7 +23,7 @@ export const baseChannelZ = z.object({
   name: z.string().default(""),
   /** disabled is true when the channel is excluded from the task. */
   disabled: z.boolean().default(false),
-  /** nodeId is the OPC UA node id the channel is bound to. */
+  /** nodeId is the OPC UA node ID the channel is bound to. */
   nodeId: z.string().default(""),
   /** nodeName is the browse name of the OPC UA node. */
   nodeName: z.string().default(""),
@@ -32,7 +32,7 @@ export const baseChannelZ = z.object({
 });
 export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
 
-export const scanConfigZ = task.baseScanConfigZ;
+export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 export const readChannelZ = baseChannelZ.extend({
@@ -46,7 +46,7 @@ export const writeChannelZ = baseChannelZ.extend({
 });
 export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
 
-export const readConfigZ = task.baseReadConfigZ
+export const readConfigZ = task.readConfigZ
   .omit({ sampleRate: true, streamRate: true })
   .extend({
     sampleRate: z.number().default(50),
@@ -58,7 +58,7 @@ export const readConfigZ = task.baseReadConfigZ
   });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = task.baseWriteConfigZ.extend({
+export const writeConfigZ = task.writeConfigZ.extend({
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

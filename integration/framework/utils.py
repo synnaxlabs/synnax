@@ -98,6 +98,22 @@ def create_indexed_channel(
     )
 
 
+def create_indexed_channels(
+    client: sy.Synnax,
+    names: list[str],
+    index_key: int,
+    data_type: sy.DataType = sy.DataType.FLOAT32,
+) -> list[sy.Channel]:
+    """Create (or retrieve) many channels on one index in a single round-trip."""
+    channels = [
+        sy.Channel(name=name, data_type=data_type, index=index_key) for name in names
+    ]
+    created: list[sy.Channel] = client.channels.create(
+        channels, retrieve_if_name_exists=True
+    )
+    return created
+
+
 def create_indexed_pair(
     client: sy.Synnax,
     name: str,

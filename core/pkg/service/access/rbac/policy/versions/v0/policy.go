@@ -11,19 +11,8 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
-
-// Policy represents the old policy format with a Subjects field that associated
-// policies directly with users. Used only for reading legacy data during migration.
-type Policy struct {
-	Subjects []ontology.ID   `json:"subjects" msgpack:"subjects"`
-	Objects  []ontology.ID   `json:"objects"  msgpack:"objects"`
-	Actions  []access.Action `json:"actions"  msgpack:"actions"`
-	Key      uuid.UUID       `json:"key"      msgpack:"key"`
-}
 
 var _ gorp.Entry[uuid.UUID] = Policy{}
 

@@ -41,7 +41,6 @@ type StructForm struct {
 	Extends       []TypeRef
 	OmittedFields []string
 	IsRecursive   bool
-	HasKeyDomain  bool
 }
 
 func (StructForm) typeForm() {}
@@ -223,10 +222,6 @@ func (r TypeRef) IsTypeParam() bool {
 
 func (r TypeRef) Resolve(table *Table) (Type, bool) {
 	return table.Get(r.Name)
-}
-
-func (r TypeRef) MustResolve(table *Table) Type {
-	return table.MustGet(r.Name)
 }
 
 // IsDistinct reports whether ref resolves to a distinct type. Primitives and

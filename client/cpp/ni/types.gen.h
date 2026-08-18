@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/config/types.gen.h"
+#include "client/cpp/device/key.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -337,9 +337,9 @@ struct DOChannel {
 };
 
 /// @brief WriteConfig carries the configuration fields shared by NI write tasks.
-struct WriteConfig : public ::synnax::task::config::BaseWrite {
+struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
-    /// hertz.
+    /// Hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(10);
 
     static WriteConfig parse(x::json::Parser parser);
@@ -347,7 +347,7 @@ struct WriteConfig : public ::synnax::task::config::BaseWrite {
 };
 
 /// @brief ScanConfig configures the NI device scanner task.
-struct ScanConfig : public ::synnax::task::config::BaseScan {
+struct ScanConfig : public ::synnax::task::ScanConfig {
     /// @brief ignored_models are regex patterns matching the device models the scan
     /// skips.
     std::vector<std::string> ignored_models = {"^cRIO.*", "^nown.*"};
@@ -392,7 +392,7 @@ CJC parse_cjc(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const CJC &value);
 
 /// @brief DigitalReadConfig configures an NI digital read task.
-struct DigitalReadConfig : public ::synnax::task::config::BaseRead {
+struct DigitalReadConfig : public ::synnax::task::ReadConfig {
     /// @brief device is the key of the device the task acquires from.
     ::synnax::device::Key device = "";
     /// @brief channels are the digital input channels the task acquires.
@@ -546,7 +546,7 @@ struct TwoPointLin {
 struct CurrentExcitation {
     /// @brief current_excit_source selects the source of the current excitation signal.
     std::string current_excit_source = EXCITATION_SOURCE_INTERNAL;
-    /// @brief current_excit_val is the current excitation level, in amps.
+    /// @brief current_excit_val is the current excitation level, in Amps.
     double current_excit_val = 0;
 
     static CurrentExcitation parse(x::json::Parser parser);
@@ -557,7 +557,7 @@ struct CurrentExcitation {
 struct VoltageExcitation {
     /// @brief voltage_excit_source selects the source of the voltage excitation signal.
     std::string voltage_excit_source = EXCITATION_SOURCE_INTERNAL;
-    /// @brief voltage_excit_val is the voltage excitation level, in volts.
+    /// @brief voltage_excit_val is the voltage excitation level, in Volts.
     double voltage_excit_val = 0;
 
     static VoltageExcitation parse(x::json::Parser parser);
@@ -579,7 +579,7 @@ struct Bridge {
     /// @brief bridge_config selects the physical bridge wiring.
     std::string bridge_config = BRIDGE_CONFIG_FULL_BRIDGE;
     /// @brief nominal_bridge_resistance is the nominal resistance of the bridge, in
-    /// ohms.
+    /// Ohms.
     double nominal_bridge_resistance = 1;
 
     static Bridge parse(x::json::Parser parser);
@@ -600,7 +600,8 @@ struct Resistance {
 struct ZIndex {
     /// @brief z_index_enable is true when the encoder's Z index resets the count.
     bool z_index_enable = false;
-    /// @brief z_index_val is the count value the Z index resets to.
+    /// @brief z_index_val is the value the measurement resets to when the Z index is
+    /// active.
     double z_index_val = 0;
     /// @brief z_index_phase selects the A/B states at which the Z index is active.
     std::string z_index_phase = Z_INDEX_PHASE_A_HIGH_B_HIGH;
@@ -674,7 +675,7 @@ struct AICurrentChannel : public BaseAIChannel,
     std::string units = UNITS_AMPS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
-    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in ohms.
+    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
     double ext_shunt_resistor_val = 1;
 
     static AICurrentChannel parse(x::json::Parser parser);
@@ -810,7 +811,7 @@ struct AIRTDChannel : public BaseAIChannel,
     std::string units = TEMPERATURE_UNITS_DEG_C;
     /// @brief rtd_type selects the RTD resistance-temperature curve.
     std::string rtd_type = RTD_TYPE_PT_3750;
-    /// @brief r0 is the sensor resistance at 0 degrees Celsius, in ohms.
+    /// @brief r0 is the sensor resistance at 0 degrees Celsius, in Ohms.
     double r0 = 0;
 
     static AIRTDChannel parse(x::json::Parser parser);
@@ -832,11 +833,11 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
     /// @brief initial_bridge_voltage is the bridge output voltage in the unloaded
     /// state.
     double initial_bridge_voltage = 0;
-    /// @brief nominal_gage_resistance is the nominal gauge resistance, in ohms.
+    /// @brief nominal_gage_resistance is the nominal gauge resistance, in Ohms.
     double nominal_gage_resistance = 0;
-    /// @brief poisson_ratio is the Poisson ratio of the gauge material.
+    /// @brief poisson_ratio is the Poisson ratio of the measured material.
     double poisson_ratio = 0;
-    /// @brief lead_wire_resistance is the resistance of the lead wires, in ohms.
+    /// @brief lead_wire_resistance is the resistance of the lead wires, in Ohms.
     double lead_wire_resistance = 0;
 
     static AIStrainGaugeChannel parse(x::json::Parser parser);
@@ -953,8 +954,7 @@ struct AIAccelChargeChannel : public BaseAIChannel,
     std::string units = ACCEL_UNITS_G;
     /// @brief sensitivity is the sensitivity of the accelerometer.
     double sensitivity = 0;
-    /// @brief sensitivity_units are the units of the accelerometer's sensitivity
-    /// rating.
+    /// @brief sensitivity_units are the units of the accelerometer sensitivity.
     std::string sensitivity_units = ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G;
 
     static AIAccelChargeChannel parse(x::json::Parser parser);
@@ -984,7 +984,7 @@ struct AICurrentRMSChannel : public BaseAIChannel,
     std::string units = UNITS_AMPS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
-    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in ohms.
+    /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
     double ext_shunt_resistor_val = 1;
 
     static AICurrentRMSChannel parse(x::json::Parser parser);
@@ -1076,7 +1076,7 @@ struct AIThermistorVexChannel : public BaseAIChannel,
     double b = 0;
     /// @brief c is the third Steinhart-Hart coefficient.
     double c = 0;
-    /// @brief r1 is the reference resistor value, in ohms.
+    /// @brief r1 is the reference resistor value, in Ohms.
     double r1 = 0;
 
     static AIThermistorVexChannel parse(x::json::Parser parser);
@@ -1215,9 +1215,9 @@ struct CIEdgeCountChannel : public BaseCIChannel {
 /// @brief CIPeriodChannel measures signal period.
 struct CIPeriodChannel : public BaseCIChannel, public CustomScale {
     std::string type = "ci_period";
-    /// @brief min_val is the minimum expected period, in seconds.
+    /// @brief min_val is the minimum expected period, in the selected units.
     double min_val = 0.000001;
-    /// @brief max_val is the maximum expected period, in seconds.
+    /// @brief max_val is the maximum expected period, in the selected units.
     double max_val = 0.100000;
     /// @brief units are the units of the period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
@@ -1240,9 +1240,9 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale {
 /// @brief CIPulseWidthChannel measures pulse width.
 struct CIPulseWidthChannel : public BaseCIChannel, public CustomScale {
     std::string type = "ci_pulse_width";
-    /// @brief min_val is the minimum expected pulse width, in seconds.
+    /// @brief min_val is the minimum expected pulse width, in the selected units.
     double min_val = 0.000001;
-    /// @brief max_val is the maximum expected pulse width, in seconds.
+    /// @brief max_val is the maximum expected pulse width, in the selected units.
     double max_val = 0.100000;
     /// @brief units are the units of the pulse-width measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
@@ -1258,9 +1258,9 @@ struct CIPulseWidthChannel : public BaseCIChannel, public CustomScale {
 /// @brief CISemiPeriodChannel measures semi-period.
 struct CISemiPeriodChannel : public BaseCIChannel, public CustomScale {
     std::string type = "ci_semi_period";
-    /// @brief min_val is the minimum expected semi-period, in seconds.
+    /// @brief min_val is the minimum expected semi-period, in the selected units.
     double min_val = 0.000001;
-    /// @brief max_val is the maximum expected semi-period, in seconds.
+    /// @brief max_val is the maximum expected semi-period, in the selected units.
     double max_val = 0.100000;
     /// @brief units are the units of the semi-period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
@@ -1274,9 +1274,9 @@ struct CISemiPeriodChannel : public BaseCIChannel, public CustomScale {
 /// @brief CITwoEdgeSepChannel measures the separation between two edges.
 struct CITwoEdgeSepChannel : public BaseCIChannel, public CustomScale {
     std::string type = "ci_two_edge_sep";
-    /// @brief min_val is the minimum expected separation, in seconds.
+    /// @brief min_val is the minimum expected separation, in the selected units.
     double min_val = 0.000001;
-    /// @brief max_val is the maximum expected separation, in seconds.
+    /// @brief max_val is the maximum expected separation, in the selected units.
     double max_val = 1;
     /// @brief units are the units of the two-edge-separation measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
@@ -1430,7 +1430,7 @@ struct AOFuncGenChannel : public BaseAOChannel {
     std::string type = "ao_func_gen";
     /// @brief wave_type selects the waveform to generate.
     std::string wave_type = WAVE_TYPE_SINE;
-    /// @brief frequency is the waveform frequency, in hertz.
+    /// @brief frequency is the waveform frequency, in Hertz.
     double frequency = 0;
     /// @brief amplitude is the waveform amplitude.
     double amplitude = 0;
@@ -1460,7 +1460,7 @@ AOChannel parse_ao_channel(x::json::Parser parser);
 
 /// @brief AnalogReadConfig configures an NI analog read task. Each channel carries its
 /// own device.
-struct AnalogReadConfig : public ::synnax::task::config::BaseRead {
+struct AnalogReadConfig : public ::synnax::task::ReadConfig {
     /// @brief channels are the analog input channels the task acquires.
     std::vector<AIChannel> channels;
 
@@ -1470,7 +1470,7 @@ struct AnalogReadConfig : public ::synnax::task::config::BaseRead {
 
 /// @brief CounterReadConfig configures an NI counter read task. Each channel carries
 /// its own device.
-struct CounterReadConfig : public ::synnax::task::config::BaseRead {
+struct CounterReadConfig : public ::synnax::task::ReadConfig {
     /// @brief channels are the counter input channels the task acquires.
     std::vector<CIChannel> channels;
 

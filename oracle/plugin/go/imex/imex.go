@@ -19,29 +19,27 @@ package imex
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
-
-// goModulePrefix resolves repo-relative output paths to Go import paths when no go.mod
-// is discoverable, mirroring the go/types plugin.
-const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
 // Options configures the imex plugin output.
 type Options struct {
@@ -76,28 +74,11 @@ func (*Plugin) Name() string       { return "go/imex" }
 func (*Plugin) Domains() []string  { return []string{"go"} }
 func (*Plugin) Requires() []string { return []string{"go/types"} }
 
-// Check reports a Plugin constructed without one of the import paths the templates
-// qualify against, which would emit files that do not compile.
-func (p *Plugin) Check(*plugin.Request) error {
-	if p.options.RuntimeImportPath == "" {
-		return errors.New("go/imex requires Options.RuntimeImportPath")
-	}
-	if p.options.OntologyImportPath == "" {
-		return errors.New("go/imex requires Options.OntologyImportPath")
-	}
-	return nil
-}
-
-var goPostWriter = &exec.PostWriter{Commands: [][]string{{"gofmt", "-w"}}}
-
-// PostWrite runs gofmt on the generated files.
-func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(files) }
-
 // Generate emits imex machinery for every output package whose type declares @go imex:
 // one Version constant per versions/vK package the Core has exported, Latest plus the
 // autoDecodeEnvelope ladder in the versions package root, and Service.Export in the
 // service package. Versions below the floor predate Core export, so their constant is
-// deleted instead. It errors when a marked type lacks a @go version, when two types at
+// deleted instead. It errors when a marked type has no version chain, when two types at
 // the same path both carry the marker, or when a version package on disk does not
 // parse.
 //
@@ -105,6 +86,15 @@ func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(f
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
 // to compile.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	// The templates qualify against these import paths; emitting without them
+	// would produce files that do not compile.
+	if p.options.RuntimeImportPath == "" {
+		return nil, errors.New("go/imex requires Options.RuntimeImportPath")
+	}
+	if p.options.OntologyImportPath == "" {
+		return nil, errors.New("go/imex requires Options.OntologyImportPath")
+	}
+	ctx := context.Background()
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
 	for _, typ := range req.Resolutions.TypesWithDomain("go") {
@@ -115,12 +105,28 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		version, ok := versioning.Version(typ)
+		livePathForChain := strings.TrimSuffix(typ.FilePath, ".oracle")
+		var chains map[string]versions.Chain
+		if req.Versions != nil {
+			chains = req.Versions.Chains()
+		}
+		chain, ok := chains[livePathForChain]
 		if !ok {
 			return nil, errors.Newf(
-				"%s declares @go imex without @go version", typ.QualifiedName,
+				"%s declares @go imex without a version chain", typ.QualifiedName,
 			)
 		}
+		if ended, err := req.Versions.Ended(
+			ctx, livePathForChain,
+		); err != nil {
+			return nil, err
+		} else if ended {
+			return nil, errors.Newf(
+				"%s declares @go imex, but its version chain ended",
+				typ.QualifiedName,
+			)
+		}
+		version := chain.Current()
 		if prev, dup := declared[outputPath]; dup {
 			return nil, errors.Newf(
 				"duplicate @go imex declarations for %s: %s and %s",
@@ -129,8 +135,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		declared[outputPath] = typ.QualifiedName
 		goName := naming.GetGoName(typ)
-		floor := firstImexVersion(req, typ.QualifiedName, version)
-		for k := floor; k <= version; k++ {
+		livePath := strings.TrimSuffix(typ.FilePath, ".oracle")
+		floor, err := firstImexVersion(ctx, req, livePath, typ.Name, version)
+		if err != nil {
+			return nil, err
+		}
+		exported := exportedVersions(req, livePath, floor, version)
+		for _, k := range exported {
 			path := versioning.VersionedPath(outputPath, k)
 			var buf bytes.Buffer
 			if err := versionTemplate.Execute(&buf, &versionData{
@@ -161,7 +172,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				)
 			}
 		}
-		arms, err := chainArms(req.RepoRoot, outputPath, goName, floor, version)
+		arms, err := chainArms(req.RepoRoot, outputPath, goName, exported)
 		if err != nil {
 			return nil, err
 		}
@@ -171,9 +182,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Arms:       arms,
 			Runtime:    p.options.RuntimeImportPath,
 		}
-		for k := floor; k <= version; k++ {
+		for _, k := range exported {
 			data.Imports = append(data.Imports, gomod.ResolveImportPath(
-				versioning.VersionedPath(outputPath, k), req.RepoRoot, goModulePrefix,
+				versioning.VersionedPath(
+					outputPath,
+					k,
+				),
+				req.RepoRoot,
+				gomod.DefaultModulePrefix,
 			))
 		}
 		var buf bytes.Buffer
@@ -191,7 +207,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Package: naming.DerivePackageName(outputPath),
 			Type:    goName,
 			Versions: gomod.ResolveImportPath(
-				outputPath+"/versions", req.RepoRoot, goModulePrefix,
+				outputPath+"/versions", req.RepoRoot, gomod.DefaultModulePrefix,
 			),
 			Runtime:  p.options.RuntimeImportPath,
 			Ontology: p.options.OntologyImportPath,
@@ -272,53 +288,79 @@ const Version imex.Version = {{.Version}}
 `),
 )
 
-// firstImexVersion returns the earliest @go version at which the type already carried
-// the @go imex marker, walking schema snapshots newest-first. The walk ends at the
-// first snapshot that predates per-resource versioning, lacks the marker, or fails to
-// load; marker history is contiguous. With no marked snapshot the floor is the current
-// version.
-//
-// TEMPORARY: snapshots frozen under earlier grammar and analyzer rules no longer
-// analyze, so erroring on a failed load blocks every sync. Ending the walk early can
-// only raise the floor and drop ladder arms, which is harmless while server-side export
-// is unreleased. The snapshots folder goes away before it ships.
-func firstImexVersion(req *plugin.Request, qualifiedName string, current int) int {
+// firstImexVersion returns the earliest version at which the type  carried the @go imex
+// marker, walking the resource's version chain newest-first. The walk ends at the first
+// version whose file drops the marker or omits the type; marker history is contiguous.
+// Versions below the floor predate Core export.
+func firstImexVersion(
+	ctx context.Context,
+	req *plugin.Request,
+	livePath, name string,
+	current int,
+) (int, error) {
 	floor := current
-	if req.LoadSnapshot == nil || req.SnapshotVersion <= 0 {
-		return floor
+	if req.Versions == nil {
+		return floor, nil
 	}
-	for s := req.SnapshotVersion; s >= 1; s-- {
-		t, err := req.LoadSnapshot(s)
-		if err != nil || t == nil || versioning.PreVersioning(t) {
-			break
-		}
-		typ, ok := t.Get(qualifiedName)
-		if !ok || !domain.HasExprFromType(typ, "go", "imex") {
-			break
-		}
-		v, ok := versioning.Version(typ)
-		if !ok {
-			break
-		}
-		if v < floor {
-			floor = v
-		}
+	chain, ok := req.Versions.Chains()[livePath]
+	if !ok {
+		return floor, nil
 	}
-	return floor
+	for _, k := range slices.Backward(chain.Numbers) {
+
+		if k >= current {
+			continue
+		}
+		surf, err := req.Versions.Surface(ctx, livePath, k)
+		if err != nil {
+			return 0, err
+		}
+		def, member := surf[name]
+		if !member || !domain.HasExprFromType(def.Type, "go", "imex") {
+			break
+		}
+		floor = k
+	}
+	return floor, nil
 }
 
-// chainArms builds one ladder arm per version in [floor, current): each decodes the
+// exportedVersions returns the chain's declared versions in [floor, current]: the
+// versions the Core has exported. Falls back to the bare current version when the
+// resource has no chain.
+func exportedVersions(req *plugin.Request, livePath string, floor, current int) []int {
+	if req.Versions == nil {
+		return []int{current}
+	}
+	chain, ok := req.Versions.Chains()[livePath]
+	if !ok {
+		return []int{current}
+	}
+	out := make([]int, 0, len(chain.Numbers))
+	for _, k := range chain.Numbers {
+		if k >= floor && k <= current {
+			out = append(out, k)
+		}
+	}
+	if len(out) == 0 {
+		return []int{current}
+	}
+	return out
+}
+
+// chainArms builds one ladder arm per exported version below current: each decodes the
 // stamped vK shape and lifts it through every later bump's exported Migrate<Type> step.
-// Alias-only bumps (no step on disk) pass the value through unchanged.
+// Alias-only bumps (no step on disk) pass the value through unchanged. nums holds the
+// chain's declared versions from the floor up to current, which skip the numbers that
+// never got a stored shape.
 func chainArms(
 	repoRoot, outputPath, goName string,
-	floor, current int,
+	nums []int,
 ) ([]chainArm, error) {
-	if floor >= current {
+	if len(nums) < 2 {
 		return nil, nil
 	}
-	steps := make(set.Set[int], current-floor)
-	for j := floor + 1; j <= current; j++ {
+	steps := make(set.Set[int], len(nums)-1)
+	for _, j := range nums[1:] {
 		hasStep, err := migrateStepExists(
 			filepath.Join(repoRoot, versioning.VersionedPath(outputPath, j)), goName,
 		)
@@ -329,8 +371,8 @@ func chainArms(
 			steps.Add(j)
 		}
 	}
-	arms := make([]chainArm, 0, current-floor)
-	for k := floor; k < current; k++ {
+	arms := make([]chainArm, 0, len(nums)-1)
+	for i, k := range nums[:len(nums)-1] {
 		var b strings.Builder
 		cur := fmt.Sprintf("t%d", k)
 		fmt.Fprintf(
@@ -338,7 +380,7 @@ func chainArms(
 			cur, versioning.Dir(k), goName,
 		)
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
-		for j := k + 1; j <= current; j++ {
+		for _, j := range nums[i+1:] {
 			if !steps.Contains(j) {
 				continue
 			}

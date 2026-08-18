@@ -19,7 +19,7 @@
   ],
   "folding": {
     "markers": {
-      "start": "^\\s*(struct|enum|domain)\\s+",
+      "start": "^\\s*(struct|enum|union)\\s+",
       "end": "^\\s*\\}"
     }
   },

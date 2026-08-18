@@ -17,13 +17,11 @@ import (
 	program "github.com/synnaxlabs/arc/program/versions/v0"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for an Arc module.
 type Key = uuid.UUID
-
-// Status is the status of an Arc module including execution state.
-type Status = status.Status[StatusDetails]
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
 type Mode string
@@ -33,6 +31,26 @@ const (
 	ModeGraph Mode = "graph"
 )
 
+// IsValid reports whether m is one of the defined Mode
+// values.
+func (m Mode) IsValid() bool {
+	switch m {
+	case ModeText, ModeGraph:
+		return true
+	default:
+		return false
+	}
+}
+
+// StatusDetails contains Arc-specific status details for execution state.
+type StatusDetails struct {
+	// Running indicates whether the Arc module is currently executing.
+	Running bool `json:"running" msgpack:"running"`
+}
+
+// Status is the status of an Arc module including execution state.
+type Status = status.Status[StatusDetails]
+
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc struct {
@@ -40,8 +58,8 @@ type Arc struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the module.
 	Name string `json:"name" msgpack:"name"`
-	// Mode specifies the representation mode for this module. Either "text" for text-based
-	// Arc code or "graph" for visual dataflow.
+	// Mode specifies the representation mode for this module. Either "text" for
+	// text-based Arc code or "graph" for visual dataflow.
 	Mode Mode `json:"mode" msgpack:"mode"`
 	// Graph is the visual dataflow graph representation of the module.
 	Graph graph.Graph `json:"graph" msgpack:"graph"`
@@ -53,8 +71,10 @@ type Arc struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails struct {
-	// Running indicates whether the Arc module is currently executing.
-	Running bool `json:"running" msgpack:"running"`
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a Arc) Validate() error {
+	v := validate.New("Arc")
+	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
+	return v.Error()
 }

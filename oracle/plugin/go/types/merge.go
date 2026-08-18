@@ -16,10 +16,9 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 )
 
-// mergeByPath appends incoming files to existing, combining any pair that
-// targets the same path into a single Go file. Used to join the version alias
-// re-exports and the transient declarations of a package root into one
-// types.gen.go.
+// mergeByPath appends incoming files to existing, combining any pair that targets the
+// same path into a single Go file. Used to join the version alias re-exports and the
+// transient declarations of a package root into one types.gen.go.
 func mergeByPath(existing, incoming []plugin.File) []plugin.File {
 	byPath := make(map[string]int, len(existing))
 	for i, f := range existing {
@@ -36,9 +35,8 @@ func mergeByPath(existing, incoming []plugin.File) []plugin.File {
 	return existing
 }
 
-// mergeGeneratedGo combines two generated Go files for one package: the header
-// and package clause from a, the union of both import sets, then a's body
-// followed by b's.
+// mergeGeneratedGo combines two generated Go files for one package: the header and
+// package clause from a, the union of both import sets, then a's body followed by b's.
 func mergeGeneratedGo(a, b []byte) []byte {
 	headA, importsA, bodyA := splitGeneratedGo(string(a))
 	_, importsB, bodyB := splitGeneratedGo(string(b))
@@ -48,11 +46,15 @@ func mergeGeneratedGo(a, b []byte) []byte {
 	var out strings.Builder
 	out.WriteString(headA)
 	if len(imports) == 1 {
-		out.WriteString("import " + imports[0] + "\n\n")
+		out.WriteString("import ")
+		out.WriteString(imports[0])
+		out.WriteString("\n\n")
 	} else if len(imports) > 1 {
 		out.WriteString("import (\n")
 		for _, imp := range imports {
-			out.WriteString("\t" + imp + "\n")
+			out.WriteString("\t")
+			out.WriteString(imp)
+			out.WriteString("\n")
 		}
 		out.WriteString(")\n\n")
 	}

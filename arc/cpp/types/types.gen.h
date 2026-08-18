@@ -48,17 +48,17 @@ enum class Kind : std::uint8_t {
     F32 = 9,
     F64 = 10,
     String = 11,
-    Chan = 14,
-    Series = 15,
-    Variable = 16,
-    NumericConstant = 17,
-    IntegerConstant = 18,
-    FloatConstant = 19,
-    ExactIntegerFloatConstant = 20,
-    Function = 21,
-    Sequence = 22,
-    Stage = 23,
-    VarRef = 24,
+    Chan = 12,
+    Series = 13,
+    Variable = 14,
+    NumericConstant = 15,
+    IntegerConstant = 16,
+    FloatConstant = 17,
+    ExactIntegerFloatConstant = 18,
+    Function = 19,
+    Sequence = 20,
+    Stage = 21,
+    VarRef = 22,
 };
 
 enum class ChanDirection : std::uint8_t {
@@ -88,8 +88,7 @@ struct Channels {
     friend std::ostream &operator<<(std::ostream &os, const Channels &c);
 };
 
-/// @brief Dimensions contains physical dimension exponents for dimensional analysis (SI
-/// base quantities).
+/// @brief Dimensions contains dimension exponents for dimensional analysis.
 struct Dimensions {
     /// @brief length is the length dimension exponent (meters).
     std::int8_t length = 0;
@@ -97,13 +96,13 @@ struct Dimensions {
     std::int8_t mass = 0;
     /// @brief time is the time dimension exponent (seconds).
     std::int8_t time = 0;
-    /// @brief current is the electric current dimension exponent (amperes).
+    /// @brief current is the electric current dimension exponent (Amperes).
     std::int8_t current = 0;
-    /// @brief temperature is the temperature dimension exponent (kelvin).
+    /// @brief temperature is the temperature dimension exponent (Kelvin).
     std::int8_t temperature = 0;
     /// @brief angle is the angle dimension exponent (radians).
     std::int8_t angle = 0;
-    /// @brief count is the count dimension exponent (dimensionless quantity).
+    /// @brief count is the count dimension exponent.
     std::int8_t count = 0;
     /// @brief data is the data size dimension exponent (bytes).
     std::int8_t data = 0;

@@ -119,9 +119,7 @@ class ChannelClient:
         self.layout.click_role("button", "Create", exact=True)
         self.layout.wait_for_selector_hidden(self.layout.MODAL_SELECTOR)
         self.show_channels()
-        self.layout.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
-            has=self.layout.get_by_text(str(name), exact=True)
-        ).first.wait_for(state="visible", timeout=5000)
+        self.tree.wait_for_name(self.ITEM_PREFIX, str(name))
         self.hide_channels()
         return True
 
@@ -441,14 +439,8 @@ class ChannelClient:
         :returns: True if the channel exists, False otherwise.
         """
         self.show_channels()
-        channel_name_str = str(name)
-        selector = f"div[id^='{self.ITEM_PREFIX}'] p.pluto-text--editable:has-text('{channel_name_str}')"
         try:
-            # Intentionally short 500ms timeout for quick check
-            self.layout.page.wait_for_selector(selector, state="visible", timeout=500)
-            return True
-        except PlaywrightTimeoutError:
-            return False
+            return self.tree.find_by_name(self.ITEM_PREFIX, str(name)) is not None
         finally:
             self.hide_channels()
 
@@ -473,25 +465,14 @@ class ChannelClient:
         timeout_ms = int(sy.TimeSpan.from_seconds(timeout) / sy.TimeSpan.MILLISECOND)
 
         self.show_channels()
-
         try:
             for name in normalized_names.channels:
-                channel_name_str = str(name)
-                selector = f"div[id^='{self.ITEM_PREFIX}'] p.pluto-text--editable:has-text('{channel_name_str}')"
-                try:
-                    # Variable timeout — cannot use layout wrapper
-                    self.layout.page.wait_for_selector(
-                        selector, state="visible", timeout=timeout_ms
-                    )
-                except PlaywrightTimeoutError:
-                    self.hide_channels()
-                    return False
-
-            self.hide_channels()
+                self.tree.wait_for_name(self.ITEM_PREFIX, str(name), timeout=timeout_ms)
             return True
         except PlaywrightTimeoutError:
-            self.hide_channels()
             return False
+        finally:
+            self.hide_channels()
 
     def rename(
         self,

@@ -65,9 +65,49 @@ export const renderOntologyTree = async ({
   return { ...rendered, store };
 };
 
+const SCROLL_STEP = 200;
+
+/**
+ * Finds the tree label matching text, scrolling the tree when the row sits outside the
+ * window. The tree keeps only the rows near the window mounted, so a label further down
+ * reaches the DOM the same way a user reaches it. Leaves the tree scrolled where the
+ * label was found, and back at the top when there is none.
+ */
+// Sweeps from the top: a previous lookup can leave the tree scrolled past the row.
+const sweepTree = async (text: string): Promise<HTMLElement | null> => {
+  const tree = document.querySelector<HTMLElement>(".pluto-tree");
+  const rows = tree?.querySelector<HTMLElement>(".pluto-list__virtualizer");
+  if (tree == null || rows == null) return null;
+  const total = parseInt(rows.style.minHeight, 10);
+  for (let offset = 0; offset <= total; offset += SCROLL_STEP) {
+    await act(async () => {
+      tree.scrollTop = offset;
+      fireEvent.scroll(tree);
+    });
+    const label = screen.queryByText(text);
+    if (label != null) return label;
+  }
+  return null;
+};
+
+const findTreeLabel = async (text: string): Promise<HTMLElement> => {
+  const mounted = screen.queryByText(text);
+  if (mounted != null) return mounted;
+  const swept = await sweepTree(text);
+  if (swept != null) return swept;
+  // Absent from the data rather than the window: wait for it to load, then sweep again.
+  try {
+    return await screen.findByText(text);
+  } catch (err) {
+    const retried = await sweepTree(text);
+    if (retried != null) return retried;
+    throw err instanceof Error ? err : new Error(String(err), { cause: err });
+  }
+};
+
 /** Finds the rendered tree row containing the given text. */
 export const findTreeRow = async (text: string): Promise<Element> => {
-  const row = (await screen.findByText(text)).closest(".pluto-tree__item");
+  const row = (await findTreeLabel(text)).closest(".pluto-tree__item");
   if (row == null) throw new Error(`tree row for ${text} not found`);
   return row;
 };

@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/config/types.gen.h"
+#include "client/cpp/device/key.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -83,7 +83,7 @@ struct BaseWriteChannel {
 };
 
 /// @brief ScanConfig configures a LabJack scan task.
-struct ScanConfig : public ::synnax::task::config::BaseScan {
+struct ScanConfig : public ::synnax::task::ScanConfig {
     /// @brief tcp_scan_multiplier is the number of scan cycles between TCP device
     /// scans.
     /// USB devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
@@ -165,7 +165,7 @@ WriteChannel parse_write_channel(x::json::Parser parser);
 /// @brief AnalogReadChannel reads a voltage from an analog input port.
 struct AnalogReadChannel : public BaseReadChannel {
     std::string type = "analog";
-    /// @brief range is the upper bound of the voltage input range, in volts.
+    /// @brief range is the upper bound of the voltage input range, in Volts.
     double range = 10;
     /// @brief neg_chan is the negative channel for differential readings on T7 devices.
     /// 199
@@ -206,9 +206,9 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     /// ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN port
     /// (e.g. 'AIN2').
     std::string cjc_source = "TEMPERATURE_DEVICE_K";
-    /// @brief cjc_slope is the CJC voltage-to-temperature slope, in kelvin per volt.
+    /// @brief cjc_slope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
     double cjc_slope = 1;
-    /// @brief cjc_offset is the CJC temperature offset, in kelvins.
+    /// @brief cjc_offset is the CJC temperature offset, in Kelvins.
     double cjc_offset = 0;
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_KELVIN;
@@ -230,9 +230,9 @@ ReadChannel parse_read_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const ReadChannel &value);
 
 /// @brief WriteConfig configures a LabJack write task.
-struct WriteConfig : public ::synnax::task::config::BaseWrite {
+struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
-    /// hertz.
+    /// Hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(10);
     /// @brief channels are the channels the task drives.
     std::vector<WriteChannel> channels;
@@ -242,18 +242,18 @@ struct WriteConfig : public ::synnax::task::config::BaseWrite {
 };
 
 /// @brief ReadConfig configures a LabJack read task.
-struct ReadConfig : public ::synnax::task::config::BaseRead {
+struct ReadConfig : public ::synnax::task::ReadConfig {
     /// @brief device is the key of the device the task acquires from.
     ::synnax::device::Key device = "";
     /// @brief channels are the channels the task acquires.
     std::vector<ReadChannel> channels;
     /// @brief device_scan_backlog_warn_on_count is the device-side scan backlog above
     /// which
-    /// the task reports a skew warning. Zero lets the driver pick two seconds of scans.
+    /// the task reports a skew warning. Zero lets the Driver pick two seconds of scans.
     std::uint32_t device_scan_backlog_warn_on_count = 0;
     /// @brief ljm_scan_backlog_warn_on_count is the LJM-side scan backlog above which
     /// the
-    /// task reports a skew warning. Zero lets the driver pick one second of scans.
+    /// task reports a skew warning. Zero lets the Driver pick one second of scans.
     std::uint32_t ljm_scan_backlog_warn_on_count = 0;
 
     static ReadConfig parse(x::json::Parser parser);

@@ -59,8 +59,8 @@ export const Primary = (): ReactElement => {
             >
               <Nav.Bar.Top />
               <Nav.Bar.Left />
-              <Flex.Box y gap="tiny" className={CSS.BE("main", "content")}>
-                <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
+              <Flex.Box y gap="small" className={CSS.BE("main", "content")}>
+                <Flex.Box x gap="small" grow className={CSS.BE("main", "row")}>
                   <Nav.Drawer.Left />
                   <Mosaic.Mosaic />
                 </Flex.Box>

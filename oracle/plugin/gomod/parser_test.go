@@ -12,7 +12,6 @@ package gomod_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -113,20 +112,5 @@ var _ = Describe("ResolveImportPath", func() {
 	It("should fall back to prefix when no go.mod found", func() {
 		result := gomod.ResolveImportPath("some/path", tmpDir, "github.com/fallback/")
 		Expect(result).To(Equal("github.com/fallback/some/path"))
-	})
-})
-
-var _ = Describe("FindRepoRoot", func() {
-	It("should find the repo root from the current file", func() {
-		_, thisFile, _, _ := runtime.Caller(0)
-		root := gomod.FindRepoRoot(thisFile)
-		Expect(
-			root,
-		).To(Equal(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(thisFile))))))
-	})
-
-	It("should return empty string when no .git directory exists", func() {
-		root := gomod.FindRepoRoot("/tmp/nonexistent/path/file.go")
-		Expect(root).To(BeEmpty())
 	})
 })

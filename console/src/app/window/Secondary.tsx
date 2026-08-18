@@ -43,7 +43,7 @@ export const Secondary = (): ReactElement => (
         <Project.Guard>
           <ProjectSideEffect />
           <Nav.Bar.Top secondary />
-          <Flex.Box gap="tiny" grow className={CSS.B("secondary")}>
+          <Flex.Box gap="small" grow className={CSS.B("secondary")}>
             <Mosaic.Mosaic />
             <Nav.Drawer.Bottom />
           </Flex.Box>
