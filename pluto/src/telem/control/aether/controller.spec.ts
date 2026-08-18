@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type control, type query, type Synnax } from "@synnaxlabs/client";
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { color } from "@synnaxlabs/x";
-import { assert, describe, expect, it, vi } from "vitest";
+import { type channel, type framer } from "@synnaxlabs/client";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { Colors } from "@/telem/control/aether/colors";
 import {
@@ -18,85 +18,95 @@ import {
   authoritySource,
   Controller,
   controllerStateZ,
+  setChannelValue,
 } from "@/telem/control/aether/controller";
 import { renderAether } from "@/testutil/renderAether";
 
-type CacheConstructor = new (params: query.CacheParams) => query.Cache;
-type ControlClientConstructor = new (cfg: {
-  unary: UnaryClient;
-  cache: query.Cache;
-}) => Synnax["control"];
-type ErrorConstructor = new (message: string) => Error;
-
-// The aether provider builds its own client from connection parameters, so the client
-// is replaced at the module boundary. Its control table is the real one, detached from
-// any Core, and the specs write to it directly. A read that misses the table raises
-// not-found, which is what the Core answers for an uncontrolled channel. Type
-// assertions below follow existing vi.mock patterns (vitest doesn't expose module types
-// from importOriginal without import() annotations, which lint forbids).
-vi.mock("@synnaxlabs/client", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  const { Cache } = actual.query as { Cache: CacheConstructor };
-  const { Client } = actual.control as { Client: ControlClientConstructor };
-  const { NotFoundError } = actual as { NotFoundError: ErrorConstructor };
-  const unary: UnaryClient = {
-    send: async () => {
-      throw new NotFoundError("no control state");
-    },
-    use: () => {},
-  };
-  const unused = (): never => {
-    throw new Error("the control status specs read no telemetry");
-  };
-  class MockSynnax {
-    readonly control = new Client({ unary, cache: new Cache({ openStreamer: null }) });
-    readonly channels = { retrieve: unused };
-    openFeed = () => ({ read: unused, stream: unused, close: async () => {} });
-    async close(): Promise<void> {}
-  }
-  return { ...actual, Synnax: MockSynnax };
-});
-
-const PARAMS = {
-  host: "localhost",
-  port: 9090,
-  username: "synnax",
-  password: "seldon",
-};
+const client = createTestClient();
 
 const CONTROLLER_KEY = "controller-1";
-const CHANNEL = 65537;
+const CONTROLLER_NAME = "Valve Controller";
+const AUTHORITY = 200;
+const POLL = { timeout: 5000 };
 
-const held = (subject: string, resource: number): control.KeyedState => ({
-  key: resource,
-  resource,
-  subject: { key: subject, name: subject, group: 0 },
-  authority: 200,
+const openWriters: framer.Writer[] = [];
+
+afterEach(async () => {
+  await Promise.all(openWriters.splice(0).map(async (w) => await w.close()));
 });
 
-const setup = (channel: number = CHANNEL) => {
+const createVirtual = async (): Promise<channel.Channel> =>
+  await client.channels.create({
+    name: `control_${id.create()}`,
+    dataType: DataType.FLOAT64,
+    virtual: true,
+  });
+
+/** Creates an index and a data channel, which is what a controller writes through. */
+const createIndexed = async (): Promise<channel.Channel> => {
+  const index = await client.channels.create({
+    name: `control_index_${id.create()}`,
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  });
+  return await client.channels.create({
+    name: `control_data_${id.create()}`,
+    dataType: DataType.FLOAT32,
+    index: index.key,
+  });
+};
+
+interface Holder {
+  subject: string;
+  release: () => Promise<void>;
+}
+
+/** Takes control of the channel under the given subject. Any writer left open at the
+ * end of the test is closed. */
+const hold = async (key: channel.Key, subject: string): Promise<Holder> => {
+  const w = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: [key],
+    controlSubject: { key: subject, name: subject },
+    authorities: AUTHORITY,
+  });
+  openWriters.push(w);
+  return {
+    subject,
+    release: async () => {
+      openWriters.splice(openWriters.indexOf(w), 1);
+      await w.close();
+    },
+  };
+};
+
+/** Mounts a controller against the test cluster with a status source bound to the
+ * channel. Reading the channel opens the control stream, so no transfer after this
+ * point is missed. */
+const setup = async (key: channel.Key) => {
   const h = renderAether(Colors, {
     state: {},
-    synnax: { props: PARAMS },
+    synnax: { props: TEST_CLIENT_PARAMS },
     registry: { [Controller.TYPE]: Controller },
     children: {
       [CONTROLLER_KEY]: {
         type: Controller.TYPE,
-        state: controllerStateZ.parse({ name: "Valve Controller" }),
+        state: controllerStateZ.parse({ name: CONTROLLER_NAME }),
       },
     },
   });
   const controller = h.child<Controller>(CONTROLLER_KEY);
-  const { client } = controller;
-  assert(client != null);
-  const source = controller.create<AuthoritySource>(authoritySource({ channel }));
+  const { client: mounted } = controller;
+  assert(mounted != null);
+  if (key !== 0) await mounted.control.retrieve([key]);
+  const source = controller.create<AuthoritySource>(authoritySource({ channel: key }));
   assert(source != null);
-  return { colors: h.component, controller, source, store: client.control.store };
+  return { colors: h.component, controller, source };
 };
 
 describe("control/aether/AuthoritySource", () => {
-  it("should report no channel when the source is bound to key zero", () => {
-    const { source, controller } = setup(0);
+  it("should report no channel when the source is bound to key zero", async () => {
+    const { source, controller } = await setup(0);
     const status = source.value();
     expect(status.variant).toEqual("disabled");
     expect(status.message).toEqual("No channel");
@@ -104,66 +114,81 @@ describe("control/aether/AuthoritySource", () => {
     expect(status.details).toEqual({ valid: false, authority: 0 });
   });
 
-  it("should report uncontrolled when no subject holds the channel", () => {
-    const { source } = setup();
+  it("should report uncontrolled when no subject holds the channel", async () => {
+    const ch = await createVirtual();
+    const { source } = await setup(ch.key);
     const status = source.value();
     expect(status.variant).toEqual("disabled");
     expect(status.message).toEqual("Uncontrolled");
     expect(status.details).toEqual({ valid: true, color: undefined, authority: 0 });
   });
 
-  it("should succeed when the controller itself holds the channel", () => {
-    const { source, store, controller } = setup();
-    store.set([held(controller.key, CHANNEL)]);
-    const status = source.value();
-    expect(status.variant).toEqual("success");
-    expect(status.message).toEqual(`Controlled by ${controller.key}`);
+  it("should succeed when the controller itself holds the channel", async () => {
+    const ch = await createIndexed();
+    const { source, controller } = await setup(ch.key);
+    controller.create(setChannelValue({ channel: ch.key }));
+    controller.acquire();
+    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    expect(source.value().message).toEqual(`Controlled by ${CONTROLLER_NAME}`);
+    expect(source.value().key).toEqual(controller.key);
   });
 
-  it("should error when another subject holds the channel", () => {
-    const { source, store } = setup();
-    store.set([held("another_operator", CHANNEL)]);
-    const status = source.value();
-    expect(status.variant).toEqual("error");
-    expect(status.message).toEqual("Controlled by another_operator");
-    expect(status.key).toEqual("another_operator");
+  it("should error when another subject holds the channel", async () => {
+    const ch = await createVirtual();
+    const { source } = await setup(ch.key);
+    const { subject } = await hold(ch.key, "another_operator");
+    await expect.poll(() => source.value().variant, POLL).toEqual("error");
+    expect(source.value().message).toEqual(`Controlled by ${subject}`);
+    expect(source.value().key).toEqual(subject);
   });
 
-  it("should carry the holder's authority and assigned color", () => {
-    const { source, store, colors } = setup();
-    store.set([held("another_operator", CHANNEL)]);
+  it("should carry the holder's authority and assigned color", async () => {
+    const ch = await createVirtual();
+    const { source, colors } = await setup(ch.key);
+    const { subject } = await hold(ch.key, "another_operator");
+    await expect.poll(() => source.value().variant, POLL).toEqual("error");
     const { details } = source.value();
-    expect(details.authority).toEqual(200);
+    expect(details.authority).toEqual(AUTHORITY);
     assert(details.color != null);
-    expect(color.equals(details.color, colors.get("another_operator"))).toBe(true);
+    expect(color.equals(details.color, colors.get(subject))).toBe(true);
   });
 
-  it("should follow a channel from uncontrolled to held to released", () => {
-    const { source, store } = setup();
+  it("should follow a channel from uncontrolled to held to released", async () => {
+    const ch = await createVirtual();
+    const { source } = await setup(ch.key);
     expect(source.value().message).toEqual("Uncontrolled");
-    store.set([held("another_operator", CHANNEL)]);
-    expect(source.value().message).toEqual("Controlled by another_operator");
-    store.delete(CHANNEL);
-    expect(source.value().message).toEqual("Uncontrolled");
+    const holder = await hold(ch.key, "another_operator");
+    await expect
+      .poll(() => source.value().message, POLL)
+      .toEqual(`Controlled by ${holder.subject}`);
+    await holder.release();
+    await expect.poll(() => source.value().message, POLL).toEqual("Uncontrolled");
   });
 
-  it("should notify subscribers when control transfers", () => {
-    const { source, store } = setup();
+  it("should notify subscribers when control transfers", async () => {
+    const ch = await createVirtual();
+    const { source } = await setup(ch.key);
     const handler = vi.fn();
     source.onChange(handler);
     source.value();
-    store.set([held("another_operator", CHANNEL)]);
-    expect(handler).toHaveBeenCalled();
+    await hold(ch.key, "another_operator");
+    await expect.poll(() => handler.mock.calls.length > 0, POLL).toBe(true);
   });
 
-  it("should stop notifying subscribers after cleanup", () => {
-    const { source, store } = setup();
+  it("should stop notifying subscribers after cleanup", async () => {
+    const ch = await createVirtual();
+    const { source, colors } = await setup(ch.key);
     // The first read is what subscribes the source to the channel's control state.
     source.value();
     const handler = vi.fn();
     source.onChange(handler);
     source.cleanup();
-    store.set([held("another_operator", CHANNEL)]);
+    // Colors sees every transfer this client observes, so it witnesses the acquire the
+    // cleaned-up source must not report.
+    const witness = vi.fn();
+    colors.onChange(witness);
+    await hold(ch.key, "another_operator");
+    await expect.poll(() => witness.mock.calls.length > 0, POLL).toBe(true);
     expect(handler).not.toHaveBeenCalled();
   });
 });
