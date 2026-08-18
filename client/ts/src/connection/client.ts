@@ -348,17 +348,18 @@ export class Client implements Handle {
       prev.details.clusterKey !== "" &&
       next.details.clusterKey !== prev.details.clusterKey
     )
-      this.stream
-        ?.reset()
-        .then(async () => await this.stream?.ensure())
-        .catch((err: unknown) =>
-          this.onInternalError(
-            new Error("failed to reset cache after cluster replacement", {
-              cause: err,
-            }),
-          ),
-        );
+      this.resetStream().catch((err: unknown) =>
+        this.onInternalError(
+          new Error("failed to reset cache after cluster replacement", { cause: err }),
+        ),
+      );
     this.setMode(modeFor(next));
+  }
+
+  /** Drops everything cached from the replaced cluster, then brings the stream up. */
+  private async resetStream(): Promise<void> {
+    await this.stream?.reset();
+    await this.stream?.ensure();
   }
 
   /** Discards in-flight checks and wakes the loop for an immediate check. */

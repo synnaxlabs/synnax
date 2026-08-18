@@ -40,6 +40,7 @@ import {
 import { Scope, TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Select } from "@/select";
+import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { Tabs } from "@/tabs";
 import { Triggers } from "@/triggers";
@@ -333,6 +334,7 @@ export const Mosaic = ({
   const client = Synnax.use();
 
   const moveToPanel = useMoveTabToPanel();
+  const handleError = Status.useErrorHandler();
 
   const handleDrop = useCallback(
     ({ nodeKey, tabKey, location, index, data }: Base.OnDropProps) => {
@@ -346,18 +348,19 @@ export const Mosaic = ({
           onSelect?.(tabKey);
         return;
       }
-      void moveToPanel({
-        source: source.panel,
-        destination: key,
-        tab: source.tab,
-        targetLeaf: nodeKey,
-        index,
-        location,
-      }).then((landed) => {
+      handleError(async () => {
+        const landed = await moveToPanel({
+          source: source.panel,
+          destination: key,
+          tab: source.tab,
+          targetLeaf: nodeKey,
+          index,
+          location,
+        });
         if (landed != null) onSelect?.(landed);
-      });
+      }, "Failed to move tab");
     },
-    [client, dispatch, moveToPanel, key, onSelect],
+    [client, dispatch, moveToPanel, key, onSelect, handleError],
   );
 
   const handleResize = useCallback(

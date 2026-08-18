@@ -61,6 +61,16 @@ const STATE: MockState = {
 // One state key plus one slot pointer for the global partition.
 const GLOBAL_KEYS = 2;
 
+/** A store whose writes to keys matching failOn reject, standing in for a full disk. */
+class FailingKV extends kv.MockAsync {
+  failOn: RegExp | null = null;
+
+  override async set<V>(key: string, value: V): Promise<void> {
+    if (this.failOn?.test(key) === true) throw new Error("disk full");
+    await super.set(key, value);
+  }
+}
+
 const openPersist = async (
   store: kv.MockAsync,
   overrides: Partial<Persist.Config<MockState>> = {},
@@ -220,6 +230,23 @@ describe("Persist.open", () => {
       expect(await store.length()).toBe(15);
     });
 
+    it("should keep the last version loadable when a state write fails", async () => {
+      const store = new FailingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      // Every ring entry is keyed on its slot number; the pointer stays writable.
+      store.failOn = /\.\d$/;
+      driver.dispatch(
+        { type: "work/edit" },
+        { ...driver.getState(), work: { value: "16.3.0", transient: "drag" } },
+      );
+      await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled());
+      expect((await driver.composed())?.work.value).toBe("16.2.0");
+      errorSpy.mockRestore();
+    });
+
     it("should scope slices to the context they were written under", async () => {
       const store = new kv.MockAsync();
       const driver = await createDriver(store);
@@ -328,6 +355,25 @@ describe("Persist.middleware", () => {
     await edit(driver, "16.2.1");
     driver.dispatch(Persist.revertState());
     await driver.flushed(workIs("16.2.0"));
+    errorSpy.mockRestore();
+  });
+
+  it("should report a failed revert instead of reloading", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new FailingKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    await edit(driver, "16.2.1");
+    store.failOn = /\.slot$/;
+    driver.dispatch(Persist.revertState());
+    await vi.waitFor(() =>
+      expect(errorSpy).toHaveBeenCalledWith(
+        "failed to revert state",
+        expect.anything(),
+      ),
+    );
+    expect((await driver.composed())?.work.value).toBe("16.2.1");
     errorSpy.mockRestore();
   });
 

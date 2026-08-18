@@ -898,10 +898,11 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   let timeoutID: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutID = setTimeout(() => {
-      void (async () => {
-        const taskKeys = commands.map((c) => c.task);
-        reject(await formatTimeoutError("command", taskName, parsedTimeout, taskKeys));
-      })();
+      const taskKeys = commands.map((c) => c.task);
+      formatTimeoutError("command", taskName, parsedTimeout, taskKeys).then(
+        reject,
+        reject,
+      );
     }, parsedTimeout.milliseconds);
   });
   try {

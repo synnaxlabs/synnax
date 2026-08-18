@@ -86,7 +86,7 @@ const createTables = (
   // Fetches missing relationship targets so compositions and membership
   // checks can see them.
   relationships.subscribe((event) => {
-    if (event.variant === "set") void backfill(event.value).catch(cache.onError);
+    if (event.variant === "set") backfill(event.value).catch(cache.onError);
   });
 
   const kvPairs = cache.createTable<string, kv.Pair>({

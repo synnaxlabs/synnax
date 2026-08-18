@@ -154,9 +154,12 @@ class Partition<S extends object> {
     this.slices.forEach((key) => {
       data[key] = state[key];
     });
-    await this.db.set(this.stateKey(slot), data).catch((err: unknown) => {
+    try {
+      await this.db.set(this.stateKey(slot), data);
+    } catch (err) {
       console.error(`failed to write partition ${this.base} at slot ${slot}`, err);
-    });
+      return;
+    }
     await this.setSlot(slot);
   }
 
@@ -178,10 +181,15 @@ class Partition<S extends object> {
     return stored?.slot ?? 0;
   }
 
+  /** @throws {Error} if the pointer cannot be written. */
   private async setSlot(slot: number): Promise<void> {
-    await this.db.set(this.slotKey(), { slot }).catch((err: unknown) => {
-      console.error(`failed to bump slot pointer of partition ${this.base}`, err);
-    });
+    try {
+      await this.db.set(this.slotKey(), { slot });
+    } catch (err) {
+      throw new Error(`failed to bump slot pointer of partition ${this.base}`, {
+        cause: err,
+      });
+    }
   }
 
   private migrateSlice(key: SliceKey<S>, raw: unknown): unknown {
@@ -203,10 +211,10 @@ export const hardClearAndReload = () => {
   if (!Runtime.isMainWindow()) return;
   openSugaredKV(STORE_PATH)
     .clear()
-    .finally(() => window.location.reload())
     .catch((err: unknown) => {
       console.error("failed to clear store during hard reload", err);
-    });
+    })
+    .finally(() => window.location.reload());
 };
 
 /** Persists the redux store state to disk, partitioned by session context. */
@@ -395,7 +403,7 @@ const createMiddleware = <S extends object>(
       else if (type === hydrate.type) {
         current = getContext(state);
         swapping = false;
-        void debouncedPersist();
+        debouncedPersist();
       } else {
         const ctx = getContext(state);
         if (!contextsEqual(ctx, current)) {
@@ -420,7 +428,7 @@ const createMiddleware = <S extends object>(
               }
               console.error("failed to swap session context", err);
             });
-        } else void debouncedPersist();
+        } else debouncedPersist();
       }
       return result;
     };

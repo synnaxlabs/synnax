@@ -163,6 +163,7 @@ export const Base = ({
   }, [selectedLines]);
 
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   const notifyCopied = useCallback(
     (count: number) =>
       addStatus({
@@ -179,8 +180,11 @@ export const Base = ({
       "text/plain": new Blob([selectedText], { type: "text/plain" }),
     });
     const count = selectedLines.length;
-    void navigator.clipboard.write([item]).then(() => notifyCopied(count));
-  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied]);
+    handleError(async () => {
+      await navigator.clipboard.write([item]);
+      notifyCopied(count);
+    }, "Failed to copy to clipboard");
+  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied, handleError]);
 
   Triggers.use({
     triggers: FLATTENED_TRIGGERS,

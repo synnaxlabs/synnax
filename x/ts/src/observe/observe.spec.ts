@@ -107,14 +107,14 @@ describe("observe", () => {
 
     it("should unsubscribe once settled", async () => {
       const observer = new observe.Observer<number>();
-      await observe
-        .until(
+      await expect(
+        observe.until(
           observer,
           () => 0,
           (v) => v > 2,
           TimeSpan.milliseconds(5),
-        )
-        .catch(() => {});
+        ),
+      ).rejects.toThrow(/timed out/);
       const values: number[] = [];
       observer.onChange((value) => values.push(value));
       observer.notify(9);

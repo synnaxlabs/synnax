@@ -486,6 +486,7 @@ export class Space<
   // Streaming failure must never block reads, so the change stream opens in
   // the background rather than being awaited. A denial belongs to the
   // connection, which reports it once, not to every query that reads.
+  // Never rejects.
   private async startStreaming(): Promise<void> {
     try {
       await this.hooks.ensureStreaming?.();
@@ -635,6 +636,7 @@ export class Space<
     return promise;
   }
 
+  /** Never rejects: a failed refetch leaves the previous answer in place. */
   private async refetch(query: Query<P, K, D, V>): Promise<void> {
     if (query.refetchTimer != null) {
       clearTimeout(query.refetchTimer);
@@ -845,6 +847,7 @@ export class Space<
     if (this.applyRechecks(query, keys)) this.touch(query);
   }
 
+  /** Never rejects: a failed backfill is reported and the recheck is skipped. */
   private async recheckMany(query: Query<P, K, D, V>, keys: K[]): Promise<void> {
     const { table } = this.config;
     this.recheckKeys(query, keys);

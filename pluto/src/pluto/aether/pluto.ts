@@ -64,7 +64,7 @@ export const render = (): void => {
     ...gauge.REGISTRY,
   };
 
-  void aether.render({
+  aether.render({
     registry: REGISTRY,
     instrumentation: new Instrumentation({
       logger: new Logger({ filters: [logThresholdFilter("info")] }),

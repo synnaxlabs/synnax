@@ -106,6 +106,7 @@ export class StreamMultiChannelLog
     this.notify();
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     this.valid = true;
     const { client } = this;

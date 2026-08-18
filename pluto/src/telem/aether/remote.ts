@@ -114,6 +114,7 @@ export class StreamChannelValue
     return this.leadingBuffer.at(-1, true) as number;
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -228,6 +229,7 @@ export class ChannelData
     return [b, data];
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -306,6 +308,7 @@ export class StreamChannelData
     return [b, this.data];
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -433,6 +436,7 @@ export class StreamChannelStringValue
     return this.latest;
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;

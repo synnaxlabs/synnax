@@ -117,7 +117,12 @@ const receivePreloadedStateAndListen = async <
         return;
       }
       const state = store.getState();
-      if (sendState === true) void runtime.emit({ state }, emitter);
+      if (sendState === true)
+        runtime
+          .emit({ state }, emitter)
+          .catch((err: unknown) =>
+            console.error(`failed to send state to ${emitter}`, err),
+          );
     });
     if (typeof preloadedState === "function")
       return resetInitialState<S>(defaultWindowProps, debug, await preloadedState());
