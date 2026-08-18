@@ -31,7 +31,7 @@ export const Nav = ({ connection }: NavProps): ReactElement => {
     <Shell.Islands>
       <Flex.Box x align="center" gap="medium">
         {chrome && os === "macOS" && (
-          <Shell.Island>
+          <Shell.Island data-tauri-drag-region>
             <Window.Controls visibleIfOS="macOS" forceOS={os} />
           </Shell.Island>
         )}
@@ -44,7 +44,7 @@ export const Nav = ({ connection }: NavProps): ReactElement => {
       <Flex.Box x align="center" gap="medium">
         <Shell.Connection cluster={connection} />
         {chrome && os === "Windows" && (
-          <Shell.Island>
+          <Shell.Island data-tauri-drag-region>
             <Window.Controls visibleIfOS="Windows" forceOS={os} />
           </Shell.Island>
         )}
