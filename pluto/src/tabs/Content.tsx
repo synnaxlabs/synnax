@@ -37,7 +37,7 @@ const KeylessContent = ({
   children,
   ...rest
 }: Flex.BoxProps): ReactElement => (
-  <Flex.Box className={CSS(CLASS_NAME, className)} {...rest}>
+  <Flex.Box className={CSS.cx(CLASS_NAME, className)} {...rest}>
     {children}
   </Flex.Box>
 );
@@ -63,7 +63,7 @@ const KeyedContent = ({
       role="tabpanel"
       aria-labelledby={tabID(frameID, itemKey)}
       hidden={!selected}
-      className={CSS(CLASS_NAME, className)}
+      className={CSS.cx(CLASS_NAME, className)}
       {...rest}
     >
       {children}

@@ -107,7 +107,7 @@ const MetaDataListItem = ({
   }, [isCreate, visible]);
   return (
     <List.Item
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("metadata", "list-item"),
         isCreate && CSS.M("create"),
         PCSS.visible(visible),

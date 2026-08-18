@@ -23,7 +23,7 @@ export const Indicator = ({ className, ...rest }: IndicatorProps): ReactElement 
   return (
     <Status.Indicator
       variant={variant}
-      className={CSS(
+      className={CSS.cx(
         CSS.B("connection-indicator"),
         checking && CSS.M("checking"),
         className,

@@ -24,7 +24,7 @@ export const Orifice = ({
   color,
   ...rest
 }: OrificeProps): ReactElement => (
-  <Primitive.Div className={CSS(CSS.B("orifice"), className)} {...rest}>
+  <Primitive.Div className={CSS.cx(CSS.B("orifice"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={2.8571} right={97.1429} />
     <Primitive.SVG
       dimensions={DIMENSIONS}

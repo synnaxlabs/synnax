@@ -50,7 +50,7 @@ export const TextBox = ({
     <Primitive.Div
       style={style}
       orientation={orientation}
-      className={CSS(
+      className={CSS.cx(
         CSS.B("text-box"),
         CSS.B("symbol-colored"),
         CSS.loc(orientation),

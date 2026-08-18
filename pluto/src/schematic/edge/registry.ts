@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
+import { record } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type Config } from "@/schematic/edge/config";
@@ -30,7 +31,7 @@ export const REGISTRY = {
   data: Data.spec,
 } as const;
 
-const VARIANTS = Object.keys(REGISTRY) as Variant[];
+const VARIANTS = record.keys(REGISTRY);
 export const variantZ = z.enum(VARIANTS);
 export type Variant = keyof typeof REGISTRY;
 

@@ -25,7 +25,7 @@ export const CrossJunction = ({
   scale,
   ...rest
 }: CrossJunctionProps): ReactElement => (
-  <Primitive.Div className={CSS(CSS.B("t-junction"), className)} {...rest}>
+  <Primitive.Div className={CSS.cx(CSS.B("t-junction"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

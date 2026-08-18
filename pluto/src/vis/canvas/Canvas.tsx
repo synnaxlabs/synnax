@@ -171,20 +171,20 @@ export const Canvas = ({
   return (
     <div
       ref={combinedElRef}
-      className={CSS(CSS.B("canvas-container"), className)}
+      className={CSS.cx(CSS.B("canvas-container"), className)}
       {...rest}
     >
       <canvas
         ref={refCallback}
-        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}
+        className={CSS.cx(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}
       />
       <canvas
         ref={refCallback}
-        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "gl"))}
+        className={CSS.cx(CSS.B("canvas"), CSS.BM("canvas", "gl"))}
       />
       <canvas
         ref={refCallback}
-        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
+        className={CSS.cx(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
       />
       <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
     </div>

@@ -109,7 +109,7 @@ class Log(ConsolePage):
         self.page.mouse.move(x, bbox["y"] + bbox["height"] - 10, steps=5)
         self.page.mouse.up()
         self.pane_locator.click(button="right", position={"x": 40, "y": 10})
-        menu = self.page.locator(".pluto-menu-context").first
+        menu = self.page.get_by_role("menu")
         try:
             menu.wait_for(state="visible", timeout=3000)
             menu.locator(".pluto-menu-item").filter(has_text="Copy").first.click(

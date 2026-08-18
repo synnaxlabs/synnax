@@ -26,7 +26,7 @@ export const Relief = ({
   ...rest
 }: Props): ReactElement => (
   <Toggle.Button
-    className={CSS(CSS.B("relief-valve"), className)}
+    className={CSS.cx(CSS.B("relief-valve"), className)}
     enabled={enabled}
     {...rest}
   >

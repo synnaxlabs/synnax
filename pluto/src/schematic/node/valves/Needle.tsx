@@ -28,7 +28,7 @@ export const Needle = ({
   <Toggle.Button
     {...rest}
     orientation={orientation}
-    className={CSS(CSS.B("needle-valve"), className)}
+    className={CSS.cx(CSS.B("needle-valve"), className)}
     enabled={enabled}
   >
     <Handle.Linear

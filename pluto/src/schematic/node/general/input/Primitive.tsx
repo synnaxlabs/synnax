@@ -43,7 +43,7 @@ export const Input = ({
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(CSS.B("input-symbol"), CSS.B("symbol-colored"), className)}
+      className={CSS.cx(CSS.B("input-symbol"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <Handle.Rectangle

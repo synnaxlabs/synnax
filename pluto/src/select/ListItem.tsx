@@ -33,6 +33,7 @@ export const ListItem = <
   const { selected, hovered, onSelect } = useItemState(itemKey);
   return (
     <List.Item<K, E>
+      role="option"
       selected={selected}
       hovered={hovered}
       onSelect={onSelect}

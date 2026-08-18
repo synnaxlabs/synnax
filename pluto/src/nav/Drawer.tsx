@@ -55,7 +55,7 @@ export const Drawer = ({
   );
   return (
     <Resize.Single
-      className={CSS(
+      className={CSS.cx(
         CSS.B("nav-drawer"),
         CSS.visible(!(collapsed || dragCollapsed)),
         className,

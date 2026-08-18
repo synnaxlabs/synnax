@@ -317,7 +317,7 @@ export const Loading = wrapSVGIcon(
         <circle cx="3.6" cy="12" r="2.4" />
       </g>
       <g
-        className={CSS(
+        className={CSS.cx(
           CSS.BE("loading", "orbit"),
           CSS.BEM("loading", "orbit", "reverse"),
         )}

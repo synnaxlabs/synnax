@@ -102,7 +102,7 @@ export const Login = (): ReactElement => {
 
   return (
     <Shell.Frame
-      className={CSS(CSS.B("login"), CSS.M(`step-${step}`))}
+      className={CSS.cx(CSS.B("login"), CSS.M(`step-${step}`))}
       connection={step === "login" ? target : undefined}
     >
       {step === "clusters" ? (

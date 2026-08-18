@@ -27,7 +27,7 @@ export const PositiveDisplacement = ({
 }: Props): ReactElement => (
   <Primitive.Div
     {...rest}
-    className={CSS(CSS.B("flowmeter-PositiveDisplacement"), className)}
+    className={CSS.cx(CSS.B("flowmeter-PositiveDisplacement"), className)}
   >
     <Handle.Rectangle
       orientation={orientation}

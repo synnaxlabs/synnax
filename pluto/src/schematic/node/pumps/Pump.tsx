@@ -26,7 +26,7 @@ export const Pump = ({
 }: Props): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS(CSS.B("pump"), className)}
+    className={CSS.cx(CSS.B("pump"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle
@@ -48,14 +48,14 @@ export const Pump = ({
         y1="2"
         x2="62"
         y2="32"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cx(CSS.M("detail"), className)}
       />
       <Primitive.Line
         x1="32"
         y1="62"
         x2="62"
         y2="32"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cx(CSS.M("detail"), className)}
       />
     </Primitive.SVG>
   </Toggle.Button>

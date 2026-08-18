@@ -23,7 +23,7 @@ export const RegulatorManual = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div className={CSS(className, CSS.B("regulator-manual"))} {...rest}>
+  <Primitive.Div className={CSS.cx(className, CSS.B("regulator-manual"))} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="top"

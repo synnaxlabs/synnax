@@ -115,7 +115,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
               key={i}
               align="center"
               gap="small"
-              className={CSS(CSS.B("kv-row"), PCSS.M("reveals"))}
+              className={CSS.cx(CSS.B("kv-row"), PCSS.M("reveals"))}
             >
               {valueFirst ? valueInput : keyInput}
               {valueFirst ? keyInput : valueInput}

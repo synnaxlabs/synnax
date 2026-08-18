@@ -25,7 +25,7 @@ export const Background = ({
   ...rest
 }: BackgroundProps): ReactElement => (
   <Flex.Box
-    className={CSS(BACKGROUND_CLASS, CSS.visible(visible))}
+    className={CSS.cx(BACKGROUND_CLASS, CSS.visible(visible))}
     empty
     align="center"
     {...rest}

@@ -44,7 +44,7 @@ export const Setpoint = ({
   );
   return (
     <Primitive.Div
-      className={CSS(
+      className={CSS.cx(
         CSS.B("setpoint"),
         CSS.B("symbol-colored"),
         symbolColor != null && CSS.M("colored"),

@@ -94,7 +94,7 @@ export const Palette = (): ReactElement => {
       >
         <Button.Button
           onClick={() => setVisible(true)}
-          className={CSS(CSS.BE("palette", "btn"))}
+          className={CSS.cx(CSS.BE("palette", "btn"))}
           variant="outlined"
           align="center"
           justify="center"

@@ -60,7 +60,7 @@ export const SVG = ({
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox={dimensions.svgViewBox(dims)}
-      className={CSS(CSS.B("symbol-colored"), CSS.loc(orientation), className)}
+      className={CSS.cx(CSS.B("symbol-colored"), CSS.loc(orientation), className)}
       {...rest}
       style={pStyle}
     >

@@ -52,7 +52,7 @@ export const Row = memo(
   }: RowProps): ReactElement => {
     let xCursor = x;
     return (
-      <tr className={CSS(CSS.BE("table", "row"))}>
+      <tr className={CSS.cx(CSS.BE("table", "row"))}>
         {showIndicator && (
           <Indicator
             direction="y"
@@ -129,11 +129,7 @@ const VariantCell = memo(
     const props = useMemo(() => {
       if (cell == null) return null;
       const spec = Cell.REGISTRY[cell.variant];
-      return deep.overrideValidItems(
-        spec.defaultProps(theme),
-        cell.props,
-        spec.schema,
-      );
+      return deep.overrideValidItems(spec.defaultProps(theme), cell.props, spec.schema);
     }, [cell, theme]);
     const handleChange = useCallback(
       (props: record.Unknown) => {

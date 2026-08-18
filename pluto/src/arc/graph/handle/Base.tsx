@@ -33,7 +33,7 @@ export const Base = ({ location, className, ...props }: BaseProps) => {
   const position = locationToRFPosition(location);
   return (
     <Handle
-      className={CSS(CSS.BE("arc", "handle"), className)}
+      className={CSS.cx(CSS.BE("arc", "handle"), className)}
       position={position}
       {...props}
     />

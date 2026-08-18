@@ -47,7 +47,7 @@ const getChannelNameProps = (
   level: "p",
   color: 9,
   weight: 450,
-  className: CSS(
+  className: CSS.cx(
     CSS.BE("channel-item", "name"),
     hasIcon && CSS.BEM("channel-item", "name", "with-icon"),
   ),

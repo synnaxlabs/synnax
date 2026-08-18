@@ -64,6 +64,15 @@ export const entries = <T extends Record<Key, unknown>>(obj: T): Entries<T> =>
   Object.entries(obj) as Entries<T>;
 
 /**
+ * Reads the keys of a record, keeping their type instead of widening to `string`. Only
+ * correct when the object carries no properties beyond the ones its type declares.
+ *
+ * @example record.keys({ a: 1, b: 2 }) // typed Array<"a" | "b">
+ */
+export const keys = <T extends Record<Key, unknown>>(obj: T): Array<keyof T> =>
+  Object.keys(obj);
+
+/**
  * Maps over the entries of a record, applying a transformation function to each value.
  * @param fn - A function that transforms each value. Receives the value and key as
  * parameters.

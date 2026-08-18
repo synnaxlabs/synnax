@@ -282,7 +282,7 @@ const Internal = (): ReactElement => {
   );
 
   return (
-    <div className={CSS(CSS.BE("line-plot", "container"), menuProps.className)}>
+    <div className={CSS.cx(CSS.BE("line-plot", "container"), menuProps.className)}>
       <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
         <Base.LinePlot
           ref={linePlotRef}

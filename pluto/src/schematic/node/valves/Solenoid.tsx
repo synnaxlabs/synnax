@@ -30,7 +30,7 @@ export const Solenoid = ({
   ...rest
 }: Props): ReactElement => (
   <Toggle.Button
-    className={CSS(
+    className={CSS.cx(
       CSS.B("solenoid-valve"),
       normallyOpen && CSS.M("normally-open"),
       className,

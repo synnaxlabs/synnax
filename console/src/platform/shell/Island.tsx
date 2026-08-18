@@ -22,7 +22,7 @@ export const Islands = ({ className, ...rest }: IslandsProps): ReactElement => (
     x
     justify="between"
     align="start"
-    className={CSS(CSS.BE("shell", "islands"), className)}
+    className={CSS.cx(CSS.BE("shell", "islands"), className)}
     {...rest}
   />
 );
@@ -34,7 +34,7 @@ export const Island = ({ className, ...rest }: IslandProps): ReactElement => (
   <Flex.Box
     x
     align="center"
-    className={CSS(CSS.BE("shell", "island"), CSS.BE("shell", "frost"), className)}
+    className={CSS.cx(CSS.BE("shell", "island"), CSS.BE("shell", "frost"), className)}
     {...rest}
   />
 );

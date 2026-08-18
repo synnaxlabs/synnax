@@ -24,7 +24,7 @@ export const Thruster = ({
   scale,
   ...rest
 }: ThrusterProps): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("thruster"), className)}>
+  <Primitive.Div {...rest} className={CSS.cx(CSS.B("thruster"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

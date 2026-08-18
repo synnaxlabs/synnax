@@ -104,24 +104,41 @@ export const syncCurrent = async (
     [string, { prev: unknown; next: unknown }, () => Promise<void>]
   > = [];
 
-  if (nextWin.title != null && nextWin.title !== prevWin.title)
+  // Every change below runs from a callback, and TypeScript drops a property
+  // narrowing inside one. Reading through these consts keeps it.
+  const {
+    title,
+    visible,
+    skipTaskbar,
+    maximized,
+    fullscreen,
+    minimized,
+    resizable,
+    minSize,
+    maxSize,
+    size,
+    position: nextPosition,
+    decorations,
+    alwaysOnTop,
+  } = nextWin;
+
+  if (title != null && title !== prevWin.title)
     changes.push([
       "title",
-      { prev: prevWin.title, next: nextWin.title },
-      async () => await runtime.setTitle(nextWin.title as string),
+      { prev: prevWin.title, next: title },
+      async () => await runtime.setTitle(title),
     ]);
 
-  const changeVisibility =
-    nextWin.visible != null && nextWin.visible !== prevWin.visible;
-  const changeVisibilityNow = nextWin.visible === false;
-  const changeVisibilityF = (): number =>
+  const nextVisible = visible != null && visible !== prevWin.visible ? visible : null;
+  const changeVisibilityNow = visible === false;
+  const changeVisibilityF = (next: boolean): number =>
     changes.push([
       "visible",
-      { prev: prevWin.visible, next: nextWin.visible },
+      { prev: prevWin.visible, next },
       async () => {
-        await runtime.setVisible(nextWin.visible as boolean);
-        if (nextWin.visible === false) return;
-        let position = nextWin.position;
+        await runtime.setVisible(next);
+        if (!next) return;
+        let position = nextPosition;
         position ??= (await runtime.getProps()).position;
         if (position == null) return;
         // This is very much a hack - some runtimes (tauri) won't emit window-created
@@ -134,27 +151,27 @@ export const syncCurrent = async (
 
   // If we're making the window invisible, we should make other changes AFTER
   // we make it invisible.
-  if (changeVisibility && changeVisibilityNow) changeVisibilityF();
+  if (nextVisible != null && changeVisibilityNow) changeVisibilityF(nextVisible);
 
-  if (nextWin.skipTaskbar != null && nextWin.skipTaskbar !== prevWin.skipTaskbar)
+  if (skipTaskbar != null && skipTaskbar !== prevWin.skipTaskbar)
     changes.push([
       "skipTaskbar",
-      { prev: prevWin.skipTaskbar, next: nextWin.skipTaskbar },
-      async () => await runtime.setSkipTaskbar(nextWin.skipTaskbar as boolean),
+      { prev: prevWin.skipTaskbar, next: skipTaskbar },
+      async () => await runtime.setSkipTaskbar(skipTaskbar),
     ]);
 
-  if (nextWin.maximized != null && nextWin.maximized !== prevWin.maximized)
+  if (maximized != null && maximized !== prevWin.maximized)
     changes.push([
       "maximized",
-      { prev: prevWin.maximized, next: nextWin.maximized },
-      async () => await runtime.setMaximized(nextWin.maximized as boolean),
+      { prev: prevWin.maximized, next: maximized },
+      async () => await runtime.setMaximized(maximized),
     ]);
 
-  if (nextWin.fullscreen != null && nextWin.fullscreen !== prevWin.fullscreen)
+  if (fullscreen != null && fullscreen !== prevWin.fullscreen)
     changes.push([
       "fullscreen",
-      { prev: prevWin.fullscreen, next: nextWin.fullscreen },
-      async () => await runtime.setFullscreen(nextWin.fullscreen as boolean),
+      { prev: prevWin.fullscreen, next: fullscreen },
+      async () => await runtime.setFullscreen(fullscreen),
     ]);
 
   if (nextWin.centerCount !== prevWin.centerCount)
@@ -164,56 +181,53 @@ export const syncCurrent = async (
       async () => await runtime.center(),
     ]);
 
-  if (nextWin.minimized != null && nextWin.minimized !== prevWin.minimized)
+  if (minimized != null && minimized !== prevWin.minimized)
     changes.push([
       "minimized",
-      { prev: prevWin.minimized, next: nextWin.minimized },
-      async () => await runtime.setMinimized(nextWin.minimized as boolean),
+      { prev: prevWin.minimized, next: minimized },
+      async () => await runtime.setMinimized(minimized),
     ]);
 
-  if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
+  if (resizable != null && resizable !== prevWin.resizable)
     changes.push([
       "resizable",
-      { prev: prevWin.resizable, next: nextWin.resizable },
-      async () => await runtime.setResizable(nextWin.resizable as boolean),
+      { prev: prevWin.resizable, next: resizable },
+      async () => await runtime.setResizable(resizable),
     ]);
 
-  if (nextWin.minSize != null && !dimensions.equals(nextWin.minSize, prevWin.minSize))
+  if (minSize != null && !dimensions.equals(minSize, prevWin.minSize))
     changes.push([
       "minSize",
-      { prev: prevWin.minSize, next: nextWin.minSize },
-      async () => await runtime.setMinSize(nextWin.minSize as dimensions.Dimensions),
+      { prev: prevWin.minSize, next: minSize },
+      async () => await runtime.setMinSize(minSize),
     ]);
 
-  if (nextWin.maxSize != null && !dimensions.equals(nextWin.maxSize, prevWin.maxSize))
+  if (maxSize != null && !dimensions.equals(maxSize, prevWin.maxSize))
     changes.push([
       "maxSize",
-      { prev: prevWin.maxSize, next: nextWin.maxSize },
-      async () => await runtime.setMaxSize(nextWin.maxSize as dimensions.Dimensions),
+      { prev: prevWin.maxSize, next: maxSize },
+      async () => await runtime.setMaxSize(maxSize),
     ]);
 
-  if (nextWin.size != null && !dimensions.equals(nextWin.size, prevWin.size))
+  if (size != null && !dimensions.equals(size, prevWin.size))
     changes.push([
       "size",
-      { prev: prevWin.size, next: nextWin.size },
-      async () => await runtime.setSize(nextWin.size as dimensions.Dimensions),
+      { prev: prevWin.size, next: size },
+      async () => await runtime.setSize(size),
     ]);
 
-  if (
-    nextWin.position != null &&
-    !dimensions.equals(nextWin.position, prevWin.position)
-  )
+  if (nextPosition != null && !dimensions.equals(nextPosition, prevWin.position))
     changes.push([
       "position",
-      { prev: prevWin.position, next: nextWin.position },
-      async () => await runtime.setPosition(nextWin.position as xy.XY),
+      { prev: prevWin.position, next: nextPosition },
+      async () => await runtime.setPosition(nextPosition),
     ]);
 
   if (nextWin.focusCount !== prevWin.focusCount)
     changes.push(
       [
         "setVisible",
-        { prev: prevWin.visible, next: nextWin.visible },
+        { prev: prevWin.visible, next: visible },
         async () => await runtime.setVisible(true),
       ],
       [
@@ -223,23 +237,23 @@ export const syncCurrent = async (
       ],
     );
 
-  if (nextWin.decorations != null && nextWin.decorations !== prevWin.decorations)
+  if (decorations != null && decorations !== prevWin.decorations)
     changes.push([
       "decorations",
-      { prev: prevWin.decorations, next: nextWin.decorations },
-      async () => await runtime.setDecorations(nextWin.decorations as boolean),
+      { prev: prevWin.decorations, next: decorations },
+      async () => await runtime.setDecorations(decorations),
     ]);
 
-  if (nextWin.alwaysOnTop != null && nextWin.alwaysOnTop !== prevWin.alwaysOnTop)
+  if (alwaysOnTop != null && alwaysOnTop !== prevWin.alwaysOnTop)
     changes.push([
       "alwaysOnTop",
-      { prev: prevWin.alwaysOnTop, next: nextWin.alwaysOnTop },
-      async () => await runtime.setAlwaysOnTop(nextWin.alwaysOnTop as boolean),
+      { prev: prevWin.alwaysOnTop, next: alwaysOnTop },
+      async () => await runtime.setAlwaysOnTop(alwaysOnTop),
     ]);
 
   // If we're going from invisible to visible, we should make other changes BEFORE
   // we make it visible.
-  if (changeVisibility && !changeVisibilityNow) changeVisibilityF();
+  if (nextVisible != null && !changeVisibilityNow) changeVisibilityF(nextVisible);
 
   if (changes.length === 0) return;
   group(debug, `syncCurrent, label: ${runtime.label()}, key: ${nextWin.key}`);

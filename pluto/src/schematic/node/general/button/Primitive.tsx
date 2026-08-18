@@ -49,7 +49,7 @@ export const Button = ({
     <Primitive.Div orientation={orientation}>
       <Base.Button
         variant="filled"
-        className={CSS(CSS.B("symbol-colored"), CSS.B("symbol-button"))}
+        className={CSS.cx(CSS.B("symbol-colored"), CSS.B("symbol-button"))}
         style={style}
         onClick={onClick}
         onMouseDown={onMouseDown}

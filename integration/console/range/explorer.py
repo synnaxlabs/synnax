@@ -126,7 +126,7 @@ class Explorer(Surface):
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.open_on(item)
-        menu = self.layout.page.locator(".pluto-menu-context")
+        menu = self.layout.page.get_by_role("menu")
         add_btn = self._any_text_locator(menu, FAVORITE_ACTIONS)
         remove_btn = self._any_text_locator(menu, UNFAVORITE_ACTIONS)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
@@ -218,11 +218,9 @@ class Explorer(Surface):
         )
         if search_input.is_visible():
             return
-        edit_button = (
-            self.layout.page.locator("button")
-            .filter(has=self.layout.page.locator("svg.pluto-icon--edit"))
-            .first
-        )
+        edit_button = self.layout.page.get_by_role(
+            "button", name="Enable editing", exact=True
+        ).first
         edit_button.click()
         search_input.wait_for(state="visible", timeout=5000)
 
@@ -251,13 +249,11 @@ class Explorer(Surface):
         :returns: Locator for the visible filter dialog.
         """
         self.enable_editing()
-        filter_button = (
-            self.layout.page.locator("button")
-            .filter(has=self.layout.page.locator("svg.pluto-icon--filter"))
-            .first
-        )
+        filter_button = self.layout.page.get_by_role(
+            "button", name="Filter", exact=True
+        ).first
         filter_button.click()
-        dialog = self.layout.page.locator(".pluto-dialog__dialog.pluto--visible")
+        dialog = self.layout.dialog
         dialog.wait_for(state="visible", timeout=5000)
         return dialog
 
@@ -273,10 +269,8 @@ class Explorer(Surface):
         filter_dialog = self.open_label_filter()
         select_labels_trigger = filter_dialog.get_by_text("Select labels")
         select_labels_trigger.click()
-        label_dialog = self.layout.page.locator(".pluto-select__dialog.pluto--visible")
-        label_dialog.wait_for(state="visible", timeout=5000)
         item = (
-            label_dialog.locator(".pluto-list__item").filter(has_text=label_name).first
+            self.layout.dialog.get_by_role("option").filter(has_text=label_name).first
         )
         item.wait_for(state="visible", timeout=5000)
         item.click()
@@ -289,12 +283,9 @@ class Explorer(Surface):
 
         :param label_name: The name of the label chip to remove.
         """
-        tag = (
-            self.layout.page.locator(".pluto-tag:has(button)")
-            .filter(has_text=label_name)
-            .first
-        )
-        tag.wait_for(state="visible", timeout=5000)
-        close_btn = tag.locator("button")
-        close_btn.click()
-        tag.wait_for(state="hidden", timeout=5000)
+        remove_btn = self.layout.page.get_by_role(
+            "button", name=f"Remove {label_name}", exact=True
+        ).first
+        remove_btn.wait_for(state="visible", timeout=5000)
+        remove_btn.dispatch_event("click")
+        remove_btn.wait_for(state="hidden", timeout=5000)

@@ -25,7 +25,7 @@ export const HeaterElement = ({
   scale,
   ...rest
 }: HeaterElementProps): ReactElement => (
-  <Primitive.Div className={CSS(CSS.B("heater-element"), className)} {...rest}>
+  <Primitive.Div className={CSS.cx(CSS.B("heater-element"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="top"

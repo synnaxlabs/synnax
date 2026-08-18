@@ -67,7 +67,7 @@ export const Indicator = ({
   // class rule outranks a presentation attribute.
   return cloneElement(children, {
     ...others,
-    className: CSS(children.props.className, className),
+    className: CSS.cx(children.props.className, className),
     style: { ...children.props.style, ...(color != null && { color }), ...style },
   });
 };

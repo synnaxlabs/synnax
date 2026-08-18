@@ -15,7 +15,7 @@ export const EtherCAT = wrapSVGIcon(
     <svg
       viewBox="0 0 243 129"
       {...rest}
-      className={CSS(className, "logo")}
+      className={CSS.cx(className, "logo")}
       stroke="currentColor"
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"

@@ -212,7 +212,7 @@ class ProjectClient(ResourceClient):
                 dialog.wait_for(state="visible", timeout=5000)
                 dialog.get_by_placeholder("Search projects...").fill(name)
                 item = (
-                    dialog.locator(".pluto-list__item.pluto--selected")
+                    dialog.get_by_role("option", selected=True)
                     .filter(has_text=name)
                     .first
                 )

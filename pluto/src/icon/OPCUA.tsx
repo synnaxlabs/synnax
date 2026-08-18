@@ -15,7 +15,7 @@ export const OPCUA = wrapSVGIcon(
     <svg
       xmlns="http://www.w3.org/2000/svg"
       version="1.1"
-      className={CSS(className, "logo")}
+      className={CSS.cx(className, "logo")}
       {...rest}
       stroke="currentColor"
       fill="currentColor"

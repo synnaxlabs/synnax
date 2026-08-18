@@ -29,7 +29,7 @@ export const Actions = ({
 
   return (
     <Flex.Box
-      className={CSS(CSS.BE("task-controls", "actions"), className)}
+      className={CSS.cx(CSS.BE("task-controls", "actions"), className)}
       align="center"
       x
       justify="end"

@@ -28,7 +28,7 @@ export const AngledSpringLoadedRelief = ({
   <Toggle.Button
     {...rest}
     orientation={orientation}
-    className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
+    className={CSS.cx(CSS.B("spring-loaded-relief-valve"), className)}
     enabled={enabled}
   >
     <Handle.Boundary orientation={orientation}>

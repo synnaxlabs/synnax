@@ -10,8 +10,9 @@
 import "@/list/Items.css";
 
 import { type record } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode, useMemo } from "react";
+import { type ReactElement, type ReactNode, useMemo } from "react";
 
+import { memo } from "@/component/memo";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useData } from "@/list/Frame";
@@ -98,7 +99,7 @@ const BaseItems = <
     <Flex.Box
       gap={0}
       ref={ref}
-      className={CSS(
+      className={CSS.cx(
         className,
         CSS.BE("list", "items"),
         isVirtual && CSS.BEM("list", "items", "virtual"),
@@ -119,4 +120,4 @@ const BaseItems = <
  * The scroll container for a {@link Frame}. It renders the visible items, handles
  * virtualization, and shows `emptyContent` when there are none.
  */
-export const Items = memo(BaseItems) as typeof BaseItems;
+export const Items = memo(BaseItems);

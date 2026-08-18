@@ -24,7 +24,10 @@ export const HeatExchangerGeneral = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("heat-exchanger-general"), className)}>
+  <Primitive.Div
+    {...rest}
+    className={CSS.cx(CSS.B("heat-exchanger-general"), className)}
+  >
     <Handle.Rectangle
       orientation={orientation}
       left={4.545}

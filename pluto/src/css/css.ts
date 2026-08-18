@@ -8,70 +8,107 @@
 // included in the file licenses/APL.txt.
 
 import { color, direction, location, type spatial, type text } from "@synnaxlabs/x";
+import clsx, { type ClassValue } from "clsx";
+import { type CSSProperties } from "react";
 
-import { type BEM, newBEM } from "@/css/bem";
+import { newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
 import { type Theming } from "@/theming";
 
-export interface CSSType extends BEM {
-  visible: (visible: boolean) => string;
-  expanded: (expanded: boolean) => string;
-  level: (level: text.Level) => string;
-  loc: (location: location.Crude) => string;
-  align: (position: spatial.Alignment | "") => string;
-  dir: (direction?: direction.Crude) => string | false;
-  clickable: (shade?: Theming.Shade) => string;
-  disabled: (disabled?: boolean) => string | false;
-  bordered: (location?: location.Crude | spatial.Alignment | boolean) => string | false;
-  noSelect: string;
-  selected: (selected: boolean) => string | false;
-  altColor: (secondary: boolean) => string | false;
-  editable: (editable: boolean) => string | false;
-  applyVars: typeof applyCSSVars;
-  removeVars: typeof removeCSSVars;
-  newGridBuilder: (prefix?: string) => CSSGridBuilder;
-  inheritDims: (inherit?: boolean) => string | false;
-  dropRegion: (active: boolean) => false | string;
-  triggerExclude: (value: boolean) => string | false;
-  px: (value: number) => string;
-  shade: ((value: Theming.Shade) => string) &
-    ((value?: Theming.Shade) => string | false);
-  colorVar: (value?: false | Theming.Shade | color.Crude) => string | undefined;
-  levelSizeVar: (value: string) => string;
-}
+const PREFIX = "pluto";
 
-const newCSS = (prefix: string): CSSType => {
-  const CSS = newBEM(prefix) as CSSType;
-  CSS.visible = (visible) => CSS.M(visible ? "visible" : "hidden");
-  CSS.expanded = (expanded) => CSS.M(expanded ? "expanded" : "collapsed");
-  CSS.loc = (l) => CSS.M("location", location.construct(l));
-  CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
-  CSS.align = (position) => CSS.M(position);
-  CSS.dir = (dir) => dir != null && CSS.M("direction", direction.construct(dir));
-  CSS.bordered = (loc) => {
-    if (typeof loc === "boolean") return loc && CSS.M("bordered");
-    return loc != null ? CSS.M(`bordered-${loc.toString()}`) : CSS.M("bordered");
-  };
-  CSS.selected = (selected) => selected && CSS.M("selected");
-  CSS.altColor = (secondary) => secondary && CSS.M("alt-color");
-  CSS.editable = (editable) => editable && CSS.M("editable");
-  CSS.noSelect = CSS.M("no-select");
-  CSS.applyVars = applyCSSVars;
-  CSS.removeVars = removeCSSVars;
-  CSS.newGridBuilder = (prefix?: string) => new CSSGridBuilder(prefix);
-  CSS.dropRegion = (active) => active && CSS.B("haul-drop-region");
-  CSS.px = (value: number) => `${value}px`;
-  CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");
-  CSS.shade = ((value) => value != null && CSS.M(`shade-${value}`)) as CSSType["shade"];
-  CSS.colorVar = (value) => {
-    if (value == null || value === false) return undefined;
-    if (typeof value === "number") return `var(--${prefix}-gray-l${value})`;
-    return color.cssString(value);
-  };
-  CSS.levelSizeVar = (value) => `var(--${prefix}-${value}-size)`;
-  CSS.level = (level) => CSS.M(`level-${level}`);
-  return CSS;
+const bem = newBEM(PREFIX);
+
+/** Joins class values into a single class name, dropping the falsy ones. */
+export const cx = (...classes: ClassValue[]): string => clsx(...classes);
+
+/** @returns the class name for a block. */
+export const B = bem.B;
+/** @returns the class name for an element of the enclosing block. */
+export const E = bem.E;
+/** @returns the class name for a modifier. */
+export const M = bem.M;
+/** @returns the class name for an element of the given block. */
+export const BE = bem.BE;
+/** @returns the class name for a modifier of the given block. */
+export const BM = bem.BM;
+/** @returns the class name for a modified element of the given block. */
+export const BEM = bem.BEM;
+
+const cssVar = bem.var;
+/** @returns the name of a custom property, including the leading dashes. */
+export { cssVar as var };
+
+export const visible = (visible: boolean): string => M(visible ? "visible" : "hidden");
+
+export const expanded = (expanded: boolean): string =>
+  M(expanded ? "expanded" : "collapsed");
+
+export const level = (level: text.Level): string => M(`level-${level}`);
+
+export const loc = (l: location.Crude): string => M("location", location.construct(l));
+
+export const align = (position: spatial.Alignment | ""): string => M(position);
+
+export const dir = (dir?: direction.Crude): string | false =>
+  dir != null && M("direction", direction.construct(dir));
+
+export const disabled = (disabled?: boolean): string | false =>
+  disabled === true && M("disabled");
+
+export const bordered = (
+  loc?: location.Crude | spatial.Alignment | boolean,
+): string | false => {
+  if (typeof loc === "boolean") return loc && M("bordered");
+  return loc != null ? M(`bordered-${loc.toString()}`) : M("bordered");
 };
 
-export const CSS = newCSS("pluto");
+export const noSelect = M("no-select");
+
+export const selected = (selected: boolean): string | false =>
+  selected && M("selected");
+
+export const altColor = (secondary: boolean): string | false =>
+  secondary && M("alt-color");
+
+export const editable = (editable: boolean): string | false =>
+  editable && M("editable");
+
+export const applyVars = applyCSSVars;
+
+export const removeVars = removeCSSVars;
+
+export const newGridBuilder = (prefix?: string): CSSGridBuilder =>
+  new CSSGridBuilder(prefix);
+
+export const inheritDims = (inherit = true): string | false =>
+  inherit && M("inherit-dims");
+
+export const dropRegion = (active: boolean): string | false =>
+  active && B("haul-drop-region");
+
+export const px = (value: number): string => `${value}px`;
+
+export function shade(value: Theming.Shade): string;
+export function shade(value?: Theming.Shade): string | false;
+export function shade(value?: Theming.Shade): string | false {
+  return value != null && M(`shade-${value}`);
+}
+
+export const colorVar = (
+  value?: false | Theming.Shade | color.Crude,
+): string | undefined => {
+  if (value == null || value === false) return undefined;
+  if (typeof value === "number") return `var(--${PREFIX}-gray-l${value})`;
+  return color.cssString(value);
+};
+
+export const levelSizeVar = (value: string): string => `var(--${PREFIX}-${value}-size)`;
+
+/**
+ * A style object that also accepts CSS custom properties. Use it in place of
+ * `CSSProperties`, which rejects any `--` key.
+ */
+export type VarProperties = CSSProperties &
+  Record<`--${string}`, string | number | undefined>;

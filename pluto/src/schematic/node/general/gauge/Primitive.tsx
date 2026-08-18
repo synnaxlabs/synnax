@@ -48,7 +48,11 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
 
   return (
     <div
-      className={CSS(CSS.B("symbol-colored"), CSS.BE("gauge", "container"), className)}
+      className={CSS.cx(
+        CSS.B("symbol-colored"),
+        CSS.BE("gauge", "container"),
+        className,
+      )}
       style={style}
     >
       <svg width="67" height="67" className={CSS.BE("gauge", "svg")}>

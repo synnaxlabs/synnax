@@ -249,7 +249,7 @@ export const Box = <E extends Generic.ElementType = "div">({
   ]);
   return (
     <Generic.Element<E>
-      className={CSS(
+      className={CSS.cx(
         className,
         CSS.B("flex"),
         parsedDirection != null && CSS.M("direction", parsedDirection),

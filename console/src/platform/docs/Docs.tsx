@@ -68,7 +68,7 @@ export const Docs = memo((): ReactElement | null => {
   if (frameURL === null) return null;
 
   return (
-    <div className={CSS(CSS.B("docs"), hover.held && CSS.M("hover"))}>
+    <div className={CSS.cx(CSS.B("docs"), hover.held && CSS.M("hover"))}>
       {!loaded && (
         <Status.Loading className={CSS.BE("docs", "loading")}>
           <Status.Orbital />

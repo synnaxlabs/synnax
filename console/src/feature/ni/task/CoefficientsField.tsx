@@ -50,7 +50,7 @@ export const CoefficientsField = ({
             key={i}
             align="center"
             gap="small"
-            className={CSS(CSS.B("coefficient-row"), PCSS.M("reveals"))}
+            className={CSS.cx(CSS.B("coefficient-row"), PCSS.M("reveals"))}
           >
             <Input.Numeric
               value={coeff}

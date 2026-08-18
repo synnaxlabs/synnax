@@ -24,7 +24,7 @@ export const CONTROLS_PINNED_CLASS = CSS.BM("controls", "pinned");
 export const Controls = ({ className, ...rest }: ControlsProps): ReactElement => (
   <Flex.Box
     role="toolbar"
-    className={CSS(CSS.B("controls"), className)}
+    className={CSS.cx(CSS.B("controls"), className)}
     gap="small"
     {...rest}
   />

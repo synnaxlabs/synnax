@@ -131,6 +131,16 @@ class LayoutClient:
         self.notifications = NotificationsClient(self.page)
         self.tree = Tree(self)
 
+    @property
+    def dialog(self) -> Locator:
+        """The currently open dialog.
+
+        Closed dialogs unmount, except passthrough ones, which stay mounted at
+        opacity 0 and still expose their role; the open-state class excludes
+        them.
+        """
+        return self.page.locator("[role='dialog'].pluto--visible")
+
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
         self._palette(
@@ -186,9 +196,9 @@ class LayoutClient:
             palette_input.type(input_text, timeout=5000)
 
             try:
-                self.page.locator(
-                    ".console-palette__list .pluto-list__item"
-                ).first.wait_for(state="attached", timeout=10000)
+                self.dialog.get_by_role("option").first.wait_for(
+                    state="attached", timeout=10000
+                )
             except PlaywrightTimeoutError:
                 no_results = self.page.get_by_text(empty_message).is_visible()
                 if no_results and attempt < retries - 1:
@@ -216,23 +226,13 @@ class LayoutClient:
                 )
 
             target_result = (
-                self.page.locator(".console-palette__list .pluto-list__item")
-                .filter(has_text=query)
-                .first
+                self.dialog.get_by_role("option").filter(has_text=query).first
             )
             try:
                 target_result.wait_for(state="visible", timeout=5000)
             except PlaywrightTimeoutError:
                 input_value = palette_input.input_value()
-                list_items = self.page.locator(
-                    ".console-palette__list .pluto-list__virtualizer > div"
-                ).all()
-                options = []
-                for item in list_items:
-                    try:
-                        options.append(item.inner_text(timeout=5000))
-                    except PlaywrightTimeoutError:
-                        options.append("<failed to get text>")
+                options = self.dialog.get_by_role("option").all_text_contents()
                 raise RuntimeError(
                     f"{error_prefix}: Could not find '{query}'. "
                     f"Input value: '{input_value}'. "
@@ -260,11 +260,7 @@ class LayoutClient:
         palette_input.wait_for(state="visible", timeout=5000)
         palette_input.press("ControlOrMeta+a")
         palette_input.type(f">{command}", timeout=5000)
-        entry = (
-            self.page.locator(".console-palette__list .pluto-list__item")
-            .filter(has_text=command)
-            .first
-        )
+        entry = self.dialog.get_by_role("option").filter(has_text=command).first
         no_results = self.page.get_by_text("No commands found")
         # A hidden command can still leave fuzzy matches in the list, in which
         # case neither the entry nor the empty message ever shows: fall through
@@ -460,8 +456,6 @@ class LayoutClient:
         """
         parent = self.page if scope is None else scope
         parent.get_by_text("Select labels", exact=True).click(timeout=5000)
-        dialog = self.page.locator(".pluto-select__dialog.pluto--visible")
-        dialog.wait_for(state="visible", timeout=5000)
         for name in labels:
             self.select_from_dropdown(name, exact=True)
         self.press_escape()
@@ -482,7 +476,7 @@ class LayoutClient:
             closed before the item was found (e.g. a re-render dismissed it).
         """
         sy.sleep(0.3)
-        target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
+        target = self.dialog.get_by_role("option", name=text, exact=exact)
 
         def apply_search() -> None:
             search_input = None
@@ -500,22 +494,15 @@ class LayoutClient:
         last_recovery_error: Exception | None = None
         for _ in range(5):
             try:
-                self.page.wait_for_selector(target_item, timeout=5000)
-                if exact:
-                    for candidate in self.page.locator(target_item).all():
-                        if candidate.inner_text().strip() == text:
-                            candidate.click(timeout=5000)
-                            return
-                else:
-                    item = self.page.locator(target_item).first
-                    item.wait_for(state="attached", timeout=5000)
-                    item.click(timeout=5000)
-                    return
+                item = target.first
+                item.wait_for(state="visible", timeout=5000)
+                item.click(timeout=5000)
+                return
             except Exception:
                 try:
                     # Toasts overlap the dropdown and swallow the click.
                     self.notifications.close_all()
-                    dialog = self.page.locator(".pluto-dialog__dialog.pluto--visible")
+                    dialog = self.dialog
                     if reopen is not None and dialog.count() == 0:
                         reopen()
                         apply_search()
@@ -527,9 +514,7 @@ class LayoutClient:
                     sy.sleep(1)
                 continue
 
-        items = self.page.locator(
-            ".pluto-list__item:not(.pluto-tree__item)"
-        ).all_text_contents()
+        items = self.dialog.get_by_role("option").all_text_contents()
         message = f"Could not find item '{text}' in dropdown. Available items: {items}"
         if last_recovery_error is not None:
             message += f" (last recovery attempt failed: {last_recovery_error})"
@@ -1057,8 +1042,10 @@ class LayoutClient:
         Args:
             selector: CSS selector for the modal to wait for hidden.
         """
-        close_btn = self.page.locator(
-            ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
-        ).first
+        close_btn = (
+            self.page.locator(self.MODAL_SELECTOR)
+            .get_by_role("button", name="Close", exact=True)
+            .first
+        )
         close_btn.click()
         self.page.locator(selector).wait_for(state="hidden", timeout=5000)

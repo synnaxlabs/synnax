@@ -27,7 +27,7 @@ export const Compressor = ({
 }: CompressorProps): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS(CSS.B("compressor"), className)}
+    className={CSS.cx(CSS.B("compressor"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle

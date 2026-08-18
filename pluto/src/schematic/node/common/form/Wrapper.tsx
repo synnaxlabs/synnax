@@ -24,7 +24,7 @@ export const Wrapper: FC<WrapperProps> = ({
   <Flex.Box
     direction={direction}
     align="stretch"
-    className={CSS(CSS.B("symbol-form"), className)}
+    className={CSS.cx(CSS.B("symbol-form"), className)}
     gap={direction === "x" ? "large" : "medium"}
     {...rest}
   />

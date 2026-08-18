@@ -33,7 +33,7 @@ export const ButtonTitle = ({
       variant="text"
       size={TEXT_LEVEL_SIZES[level]}
       onClick={onClick}
-      className={CSS(CSS.B("header-button-title"), className)}
+      className={CSS.cx(CSS.B("header-button-title"), className)}
       sharp
       {...rest}
     >

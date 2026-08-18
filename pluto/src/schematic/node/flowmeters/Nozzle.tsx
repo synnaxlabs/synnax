@@ -25,7 +25,7 @@ export const Nozzle = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-Nozzle"), className)}>
+  <Primitive.Div {...rest} className={CSS.cx(CSS.B("flowmeter-Nozzle"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}

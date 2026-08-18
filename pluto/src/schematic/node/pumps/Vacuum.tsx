@@ -26,7 +26,7 @@ export const Vacuum = ({
 }: Props): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS(CSS.B("vacuum-pump"), className)}
+    className={CSS.cx(CSS.B("vacuum-pump"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle

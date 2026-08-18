@@ -172,7 +172,7 @@ describe("Select.Multiple", () => {
     const c = render(<SelectMultiple />);
     fireEvent.click(c.getByText("Select Test Items"));
     fireEvent.click(c.getByText("First Item Option"));
-    fireEvent.click(c.getByLabelText("Close"));
+    fireEvent.click(c.getByLabelText("Remove First Item"));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 

@@ -38,7 +38,7 @@ export const SelectTimestampFormat = ({
     {...rest}
     dialogProps={{
       ...dialogProps,
-      className: CSS(
+      className: CSS.cx(
         CSS.BE("select-timestamp-format", "dialog"),
         dialogProps?.className,
       ),

@@ -57,7 +57,7 @@ const Box = ({
   empty = true,
   ...rest
 }: FrameBoxProps): ReactElement => (
-  <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
+  <Flex.Box empty={empty} className={CSS.cx(CSS.B("tabs"), className)} {...rest}>
     {children}
   </Flex.Box>
 );

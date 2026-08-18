@@ -242,7 +242,7 @@ export const Dialog = ({
             id={id}
             role="tooltip"
             ref={combinedTooltipRef}
-            className={CSS(CSS.B("tooltip"), closing && CSS.M("closing"))}
+            className={CSS.cx(CSS.B("tooltip"), closing && CSS.M("closing"))}
           >
             {formatTip(tip)}
           </div>,

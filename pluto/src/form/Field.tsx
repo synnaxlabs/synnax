@@ -83,7 +83,7 @@ export const Field = <I = string | number, O = I>({
       status={field.status.variant}
       label={label}
       required={field.required}
-      className={CSS(
+      className={CSS.cx(
         className,
         CSS.BE("field", path.split(".").join("-")),
         CSS.M(field.status.variant),

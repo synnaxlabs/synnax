@@ -93,7 +93,7 @@ export const Tab = ({
       data-menu-key={itemKey}
       tabIndex={selected ? 0 : -1}
       size={size}
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("tabs", "tab"),
         CSS.M("reveals"),
         Menu.CONTEXT_TARGET,

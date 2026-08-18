@@ -219,7 +219,7 @@ class Overview(Surface):
         add_button = labels_row.locator("button").last
         add_button.wait_for(state="visible", timeout=2000)
         add_button.click()
-        dropdown = self.layout.page.locator(".pluto-dialog__dialog.pluto--visible")
+        dropdown = self.layout.dialog
         dropdown.wait_for(state="visible", timeout=5000)
         return dropdown
 
@@ -229,15 +229,12 @@ class Overview(Surface):
         :param label_name: The name of the label to add.
         """
         dropdown = self._open_labels_dropdown()
-        item = dropdown.locator(".pluto-list__item").filter(has_text=label_name).first
+        item = dropdown.get_by_role("option").filter(has_text=label_name).first
         try:
             item.wait_for(state="visible", timeout=5000)
             item.click(timeout=2000)
         except PlaywrightTimeoutError as e:
-            all_items = dropdown.locator(".pluto-list__item").all()
-            available_labels = [
-                lbl.text_content() for lbl in all_items if lbl.is_visible()
-            ]
+            available_labels = dropdown.get_by_role("option").all_text_contents()
             raise PlaywrightTimeoutError(
                 f"Label '{label_name}' not found in dropdown. "
                 f"Available: {available_labels}"
@@ -251,7 +248,7 @@ class Overview(Surface):
         :param label_name: The name of the label to remove.
         """
         dropdown = self._open_labels_dropdown()
-        item = dropdown.locator(".pluto-list__item").filter(has_text=label_name).first
+        item = dropdown.get_by_role("option").filter(has_text=label_name).first
         item.click(timeout=5000)
         self.layout.press_escape()
         dropdown.wait_for(state="hidden", timeout=5000)
@@ -465,7 +462,7 @@ class Overview(Surface):
         """
         item = self.get_metadata_item(key)
         item.wait_for(state="visible", timeout=5000)
-        link_btn = item.locator("a:has(svg.pluto-icon--link-external)")
+        link_btn = item.get_by_role("link")
         link_btn.wait_for(state="visible", timeout=10000)
         link_btn.click(timeout=5000)
 
@@ -564,7 +561,7 @@ class Overview(Surface):
         item = self.get_child_range(name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.open_on(item)
-        menu = self.layout.page.locator(".pluto-menu-context")
+        menu = self.layout.page.get_by_role("menu")
         add_btn = self._any_text_locator(menu, FAVORITE_ACTIONS)
         remove_btn = self._any_text_locator(menu, UNFAVORITE_ACTIONS)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
@@ -701,7 +698,7 @@ class Overview(Surface):
         """
         item = self.get_snapshot(name)
         item.wait_for(state="visible", timeout=5000)
-        item.locator(".console-snapshots__delete").click()
+        item.get_by_role("button", name=f"Delete {name}", exact=True).click()
         self.layout.confirm_delete()
 
     def wait_for_snapshot_removed(self, name: str) -> None:

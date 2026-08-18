@@ -29,7 +29,7 @@ export const Title = ({
   const { level } = useContext();
   return (
     <Text.Text
-      className={CSS(CSS.BE("header", "text"), className)}
+      className={CSS.cx(CSS.BE("header", "text"), className)}
       level={propsLevel ?? level}
       gap={1.5}
       {...rest}

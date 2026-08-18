@@ -12,8 +12,6 @@
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-MENU_SELECTOR = ".pluto-menu-context"
-
 
 class ContextMenu:
     """Context menu helper for right-click operations.
@@ -40,16 +38,14 @@ class ContextMenu:
             Self for method chaining.
         """
         element.click(button="right")
-        menu = self.page.locator(MENU_SELECTOR).first
+        menu = self.page.get_by_role("menu").first
         menu.wait_for(state="visible", timeout=5000)
-        menu.locator("[class*='menu-item']").first.wait_for(
-            state="visible", timeout=2000
-        )
+        menu.get_by_role("menuitem").first.wait_for(state="visible", timeout=2000)
         return self
 
     def _visible_menu(self) -> Locator:
         """Return the first visible context menu locator."""
-        return self.page.locator(f"{MENU_SELECTOR}:visible").first
+        return self.page.get_by_role("menu").first
 
     def click_option(self, text: str, *, exact: bool = True) -> None:
         """Click a menu option by searching within the context menu.

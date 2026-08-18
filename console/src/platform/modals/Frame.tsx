@@ -17,5 +17,5 @@ import { CSS } from "@/platform/css";
 export interface FrameProps extends Dialog.DialogProps {}
 
 export const Frame = ({ className, ...rest }: FrameProps): ReactElement => (
-  <Dialog.Dialog className={CSS(CSS.B("modal"), className)} {...rest} />
+  <Dialog.Dialog className={CSS.cx(CSS.B("modal"), className)} {...rest} />
 );

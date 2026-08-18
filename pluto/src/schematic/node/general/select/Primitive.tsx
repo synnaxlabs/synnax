@@ -53,7 +53,7 @@ export const Select = ({
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(CSS.B("select-symbol"), CSS.B("symbol-colored"), className)}
+      className={CSS.cx(CSS.B("select-symbol"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <Handle.Boundary orientation={orientation}>

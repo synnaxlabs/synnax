@@ -220,7 +220,7 @@ const Base = <E extends ElementType = "button">({
       el={el}
       defaultEl={defaultEl}
       direction="x"
-      className={CSS(
+      className={CSS.cx(
         CSS.B(MODULE_CLASS),
         preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
         !preview && CSS.disabled(isDisabled),

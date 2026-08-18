@@ -260,7 +260,7 @@ class PagesClient(ResourceClient):
             self.tree.expand_named(ProjectClient.ITEM_PREFIX, active)
         else:
             self.tree.expand_root(ProjectClient.ITEM_PREFIX)
-        self.layout.page.locator(".pluto-tree__item").first.wait_for(
+        self.layout.page.get_by_role("treeitem").first.wait_for(
             state="visible", timeout=5000
         )
 
@@ -275,9 +275,7 @@ class PagesClient(ResourceClient):
         :returns: Locator for the page item.
         """
         pattern = re.compile(rf"^\s*{re.escape(name)}\s*$")
-        return (
-            self.layout.page.locator(".pluto-tree__item").filter(has_text=pattern).first
-        )
+        return self.layout.page.get_by_role("treeitem").filter(has_text=pattern).first
 
     def _scroll_to(self, name: str) -> bool:
         """Scroll the project tree to find a page that may be off-screen.
@@ -295,7 +293,7 @@ class PagesClient(ResourceClient):
             return True
         except PlaywrightTimeoutError:
             pass
-        container = self.layout.page.locator(".pluto-tree .pluto-list__items").first
+        container = self.layout.page.get_by_role("tree").first
         try:
             container.wait_for(state="attached", timeout=2000)
         except PlaywrightTimeoutError:

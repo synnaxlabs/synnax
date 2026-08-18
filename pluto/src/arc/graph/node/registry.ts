@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
+import { record } from "@synnaxlabs/x";
 import z from "zod/v4";
 
 import { Constant } from "@/arc/graph/node/constant";
@@ -66,28 +67,24 @@ export const GROUPS: Group[] = [
     key: "basic",
     name: "Basic",
     Icon: Icon.Schematic,
-    symbols: [...keysOf(Constant.REGISTRY), ...keysOf(Status.REGISTRY)],
+    symbols: [...record.keys(Constant.REGISTRY), ...record.keys(Status.REGISTRY)],
   },
   {
     key: "telem",
     name: "Telemetry",
     Icon: Icon.Channel,
-    symbols: [...keysOf(Source.REGISTRY), ...keysOf(Sink.REGISTRY)],
+    symbols: [...record.keys(Source.REGISTRY), ...record.keys(Sink.REGISTRY)],
   },
   {
     key: "operator",
     name: "Operators",
     Icon: Icon.Add,
-    symbols: keysOf(Operator.REGISTRY),
+    symbols: record.keys(Operator.REGISTRY),
   },
   {
     key: "flow_control",
     name: "Flow control",
     Icon: Icon.Select,
-    symbols: [...keysOf(Select.REGISTRY), ...keysOf(StableFor.REGISTRY)],
+    symbols: [...record.keys(Select.REGISTRY), ...record.keys(StableFor.REGISTRY)],
   },
 ];
-
-function keysOf<T extends string>(registry: Record<T, unknown>): Type[] {
-  return Object.keys(registry) as Type[];
-}

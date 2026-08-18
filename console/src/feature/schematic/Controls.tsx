@@ -43,7 +43,7 @@ export const Controls = memo((): ReactElement => {
     <Vis.Controls x>
       {isCurrentlyEditable && <Diagram.Controls.SelectViewportMode />}
       <Diagram.Controls.FitView />
-      <Flex.Box x pack className={CSS(isAcquired && Vis.CONTROLS_PINNED_CLASS)}>
+      <Flex.Box x pack className={CSS.cx(isAcquired && Vis.CONTROLS_PINNED_CLASS)}>
         {canEdit && <Diagram.Controls.ToggleEdit disabled={isAcquired} />}
         {!isSnapshot && <ControlToggleButton />}
       </Flex.Box>

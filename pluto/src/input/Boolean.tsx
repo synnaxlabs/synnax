@@ -68,7 +68,7 @@ export const Boolean = ({
     <Button.Button
       el="label"
       variant={variant === "shadow" ? "outlined" : variant}
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("input", inputType),
         checkedIcon != null && CSS.M("icon"),
         className,

@@ -355,7 +355,7 @@ const YAxis = ({
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
-      className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cx(CSS.dropRegion(canDropHaulItem(dragging)))}
       onLabelChange={handleLabelChange}
     >
       {lineKeys.map((lineKey) => (
@@ -415,7 +415,7 @@ const XAxis = ({
       {...dropProps}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
-      className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cx(CSS.dropRegion(canDropHaulItem(dragging)))}
       showGrid={axisKey === "x1"}
       onLabelChange={handleLabelChange}
     >

@@ -55,7 +55,7 @@ export const Mask = ({
   );
   return (
     <div
-      className={CSS(CSS.noSelect, CSS.BE("viewport-mask", "container"), className)}
+      className={CSS.cx(CSS.noSelect, CSS.BE("viewport-mask", "container"), className)}
       style={containerStyle}
       {...rest}
     >

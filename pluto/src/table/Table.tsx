@@ -518,21 +518,21 @@ export const Table = ({
   const cellXOrigin = offset.x + indicatorSize;
   return (
     <div
-      className={CSS(CSS.B("table-surface"), className)}
+      className={CSS.cx(CSS.B("table-surface"), className)}
       onContextMenu={menuProps.open}
       {...rest}
     >
       <div ref={canvasRef} className={CSS.BE("table-surface", "canvas")} />
       <div className={CSS.BE("table-surface", "scroll")} onScroll={handleScroll}>
         <div
-          className={CSS(CSS.B("table-frame"), CSS.editable(editable))}
+          className={CSS.cx(CSS.B("table-frame"), CSS.editable(editable))}
           style={frameStyle}
           onPointerDown={handlePointerDown}
         >
           <Menu.ContextMenu menu={renderMenu} {...menuProps}>
             <table
               ref={tableElRef}
-              className={CSS(CSS.B("table"), menuProps.className)}
+              className={CSS.cx(CSS.B("table"), menuProps.className)}
               style={tableStyle}
               onCopy={onCopy}
               onPaste={editable ? onPaste : undefined}

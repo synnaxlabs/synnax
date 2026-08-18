@@ -75,7 +75,7 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
     <div
       key={handle.key}
       onPointerDown={onPointerDown}
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("schematic", "handle", "preview"),
         CSS.B("schematic-handle"),
         isSelected && CSS.M("selected"),

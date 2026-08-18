@@ -25,7 +25,7 @@ export const CheckWithArrow = ({
 }: Props): ReactElement => (
   <Primitive.Div
     orientation={orientation}
-    className={CSS(CSS.B("check-valve-with-arrow"), className)}
+    className={CSS.cx(CSS.B("check-valve-with-arrow"), className)}
     {...rest}
   >
     <Handle.Linear orientation={orientation} left={8.602} right={96.775} top={60.65} />

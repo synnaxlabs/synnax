@@ -24,7 +24,7 @@ export const HeatExchangerStraightTube = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("heat-exchanger-M"), className)}>
+  <Primitive.Div {...rest} className={CSS.cx(CSS.B("heat-exchanger-M"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="top"

@@ -64,7 +64,7 @@ const ArcModeSelectButton = ({
   return (
     <Button.Button
       y
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("arc-create-modal", "mode-select-button"),
         PCSS.selected(selected),
       )}

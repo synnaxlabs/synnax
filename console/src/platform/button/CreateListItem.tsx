@@ -30,7 +30,7 @@ export const CreateListItem = ({
     variant="text"
     textColor={9}
     justify="start"
-    className={CSS(CSS.B("create-list-item"), CSS.M(size), className)}
+    className={CSS.cx(CSS.B("create-list-item"), CSS.M(size), className)}
     {...rest}
   >
     <Icon.Add />

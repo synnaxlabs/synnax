@@ -32,7 +32,7 @@ export const Animated = ({
   ...rest
 }: AnimatedProps) => (
   <Icon.Caret.Up
-    className={CSS(
+    className={CSS.cx(
       CSS.B("caret-animated"),
       CSS.loc(enabled ? enabledLoc : disabledLoc),
       className,

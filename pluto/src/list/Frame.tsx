@@ -10,7 +10,6 @@
 import { bounds, type location, type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
-  memo,
   type PropsWithChildren,
   type ReactElement,
   type RefCallback,
@@ -21,6 +20,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { memo } from "@/component/memo";
 import { context } from "@/context";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
@@ -442,4 +442,4 @@ export const BaseFrame = <
  *   <List.Items>{(p) => <List.Item {...p} />}</List.Items>
  * </List.Frame>
  */
-export const Frame = memo(BaseFrame) as typeof BaseFrame;
+export const Frame = memo(BaseFrame);

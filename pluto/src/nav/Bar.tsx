@@ -41,7 +41,7 @@ const BaseBar = ({
   );
   return (
     <Flex.Box
-      className={CSS(
+      className={CSS.cx(
         CSS.B("navbar"),
         bordered && CSS.bordered(location.swap(loc)),
         CSS.dir(oppositeDir),
@@ -66,7 +66,7 @@ const createContent =
   // eslint-disable-next-line react/display-name
   ({ bordered = false, className, ...rest }: BarContentProps): ReactElement => (
     <Flex.Box
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("navbar", "content"),
         pos === "absolute-center" ? CSS.M(pos) : CSS.align(pos),
         pos !== "" && bordered && CSS.bordered(pos),

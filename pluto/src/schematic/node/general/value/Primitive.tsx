@@ -58,7 +58,7 @@ export const Value = ({
   );
   return (
     <Primitive.Div
-      className={CSS(
+      className={CSS.cx(
         CSS.B("value"),
         CSS.B("symbol-colored"),
         symbolColor != null && CSS.M("colored"),
@@ -76,7 +76,7 @@ export const Value = ({
         right={100}
         bottom={102}
       />
-      <div className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
+      <div className={CSS.cx(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
         <Text.Text level={unitsLevel}>{units}</Text.Text>
       </div>
     </Primitive.Div>

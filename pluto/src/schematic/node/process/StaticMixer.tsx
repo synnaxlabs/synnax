@@ -25,7 +25,7 @@ export const StaticMixer = ({
 }: Props): ReactElement => (
   <Primitive.Div
     {...rest}
-    className={CSS(CSS.B("static-mixer"), className)}
+    className={CSS.cx(CSS.B("static-mixer"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle

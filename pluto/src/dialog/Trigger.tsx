@@ -44,7 +44,7 @@ export const Trigger = ({
     );
   return (
     <Button.Button
-      className={CSS(CSS.BE("dialog", "trigger"), className)}
+      className={CSS.cx(CSS.BE("dialog", "trigger"), className)}
       onClick={(e) => {
         onClick?.(e);
         toggle();

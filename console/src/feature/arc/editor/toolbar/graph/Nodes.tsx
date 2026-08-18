@@ -43,7 +43,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
 
   return (
     <Select.ListItem
-      className={CSS(CSS.BE("arc-stages", "button"))}
+      className={CSS.cx(CSS.BE("arc-stages", "button"))}
       align="center"
       gap="tiny"
       draggable
@@ -107,7 +107,7 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
       size="small"
       value={selected}
       onChange={onSelect}
-      className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
+      className={CSS.cx(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
       textColor={9}
     >
       <Icon />

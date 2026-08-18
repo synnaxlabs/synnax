@@ -58,7 +58,7 @@ export const Dialog = ({
       ref={ref}
       y
       background={background}
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("dialog", "dialog"),
         CSS.loc(targetCorner.x),
         CSS.loc(targetCorner.y),

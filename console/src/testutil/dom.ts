@@ -50,7 +50,7 @@ export const clickAndSettle = async (text: string): Promise<void> => {
 
 /** Queries container for a rendered pluto icon by its name, or null. */
 export const queryIcon = (container: ParentNode, icon: string): Element | null =>
-  container.querySelector(`[aria-label="pluto-icon--${icon}"]`);
+  container.querySelector(`.pluto-icon--${icon}`);
 
 /** Returns the closest button wrapping the given pluto icon, or null. */
 export const queryIconButton = (
@@ -63,7 +63,7 @@ export const getIconButtons = (
   container: ParentNode,
   icon: string,
 ): HTMLButtonElement[] =>
-  Array.from(container.querySelectorAll(`[aria-label="pluto-icon--${icon}"]`)).flatMap(
+  Array.from(container.querySelectorAll(`.pluto-icon--${icon}`)).flatMap(
     (el) => {
       const button = el.closest("button");
       return button == null ? [] : [button];
@@ -181,7 +181,7 @@ export const getCompositeIconButton = (
 ): HTMLButtonElement => {
   const buttons = Array.from(container.querySelectorAll("button"));
   const btn = buttons.find((b) =>
-    icons.every((i) => b.querySelector(`[aria-label="pluto-icon--${i}"]`) != null),
+    icons.every((i) => b.querySelector(`.pluto-icon--${i}`) != null),
   );
   if (btn == null) throw new Error(`no button with icons ${icons.join(", ")}`);
   return btn;

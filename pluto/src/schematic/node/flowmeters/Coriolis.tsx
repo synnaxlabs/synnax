@@ -26,7 +26,7 @@ export const Coriolis = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-Coriolis"), className)}>
+  <Primitive.Div {...rest} className={CSS.cx(CSS.B("flowmeter-Coriolis"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}

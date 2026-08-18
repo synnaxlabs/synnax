@@ -91,7 +91,7 @@ export const Splash = (): ReactElement => {
           y
           grow
           empty
-          className={CSS(CSS.BE("shell", "list"), CSS.BE("project-splash", "list"))}
+          className={CSS.cx(CSS.BE("shell", "list"), CSS.BE("project-splash", "list"))}
         >
           <Header.Header gap="small" x className={CSS.BE("project-splash", "header")}>
             <Header.Title level="h4" color={11}>

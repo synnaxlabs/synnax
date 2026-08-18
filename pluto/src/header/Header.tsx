@@ -66,7 +66,7 @@ export const Header = ({
         x
         align="center"
         justify="between"
-        className={CSS(
+        className={CSS.cx(
           CSS.B("header"),
           bordered && CSS.bordered("bottom"),
           divided && CSS.BM("header", "divided"),

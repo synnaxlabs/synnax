@@ -141,7 +141,7 @@ export const Split = ({
       ref={ref}
       direction={dir}
       align={align}
-      className={CSS(CSS.B("resize-split"), className)}
+      className={CSS.cx(CSS.B("resize-split"), className)}
       empty
       grow
     >

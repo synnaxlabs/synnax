@@ -176,7 +176,7 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
                 <foreignObject x={p.x - 9} y={p.y - 9} width="18px" height="18px">
                   <div
                     id={`handle-${i}`}
-                    className={CSS(
+                    className={CSS.cx(
                       CSS.BE("diagram-edge-handle", "dragger"),
                       CSS.dir(dir),
                       Cursor.DRAG_CLASS,

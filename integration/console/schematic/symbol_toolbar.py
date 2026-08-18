@@ -73,11 +73,9 @@ class SymbolToolbar:
         self.show()
         self.notifications.close_all()
 
-        create_group_btn = (
-            self.toolbar.locator("button[class*='outlined']")
-            .filter(has=self.page.locator("[aria-label*='group']"))
-            .first
-        )
+        create_group_btn = self.toolbar.get_by_role(
+            "button", name="Create symbol group", exact=True
+        ).first
         # Notifications stack over the actions bar and swallow coordinate
         # clicks, so dispatch the click on the button itself.
         create_group_btn.wait_for(state="visible", timeout=5000)
@@ -145,11 +143,9 @@ class SymbolToolbar:
 
     def create_symbol(self) -> SymbolEditor:
         """Open the symbol editor to create a new symbol."""
-        create_symbol_btn = (
-            self.toolbar.locator("button[class*='outlined']")
-            .filter(has=self.page.locator("[aria-label*='schematic']"))
-            .first
-        )
+        create_symbol_btn = self.toolbar.get_by_role(
+            "button", name="Create symbol", exact=True
+        ).first
         create_symbol_btn.click()
 
         editor = SymbolEditor(self.layout)

@@ -64,7 +64,9 @@ class AccessClient(ResourceClient):
         logout_option.click(timeout=2000)
         sy.sleep(0.5)
 
-        self.layout.page.wait_for_selector(".pluto-field__username", timeout=5000)
+        self.layout.page.get_by_label("Username", exact=True).wait_for(
+            state="visible", timeout=5000
+        )
 
     def logout_via_badge(self) -> None:
         """Log out via the user badge dropdown.
@@ -72,8 +74,8 @@ class AccessClient(ResourceClient):
         Clicks on the user badge, then clicks "Log out" in the dropdown.
         After logout, the login screen will be displayed.
         """
-        user_badge = self.layout.page.locator(".pluto-dialog__trigger").filter(
-            has=self.layout.page.locator(".pluto-icon--user")
+        user_badge = self.layout.page.get_by_role(
+            "button", name="User menu", exact=True
         )
         user_badge.click()
         sy.sleep(0.3)
@@ -82,7 +84,9 @@ class AccessClient(ResourceClient):
         logout_btn.click()
         sy.sleep(0.5)
 
-        self.layout.page.wait_for_selector(".pluto-field__username", timeout=5000)
+        self.layout.page.get_by_label("Username", exact=True).wait_for(
+            state="visible", timeout=5000
+        )
 
     def login(self, *, username: str, password: str) -> None:
         """Log in as a user.
@@ -93,11 +97,11 @@ class AccessClient(ResourceClient):
         :param password: The password to log in with.
         :raises RuntimeError: If login fails with an error message.
         """
-        username_input = self.layout.page.locator(".pluto-field__username input").first
+        username_input = self.layout.page.get_by_label("Username", exact=True).first
         username_input.wait_for(state="visible", timeout=5000)
         username_input.fill(username)
 
-        password_input = self.layout.page.locator(".pluto-field__password input").first
+        password_input = self.layout.page.get_by_label("Password", exact=True).first
         password_input.fill(password)
 
         # The button's trailing arrow icon pollutes its accessible name, so exact
@@ -112,7 +116,7 @@ class AccessClient(ResourceClient):
                 error_text = error_status.inner_text().strip()
                 raise RuntimeError(f"Login failed: {error_text}")
 
-            login_form = self.layout.page.locator(".pluto-field__username")
+            login_form = self.layout.page.get_by_label("Username", exact=True)
             if login_form.count() == 0 or not login_form.is_visible():
                 self._enter_test_project()
                 return
@@ -159,8 +163,8 @@ class AccessClient(ResourceClient):
 
         :returns: The username, or None if not logged in.
         """
-        user_badge = self.layout.page.locator(
-            ".pluto-dialog__trigger:has(.pluto-icon--user)"
+        user_badge = self.layout.page.get_by_role(
+            "button", name="User menu", exact=True
         )
         if user_badge.count() > 0 and user_badge.is_visible():
             return user_badge.inner_text().strip()

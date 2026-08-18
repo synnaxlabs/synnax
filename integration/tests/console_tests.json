@@ -53,6 +53,7 @@
       "tests": [
         { "case": "console/channel/alias_synchronization" },
         { "case": "console/channel/channel_lifecycle" },
+        { "case": "console/channel/channel_context_menu" },
         { "case": "console/channel/calculated_channels" },
         { "case": "console/channel/rename_synchronization" },
         { "case": "console/channel/ontology" },

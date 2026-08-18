@@ -439,9 +439,9 @@ class Schematic(ConsolePage):
         disable = self.page.get_by_role("button", name="Disable editing", exact=True)
         if disable.count() > 0:
             disable.click()
-            self.page.get_by_role(
-                "button", name="Enable editing", exact=True
-            ).wait_for(state="visible", timeout=2000)
+            self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
+                state="visible", timeout=2000
+            )
         sy.sleep(0.1)
 
     def get_properties(self) -> SchematicProperties:

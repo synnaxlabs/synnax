@@ -61,7 +61,7 @@ export const OffPageReference = ({
 
   return (
     <Primitive.Div
-      className={CSS(
+      className={CSS.cx(
         CSS.B("arrow"),
         CSS.B("symbol-colored"),
         linked && CSS.M("linked"),

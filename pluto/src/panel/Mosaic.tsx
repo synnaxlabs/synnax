@@ -424,7 +424,7 @@ export const Mosaic = ({
             onDrop={handleDrop}
             onCreate={handleCreate}
             onResize={handleResize}
-            className={CSS(
+            className={CSS.cx(
               className,
               overlaid != null && CSS.BM("panel-mosaic", "overlaid"),
             )}

@@ -26,7 +26,7 @@ export const Electromagnetic = ({
 }: Props) => (
   <Primitive.Div
     {...rest}
-    className={CSS(CSS.B("flowmeter-Electromagnetic"), className)}
+    className={CSS.cx(CSS.B("flowmeter-Electromagnetic"), className)}
   >
     <Handle.Rectangle
       orientation={orientation}

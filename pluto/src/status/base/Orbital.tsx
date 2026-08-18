@@ -19,7 +19,9 @@ interface RingProps {
 }
 
 const Ring = ({ variant }: RingProps): ReactElement => (
-  <div className={CSS(CSS.BE("orbital", "tilt"), CSS.BEM("orbital", "tilt", variant))}>
+  <div
+    className={CSS.cx(CSS.BE("orbital", "tilt"), CSS.BEM("orbital", "tilt", variant))}
+  >
     <div className={CSS.BE("orbital", "ring")}>
       {variant !== "c" && <div className={CSS.BE("orbital", "laser")} />}
     </div>
@@ -41,10 +43,10 @@ export interface OrbitalProps extends Flex.BoxProps {
  * {@link Loading} for a surface that may resolve quickly.
  */
 export const Orbital = ({ core, className, ...rest }: OrbitalProps): ReactElement => (
-  <Flex.Box center full className={CSS(CSS.B("orbital"), className)} {...rest}>
+  <Flex.Box center full className={CSS.cx(CSS.B("orbital"), className)} {...rest}>
     <div className={CSS.BE("orbital", "stage")}>
       <div
-        className={CSS(
+        className={CSS.cx(
           CSS.BE("orbital", "core"),
           core == null && CSS.BEM("orbital", "core", "orb"),
         )}

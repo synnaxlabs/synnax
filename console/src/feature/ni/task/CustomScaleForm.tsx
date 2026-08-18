@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex, Form, Icon, Input, Select, state } from "@synnaxlabs/pluto";
-import { binary, deep, type record } from "@synnaxlabs/x";
+import { binary, deep, record } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
 import { z } from "zod";
@@ -85,9 +85,7 @@ const UNIT_SYMBOLS = {
   FootPounds: "ft·lb",
 } as const satisfies Record<Units, string>;
 
-const unitsData = (Object.entries(UNIT_SYMBOLS) as [Units, string][]).map(
-  ([key, name]) => ({ key, name }),
-);
+const unitsData = record.entries(UNIT_SYMBOLS).map(([key, name]) => ({ key, name }));
 
 const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",

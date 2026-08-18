@@ -24,7 +24,7 @@ export const IsoBurstDisc = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("symbol"), className)}>
+  <Primitive.Div {...rest} className={CSS.cx(CSS.B("symbol"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

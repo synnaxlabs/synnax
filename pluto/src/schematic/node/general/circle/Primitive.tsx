@@ -32,7 +32,7 @@ export const Circle = ({
   const height = diameter + 2 * padding;
   const dimensions = useMemo(() => ({ width, height }), [width, height]);
   return (
-    <Primitive.Div className={CSS(className, CSS.B("circle-shape"))}>
+    <Primitive.Div className={CSS.cx(className, CSS.B("circle-shape"))}>
       <Handle.Boundary orientation="left" refreshDeps={radius}>
         <Handle.Handle
           location="top"

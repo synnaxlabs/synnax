@@ -328,7 +328,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           </Button.Button>
           <Text.Text
             level="small"
-            className={CSS(
+            className={CSS.cx(
               CSS.BE("calendar-header", "month"),
               CSS.B("datetime-calendar-header-label"),
             )}
@@ -359,7 +359,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             <Button.Button
               key={i}
               variant="text"
-              className={CSS(CSS.selected(i + 1 === day))}
+              className={CSS.cx(CSS.selected(i + 1 === day))}
               onClick={() => handleDayChange(i + 1)}
               square
             >

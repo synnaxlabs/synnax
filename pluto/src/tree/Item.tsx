@@ -48,7 +48,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   );
   return (
     <Select.ListItem
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("tree", "item"),
         depth !== 0 && CSS.M("show-rules"),
         useMargin && CSS.M("margin"),

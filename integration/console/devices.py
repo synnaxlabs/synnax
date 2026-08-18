@@ -21,6 +21,7 @@ class DevicesClient(ResourceClient):
 
     RACK_PREFIX = "rack:"
     DEVICE_PREFIX = "device:"
+
     def __init__(self, layout: LayoutClient, client: sy.Synnax):
         super().__init__(layout)
         self.client = client
@@ -320,7 +321,7 @@ class DevicesClient(ResourceClient):
     def get_icon(self, name: str) -> str | None:
         """Get the icon type rendered for a device in the tree.
 
-        The icon's ``aria-label`` follows the pattern ``pluto-icon--logo-{make}``.
+        The icon's class list contains ``pluto-icon--logo-{make}``.
 
         :param name: Name of the device.
         :returns: The make slug (e.g. ``"ni"``, ``"labjack"``), or ``None``
@@ -332,12 +333,12 @@ class DevicesClient(ResourceClient):
         ).first
         if icon.count() == 0:
             return None
-        aria = icon.get_attribute("aria-label") or ""
+        classes = icon.get_attribute("class") or ""
         prefix = "pluto-icon--logo-"
-        idx = aria.find(prefix)
+        idx = classes.find(prefix)
         if idx == -1:
             return None
-        return aria[idx + len(prefix) :]
+        return classes[idx + len(prefix) :].split(" ")[0]
 
     def has_expand_arrow(self, name: str) -> bool:
         """Check if a device has an expand arrow (i.e. can have children).

@@ -66,7 +66,7 @@ const Internal = ({
   <Flex.Box
     direction={direction.swap(orientation)}
     align="center"
-    className={CSS(CSS.B("control-state"))}
+    className={CSS.cx(CSS.B("control-state"))}
     gap="small"
     {...rest}
   >

@@ -26,7 +26,7 @@ export const FilterChip = <E extends Generic.ElementType = "p">({
     size="small"
     borderColor={6}
     level="small"
-    className={CSS(CSS.BE("view", "filter-chip"), className)}
+    className={CSS.cx(CSS.BE("view", "filter-chip"), className)}
     {...(rest as Text.TextProps<E>)}
   />
 );

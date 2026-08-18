@@ -122,7 +122,7 @@ export interface SelectVariantProps extends Omit<
 export const SelectVariant = ({ className, ...rest }: SelectVariantProps) => (
   <Select.Static
     {...rest}
-    className={CSS(CSS.B("table-cell-select-variant"), className)}
+    className={CSS.cx(CSS.B("table-cell-select-variant"), className)}
     data={VARIANT_DATA}
     resourceName="variant"
   />

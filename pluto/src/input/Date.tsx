@@ -90,7 +90,7 @@ export const Date = ({
     <Text
       ref={ref}
       value={inputValue}
-      className={CSS(CSS.B("input-date"), className)}
+      className={CSS.cx(CSS.B("input-date"), className)}
       onChange={handleChange}
       type="date"
       {...rest}

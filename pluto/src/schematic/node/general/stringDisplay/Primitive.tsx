@@ -51,7 +51,7 @@ export const StringDisplay = ({
     : textColor;
   return (
     <Primitive.Div
-      className={CSS(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
+      className={CSS.cx(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <div className={CSS.BE("string-display", "content")}>

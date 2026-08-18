@@ -560,7 +560,7 @@ export const create = ({
             {visible && isSized && (
               <ReactFlow
                 {...triggerProps}
-                className={CSS(
+                className={CSS.cx(
                   className,
                   CSS.B("diagram"),
                   CSS.editable(editable),

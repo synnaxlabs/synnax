@@ -137,7 +137,13 @@ const LegendEntry = ({
     [itemKey, onColorChange],
   );
   return (
-    <Flex.Box align="center" className={CSS(CSS.B("legend-entry"))} gap="small" x grow>
+    <Flex.Box
+      align="center"
+      className={CSS.cx(CSS.B("legend-entry"))}
+      gap="small"
+      x
+      grow
+    >
       <Color.Swatch
         allowChange
         draggable={false}

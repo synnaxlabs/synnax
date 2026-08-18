@@ -77,7 +77,7 @@ export const Button = ({
 
   return (
     <button
-      className={CSS(
+      className={CSS.cx(
         CSS.B("symbol-primitive"),
         CSS.B("symbol-primitive-toggle"),
         !parsedDelay.isZero && CSS.BM("symbol-primitive-toggle", "delayed"),

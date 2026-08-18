@@ -49,7 +49,7 @@ export const StateIndicator = ({
   );
   return (
     <Primitive.Div
-      className={CSS(
+      className={CSS.cx(
         CSS.B("state-indicator"),
         CSS.B("symbol-colored"),
         symbolColor != null && CSS.M("colored"),

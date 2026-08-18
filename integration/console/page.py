@@ -297,7 +297,7 @@ class ConsolePage:
             The copied link from clipboard (empty string if clipboard access fails).
         """
         self.layout.show_visualization_toolbar()
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button = self.page.get_by_role("button", name="Copy link", exact=True)
         try:
             self.notifications.close_all()
             link_button.click(timeout=5000)
@@ -314,7 +314,9 @@ class ConsolePage:
             The exported JSON content as a dictionary.
         """
         self.layout.show_visualization_toolbar()
-        export_button = self.page.locator(".pluto-icon--export").locator("..")
+        export_button = self.page.get_by_role(
+            "button", name="Export layout", exact=True
+        )
 
         with self.page.expect_download(timeout=5000) as download_info:
             try:

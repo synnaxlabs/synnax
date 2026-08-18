@@ -56,7 +56,7 @@ const createSubIcon = (
         cx={SUB_SIZE / 2}
         cy={SUB_SIZE / 2}
       />
-      <Icon className={CSS(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
+      <Icon className={CSS.cx(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
     </g>
   );
 };
@@ -77,8 +77,10 @@ const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
 };
 
 /**
- * Turns a raw SVG component into an {@link FC}, applying the icon class names, an
- * `aria-label` of `pluto-icon--{name}`, and theme-aware color parsing.
+ * Turns a raw SVG component into an {@link FC}, applying the icon class names and
+ * theme-aware color parsing. Icons are decorative by default: without an explicit
+ * `aria-label` they are hidden from the accessibility tree, so they never leak into
+ * an ancestor's accessible name.
  */
 export const wrapSVGIcon = (
   Base: SVGFC,
@@ -90,8 +92,8 @@ export const wrapSVGIcon = (
     c = parseColor(c);
     return (
       <Base
-        className={CSS(CSS.B("icon"), pClassName, className, typeClass)}
-        aria-label={rest["aria-label"] ?? typeClass}
+        className={CSS.cx(CSS.B("icon"), pClassName, className, typeClass)}
+        aria-hidden={rest["aria-label"] == null ? true : undefined}
         color={c}
         {...rest}
       />
@@ -118,7 +120,7 @@ const STACK_COPY_STYLE = { fontSize: BASE_SIZE };
 export const createStacked = (Base: FC): FC => {
   const Stacked = ({ className, color: c, ...rest }: IconProps) => (
     <svg
-      className={CSS(CSS.B("icon"), CSS.BM("icon", "stacked"), className)}
+      className={CSS.cx(CSS.B("icon"), CSS.BM("icon", "stacked"), className)}
       viewBox={`0 0 ${BASE_SIZE} ${BASE_SIZE}`}
       height="1em"
       width="1em"
@@ -168,7 +170,7 @@ export const createComposite = (
     c = parseColor(c);
     return (
       <svg
-        className={CSS(CSS.B("icon"), CSS.BM("icon", "composite"))}
+        className={CSS.cx(CSS.B("icon"), CSS.BM("icon", "composite"))}
         viewBox="0 0 24 24"
         height="1em"
         width="1em"

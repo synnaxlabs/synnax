@@ -56,7 +56,7 @@ export const Breadcrumb = ({
   ...rest
 }: BreadcrumbProps): ReactElement => (
   <Text.Text
-    className={CSS(
+    className={CSS.cx(
       CSS.B("breadcrumb"),
       highlightVariant != null && CSS.BM("breadcrumb", "highlight", highlightVariant),
     )}

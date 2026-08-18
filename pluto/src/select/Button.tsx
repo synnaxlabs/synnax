@@ -101,7 +101,7 @@ export const Button = <K extends record.Key = record.Key>({
       id={itemKey.toString()}
       onChange={onSelect}
       value={selected}
-      className={CSS(
+      className={CSS.cx(
         className,
         CSS.B("select-btn"),
         CSS.selected(selected),

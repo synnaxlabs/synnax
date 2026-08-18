@@ -29,7 +29,7 @@ export const Frame = ({
   ...props
 }: FrameProps): ReactElement => (
   <Flex.Box
-    className={CSS(
+    className={CSS.cx(
       CSS.B("task-controls"),
       expanded && CSS.BM("task-controls", "expanded"),
       className,

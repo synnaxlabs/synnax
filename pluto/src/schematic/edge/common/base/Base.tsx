@@ -40,7 +40,7 @@ export const Base = ({
   return (
     <BaseEdge
       {...props}
-      className={CSS(CSS.B("symbol-colored"), className)}
+      className={CSS.cx(CSS.B("symbol-colored"), className)}
       interactionWidth={INTERACTION_WIDTH}
       style={style}
     />

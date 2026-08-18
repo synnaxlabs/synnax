@@ -249,12 +249,10 @@ class Tree:
         self.page.locator(f"div[id^='{prefix}']").first.wait_for(
             state="visible", timeout=5000
         )
-        item = (
-            self.page.locator(f"div[id^='{prefix}']")
-            .filter(has=self.page.get_by_text(name, exact=True))
-            .first
-        )
-        item.wait_for(state="visible", timeout=5000)
+        # The tree is windowed, so the node must be swept into the DOM before
+        # it can be expanded.
+        item = self.wait_for_name(prefix, name)
+        item.scroll_into_view_if_needed()
         # An expanded node's caret carries pluto--location-bottom (caret down);
         # collapsed is pluto--location-right. The drawer remounts the tree each
         # time it is reopened, so an expand click issued before the freshly

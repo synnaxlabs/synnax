@@ -673,7 +673,7 @@ export const Selector = ({
         ref={combinedRef}
         role={LIST_ROLE}
         aria-orientation={horizontal ? "horizontal" : "vertical"}
-        className={CSS(
+        className={CSS.cx(
           CSS.BE("tabs", "selector"),
           CSS.BEM("tabs", "selector", variant),
           CSS.BEM("tabs", "selector", "align", resolvedAlign),
@@ -692,7 +692,7 @@ export const Selector = ({
         {children}
         {ghostStyle != null && (
           <span
-            className={CSS(CSS.BE("tabs", "ghost"), CSS.M("direction", dir))}
+            className={CSS.cx(CSS.BE("tabs", "ghost"), CSS.M("direction", dir))}
             style={ghostStyle}
           />
         )}

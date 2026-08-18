@@ -67,7 +67,7 @@ export const Tank = ({
   );
   return (
     <Primitive.Div
-      className={CSS(className, CSS.B("tank"), CSS.B("symbol-colored"))}
+      className={CSS.cx(className, CSS.B("tank"), CSS.B("symbol-colored"))}
       style={style}
     >
       <Handle.Boundary refreshDeps={refreshDeps} orientation="left">

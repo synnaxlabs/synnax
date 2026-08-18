@@ -29,7 +29,7 @@ class Surface(ResourceClient):
 
     def _click_visible_option(self, texts: tuple[str, ...]) -> None:
         """Click whichever text variant is visible in the open context menu."""
-        menu = self.layout.page.locator(".pluto-menu-context")
+        menu = self.layout.page.get_by_role("menu")
         for text in texts:
             btn = menu.get_by_text(text, exact=True)
             if btn.count() > 0 and btn.is_visible():

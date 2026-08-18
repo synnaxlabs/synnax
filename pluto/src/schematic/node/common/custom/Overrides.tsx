@@ -119,7 +119,7 @@ const RegionControls = ({
           onClick={() => onReset(path)}
           variant="text"
           size="tiny"
-          className={CSS(CSS.B("schematic-region-reset"), CSS.visible(canBeReset))}
+          className={CSS.cx(CSS.B("schematic-region-reset"), CSS.visible(canBeReset))}
         >
           <Icon.Reset />
         </Button.Button>

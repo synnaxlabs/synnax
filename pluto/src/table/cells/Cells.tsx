@@ -64,7 +64,7 @@ export const Text = ({
   return (
     <Base
       id={cellKey}
-      className={CSS(
+      className={CSS.cx(
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
         CSS.BEM("table", "cell", "text"),
@@ -154,7 +154,7 @@ export const Value = ({
       onClick={handleSelect}
       onContextMenu={handleSelect}
       style={cellStyle}
-      className={CSS(
+      className={CSS.cx(
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
         CSS.BEM("table", "cell", "value"),

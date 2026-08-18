@@ -84,7 +84,7 @@ export const BaseSwatch = ({
   );
   return (
     <Button.Button
-      className={CSS(
+      className={CSS.cx(
         CSS.B("color-swatch"),
         CSS.M(size),
         color.contrast(background, clr) > 1.5 &&

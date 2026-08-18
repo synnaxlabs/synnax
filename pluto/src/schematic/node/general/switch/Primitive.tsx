@@ -34,7 +34,7 @@ export const Switch = ({
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(
+      className={CSS.cx(
         colorVar != null && CSS.B("symbol-colored"),
         colorVar != null && CSS.BM("switch-symbol", "colored"),
       )}

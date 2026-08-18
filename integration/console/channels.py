@@ -23,6 +23,7 @@ class ChannelClient(ResourceClient):
     """
 
     ITEM_PREFIX = "channel:"
+
     def __init__(
         self,
         layout: LayoutClient,

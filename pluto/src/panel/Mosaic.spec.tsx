@@ -541,7 +541,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await act(async () => {
-        fireEvent.click(utils.getByLabelText("pluto-icon--add"));
+        fireEvent.click(utils.container.querySelector(".pluto-icon--add")!);
       });
 
       await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));

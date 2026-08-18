@@ -72,9 +72,9 @@ export const ColumnIndicators = memo(
     );
     const allSelected = totalCells > 0 && selected.length >= totalCells;
     return (
-      <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
+      <tr className={CSS.cx(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
         <td
-          className={CSS(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
+          className={CSS.cx(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
           onClick={onSelectAll}
           onContextMenu={onSelectAll}
         />
@@ -131,7 +131,7 @@ export const Indicator = ({
   return (
     <td
       id={`resizer-${dir}-${index}`}
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("table", "resizer"),
         CSS.dir(dir),
         CSS.selected(selected),

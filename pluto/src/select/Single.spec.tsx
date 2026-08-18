@@ -98,9 +98,9 @@ describe("Select.Single", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
     fireEvent.click(c.getByText("Select Test Item"));
-    expect(c.getByText("First Item Option")).toBeTruthy();
-    expect(c.getByText("Second Item Option")).toBeTruthy();
-    expect(c.getByText("Third Item Option")).toBeTruthy();
+    expect(c.getByRole("option", { name: "First Item Option" })).toBeTruthy();
+    expect(c.getByRole("option", { name: "Second Item Option" })).toBeTruthy();
+    expect(c.getByRole("option", { name: "Third Item Option" })).toBeTruthy();
   });
 
   it("should close the selection dialog when the user clicks on the trigger", () => {

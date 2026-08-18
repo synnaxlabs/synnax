@@ -113,11 +113,13 @@ class ConsoleCase(TestCase):
         username = self.synnax_connection.username
         password = self.synnax_connection.password
 
-        self.page.wait_for_selector(".pluto-field__username", timeout=5000)
-        username_input = self.page.locator(".pluto-field__username input").first
+        self.page.get_by_label("Username", exact=True).wait_for(
+            state="visible", timeout=5000
+        )
+        username_input = self.page.get_by_label("Username", exact=True).first
         username_input.fill(username)
 
-        password_input = self.page.locator(".pluto-field__password input").first
+        password_input = self.page.get_by_label("Password", exact=True).first
         password_input.fill(password)
 
         self.page.get_by_role("button", name="Log in").click(timeout=2000)

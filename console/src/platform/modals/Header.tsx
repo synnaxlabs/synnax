@@ -44,7 +44,7 @@ export const Header = ({
       location="top"
       size="6rem"
       bordered
-      className={CSS(CSS.BE("modal", "header"), className)}
+      className={CSS.cx(CSS.BE("modal", "header"), className)}
       {...rest}
     >
       <Nav.Bar.Start>
@@ -59,7 +59,13 @@ export const Header = ({
       </Nav.Bar.Start>
       {!hideClose && (
         <Nav.Bar.End>
-          <Button.Button onClick={close} size="small" variant="text" textColor={9}>
+          <Button.Button
+            aria-label="Close"
+            onClick={close}
+            size="small"
+            variant="text"
+            textColor={9}
+          >
             <Icon.Close />
           </Button.Button>
         </Nav.Bar.End>

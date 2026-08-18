@@ -56,7 +56,7 @@ export const Window = memo((): ReactElement | null => {
     <Flex.Box
       full
       empty
-      className={CSS(
+      className={CSS.cx(
         CSS.B("main"),
         CSS.M(`os-${os.toLowerCase()}`),
         isMain && CSS.M("primary"),

@@ -65,7 +65,7 @@ class Valve(Symbol):
         applied_properties: dict[str, Any] = {}
 
         # Navigate to Properties > Control tab
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
         self.page.get_by_text("Control").last.click()
 
         if state_channel is not None:

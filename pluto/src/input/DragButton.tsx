@@ -158,7 +158,7 @@ export const DragButton = ({
     <Button.Button
       ref={elRef}
       variant="outlined"
-      className={CSS(
+      className={CSS.cx(
         CSS.BE("input", "drag-btn"),
         direction != null && CSS.BEM("input", "drag-btn", "direction", direction),
         className,

@@ -56,7 +56,7 @@ export const Notification = ({
   return (
     // The key remounts the card when a repeat arrives, replaying the entrance animation.
     <div
-      className={CSS(CSS.B("notification"), className)}
+      className={CSS.cx(CSS.B("notification"), className)}
       key={time.toString()}
       role="status"
       {...rest}

@@ -71,7 +71,7 @@ class Button(Symbol):
             self.set_label(channel_name)
 
         # Navigate to Properties > Control tab
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
         self.page.get_by_text("Control").last.click()
 
         if channel_name is not None:

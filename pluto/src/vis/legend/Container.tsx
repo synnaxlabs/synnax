@@ -122,7 +122,7 @@ export const Container = memo(
 
     return (
       <Flex.Box
-        className={CSS(className, CSS.B("legend"), Cursor.DRAG_CLASS)}
+        className={CSS.cx(className, CSS.B("legend"), Cursor.DRAG_CLASS)}
         bordered
         style={mergedStyle}
         onPointerDown={draggable ? handleCursorDragStart : undefined}
