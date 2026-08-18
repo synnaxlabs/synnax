@@ -30,18 +30,18 @@ enum Kind {
   KIND_F_32 = 9;
   KIND_F_64 = 10;
   KIND_STRING = 11;
-  KIND_CHAN = 14;
-  KIND_SERIES = 15;
-  KIND_VARIABLE = 16;
-  KIND_NUMERIC_CONSTANT = 17;
-  KIND_INTEGER_CONSTANT = 18;
-  KIND_FLOAT_CONSTANT = 19;
-  KIND_EXACT_INTEGER_FLOAT_CONSTANT = 20;
-  KIND_FUNCTION = 21;
-  KIND_SEQUENCE = 22;
-  KIND_STAGE = 23;
-  KIND_VAR_REF = 24;
-  KIND_BOOL = 25;
+  KIND_CHAN = 12;
+  KIND_SERIES = 13;
+  KIND_VARIABLE = 14;
+  KIND_NUMERIC_CONSTANT = 15;
+  KIND_INTEGER_CONSTANT = 16;
+  KIND_FLOAT_CONSTANT = 17;
+  KIND_EXACT_INTEGER_FLOAT_CONSTANT = 18;
+  KIND_FUNCTION = 19;
+  KIND_SEQUENCE = 20;
+  KIND_STAGE = 21;
+  KIND_VAR_REF = 22;
+  KIND_BOOL = 23;
 }
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
@@ -100,8 +100,7 @@ message Channels {
   map<uint32, string> write = 2;
 }
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 message Dimensions {
   // length is the length dimension exponent (meters).
   int32 length = 1;
@@ -109,13 +108,13 @@ message Dimensions {
   int32 mass = 2;
   // time is the time dimension exponent (seconds).
   int32 time = 3;
-  // current is the electric current dimension exponent (amperes).
+  // current is the electric current dimension exponent (Amperes).
   int32 current = 4;
-  // temperature is the temperature dimension exponent (kelvin).
+  // temperature is the temperature dimension exponent (Kelvin).
   int32 temperature = 5;
   // angle is the angle dimension exponent (radians).
   int32 angle = 6;
-  // count is the count dimension exponent (dimensionless quantity).
+  // count is the count dimension exponent.
   int32 count = 7;
   // data is the data size dimension exponent (bytes).
   int32 data = 8;

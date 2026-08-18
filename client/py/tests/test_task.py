@@ -132,12 +132,12 @@ class TestTaskClient:
 class TestConfigBases:
     def test_read_config_mints_a_record_key(self):
         """Should give a read config a record key it can hash on."""
-        cfg = sy.task.BaseReadConfig()
+        cfg = sy.task.ReadConfig()
         assert isinstance(cfg.key, UUID)
         assert hash(cfg) == hash(cfg.key)
 
     def test_write_config_mints_a_record_key(self):
         """Should give a write config a record key it can hash on."""
-        cfg = sy.task.BaseWriteConfig()
+        cfg = sy.task.WriteConfig()
         assert isinstance(cfg.key, UUID)
         assert hash(cfg) == hash(cfg.key)

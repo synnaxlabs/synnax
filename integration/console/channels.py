@@ -119,9 +119,7 @@ class ChannelClient:
         self.layout.click_role("button", "Create", exact=True)
         self.layout.wait_for_selector_hidden(self.layout.MODAL_SELECTOR)
         self.show_channels()
-        self.layout.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
-            has=self.layout.get_by_text(str(name), exact=True)
-        ).first.wait_for(state="visible", timeout=5000)
+        self.tree.wait_for_name(self.ITEM_PREFIX, str(name))
         self.hide_channels()
         return True
 
@@ -129,7 +127,7 @@ class ChannelClient:
         self,
         channels: list[dict[str, str | int | bool]],
     ) -> list[str]:
-        """Creates multiple channels using the 'Create More' checkbox.
+        """Creates multiple channels using the 'Create more' checkbox.
 
         Each channel dict should contain:
             - name: The name for the channel (required)
@@ -164,7 +162,7 @@ class ChannelClient:
                 modal = self.layout.locator(self.layout.MODAL_SELECTOR)
                 if modal.count() == 0:
                     raise RuntimeError(
-                        "Modal closed between channel creations despite 'Create More'"
+                        "Modal closed between channel creations despite 'Create more'"
                     )
 
             self.layout.fill_input_field("Name", name)
@@ -186,11 +184,11 @@ class ChannelClient:
 
             is_last = i == len(channels) - 1
             if not is_last:
-                if not self.layout.get_toggle("Create More"):
-                    self.layout.click_checkbox("Create More")
+                if not self.layout.get_toggle("Create more"):
+                    self.layout.click_checkbox("Create more")
             else:
-                if self.layout.get_toggle("Create More"):
-                    self.layout.click_checkbox("Create More")
+                if self.layout.get_toggle("Create more"):
+                    self.layout.click_checkbox("Create more")
 
             self.layout.click_role("button", "Create", exact=True)
             created_channels.append(name)
@@ -199,7 +197,7 @@ class ChannelClient:
                 modal = self.layout.locator(self.layout.MODAL_SELECTOR)
                 if modal.count() == 0:
                     raise RuntimeError(
-                        "Modal closed after creating channel with 'Create More' checked"
+                        "Modal closed after creating channel with 'Create more' checked"
                     )
                 # expect() requires raw Playwright locator
                 name_input_after = self.layout.page.get_by_role("textbox", name="Name")
@@ -243,7 +241,7 @@ class ChannelClient:
                 if "Failed to update calculated channel" in modal_text:
                     error_start = modal_text.find("Failed to update calculated channel")
                     error_section = modal_text[error_start:]
-                    for delimiter in ["\n\nCreate More", "\n\nSave"]:
+                    for delimiter in ["\n\nCreate more", "\n\nSave"]:
                         if delimiter in error_section:
                             error_section = error_section[
                                 : error_section.find(delimiter)
@@ -441,14 +439,8 @@ class ChannelClient:
         :returns: True if the channel exists, False otherwise.
         """
         self.show_channels()
-        channel_name_str = str(name)
-        selector = f"div[id^='{self.ITEM_PREFIX}'] p.pluto-text--editable:has-text('{channel_name_str}')"
         try:
-            # Intentionally short 500ms timeout for quick check
-            self.layout.page.wait_for_selector(selector, state="visible", timeout=500)
-            return True
-        except PlaywrightTimeoutError:
-            return False
+            return self.tree.find_by_name(self.ITEM_PREFIX, str(name)) is not None
         finally:
             self.hide_channels()
 
@@ -473,25 +465,14 @@ class ChannelClient:
         timeout_ms = int(sy.TimeSpan.from_seconds(timeout) / sy.TimeSpan.MILLISECOND)
 
         self.show_channels()
-
         try:
             for name in normalized_names.channels:
-                channel_name_str = str(name)
-                selector = f"div[id^='{self.ITEM_PREFIX}'] p.pluto-text--editable:has-text('{channel_name_str}')"
-                try:
-                    # Variable timeout — cannot use layout wrapper
-                    self.layout.page.wait_for_selector(
-                        selector, state="visible", timeout=timeout_ms
-                    )
-                except PlaywrightTimeoutError:
-                    self.hide_channels()
-                    return False
-
-            self.hide_channels()
+                self.tree.wait_for_name(self.ITEM_PREFIX, str(name), timeout=timeout_ms)
             return True
         except PlaywrightTimeoutError:
-            self.hide_channels()
             return False
+        finally:
+            self.hide_channels()
 
     def rename(
         self,

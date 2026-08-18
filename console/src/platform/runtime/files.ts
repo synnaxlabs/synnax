@@ -9,7 +9,7 @@
 
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
+import { readDir, readFile, readTextFile } from "@tauri-apps/plugin-fs";
 
 import { Session } from "@/session";
 
@@ -26,7 +26,10 @@ export interface PickedFile {
    * "sub/foo.json" for nested. For pickFiles this always equals name.
    */
   path: string;
+  /** Reads the file's contents as text. */
   read: () => Promise<string>;
+  /** Reads the file's raw bytes. */
+  readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
 }
 
 export interface PickFilesParams {
@@ -71,7 +74,12 @@ const pickFilesTauri = async ({
   const separator = sep();
   return paths.map((path) => {
     const name = path.split(separator).pop() ?? path;
-    return { name, path: name, read: () => readTextFile(path) };
+    return {
+      name,
+      path: name,
+      read: () => readTextFile(path),
+      readBytes: () => readFile(path),
+    };
   });
 };
 
@@ -99,6 +107,7 @@ const pickFilesBrowser = ({
           name: file.name,
           path: file.name,
           read: () => file.text(),
+          readBytes: async () => new Uint8Array(await file.arrayBuffer()),
         })),
       );
     });
@@ -148,6 +157,7 @@ const pickDirectoryTauri = async ({
           name: entry.name,
           path: relPath,
           read: () => readTextFile(fullPath),
+          readBytes: () => readFile(fullPath),
         });
     }
   };
@@ -177,7 +187,12 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
           const rel = file.webkitRelativePath.startsWith(`${rootName}/`)
             ? file.webkitRelativePath.slice(rootName.length + 1)
             : file.webkitRelativePath;
-          return { name: file.name, path: rel, read: () => file.text() };
+          return {
+            name: file.name,
+            path: rel,
+            read: () => file.text(),
+            readBytes: async () => new Uint8Array(await file.arrayBuffer()),
+          };
         }),
       });
     });

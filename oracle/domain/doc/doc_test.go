@@ -166,63 +166,6 @@ var _ = Describe("FormatTS", func() {
 	})
 })
 
-var _ = Describe("FormatPyDocstring", func() {
-	It("should return empty string for empty doc", func() {
-		Expect(doc.FormatPyDocstring("Name", "")).To(Equal(""))
-	})
-	It("should return empty string for whitespace-only doc", func() {
-		Expect(doc.FormatPyDocstring("Name", " ")).To(Equal(""))
-	})
-	It("should format single-line doc", func() {
-		Expect(
-			doc.FormatPyDocstring("Name", "doc text"),
-		).To(Equal(`"""Name doc text"""`))
-	})
-	It("should format multi-line doc by normalizing newlines", func() {
-		result := doc.FormatPyDocstring("Name", "line1\nline2\nline3")
-		Expect(result).To(Equal(`"""Name line1 line2 line3"""`))
-	})
-	It("should wrap long text to 88 characters", func() {
-		longDoc := "is the node that holds the lease for this channel. Mostly for internal use and other purposes."
-		result := doc.FormatPyDocstring("leaseholder", longDoc)
-		lines := strings.Split(result, "\n")
-		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
-		for _, line := range lines {
-			Expect(
-				len(line),
-			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
-		}
-	})
-})
-
-var _ = Describe("FormatPyComment", func() {
-	It("should return empty string for empty doc", func() {
-		Expect(doc.FormatPyComment("Name", "")).To(Equal(""))
-	})
-	It("should format single-line doc", func() {
-		Expect(doc.FormatPyComment("Name", "doc text")).To(Equal("# Name doc text"))
-	})
-	It("should format multi-line doc by normalizing newlines", func() {
-		result := doc.FormatPyComment("Name", "line1\nline2\nline3")
-		Expect(result).To(Equal("# Name line1 line2 line3"))
-	})
-	It("should preserve paragraph breaks (double newline)", func() {
-		result := doc.FormatPyComment("Name", "First paragraph.\n\nSecond paragraph.")
-		Expect(result).To(Equal("# Name First paragraph.\n#\n# Second paragraph."))
-	})
-	It("should wrap long text to 88 characters", func() {
-		longDoc := "is the node that holds the lease for this channel. Mostly for internal use and other purposes."
-		result := doc.FormatPyComment("leaseholder", longDoc)
-		lines := strings.Split(result, "\n")
-		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
-		for _, line := range lines {
-			Expect(
-				len(line),
-			).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
-		}
-	})
-})
-
 var _ = Describe("FormatCpp", func() {
 	It("should return empty string for empty doc", func() {
 		Expect(doc.FormatCpp("Name", "")).To(Equal(""))

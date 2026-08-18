@@ -129,6 +129,69 @@ var _ = Describe("Inheritance", func() {
 		})
 	})
 
+	Describe("HasFieldConflicts", func() {
+		var (
+			table   *resolution.Table
+			keyed   = resolution.TypeRef{Name: "test.Keyed"}
+			named   = resolution.TypeRef{Name: "test.Named"}
+			alsoKey = resolution.TypeRef{Name: "test.AlsoKeyed"}
+			missing = resolution.TypeRef{Name: "test.Missing"}
+		)
+
+		structType := func(name string, fields ...string) resolution.Type {
+			form := resolution.StructForm{}
+			for _, f := range fields {
+				form.Fields = append(form.Fields, resolution.Field{
+					Name: f,
+					Type: resolution.TypeRef{Name: "string"},
+				})
+			}
+			return resolution.Type{
+				Name:          name,
+				Namespace:     "test",
+				QualifiedName: "test." + name,
+				Form:          form,
+			}
+		}
+
+		BeforeEach(func() {
+			table = resolution.NewTable()
+			for _, t := range []resolution.Type{
+				structType("Keyed", "key"),
+				structType("Named", "name"),
+				structType("AlsoKeyed", "key"),
+			} {
+				Expect(table.Add(t)).To(Succeed())
+			}
+		})
+
+		DescribeTable("Should detect overlapping fields across parents",
+			func(extends []resolution.TypeRef, want bool) {
+				Expect(resolver.HasFieldConflicts(extends, table)).To(Equal(want))
+			},
+			Entry("no parents", nil, false),
+			Entry("single parent", []resolution.TypeRef{keyed}, false),
+			Entry("disjoint parents", []resolution.TypeRef{keyed, named}, false),
+			Entry("conflicting parents", []resolution.TypeRef{keyed, alsoKey}, true),
+			Entry("unresolvable parent skipped",
+				[]resolution.TypeRef{keyed, missing}, false),
+		)
+	})
+
+	Describe("HasDomainOmissions", func() {
+		It("Should report a field that drops an inherited domain", func() {
+			form := resolution.StructForm{Fields: []resolution.Field{
+				{Name: "key", OmittedDomains: []string{"validate"}},
+			}}
+			Expect(resolver.HasDomainOmissions(form)).To(BeTrue())
+		})
+
+		It("Should report false when no field omits a domain", func() {
+			form := resolution.StructForm{Fields: []resolution.Field{{Name: "key"}}}
+			Expect(resolver.HasDomainOmissions(form)).To(BeFalse())
+		})
+	})
+
 	Describe("DefaultOnlyOverrides", func() {
 		It("Should report a field restated with the same type", func(
 			ctx SpecContext,

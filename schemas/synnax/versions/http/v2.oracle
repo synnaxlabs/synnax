@@ -1,0 +1,312 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+Method enum {
+    get     = "GET"
+    head    = "HEAD"
+    post    = "POST"
+    put     = "PUT"
+    delete  = "DELETE"
+    patch   = "PATCH"
+    options = "OPTIONS"
+    trace   = "TRACE"
+    connect = "CONNECT"
+
+    @doc value "is the HTTP method used when requesting an endpoint."
+}
+
+TimeFormat enum {
+    iso8601  = "iso8601"
+    unix_sec = "unix_sec"
+    unix_ms  = "unix_ms"
+    unix_us  = "unix_us"
+    unix_ns  = "unix_ns"
+
+    @doc value "is the encoding of a timestamp value within a JSON body."
+}
+
+Header struct {
+    name  string = "" {
+        @doc value "is the header name, unique within a request."
+    }
+    value string = "" {
+        @doc value "is the header value."
+    }
+
+    @doc value  "is a single HTTP header sent with a request."
+    @go marshal
+}
+
+QueryParam struct {
+    parameter string = "" {
+        @doc value "is the parameter name, unique within a request."
+    }
+    value     string = "" {
+        @doc value "is the parameter value."
+    }
+
+    @doc value  "is a single URL query parameter sent with a request."
+    @go marshal
+}
+
+EnumEntry struct {
+    label string = "" {
+        @doc value "is the string label in the JSON body."
+    }
+    value float64 = 0 {
+        @doc value "is the numeric channel value the label maps to."
+    }
+
+    @doc value  """
+        maps a string label in a JSON body to a numeric channel value for enum-style
+        parsing (e.g. "ON" -> 1, "OFF" -> 0).
+    """
+    @go marshal
+}
+
+ReadField struct {
+    key              string = "" {
+        @doc value "uniquely identifies the field within the endpoint."
+        @key
+    }
+    name             string = "" {
+        @doc value "is the human-readable field name."
+    }
+    disabled         bool = false {
+        @doc value "is true when the field is excluded from polling."
+    }
+    channel          channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer          string = "" {
+        @doc value "is the JSON Pointer to the value within the response body."
+    }
+    data_type        telem.DataType = "float64" {
+        @doc value "is the data type of the extracted value."
+    }
+    timestamp_format TimeFormat?    {
+        @doc value """
+            is the encoding of the JSON value when the target channel holds timestamps.
+            Required for timestamp channels.
+        """
+    }
+    enum_values      EnumEntry[]    {
+        @doc value "maps string labels in the response to numeric channel values."
+    }
+
+    @doc value  "is a single value extracted from an endpoint's JSON response."
+    @go marshal
+}
+
+ReadEndpoint struct {
+    key          string = "" {
+        @doc value "uniquely identifies the endpoint within the task."
+        @key
+    }
+    method       Method = get {
+        @doc value "is the HTTP method used to poll the endpoint."
+    }
+    path         string = "" {
+        @doc value "is the URL path appended to the device's base URL."
+    }
+    headers      Header[]     {
+        @doc value "contains additional headers merged into the request."
+    }
+    query_params QueryParam[] {
+        @doc value "contains query parameters appended to the request URL."
+    }
+    body         string = "" {
+        @doc value "is a static body sent with each request. Empty sends no body."
+    }
+    fields       ReadField[]  {
+        @doc value "contains the values to extract from the response."
+    }
+    index        string = "" {
+        @doc value """
+            is the key of the field whose channel indexes the others. Empty when the
+            task stamps samples on arrival.
+        """
+    }
+
+    @doc value  "is a single HTTP endpoint polled by a read task."
+    @go marshal
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device    device.Key = "" {
+        @doc value "is the key of the HTTP server device to poll."
+    }
+    rate      telem.Rate = 1 {
+        @doc value "is the polling rate applied to all endpoints, in Hertz."
+    }
+    endpoints ReadEndpoint[] {
+        @doc value "contains the endpoints to poll."
+    }
+
+    @doc value  """
+        configures an HTTP read task, which polls one or more endpoints on an HTTP
+        server device and writes extracted JSON values to Synnax channels.
+    """
+    @go marshal
+    @go migrate
+}
+
+JSONType enum {
+    number  = "number"
+    string  = "string"
+    boolean = "boolean"
+
+    @doc value "is the JSON type a channel value is serialized as in a request body."
+}
+
+GeneratorType enum {
+    uuid      = "uuid"
+    timestamp = "timestamp"
+
+    @doc value "is the kind of value produced for a generated write field."
+}
+
+ChannelField struct {
+    pointer     string = "" {
+        @doc value """
+            is the JSON Pointer where the channel value is placed in the body. An empty
+            pointer sends the bare value as the entire body, in which case the endpoint
+            may not declare any additional fields.
+        """
+    }
+    json_type   JSONType = number {
+        @doc value "is the JSON type the channel value is serialized as."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the Synnax command channel that triggers the request."
+    }
+    name        string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    data_type   telem.DataType = "float64" {
+        @doc value "is the data type of the command channel."
+    }
+    time_format TimeFormat?    {
+        @doc value """
+            is the output encoding when the command channel holds timestamps. Required
+            for timestamp channels.
+        """
+    }
+    enum_values EnumEntry[]    {
+        @doc value """
+            maps numeric channel values to string labels. Only valid when json_type is
+            'string'.
+        """
+    }
+
+    @doc value  "is the command channel value placed into a write endpoint's body."
+    @go marshal
+}
+
+BaseWriteField struct {
+    key     string = "" {
+        @doc value "uniquely identifies the field within the endpoint."
+        @key
+    }
+    pointer string = "" {
+        @doc value "is the JSON Pointer where the value is placed in the body."
+    }
+
+    @doc value  "carries the fields every write body field shares."
+    @go marshal
+}
+
+WriteField union on type extends BaseWriteField {
+    static {
+        json_type JSONType = number {
+            @doc value "is the JSON type the value is serialized as."
+        }
+        value     any      {
+            @doc value "is the fixed JSON value placed at the pointer."
+        }
+
+        @doc value "places a fixed value in the request body."
+    }
+    generated {
+        generator   GeneratorType = uuid {
+            @doc value "is the generator that produces a fresh value per request."
+        }
+        time_format TimeFormat?   {
+            @doc value """
+                is the output encoding for timestamp generators. Defaults to iso8601.
+            """
+        }
+
+        @doc value "places a freshly generated UUID or timestamp in the body."
+    }
+
+    @doc value  """
+        is an additional body field on a write endpoint. The type field selects whether
+        the value is fixed or generated per request.
+    """
+    @go marshal
+}
+
+WriteEndpoint struct {
+    key          string = "" {
+        @doc value "uniquely identifies the endpoint within the task."
+        @key
+    }
+    disabled     bool = false {
+        @doc value "is true when the endpoint is excluded from the task."
+    }
+    method       Method = post {
+        @doc value "is the HTTP method used to send the request."
+    }
+    path         string = "" {
+        @doc value "is the URL path appended to the device's base URL."
+    }
+    headers      Header[]     {
+        @doc value "contains additional headers merged into the request."
+    }
+    query_params QueryParam[] {
+        @doc value "contains query parameters appended to the request URL."
+    }
+    channel      ChannelField = {} {
+        @doc value "is the command channel whose writes trigger this endpoint."
+    }
+    fields       WriteField[] {
+        @doc value "contains additional static or generated body fields."
+    }
+
+    @doc value  "is a single HTTP endpoint written to by a write task."
+    @go marshal
+}
+
+WriteConfig struct extends task.StartConfig {
+    device    device.Key = "" {
+        @doc value "is the key of the HTTP server device to write to."
+    }
+    endpoints WriteEndpoint[] {
+        @doc value "contains the endpoints to write to."
+    }
+
+    @doc value  """
+        configures an HTTP write task, which sends an HTTP request whenever a value is
+        written to an endpoint's command channel.
+    """
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ScanConfig {
+    @doc value  "configures an HTTP scan task."
+    @go marshal
+    @go migrate
+}

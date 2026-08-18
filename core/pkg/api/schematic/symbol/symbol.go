@@ -257,6 +257,53 @@ func (s *Service) ExportGroup(
 	return files, nil
 }
 
+type (
+	// ImportGroupRequest holds a bundle's contents keyed by file name. The HTTP
+	// transport decodes it from a zip archive.
+	ImportGroupRequest = zip.Files
+	// ImportGroupResponse carries the group the import created.
+	ImportGroupResponse struct {
+		// Group is the created group holding the imported symbols.
+		Group group.Group `json:"group" msgpack:"group"`
+	}
+)
+
+// ImportGroup imports a symbol group bundle in a single transaction. It requires
+// create access on the group and symbol types, and update access on the permanent
+// symbol group, all enforced before any file decodes.
+func (s *Service) ImportGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ImportGroupRequest,
+) (ImportGroupResponse, error) {
+	var (
+		enforcer = s.access.NewEnforcer(tx)
+		subject  = auth.GetSubject(ctx)
+	)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{
+			{Type: ontology.ResourceTypeGroup},
+			{Type: ontology.ResourceTypeSchematicSymbol},
+		},
+	}); err != nil {
+		return ImportGroupResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{s.internal.Group().OntologyID()},
+	}); err != nil {
+		return ImportGroupResponse{}, err
+	}
+	g, err := s.internal.ImportGroup(ctx, tx, req)
+	if err != nil {
+		return ImportGroupResponse{}, err
+	}
+	return ImportGroupResponse{Group: g}, nil
+}
+
 // DeleteGroupRequest names the group to delete.
 type DeleteGroupRequest struct {
 	// Key identifies the group to delete.

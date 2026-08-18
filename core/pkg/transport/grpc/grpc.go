@@ -116,6 +116,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicSymbolRename = noop.UnaryServer[symbol.RenameRequest, types.Nil]{}
 	t.SchematicSymbolRetrieveGroup = noop.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]{}
 	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
+	t.SchematicSymbolImportGroup = noop.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]{}
 	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, types.Nil]{}
 
 	// LINE PLOT

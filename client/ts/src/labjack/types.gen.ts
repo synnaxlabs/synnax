@@ -67,7 +67,7 @@ export const baseWriteChannelZ = z.object({
 });
 export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
-export const scanConfigZ = task.baseScanConfigZ.extend({
+export const scanConfigZ = task.scanConfigZ.extend({
   tcpScanMultiplier: z.int32().default(10),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
@@ -161,7 +161,7 @@ export const WRITE_CHANNEL_SCHEMAS: {
 export const analogReadChannelZ = baseReadChannelZ.extend({
   type: z.literal("analog"),
   port: z.string().default("AIN0"),
-  /** range is the upper bound of the voltage input range, in volts. */
+  /** range is the upper bound of the voltage input range, in Volts. */
   range: z.number().default(10),
   /**
    * negChan is the negative channel for differential readings on T7 devices. 199
@@ -183,6 +183,7 @@ export interface DigitalReadChannel extends z.infer<typeof digitalReadChannelZ> 
 /** ThermocoupleReadChannel reads temperature from a thermocouple. */
 export const thermocoupleReadChannelZ = baseReadChannelZ.extend({
   type: z.literal("thermocouple"),
+  /** port is unused; the read port is derived from pos_chan. */
   port: z.string().default("AIN0"),
   /** thermocoupleType selects the thermocouple alloy type. */
   thermocoupleType: thermocoupleTypeZ.default("K"),
@@ -199,9 +200,9 @@ export const thermocoupleReadChannelZ = baseReadChannelZ.extend({
    * 'AIN2').
    */
   cjcSource: z.string().default("TEMPERATURE_DEVICE_K"),
-  /** cjcSlope is the CJC voltage-to-temperature slope, in kelvin per volt. */
+  /** cjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt. */
   cjcSlope: z.number().default(1),
-  /** cjcOffset is the CJC temperature offset, in kelvins. */
+  /** cjcOffset is the CJC temperature offset, in Kelvins. */
   cjcOffset: z.number().default(0),
   /** units are the units of the temperature measurement. */
   units: temperatureUnitsZ.default("K"),
@@ -236,13 +237,13 @@ export const READ_CHANNEL_SCHEMAS: {
   thermocouple: thermocoupleReadChannelZ,
 };
 
-export const writeConfigZ = task.baseWriteConfigZ.extend({
+export const writeConfigZ = task.writeConfigZ.extend({
   stateRate: z.number().default(10),
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-export const readConfigZ = task.baseReadConfigZ.extend({
+export const readConfigZ = task.readConfigZ.extend({
   device: device.keyZ.default(""),
   channels: readChannelZ.array().default(() => []),
   deviceScanBacklogWarnOnCount: z.uint32().default(0),

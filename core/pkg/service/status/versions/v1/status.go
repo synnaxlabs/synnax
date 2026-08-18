@@ -75,10 +75,10 @@ func (s Status[D]) String() string {
 	return b.String()
 }
 
-var _ gorp.Entry[string] = (*Status[any])(nil)
+var _ gorp.Entry[Key] = (*Status[any])(nil)
 
 // GorpKey implements gorp.Entry.
-func (s Status[D]) GorpKey() string { return s.Key }
+func (s Status[D]) GorpKey() Key { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (Status[D]) SetOptions() []any { return nil }

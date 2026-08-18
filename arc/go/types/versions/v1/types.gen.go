@@ -47,15 +47,13 @@ const (
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection uint8
-
-//go:generate stringer -type=ChanDirection
+type ChanDirection = v0.ChanDirection
 
 const (
-	ChanDirectionNone ChanDirection = iota
-	ChanDirectionRead
-	ChanDirectionWrite
-	ChanDirectionReadWrite
+	ChanDirectionNone      ChanDirection = v0.ChanDirectionNone
+	ChanDirectionRead      ChanDirection = v0.ChanDirectionRead
+	ChanDirectionWrite     ChanDirection = v0.ChanDirectionWrite
+	ChanDirectionReadWrite ChanDirection = v0.ChanDirectionReadWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.
@@ -101,8 +99,7 @@ type Params []Param
 // channels.
 type Channels = v0.Channels
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 type Dimensions = v0.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.

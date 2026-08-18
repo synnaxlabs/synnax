@@ -1,0 +1,102 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Kind enum {
+    invalid                      = 0
+    u8                           = 1
+    u16                          = 2
+    u32                          = 3
+    u64                          = 4
+    i8                           = 5
+    i16                          = 6
+    i32                          = 7
+    i64                          = 8
+    f32                          = 9
+    f64                          = 10
+    string                       = 11
+    chan                         = 12
+    series                       = 13
+    variable                     = 14
+    numeric_constant             = 15
+    integer_constant             = 16
+    float_constant               = 17
+    exact_integer_float_constant = 18
+    function                     = 19
+    sequence                     = 20
+    stage                        = 21
+    var_ref                      = 22
+    bool                         = 23
+
+    @doc value """
+        is the type category for Arc's type system, including primitives, compound
+        types, and meta-types.
+    """
+}
+
+ChanDirection = v0.ChanDirection
+
+FunctionProperties struct {
+    inputs  Params = [] {
+        @doc value "contains input parameter definitions."
+    }
+    outputs Params = [] {
+        @doc value "contains output parameter definitions."
+    }
+
+    @go marshal
+}
+
+Type struct extends FunctionProperties {
+    kind           Kind          {
+        @doc value "is the type category (primitive, compound, or meta-type)."
+    }
+    name           string        {
+        @doc value "is the type name for variables and user-defined types."
+    }
+    elem           Type?         {
+        @doc value "is the element type for compound types (chan, series)."
+    }
+    unit           Unit?         {
+        @doc value "is the physical unit metadata for dimensional analysis."
+    }
+    constraint     Type?         {
+        @doc value "is the type constraint for type variables."
+    }
+    chan_direction ChanDirection {
+        @doc value "indicates read/write direction for channel-typed parameters."
+    }
+
+    @go marshal
+}
+
+Param struct {
+    name  string {
+        @doc value "is the parameter name."
+    }
+    type  Type   {
+        @doc value "is the parameter type."
+    }
+    value any    {
+        @doc value "is an optional default value."
+    }
+
+    @go marshal
+}
+
+Params Param[] {
+    @doc value """
+        is a collection of named, typed parameters for function inputs or outputs.
+    """
+}
+
+Channels = v0.Channels
+
+Dimensions = v0.Dimensions
+
+Unit = v0.Unit

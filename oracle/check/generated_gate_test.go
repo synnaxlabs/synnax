@@ -95,6 +95,47 @@ var _ = Describe("GeneratedGate", func() {
 		},
 	)
 
+	It("defaults the worker count when non-positive", func(ctx SpecContext) {
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "out"), 0o755)).To(Succeed())
+		Expect(
+			os.WriteFile(
+				filepath.Join(repoRoot, "out", "x.gen.go"),
+				[]byte("hi"),
+				0o644,
+			),
+		).To(Succeed())
+		gate := check.NewGeneratedGate(formatters, 0)
+		report := gate.Run(ctx, resultWith([]plugin.File{
+			{Path: "out/x.gen.go", Content: []byte("hi")},
+		}), check.Env{RepoRoot: repoRoot})
+		Expect(report.Status).To(Equal(check.StatusPass))
+	})
+
+	It("aborts on a canceled context", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		gate := check.NewGeneratedGate(formatters, 1)
+		report := gate.Run(ctx, resultWith([]plugin.File{
+			{Path: "out/x.gen.go", Content: []byte("hi")},
+		}), check.Env{RepoRoot: repoRoot})
+		Expect(report.Status).To(Equal(check.StatusFail))
+		Expect(report.Findings[0].Message).
+			To(ContainSubstring("generated gate aborted"))
+	})
+
+	It("reports a read failure that is not a missing file", func(ctx SpecContext) {
+		Expect(os.MkdirAll(
+			filepath.Join(repoRoot, "out", "x.gen.go"), 0o755,
+		)).To(Succeed())
+		gate := check.NewGeneratedGate(formatters, 1)
+		report := gate.Run(ctx, resultWith([]plugin.File{
+			{Path: "out/x.gen.go", Content: []byte("hi")},
+		}), check.Env{RepoRoot: repoRoot})
+		Expect(report.Status).To(Equal(check.StatusFail))
+		Expect(report.Findings[0].Message).
+			To(ContainSubstring("read existing file"))
+	})
+
 	It(
 		"captures per-file formatter failures without aborting the gate",
 		func(ctx SpecContext) {

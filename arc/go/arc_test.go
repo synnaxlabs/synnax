@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	programpb "github.com/synnaxlabs/arc/program/pb"
@@ -290,9 +291,9 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 		Expect(edge1.Source.Param).To(Equal("output"))
 		Expect(edge1.Kind).To(Equal(ir.EdgeKindContinuous))
 
-		edge2 := MustBeOk(
-			mod.Edges.FindBySource(ir.Handle{Node: calcNode.Key, Param: "output"}),
-		)
+		edge2 := MustBeOk(lo.Find(mod.Edges, func(e ir.Edge) bool {
+			return e.Source == ir.Handle{Node: calcNode.Key, Param: "output"}
+		}))
 		Expect(edge2.Target.Node).To(Equal(writeNode.Key))
 		Expect(edge2.Kind).To(Equal(ir.EdgeKindContinuous))
 
@@ -420,7 +421,9 @@ sequence main {
 		// press → stop transition comes from `press_pt > 50 => next`.
 		Expect(main.Transitions).ToNot(BeEmpty())
 
-		continuousEdges := mod.Edges.GetByKind(ir.EdgeKindContinuous)
+		continuousEdges := lo.Filter(mod.Edges, func(e ir.Edge, _ int) bool {
+			return e.Kind == ir.EdgeKindContinuous
+		})
 		Expect(continuousEdges).ToNot(BeEmpty())
 	})
 

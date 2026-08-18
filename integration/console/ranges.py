@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
@@ -32,10 +33,18 @@ class RangesClient:
 
     TOOLBAR_ITEM_SELECTOR = ".console-range-list-item"
     EXPLORER_ITEM_SELECTOR = ".console-range__list-item"
+    # The view tabs above the ranges are a list too, so exclude them: they carry no
+    # range rows and scrolling them does nothing.
+    EXPLORER_LIST_SELECTOR = (
+        ".console-range-explorer .pluto-list__items:not(.console-view__views)"
+    )
     FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
     UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
     NAME_INPUT_PLACEHOLDER = "Name"
+    # The explorer list must stay the same height at the bottom for longer than a page
+    # fetch before it counts as fully paged in.
+    SCROLL_SETTLE = 1500 * sy.TimeSpan.MILLISECOND
 
     def __init__(
         self,
@@ -146,7 +155,50 @@ class RangesClient:
 
     def get_explorer_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
-        return self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name)
+        item = self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name)
+        if item.count() == 0:
+            self._scroll_explorer_to(item)
+        return item
+
+    def _scroll_explorer_to(
+        self, item: Locator, budget: sy.TimeSpan = 30 * sy.TimeSpan.SECOND
+    ) -> None:
+        """Scroll the explorer list until item renders, or the list runs out.
+
+        The explorer mounts only the rows in view and pages in more as it nears
+        the bottom, so a range further down has no element to wait on. Filtering
+        the list by name would find it too, but would hide every other range,
+        which breaks selecting several at once.
+
+        Args:
+            item: Locator for the range row to reveal.
+            budget: Backstop on the whole sweep. Callers that probe for a range
+                that is not there page through the entire list.
+        """
+        lst = self.layout.page.locator(self.EXPLORER_LIST_SELECTOR).first
+        if lst.count() == 0:
+            return
+        lst.evaluate("el => { el.scrollTop = 0; }")
+        timer = sy.Timer()
+        settle = sy.Timer()
+        prev_height = -1
+        while timer.elapsed() < budget:
+            if item.count() > 0:
+                return
+            height = lst.evaluate("el => el.scrollHeight")
+            at_bottom = lst.evaluate(
+                "el => el.scrollTop + el.clientHeight >= el.scrollHeight - 1"
+            )
+            # The pager appends on reaching the bottom, so only give up once the list
+            # stops growing there. A short pause proves nothing: the next page can
+            # still be in flight.
+            if not at_bottom or height != prev_height:
+                settle.reset()
+            elif settle.elapsed() >= self.SCROLL_SETTLE:
+                return
+            prev_height = height
+            lst.evaluate("el => { el.scrollTop += el.clientHeight * 0.8; }")
+            self.layout.page.wait_for_timeout(150)
 
     def get_toolbar_item_time(self, name: str) -> str:
         """Get the displayed time text from a toolbar range item.
@@ -230,7 +282,9 @@ class RangesClient:
         Assumes the modal is already open and visible.
         """
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
-        name_input = self.layout.page.locator(
+        # Scope to the modal: the range overview page has a name input with the
+        # same placeholder.
+        name_input = modal.locator(
             f"input[placeholder='{self.NAME_INPUT_PLACEHOLDER}']"
         )
         name_input.fill(name)
@@ -248,7 +302,10 @@ class RangesClient:
         if parent is not None:
             parent_button = modal.locator("button").filter(has_text="Select range")
             parent_button.click()
+            # Scope to the picker dropdown: the explorer view has a search
+            # input with the same placeholder.
             search_input = self.layout.page.locator(
+                ".pluto-dialog__dialog.pluto--visible "
                 "input[placeholder='Search ranges...']"
             )
             search_input.fill(parent)
@@ -257,36 +314,12 @@ class RangesClient:
             ).click(timeout=5000)
 
         if labels is not None:
-            label_button = self.layout.page.get_by_text("Select labels", exact=True)
-            label_button.click(timeout=5000)
-            label_dialog = self.layout.page.locator(
-                ".pluto-select__dialog.pluto--visible"
-            )
-            label_dialog.wait_for(state="visible", timeout=5000)
-            for label_name in labels:
-                label_item = (
-                    label_dialog.locator(".pluto-list__item")
-                    .filter(has_text=label_name)
-                    .first
-                )
-                try:
-                    label_item.wait_for(state="visible", timeout=3000)
-                    label_item.click(timeout=2000)
-                except PlaywrightTimeoutError:
-                    all_labels = label_dialog.locator(".pluto-list__item").all()
-                    available_labels = [
-                        lbl.text_content() for lbl in all_labels if lbl.is_visible()
-                    ]
-                    raise RuntimeError(
-                        f"Error selecting label '{label_name}'. "
-                        f"Available labels: {available_labels}."
-                    )
-            self.layout.press_escape()
+            self.layout.select_labels(labels)
 
         if persisted:
-            save_button = self.layout.page.get_by_role("button", name="Save to Synnax")
+            save_button = modal.get_by_role("button", name="Save to Core")
         else:
-            save_button = self.layout.page.get_by_role("button", name="Save locally")
+            save_button = modal.get_by_role("button", name="Save locally")
 
         save_button.click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)
@@ -335,7 +368,7 @@ class RangesClient:
 
     def save_to_synnax_from_toolbar(self, name: str) -> None:
         """Save a local range to Synnax via context menu in the toolbar."""
-        self._toolbar_ctx_menu_action(name, "Save to Synnax")
+        self._toolbar_ctx_menu_action(name, "Save to Core")
 
     def add_to_new_plot_from_toolbar(self, name: str) -> None:
         """Add a range to a new line plot via context menu in the toolbar."""
@@ -346,26 +379,17 @@ class RangesClient:
         self._toolbar_ctx_menu_action(name, "Add to active plot")
 
     def favorite(self, name: str) -> None:
-        """Favorite a range by opening its overview and clicking the favorite button.
+        """Favorite a range from the explorer (idempotent).
+
+        The overview no longer carries a favorite control; favoriting happens
+        on list items in the explorer and toolbar.
 
         Args:
             name: The name of the range to favorite.
         """
-        self.open_from_search(name)
-
-        favorite_btn = self.layout.page.locator("button.console-favorite-button")
-        favorite_btn.wait_for(state="visible", timeout=5000)
-
-        button_class = favorite_btn.get_attribute("class") or ""
-        is_favorited = "console--favorite" in button_class
-
-        if not is_favorited:
-            favorite_btn.click(force=True)
-            self.layout.page.locator(
-                "button.console-favorite-button.console--favorite"
-            ).wait_for(state="visible", timeout=2000)
-
-        self.layout.close_tab(name)
+        self.open_explorer()
+        self.favorite_from_explorer(name)
+        self.layout.close_tab("Range explorer")
 
     def open_overview_from_explorer(self, name: str) -> None:
         """Open the range overview/details page from the explorer.
@@ -846,14 +870,19 @@ class RangesClient:
         item.wait_for(state="visible", timeout=5000)
         item.click()
 
-    def create_child_range_from_overview(self) -> None:
-        """Click the Add button in the Child Ranges section to create a new child range."""
+    def create_child_range_from_overview(self, name: str) -> None:
+        """Create a child range from the Child Ranges section of the overview.
+
+        Args:
+            name: The name for the new child range.
+        """
         self.notifications.close_all()
         section = self._get_child_ranges_section()
         add_btn = section.locator("button:has(svg.pluto-icon--add)")
         add_btn.click(timeout=5000)
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
+        self._fill_create_modal(name)
 
     def set_child_range_stage(self, name: str, stage: str) -> None:
         """Change the stage of a child range in the Child Ranges section.

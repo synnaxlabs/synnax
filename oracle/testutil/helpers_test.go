@@ -50,6 +50,207 @@ func (m *reqCapturingPlugin) Generate(req *plugin.Request) (*plugin.Response, er
 	return &plugin.Response{Files: m.files}, nil
 }
 
+// SimpleStructTemplate is a basic struct with common field types.
+// Format: domain directive (e.g., @go output "path")
+const simpleStructTemplate = `
+%s
+
+User struct {
+	key uuid
+	name string
+	age int32
+	active bool
+}
+`
+
+// AllPrimitivesTemplate contains all primitive types supported by oracle.
+// Format: domain directive
+const allPrimitivesTemplate = `
+%s
+
+AllTypes struct {
+	a uuid
+	b string
+	c bool
+	d int8
+	e int16
+	f int32
+	g int64
+	h uint8
+	i uint16
+	j uint32
+	k uint64
+	l float32
+	m float64
+	n timestamp
+	o timespan
+	p time_range
+	q record
+	r bytes
+}
+`
+
+// ArrayTypesTemplate contains various array field types.
+// Format: domain directive
+const arrayTypesTemplate = `
+%s
+
+Container struct {
+	tags string[]
+	labels uuid[]
+	scores int32[]
+	flags bool[]
+}
+`
+
+// DistinctTypeTemplate demonstrates distinct type definition.
+// Format: domain directive
+const distinctTypeTemplate = `
+%s
+
+UserKey uuid
+
+User struct {
+	key UserKey
+	name string
+}
+`
+
+// FieldOmissionTemplate demonstrates field omission in struct extension.
+// Format: domain directive
+const fieldOmissionTemplate = `
+%s
+
+Parent struct {
+	key uuid
+	name string
+	age int32
+	secret string
+}
+
+Child struct extends Parent {
+	-secret
+	role string
+}
+`
+
+// GenericStructTemplate defines a generic (type-parameterized) struct.
+// Format: domain directive
+const genericStructTemplate = `
+%s
+
+Container struct<T> {
+	value T
+	count int32
+}
+`
+
+// IntEnumTemplate defines an integer-based enumeration.
+// Format: domain directive
+const intEnumTemplate = `
+%s
+
+Status enum {
+	unknown = 0
+	pending = 1
+	active = 2
+	completed = 3
+}
+`
+
+// MultipleStructsTemplate contains multiple struct definitions.
+// Format: domain directive
+const multipleStructsTemplate = `
+%s
+
+User struct {
+	key uuid
+	name string
+}
+
+Group struct {
+	key uuid
+	name string
+	owner uuid
+}
+
+Membership struct {
+	user uuid
+	group uuid
+	role string
+}
+`
+
+// OptionalFieldsTemplate contains fields with the optional modifier (?), which
+// uses pointer semantics (can distinguish null from the zero value).
+// Format: domain directive
+const optionalFieldsTemplate = `
+%s
+
+OptionalFields struct {
+	key uuid
+	name string?
+	age int32?
+	parent uuid?
+}
+`
+
+// StructExtensionTemplate demonstrates struct extension (inheritance).
+// Format: domain directive
+const structExtensionTemplate = `
+%s
+
+Base struct {
+	key uuid
+	name string
+	created_at timestamp
+}
+
+Extended struct extends Base {
+	description string
+	updated_at timestamp
+}
+`
+
+// StructReferenceTemplate contains structs that reference each other.
+// Format: domain directive
+const structReferenceTemplate = `
+%s
+
+Parent struct {
+	key uuid
+	name string
+}
+
+Child struct {
+	key uuid
+	parent Parent
+	name string
+}
+`
+
+// TypeAliasTemplate demonstrates type alias definition.
+// Format: domain directive
+const typeAliasTemplate = `
+%s
+
+UserKey = uuid
+
+User struct {
+	key UserKey
+	name string
+}
+`
+
+// DomainDirectives provides common domain directive strings for each plugin.
+var domainDirectives = map[string]string{
+	"go":  `@go output "out"`,
+	"ts":  `@ts output "out"`,
+	"py":  `@py output "out"`,
+	"cpp": `@cpp output "out"`,
+	"pb":  `@go output "out"`, // pb derives from go output
+}
+
 var _ = Describe("MustGenerateRequest", func() {
 	var loader *MockFileLoader
 
@@ -58,7 +259,7 @@ var _ = Describe("MustGenerateRequest", func() {
 	})
 
 	It("should return a request with resolved types", func(ctx SpecContext) {
-		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(simpleStructTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "user", loader)
 		Expect(req).NotTo(BeNil())
 		Expect(req.Resolutions).NotTo(BeNil())
@@ -66,67 +267,67 @@ var _ = Describe("MustGenerateRequest", func() {
 	})
 
 	It("should resolve all primitive types", func(ctx SpecContext) {
-		source := fmt.Sprintf(AllPrimitivesTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(allPrimitivesTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "all", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve enum definitions", func(ctx SpecContext) {
-		source := fmt.Sprintf(IntEnumTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(intEnumTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "status", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve struct extension", func(ctx SpecContext) {
-		source := fmt.Sprintf(StructExtensionTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(structExtensionTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "ext", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve optional fields", func(ctx SpecContext) {
-		source := fmt.Sprintf(OptionalFieldsTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(optionalFieldsTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "opt", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve array types", func(ctx SpecContext) {
-		source := fmt.Sprintf(ArrayTypesTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(arrayTypesTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "arr", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve generic structs", func(ctx SpecContext) {
-		source := fmt.Sprintf(GenericStructTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(genericStructTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "gen", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve field omission in extension", func(ctx SpecContext) {
-		source := fmt.Sprintf(FieldOmissionTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(fieldOmissionTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "omit", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve type aliases", func(ctx SpecContext) {
-		source := fmt.Sprintf(TypeAliasTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(typeAliasTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "alias", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve distinct types", func(ctx SpecContext) {
-		source := fmt.Sprintf(DistinctTypeTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(distinctTypeTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "distinct", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve multiple structs in one schema", func(ctx SpecContext) {
-		source := fmt.Sprintf(MultipleStructsTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(multipleStructsTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "multi", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve struct references", func(ctx SpecContext) {
-		source := fmt.Sprintf(StructReferenceTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(structReferenceTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "ref", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
@@ -145,7 +346,7 @@ var _ = Describe("MustGenerate", func() {
 				{Path: "out/user.go", Content: []byte("package user")},
 			},
 		}
-		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(simpleStructTemplate, domainDirectives["go"])
 		resp := MustGenerate(ctx, source, "user", loader, p)
 		Expect(resp).NotTo(BeNil())
 		Expect(resp.Files).To(HaveLen(1))
@@ -156,7 +357,7 @@ var _ = Describe("MustGenerate", func() {
 		p := &reqCapturingPlugin{files: []plugin.File{
 			{Path: "out/user.go", Content: []byte("package user")},
 		}}
-		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(simpleStructTemplate, domainDirectives["go"])
 		MustGenerate(ctx, source, "user", loader, p)
 		Expect(p.lastReq).NotTo(BeNil())
 		Expect(p.lastReq.RepoRoot).To(Equal("/mock/repo"))
@@ -166,7 +367,7 @@ var _ = Describe("MustGenerate", func() {
 		p := &reqCapturingPlugin{files: []plugin.File{
 			{Path: "out/user.go", Content: []byte("package user")},
 		}}
-		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(simpleStructTemplate, domainDirectives["go"])
 		MustGenerate(ctx, source, "user", loader, p)
 		Expect(p.lastReq.Resolutions).NotTo(BeNil())
 	})
@@ -175,7 +376,7 @@ var _ = Describe("MustGenerate", func() {
 		"should return an empty response when plugin generates no files",
 		func(ctx SpecContext) {
 			p := &mockPlugin{files: []plugin.File{}}
-			source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+			source := fmt.Sprintf(simpleStructTemplate, domainDirectives["go"])
 			resp := MustGenerate(ctx, source, "user", loader, p)
 			Expect(resp.Files).To(BeEmpty())
 		},
@@ -188,7 +389,7 @@ var _ = Describe("MustGenerate", func() {
 				{Path: "out/group.go", Content: []byte("package group")},
 			},
 		}
-		source := fmt.Sprintf(MultipleStructsTemplate, DomainDirectives["go"])
+		source := fmt.Sprintf(multipleStructsTemplate, domainDirectives["go"])
 		resp := MustGenerate(ctx, source, "multi", loader, p)
 		Expect(resp.Files).To(HaveLen(2))
 	})

@@ -12,6 +12,7 @@
 package marshal
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -57,13 +58,18 @@ func DefaultOptions() Options {
 // New creates a new go/marshal plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string                { return "go/marshal" }
-func (p *Plugin) Domains() []string           { return []string{"go"} }
-func (p *Plugin) Requires() []string          { return []string{"go/types"} }
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (p *Plugin) Name() string       { return "go/marshal" }
+func (p *Plugin) Domains() []string  { return []string{"go"} }
+func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
+
+	frozen, err := p.chainFrozenCodecs(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, frozen...)
 
 	// Types that alias their predecessor version carry its codec methods
 	// through the alias; only defined types get codecs in the current package.
@@ -75,7 +81,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// Version-laid-out packages emit their codecs alongside the current
 	// types in types/vN; the rewrite shifts every affected path at once so
 	// cross-package codec references stay version-pinned.
-	rewritten, _, err := versioning.RewriteCurrent(req.Resolutions)
+	rewritten, _, _, err := versioning.RewriteCurrent(
+		context.Background(), req.Resolutions, req.Versions,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -83,10 +91,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	versionedReq.Resolutions = rewritten
 	req = &versionedReq
 
-	// Collect all entry types.
+	// Collect all entry types. Codecs are explicit: a struct or union gets
+	// one iff it declares @go marshal; references never pull a codec in.
 	var entryTypes []resolution.Type
-	for _, entry := range req.Resolutions.StructTypes() {
-		if !domain.HasExprFromType(entry, "go", "marshal") {
+	for _, entry := range append(
+		req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...,
+	) {
+		if entry.Synthetic || !domain.HasExprFromType(entry, "go", "marshal") ||
+			handCodec(entry) {
 			continue
 		}
 		goPath := output.GetPath(entry, "go")
@@ -124,21 +136,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 	}
 
-	// Merge all entry types' dependency trees per package.
+	// Group the tagged entries per package.
 	merged := make(map[string]map[string]resolution.Type)
 	for _, entry := range entryTypes {
-		byPkg, _ := collectSerializableTypes(entry, req.Resolutions)
-		for goPath, types := range byPkg {
-			if merged[goPath] == nil {
-				merged[goPath] = make(map[string]resolution.Type)
-			}
-			for _, t := range types {
-				if aliased.Contains(t.QualifiedName) {
-					continue
-				}
-				merged[goPath][t.QualifiedName] = t
-			}
+		if aliased.Contains(entry.QualifiedName) {
+			continue
 		}
+		goPath := output.GetPath(entry, "go")
+		if merged[goPath] == nil {
+			merged[goPath] = make(map[string]resolution.Type)
+		}
+		merged[goPath][entry.QualifiedName] = entry
 	}
 
 	// Collect all packages that need a codec file (from structs or flex types).
@@ -152,7 +160,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	// A codec pins a persisted wire format to a type shape, so every marshalled type
 	// must live in a versions/vN package where that shape is immutable. A codec target
-	// outside versions/vN means the type (or one it persists) is missing @go version.
+	// outside versions/vN means the type (or one it persists) is not a member of
+	// its resource's current version file.
 	if p.Options.RequireVersioned {
 		for goPath := range allPkgs {
 			if isVersionedPath(goPath) {
@@ -167,7 +176,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 			sort.Strings(names)
 			return nil, errors.Newf(
-				"cannot generate a codec for %s in %s: @go marshal types must be versioned; add @go version to them",
+				"cannot generate a codec for %s in %s: @go marshal types must be versioned; declare them in the current version file",
 				strings.Join(names, ", "),
 				goPath,
 			)
@@ -183,6 +192,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		flex := flexByPkg[goPath]
 		if len(entries) == 0 && len(flex) == 0 {
 			continue
+		}
+		for _, e := range entries {
+			if err := validateEntryRefs(e.Type, req.Resolutions); err != nil {
+				return nil, err
+			}
 		}
 		content, err := generateEncoderCodecFile(
 			packageName, goPath, entries, flex, req.Resolutions, req.RepoRoot,
@@ -280,28 +294,6 @@ func sortedImports(m map[string]string) []importEntry {
 		entries = append(entries, importEntry{Path: k, Alias: alias})
 	}
 	return entries
-}
-
-// GenerateCodecFile generates a complete codec file for the given entries using the
-// specified package name and output path context. This is used by the migrate plugin to
-// generate frozen codecs for old schema versions. Each entry gets EncodeOrc/DecodeOrc
-// methods that implement the orc.SelfEncoder and orc.SelfDecoder interfaces.
-func GenerateCodecFile(
-	packageName string,
-	parentPath string,
-	entries []CodecEntry,
-	flex []FlexCodec,
-	table *resolution.Table,
-	repoRoot string,
-) ([]byte, error) {
-	return generateEncoderCodecFile(
-		packageName,
-		parentPath,
-		entries,
-		flex,
-		table,
-		repoRoot,
-	)
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
