@@ -39,6 +39,7 @@ import {
   getBySelector,
   type TestStore,
   uniqueName,
+  withSelectedProject,
 } from "@/testutil";
 
 // The shape a reload hydrates: the persisted selection with the keep-alive set
@@ -370,6 +371,44 @@ describe("Panel.Mosaic overlay", () => {
     expect(tabMountCount(tabA.key)).toBe(1);
     expect(tabMountCount(tabB.key)).toBe(1);
     expect(tabUnmounts).toHaveLength(0);
+  });
+
+  it("should hide the split items while the tab is focused", async () => {
+    const tabA = tabProbeTab();
+    const tabB = tabProbeTab();
+    const pan = await createServerPanel(client, {
+      variant: "leaf",
+      tabs: [tabA, tabB],
+    });
+    const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+    const { wrapper, store } = await setup(withSelectedProject(proj.key));
+    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: pan.key }));
+    });
+    await waitFor(() => expect(screen.getAllByText("probe")).toHaveLength(2));
+
+    fireEvent.contextMenu(screen.getAllByText("probe")[0]);
+    await screen.findByText("Split horizontally");
+    fireEvent.keyDown(document.body, { code: "Escape" });
+
+    act(() => {
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: pan.key,
+          tabKey: tabA.key,
+          otherTabKeys: [tabA.key, tabB.key],
+        }),
+      );
+      store.dispatch(Session.Panel.startOverlaying({}));
+    });
+    await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
+
+    fireEvent.contextMenu(screen.getAllByText("probe")[0]);
+    await screen.findByText("Close");
+    expect(screen.queryByText("Split horizontally")).toBeNull();
+    expect(screen.queryByText("Split vertically")).toBeNull();
   });
 
   it("should carry overlay mode to the newly selected panel on switch", async () => {
