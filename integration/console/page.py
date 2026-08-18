@@ -23,20 +23,20 @@ from console.tree import Tree
 from framework.run_dir import resolve_results_path
 
 PageType = Literal[
-    "Control Sequence",
-    "Line Plot",
+    "Control sequence",
+    "Line plot",
     "Schematic",
     "Log",
     "Table",
-    "NI Analog Read Task",
-    "NI Analog Write Task",
-    "NI Counter Read Task",
-    "NI Digital Read Task",
-    "NI Digital Write Task",
-    "LabJack Read Task",
-    "LabJack Write Task",
-    "OPC UA Read Task",
-    "OPC UA Write Task",
+    "NI analog read task",
+    "NI analog write task",
+    "NI counter read task",
+    "NI digital read task",
+    "NI digital write task",
+    "LabJack read task",
+    "LabJack write task",
+    "OPC UA read task",
+    "OPC UA write task",
 ]
 
 
@@ -128,6 +128,8 @@ class ConsolePage:
         """
         tab = self._get_tab()
         tab.wait_for(state="visible", timeout=5000)
+        # The close button reveals on tab hover; the tab icon covers it until then.
+        tab.hover()
         close_button = tab.get_by_label("Close", exact=True)
         close_button.wait_for(state="visible", timeout=5000)
         close_button.click()
@@ -315,7 +317,6 @@ class ConsolePage:
         """
         self.layout.show_visualization_toolbar()
         export_button = self.page.locator(".pluto-icon--export").locator("..")
-        self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
             try:

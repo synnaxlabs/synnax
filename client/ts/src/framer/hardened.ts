@@ -50,6 +50,7 @@ export class HardenedStreamer implements Streamer {
   private readonly stableAfter: TimeSpan;
   private openedAt = TimeStamp.now();
   private closed = false;
+  private reconnecting: Promise<void> | null = null;
 
   constructor(
     opener: StreamOpener,
@@ -169,6 +170,18 @@ export class HardenedStreamer implements Streamer {
     return this.current;
   }
 
+  // A failure during an in-flight reconnect joins it; a second run would open a
+  // competing stream and leak the loser.
+  private async reconnect(error: Error): Promise<void> {
+    if (this.reconnecting == null) {
+      this.onDrop?.(error);
+      this.reconnecting = this.runStreamer().finally(() => {
+        this.reconnecting = null;
+      });
+    }
+    await this.reconnecting;
+  }
+
   async update(channels: channel.Params): Promise<void> {
     if (this.closed) throw new EOF();
     this.config.channels = channels;
@@ -176,8 +189,7 @@ export class HardenedStreamer implements Streamer {
       await this.wrapped.update(channels);
     } catch (e) {
       if (this.closed || EOF.matches(e)) throw errors.fromUnknown(e);
-      this.onDrop?.(errors.fromUnknown(e));
-      await this.runStreamer();
+      await this.reconnect(errors.fromUnknown(e));
       return await this.update(channels);
     }
   }
@@ -199,8 +211,7 @@ export class HardenedStreamer implements Streamer {
       if (this.closed) throw new EOF();
       // an EOF the client did not ask for is a drop: the server ended the
       // stream, so reconnect like any other failure
-      this.onDrop?.(errors.fromUnknown(e));
-      await this.runStreamer();
+      await this.reconnect(errors.fromUnknown(e));
       return await this.read();
     }
   }

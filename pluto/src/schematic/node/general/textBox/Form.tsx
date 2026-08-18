@@ -35,7 +35,7 @@ export const TextBoxForm = (): ReactElement => {
       <Flex.Box y grow>
         <Flex.Box x align="stretch">
           <Base.TextField path="value" label="Text" padHelpText={false} grow />
-          <Base.Field<text.Level> path="level" label="Text Size" padHelpText={false}>
+          <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
             {({ value, onChange }) => (
               <Select.Text.Level value={value} onChange={onChange} />
             )}

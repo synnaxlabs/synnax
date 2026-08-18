@@ -10,7 +10,7 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Button, Icon } from "@synnaxlabs/pluto";
 
-import { use } from "@/platform/export/use";
+import { useResource } from "@/platform/export/use";
 
 export interface ToolbarButtonProps extends Omit<
   Button.ButtonProps,
@@ -21,7 +21,7 @@ export interface ToolbarButtonProps extends Omit<
 }
 
 export const ToolbarButton = ({ getID, ...rest }: ToolbarButtonProps) => {
-  const handleExport = use();
+  const handleExport = useResource();
   return (
     <Button.Button
       tooltip="Export layout"

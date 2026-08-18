@@ -22,7 +22,7 @@ export interface SymbolProps extends types.SymbolProps<Config> {}
 
 export const Symbol = ({ config: { message, variant } }: SymbolProps) => (
   <Base
-    type="Change Status"
+    type="Change status"
     Icon={<Icon.Notification />}
     color={color.cssString(color.setAlpha(RED_HEX, 0.2))}
     textColor={color.cssString(RED_HEX)}

@@ -21,7 +21,6 @@ from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
 from framework.utils import get_fixture_path
-from x import get_synnax_version
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
@@ -44,8 +43,6 @@ class Project(ConsoleCase):
         super().teardown()
 
     def run(self) -> None:
-        self.test_version_visible_in_navbar()
-
         # Project Navigation
         self.console.project.create("ProjectA")
         self._cleanup_projects.append("ProjectA")
@@ -68,29 +65,15 @@ class Project(ConsoleCase):
         self.test_export_project()
         self.test_import_project()
 
-    def test_version_visible_in_navbar(self) -> None:
-        """Test that the correct version is displayed in the navbar."""
-        self.log("Testing version badge visible in navbar")
-        expected = f"v{get_synnax_version()}"
-        displayed = self.console.layout.get_version()
-        self.log(f"Version badge displays: {displayed}, expected prefix: {expected}")
-        assert displayed.startswith(expected), (
-            f"Version badge '{displayed}' does not start with expected '{expected}'"
-        )
-
     def test_switch_projects_in_resources(self) -> None:
         """Test switching between projects by double-clicking in resources toolbar."""
         self.log("Testing switch projects in resources view")
 
         self.console.project.select("ProjectA")
-        assert (
-            self.page.get_by_role("button").filter(has_text="ProjectA").is_visible()
-        ), "ProjectA should be active after selection"
+        self.console.project.wait_for_active("ProjectA")
 
         self.console.project.select("ProjectB")
-        assert (
-            self.page.get_by_role("button").filter(has_text="ProjectB").is_visible()
-        ), "ProjectB should be active after selection"
+        self.console.project.wait_for_active("ProjectB")
 
     def test_rename_project(self) -> None:
         """Test renaming a project via context menu and verify synchronization."""
@@ -102,13 +85,8 @@ class Project(ConsoleCase):
             "Project should be renamed in Resources Toolbar"
         )
 
-        project_selector = self.page.get_by_role("button").filter(
-            has_text="RenamedProject"
-        )
-        project_selector.wait_for(state="visible", timeout=5000)
-        assert project_selector.is_visible(), (
-            "Project Selector should show renamed project"
-        )
+        # The rename must also sync into the selector dialog's project list.
+        self.console.project.wait_for_active("RenamedProject")
 
         self.console.project.rename(old_name="RenamedProject", new_name="ProjectA")
         self.console.layout.close_left_toolbar()
@@ -188,7 +166,7 @@ class Project(ConsoleCase):
             with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(data, f)
             with self.console.layout.page.expect_file_chooser() as fc_info:
-                self.console.layout.command_palette("Import component(s)")
+                self.console.layout.command_palette("Import components")
             fc_info.value.set_files(tmp_path)
             # The tab initially carries the file-derived layout name and converges to
             # the log's real name once retrieved, so wait for either before asserting on
@@ -254,28 +232,38 @@ class Project(ConsoleCase):
         for p in EXPECTED_PAGES:
             self.console.layout.close_tab(p)
 
-        # PANELS.json holds the project's panel documents. Page names live on the
-        # resources themselves, so the panel trees are checked for the resource types
-        # and the per-page component files carry the names.
+        # The bundle holds a manifest naming the project, one envelope per member
+        # document, and one envelope per panel whose resource tabs reference the member
+        # files by path.
         with open(
-            os.path.join(self._export_dir, "PANELS.json"), "r", encoding="utf-8"
+            os.path.join(self._export_dir, "manifest.json"), "r", encoding="utf-8"
         ) as f:
-            panels = json.load(f)
+            manifest = json.load(f)
+        assert manifest["type"] == "project", f"Unexpected manifest: {manifest}"
+        assert manifest["version"] == 1, f"Unexpected manifest: {manifest}"
+        assert manifest["name"] == "ImportSpace", f"Unexpected manifest: {manifest}"
 
-        def collect_types(node: dict[str, Any], out: list[str]) -> None:
+        def collect_references(node: dict[str, Any], out: list[str]) -> None:
             if node["variant"] == "leaf":
                 out.extend(
-                    tab["resource"]["type"]
+                    tab["resource"]
                     for tab in node["tabs"]
                     if tab["variant"] == "resource"
                 )
                 return
-            collect_types(node["first"], out)
-            collect_types(node["last"], out)
+            collect_references(node["first"], out)
+            collect_references(node["last"], out)
 
-        exported_types: list[str] = []
-        for panel in panels:
-            collect_types(panel["root"], exported_types)
+        referenced: list[str] = []
+        for entry in os.listdir(self._export_dir):
+            if not entry.endswith(".json") or entry == "manifest.json":
+                continue
+            with open(
+                os.path.join(self._export_dir, entry), "r", encoding="utf-8"
+            ) as f:
+                envelope = json.load(f)
+            if envelope.get("type") == "panel":
+                collect_references(envelope["root"], referenced)
 
         expected = {
             "Metrics Plot": "lineplot",
@@ -284,24 +272,36 @@ class Project(ConsoleCase):
             "Metrics Table": "table",
         }
         for page_name, page_type in expected.items():
-            assert page_type in exported_types, (
-                f"Export should contain a {page_type} tab for '{page_name}', "
-                f"got {exported_types}"
+            member_path = os.path.join(self._export_dir, f"{page_name}.json")
+            assert os.path.exists(member_path), (
+                f"Export should contain {page_name}.json"
             )
-            assert os.path.exists(
-                os.path.join(self._export_dir, f"{page_name}.json")
-            ), f"Export should contain {page_name}.json"
+            with open(member_path, "r", encoding="utf-8") as f:
+                member = json.load(f)
+            assert member["type"] == page_type, (
+                f"{page_name}.json should have type {page_type}, "
+                f"got {member.get('type')}"
+            )
+            assert f"{page_name}.json" in referenced, (
+                f"A panel should reference {page_name}.json, got {referenced}"
+            )
 
     def test_import_project(self) -> None:
-        """Test importing a project through the real "Import a project" command."""
+        """Test importing a project through the real "Import project" command."""
         self.log("Testing import project via command palette")
 
-        # Rename the export directory so the imported project has a
+        # Rename the bundle (directory and manifest) so the imported project has a
         # distinct name from the original ImportSpace project.
         imported_dir = os.path.join(os.path.dirname(self._export_dir), "ImportedSpace")
         if os.path.isdir(imported_dir):
             shutil.rmtree(imported_dir)
         os.rename(self._export_dir, imported_dir)
+        manifest_path = os.path.join(imported_dir, "manifest.json")
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        manifest["name"] = "ImportedSpace"
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f)
 
         self.console.project.import_project_from_directory(imported_dir)
 

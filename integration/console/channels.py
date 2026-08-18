@@ -129,7 +129,7 @@ class ChannelClient:
         self,
         channels: list[dict[str, str | int | bool]],
     ) -> list[str]:
-        """Creates multiple channels using the 'Create More' checkbox.
+        """Creates multiple channels using the 'Create more' checkbox.
 
         Each channel dict should contain:
             - name: The name for the channel (required)
@@ -158,13 +158,13 @@ class ChannelClient:
                 data_type = sy.DataType.TIMESTAMP
 
             if i == 0:
-                self.layout.command_palette("Create a channel")
+                self.layout.command_palette("Create channel")
                 self.layout.wait_for_selector_visible(self.layout.MODAL_SELECTOR)
             else:
                 modal = self.layout.locator(self.layout.MODAL_SELECTOR)
                 if modal.count() == 0:
                     raise RuntimeError(
-                        "Modal closed between channel creations despite 'Create More'"
+                        "Modal closed between channel creations despite 'Create more'"
                     )
 
             self.layout.fill_input_field("Name", name)
@@ -186,11 +186,11 @@ class ChannelClient:
 
             is_last = i == len(channels) - 1
             if not is_last:
-                if not self.layout.get_toggle("Create More"):
-                    self.layout.click_checkbox("Create More")
+                if not self.layout.get_toggle("Create more"):
+                    self.layout.click_checkbox("Create more")
             else:
-                if self.layout.get_toggle("Create More"):
-                    self.layout.click_checkbox("Create More")
+                if self.layout.get_toggle("Create more"):
+                    self.layout.click_checkbox("Create more")
 
             self.layout.click_role("button", "Create", exact=True)
             created_channels.append(name)
@@ -199,7 +199,7 @@ class ChannelClient:
                 modal = self.layout.locator(self.layout.MODAL_SELECTOR)
                 if modal.count() == 0:
                     raise RuntimeError(
-                        "Modal closed after creating channel with 'Create More' checked"
+                        "Modal closed after creating channel with 'Create more' checked"
                     )
                 # expect() requires raw Playwright locator
                 name_input_after = self.layout.page.get_by_role("textbox", name="Name")
@@ -243,7 +243,7 @@ class ChannelClient:
                 if "Failed to update calculated channel" in modal_text:
                     error_start = modal_text.find("Failed to update calculated channel")
                     error_section = modal_text[error_start:]
-                    for delimiter in ["\n\nCreate More", "\n\nSave"]:
+                    for delimiter in ["\n\nCreate more", "\n\nSave"]:
                         if delimiter in error_section:
                             error_section = error_section[
                                 : error_section.find(delimiter)
@@ -565,13 +565,11 @@ class ChannelClient:
 
     def open_create_modal(self) -> None:
         """Open the Create Channel modal via command palette."""
-        self.layout.open_modal("Create a channel", self.layout.MODAL_SELECTOR)
+        self.layout.open_modal("Create channel", self.layout.MODAL_SELECTOR)
         self.layout.wait_for_selector_visible("input[placeholder='Name']")
 
     def open_create_calculated_modal(self) -> None:
         """Open the Create Calculated Channel modal via command palette."""
-        self.layout.open_modal(
-            "Create a calculated channel", self.layout.MODAL_SELECTOR
-        )
+        self.layout.open_modal("Create calculated channel", self.layout.MODAL_SELECTOR)
         self.layout.wait_for_selector_visible("input[placeholder='Name']")
         self.layout.wait_for_selector_visible(".monaco-editor")

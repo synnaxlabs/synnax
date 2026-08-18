@@ -78,6 +78,52 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+var _ = Describe("NewCodec", func() {
+	It("Should encode compactly with no options", func(ctx SpecContext) {
+		b := MustSucceed(json.NewCodec().Encode(ctx, toEncode{1}))
+		Expect(string(b)).To(Equal(`{"Value":1}`))
+	})
+	Describe("WithIndent", func() {
+		pretty := json.NewCodec(json.WithIndent("  "))
+		Describe("ContentType", func() {
+			It("Should report the JSON content type", func() {
+				Expect(pretty.ContentType()).To(Equal("application/json"))
+			})
+		})
+		Describe("Extension", func() {
+			It("Should report the JSON file extension", func() {
+				Expect(pretty.Extension()).To(Equal(".json"))
+			})
+		})
+		It("Should encode with the indentation and a trailing newline", func(
+			ctx SpecContext,
+		) {
+			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			Expect(string(b)).To(Equal("{\n  \"Value\": 1\n}\n"))
+		})
+		It("Should encode identical bytes through EncodeStream", func(ctx SpecContext) {
+			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			var buf bytes.Buffer
+			Expect(pretty.EncodeStream(ctx, &buf, toEncode{1})).To(Succeed())
+			Expect(buf.Bytes()).To(Equal(b))
+		})
+		It("Should decode its own output", func(ctx SpecContext) {
+			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			var d toEncode
+			Expect(pretty.Decode(ctx, b, &d)).To(Succeed())
+			Expect(d).To(Equal(toEncode{1}))
+		})
+		It("Should add error info on encoding failure", func(ctx SpecContext) {
+			Expect(pretty.Encode(ctx, make(chan int))).Error().To(MatchError(
+				SatisfyAll(
+					ContainSubstring("failed to encode value"),
+					ContainSubstring("kind=chan, type=chan int"),
+				)),
+			)
+		})
+	})
+})
+
 var _ = Describe("MarshalStringInt64", func() {
 	It("Should encode an int64 value as a string", func() {
 		Expect(json.MarshalStringInt64(12)).To(Equal([]byte("\"12\"")))

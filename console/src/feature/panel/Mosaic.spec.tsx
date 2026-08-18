@@ -202,7 +202,7 @@ describe("Panel.Mosaic keep-alive", () => {
       </Haul.Provider>,
       { wrapper },
     );
-    await screen.findByText("No panels open.");
+    await screen.findByText("No panels open");
     startFileDrag();
     fireFileDrop(getBySelector(document, ".console-mosaic--empty"), [
       fakeFileEntry(createJSONFile("widget.json", { type: "log" })),
@@ -224,7 +224,7 @@ describe("Panel.Mosaic keep-alive", () => {
     act(() => {
       store.dispatch(Session.Panel.clearSelected({}));
     });
-    await waitFor(() => expect(screen.getByText("No panels open.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No panels open")).toBeTruthy());
     expect(unmounts).toHaveLength(0);
   });
 

@@ -253,6 +253,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/project/set-layout",
 		),
+		ProjectExport: http.NewUnaryServer[project.ExportRequest, project.ExportResponse](
+			router,
+			"/api/v1/project/export",
+			http.WithResponseEncoders(zip.Codec),
+		),
 
 		// SCHEMATIC
 		SchematicCreate: http.NewUnaryServer[schematic.CreateRequest, schematic.CreateResponse](
@@ -300,7 +305,12 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SchematicSymbolExportGroup: http.NewUnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			router,
 			"/api/v1/schematic/symbol/group/export",
-			http.WithResponseEncoders(zip.Encoder),
+			http.WithResponseEncoders(zip.Codec),
+		),
+		SchematicSymbolImportGroup: http.NewUnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse](
+			router,
+			"/api/v1/schematic/symbol/group/import",
+			http.WithRequestDecoders(zip.Codec),
 		),
 		SchematicSymbolDeleteGroup: http.NewUnaryServer[symbol.DeleteGroupRequest, types.Nil](
 			router,
@@ -548,7 +558,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](
 			router,
 			"/api/v1/imex/export",
-			http.WithResponseEncoders(json.Codec),
+			http.WithResponseEncoders(imex.JSONCodec),
 		),
 	})
 }

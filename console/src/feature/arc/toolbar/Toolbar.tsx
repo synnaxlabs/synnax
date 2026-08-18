@@ -41,8 +41,8 @@ const EmptyContent = ({ onCreate }: EmptyContentProps) => {
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No existing Arcs."
-      action={hasCreatePermission ? "Create an Arc" : undefined}
+      message="No Arcs"
+      action={hasCreatePermission ? "Create Arc automation" : undefined}
       onClick={onCreate}
     />
   );
@@ -124,12 +124,16 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   return (
     <Toolbar.Actions>
       {hasRetrievePermission && (
-        <Toolbar.Action tooltip="Open Arc Explorer" onClick={openExplorer}>
+        <Toolbar.Action tooltip="Open Arc explorer" onClick={openExplorer}>
           <Icon.Explore />
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action tooltip="Create Arc" onClick={handleCreate} variant="filled">
+        <Toolbar.Action
+          tooltip="Create Arc automation"
+          onClick={handleCreate}
+          variant="filled"
+        >
           <Icon.Add />
         </Toolbar.Action>
       )}

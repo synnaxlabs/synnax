@@ -443,9 +443,7 @@ export const toKebab = createConverter(toKebabStr);
  * @param str - The string to convert
  * @returns The converted string in proper noun format
  */
-const toProperNounStr = (str: string): string => {
-  if (str.length === 0) return str;
-
+const splitWords = (str: string): string => {
   // Replace underscores and hyphens with spaces
   let result = str.replace(/[_-]/g, " ");
 
@@ -463,12 +461,13 @@ const toProperNounStr = (str: string): string => {
   );
 
   // Clean up multiple spaces
-  result = result.replace(/\s+/g, " ").trim();
+  return result.replace(/\s+/g, " ").trim();
+};
 
+const toProperNounStr = (str: string): string => {
+  if (str.length === 0) return str;
   // Capitalize first letter of each word (proper noun format)
-  result = result.replace(/\b\w/g, (char) => char.toUpperCase());
-
-  return result;
+  return splitWords(str).replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 /**
@@ -480,3 +479,28 @@ const toProperNounStr = (str: string): string => {
  * @returns The converted string in proper noun format
  */
 export const toProperNoun = createConverter(toProperNounStr);
+
+// Matches acronym and version tokens ("XML", "V2") that keep their casing.
+const ACRONYM_REGEX = /^[A-Z0-9]{2,}$/;
+
+const toSentenceStr = (str: string): string => {
+  if (str.length === 0) return str;
+  const words = splitWords(str).split(" ");
+  return words
+    .map((word, i) => {
+      if (ACRONYM_REGEX.test(word)) return word;
+      const lower = word.toLowerCase();
+      return i === 0 ? lower[0].toUpperCase() + lower.slice(1) : lower;
+    })
+    .join(" ");
+};
+
+/**
+ * Converts a string to sentence case.
+ * Handles snake_case, kebab-case, camelCase, and PascalCase.
+ * Only the first word is capitalized; acronyms keep their casing.
+ *
+ * @param str - The string to convert
+ * @returns The converted string in sentence case
+ */
+export const toSentence = createConverter(toSentenceStr);

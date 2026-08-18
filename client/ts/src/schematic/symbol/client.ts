@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
+import {
+  type FileTransport,
+  type UnaryClient,
+  type UploadBody,
+} from "@synnaxlabs/freighter";
 import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
+import { imex } from "@/imex";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import {
@@ -59,7 +64,8 @@ const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
 const retrieveGroupResZ = z.object({ group: group.groupZ });
-const exportGroupReqZ = z.object({ key: group.keyZ });
+const exportGroupReqZ = z.object({ key: group.keyZ, encoding: imex.encodingZ });
+const importGroupResZ = z.object({ group: group.groupZ });
 const deleteGroupReqZ = z.object({ key: group.keyZ });
 
 export interface CreateParams extends New {
@@ -202,21 +208,55 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
 
   /**
    * Exports every symbol in the group as a bundle: a zip archive holding one JSON file
-   * per symbol beside a manifest.json naming the group. The caller pipes the stream
-   * wherever it likes without the client buffering the whole archive.
+   * per symbol beside a manifest.json naming the group. Two symbols that take the same
+   * file name keep distinct names through a numeric suffix, and children that are not
+   * symbols are skipped. The caller pipes the stream wherever it likes without the
+   * client buffering the whole archive.
    *
    * @param key - the key of the group to export.
+   * @param options - the export options, including the serialization member files are
+   * written in.
    * @returns the bundle as a stream of zip bytes.
-   * @throws {ValidationError} if the group holds a resource that is not a symbol, or if
-   * two symbols take the same file name.
    */
-  async exportGroup(key: group.Key): Promise<ReadableStream<Uint8Array>> {
+  async exportGroup(
+    key: group.Key,
+    options: imex.Options,
+  ): Promise<ReadableStream<Uint8Array>> {
     return await this.cfg.file.download(
       "/schematic/symbol/group/export",
-      { key },
+      { key, encoding: options.encoding },
       exportGroupReqZ,
       { encoding: "ZIP" },
     );
+  }
+
+  /**
+   * Imports a symbol group bundle: a zip archive holding one JSON envelope per symbol
+   * beside a manifest.json naming the group. The Core creates a fresh group under the
+   * permanent symbol group and imports every member in a single transaction, so a
+   * failure leaves nothing behind.
+   *
+   * @param data - the bundle as zip bytes.
+   * @returns the created group.
+   * @throws {ValidationError} if the manifest is missing, malformed, or of another
+   * bundle kind, if two member names collide, or if a member is not a symbol.
+   */
+  async importGroup(data: UploadBody): Promise<group.Group> {
+    const res = await this.cfg.file.upload(
+      "/schematic/symbol/group/import",
+      data,
+      { encoding: "ZIP" },
+      importGroupResZ,
+    );
+    const parent = await this.retrieveGroup();
+    this.cfg.groupStore.set(res.group);
+    const rel: ontology.Relationship = {
+      from: group.ontologyID(parent.key),
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: group.ontologyID(res.group.key),
+    };
+    this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
+    return res.group;
   }
 
   /**

@@ -282,7 +282,9 @@ describe("Symbol Client", () => {
     // Zip entry names are stored uncompressed, so the raw archive names the bundle's
     // files without the spec needing a zip reader.
     const download = async (key: group.Key): Promise<string> => {
-      const stream = await client.schematics.symbols.exportGroup(key);
+      const stream = await client.schematics.symbols.exportGroup(key, {
+        encoding: "JSON",
+      });
       return new TextDecoder().decode(await new Response(stream).arrayBuffer());
     };
 
@@ -318,6 +320,58 @@ describe("Symbol Client", () => {
       expect(archive).toContain("manifest.json");
       expect(archive).toContain("Inlet.json");
       expect(archive).not.toContain("Nested");
+    });
+  });
+
+  describe("importGroup", () => {
+    it("should import an exported bundle back as a fresh group", async () => {
+      const exported = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `symbol-import-${id.create()}`,
+      });
+      await client.schematics.symbols.create({
+        name: "Inlet",
+        data: SYMBOL_DATA,
+        parent: group.ontologyID(exported.key),
+      });
+      const stream = await client.schematics.symbols.exportGroup(exported.key, {
+        encoding: "JSON",
+      });
+      const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
+      const imported = await client.schematics.symbols.importGroup(bundle);
+      expect(imported.key).not.toEqual(exported.key);
+      expect(imported.name).toEqual(exported.name);
+      const symbols = await client.schematics.symbols.retrieve({
+        parent: group.ontologyID(imported.key),
+      });
+      expect(symbols).toHaveLength(1);
+      expect(symbols[0].name).toEqual("Inlet");
+    });
+
+    it("should create the imported group under the permanent group", async () => {
+      const exported = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `symbol-import-${id.create()}`,
+      });
+      const stream = await client.schematics.symbols.exportGroup(exported.key, {
+        encoding: "JSON",
+      });
+      const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
+      const imported = await client.schematics.symbols.importGroup(bundle);
+      const permanent = await client.schematics.symbols.retrieveGroup();
+      const children = await client.groups.retrieve({
+        parent: group.ontologyID(permanent.key),
+      });
+      expect(children.map(({ key }) => key)).toContain(imported.key);
+    });
+
+    it("should reject a bundle without a manifest", async () => {
+      // The 22-byte end-of-central-directory record alone: a valid, empty archive.
+      const emptyArchive = new Uint8Array(22);
+      emptyArchive.set([0x50, 0x4b, 0x05, 0x06]);
+      await expect(client.schematics.symbols.importGroup(emptyArchive)).rejects.toThrow(
+        "bundle holds no manifest.json",
+      );
     });
   });
 

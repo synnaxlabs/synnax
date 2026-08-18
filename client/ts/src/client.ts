@@ -234,7 +234,12 @@ export default class Synnax extends framer.Client {
     this.control = new control.Client({ unary, cache });
     this.access = new access.Client({ unary, cache, ontology: this.ontology });
     this.users = new user.Client({ unary, cache, ontology: this.ontology });
-    this.projects = new project.Client({ unary, cache, ontology: this.ontology });
+    this.projects = new project.Client({
+      unary,
+      file: this.transport.file,
+      cache,
+      ontology: this.ontology,
+    });
     this.tasks = new task.Client({
       unary,
       framer: this,

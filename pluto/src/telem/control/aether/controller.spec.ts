@@ -99,7 +99,7 @@ describe("control/aether/AuthoritySource", () => {
     const { source, controller } = setup(0);
     const status = source.value();
     expect(status.variant).toEqual("disabled");
-    expect(status.message).toEqual("No Channel");
+    expect(status.message).toEqual("No channel");
     expect(status.key).toEqual(controller.key);
     expect(status.details).toEqual({ valid: false, authority: 0 });
   });

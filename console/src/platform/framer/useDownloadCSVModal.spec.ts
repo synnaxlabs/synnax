@@ -13,20 +13,20 @@ import { id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CSV } from "@/platform/csv";
+import { Framer } from "@/platform/framer";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import {
   captureBrowserDownloads,
   type CapturedDownloads,
-  removeFilePickers,
+  removeSaveFilePicker,
 } from "@/testutil";
 
 const TIME_RANGE = new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(10));
 
 const openDownloadModal = async (
-  params: CSV.DownloadModalParams,
+  params: Framer.DownloadCSVModalParams,
   options: Parameters<typeof renderModalOpener>[2] = {},
-) => await renderModalOpener(() => CSV.useDownloadModal(), [params], options);
+) => await renderModalOpener(() => Framer.useDownloadCSVModal(), [params], options);
 
 // jsdom's Blob has no text(); FileReader is the portable way to read it back.
 const readBlob = (blob: Blob): Promise<string> =>
@@ -37,7 +37,7 @@ const readBlob = (blob: Blob): Promise<string> =>
     reader.readAsText(blob);
   });
 
-describe("useDownloadModal", () => {
+describe("useDownloadCSVModal", () => {
   describe("form step (no client)", () => {
     it("disables the Download button when no channels are selected", async () => {
       await openDownloadModal({ timeRange: TIME_RANGE, channels: [], name: "My Plot" });
@@ -78,14 +78,14 @@ describe("useDownloadModal", () => {
   describe("with test client", () => {
     let downloads: CapturedDownloads;
     beforeEach(() => {
-      removeFilePickers();
+      removeSaveFilePicker();
       downloads = captureBrowserDownloads();
     });
     afterEach(() => {
       vi.restoreAllMocks();
     });
 
-    it("reads the selected channels, downloads their data as a CSV, and closes", async () => {
+    it("reads the selected channels, downloads their data as CSV, and closes", async () => {
       const client = createTestClient();
       const suffix = id.create().replace(/-/g, "_");
       const indexCh = await client.channels.create({
@@ -133,7 +133,7 @@ describe("useDownloadModal", () => {
       ]);
 
       await waitFor(() =>
-        expect(screen.queryByText("Download data for export to a CSV")).toBeNull(),
+        expect(screen.queryByText("Download data for export as CSV")).toBeNull(),
       );
     });
   });

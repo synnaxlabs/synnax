@@ -23,27 +23,29 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/x": "workspace:^",
     "@tauri-apps/api": "catalog:",
-    "async-mutex": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "react-redux": "catalog:",
     "zod": "catalog:"
   },
+  "peerDependencies": {
+    "@reduxjs/toolkit": "catalog:",
+    "react": "catalog:",
+    "react-redux": "catalog:"
+  },
   "devDependencies": {
-    "@testing-library/react": "catalog:",
+    "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
+    "@testing-library/react": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "jsdom": "catalog:",
+    "async-mutex": "catalog:",
     "eslint": "catalog:",
+    "jsdom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-redux": "catalog:",
@@ -52,7 +54,11 @@
     "vitest": "catalog:"
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!dist/eslint.config.*"
   ],
   "exports": {
     ".": {

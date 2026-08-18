@@ -47,7 +47,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Key:      index1Key,
 						Name:     "Magellan",
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					}
 					data1 = cesium.Channel{
 						Key:      data1Key,
@@ -59,7 +59,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Key:      index2Key,
 						Name:     "DaGama",
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					}
 					data2 = cesium.Channel{
 						Key:      data2Key,
@@ -368,6 +368,308 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 			})
 
+			Describe("Alignment", func() {
+				var idxKey, dataKey cesium.ChannelKey
+				// A writer opens its domain at the requested start, which is normally
+				// earlier than the first sample it goes on to write.
+				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
+					idxKey, dataKey = GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idxKey,
+							Name:     "Amundsen",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      dataKey,
+							Name:     "Scott",
+							Index:    idxKey,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{idxKey, dataKey},
+						Start:    1 * telem.SecondTS,
+					}))
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{idxKey, dataKey},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12),
+							telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+						},
+					)))
+					MustSucceed(w.Commit())
+					Expect(w.Close()).To(Succeed())
+				})
+
+				DescribeTable(
+					"should align an auto-span read with the samples it returns",
+					func(ctx SpecContext, start telem.TimeStamp, expected []int64, alignment uint32) {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:        start.Range(telem.TimeStampMax),
+							Channels:      []cesium.ChannelKey{dataKey},
+							AutoChunkSize: 10,
+						}))
+						Expect(i.SeekFirst()).To(BeTrue())
+						Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+						s := i.Value().SeriesAt(0)
+						Expect(s).To(telem.MatchSeriesData(telem.NewSeries(expected)))
+						Expect(s.Alignment).To(Equal(telem.NewAlignment(0, alignment)))
+						Expect(i.Close()).To(Succeed())
+					},
+					Entry(
+						"start on a sample",
+						8*telem.SecondTS,
+						[]int64{2, 3, 4},
+						uint32(2),
+					),
+					// A start between two samples must skip the earlier one rather than
+					// return it under the later one's alignment.
+					Entry(
+						"start between samples",
+						8*telem.SecondTS+1,
+						[]int64{3, 4},
+						uint32(3),
+					),
+					Entry(
+						"start before every sample",
+						telem.SecondTS,
+						[]int64{0, 1, 2, 3, 4},
+						uint32(0),
+					),
+				)
+
+				// A start between two samples makes every chunk end land between two
+				// samples as well, which is where a chunk can repeat or drop one.
+				DescribeTable(
+					"should return every sample once across auto-span chunks",
+					func(ctx SpecContext, chunk int64) {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds: (4*telem.SecondTS + 1).
+								Range(telem.TimeStampMax),
+							Channels:      []cesium.ChannelKey{dataKey},
+							AutoChunkSize: chunk,
+						}))
+						Expect(i.SeekFirst()).To(BeTrue())
+						var got []int64
+						for i.Next(cesium.AutoSpan) {
+							for _, s := range i.Value().RawSeries() {
+								got = append(
+									got,
+									telem.UnmarshalSeries[int64](s)...,
+								)
+							}
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(Equal([]int64{1, 2, 3, 4}))
+					},
+					Entry("one sample per chunk", int64(1)),
+					Entry("two samples per chunk", int64(2)),
+					Entry("three samples per chunk", int64(3)),
+				)
+
+				// Each value equals the index of the sample holding it, so a chunk is
+				// aligned correctly when its alignment equals its first value.
+				DescribeTable(
+					"should align a backward auto-span read with the samples it returns",
+					func(ctx SpecContext, chunk int64) {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:        telem.SecondTS.Range(telem.TimeStampMax),
+							Channels:      []cesium.ChannelKey{dataKey},
+							AutoChunkSize: chunk,
+						}))
+						Expect(i.SeekLast()).To(BeTrue())
+						var got []int64
+						// Chunks arrive newest first, so each one goes in front of the
+						// ones already read.
+						for i.Prev(cesium.AutoSpan) {
+							var batch []int64
+							for _, s := range i.Value().RawSeries() {
+								vals := telem.UnmarshalSeries[int64](s)
+								Expect(s.Alignment).To(Equal(
+									telem.NewAlignment(0, uint32(vals[0])),
+								))
+								batch = append(batch, vals...)
+							}
+							got = append(batch, got...)
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(Equal([]int64{0, 1, 2, 3, 4}))
+					},
+					Entry("chunk smaller than the domain", int64(2)),
+					Entry("chunk larger than the domain", int64(10)),
+				)
+			})
+
+			// A chunk that runs out of samples before it is full must stop at the next
+			// domain rather than consume it, or the samples it holds are lost.
+			Describe("Auto-span across a domain gap", func() {
+				var idxKey, dataKey cesium.ChannelKey
+				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
+					idxKey, dataKey = GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idxKey,
+							Name:     "Shackleton",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      dataKey,
+							Name:     "Crean",
+							Index:    idxKey,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					write := func(start telem.TimeStamp, ts, vals telem.Series) {
+						GinkgoHelper()
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idxKey, dataKey},
+							Start:    start,
+						}))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idxKey, dataKey},
+							[]telem.Series{ts, vals},
+						)))
+						MustSucceed(w.Commit())
+						Expect(w.Close()).To(Succeed())
+					}
+					write(
+						telem.SecondTS,
+						telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12),
+						telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+					)
+					write(
+						30*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(30, 32, 34),
+						telem.NewSeriesV[int64](5, 6, 7),
+					)
+					write(
+						50*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(52),
+						telem.NewSeriesV[int64](8),
+					)
+				})
+
+				DescribeTable(
+					"should read every sample after the gap",
+					func(
+						ctx SpecContext,
+						start telem.TimeStamp,
+						chunk int64,
+						expected []int64,
+					) {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:        start.Range(60 * telem.SecondTS),
+							Channels:      []cesium.ChannelKey{dataKey},
+							AutoChunkSize: chunk,
+						}))
+						Expect(i.SeekFirst()).To(BeTrue())
+						var got []int64
+						for i.Next(cesium.AutoSpan) {
+							for _, s := range i.Value().RawSeries() {
+								got = append(got, telem.UnmarshalSeries[int64](s)...)
+							}
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(Equal(expected))
+					},
+					Entry(
+						"chunk smaller than the gap",
+						10*telem.SecondTS+1,
+						int64(2),
+						[]int64{4, 5, 6, 7, 8},
+					),
+					Entry(
+						"chunk spanning the gap",
+						8*telem.SecondTS+1,
+						int64(3),
+						[]int64{3, 4, 5, 6, 7, 8},
+					),
+				)
+			})
+
+			// Chunk ends land between samples here too, but the read must also carry
+			// its count across the gap between the two domains.
+			Describe("Auto-span chunks inside a domain", func() {
+				var dataKey cesium.ChannelKey
+				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
+					idxKey := GenerateChannelKey()
+					dataKey = GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idxKey,
+							Name:     "Nansen",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      dataKey,
+							Name:     "Johansen",
+							Index:    idxKey,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					write := func(start telem.TimeStamp, ts, vals telem.Series) {
+						GinkgoHelper()
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idxKey, dataKey},
+							Start:    start,
+						}))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idxKey, dataKey},
+							[]telem.Series{ts, vals},
+						)))
+						MustSucceed(w.Commit())
+						Expect(w.Close()).To(Succeed())
+					}
+					write(
+						telem.SecondTS,
+						telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12, 14, 16),
+						telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6),
+					)
+					write(
+						100*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(100, 102),
+						telem.NewSeriesV[int64](7, 8),
+					)
+				})
+
+				DescribeTable(
+					"should return every sample once across two domains",
+					func(ctx SpecContext, chunk int64) {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds: (4*telem.SecondTS + 1).
+								Range(200 * telem.SecondTS),
+							Channels:      []cesium.ChannelKey{dataKey},
+							AutoChunkSize: chunk,
+						}))
+						Expect(i.SeekFirst()).To(BeTrue())
+						var got []int64
+						for i.Next(cesium.AutoSpan) {
+							for _, s := range i.Value().RawSeries() {
+								got = append(
+									got,
+									telem.UnmarshalSeries[int64](s)...,
+								)
+							}
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(Equal([]int64{1, 2, 3, 4, 5, 6, 7, 8}))
+					},
+					Entry("one sample per chunk", int64(1)),
+					Entry("three samples per chunk", int64(3)),
+					Entry("a chunk wider than the first domain", int64(8)),
+				)
+			})
+
 			Describe("Variable Channels", func() {
 				var (
 					varIdxKey  cesium.ChannelKey
@@ -383,7 +685,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      varIdxKey,
 							Name:     "var-iter-idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      varDataKey,
@@ -490,7 +792,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      mixIdx,
 							Name:     "mix-iter-idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      fixedKey,
@@ -582,7 +884,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(db.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Cook",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						i := MustSucceed(
@@ -611,7 +913,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Drake",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
@@ -636,7 +938,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Polo",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
@@ -659,7 +961,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
 						Name:     "Zheng",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())

@@ -21,9 +21,7 @@ describe("device types", () => {
       const result = Device.nameZ.safeParse("");
       expect(result.success).toBe(false);
       if (!result.success)
-        expect(result.error.issues[0].message).toEqual(
-          "Name must be at least 1 character long",
-        );
+        expect(result.error.issues[0].message).toEqual("Name is required");
     });
   });
 

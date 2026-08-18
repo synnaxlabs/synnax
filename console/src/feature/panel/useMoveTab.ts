@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
 
-const DEFAULT_NAME = "New Panel";
+const DEFAULT_NAME = "New panel";
 
 // A minted panel takes its tab's name. A resource whose name cannot be read still
 // moves; only the name falls back.

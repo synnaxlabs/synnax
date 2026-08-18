@@ -114,6 +114,7 @@ type Transport struct {
 	ProjectDelete    freighter.UnaryServer[project.DeleteRequest, types.Nil]
 	ProjectRename    freighter.UnaryServer[project.RenameRequest, types.Nil]
 	ProjectSetLayout freighter.UnaryServer[project.SetLayoutRequest, types.Nil]
+	ProjectExport    freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -127,6 +128,7 @@ type Transport struct {
 	SchematicSymbolRename        freighter.UnaryServer[symbol.RenameRequest, types.Nil]
 	SchematicSymbolRetrieveGroup freighter.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]
 	SchematicSymbolExportGroup   freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
+	SchematicSymbolImportGroup   freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
 	SchematicSymbolDeleteGroup   freighter.UnaryServer[symbol.DeleteGroupRequest, types.Nil]
 	// LOG
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
@@ -318,6 +320,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ProjectRetrieve,
 		t.ProjectRename,
 		t.ProjectSetLayout,
+		t.ProjectExport,
 
 		// SCHEMATIC
 		t.SchematicCreate,
@@ -333,6 +336,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolRename,
 		t.SchematicSymbolRetrieveGroup,
 		t.SchematicSymbolExportGroup,
+		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
 
 		// LINE PLOT
@@ -491,6 +495,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Delete))
 	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
 	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
+	t.ProjectExport.BindHandler(l.Project.Export)
 	t.ProjectSetLayout.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout),
 	)
@@ -517,6 +522,9 @@ func (l *Layer) BindTo(t Transport) {
 	)
 	t.SchematicSymbolRetrieveGroup.BindHandler(l.Symbol.RetrieveGroup)
 	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
+	t.SchematicSymbolImportGroup.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.ImportGroup),
+	)
 	t.SchematicSymbolDeleteGroup.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Symbol.DeleteGroup),
 	)

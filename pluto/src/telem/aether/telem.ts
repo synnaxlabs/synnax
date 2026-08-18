@@ -14,6 +14,7 @@ import {
   type destructor,
   type MultiSeries,
   observe,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -145,15 +146,9 @@ export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<voi
   }
 
   get props(): z.infer<P> {
-    if (this.props_ == null) {
-      const res = this.schema.safeParse(this.uProps_);
-      if (res.success) this.props_ = res.data;
-      else
-        throw new ValidationError(
-          `[BaseTelem] - expected props to be valid, but found the following errors:
-          ${res.error.message}`,
-        );
-    }
+    this.props_ ??= zod.parse(this.schema, this.uProps_, {
+      label: "telemetry props",
+    });
     return this.props_;
   }
 

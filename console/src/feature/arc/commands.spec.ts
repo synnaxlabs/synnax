@@ -31,7 +31,7 @@ describe("Arc Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
-    const item = await screen.findByText("Open the Arc Explorer");
+    const item = await screen.findByText("Open Arc explorer");
     await act(async () => {
       fireEvent.click(item);
     });
@@ -51,11 +51,11 @@ describe("Arc Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
-    const item = await screen.findByText("Create an Arc automation");
+    const item = await screen.findByText("Create Arc automation");
     await act(async () => {
       fireEvent.click(item);
     });
-    const inputs = await screen.findAllByPlaceholderText("Automation Name");
+    const inputs = await screen.findAllByPlaceholderText("Name");
     const input = inputs[inputs.length - 1];
     const name = uniqueName("arc");
     fireEvent.change(input, { target: { value: name } });

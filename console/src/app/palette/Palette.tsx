@@ -44,7 +44,7 @@ export const TooltipContent = (): ReactElement => (
       </Flex.Box>
     </Flex.Box>
     <Flex.Box x justify="between" align="center">
-      <Text.Text level="small">Command Palette</Text.Text>
+      <Text.Text level="small">Command palette</Text.Text>
       <Flex.Box x gap="tiny">
         <Triggers.Text trigger={COMMAND_TRIGGER} level="small" />
       </Flex.Box>

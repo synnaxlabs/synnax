@@ -37,7 +37,7 @@ const createChannel = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.AnalogWriteSchemas> = {
-  name: "NI Analog Write Task",
+  name: "NI analog write task",
   type: NI.Task.ANALOG_WRITE_TYPE,
   config: NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({}),
 };
@@ -65,9 +65,9 @@ const createConfig = (
 describe("AnalogWrite", () => {
   it("should render the detail form for every channel type as it is selected", async () => {
     const cases: [NI.Task.AOChannelType, string][] = [
-      ["ao_current", "Minimum Value"],
+      ["ao_current", "Minimum value"],
       ["ao_func_gen", "Frequency"],
-      ["ao_voltage", "Custom Scaling"],
+      ["ao_voltage", "Custom scaling"],
     ];
     await renderAnalogWrite(
       createConfig(cases.map(([type], i) => createChannel(type, i))),
@@ -99,10 +99,10 @@ describe("AnalogWrite", () => {
   it("should swap the channel to the newly selected type", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_voltage", 2)]));
     fireEvent.click(await screen.findByText("cmd_ao_voltage_2"));
-    await screen.findByText("Custom Scaling");
-    await selectFromDropdown("Voltage", "Function Generator");
+    await screen.findByText("Custom scaling");
+    await selectFromDropdown("Voltage", "Function generator");
     await waitFor(() => expect(screen.getByText("Frequency")).toBeTruthy());
-    expect(screen.queryByText("Custom Scaling")).toBeNull();
+    expect(screen.queryByText("Custom scaling")).toBeNull();
   });
 
   describe("deploying against a live cluster", () => {

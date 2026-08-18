@@ -13,7 +13,7 @@ import { z } from "zod";
 export type Command = "start" | "stop";
 
 // Deploy-time only: shape schemas keep device lax so drafts round-trip.
-export const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
+export const deviceKeyZ = device.keyZ.min(1, "Device is required");
 
 // The channel shape every generated task config carries.
 export interface Channel {
@@ -58,7 +58,7 @@ export const validateChannelDevices = ({
     if (device !== "") return;
     issues.push({
       code: "custom",
-      message: "Must specify a device",
+      message: "Device is required",
       path: [i, "device"],
       input: channels,
     });

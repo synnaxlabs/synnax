@@ -25,19 +25,19 @@ export const defaultConfig = (): Config => ({
   color: color.ZERO,
   autoFit: true,
   align: "center",
-  label: Label.defaultConfig("Text Box"),
+  label: Label.defaultConfig("Text box"),
   level: "p",
-  value: "Text Box",
+  value: "Text box",
   width: 75,
 });
 
 const Preview = (props: Config): ReactElement => (
-  <TextBox {...props} autoFit value="Text Box" />
+  <TextBox {...props} autoFit value="Text box" />
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "Text Box",
+  name: "Text box",
   Form: TextBoxForm,
   Node: Symbol,
   Preview,

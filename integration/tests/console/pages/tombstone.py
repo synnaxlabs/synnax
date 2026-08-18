@@ -21,7 +21,7 @@ class Tombstone(ConsoleCase):
     def run(self) -> None:
         suffix = random_name()
         pages: list[tuple[PageType, str]] = [
-            ("Line Plot", f"TombPlot_{suffix}"),
+            ("Line plot", f"TombPlot_{suffix}"),
             ("Schematic", f"TombSch_{suffix}"),
             ("Log", f"TombLog_{suffix}"),
             ("Table", f"TombTable_{suffix}"),

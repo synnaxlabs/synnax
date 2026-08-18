@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 	"go.uber.org/zap"
 )
@@ -417,6 +418,76 @@ func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 	return false
 }
 
+// resourceTabTypes is the set of resource types a tab can display, as the panel schema
+// enforces at this version.
+var resourceTabTypes = set.New(
+	ontology.ResourceTypeSchematic,
+	ontology.ResourceTypeLineplot,
+	ontology.ResourceTypeLog,
+	ontology.ResourceTypeTable,
+	ontology.ResourceTypeArc,
+	ontology.ResourceTypeTask,
+	ontology.ResourceTypeRange,
+)
+
+// stripInvalidResourceTabs removes every resource tab whose type is outside
+// resourceTabTypes from persisted panels, so panels written before the type whitelist
+// still validate on their next dispatch.
+func stripInvalidResourceTabs(
+	ctx context.Context,
+	tx gorp.Tx,
+	_ alamos.Instrumentation,
+) error {
+	var panels []Panel
+	if err := gorp.NewRetrieve[Key, Panel]().
+		Entries(&panels).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	w := gorp.WrapWriter[Key, Panel](tx)
+	for _, p := range panels {
+		if !stripNodeInvalidTabs(&p.Root) {
+			continue
+		}
+		if err := w.Set(ctx, p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// stripNodeInvalidTabs removes resource tabs with a type outside resourceTabTypes
+// under n, reporting whether anything changed. Emptied leaves stay in place: the
+// schema allows them.
+func stripNodeInvalidTabs(n *Node) bool {
+	switch v := n.Variant.(type) {
+	case SplitNode:
+		first := stripNodeInvalidTabs(&v.First)
+		last := stripNodeInvalidTabs(&v.Last)
+		if !first && !last {
+			return false
+		}
+		n.Variant = v
+		return true
+	case LeafNode:
+		tabs := make([]Tab, 0, len(v.Tabs))
+		for _, t := range v.Tabs {
+			if r, ok := t.Variant.(ResourceTab); ok &&
+				!resourceTabTypes.Contains(r.Resource.Type) {
+				continue
+			}
+			tabs = append(tabs, t)
+		}
+		if len(tabs) == len(v.Tabs) {
+			return false
+		}
+		v.Tabs = tabs
+		n.Variant = v
+		return true
+	}
+	return false
+}
+
 // convertDirection parses a legacy mosaic split direction, defaulting to x when the
 // value is missing or invalid.
 func convertDirection(d string) spatial.Direction {
@@ -449,9 +520,16 @@ var taskTabKeysMigration = gorp.NewMigration(
 	"v56_task_tab_uuid_keys", MigrateTaskTabKeys,
 )
 
+// resourceTabTypesMigration strips resource tabs the type whitelist rejects. It runs
+// last so converted and re-keyed tabs are filtered in the same pass.
+var resourceTabTypesMigration = gorp.NewMigration(
+	"v56_strip_invalid_resource_tabs", stripInvalidResourceTabs,
+)
+
 // Migrations is the ordered set of migrations introduced at this version.
 var Migrations = []migrate.Migration{
 	codecMigration,
 	projectLayoutsMigration,
 	taskTabKeysMigration,
+	resourceTabTypesMigration,
 }

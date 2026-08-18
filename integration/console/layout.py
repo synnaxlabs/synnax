@@ -115,6 +115,9 @@ class LayoutClient:
     """
 
     MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+    # Focusing a tab collapses the mosaic to a single overlaid leaf instead of
+    # opening a modal dialog.
+    FOCUS_SELECTOR = ".pluto-panel-mosaic__overlaid-leaf"
     # Scoped to the mosaic: the top nav renders a second tab strip for panels.
     TAB_STRIP_SELECTOR = (
         ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector"
@@ -244,6 +247,13 @@ class LayoutClient:
                 return True
         return False
 
+    # Resource toolbar toggles live in the left navbar's main content section. The
+    # end section holds the Component toggle, whose icon mirrors the focused tab.
+    _RESOURCE_NAV_ITEMS = (
+        ".pluto-navbar.pluto--location-left "
+        ".pluto-navbar__content:not(.pluto--end) button.console-main-nav__item"
+    )
+
     def show_resource_toolbar(self, resource: str) -> None:
         """Show a resource toolbar by clicking its icon in the sidebar."""
         nav_drawer = self.page.locator(
@@ -256,7 +266,9 @@ class LayoutClient:
         if drawer_count > 0 and items_count > 0 and items_visible:
             return
 
-        button = self.page.locator("button.console-main-nav__item").filter(
+        # Scope to the main content section: the Component toggle in the end section
+        # mirrors the focused tab's icon and can duplicate any resource icon.
+        button = self.page.locator(self._RESOURCE_NAV_ITEMS).filter(
             has=self.page.locator(f"svg.pluto-icon--{resource}")
         )
         btn_class = button.first.get_attribute("class") or ""
@@ -272,7 +284,7 @@ class LayoutClient:
         if nav_drawer.count() == 0 or not nav_drawer.first.is_visible():
             return
         active_nav_btn = self.page.locator(
-            "button.console-main-nav__item.pluto--selected"
+            f"{self._RESOURCE_NAV_ITEMS}.pluto--selected"
         ).first
         if active_nav_btn.count() == 0:
             return
@@ -297,7 +309,7 @@ class LayoutClient:
             if anchored_drawer.count() > 0 and anchored_drawer.first.is_visible():
                 # Re-find the selected button to close anchored drawer
                 selected_btn = self.page.locator(
-                    "button.console-main-nav__item.pluto--selected"
+                    f"{self._RESOURCE_NAV_ITEMS}.pluto--selected"
                 ).first
                 if selected_btn.count() > 0:
                     selected_btn.click()
@@ -306,20 +318,6 @@ class LayoutClient:
             active_nav_btn.click()
 
         nav_drawer.wait_for(state="hidden", timeout=5000)
-
-    def get_version(self) -> str:
-        """Get the version string displayed in the navbar badge.
-
-        Returns:
-            The version string (e.g., "v0.51.0").
-        """
-        navbar_end = self.page.locator(
-            ".pluto-navbar__content.pluto--end[data-tauri-drag-region]"
-        )
-        navbar_end.wait_for(state="visible", timeout=15000)
-        version_badge = navbar_end.locator("button").first
-        version_badge.wait_for(state="visible", timeout=5000)
-        return version_badge.inner_text().strip()
 
     def fill_input_field(self, input_label: str, value: str) -> None:
         """Fill an input field by label."""
@@ -407,7 +405,7 @@ class LayoutClient:
                 continue
             button.wait_for(state="attached", timeout=5000)
             class_name = button.get_attribute("class") or ""
-            if "pluto-btn--filled" in class_name:
+            if "pluto--selected" in class_name:
                 return option
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
@@ -619,6 +617,9 @@ class LayoutClient:
 
         modality = random.choice(["button", "context_menu"])
         if modality == "button":
+            # The close button reveals on tab hover; the tab icon covers it until
+            # then.
+            tab.hover()
             tab.get_by_label("Close", exact=True).click()
         else:
             self.ctx_menu.action(tab.locator("p"), "Close", exact=False)
@@ -682,7 +683,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        self.ctx_menu.action(tab, "Split Horizontally", exact=False)
+        self.ctx_menu.action(tab, "Split horizontally", exact=False)
 
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
@@ -691,7 +692,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        self.ctx_menu.action(tab, "Split Vertically", exact=False)
+        self.ctx_menu.action(tab, "Split vertically", exact=False)
 
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.
@@ -705,30 +706,34 @@ class LayoutClient:
         tab.click()
         self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
 
+    # The bottom Component toolbar's toggle is the single nav menu item in the left
+    # navbar's end section. Its icon mirrors the focused tab's icon, so it cannot be
+    # located by icon like the resource toolbars.
+    _COMPONENT_TOOLBAR_TOGGLE = (
+        ".pluto-navbar.pluto--location-left .pluto-navbar__content.pluto--end "
+        "button.console-main-nav__item"
+    )
+
     def show_visualization_toolbar(self) -> None:
-        """Show the visualization toolbar by clicking the visualize nav button."""
+        """Show the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.pluto--location-bottom.pluto--visible"
         )
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
             return
 
-        self.page.locator(
-            "button.console-main-nav__item:has(svg.pluto-icon--visualize)"
-        ).click()
+        self.page.locator(self._COMPONENT_TOOLBAR_TOGGLE).click()
         bottom_drawer.wait_for(state="visible", timeout=5000)
 
     def hide_visualization_toolbar(self) -> None:
-        """Hide the visualization toolbar by clicking the visualize nav button."""
+        """Hide the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.pluto--location-bottom.pluto--visible"
         )
         if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
             return
 
-        self.page.locator(
-            "button.console-main-nav__item:has(svg.pluto-icon--visualize)"
-        ).click()
+        self.page.locator(self._COMPONENT_TOOLBAR_TOGGLE).click()
         bottom_drawer.wait_for(state="hidden", timeout=5000)
 
     def get_visualization_toolbar_title(self) -> str:
@@ -900,8 +905,16 @@ class LayoutClient:
         items = self.page.locator(f"div[id^='{item_prefix}']")
         if items.count() > 0 and items.first.is_visible():
             return
-        self.press_key(shortcut_key)
-        items.first.wait_for(state="visible", timeout=5000)
+        # Right after login the nav item may still be hidden (its permission
+        # query is loading), which swallows the shortcut, so retry the press.
+        for attempt in range(3):
+            self.press_key(shortcut_key)
+            try:
+                items.first.wait_for(state="visible", timeout=3000)
+                return
+            except PlaywrightTimeoutError:
+                if attempt == 2:
+                    raise
 
     def get_list_item(self, selector: str, name: str) -> Locator:
         """Get a list item locator by CSS selector filtered by text content."""
@@ -910,12 +923,15 @@ class LayoutClient:
     def deselect_all_items(self, container: Locator | Page, item_selector: str) -> None:
         """Deselect all checked items by dispatching click on their checkbox labels."""
         checked = container.locator(
-            f"{item_selector}:has(input.pluto-input__checkbox-input:checked)"
+            f"{item_selector}:has(input.pluto-input__checkbox-input:checked"
+            ":not([aria-label='Favorite']))"
         )
         for _ in range(10):
             if checked.count() == 0:
                 break
-            checked.first.locator(".pluto-input__checkbox").dispatch_event("click")
+            checked.first.locator(
+                ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
+            ).dispatch_event("click")
 
     def select_items(
         self, names: list[str], get_item_fn: Callable[[str], Locator]
@@ -925,9 +941,13 @@ class LayoutClient:
         for name in names:
             item = get_item_fn(name)
             item.wait_for(state="visible", timeout=5000)
-            checkbox_input = item.locator("input.pluto-input__checkbox-input")
-            if not checkbox_input.is_checked():
-                item.locator(".pluto-input__checkbox").dispatch_event("click")
+            # List items also carry a favorite checkbox; the unlabeled one is
+            # the selection control.
+            checkbox = item.locator(
+                ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
+            ).first
+            if not checkbox.locator("input").is_checked():
+                checkbox.dispatch_event("click")
             last_item = item
         assert last_item is not None
         return last_item

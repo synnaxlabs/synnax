@@ -106,6 +106,8 @@ export interface SeriesAllocParams extends BaseSeriesParams {
 }
 
 const FULL_BUFFER = -1;
+/** Samples summarized per cached min/max block in boundsFor. */
+const BOUNDS_BLOCK_SIZE = 4096;
 
 const noopIterableIterator: IterableIterator<never> = {
   [Symbol.iterator]: () => noopIterableIterator,
@@ -189,6 +191,10 @@ export class Series<T extends TelemValue = TelemValue>
   private cachedMin?: math.Numeric;
   /** A cached maximum value. */
   private cachedMax?: math.Numeric;
+  /** Cached per-block minimums for boundsFor. Blocks are append-only. */
+  private blockMins?: number[];
+  /** Cached per-block maximums for boundsFor. Blocks are append-only. */
+  private blockMaxs?: number[];
   /** The write position of the buffer. */
   private writePos: number = FULL_BUFFER;
   /** Tracks the number of entities currently using this array. */
@@ -557,12 +563,13 @@ export class Series<T extends TelemValue = TelemValue>
     return this._data;
   }
 
-  // Views are cached only for ArrayBuffer backing: the buffer and data type never
-  // change after construction, so a cached view stays a live window over the data.
+  // The backing store and data type never change after construction, so views and
+  // type conversions are cached. A typed-array constructor given a typed array
+  // copies every element, so an already-matching array is returned as is.
   private get underlyingData(): TypedArray {
     const data = this._data as ArrayBuffer | TypedArray;
-    if (!(data instanceof ArrayBuffer)) return new this.dataType.Array(this._data);
-    return (this.cachedUnderlyingView ??= new this.dataType.Array(data));
+    if (data instanceof this.dataType.Array) return data;
+    return (this.cachedUnderlyingView ??= new this.dataType.Array(this._data));
   }
 
   /**
@@ -616,7 +623,7 @@ export class Series<T extends TelemValue = TelemValue>
   parseJSON<Z extends z.ZodType>(schema: Z): Array<z.infer<Z>> {
     if (!this.dataType.equals(DataType.JSON))
       throw new Error("cannot parse non-JSON series as JSON");
-    return this.toStrings().map((s) => schema.parse(binary.JSON_CODEC.decodeString(s)));
+    return this.toStrings().map((s) => binary.JSON_CODEC.decodeString(s, schema));
   }
 
   /**
@@ -762,6 +769,63 @@ export class Series<T extends TelemValue = TelemValue>
   /** @returns the bounds of the series. */
   get bounds(): bounds.Bounds {
     return bounds.construct(Number(this.min), Number(this.max), { makeValid: false });
+  }
+
+  /**
+   * @returns the bounds of the samples in the index range [start, end), clamped to
+   * the series length. The result is invalid (lower > upper) when the range is
+   * empty. Repeated queries are cheap: min/max summaries are cached per completed
+   * block, and only partial edge blocks are rescanned.
+   * @param start - the inclusive start index of the range.
+   * @param end - the exclusive end index of the range.
+   * @throws {Error} on variable length data types.
+   */
+  boundsFor(start: number, end: number): bounds.Bounds {
+    if (this.dataType.isVariable)
+      throw new Error("cannot calculate bounds on a variable length data type");
+    const lo = Math.max(0, start);
+    const hi = Math.min(this.length, end);
+    if (lo === 0 && hi === this.length && hi > 0) return this.bounds;
+    // Casting monomorphizes the scans; bigint elements still compare correctly and
+    // are converted once at the end. Same trick as calcRawMax.
+    const d = this.data as Float64Array;
+    const mins = (this.blockMins ??= []);
+    const maxs = (this.blockMaxs ??= []);
+    const complete = Math.floor(this.length / BOUNDS_BLOCK_SIZE);
+    for (let b = mins.length; b < complete; b++) {
+      let min = Infinity;
+      let max = -Infinity;
+      const blockEnd = (b + 1) * BOUNDS_BLOCK_SIZE;
+      for (let i = b * BOUNDS_BLOCK_SIZE; i < blockEnd; i++) {
+        const v = d[i];
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      mins.push(Number(min));
+      maxs.push(Number(max));
+    }
+    let lower = Infinity;
+    let upper = -Infinity;
+    let i = lo;
+    while (i < hi) {
+      const block = Math.floor(i / BOUNDS_BLOCK_SIZE);
+      const blockEnd = (block + 1) * BOUNDS_BLOCK_SIZE;
+      const aligned = i === block * BOUNDS_BLOCK_SIZE;
+      if (aligned && blockEnd <= hi && block < mins.length) {
+        if (mins[block] < lower) lower = mins[block];
+        if (maxs[block] > upper) upper = maxs[block];
+        i = blockEnd;
+        continue;
+      }
+      const stop = Math.min(hi, blockEnd);
+      for (; i < stop; i++) {
+        const v = d[i];
+        if (v < lower) lower = v;
+        if (v > upper) upper = v;
+      }
+    }
+    const offset = Number(this.sampleOffset);
+    return { lower: Number(lower) + offset, upper: Number(upper) + offset };
   }
 
   private maybeRecomputeMinMax(update: Series): void {

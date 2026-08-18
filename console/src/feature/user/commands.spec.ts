@@ -24,7 +24,7 @@ describe("User Commands", () => {
       client,
     });
     await openCommandPalette();
-    await selectCommand("Register a user");
+    await selectCommand("Register user");
     await screen.findByRole("dialog");
     expect(findModalButton("Register")).toBeTruthy();
   });

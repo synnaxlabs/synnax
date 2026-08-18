@@ -182,8 +182,8 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
         <Flex.Box x>
           <Button.Button
             onClick={onClear}
-            tooltip={`Will clear all stored data in the Console and reload the application.
-              This should only be done if the standard reload does not fix the issue.`}
+            tooltip={`Clears all stored Console data and reloads the application.
+              Use this only if a normal reload does not fix the issue.`}
             tooltipLocation="bottom"
           >
             Clear storage and reload Console

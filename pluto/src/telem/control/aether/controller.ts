@@ -153,7 +153,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no Core has been connected.`,
+        message: `Failed to acquire control on ${this.state.name}: no Core is connected.`,
         variant: "warning",
       });
 
@@ -178,7 +178,7 @@ export class Controller
       const e = errors.fromUnknown(err);
       addStatus({
         variant: "error",
-        message: `${this.state.name} failed to acquire control`,
+        message: `Failed to acquire control on ${this.state.name}`,
         description: e.message,
       });
     }
@@ -190,7 +190,7 @@ export class Controller
     } catch (err) {
       const e = errors.fromUnknown(err);
       this.internal.addStatus({
-        message: `${this.state.name} failed to release control: ${e.message}`,
+        message: `Failed to release control on ${this.state.name}: ${e.message}`,
         variant: "error",
       });
     } finally {
@@ -450,7 +450,7 @@ export class AuthoritySource
         name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
-        message: "No Channel",
+        message: "No channel",
         time,
         details: { valid: false, authority: 0 },
       });

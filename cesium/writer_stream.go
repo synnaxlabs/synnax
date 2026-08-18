@@ -528,7 +528,7 @@ func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 	// Allocate the Series's byte buffer once and reinterpret it as []TimeStamp via
 	// unsafe.CastSlice so timestamps are written directly into the backing array. Going
 	// through NewSeriesV(stamps...) would perform two allocations instead of one.
-	series := telem.MakeSeries(telem.TimeStampT, int(w.scanDataLen))
+	series := telem.MakeSeries(telem.TimestampT, int(w.scanDataLen))
 	stamps := unsafe.CastSlice[byte, telem.TimeStamp](series.Data)
 	for j := range stamps {
 		stamps[j] = t0 + telem.TimeStamp(j)
@@ -881,7 +881,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 }
 
 func (w *idxWriter) updateHighWater(s telem.Series) error {
-	if s.DataType != telem.TimeStampT && s.DataType != telem.Int64T {
+	if s.DataType != telem.TimestampT && s.DataType != telem.Int64T {
 		return invalidDataTypeError(w.idx.ch, s.DataType)
 	}
 	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, -1)

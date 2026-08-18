@@ -47,7 +47,7 @@ var _ = Describe("Delete", func() {
 						Key:      uChannelKey,
 						Name:     "Heraclitus",
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					}
 					vChannel = cesium.Channel{
 						Key:      vChannelKey,
@@ -75,7 +75,7 @@ var _ = Describe("Delete", func() {
 									Key:      key,
 									Name:     "IndexChannel",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 							),
 						).To(Succeed())
@@ -370,7 +370,7 @@ var _ = Describe("Delete", func() {
 											Key:      dependent,
 											Name:     "dependent",
 											IsIndex:  true,
-											DataType: telem.TimeStampT,
+											DataType: telem.TimestampT,
 										},
 										cesium.Channel{
 											Key:      dependee,
@@ -420,7 +420,7 @@ var _ = Describe("Delete", func() {
 										Name:     "One",
 										Key:      indexChannelKey,
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Name:     "Orange",
@@ -487,7 +487,7 @@ var _ = Describe("Delete", func() {
 									Name:     "Braincell",
 									Key:      key,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 							)).To(Succeed())
 
@@ -504,7 +504,7 @@ var _ = Describe("Delete", func() {
 								Name:     "Wir",
 								Key:      key,
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 						)).To(Succeed())
 						Expect(
@@ -544,7 +544,7 @@ var _ = Describe("Delete", func() {
 									Name:     "Martin",
 									Key:      key,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 							),
 						).To(Succeed())
@@ -559,7 +559,7 @@ var _ = Describe("Delete", func() {
 								Name:     "Foy",
 								Key:      key,
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 						)).To(Succeed())
 						Expect(
@@ -592,7 +592,7 @@ var _ = Describe("Delete", func() {
 									Name:     "Vance",
 									Key:      key,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 							),
 						).To(Succeed())
@@ -634,7 +634,7 @@ var _ = Describe("Delete", func() {
 									Name:     "Sky",
 									Key:      key,
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 							),
 						).To(Succeed())
@@ -658,7 +658,7 @@ var _ = Describe("Delete", func() {
 							Name:     "Certs",
 							Key:      index1,
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							Index:    index1,
 						},
 						{Name: "2", Key: data1, DataType: telem.Int64T, Index: index1},
@@ -666,7 +666,7 @@ var _ = Describe("Delete", func() {
 							Name:     "Years",
 							Key:      index2,
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							Index:    index2,
 						},
 						{
@@ -686,7 +686,7 @@ var _ = Describe("Delete", func() {
 							Key:      index3,
 							IsIndex:  true,
 							Index:    index3,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 					}
 				)
@@ -761,7 +761,7 @@ var _ = Describe("Delete", func() {
 									Key:      key,
 									Name:     "IndexChannel",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 							),
 						).To(Succeed())
@@ -921,7 +921,7 @@ var _ = Describe("Delete", func() {
 								Key:      basic1Index,
 								Name:     "Democritus",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      basic1,
@@ -1020,7 +1020,7 @@ var _ = Describe("Delete", func() {
 									Key:      basic2Index,
 									Name:     "Zeno",
 									IsIndex:  true,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 								},
 							)).To(Succeed())
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -1121,7 +1121,7 @@ var _ = Describe("Delete", func() {
 										Name:     "Finish",
 										Key:      basic3Index,
 										IsIndex:  true,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 									},
 									cesium.Channel{
 										Name:     "My",
@@ -1182,7 +1182,7 @@ var _ = Describe("Delete", func() {
 								cesium.Channel{
 									Name:     "Best",
 									Key:      index1,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 								cesium.Channel{
@@ -1341,7 +1341,7 @@ var _ = Describe("Delete", func() {
 								Name:     "Meredi",
 								Key:      index,
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							{
 								Name:     "Performed",

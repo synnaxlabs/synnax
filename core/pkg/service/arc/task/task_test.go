@@ -1100,7 +1100,7 @@ var _ = Describe("Task", Ordered, func() {
 			indexCh := &channel.Channel{
 				Name:     "interval_idx_" + uuid.NewString()[:8],
 				IsIndex:  true,
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
@@ -2229,7 +2229,7 @@ var _ = Describe("Task", Ordered, func() {
 				idxCh := &channel.Channel{
 					Name:     "trig_align_idx_" + suffix,
 					IsIndex:  true,
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 				}
 				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
 				p3 := &channel.Channel{

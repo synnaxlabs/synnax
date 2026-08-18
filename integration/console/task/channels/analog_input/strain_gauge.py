@@ -18,7 +18,7 @@ class StrainGauge(Analog):
     Strain Gauge channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        strain_configuration (str): "Full Bridge I", "Full Bridge II", "Full Bridge III", "Half Bridge I", "Half Bridge II", "Quarter Bridge I"
+        strain_configuration (str): "Full bridge I", "Full bridge II", "Full bridge III", "Half bridge I", "Half bridge II", "Quarter bridge I"
         excitation_source (str): "Internal", "External", "None"
         excitation_value (float): Voltage excitation value
         gage_factor (float): Gage factor value
@@ -42,12 +42,12 @@ class StrainGauge(Analog):
         device: str,
         strain_configuration: (
             Literal[
-                "Full Bridge I",
-                "Full Bridge II",
-                "Full Bridge III",
-                "Half Bridge I",
-                "Half Bridge II",
-                "Quarter Bridge I",
+                "Full bridge I",
+                "Full bridge II",
+                "Full bridge III",
+                "Half bridge I",
+                "Half bridge II",
+                "Quarter bridge I",
             ]
             | None
         ) = None,
@@ -64,15 +64,15 @@ class StrainGauge(Analog):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Strain Gauge",
+            chan_type="Strain gauge",
             **kwargs,
         )
 
-        self._configure_dropdown("Strain Configuration", strain_configuration)
-        self._configure_dropdown("Voltage Excitation Source", excitation_source)
-        self._configure_input("Voltage Excitation Value", excitation_value)
-        self._configure_input("Gage Factor", gage_factor)
-        self._configure_input("Initial Bridge Voltage", initial_bridge_voltage)
-        self._configure_input("Nominal Gage Resistance", nominal_gage_resistance)
+        self._configure_dropdown("Strain configuration", strain_configuration)
+        self._configure_dropdown("Voltage excitation source", excitation_source)
+        self._configure_input("Voltage excitation value", excitation_value)
+        self._configure_input("Gage factor", gage_factor)
+        self._configure_input("Initial bridge voltage", initial_bridge_voltage)
+        self._configure_input("Nominal gage resistance", nominal_gage_resistance)
         self._configure_input("Poisson's Ratio", poisson_ratio)
-        self._configure_input("Lead Wire Resistance", lead_wire_resistance)
+        self._configure_input("Lead wire resistance", lead_wire_resistance)

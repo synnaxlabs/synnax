@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { mockBoundingClientRect } from "@synnaxlabs/pluto/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -66,6 +67,34 @@ describe("Label.useEditModal", () => {
     });
   });
 
+  it("should keep the create form open while the color picker is open", async () => {
+    await openModal();
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
+    );
+    fireEvent.click(getAddButton());
+    await waitFor(() => expect(getCreateItem().className).toContain("pluto--visible"));
+    const swatch = document.querySelector<HTMLElement>(".pluto-color-swatch");
+    if (swatch == null) throw new Error("color swatch not found");
+    fireEvent.click(swatch);
+    const picker = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>(".sketch-picker");
+      if (el == null) throw new Error("color picker did not open");
+      return el;
+    });
+    // Every element shares one rect in jsdom, so the row and the viewport need
+    // their own for the click to land outside the row.
+    getCreateItem().getBoundingClientRect = mockBoundingClientRect(0, 0, 50, 50);
+    document.documentElement.getBoundingClientRect = mockBoundingClientRect(
+      0,
+      0,
+      1000,
+      1000,
+    );
+    fireEvent.pointerDown(picker, { clientX: 200, clientY: 200 });
+    expect(getCreateItem().className).toContain("pluto--visible");
+  });
+
   it("should persist a new label to the cluster from the create form", async () => {
     const { client } = await openModal();
     await waitFor(() =>
@@ -73,7 +102,7 @@ describe("Label.useEditModal", () => {
     );
     fireEvent.click(getAddButton());
     const name = uniqueName("label");
-    const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Label Name");
+    const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Name");
     fireEvent.change(nameInput, { target: { value: name } });
     fireEvent.click(getIconButton(document.body, "check"));
     await waitFor(async () => {

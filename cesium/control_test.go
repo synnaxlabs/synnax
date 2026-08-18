@@ -76,7 +76,7 @@ var _ = Describe("Control", func() {
 								cesium.Channel{
 									Name:     "John",
 									Key:      indexChKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 								cesium.Channel{
@@ -184,7 +184,7 @@ var _ = Describe("Control", func() {
 								cesium.Channel{
 									Name:     "Cat",
 									Key:      indexChKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 								cesium.Channel{
@@ -340,7 +340,7 @@ var _ = Describe("Control", func() {
 							cesium.Channel{
 								Name:     "persisted",
 								Key:      indexChKey,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -500,7 +500,7 @@ var _ = Describe("Control", func() {
 								cesium.Channel{
 									Name:     "Austin",
 									Key:      k2,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 								cesium.Channel{

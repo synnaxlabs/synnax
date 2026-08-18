@@ -33,7 +33,7 @@ const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<HTTP.Task.WriteSchemas> = {
-  name: "HTTP Write Task",
+  name: "HTTP write task",
   type: HTTP.Task.WRITE_TYPE,
   config: HTTP.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -42,7 +42,7 @@ const createDraft = async (client: Synnax, config: HTTP.Task.WritePayload["confi
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add an endpoint"));
+  fireEvent.click(await screen.findByText("Add endpoint"));
   await screen.findByText("JSON pointer");
 };
 
@@ -76,7 +76,7 @@ describe("HTTP Write form", () => {
     expect(screen.getByRole("button", { name: "PATCH" })).toBeTruthy();
     expect(screen.getByPlaceholderText("/api/control")).toBeTruthy();
     expect(screen.getByText("Synnax data type")).toBeTruthy();
-    expect(screen.getByText("No additional fields.")).toBeTruthy();
+    expect(screen.getByText("No additional fields")).toBeTruthy();
   });
 
   it("should show the enum mapping editor when the channel JSON type is string", async () => {

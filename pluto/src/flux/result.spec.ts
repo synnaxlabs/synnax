@@ -59,7 +59,7 @@ describe("result", () => {
       const result = successResult<TestState>("fetched user", testData);
 
       expect(result.variant).toBe("success");
-      expect(result.status.message).toBe("Successfully fetched user");
+      expect(result.status.message).toBe("Fetched user");
       expect(result.data).toEqual(testData);
     });
 
@@ -87,7 +87,7 @@ describe("result", () => {
 
       const result = successResult<TestState>("updated item", testData);
 
-      expect(result.status.message).toBe("Successfully updated item");
+      expect(result.status.message).toBe("Updated item");
     });
   });
 
@@ -122,18 +122,14 @@ describe("result", () => {
     it("should include correct disconnection message", () => {
       const result = nullClientResult<TestState>("create channel");
 
-      expect(result.status.description).toBe(
-        "Cannot create channel because no Core is connected.",
-      );
+      expect(result.status.description).toBe("No Core is connected.");
     });
 
     it("should handle different operation names", () => {
       const result = nullClientResult<TestState>("query database");
 
       expect(result.status.message).toBe("Failed to query database");
-      expect(result.status.description).toBe(
-        "Cannot query database because no Core is connected.",
-      );
+      expect(result.status.description).toBe("No Core is connected.");
     });
 
     it("should maintain consistent structure with other error results", () => {

@@ -98,7 +98,7 @@ describe("log/Base", () => {
   describe("rendering", () => {
     it("should render the empty content when state is empty", () => {
       renderLog();
-      expect(screen.getByText("Empty Log")).toBeDefined();
+      expect(screen.getByText("No log entries")).toBeDefined();
     });
 
     it("should render children when not empty", () => {

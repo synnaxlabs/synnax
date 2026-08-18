@@ -149,7 +149,10 @@ export class HTTPClient
         });
         const data = await httpRes.arrayBuffer();
         if (httpRes.ok) {
-          if (resSchema != null) res = this.encoder.decode<RS>(data, resSchema);
+          if (resSchema != null)
+            res = this.encoder.decode<RS>(data, resSchema, {
+              label: `${target} response`,
+            });
           return outCtx;
         }
         throw this.decodeError(data, httpRes, ctx.target);
@@ -190,7 +193,9 @@ export class HTTPClient
         );
         const data = await httpRes.arrayBuffer();
         if (httpRes.ok) {
-          res = this.encoder.decode<RS>(data, resSchema);
+          res = this.encoder.decode<RS>(data, resSchema, {
+            label: `${target} response`,
+          });
           return outCtx;
         }
         throw this.decodeError(data, httpRes, ctx.target);

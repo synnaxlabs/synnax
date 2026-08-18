@@ -116,7 +116,7 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 		return err
 	}
 	// For non-index channels, resolve the index DB. The index DB is always a
-	// fixed-density unary DB (index channels are TimeStampT with IsIndex=true).
+	// fixed-density unary DB (index channels are TimestampT with IsIndex=true).
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
 		idxDB, ok := db.mu.dbs.unary[u.Channel().Index]
 		if !ok {

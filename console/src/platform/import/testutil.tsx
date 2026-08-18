@@ -65,21 +65,36 @@ export const fakeFileEntry = (file: File, until?: Promise<void>): FileSystemEntr
     },
   }) as unknown as FileSystemEntry;
 
-/** Builds the FileSystemDirectoryEntry surface the drop path reads. */
-export const fakeDirectoryEntry = (name: string, files: File[]): FileSystemEntry => {
-  let read = false;
-  return {
+/**
+ * Builds the FileSystemDirectoryEntry surface the drop path reads. A File child reads
+ * as a file entry; a FileSystemEntry child passes through, so directories nest. Pass
+ * batchSize to hand out children over several readEntries calls, the way Chrome caps
+ * each call at 100 entries.
+ */
+export const fakeDirectoryEntry = (
+  name: string,
+  children: (File | FileSystemEntry)[],
+  batchSize: number = children.length,
+): FileSystemEntry =>
+  ({
     isFile: false,
     isDirectory: true,
     name,
-    createReader: () => ({
-      readEntries: (resolve: (entries: FileSystemEntry[]) => void) => {
-        resolve(read ? [] : files.map((file) => fakeFileEntry(file)));
-        read = true;
-      },
-    }),
-  } as unknown as FileSystemEntry;
-};
+    createReader: () => {
+      let offset = 0;
+      return {
+        readEntries: (resolve: (entries: FileSystemEntry[]) => void) => {
+          const batch = children.slice(offset, offset + batchSize);
+          offset += batchSize;
+          resolve(
+            batch.map((child) =>
+              child instanceof File ? fakeFileEntry(child) : child,
+            ),
+          );
+        },
+      };
+    },
+  }) as unknown as FileSystemEntry;
 
 /**
  * Builds the DataTransfer surface the drop path reads, carrying the given entries. A
