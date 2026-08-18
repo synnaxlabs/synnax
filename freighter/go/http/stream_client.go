@@ -111,6 +111,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			}
 			core := newStreamCore[RS, RQ](
 				streamCoreConfig{
+					ctx:             ctx,
 					conn:            conn,
 					codec:           s.codec,
 					Instrumentation: s.Instrumentation,

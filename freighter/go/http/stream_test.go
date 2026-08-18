@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
+	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -158,5 +160,111 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
 			},
 		)
+	})
+})
+
+// refreshCodec wraps a codec, recording the contexts the stream server refreshes it
+// with and optionally failing the refresh.
+type refreshCodec struct {
+	xhttp.Codec
+	contentType string
+	refreshes   chan context.Context
+	err         error
+}
+
+func (c *refreshCodec) ContentType() string { return c.contentType }
+
+func (c *refreshCodec) Refresh(ctx context.Context) error {
+	select {
+	case c.refreshes <- ctx:
+	default:
+	}
+	return c.err
+}
+
+var _ = Describe("Refresher", Ordered, Serial, func() {
+	newPair := func(serverCodec, clientCodec *refreshCodec) (
+		freighter.StreamServer[test.Request, test.Response],
+		freighter.StreamClient[test.Request, test.Response],
+		address.Address,
+	) {
+		GinkgoHelper()
+		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{}))
+		server := fhttp.NewStreamServer[test.Request, test.Response](
+			router, "/", fhttp.WithCodec(serverCodec),
+		)
+		client := MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
+			fhttp.StreamClientConfig{Codec: clientCodec},
+		))
+		ownApp, addr := serveRouter(router)
+		DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+		return server, client, addr
+	}
+
+	It("Should refresh the server's codec against a live connection context", func(
+		ctx SpecContext,
+	) {
+		const contentType = "application/x-refresh-test"
+		serverCodec := &refreshCodec{
+			Codec:       json.Codec,
+			contentType: contentType,
+			refreshes:   make(chan context.Context, 1),
+		}
+		clientCodec := &refreshCodec{
+			Codec:       json.Codec,
+			contentType: contentType,
+			refreshes:   make(chan context.Context, 1),
+		}
+		server, client, addr := newPair(serverCodec, clientCodec)
+		received := make(chan struct{})
+		server.BindHandler(func(
+			ctx context.Context,
+			stream freighter.ServerStream[test.Request, test.Response],
+		) error {
+			defer GinkgoRecover()
+			MustSucceed(stream.Receive())
+			close(received)
+			return nil
+		})
+		stream := MustSucceed(client.Stream(ctx, addr))
+		Expect(stream.Send(test.Request{ID: 1})).To(Succeed())
+		Eventually(received).Should(BeClosed())
+
+		var refreshCtx context.Context
+		Eventually(serverCodec.refreshes).Should(Receive(&refreshCtx))
+		Expect(refreshCtx).ToNot(BeNil())
+		Expect(refreshCtx.Err()).ToNot(HaveOccurred())
+	})
+
+	// A failed refresh reaches the handler the same way a failed decode always has:
+	// Receive maps every error off the read path onto ErrStreamClosed.
+	It("Should fail the receive when the refresh fails", func(ctx SpecContext) {
+		const contentType = "application/x-refresh-fail"
+		refreshErr := errors.New("refresh broke")
+		serverCodec := &refreshCodec{
+			Codec:       json.Codec,
+			contentType: contentType,
+			refreshes:   make(chan context.Context, 1),
+			err:         refreshErr,
+		}
+		clientCodec := &refreshCodec{
+			Codec:       json.Codec,
+			contentType: contentType,
+			refreshes:   make(chan context.Context, 1),
+		}
+		server, client, addr := newPair(serverCodec, clientCodec)
+		handlerErr := make(chan error, 1)
+		server.BindHandler(func(
+			ctx context.Context,
+			stream freighter.ServerStream[test.Request, test.Response],
+		) error {
+			_, err := stream.Receive()
+			handlerErr <- err
+			return nil
+		})
+		stream := MustSucceed(client.Stream(ctx, addr))
+		Expect(stream.Send(test.Request{ID: 1})).To(Succeed())
+		Eventually(handlerErr).Should(Receive(MatchError(freighter.ErrStreamClosed)))
+		Expect(serverCodec.refreshes).To(Receive())
 	})
 })

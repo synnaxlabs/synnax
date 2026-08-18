@@ -70,13 +70,13 @@ var _ = Describe("Service", func() {
 	Describe("RetrieveName", func() {
 		It("Should resolve the name of an existing channel", func(ctx SpecContext) {
 			ch := createChannel(ctx, telem.Float32T)
-			Expect(apiSvc.RetrieveName(ctx, ch.Key())).To(Equal(ch.Name))
+			Expect(apiSvc.RetrieveName(ch.Key())).To(Equal(ch.Name))
 		})
 
 		It(
 			"Should return an empty string when no channel has the key",
 			func(ctx SpecContext) {
-				Expect(apiSvc.RetrieveName(ctx, channel.Key(999999))).To(BeEmpty())
+				Expect(apiSvc.RetrieveName(channel.Key(999999))).To(BeEmpty())
 			},
 		)
 	})

@@ -51,7 +51,7 @@ func (m mapResolver) RetrieveDataTypes(
 	return resolved, nil
 }
 
-func (m mapResolver) RetrieveName(_ context.Context, key channel.Key) string {
+func (m mapResolver) RetrieveName(key channel.Key) string {
 	return fmt.Sprintf("channel-%d", key)
 }
 
@@ -84,7 +84,7 @@ func (r configResolver) RetrieveDataTypes(
 	return resolved, nil
 }
 
-func (r configResolver) RetrieveName(context.Context, channel.Key) string {
+func (r configResolver) RetrieveName(channel.Key) string {
 	return r.name
 }
 
@@ -96,7 +96,7 @@ var _ = Describe("Codec", func() {
 		fr framer.Frame,
 	) {
 		cdc := codec.NewStatic(channels, dataTypes)
-		encoded := MustSucceed(cdc.Encode(ctx, fr))
+		encoded := MustSucceed(cdc.Encode(fr))
 		decoded := MustSucceed(cdc.Decode(encoded))
 		Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
 	},
@@ -362,7 +362,7 @@ var _ = Describe("Codec", func() {
 				)
 
 				cdc := codec.NewStatic(keys, dataTypes)
-				encoded := MustSucceed(cdc.Encode(ctx, originalFrame))
+				encoded := MustSucceed(cdc.Encode(originalFrame))
 				decoded := MustSucceed(cdc.Decode(encoded))
 				Expect(originalFrame.Frame).To(telem.MatchFrame(decoded.Frame))
 			},
@@ -390,7 +390,7 @@ var _ = Describe("Codec", func() {
 				)
 
 				cdc := codec.NewStatic(keys, dataTypes)
-				decoded := MustSucceed(cdc.Decode(MustSucceed(cdc.Encode(ctx, fr))))
+				decoded := MustSucceed(cdc.Decode(MustSucceed(cdc.Encode(fr))))
 
 				var ch1 []telem.Series
 				for k, s := range decoded.Entries() {
@@ -440,7 +440,7 @@ var _ = Describe("Codec", func() {
 					[]telem.DataType{telem.Uint8T},
 				)
 				fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
-				encoded, err := c.Encode(ctx, fr)
+				encoded, err := c.Encode(fr)
 				Expect(encoded).To(BeEmpty())
 				Expect(err).To(MatchError(validate.ErrValidation))
 			},
@@ -456,7 +456,7 @@ var _ = Describe("Codec", func() {
 					[]telem.DataType{telem.TimestampT},
 				)
 				fr := frame.NewUnary(1, telem.NewSeriesV[int64](1778020940471336961))
-				encoded := MustSucceed(c.Encode(ctx, fr))
+				encoded := MustSucceed(c.Encode(fr))
 				Expect(encoded).ToNot(BeEmpty())
 			},
 		)
@@ -469,7 +469,7 @@ var _ = Describe("Codec", func() {
 					[]telem.DataType{telem.Int64T},
 				)
 				fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
-				encoded := MustSucceed(c.Encode(ctx, fr))
+				encoded := MustSucceed(c.Encode(fr))
 				Expect(encoded).ToNot(BeEmpty())
 			},
 		)
@@ -495,7 +495,7 @@ var _ = Describe("Codec", func() {
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					},
 				)
-				encoded := MustSucceed(codec.Encode(ctx, fr))
+				encoded := MustSucceed(codec.Encode(fr))
 				decoded := MustSucceed(codec.Decode(encoded))
 				Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
 			},
@@ -538,7 +538,7 @@ var _ = Describe("Codec", func() {
 			codec := codec.NewDynamic(nil)
 			Expect(func() {
 				fr := framer.Frame{}
-				_, _ = codec.Encode(ctx, fr)
+				_, _ = codec.Encode(fr)
 			}).To(Panic())
 		})
 
@@ -552,7 +552,7 @@ var _ = Describe("Codec", func() {
 				Expect(encoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
 
 				frame1 := frame.NewUnary(idxCh, telem.NewSeriesSecondsTSV(1, 2, 3))
-				encoded := MustSucceed(encoder.Encode(ctx, frame1))
+				encoded := MustSucceed(encoder.Encode(frame1))
 				decoded := MustSucceed(decoder.Decode(encoded))
 				Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
@@ -561,7 +561,7 @@ var _ = Describe("Codec", func() {
 				)
 				Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
 
-				encoded = MustSucceed(encoder.Encode(ctx, frame1))
+				encoded = MustSucceed(encoder.Encode(frame1))
 				decoded = MustSucceed(decoder.Decode(encoded))
 				Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
@@ -569,12 +569,12 @@ var _ = Describe("Codec", func() {
 					"Correctly using he most up to date state after the codec are in sync again",
 				)
 				Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
-				encoded = MustSucceed(encoder.Encode(ctx, frame1))
+				encoded = MustSucceed(encoder.Encode(frame1))
 				decoded = MustSucceed(decoder.Decode(encoded))
 				Expect(decoded.Frame.SeriesSlice()).To(BeEmpty())
 
 				frame2 := frame.NewUnary(dataCh, telem.NewSeriesV[float32](1, 2, 3, 4))
-				encoded = MustSucceed(encoder.Encode(ctx, frame2))
+				encoded = MustSucceed(encoder.Encode(frame2))
 				decoded = MustSucceed(decoder.Decode(encoded))
 				Expect(decoded.Frame).To(telem.MatchFrame(frame2.Frame))
 			},
@@ -612,7 +612,7 @@ var _ = Describe("Codec", func() {
 					s := telem.NewSeriesV(float32(i))
 					s.Alignment = cesium.LeadingAlignment(1, sample)
 					fr := frame.NewUnary(dataCh, s)
-					decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
+					decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(fr))))
 					for k, ds := range decoded.Entries() {
 						if k != dataCh {
 							continue
@@ -650,7 +650,7 @@ var _ = Describe("Codec", func() {
 							idxCh,
 							telem.NewSeriesSecondsTSV(1, 2, 3),
 						)
-						encoded := MustSucceed(encoder.Encode(ctx, frame1))
+						encoded := MustSucceed(encoder.Encode(frame1))
 						decoded := MustSucceed(decoder.Decode(encoded))
 						Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
@@ -660,7 +660,7 @@ var _ = Describe("Codec", func() {
 							idxCh,
 							telem.NewSeriesV[float32](1, 2, 3, 4),
 						)
-						encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
+						encoded = MustSucceed(encoder.Encode(delayedFrame1))
 						decoded = MustSucceed(decoder.Decode(encoded))
 						Expect(decoded.Frame.KeysSlice()).To(BeEmpty())
 					},
@@ -687,7 +687,7 @@ var _ = Describe("Codec", func() {
 								telem.NewSeriesV[float32](1, 2, 3),
 							},
 						)
-						encoded := MustSucceed(encoder.Encode(ctx, frame1))
+						encoded := MustSucceed(encoder.Encode(frame1))
 						decoded := MustSucceed(decoder.Decode(encoded))
 						Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
@@ -700,7 +700,7 @@ var _ = Describe("Codec", func() {
 								telem.NewSeriesV[float32](1, 2, 3),
 							},
 						)
-						encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
+						encoded = MustSucceed(encoder.Encode(delayedFrame1))
 						decoded = MustSucceed(decoder.Decode(encoded))
 						Expect(decoded.Frame.KeysSlice()).To(HaveLen(1))
 					},
@@ -733,7 +733,7 @@ var _ = Describe("Codec", func() {
 						telem.NewSeriesV[float32](4.4, 5.5, 6.6),
 					},
 				)
-				encoded1 := MustSucceed(codec.Encode(ctx, largeFrame))
+				encoded1 := MustSucceed(codec.Encode(largeFrame))
 				decoded1 := MustSucceed(codec.Decode(encoded1))
 				Expect(largeFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
 
@@ -744,7 +744,7 @@ var _ = Describe("Codec", func() {
 						telem.NewSeriesV[uint8](40, 50),
 					},
 				)
-				encoded2 := MustSucceed(codec.Encode(ctx, smallFrame))
+				encoded2 := MustSucceed(codec.Encode(smallFrame))
 				decoded2 := MustSucceed(codec.Decode(encoded2))
 				Expect(smallFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
 
@@ -757,12 +757,12 @@ var _ = Describe("Codec", func() {
 						telem.NewSeriesV[int64](400, 500),
 					},
 				)
-				encoded3 := MustSucceed(codec.Encode(ctx, anotherLargeFrame))
+				encoded3 := MustSucceed(codec.Encode(anotherLargeFrame))
 				decoded3 := MustSucceed(codec.Decode(encoded3))
 				Expect(anotherLargeFrame.Frame).To(telem.MatchFrame(decoded3.Frame))
 
 				emptyFrame := frame.Frame{}
-				encoded4 := MustSucceed(codec.Encode(ctx, emptyFrame))
+				encoded4 := MustSucceed(codec.Encode(emptyFrame))
 				decoded4 := MustSucceed(codec.Decode(encoded4))
 				Expect(emptyFrame.Frame).To(telem.MatchFrame(decoded4.Frame))
 			},
@@ -796,7 +796,7 @@ var _ = Describe("Codec", func() {
 					},
 				)
 
-				encoded := MustSucceed(codec.Encode(ctx, frame))
+				encoded := MustSucceed(codec.Encode(frame))
 				decoded := MustSucceed(codec.Decode(encoded))
 
 				Expect(decoded.Count()).To(Equal(7))
@@ -842,7 +842,7 @@ var _ = Describe("Codec", func() {
 					},
 				)
 
-				encoded := MustSucceed(codec.Encode(ctx, frame))
+				encoded := MustSucceed(codec.Encode(frame))
 				decoded := MustSucceed(codec.Decode(encoded))
 				Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
 			},
@@ -867,12 +867,12 @@ var _ = Describe("Codec", func() {
 						telem.NewSeriesV[float32](1.5, 2.5, 3.5),
 					},
 				)
-				encoded1 := MustSucceed(codec.Encode(ctx, frame1))
+				encoded1 := MustSucceed(codec.Encode(frame1))
 				decoded1 := MustSucceed(codec.Decode(encoded1))
 				Expect(frame1.Frame).To(telem.MatchFrame(decoded1.Frame))
 
 				emptyFrame := frame.Frame{}
-				encoded2 := MustSucceed(codec.Encode(ctx, emptyFrame))
+				encoded2 := MustSucceed(codec.Encode(emptyFrame))
 				decoded2 := MustSucceed(codec.Decode(encoded2))
 				Expect(decoded2.Empty()).To(BeTrue())
 
@@ -883,7 +883,7 @@ var _ = Describe("Codec", func() {
 						telem.NewSeriesV[int32](30, 40, 50),
 					},
 				)
-				encoded3 := MustSucceed(codec.Encode(ctx, frame3))
+				encoded3 := MustSucceed(codec.Encode(frame3))
 				decoded3 := MustSucceed(codec.Decode(encoded3))
 				Expect(frame3.Frame).To(telem.MatchFrame(decoded3.Frame))
 			},
@@ -908,12 +908,12 @@ var _ = Describe("Codec", func() {
 						telem.NewSeriesV(1.111, 2.222),
 					},
 				)
-				encoded1 := MustSucceed(codec.Encode(ctx, multiFrame))
+				encoded1 := MustSucceed(codec.Encode(multiFrame))
 				decoded1 := MustSucceed(codec.Decode(encoded1))
 				Expect(multiFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
 
 				singleFrame := frame.NewUnary(200, telem.NewSeriesV(9.999))
-				encoded2 := MustSucceed(codec.Encode(ctx, singleFrame))
+				encoded2 := MustSucceed(codec.Encode(singleFrame))
 				decoded2 := MustSucceed(codec.Decode(encoded2))
 				Expect(singleFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
 			},
@@ -942,7 +942,7 @@ var _ = Describe("Codec", func() {
 					[]telem.Series{s1, s2},
 				)
 
-				encoded := MustSucceed(codec.Encode(ctx, frame))
+				encoded := MustSucceed(codec.Encode(frame))
 				decoded := MustSucceed(codec.Decode(encoded))
 
 				// After merging, we should have only one series
@@ -978,7 +978,7 @@ var _ = Describe("Codec", func() {
 					[]telem.Series{s1, s2, s3},
 				)
 
-				encoded := MustSucceed(codec.Encode(ctx, frame))
+				encoded := MustSucceed(codec.Encode(frame))
 				decoded := MustSucceed(codec.Decode(encoded))
 
 				Expect(decoded.Count()).To(Equal(1))
@@ -1007,7 +1007,7 @@ var _ = Describe("Codec", func() {
 					[]telem.Series{s1, s2},
 				)
 
-				encoded := MustSucceed(codec.Encode(ctx, frame))
+				encoded := MustSucceed(codec.Encode(frame))
 				decoded := MustSucceed(codec.Decode(encoded))
 
 				// Should have two separate series
@@ -1041,7 +1041,7 @@ var _ = Describe("Codec", func() {
 					[]telem.Series{s1, s2, s3, s4},
 				)
 
-				encoded := MustSucceed(codec.Encode(ctx, frame))
+				encoded := MustSucceed(codec.Encode(frame))
 				decoded := MustSucceed(codec.Decode(encoded))
 
 				// Should have 2 merged series: [s1+s2] and [s3+s4]
@@ -1083,7 +1083,7 @@ var _ = Describe("Codec", func() {
 					[]telem.Series{s1Ch1, s2Ch1, s1Ch2, s2Ch2},
 				)
 
-				encoded := MustSucceed(codec.Encode(ctx, frame))
+				encoded := MustSucceed(codec.Encode(frame))
 				decoded := MustSucceed(codec.Decode(encoded))
 
 				// Should have 2 series total (one per channel)
@@ -1119,7 +1119,7 @@ var _ = Describe("Codec", func() {
 				[]telem.Series{s1, s2},
 			)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
+			encoded := MustSucceed(codec.Encode(frame))
 			decoded := MustSucceed(codec.Decode(encoded))
 
 			// Zero alignments: s1 has bounds [0, 3), s2 has bounds [0, 2)
@@ -1152,7 +1152,7 @@ var _ = Describe("Codec", func() {
 				[]telem.Series{s1, s2},
 			)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
+			encoded := MustSucceed(codec.Encode(frame))
 			decoded := MustSucceed(codec.Decode(encoded))
 
 			Expect(decoded.Count()).To(Equal(1))
@@ -1183,7 +1183,7 @@ var _ = Describe("Codec", func() {
 					[]telem.Series{s1, s2},
 				)
 
-				encoded := MustSucceed(codec.Encode(ctx, frame))
+				encoded := MustSucceed(codec.Encode(frame))
 				decoded := MustSucceed(codec.Decode(encoded))
 
 				Expect(decoded.Count()).To(Equal(1))
@@ -1219,7 +1219,7 @@ var _ = Describe("Codec", func() {
 				s2.Alignment = 100 // gap forces non-merged
 				fr := frame.NewMulti(channel.Keys{2, 2}, []telem.Series{s1, s2})
 
-				encoded := MustSucceed(cd.Encode(ctx, fr))
+				encoded := MustSucceed(cd.Encode(fr))
 				decoded := MustSucceed(cd.Decode(encoded))
 
 				Expect(decoded.KeysSlice()).To(Equal([]channel.Key{2, 2}))
@@ -1256,7 +1256,7 @@ var _ = Describe("Codec", func() {
 					channel.Keys{1, 2, 1, 2},
 					[]telem.Series{idxA, datA, idxB, datB},
 				)
-				encoded := MustSucceed(cd.Encode(ctx, fr))
+				encoded := MustSucceed(cd.Encode(fr))
 				decoded := MustSucceed(cd.Decode(encoded))
 
 				Expect(decoded.Count()).To(Equal(4))
@@ -1310,7 +1310,7 @@ var _ = Describe("Codec", func() {
 					})
 					Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
 					fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
-					Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
+					Expect(c.Encode(fr)).Error().To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(ContainSubstring("my-channel")),
 					))
@@ -1326,7 +1326,7 @@ var _ = Describe("Codec", func() {
 					})
 					Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
 					fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
-					Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
+					Expect(c.Encode(fr)).Error().To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(ContainSubstring(channel.Key(777).String())),
 					))
@@ -1345,11 +1345,11 @@ func BenchmarkEncode(b *testing.B) {
 	)
 	cd := codec.NewStatic(keys, dataTypes)
 	w := bytes.NewBuffer(nil)
-	if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+	if err := cd.EncodeStream(w, fr); err != nil {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
 	for b.Loop() {
-		if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+		if err := cd.EncodeStream(w, fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
 		w.Reset()
@@ -1378,7 +1378,7 @@ func BenchmarkDecode(b *testing.B) {
 			[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 		)
 		cd         = codec.NewStatic(keys, dataTypes)
-		encoded, _ = cd.Encode(b.Context(), fr)
+		encoded, _ = cd.Encode(fr)
 		r          = bytes.NewReader(encoded)
 	)
 	for b.Loop() {
@@ -1417,7 +1417,7 @@ func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1426,7 +1426,7 @@ func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 	b.Run("Disabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1448,7 +1448,7 @@ func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1457,7 +1457,7 @@ func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 	b.Run("Disabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1484,7 +1484,7 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1493,7 +1493,7 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	b.Run("Disabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1528,7 +1528,7 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1537,7 +1537,7 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	b.Run("Disabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1579,7 +1579,7 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1588,7 +1588,7 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 	b.Run("Disabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1614,13 +1614,13 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		encoded, err := cd.Encode(b.Context(), frame)
+		encoded, err := cd.Encode(frame)
 		if err != nil {
 			b.Fatalf("failed to encode: %v", err)
 		}
 		b.ReportMetric(float64(len(encoded)), "bytes")
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1628,13 +1628,13 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 
 	b.Run("Disabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
-		encoded, err := cd.Encode(b.Context(), frame)
+		encoded, err := cd.Encode(frame)
 		if err != nil {
 			b.Fatalf("failed to encode: %v", err)
 		}
 		b.ReportMetric(float64(len(encoded)), "bytes")
 		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
+			if _, err := cd.Encode(frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
 			}
 		}
@@ -1714,7 +1714,7 @@ func BenchmarkStreamerFrame_Encode(b *testing.B) {
 			w := bytes.NewBuffer(nil)
 			b.ReportAllocs()
 			for b.Loop() {
-				if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+				if err := cd.EncodeStream(w, fr); err != nil {
 					b.Fatalf("encode: %v", err)
 				}
 				w.Reset()
@@ -1727,7 +1727,7 @@ func BenchmarkStreamerFrame_Encode(b *testing.B) {
 				w := bytes.NewBuffer(nil)
 				b.ReportAllocs()
 				for b.Loop() {
-					if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+					if err := cd.EncodeStream(w, fr); err != nil {
 						b.Fatalf("encode: %v", err)
 					}
 					w.Reset()
@@ -1742,7 +1742,7 @@ func BenchmarkStreamerFrame_Decode(b *testing.B) {
 		b.Run(fmt.Sprintf("channels=%d/allFull", nc), func(b *testing.B) {
 			keys, dataTypes, fr := makeStreamerFrame(nc, nc, 100)
 			cd := codec.NewStatic(keys, dataTypes)
-			encoded, err := cd.Encode(b.Context(), fr)
+			encoded, err := cd.Encode(fr)
 			if err != nil {
 				b.Fatalf("encode: %v", err)
 			}
@@ -1782,14 +1782,14 @@ func BenchmarkIteratorFrame_Encode(b *testing.B) {
 			keys, dataTypes, fr := makeIteratorFrame(c.channels, c.domains, c.samples)
 			cd := codec.NewStatic(keys, dataTypes)
 			w := bytes.NewBuffer(nil)
-			if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+			if err := cd.EncodeStream(w, fr); err != nil {
 				b.Fatalf("encode: %v", err)
 			}
 			b.ReportMetric(float64(w.Len()), "bytes")
 			b.ReportAllocs()
 			for b.Loop() {
 				w.Reset()
-				if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+				if err := cd.EncodeStream(w, fr); err != nil {
 					b.Fatalf("encode: %v", err)
 				}
 			}
@@ -1816,7 +1816,7 @@ func BenchmarkIteratorFrame_Decode(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := makeIteratorFrame(c.channels, c.domains, c.samples)
 			cd := codec.NewStatic(keys, dataTypes)
-			encoded, err := cd.Encode(b.Context(), fr)
+			encoded, err := cd.Encode(fr)
 			if err != nil {
 				b.Fatalf("encode: %v", err)
 			}
@@ -1846,7 +1846,7 @@ func BenchmarkIteratorFrame_RoundTrip(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		w.Reset()
-		if err := enc.EncodeStream(b.Context(), w, fr); err != nil {
+		if err := enc.EncodeStream(w, fr); err != nil {
 			b.Fatalf("encode: %v", err)
 		}
 		r := bytes.NewReader(w.Bytes())

@@ -94,7 +94,7 @@ func BenchmarkWriterRequestTranslator_Forward_BufferOnly(b *testing.B) {
 			cdec := codec.NewStatic(keys, dataTypes)
 			b.ReportAllocs()
 			for b.Loop() {
-				buf, err := cdec.Encode(b.Context(), fr)
+				buf, err := cdec.Encode(fr)
 				if err != nil {
 					b.Fatalf("encode: %v", err)
 				}
@@ -135,7 +135,7 @@ func BenchmarkWriterRequestTranslator_Backward(b *testing.B) {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
 			keys, dataTypes, fr := benchFrame(nc, 100)
 			cdec := codec.NewStatic(keys, dataTypes)
-			buf, err := cdec.Encode(b.Context(), fr)
+			buf, err := cdec.Encode(fr)
 			if err != nil {
 				b.Fatalf("encode: %v", err)
 			}

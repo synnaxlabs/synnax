@@ -232,7 +232,7 @@ type ChannelResolver interface {
 	RetrieveDataTypes(context.Context, channel.Keys) ([]telem.DataType, error)
 	// RetrieveName returns the name of the channel with the given key, or an empty
 	// string if no channel with the key exists.
-	RetrieveName(context.Context, channel.Key) string
+	RetrieveName(channel.Key) string
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
@@ -383,8 +383,8 @@ func newFlags() flags {
 
 // Encode encodes the given frame into bytes. The returned byte slice is a copy
 // and safe to retain after subsequent Encode calls.
-func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
-	err := c.encodeInternal(ctx, src)
+func (c *Codec) Encode(src framer.Frame) ([]byte, error) {
+	err := c.encodeInternal(src)
 	if err != nil {
 		return nil, err
 	}
@@ -549,17 +549,17 @@ const (
 
 // EncodeStream encodes the given frame into the provided io writer, returning any
 // encoding errors encountered.
-func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) error {
-	if err := c.encodeInternal(ctx, src); err != nil {
+func (c *Codec) EncodeStream(w io.Writer, src framer.Frame) error {
+	if err := c.encodeInternal(src); err != nil {
 		return err
 	}
 	_, err := w.Write(c.buf.Bytes())
 	return err
 }
 
-func (c *Codec) retrieveName(ctx context.Context, key channel.Key) string {
+func (c *Codec) retrieveName(key channel.Key) string {
 	if c.channelResolver != nil {
-		if name := c.channelResolver.RetrieveName(ctx, key); name != "" {
+		if name := c.channelResolver.RetrieveName(key); name != "" {
 			return name
 		}
 	}
@@ -568,7 +568,7 @@ func (c *Codec) retrieveName(ctx context.Context, key channel.Key) string {
 
 // encodeInternal encodes the frame into c.buf. After calling this method,
 // c.buf.Bytes() contains the encoded data.
-func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
+func (c *Codec) encodeInternal(src framer.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
@@ -587,7 +587,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"encoder was provided a key %s not present in current state",
-				c.retrieveName(ctx, key),
+				c.retrieveName(key),
 			)
 		}
 		isEquivalent := (dt == telem.Int64T || dt == telem.TimestampT) &&
@@ -597,7 +597,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				validate.ErrValidation,
 				"data type %s for channel %s does not match series data type %s",
 				dt,
-				c.retrieveName(ctx, key),
+				c.retrieveName(key),
 				s.DataType,
 			)
 		}

@@ -83,12 +83,14 @@ func (s *Service) RetrieveDataTypes(
 
 // RetrieveName implements codec.ChannelResolver, resolving the name of the channel with
 // the given key, returning an empty string if no channel with the key exists.
-func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
+func (s *Service) RetrieveName(key channel.Key) string {
 	var ch channel.Channel
+	// Name resolution decorates an error message and already discards its own failures,
+	// so it runs unscoped rather than propagating a context through every encode.
 	if err := s.internal.NewRetrieve().
 		Where(channel.MatchKeys(key)).
 		Entry(&ch).
-		Exec(ctx, nil); err != nil {
+		Exec(context.Background(), nil); err != nil {
 		return ""
 	}
 	return ch.Name

@@ -74,7 +74,19 @@ func newStreamCore[RQ, RS freighter.Payload](
 	return c
 }
 
+// Refresher is an optional capability of a stream codec whose state depends on the
+// messages it decodes. A codec implementing it is refreshed after every successful
+// decode, against the context that scopes the connection, so its own Decode stays
+// context-free.
+type Refresher interface {
+	// Refresh applies any state change the last decoded message requested.
+	Refresh(context.Context) error
+}
+
 type streamCoreConfig struct {
+	// ctx scopes the connection. It bounds any codec refresh the peer's messages
+	// trigger.
+	ctx   context.Context
 	codec encoding.Codec
 	conn  *websocket.Conn
 	alamos.Instrumentation
@@ -111,7 +123,13 @@ func (c *streamCore[I, O]) receiveRaw() (WSMessage[I], error) {
 		return WSMessage[I]{}, err
 	}
 	var msg WSMessage[I]
-	return msg, c.codec.DecodeStream(r, &msg)
+	if err = c.codec.DecodeStream(r, &msg); err != nil {
+		return msg, err
+	}
+	if refresher, ok := c.codec.(Refresher); ok {
+		return msg, refresher.Refresh(c.ctx)
+	}
+	return msg, nil
 }
 
 func (c *streamCore[I, O]) Receive() (I, error) {

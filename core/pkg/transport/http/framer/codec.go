@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -59,13 +60,27 @@ const (
 type Codec struct {
 	*codec.Codec
 	LowerPerfCodec encoding.Codec
-	// Ctx scopes channel resolution to the lifetime of the connection the codec serves.
-	// Resolution runs while a message decodes, and the encoding.Codec interface carries
-	// no context.
-	Ctx context.Context
+	// pendingKeys holds the channel keys the last decoded message asked the codec to
+	// resolve. Refresh drains it. Only the receiving goroutine touches it.
+	pendingKeys []channel.Key
 }
 
-var _ encoding.Codec = (*Codec)(nil)
+var (
+	_ encoding.Codec = (*Codec)(nil)
+	_ http.Refresher = (*Codec)(nil)
+)
+
+// Refresh implements http.Refresher, resolving the channel keys carried by the most
+// recently decoded message. Resolution reads channel metadata, so it runs here against
+// the connection's context rather than inside Decode.
+func (c *Codec) Refresh(ctx context.Context) error {
+	if len(c.pendingKeys) == 0 {
+		return nil
+	}
+	keys := c.pendingKeys
+	c.pendingKeys = nil
+	return c.Update(ctx, keys)
+}
 
 func (c *Codec) Decode(data []byte, value any) error {
 	return c.DecodeStream(bytes.NewReader(data), value)
@@ -191,7 +206,7 @@ func (c *Codec) decodeWriteRequest(
 			return nil
 		}
 		if v.Payload.Command == framer.WriterCommandOpen {
-			return c.Update(c.Ctx, v.Payload.Config.Keys)
+			c.pendingKeys = v.Payload.Config.Keys
 		}
 		return nil
 	}
@@ -216,7 +231,7 @@ func (c *Codec) encodeWriteRequest(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(c.Ctx, w, v.Payload.Frame)
+	return c.Codec.EncodeStream(w, v.Payload.Frame)
 }
 
 func (c *Codec) decodeStreamResponse(
@@ -249,7 +264,7 @@ func (c *Codec) encodeStreamResponse(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(c.Ctx, w, v.Payload.Frame)
+	return c.Codec.EncodeStream(w, v.Payload.Frame)
 }
 
 func (c *Codec) decodeStreamRequest(
@@ -265,7 +280,8 @@ func (c *Codec) decodeStreamRequest(
 	if len(v.Payload.Keys) == 0 {
 		return nil
 	}
-	return c.Update(c.Ctx, v.Payload.Keys)
+	c.pendingKeys = v.Payload.Keys
+	return nil
 }
 
 func (c *Codec) decodeIteratorRequest(
@@ -281,7 +297,8 @@ func (c *Codec) decodeIteratorRequest(
 	if len(v.Payload.Keys) == 0 {
 		return nil
 	}
-	return c.Update(c.Ctx, v.Payload.Keys)
+	c.pendingKeys = v.Payload.Keys
+	return nil
 }
 
 func (c *Codec) decodeIteratorResponse(
@@ -317,7 +334,7 @@ func (c *Codec) encodeIteratorResponse(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(c.Ctx, w, v.Payload.Frame)
+	return c.Codec.EncodeStream(w, v.Payload.Frame)
 }
 
 // WithCodec returns a StreamServerOption that registers the WS framer codec on a
@@ -326,9 +343,8 @@ func (c *Codec) encodeIteratorResponse(
 func WithCodec(channelResolver codec.ChannelResolver) http.StreamServerOption {
 	return http.WithAdditionalCodec(
 		"application/vnd.synnax.frame",
-		func(ctx context.Context) encoding.Codec {
+		func(context.Context) encoding.Codec {
 			return &Codec{
-				Ctx:            ctx,
 				LowerPerfCodec: json.Codec,
 				Codec:          codec.NewDynamic(channelResolver),
 			}

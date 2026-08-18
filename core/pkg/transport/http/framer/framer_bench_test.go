@@ -30,7 +30,6 @@ func newHTTPFramerCodec(
 	dts []telem.DataType,
 ) *framer.Codec {
 	return &framer.Codec{
-		Ctx:            ctx,
 		Codec:          codec.NewStatic(keys, dts),
 		LowerPerfCodec: json.Codec,
 	}

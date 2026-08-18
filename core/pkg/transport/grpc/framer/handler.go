@@ -108,7 +108,7 @@ func (t frameWriterRequestTranslator) Forward(
 		},
 	}
 	if t.codec != nil && t.codec.Initialized() && !msg.Frame.Empty() {
-		if r.Buffer, err = t.codec.Encode(ctx, msg.Frame); err != nil {
+		if r.Buffer, err = t.codec.Encode(msg.Frame); err != nil {
 			return nil, err
 		}
 		return r, nil
@@ -248,7 +248,7 @@ func (t frameIteratorResponseTranslator) Forward(
 		t.codec.Initialized() &&
 		msg.Variant == framer.IteratorResponseVariantData &&
 		!msg.Frame.Empty() {
-		buf, err := t.codec.Encode(ctx, msg.Frame)
+		buf, err := t.codec.Encode(msg.Frame)
 		if err != nil {
 			return nil, err
 		}
@@ -328,7 +328,7 @@ func (t frameStreamerResponseTranslator) Forward(
 	msg framer.StreamerResponse,
 ) (*StreamerResponse, error) {
 	if t.codec != nil && t.codec.Initialized() {
-		buf, err := t.codec.Encode(ctx, msg.Frame)
+		buf, err := t.codec.Encode(msg.Frame)
 		if err != nil {
 			return nil, err
 		}
