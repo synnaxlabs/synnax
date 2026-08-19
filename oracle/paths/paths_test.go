@@ -42,9 +42,6 @@ var _ = Describe("Paths", func() {
 		It("Should fall back to walking up for a .git entry", func() {
 			// An empty .git directory is not a valid repository, so `git rev-parse`
 			// fails and RepoRoot falls back to the directory walk.
-			// TempDir must be created before the chdir-back cleanup is registered:
-			// cleanups run LIFO, and Windows cannot delete the temp dir while it is
-			// still the working directory.
 			dir := GinkgoT().TempDir()
 			origWd := MustSucceed(os.Getwd())
 			DeferCleanup(func() { Expect(os.Chdir(origWd)).To(Succeed()) })
@@ -57,7 +54,6 @@ var _ = Describe("Paths", func() {
 		})
 
 		It("Should error outside any git repository", func() {
-			// TempDir before the chdir-back cleanup, for the same LIFO reason as above.
 			dir := GinkgoT().TempDir()
 			origWd := MustSucceed(os.Getwd())
 			DeferCleanup(func() { Expect(os.Chdir(origWd)).To(Succeed()) })
