@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type project, type table } from "@synnaxlabs/client";
-import { compare, id, uuid, verbs, type xy } from "@synnaxlabs/x";
+import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
@@ -204,23 +204,11 @@ export const nextCellPosition = (
 // cellsInRegion returns the cell keys inside the inclusive axis-aligned
 // rectangle defined by start and end. Rows or row slots outside the rectangle
 // are skipped silently; ragged rows produce a sparse region.
-export const cellsInRegion = (
-  rows: table.Row[],
-  start: xy.XY,
-  end: xy.XY,
-): string[] => {
-  const minX = Math.min(start.x, end.x);
-  const maxX = Math.max(start.x, end.x);
-  const minY = Math.min(start.y, end.y);
-  const maxY = Math.max(start.y, end.y);
-  const out: string[] = [];
-  for (let y = minY; y <= maxY; y++) {
-    const row = rows[y];
-    if (row == null) continue;
-    for (let x = minX; x <= maxX; x++) if (row.cells[x] != null) out.push(row.cells[x]);
-  }
-  return out;
-};
+export const cellsInRegion = (rows: table.Row[], start: xy.XY, end: xy.XY): string[] =>
+  grid
+    .region({ row: start.y, col: start.x }, { row: end.y, col: end.x })
+    .map(({ row, col }) => rows[row]?.cells[col])
+    .filter((cellKey) => cellKey != null);
 
 export const useCellPosition = Scope.bindHook(
   ({ key, cellKey }: CellParams): xy.XY | null => {

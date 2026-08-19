@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, CSS as PCSS, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
+import { Form, Input } from "@synnaxlabs/pluto";
+import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/platform/css";
+// The row gutter names each coefficient, so the lone column needs no heading.
+const COLUMNS: Input.TableColumn[] = [{}];
 
-export interface CoefficientsFieldProps extends Omit<Flex.BoxProps, "children"> {
+export interface CoefficientsFieldProps {
   path: string;
   label: string;
 }
@@ -25,60 +27,23 @@ export interface CoefficientsFieldProps extends Omit<Flex.BoxProps, "children"> 
 export const CoefficientsField = ({
   path,
   label,
-  ...rest
-}: CoefficientsFieldProps): React.ReactElement => {
-  const { value, onChange, preview } = Form.useField<number[]>(path);
-  const handleChange = (index: number, next: number) =>
-    onChange(value.map((coeff, i) => (i === index ? next : coeff)));
+}: CoefficientsFieldProps): ReactElement => {
+  const { value, onChange, preview, status } = Form.useField<number[]>(path);
+  const rows = useMemo(() => value.map((coeff) => [coeff]), [value]);
   return (
-    <Flex.Box y gap="small" className={CSS.B("coefficients")} {...rest}>
-      <Text.Text level="small" justify="between" color={9}>
-        {label}
-        {!preview && (
-          <Button.Button
-            onClick={() => onChange([...value, 0])}
-            variant="filled"
-            tooltip={`Add ${label.toLowerCase()}`}
-            size="small"
-          >
-            <Icon.Add />
-          </Button.Button>
-        )}
-      </Text.Text>
-      <Flex.Box y gap="small">
-        {value.map((coeff, i) => (
-          <Flex.Box
-            x
-            key={i}
-            align="center"
-            gap="small"
-            className={CSS.cls(CSS.B("coefficient-row"), PCSS.M("reveals"))}
-          >
-            <Input.Numeric
-              value={coeff}
-              onChange={(next) => handleChange(i, next)}
-              preview={preview}
-              startContent={
-                <Text.Text level="small" color={9}>
-                  c{i}
-                </Text.Text>
-              }
-              grow
-            />
-            {!preview && (
-              <Button.Button
-                variant="text"
-                reveal
-                size="small"
-                tooltip={`Remove c${i}`}
-                onClick={() => onChange(value.filter((_, j) => j !== i))}
-              >
-                <Icon.Close />
-              </Button.Button>
-            )}
-          </Flex.Box>
-        ))}
-      </Flex.Box>
-    </Flex.Box>
+    <Input.Item
+      label={label}
+      helpText={status.message}
+      status={status.variant}
+      padHelpText
+    >
+      <Input.Table
+        columns={COLUMNS}
+        value={rows}
+        onChange={(next) => onChange(next.map(([coeff]) => coeff))}
+        rowLabel={(index) => `c${index}`}
+        preview={preview}
+      />
+    </Input.Item>
   );
 };
