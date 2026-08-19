@@ -7,24 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqual } from "@/memo";
 import { scale } from "@/vis/scale/aether";
 
 export interface UseProps extends z.input<typeof scale.Scale.z> {
   aetherKey: string;
 }
 
-export const use = ({ aetherKey, ...props }: UseProps): void => {
-  const memoProps = useMemoDeepEqual(props);
-  const [, , setState] = Aether.use({
+export const use = ({ aetherKey, ...state }: UseProps): void => {
+  Aether.useUnidirectional({
     aetherKey,
     type: scale.Scale.TYPE,
     schema: scale.Scale.z,
-    initialState: memoProps,
+    state,
   });
-  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 };
