@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package versions_test
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
+	versions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -28,44 +28,31 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Project layout to panel migration", func() {
+var _ = Describe("Composition migrations", func() {
 	openPanelTable := func(
 		ctx context.Context, db *gorp.DB,
-	) *gorp.Table[v0.Key, v0.Panel] {
+	) *gorp.Table[versions.Key, versions.Panel] {
 		return MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
+			ctx, gorp.TableConfig[versions.Key, versions.Panel]{
 				DB:         db,
-				Migrations: v0.Migrations,
+				Migrations: versions.Migrations,
 			},
 		))
 	}
-	// openPreTaskKeyTable opens the table with the chain as it existed before the
-	// task re-key, so specs can seed panels that predate v56_task_tab_uuid_keys.
-	openPreTaskKeyTable := func(
-		ctx context.Context, db *gorp.DB,
-	) *gorp.Table[v0.Key, v0.Panel] {
-		return MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
-				DB:         db,
-				Migrations: v0.Migrations[:2],
-			},
-		))
-	}
-	// openPreStripTable opens the table with the chain as it existed before the
-	// resource-tab whitelist, so specs can seed panels holding tabs it rejects.
-	openPreStripTable := func(
-		ctx context.Context, db *gorp.DB,
-	) *gorp.Table[v0.Key, v0.Panel] {
-		return MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
-				DB:         db,
-				Migrations: v0.Migrations[:3],
-			},
-		))
+	// runComposition runs the composition pass exactly as the service layer does after
+	// every table is open.
+	runComposition := func(ctx context.Context, db *gorp.DB) {
+		GinkgoHelper()
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Composition",
+			Migrations: versions.CompositionMigrations,
+		})).To(Succeed())
 	}
 	stageTaskKey := func(
 		ctx context.Context, db *gorp.DB, legacy string, key uuid.UUID,
 	) {
+		GinkgoHelper()
 		Expect(db.Set(
 			ctx,
 			[]byte(task.LegacyKeyKVPrefix+legacy),
@@ -73,8 +60,10 @@ var _ = Describe("Project layout to panel migration", func() {
 		)).To(Succeed())
 	}
 	// stageLayout stages a project's layout blob under its staging key, mirroring the
-	// project migration's Phase 1 so the panel migration finds the layout to convert.
+	// project migration's staging step so the composition pass finds the layout to
+	// convert.
 	stageLayout := func(ctx context.Context, db *gorp.DB, p project.Project) {
+		GinkgoHelper()
 		if len(p.Layout) == 0 {
 			return
 		}
@@ -84,6 +73,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		).To(Succeed())
 	}
 	seedResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
+		GinkgoHelper()
 		table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
 		))
@@ -92,44 +82,47 @@ var _ = Describe("Project layout to panel migration", func() {
 				Exec(ctx, db)).To(Succeed())
 		}
 	}
-	collectPanels := func(ctx context.Context, db *gorp.DB) []v0.Panel {
+	collectPanels := func(ctx context.Context, db *gorp.DB) []versions.Panel {
+		GinkgoHelper()
 		seq, closer := MustSucceed2(
-			gorp.WrapReader[v0.Key, v0.Panel](db).OpenNexter(ctx),
+			gorp.WrapReader[versions.Key, versions.Panel](db).OpenNexter(ctx),
 		)
 		DeferClose(closer)
-		var out []v0.Panel
+		var out []versions.Panel
 		for p := range seq {
 			out = append(out, p)
 		}
 		return out
 	}
-	findPanel := func(panels []v0.Panel, name string) v0.Panel {
+	findPanel := func(panels []versions.Panel, name string) versions.Panel {
+		GinkgoHelper()
 		for _, p := range panels {
 			if p.Name == name {
 				return p
 			}
 		}
 		Fail("no panel named " + name)
-		return v0.Panel{}
+		return versions.Panel{}
 	}
 	// zeroTabKeys asserts every tab in the tree was assigned a fresh key and zeroes
 	// the keys so trees can be compared structurally.
-	var zeroTabKeys func(n *v0.Node)
-	zeroTabKeys = func(n *v0.Node) {
+	var zeroTabKeys func(n *versions.Node)
+	zeroTabKeys = func(n *versions.Node) {
+		GinkgoHelper()
 		if n == nil {
 			return
 		}
 		switch v := n.Variant.(type) {
-		case v0.LeafNode:
+		case versions.LeafNode:
 			for i, t := range v.Tabs {
-				rt, ok := t.Variant.(v0.ResourceTab)
+				rt, ok := t.Variant.(versions.ResourceTab)
 				Expect(ok).To(BeTrue())
 				Expect(rt.Key).ToNot(Equal(uuid.Nil))
 				rt.Key = uuid.Nil
-				v.Tabs[i] = v0.Tab{Variant: rt}
+				v.Tabs[i] = versions.Tab{Variant: rt}
 			}
 			n.Variant = v
-		case v0.SplitNode:
+		case versions.SplitNode:
 			zeroTabKeys(&v.First)
 			zeroTabKeys(&v.Last)
 			n.Variant = v
@@ -143,17 +136,18 @@ var _ = Describe("Project layout to panel migration", func() {
 		}
 	}
 	hasRel := func(ctx context.Context, db *gorp.DB, r ontology.Relationship) bool {
+		GinkgoHelper()
 		return MustSucceed(gorp.NewRetrieve[string, ontology.Relationship]().
 			Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
 			Exists(ctx, db))
 	}
-	resourceTab := func(t ontology.ResourceType, key string) v0.Tab {
-		return v0.Tab{Variant: v0.ResourceTab{
+	resourceTab := func(t ontology.ResourceType, key string) versions.Tab {
+		return versions.Tab{Variant: versions.ResourceTab{
 			Resource: ontology.ID{Type: t, Key: key},
 		}}
 	}
-	leaf := func(tabs ...v0.Tab) *v0.Node {
-		return &v0.Node{Variant: v0.LeafNode{Tabs: tabs}}
+	leaf := func(tabs ...versions.Tab) *versions.Node {
+		return &versions.Node{Variant: versions.LeafNode{Tabs: tabs}}
 	}
 	mosaicTab := func(tabKey string) map[string]any {
 		return map[string]any{"tabKey": tabKey, "name": "Tab " + tabKey}
@@ -256,15 +250,16 @@ var _ = Describe("Project layout to panel migration", func() {
 			})
 
 			openPanelTable(ctx, db)
+			runComposition(ctx, db)
 			panels := collectPanels(ctx, db)
 			Expect(panels).To(HaveLen(2))
 
 			main := findPanel(panels, "Main")
 			zeroTabKeys(&main.Root)
-			Expect(main.Root).To(Equal(v0.Node{Variant: v0.SplitNode{
+			Expect(main.Root).To(Equal(versions.Node{Variant: versions.SplitNode{
 				Direction: spatial.DirectionX,
 				Size:      0.25,
-				First: v0.Node{Variant: v0.SplitNode{
+				First: versions.Node{Variant: versions.SplitNode{
 					Direction: spatial.DirectionY,
 					Size:      0.5,
 					First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
@@ -281,7 +276,7 @@ var _ = Describe("Project layout to panel migration", func() {
 
 			By("Defining an ontology resource and parent relationship for each panel")
 			for _, p := range panels {
-				panelID := v0.Panel{Key: p.Key}.OntologyID()
+				panelID := versions.Panel{Key: p.Key}.OntologyID()
 				Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
 					Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
 					Exists(ctx, db))).To(BeTrue())
@@ -340,6 +335,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			})
 
 			openPanelTable(ctx, db)
+			runComposition(ctx, db)
 			panels := collectPanels(ctx, db)
 			Expect(panels).To(HaveLen(1))
 			// No "main" layout entry was seeded, so the panel name falls back to the
@@ -384,12 +380,14 @@ var _ = Describe("Project layout to panel migration", func() {
 		})
 
 		openPanelTable(ctx, db)
+		runComposition(ctx, db)
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 
 	It("Should be a no-op on a cluster with no projects", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		openPanelTable(ctx, db)
+		runComposition(ctx, db)
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 
@@ -427,12 +425,13 @@ var _ = Describe("Project layout to panel migration", func() {
 		})
 
 		openPanelTable(ctx, db)
+		runComposition(ctx, db)
 		panels := collectPanels(ctx, db)
 		Expect(panels).To(HaveLen(1))
-		lf, ok := panels[0].Root.Variant.(v0.LeafNode)
+		lf, ok := panels[0].Root.Variant.(versions.LeafNode)
 		Expect(ok).To(BeTrue())
 		Expect(lf.Tabs).To(HaveLen(1))
-		rt, ok := lf.Tabs[0].Variant.(v0.ResourceTab)
+		rt, ok := lf.Tabs[0].Variant.(versions.ResourceTab)
 		Expect(ok).To(BeTrue())
 		Expect(rt.Key).ToNot(Equal(uuid.Nil))
 		Expect(rt.Resource).To(Equal(ontology.ID{
@@ -449,38 +448,38 @@ var _ = Describe("Project layout to panel migration", func() {
 		"Should strip resource tabs the type whitelist rejects",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			preTable := openPreStripTable(ctx, db)
+			table := openPanelTable(ctx, db)
 			logKey, userKey := uuid.NewString(), uuid.NewString()
-			p := v0.Panel{
+			p := versions.Panel{
 				Key:  uuid.New(),
 				Name: "Ops",
-				Root: v0.Node{Variant: v0.SplitNode{
+				Root: versions.Node{Variant: versions.SplitNode{
 					Direction: spatial.DirectionX,
 					Size:      0.5,
 					First:     *leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
 					Last:      *leaf(resourceTab(ontology.ResourceTypeUser, userKey)),
 				}},
 			}
-			Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
+			Expect(table.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
 
-			openPanelTable(ctx, db)
-			var got v0.Panel
-			Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
-				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
+			runComposition(ctx, db)
+			var got versions.Panel
+			Expect(gorp.NewRetrieve[versions.Key, versions.Panel]().
+				Where(gorp.MatchKeys[versions.Key, versions.Panel](p.Key)).
 				Entry(&got).
 				Exec(ctx, db)).To(Succeed())
-			split, ok := got.Root.Variant.(v0.SplitNode)
+			split, ok := got.Root.Variant.(versions.SplitNode)
 			Expect(ok).To(BeTrue())
-			first, ok := split.First.Variant.(v0.LeafNode)
+			first, ok := split.First.Variant.(versions.LeafNode)
 			Expect(ok).To(BeTrue())
 			Expect(first.Tabs).To(HaveLen(1))
-			kept, ok := first.Tabs[0].Variant.(v0.ResourceTab)
+			kept, ok := first.Tabs[0].Variant.(versions.ResourceTab)
 			Expect(ok).To(BeTrue())
 			Expect(kept.Resource).To(Equal(ontology.ID{
 				Type: ontology.ResourceTypeLog,
 				Key:  logKey,
 			}))
-			last, ok := split.Last.Variant.(v0.LeafNode)
+			last, ok := split.Last.Variant.(versions.LeafNode)
 			Expect(ok).To(BeTrue())
 			Expect(last.Tabs).To(BeEmpty())
 		},
@@ -492,17 +491,17 @@ var _ = Describe("Project layout to panel migration", func() {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			legacy := "4294967395"
 			taskKey := uuid.New()
-			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
-				return v0.Tab{Variant: v0.ViewTab{
-					TabBase: v0.TabBase{Key: uuid.New()},
-					View:    v0.View{Type: viewType, Args: args},
+			viewTab := func(viewType string, args msgpack.EncodedJSON) versions.Tab {
+				return versions.Tab{Variant: versions.ViewTab{
+					TabBase: versions.TabBase{Key: uuid.New()},
+					View:    versions.View{Type: viewType, Args: args},
 				}}
 			}
-			preTable := openPreTaskKeyTable(ctx, db)
-			p := v0.Panel{
+			table := openPanelTable(ctx, db)
+			p := versions.Panel{
 				Key:  uuid.New(),
 				Name: "Ops",
-				Root: v0.Node{Variant: v0.SplitNode{
+				Root: versions.Node{Variant: versions.SplitNode{
 					Direction: spatial.DirectionX,
 					Size:      0.5,
 					First: *leaf(viewTab(
@@ -515,20 +514,20 @@ var _ = Describe("Project layout to panel migration", func() {
 					),
 				}},
 			}
-			Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
+			Expect(table.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
 			stageTaskKey(ctx, db, legacy, taskKey)
 
-			openPanelTable(ctx, db)
-			var got v0.Panel
-			Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
-				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
+			runComposition(ctx, db)
+			var got versions.Panel
+			Expect(gorp.NewRetrieve[versions.Key, versions.Panel]().
+				Where(gorp.MatchKeys[versions.Key, versions.Panel](p.Key)).
 				Entry(&got).
 				Exec(ctx, db)).To(Succeed())
-			split, ok := got.Root.Variant.(v0.SplitNode)
+			split, ok := got.Root.Variant.(versions.SplitNode)
 			Expect(ok).To(BeTrue())
-			first, ok := split.First.Variant.(v0.LeafNode)
+			first, ok := split.First.Variant.(versions.LeafNode)
 			Expect(ok).To(BeTrue())
-			converted, ok := first.Tabs[0].Variant.(v0.ResourceTab)
+			converted, ok := first.Tabs[0].Variant.(versions.ResourceTab)
 			Expect(ok).To(BeTrue())
 			Expect(converted.Resource).To(Equal(ontology.ID{
 				Type: ontology.ResourceTypeTask,
@@ -536,12 +535,12 @@ var _ = Describe("Project layout to panel migration", func() {
 			}))
 
 			By("Leaving view tabs without staged task keys untouched")
-			last, ok := split.Last.Variant.(v0.LeafNode)
+			last, ok := split.Last.Variant.(versions.LeafNode)
 			Expect(ok).To(BeTrue())
-			docs, ok := last.Tabs[0].Variant.(v0.ViewTab)
+			docs, ok := last.Tabs[0].Variant.(versions.ViewTab)
 			Expect(ok).To(BeTrue())
 			Expect(docs.Args).To(BeNil())
-			other, ok := last.Tabs[1].Variant.(v0.ViewTab)
+			other, ok := last.Tabs[1].Variant.(versions.ViewTab)
 			Expect(ok).To(BeTrue())
 			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))
 

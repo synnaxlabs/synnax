@@ -47,6 +47,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
@@ -64,6 +65,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -668,6 +670,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Group:           l.Group,
 			Ontology:        l.Ontology,
 		}); !ok(err, l.Metrics) {
+		return nil, err
+	}
+	// Composition migrations move data across service boundaries, so they can only run
+	// once every service table above is open: a table's own chain runs at open, before
+	// later services have staged the legacy data these migrations consume. Table chains
+	// handle single-table format upgrades; anything that reads another service's staged
+	// data belongs here.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Child("composition"),
+		DB:              cfg.Distribution.DB,
+		Namespace:       "Composition",
+		Migrations:      panelversions.CompositionMigrations,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
