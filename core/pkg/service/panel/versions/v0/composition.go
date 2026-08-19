@@ -63,6 +63,9 @@ type legacyLayout struct {
 	Type string `json:"type"`
 	// Name is the human-readable layout name.
 	Name string `json:"name"`
+	// Args is the layout's renderer arguments, kept raw so one malformed record
+	// cannot fail the whole blob. Task layouts carry the task's key in args.
+	Args json.RawMessage `json:"args"`
 }
 
 // legacyTab is a tab in a legacy mosaic leaf. TabKey is the key of the layout the tab
@@ -87,10 +90,12 @@ type legacyMosaic struct {
 }
 
 // legacySlice is the subset of the Console's persisted layout slice consumed by the
-// migration: the per-window mosaic trees and the layout record they reference.
+// migration: the per-window mosaic trees, the layout records they reference, and the
+// layout-key-to-alternate-key map task layouts register their task key in.
 type legacySlice struct {
-	Mosaics map[string]legacyMosaic `json:"mosaics"`
-	Layouts map[string]legacyLayout `json:"layouts"`
+	Mosaics     map[string]legacyMosaic `json:"mosaics"`
+	Layouts     map[string]legacyLayout `json:"layouts"`
+	KeyToAltKey map[string]string       `json:"keyToAltKey"`
 }
 
 // mainWindowKey is the key the Console uses for the main window's mosaic.
@@ -181,7 +186,7 @@ func createPanels(
 	resourceWriter := gorp.WrapWriter[string, ontology.Resource](tx)
 	relWriter := gorp.WrapWriter[string, ontology.Relationship](tx)
 	for _, windowKey := range sortedWindowKeys(slice.Mosaics) {
-		root, err := convertNode(ctx, tx, slice.Mosaics[windowKey].Root, slice.Layouts)
+		root, err := convertNode(ctx, tx, slice.Mosaics[windowKey].Root, slice)
 		if err != nil {
 			return err
 		}
@@ -249,17 +254,17 @@ func convertNode(
 	ctx context.Context,
 	tx gorp.Tx,
 	n *legacyNode,
-	layouts map[string]legacyLayout,
+	slice legacySlice,
 ) (*Node, error) {
 	if n == nil {
 		return nil, nil
 	}
 	if n.First != nil || n.Last != nil {
-		first, err := convertNode(ctx, tx, n.First, layouts)
+		first, err := convertNode(ctx, tx, n.First, slice)
 		if err != nil {
 			return nil, err
 		}
-		last, err := convertNode(ctx, tx, n.Last, layouts)
+		last, err := convertNode(ctx, tx, n.Last, slice)
 		if err != nil {
 			return nil, err
 		}
@@ -278,13 +283,13 @@ func convertNode(
 	}
 	tabs := make([]Tab, 0, len(n.Tabs))
 	for _, t := range n.Tabs {
-		layout, ok := layouts[t.TabKey]
+		layout, ok := slice.Layouts[t.TabKey]
 		if !ok {
 			continue
 		}
 		resourceType, ok := migratableLayoutTypes[layout.Type]
 		if !ok {
-			tab, err := convertTaskTab(ctx, tx, t.TabKey)
+			tab, err := convertTaskTab(ctx, tx, taskKeyCandidates(slice, t.TabKey))
 			if err != nil {
 				return nil, err
 			}
@@ -314,26 +319,53 @@ func convertNode(
 	return &Node{Variant: LeafNode{Tabs: tabs}}, nil
 }
 
-// convertTaskTab converts a legacy task layout tab into a resource tab pointing at
-// the task's re-keyed UUID. Legacy task layouts were keyed by the task's uint64 key,
-// so a tab is a task tab exactly when its key is in the staging map written by the
-// task re-key migration; other tab keys are dropped.
-func convertTaskTab(ctx context.Context, tx gorp.Tx, tabKey string) (*Tab, error) {
-	val, closer, err := tx.Get(ctx, []byte(task.LegacyKeyKVPrefix+tabKey))
-	if err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return nil, nil
+// taskKeyCandidates lists every place a legacy mosaic tab can carry its task's key.
+// Tabs for tasks opened from the tree use the task key as the layout key; tabs for
+// tasks created in-session keep a placeholder layout key and carry the task key in
+// the layout's args and the slice's alt-key map.
+func taskKeyCandidates(slice legacySlice, tabKey string) []string {
+	candidates := []string{tabKey}
+	if l, ok := slice.Layouts[tabKey]; ok && len(l.Args) > 0 {
+		var args struct {
+			TaskKey string `json:"taskKey"`
 		}
-		return nil, err
+		if err := json.Unmarshal(l.Args, &args); err == nil && args.TaskKey != "" {
+			candidates = append(candidates, args.TaskKey)
+		}
 	}
-	key := string(val)
-	if err := closer.Close(); err != nil {
-		return nil, err
+	if alt, ok := slice.KeyToAltKey[tabKey]; ok && alt != "" {
+		candidates = append(candidates, alt)
 	}
-	return &Tab{Variant: ResourceTab{
-		TabBase:  TabBase{Key: uuid.New()},
-		Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
-	}}, nil
+	return candidates
+}
+
+// convertTaskTab converts a legacy task layout tab into a resource tab pointing at
+// the task's re-keyed UUID. A tab is a task tab exactly when one of its candidate
+// keys is in the staging map written by the task re-key migration; other tabs are
+// dropped.
+func convertTaskTab(
+	ctx context.Context,
+	tx gorp.Tx,
+	candidates []string,
+) (*Tab, error) {
+	for _, candidate := range candidates {
+		val, closer, err := tx.Get(ctx, []byte(task.LegacyKeyKVPrefix+candidate))
+		if err != nil {
+			if errors.Is(err, query.ErrNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		key := string(val)
+		if err := closer.Close(); err != nil {
+			return nil, err
+		}
+		return &Tab{Variant: ResourceTab{
+			TabBase:  TabBase{Key: uuid.New()},
+			Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+		}}, nil
+	}
+	return nil, nil
 }
 
 // migrateTaskTabKeys converts every panel view tab holding a legacy uint64 task key

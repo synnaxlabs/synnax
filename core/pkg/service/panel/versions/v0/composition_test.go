@@ -444,6 +444,74 @@ var _ = Describe("Composition migrations", func() {
 			To(MatchError(query.ErrNotFound))
 	})
 
+	// Regression: tasks created in-session in v56 keep a placeholder layout key; the
+	// task key lives in the layout's args and the slice's keyToAltKey map, not the
+	// mosaic tab key.
+	It(
+		"Should resolve task tabs keyed by a placeholder layout key",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			argsPlaceholder, altPlaceholder := uuid.NewString(), uuid.NewString()
+			argsLegacy, altLegacy := "281479271677954", "281479271677955"
+			argsTaskKey, altTaskKey := uuid.New(), uuid.New()
+			stageTaskKey(ctx, db, argsLegacy, argsTaskKey)
+			stageTaskKey(ctx, db, altLegacy, altTaskKey)
+			stageLayout(ctx, db, project.Project{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Layout: msgpack.EncodedJSON{
+					"mosaics": map[string]any{
+						"main": map[string]any{
+							"root": map[string]any{
+								"key": 1,
+								"tabs": []any{
+									mosaicTab(argsPlaceholder),
+									mosaicTab(altPlaceholder),
+								},
+							},
+						},
+					},
+					"layouts": map[string]any{
+						argsPlaceholder: map[string]any{
+							"key":      argsPlaceholder,
+							"type":     "labjack_read",
+							"name":     "LabJack Read Task",
+							"location": "mosaic",
+							"args":     map[string]any{"taskKey": argsLegacy},
+						},
+						altPlaceholder: map[string]any{
+							"key":      altPlaceholder,
+							"type":     "labjack_write",
+							"name":     "LabJack Write Task",
+							"location": "mosaic",
+						},
+					},
+					"keyToAltKey": map[string]any{altPlaceholder: altLegacy},
+				},
+			})
+
+			openPanelTable(ctx, db)
+			runComposition(ctx, db)
+			panels := collectPanels(ctx, db)
+			Expect(panels).To(HaveLen(1))
+			lf, ok := panels[0].Root.Variant.(v0.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(lf.Tabs).To(HaveLen(2))
+			byArgs, ok := lf.Tabs[0].Variant.(v0.ResourceTab)
+			Expect(ok).To(BeTrue())
+			Expect(byArgs.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  argsTaskKey.String(),
+			}))
+			byAlt, ok := lf.Tabs[1].Variant.(v0.ResourceTab)
+			Expect(ok).To(BeTrue())
+			Expect(byAlt.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  altTaskKey.String(),
+			}))
+		},
+	)
+
 	It(
 		"Should strip resource tabs the type whitelist rejects",
 		func(ctx SpecContext) {
