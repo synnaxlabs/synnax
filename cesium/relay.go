@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -40,21 +39,17 @@ const (
 	// connection to the relay. A smaller buffer absorbs a brief consumer stall while
 	// bounding how stale buffered frames can get.
 	defaultStreamBufferSize = 100
-	// slowConsumerTimeout is the maximum amount of time the relay will wait for a
-	// consumer to receive a frame before dropping the frame.
-	slowConsumerTimeout = 20 * time.Millisecond
+	// defaultSlowConsumerTimeout is the default maximum amount of time the relay will
+	// wait for a consumer to receive a frame before dropping the frame.
+	defaultSlowConsumerTimeout = 20 * time.Millisecond
 )
 
-func openRelay(
-	sCtx signal.Context,
-	ins alamos.Instrumentation,
-	bufferSize, streamBufferSize int,
-) *relay {
+func openRelay(sCtx signal.Context, o *options) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[relayResponse](
-		slowConsumerTimeout,
-		ins,
+		o.slowConsumerTimeout,
+		o.Instrumentation,
 	)
-	writes := confluence.NewStream[relayResponse](bufferSize)
+	writes := confluence.NewStream[relayResponse](o.relayBufferSize)
 	delta.InFrom(writes)
 	delta.Flow(
 		sCtx,
@@ -62,7 +57,7 @@ func openRelay(
 		confluence.WithRetryOnPanic(),
 		confluence.WithAddress("relay"),
 	)
-	return &relay{delta: delta, inlet: writes, streamBufferSize: streamBufferSize}
+	return &relay{delta: delta, inlet: writes, streamBufferSize: o.streamBufferSize}
 }
 
 func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {

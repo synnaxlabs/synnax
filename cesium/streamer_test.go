@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"context"
 	"io"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -487,8 +488,9 @@ var _ = Describe("Streamer Behavior", func() {
 						// Writing past the relay's total buffered capacity would force
 						// the writer to block until the relay times out and drops
 						// frames for the stalled consumer, so undersized buffering
-						// surfaces as missing
-						// frames in the drain below.
+						// surfaces as missing frames in the drain below. The long
+						// slow-consumer timeout keeps the relay from dropping a frame
+						// when a scheduling stall delays the drain.
 						const frameCount int64 = 2 * bufferSize
 						subFS := MustSucceed(fs.Sub("slow-consumer"))
 						subDB := mustOpenDBOnFS(
@@ -496,6 +498,7 @@ var _ = Describe("Streamer Behavior", func() {
 							subFS,
 							cesium.WithRelayBufferSize(bufferSize),
 							cesium.WithStreamBufferSize(bufferSize),
+							cesium.WithSlowConsumerTimeout(10*time.Second),
 						)
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(
