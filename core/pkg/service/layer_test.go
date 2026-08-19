@@ -34,7 +34,7 @@ var _ = Describe("Layer", func() {
 		"Should adopt a legacy workspace layout as a panel after all tables open",
 		func(ctx SpecContext) {
 			node := mock.NewNode(ctx)
-			db := node.Layer.DB
+			db := node.DB
 			lpKey := uuid.NewString()
 			lpID := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey}
 			Expect(gorp.WrapWriter[string, ontology.Resource](db).
