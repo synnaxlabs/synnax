@@ -79,7 +79,7 @@ type Config struct {
 	// higher key and do not count against this limit.
 	//
 	// [OPTIONAL] - Defaults to 10.
-	MaxProposals int
+	MaxProposals uint
 	// PledgeInterval scale sets how quickly the time in-between retries will increase
 	// during a Pledge to a peer. For example, a value of 2 would result in a retry
 	// interval of 1,2, 4, 8, 16, 32, 64, ... seconds.

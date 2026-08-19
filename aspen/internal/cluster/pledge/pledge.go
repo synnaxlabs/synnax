@@ -172,7 +172,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 
 	res.ClusterKey = r.ClusterKey
 
-	var propC int
+	var propC uint
 	for propC < r.MaxProposals {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			err = errors.Combine(err, ctxErr)
@@ -204,10 +204,10 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// If any node returns an error, it means we need to retry the responsible with
 		// a new Name.
 		if err = r.consultQuorum(ctx, res.Key, quorum); err != nil {
-			// A rejection means the key is stale, and the retry proposes a higher
-			// one, so it makes progress. Only infrastructure failures count against
-			// MaxProposals: otherwise keys approved during failed proposals force
-			// every retry to burn its budget re-traversing them, a livelock.
+			// A rejection means the key is stale, and the retry proposes a higher one,
+			// so it makes progress. Only infrastructure failures count against
+			// MaxProposals: otherwise keys approved during failed proposals force every
+			// retry to burn its budget re-traversing them, a livelock.
 			if !errors.Is(err, errProposalRejected) {
 				propC++
 			}
@@ -223,7 +223,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	}
 	r.L.Error(
 		"responsible failed to build healthy quorum",
-		zap.Int("numProposals", propC),
+		zap.Uint("numProposals", propC),
 		zap.Error(err),
 	)
 	return res, err
