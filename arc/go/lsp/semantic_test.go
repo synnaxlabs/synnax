@@ -253,6 +253,30 @@ var _ = Describe("Semantic Tokens", func() {
 				Expect(filterByType(tokens, tokenTypeNumber)).To(BeEmpty())
 			},
 		)
+
+		DescribeTable(
+			"leaves routing-table keys uncolored",
+			func(ctx SpecContext, source string, expected int) {
+				OpenArcDocument(server, ctx, uri, source)
+				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+				Expect(filterByType(tokens, tokenTypeBoolean)).To(HaveLen(expected))
+			},
+			Entry(
+				"key dropped, value kept",
+				"in_ch -> select{} -> {\n\ttrue: true -> bool_ch\n}",
+				1,
+			),
+			Entry(
+				"space before the colon",
+				"in_ch -> select{} -> {\n\tfalse : 1 -> u8_ch\n}",
+				0,
+			),
+			Entry(
+				"both branches",
+				"in_ch -> select{} -> {\n\ttrue: 1 -> a,\n\tfalse: 2 -> b\n}",
+				0,
+			),
+		)
 	})
 
 	Describe("Numeric-literal unit suffixes", func() {

@@ -104,6 +104,9 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 			tokens = append(tokens, expandStringToken(ctx, t, docIR)...)
 			continue
 		}
+		if isRoutingKey(allTokens, i) {
+			continue
+		}
 		var prevType, nextType int
 		if i > 0 {
 			prevType = allTokens[i-1].GetTokenType()
@@ -130,6 +133,23 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		tokens = appendTokenPerLine(tokens, t, *tokenType)
 	}
 	return lsp.EncodeSemanticTokens(tokens)
+}
+
+// isRoutingKey reports whether the token at i is a TRUE or FALSE naming a
+// routing-table branch (`true:`) rather than a bool literal.
+func isRoutingKey(tokens []antlr.Token, i int) bool {
+	switch tokens[i].GetTokenType() {
+	case parser.ArcLexerTRUE, parser.ArcLexerFALSE:
+	default:
+		return false
+	}
+	for j := i + 1; j < len(tokens); j++ {
+		if tokens[j].GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		return tokens[j].GetTokenType() == parser.ArcLexerCOLON
+	}
+	return false
 }
 
 // importContextIdents returns the token indexes that name modules inside an

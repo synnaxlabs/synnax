@@ -153,6 +153,10 @@
           "match": "\\b(and|or|not)\\b"
         },
         {
+          "comment": "Routing-table key (`true:` in a select's outputs) names an output, not a boolean literal. Matched without a scope so it renders as plain text.",
+          "match": "\\b(true|false)\\b(?=\\s*:)"
+        },
+        {
           "name": "constant.language.boolean.arc",
           "match": "\\b(true|false)\\b"
         },
