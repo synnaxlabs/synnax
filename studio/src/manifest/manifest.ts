@@ -58,10 +58,13 @@ export const define = (entries: Entry[]): Manifest => manifestZ.parse(entries);
 export const filter = (manifest: Manifest, pattern?: string): Manifest =>
   pattern == null ? manifest : manifest.filter((e) => e.id.includes(pattern));
 
-/** videoName returns the output file name for an entry and theme. */
+/**
+ * videoName returns the output path of a rendered video relative to out/: all
+ * videos land flat in one videos/ directory, with the id's slashes flattened.
+ */
 export const videoName = (id: string, theme: "light" | "dark"): string =>
-  `${id}-${theme}.mp4`;
+  `videos/${id.replaceAll("/", "-")}-${theme}.mp4`;
 
 /** cdnKey returns the object key the docs CDN serves the video under. */
 export const cdnKey = (id: string, theme: "light" | "dark"): string =>
-  `docs/${videoName(id, theme)}`;
+  `docs/${id}-${theme}.mp4`;

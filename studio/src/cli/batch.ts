@@ -19,7 +19,7 @@ import { type Entry, filter, type Manifest, videoName } from "@/manifest";
 const usage = `usage: pnpm batch [filter] [options]
 Produces every manifest entry (videos.ts) whose id contains [filter]: for each,
 captures light and dark against fresh ephemeral cores and renders the themed
-pair to out/<id>-light.mp4 and out/<id>-dark.mp4. Entries whose script and
+pair into the consolidated out/videos/ directory. Entries whose script and
 options are unchanged since their last successful production are skipped.
   --draft           fast review renders: 1080p cap + fast encoder preset
   --force           re-produce even when unchanged

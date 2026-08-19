@@ -19,5 +19,17 @@ export default manifest.define([
     id: "console/ui-overview/open-toolbars",
     script: "scripts/ui-overview-open-toolbars.ts",
   },
+  {
+    id: "console/ui-overview/range-toolbar",
+    script: "scripts/ui-overview-range-toolbar.ts",
+  },
+  {
+    id: "console/ui-overview/palette-search",
+    script: "scripts/ui-overview-palette-search.ts",
+  },
+  {
+    id: "console/ui-overview/palette-command",
+    script: "scripts/ui-overview-palette-command.ts",
+  },
   { id: "console/line-plots/data-tab", script: "scripts/line-plot-data.ts" },
 ]);

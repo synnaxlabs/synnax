@@ -59,7 +59,7 @@ describe("manifest.filter", () => {
 describe("manifest names", () => {
   it("should derive video file names and CDN keys from the id", () => {
     expect(videoName("console/ranges/create", "light")).toEqual(
-      "console/ranges/create-light.mp4",
+      "videos/console-ranges-create-light.mp4",
     );
     expect(cdnKey("console/ranges/create", "dark")).toEqual(
       "docs/console/ranges/create-dark.mp4",

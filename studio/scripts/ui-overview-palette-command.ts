@@ -1,0 +1,32 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { capture, fixtures } from "@/index";
+
+/**
+ * Docs `console/ui-overview/palette-command`: open the palette in command mode
+ * with ">", run "Create line plot", and show the plot tab appear.
+ */
+export default async (session: capture.CaptureSession): Promise<void> => {
+  const fixture = await fixtures.sineTelemetry();
+  try {
+    const project = `Docs Videos ${Date.now().toString(36)}`;
+    await capture.login(session, { username: "synnax", password: "seldon" }, project);
+    await session.moveTo({ x: 756, y: 500 });
+
+    session.startRecording();
+    await session.hold(1000);
+
+    await capture.commandPalette(session, "Create line plot");
+    await session.waitFor(session.page.locator(".pluto-line-plot").first());
+    await session.hold(2500);
+  } finally {
+    await fixture.stop();
+  }
+};
