@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { box, dimensions, type record, xy } from "@synnaxlabs/x";
+import { box, deep, dimensions, type record, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -16,6 +16,7 @@ import { Cell } from "@/table/cells";
 import { Indicator } from "@/table/Indicator";
 import { useCell, useDispatch } from "@/table/queries";
 import { Selection } from "@/table/selection";
+import { Theming } from "@/theming";
 
 export interface RowProps {
   index: number;
@@ -118,10 +119,18 @@ const VariantCell = memo(
     const cell = useCell({ key: resourceKey, cellKey });
     const selected = Selection.useIsMember(cellKey);
     const { dispatch } = useDispatch();
+    const theme = Theming.use();
     const b = useMemo(
       () => box.construct(xy.construct({ x, y }), dimensions.construct(width, height)),
       [x, y, width, height],
     );
+    // Imported legacy states can carry sparse cell props, so valid wire fields
+    // are merged over the variant's defaults instead of spread directly.
+    const props = useMemo(() => {
+      if (cell == null) return null;
+      const spec = Cell.REGISTRY[cell.variant];
+      return deep.overrideValidItems(spec.defaultProps(theme), cell.props, spec.schema);
+    }, [cell, theme]);
     const handleChange = useCallback(
       (props: record.Unknown) => {
         if (cell == null) return;
@@ -134,7 +143,7 @@ const VariantCell = memo(
       },
       [dispatch, resourceKey, cellKey, cell],
     );
-    if (cell == null) return null;
+    if (cell == null || props == null) return null;
     const Spec = Cell.REGISTRY[cell.variant];
     return (
       <Spec.Cell
@@ -144,7 +153,7 @@ const VariantCell = memo(
         editable={editable}
         onSelect={onSelect}
         onChange={handleChange}
-        {...cell.props}
+        {...props}
       />
     );
   },
