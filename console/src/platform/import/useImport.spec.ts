@@ -9,17 +9,15 @@
 
 import { log, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/pluto";
-import { act, render, waitFor } from "@testing-library/react";
-import { type ReactElement, useEffect } from "react";
+import { Status } from "@synnaxlabs/pluto";
+import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Import } from "@/platform/import";
 import {
-  CaptureStatuses,
-  createConsoleWrapper,
   fakePickedFile,
   interceptFilePicker,
+  renderHookWithConsole,
   uniqueName,
 } from "@/testutil";
 
@@ -27,25 +25,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-interface HarnessProps {
-  onReady: (run: (projectKey?: string) => void) => void;
-  onStatuses?: (statuses: Status.NotificationSpec[]) => void;
-}
-
-const Inner = ({ onReady }: Pick<HarnessProps, "onReady">): ReactElement => {
-  const run = Import.useImport();
-  useEffect(() => onReady(run), [onReady, run]);
-  return <span>ready</span>;
-};
-Inner.displayName = "Inner";
-
-const Harness = ({ onReady, onStatuses }: HarnessProps): ReactElement => (
-  <>
-    <Inner onReady={onReady} />
-    {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-  </>
-);
-Harness.displayName = "Harness";
+const useHarness = () => ({
+  run: Import.useImport(),
+  statuses: Status.useNotifications().statuses,
+});
 
 describe("useImport", () => {
   it("reads each picked file and streams its contents to the Core", async () => {
@@ -60,14 +43,11 @@ describe("useImport", () => {
       encoding: "JSON",
     });
     const data = await new Response(stream).text();
-    let run: ((projectKey?: string) => void) | undefined;
-    const { wrapper } = await createConsoleWrapper({
+    const { result } = await renderHookWithConsole(useHarness, {
       client,
       preloadedState: { project: { version: 0, selected: proj.key } },
     });
-    render(<Harness onReady={(r) => (run = r)} />, { wrapper });
-    await waitFor(() => expect(run).toBeDefined());
-    act(() => run?.());
+    act(() => result.current.run());
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.selectFiles([fakePickedFile("widget.json", data)]);
     await waitFor(async () => {
@@ -84,20 +64,13 @@ describe("useImport", () => {
 
   it("does nothing when the file picker is cancelled", async () => {
     const picker = interceptFilePicker();
-    let run: ((projectKey?: string) => void) | undefined;
-    let statuses: Status.NotificationSpec[] = [];
-    const { wrapper } = await createConsoleWrapper({
-      client: null,
+    const { result } = await renderHookWithConsole(useHarness, {
       preloadedState: { project: { version: 0, selected: "project-1" } },
     });
-    render(<Harness onReady={(r) => (run = r)} onStatuses={(s) => (statuses = s)} />, {
-      wrapper,
-    });
-    await waitFor(() => expect(run).toBeDefined());
-    act(() => run?.());
+    act(() => result.current.run());
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
     picker.cancel();
     await act(async () => {});
-    expect(statuses).toHaveLength(0);
+    expect(result.current.statuses).toHaveLength(0);
   });
 });

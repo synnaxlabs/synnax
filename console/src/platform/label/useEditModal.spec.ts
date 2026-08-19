@@ -9,19 +9,12 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/pluto/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Label } from "@/platform/label";
-import { Modals } from "@/platform/modals";
-import { createConsoleWrapper, getIconButton, uniqueName } from "@/testutil";
-
-const Harness = (): ReactElement => {
-  const open = Label.useEditModal();
-  return <button onClick={() => open()}>open</button>;
-};
-Harness.displayName = "Harness";
+import { openModal } from "@/platform/modals/testutil";
+import { getIconButton, uniqueName } from "@/testutil";
 
 const getAddButton = (): HTMLButtonElement => {
   const btn = document.querySelector<HTMLButtonElement>(".console-label__create");
@@ -37,23 +30,14 @@ const getCreateItem = (): HTMLElement => {
   return item;
 };
 
-const openModal = async () => {
+const openEditModal = async () => {
   const client = createTestClient();
-  const { wrapper } = await createConsoleWrapper({ client });
-  const result = render(
-    <>
-      <Harness />
-      <Modals.Stack />
-    </>,
-    { wrapper },
-  );
-  fireEvent.click(screen.getByRole("button", { name: "open" }));
-  return { ...result, client };
+  return { ...(await openModal(Label.useEditModal, { client })), client };
 };
 
 describe("Label.useEditModal", () => {
   it("should reveal the create form when the add button is clicked", async () => {
-    await openModal();
+    await openEditModal();
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );
@@ -68,7 +52,7 @@ describe("Label.useEditModal", () => {
   });
 
   it("should keep the create form open while the color picker is open", async () => {
-    await openModal();
+    await openEditModal();
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );
@@ -96,7 +80,7 @@ describe("Label.useEditModal", () => {
   });
 
   it("should persist a new label to the cluster from the create form", async () => {
-    const { client } = await openModal();
+    const { client } = await openEditModal();
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );

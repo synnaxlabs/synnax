@@ -389,12 +389,11 @@ export const compareModeConfigs = <K extends string | number | symbol>(
  */
 export const flattenConfig = <K extends string | number | symbol>(
   config: ModeConfig<K>,
-): Trigger[] => {
-  return record
+): Trigger[] =>
+  record
     .entries(config.modes)
     .map(([, v]) => v)
     .flat();
-};
 
 /** @returns a memoized flattened config, only recomputing when the config changes. */
 export const useFlattenedMemoConfig = <K extends string | number | symbol>(
