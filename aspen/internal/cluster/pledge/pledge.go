@@ -123,10 +123,8 @@ func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
 			)
 		}
 	}
-	if err != nil {
-		return Response{}, err
-	}
-	return res, nil
+	// Unreachable. addresses yields endlessly, so the loop exits only by returning.
+	return res, err
 }
 
 // Arbitrate registers a node to arbitrate future pledges. When processing a pledge

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"
@@ -71,10 +72,89 @@ func provisionCandidates(
 	return nodes
 }
 
+// maxProposals is the proposal budget the budget specs configure. Kept small so a
+// miscounted round is cheap to detect.
+const maxProposals = 3
+
+// jurorFailure is the failure provisionFailingJuror returns on every proposal.
+const jurorFailure = "juror unreachable"
+
+// provisionFailingJuror returns a server that fails every proposal it receives. It
+// stands in for a juror that is listed as a healthy candidate but is unreachable.
+func provisionFailingJuror(
+	n *mock.Network[pledge.Request, pledge.Response],
+) *mock.UnaryServer[pledge.Request, pledge.Response] {
+	server := n.UnaryServer("")
+	server.BindHandler(
+		func(context.Context, pledge.Request) (pledge.Response, error) {
+			return pledge.Response{}, errors.New(jurorFailure)
+		},
+	)
+	return server
+}
+
+// arbitrateResponsible registers a node that acts as responsible over candidates with a
+// budget of maxProposals, and returns its address.
+func arbitrateResponsible(
+	n *mock.Network[pledge.Request, pledge.Response],
+	ins alamos.Instrumentation,
+	candidates func() node.Group,
+) address.Address {
+	GinkgoHelper()
+	cfg, addr := baseConfigWithAddr(n)
+	Expect(pledge.Arbitrate(cfg, pledge.Config{
+		Instrumentation: ins,
+		Candidates:      candidates,
+		MaxProposals:    maxProposals,
+	})).To(Succeed())
+	return addr
+}
+
+// sendPledge asks the responsible at addr to run a pledge, bounding it so a responsible
+// that never exhausts its budget fails the spec instead of hanging it.
+func sendPledge(
+	ctx context.Context,
+	n *mock.Network[pledge.Request, pledge.Response],
+	addr address.Address,
+) (pledge.Response, error) {
+	tCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	DeferCleanup(cancel)
+	return n.UnaryClient().Send(tCtx, addr, pledge.Request{Key: 0})
+}
+
+// countRequests returns the number of requests the network delivered to target.
+func countRequests(
+	n *mock.Network[pledge.Request, pledge.Response],
+	target address.Address,
+) int {
+	count := 0
+	for _, entry := range n.Entries() {
+		if entry.Target == target {
+			count++
+		}
+	}
+	return count
+}
+
 var _ = Describe("PledgeServer", func() {
 	var net *mock.Network[pledge.Request, pledge.Response]
 	BeforeEach(func() {
 		net = mock.NewNetwork[pledge.Request, pledge.Response]()
+	})
+
+	Describe("Invalid configuration", func() {
+		missingRequiredFields := SatisfyAll(
+			MatchError(ContainSubstring("transport_client: must be non-nil")),
+			MatchError(ContainSubstring("transport_server: must be non-nil")),
+			MatchError(ContainSubstring("candidates: must be non-nil")),
+		)
+		It("Should return a validation error from Pledge", func(ctx SpecContext) {
+			Expect(pledge.Pledge(ctx, pledge.Config{})).Error().
+				To(missingRequiredFields)
+		})
+		It("Should return a validation error from Arbitrate", func() {
+			Expect(pledge.Arbitrate(pledge.Config{})).To(missingRequiredFields)
+		})
 	})
 
 	Describe("PledgeServer", func() {
@@ -238,7 +318,7 @@ var _ = Describe("PledgeServer", func() {
 				Expect(err).To(MatchError(context.DeadlineExceeded))
 			})
 		})
-		Context("Jurors hold approvals for keys from failed pledges", func() {
+		Context("Proposal budget", func() {
 			It("Should retry past rejected keys without consuming the proposal budget",
 				func(ctx SpecContext) {
 					nodes := make(node.Group)
@@ -269,6 +349,55 @@ var _ = Describe("PledgeServer", func() {
 						}),
 					)
 					Expect(res.Key).To(BeNumerically(">=", node.Key(22)))
+				},
+			)
+			It("Should consume the budget and return the error when a juror fails",
+				func(ctx SpecContext) {
+					juror := provisionFailingJuror(net)
+					jurors := node.Group{1: {
+						Key:     1,
+						Address: juror.Address,
+						State:   node.StateHealthy,
+					}}
+					addr := arbitrateResponsible(
+						net,
+						ins.Child("infra-failures-counted"),
+						allCandidates(jurors),
+					)
+					Expect(sendPledge(ctx, net, addr)).Error().
+						To(MatchError(ContainSubstring(jurorFailure)))
+					Expect(countRequests(net, juror.Address)).To(Equal(maxProposals))
+				},
+			)
+			It("Should let an infrastructure failure outweigh a concurrent rejection",
+				func(ctx SpecContext) {
+					// Every round consults both jurors: one rejects the stale key while
+					// the other fails outright. The failure must decide the round,
+					// otherwise the rejection makes it free and the climb never stops.
+					nodes := make(node.Group)
+					provisionCandidates(1, net, nodes, nil, nil)
+					failing := provisionFailingJuror(net)
+					nodes[1] = node.Node{
+						Key:     1,
+						Address: failing.Address,
+						State:   node.StateHealthy,
+					}
+					client := net.UnaryClient()
+					for k := node.Key(2); k <= 2+node.Key(maxProposals); k++ {
+						Expect(client.Send(
+							ctx,
+							nodes[0].Address,
+							pledge.Request{Key: k},
+						)).To(Equal(pledge.Response{}))
+					}
+					addr := arbitrateResponsible(
+						net,
+						ins.Child("infra-outweighs-rejection"),
+						allCandidates(nodes),
+					)
+					Expect(sendPledge(ctx, net, addr)).Error().
+						To(MatchError(ContainSubstring(jurorFailure)))
+					Expect(countRequests(net, failing.Address)).To(Equal(maxProposals))
 				},
 			)
 		})
