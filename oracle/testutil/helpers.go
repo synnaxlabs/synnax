@@ -119,9 +119,9 @@ func MustContentOf(resp *plugin.Response, pathSuffix string) string {
 	return content
 }
 
-// DenyDirRead revokes read permission on dir so directory listings fail, and
-// registers a DeferCleanup that restores access. It skips the calling spec when
-// running as root on Unix, where permission checks are bypassed.
+// DenyDirRead revokes read permission on dir so directory listings fail, and registers
+// a DeferCleanup that restores access. It skips the calling spec when running as root
+// on Unix, where permission checks are bypassed.
 func DenyDirRead(dir string) {
 	ginkgo.GinkgoHelper()
 	if runtime.GOOS == "windows" {
