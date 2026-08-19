@@ -395,7 +395,7 @@ The controls themselves become:
 
 ### 6.2 State matrix
 
-| running | drifted | visible controls         | action sent            |
+| Running | Drifted | Visible controls         | Action sent            |
 | ------- | ------- | ------------------------ | ---------------------- |
 | no      | n/a     | play                     | start (Driver syncs)   |
 | yes     | no      | pause                    | stop                   |
