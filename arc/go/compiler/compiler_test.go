@@ -1648,17 +1648,22 @@ var _ = Describe("Compiler", func() {
 			Entry("true or", "true or (i32(1) / i32(0)) > i32(0)", uint64(1)),
 		)
 
-		It("Should trap when the right operand runs", func(ctx SpecContext) {
-			output := MustSucceed(compileWithHostImports(ctx, `
+		DescribeTable(
+			"should evaluate the right operand",
+			func(ctx SpecContext, body string) {
+				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
 			func guard() bool {
-				return true and (i32(1) / i32(0)) > i32(0)
+				return %s
 			}
-			`, nil))
+			`, body), nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			_, err := mod.ExportedFunction("guard").Call(ctx)
-			Expect(err).To(MatchError(ContainSubstring("integer divide by zero")))
-		})
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				_, err := mod.ExportedFunction("guard").Call(ctx)
+				Expect(err).To(MatchError(ContainSubstring("integer divide by zero")))
+			},
+			Entry("true and", "true and (i32(1) / i32(0)) > i32(0)"),
+			Entry("false or", "false or (i32(1) / i32(0)) > i32(0)"),
+		)
 	})
 
 	Describe("Power Expression Execution", func() {

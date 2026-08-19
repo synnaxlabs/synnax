@@ -71,6 +71,31 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	for _, routingTable := range ctx.AST.AllRoutingTable() {
 		analyzeRoutingTable(context.Child(ctx, routingTable))
 	}
+	warnNumericTransitions(ctx)
+}
+
+// warnNumericTransitions flags a numeric condition feeding a `=>` transition.
+// Numeric truthiness is deprecated: a future release will only accept bool.
+func warnNumericTransitions[T antlr.ParserRuleContext](ctx context.Context[T]) {
+	children := ctx.AST.GetChildren()
+	for i, child := range children {
+		op, ok := child.(parser.IFlowOperatorContext)
+		if !ok || i == 0 || op.TRANSITION() == nil {
+			continue
+		}
+		// Function nodes are skipped: resolving their output reports its own
+		// errors, so asking again would duplicate them.
+		node, ok := children[i-1].(parser.IFlowNodeContext)
+		if !ok || node.Function() != nil {
+			continue
+		}
+		if !inferFlowNodeOutputType(context.Child(ctx, node)).IsNumeric() {
+			continue
+		}
+		ctx.Diagnostics.Add(diagnostics.Warningf(node,
+			"numeric conditions are deprecated; use an explicit comparison like x != 0",
+		))
+	}
 }
 
 func analyzeNode(
@@ -572,6 +597,10 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 				nodesBefore = append(nodesBefore, flowNode)
 			}
 		}
+	}
+
+	for _, entry := range ctx.AST.AllRoutingEntry() {
+		warnNumericTransitions(context.Child(ctx, entry))
 	}
 
 	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {

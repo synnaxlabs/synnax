@@ -11,6 +11,7 @@ package expression_test
 
 import (
 	stdcontext "context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1558,6 +1559,34 @@ var _ = Describe("Expressions", func() {
 					y := str(x)
 				}
 			`),
+		)
+
+		DescribeTable(
+			"experimental warnings on bool to numeric casts",
+			func(ctx SpecContext, target string, warningCount int) {
+				code := fmt.Sprintf(`
+				func testFunc() {
+					x bool := true
+					y := %s(x)
+				}
+			`, target)
+				ast := MustSucceed(parser.Parse(code))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				warnings := aCtx.Diagnostics.Warnings()
+				Expect(warnings).To(HaveLen(warningCount))
+				for _, w := range warnings {
+					Expect(w.Message).To(ContainSubstring("is experimental"))
+				}
+			},
+			Entry("u8 is the blessed target", "u8", 0),
+			Entry("str is not numeric", "str", 0),
+			Entry("i32", "i32", 1),
+			Entry("i64", "i64", 1),
+			Entry("u16", "u16", 1),
+			Entry("f32", "f32", 1),
+			Entry("f64", "f64", 1),
 		)
 
 		DescribeTable("rejected boolean conversions",

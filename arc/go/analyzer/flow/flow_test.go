@@ -1373,9 +1373,7 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect(
-					(*ctx.Diagnostics)[0].Message,
-				).To(ContainSubstring("type mismatch"))
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring("type mismatch"))
 			},
 		)
 
@@ -3055,6 +3053,68 @@ sequence main {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			},
+		)
+	})
+
+	Describe("Numeric transition deprecation", func() {
+		DescribeTable(
+			"warns when a numeric condition feeds =>",
+			func(bCtx SpecContext, source string, warningCount int) {
+				customResolver := StaticResolver{
+					{
+						Name: "u8_gate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+					},
+					{
+						Name: "bool_gate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.Bool()),
+					},
+				}
+				ast := MustSucceed(parser.Parse(source))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				warnings := ctx.Diagnostics.Warnings()
+				Expect(warnings).To(HaveLen(warningCount))
+				for _, w := range warnings {
+					Expect(w.Message).To(Equal(
+						"numeric conditions are deprecated; use an explicit " +
+							"comparison like x != 0",
+					))
+				}
+			},
+			Entry(
+				"numeric channel gate",
+				`sequence main {
+					stage first { u8_gate => next }
+					stage second {}
+				}`,
+				1,
+			),
+			Entry(
+				"bool channel gate",
+				`sequence main {
+					stage first { bool_gate => next }
+					stage second {}
+				}`,
+				0,
+			),
+			Entry(
+				"comparison gate",
+				`sequence main {
+					stage first { u8_gate > 1 => next }
+					stage second {}
+				}`,
+				0,
+			),
+			Entry(
+				"numeric top-level entry",
+				`u8_gate => main
+				sequence main { stage first {} }`,
+				1,
+			),
 		)
 	})
 })

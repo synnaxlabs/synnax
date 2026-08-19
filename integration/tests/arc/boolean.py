@@ -94,9 +94,10 @@ func mark_called(v bool) bool {
 }
 
 func do_short_circuit(a bool) {
-    bool_sc_and_out = false and mark_skipped(a)
-    bool_sc_or_out = true or mark_skipped(a)
-    bool_sc_eval_out = true and mark_called(a)
+    bool_sc_and_skip_out = false and mark_skipped(a)
+    bool_sc_or_skip_out = true or mark_skipped(a)
+    bool_sc_and_eval_out = true and mark_called(a)
+    bool_sc_or_eval_out = false or mark_called(a)
 }
 bool_sc_trigger -> do_short_circuit{}
 
@@ -278,9 +279,10 @@ SECTIONS = [
 
 SHORT_CIRCUIT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("bool_sc_trigger", BOOL),
-    ("bool_sc_and_out", BOOL),
-    ("bool_sc_or_out", BOOL),
-    ("bool_sc_eval_out", BOOL),
+    ("bool_sc_and_skip_out", BOOL),
+    ("bool_sc_or_skip_out", BOOL),
+    ("bool_sc_and_eval_out", BOOL),
+    ("bool_sc_or_eval_out", BOOL),
     ("bool_sc_called", BOOL),
     ("bool_sc_skipped", BOOL),
 ]
@@ -332,9 +334,10 @@ class Boolean(ArcCase):
     arc_name_prefix = "ArcBoolean"
     start_cmd_channel = "start_boolean_cmd"
     subscribe_channels = [_ch(c, "out") for s in SECTIONS for c in s.cases] + [
-        "bool_sc_and_out",
-        "bool_sc_or_out",
-        "bool_sc_eval_out",
+        "bool_sc_and_skip_out",
+        "bool_sc_or_skip_out",
+        "bool_sc_and_eval_out",
+        "bool_sc_or_eval_out",
         "bool_sc_called",
         "bool_sc_skipped",
         "bool_sel1_out",
@@ -404,11 +407,12 @@ class Boolean(ArcCase):
         self._drive_flow(LOGICAL_A1)
 
         self.log("=== and/or short circuit ===")
-        self.writer.write("bool_sc_and_out", 1)
+        self.writer.write("bool_sc_and_skip_out", 1)
         self.writer.write("bool_sc_trigger", 1)
-        self.wait_for_eq("bool_sc_and_out", 0)
-        self.wait_for_eq("bool_sc_or_out", 1)
-        self.wait_for_eq("bool_sc_eval_out", 1)
+        self.wait_for_eq("bool_sc_and_skip_out", 0)
+        self.wait_for_eq("bool_sc_or_skip_out", 1)
+        self.wait_for_eq("bool_sc_and_eval_out", 1)
+        self.wait_for_eq("bool_sc_or_eval_out", 1)
         # mark_called turns its marker true, so a marker still 0 means the operand
         # was skipped rather than that channel writes are broken.
         self.wait_for_eq("bool_sc_called", 1)
