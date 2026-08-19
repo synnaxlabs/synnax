@@ -134,8 +134,8 @@ export class CaptureSession {
 
   static async launch(options: CaptureOptions): Promise<CaptureSession> {
     const opts: Required<CaptureOptions> = {
-      width: 1920,
-      height: 1080,
+      width: 1512,
+      height: 945,
       dsf: 2,
       fps: 60,
       theme: "light",

@@ -25,8 +25,8 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --port <n>        core port (default 9095 ephemeral, 9090 external); the dev
                     Console is pointed at it via its dev-connection override
   --theme <t>       light | dark (default light)
-  --width <px>      capture viewport width in CSS px (default 1920)
-  --height <px>     capture viewport height in CSS px (default 1080)
+  --width <px>      capture viewport width in CSS px (default 1512)
+  --height <px>     capture viewport height in CSS px (default 945)
   --dsf <n>         capture device scale factor (default 2)
   --target <t>      output width: 1080p | 1440p | 4k | <pixels>
                     (default native capture resolution, width*dsf)
