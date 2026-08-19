@@ -81,6 +81,25 @@ bool_flow_trigger -> stage {
     bool_flow_trigger or bool_or_11_b -> bool_or_11_out
 }
 
+// ─────────────────────── and/or short circuit ───────────────────────
+
+func mark_skipped(v bool) bool {
+    bool_sc_skipped = true
+    return v
+}
+
+func mark_called(v bool) bool {
+    bool_sc_called = true
+    return v
+}
+
+func do_short_circuit(a bool) {
+    bool_sc_and_out = false and mark_skipped(a)
+    bool_sc_or_out = true or mark_skipped(a)
+    bool_sc_eval_out = true and mark_called(a)
+}
+bool_sc_trigger -> do_short_circuit{}
+
 // ─────────────────────── comparisons produce bool ───────────────────
 
 func do_compare(a i64) {
@@ -257,6 +276,15 @@ SECTIONS = [
     IF_A0,
 ]
 
+SHORT_CIRCUIT_CHANNELS: list[tuple[str, sy.DataType]] = [
+    ("bool_sc_trigger", BOOL),
+    ("bool_sc_and_out", BOOL),
+    ("bool_sc_or_out", BOOL),
+    ("bool_sc_eval_out", BOOL),
+    ("bool_sc_called", BOOL),
+    ("bool_sc_skipped", BOOL),
+]
+
 SELECT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("bool_sel1_in", BOOL),
     ("bool_sel0_in", BOOL),
@@ -304,6 +332,11 @@ class Boolean(ArcCase):
     arc_name_prefix = "ArcBoolean"
     start_cmd_channel = "start_boolean_cmd"
     subscribe_channels = [_ch(c, "out") for s in SECTIONS for c in s.cases] + [
+        "bool_sc_and_out",
+        "bool_sc_or_out",
+        "bool_sc_eval_out",
+        "bool_sc_called",
+        "bool_sc_skipped",
         "bool_sel1_out",
         "bool_sel0_out",
         "bool_seq_ready",
@@ -312,7 +345,10 @@ class Boolean(ArcCase):
 
     def setup(self) -> None:
         specs: list[tuple[str, sy.DataType]] = list(
-            FLOW_TRIGGERS + SELECT_CHANNELS + TRANSITION_CHANNELS
+            FLOW_TRIGGERS
+            + SHORT_CIRCUIT_CHANNELS
+            + SELECT_CHANNELS
+            + TRANSITION_CHANNELS
         )
         for s in SECTIONS:
             specs.append((_trigger(s), s.a_type))
@@ -366,6 +402,21 @@ class Boolean(ArcCase):
         self.log("=== logical operators (a = 1) ===")
         self._drive_func(LOGICAL_A1)
         self._drive_flow(LOGICAL_A1)
+
+        self.log("=== and/or short circuit ===")
+        self.writer.write("bool_sc_and_out", 1)
+        self.writer.write("bool_sc_trigger", 1)
+        self.wait_for_eq("bool_sc_and_out", 0)
+        self.wait_for_eq("bool_sc_or_out", 1)
+        self.wait_for_eq("bool_sc_eval_out", 1)
+        # mark_called turns its marker true, so a marker still 0 means the operand
+        # was skipped rather than that channel writes are broken.
+        self.wait_for_eq("bool_sc_called", 1)
+        if self.read_tlm("bool_sc_skipped", 0) != 0:
+            self.fail(
+                "bool_sc_skipped is true: the right operand of `false and` or "
+                "`true or` was evaluated"
+            )
 
         self.log("=== comparisons produce bool ===")
         self._drive_func(COMPARE)

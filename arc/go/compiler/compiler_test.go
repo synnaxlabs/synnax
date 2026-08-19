@@ -1625,6 +1625,42 @@ var _ = Describe("Compiler", func() {
 		),
 	)
 
+	Describe("Logical Short Circuit Execution", func() {
+		// A trap on the right operand is the proof: it only fires when the left
+		// operand fails to short circuit.
+		DescribeTable(
+			"should skip the right operand",
+			func(ctx SpecContext, body string, expected uint64) {
+				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
+			func guard() bool {
+				return %s
+			}
+			`, body), nil))
+
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				guard := mod.ExportedFunction("guard")
+				Expect(guard).ToNot(BeNil())
+
+				results := MustSucceed(guard.Call(ctx))
+				Expect(results).To(ConsistOf(expected))
+			},
+			Entry("false and", "false and (i32(1) / i32(0)) > i32(0)", uint64(0)),
+			Entry("true or", "true or (i32(1) / i32(0)) > i32(0)", uint64(1)),
+		)
+
+		It("Should trap when the right operand runs", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			func guard() bool {
+				return true and (i32(1) / i32(0)) > i32(0)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			_, err := mod.ExportedFunction("guard").Call(ctx)
+			Expect(err).To(MatchError(ContainSubstring("integer divide by zero")))
+		})
+	})
+
 	Describe("Power Expression Execution", func() {
 		BeforeEach(func(ctx SpecContext) {
 			bindDefaultModules(ctx, r)
