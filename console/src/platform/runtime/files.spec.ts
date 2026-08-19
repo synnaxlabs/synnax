@@ -18,18 +18,16 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-vi.mock("@tauri-apps/api/path", () => ({
-  sep: vi.fn(() => "/"),
-  join: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
-}));
+vi.mock("@tauri-apps/api/path", () => ({ sep: vi.fn(() => "/") }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readDir: vi.fn(),
+  readFile: vi.fn(),
   readTextFile: vi.fn(),
 }));
 
 import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
+import { readDir, readFile } from "@tauri-apps/plugin-fs";
 
 import { Runtime } from "@/platform/runtime";
 import {
@@ -41,14 +39,14 @@ import {
 
 const openMock = vi.mocked(open);
 const readDirMock = vi.mocked(readDir);
-const readTextFileMock = vi.mocked(readTextFile);
+const readFileMock = vi.mocked(readFile);
 
 let picker: FilePickerInterceptor;
 
 describe("Runtime files", () => {
   beforeEach(() => {
     mocks.engine = "web";
-    for (const m of [openMock, readDirMock, readTextFileMock]) m.mockReset();
+    for (const m of [openMock, readDirMock, readFileMock]) m.mockReset();
     picker = interceptFilePicker();
   });
   afterEach(() => {
@@ -56,44 +54,58 @@ describe("Runtime files", () => {
   });
 
   describe("pickFiles (browser)", () => {
-    it("should map selected files into name/path/read handles", async () => {
-      const p = Runtime.pickFiles({});
+    it("should map the selected file into path/read handles", async () => {
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
       picker.selectFiles([fakePickedFile("manifest.json", "{}")]);
       const result = await p;
       assertDefined(result);
-      expect(result).toHaveLength(1);
-      expect(result[0].name).toBe("manifest.json");
-      expect(result[0].path).toBe("manifest.json");
-      await expect(result[0].read()).resolves.toBe("{}");
+      expect(result.path).toBe("manifest.json");
+      const decoded = new TextDecoder().decode(
+        await Runtime.toBytes(await result.read()),
+      );
+      expect(decoded).toBe("{}");
     });
 
     it("should return null when no files are selected", async () => {
-      const p = Runtime.pickFiles({});
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
       picker.selectFiles([]);
       await expect(p).resolves.toBeNull();
     });
 
     it("should return null when the picker is cancelled", async () => {
-      const p = Runtime.pickFiles({});
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
       picker.cancel();
       await expect(p).resolves.toBeNull();
     });
 
-    it("should build the accept attribute from filters", async () => {
-      const p = Runtime.pickFiles({
-        filters: [{ name: "data", extensions: ["json", "csv"] }],
-        multiple: true,
-      });
-      const input = picker.lastInput();
-      expect(input.accept).toBe(".json,.csv");
-      expect(input.multiple).toBe(true);
-      picker.cancel();
-      await p;
+    it("should map every selected file when multiple", async () => {
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json", multiple: true });
+      picker.selectFiles([
+        fakePickedFile("a.json", "1"),
+        fakePickedFile("b.json", "2"),
+      ]);
+      const result = await p;
+      assertDefined(result);
+      expect(result.map((f) => f.path)).toEqual(["a.json", "b.json"]);
     });
 
-    it("should leave accept unset when there are no filters", async () => {
-      const p = Runtime.pickFiles({});
-      expect(picker.lastInput().accept).toBe("");
+    it("should settle null when the picker is dismissed without an event", async () => {
+      vi.useFakeTimers();
+      try {
+        const p = Runtime.pickFiles({ title: "Pick", extension: "json" });
+        window.dispatchEvent(new Event("focus"));
+        await vi.advanceTimersByTimeAsync(500);
+        await expect(p).resolves.toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("should build the accept attribute from the extension", async () => {
+      const p = Runtime.pickFiles({ title: "Pick", extension: "json", multiple: true });
+      const input = picker.lastInput();
+      expect(input.accept).toBe(".json");
+      expect(input.multiple).toBe(true);
       picker.cancel();
       await p;
     });
@@ -106,31 +118,37 @@ describe("Runtime files", () => {
 
     it("should return null when the dialog is cancelled", async () => {
       openMock.mockResolvedValue(null);
-      await expect(Runtime.pickFiles({})).resolves.toBeNull();
+      await expect(
+        Runtime.pickFiles({ title: "Pick", extension: "json" }),
+      ).resolves.toBeNull();
     });
 
     it("should resolve a single selected path to its basename", async () => {
       openMock.mockResolvedValue("/tmp/data/config.json");
-      readTextFileMock.mockResolvedValue("{}");
-      const result = await Runtime.pickFiles({ title: "Pick" });
+      readFileMock.mockResolvedValue(new Uint8Array([1]));
+      const result = await Runtime.pickFiles({ title: "Pick", extension: "json" });
       assertDefined(result);
-      expect(result).toHaveLength(1);
-      expect(result[0].name).toBe("config.json");
-      expect(result[0].path).toBe("config.json");
-      await result[0].read();
-      expect(readTextFileMock).toHaveBeenCalledWith("/tmp/data/config.json");
+      expect(result.path).toBe("config.json");
+      await result.read();
+      expect(readFileMock).toHaveBeenCalledWith("/tmp/data/config.json");
     });
 
     it("should resolve multiple selected paths", async () => {
       openMock.mockResolvedValue(["/a/one.json", "/b/two.json"]);
-      const result = await Runtime.pickFiles({ multiple: true });
+      const result = await Runtime.pickFiles({
+        title: "Pick",
+        extension: "json",
+        multiple: true,
+      });
       assertDefined(result);
-      expect(result.map((f) => f.name)).toEqual(["one.json", "two.json"]);
+      expect(result.map((f) => f.path)).toEqual(["one.json", "two.json"]);
     });
 
     it("should return null when the dialog resolves an empty array", async () => {
       openMock.mockResolvedValue([]);
-      await expect(Runtime.pickFiles({})).resolves.toBeNull();
+      await expect(
+        Runtime.pickFiles({ title: "Pick", extension: "json" }),
+      ).resolves.toBeNull();
     });
   });
 
@@ -141,12 +159,12 @@ describe("Runtime files", () => {
 
     it("should return null when cancelled", async () => {
       openMock.mockResolvedValue(null);
-      await expect(Runtime.pickDirectory()).resolves.toBeNull();
+      await expect(Runtime.pickDirectory({ title: "Pick" })).resolves.toBeNull();
     });
 
     it("should return null when the dialog resolves an array", async () => {
       openMock.mockResolvedValue(["/a", "/b"]);
-      await expect(Runtime.pickDirectory()).resolves.toBeNull();
+      await expect(Runtime.pickDirectory({ title: "Pick" })).resolves.toBeNull();
     });
 
     it("should collect files recursively with relative paths", async () => {
@@ -156,24 +174,25 @@ describe("Runtime files", () => {
           ? [
               { name: "a.json", isFile: true, isDirectory: false, isSymlink: false },
               { name: "nested", isFile: false, isDirectory: true, isSymlink: false },
+              { name: "link", isFile: false, isDirectory: false, isSymlink: true },
             ]
           : [{ name: "b.json", isFile: true, isDirectory: false, isSymlink: false }],
       );
-      readTextFileMock.mockResolvedValue("data");
-      const result = await Runtime.pickDirectory();
+      readFileMock.mockResolvedValue(new Uint8Array([1]));
+      const result = await Runtime.pickDirectory({ title: "Pick" });
       assertDefined(result);
       expect(result.name).toBe("project");
       expect(result.files.map((f) => f.path)).toEqual(["a.json", "nested/b.json"]);
       await result.files[0].read();
-      expect(readTextFileMock).toHaveBeenCalledWith("/tmp/project/a.json");
+      expect(readFileMock).toHaveBeenCalledWith("/tmp/project/a.json");
       await result.files[1].read();
-      expect(readTextFileMock).toHaveBeenCalledWith("/tmp/project/nested/b.json");
+      expect(readFileMock).toHaveBeenCalledWith("/tmp/project/nested/b.json");
     });
   });
 
   describe("pickDirectory (browser)", () => {
     it("should derive the root name and relative paths", async () => {
-      const p = Runtime.pickDirectory();
+      const p = Runtime.pickDirectory({ title: "Pick" });
       expect(picker.lastInput().webkitdirectory).toBe(true);
       picker.selectFiles([
         fakePickedFile("foo.json", "1", "myroot/foo.json"),
@@ -186,15 +205,47 @@ describe("Runtime files", () => {
     });
 
     it("should return null when nothing is selected", async () => {
-      const p = Runtime.pickDirectory();
+      const p = Runtime.pickDirectory({ title: "Pick" });
       picker.selectFiles([]);
       await expect(p).resolves.toBeNull();
     });
 
     it("should return null when cancelled", async () => {
-      const p = Runtime.pickDirectory();
+      const p = Runtime.pickDirectory({ title: "Pick" });
       picker.cancel();
       await expect(p).resolves.toBeNull();
+    });
+  });
+
+  describe("pickPath", () => {
+    it("should reject in the browser without opening a dialog", async () => {
+      await expect(Runtime.pickPath({ title: "Pick" })).rejects.toThrow(
+        "File paths can only be selected in the Synnax desktop app.",
+      );
+      expect(openMock).not.toHaveBeenCalled();
+    });
+
+    describe("tauri engine", () => {
+      beforeEach(() => {
+        mocks.engine = "tauri";
+      });
+
+      it("should return the chosen absolute path", async () => {
+        openMock.mockResolvedValue("/tmp/cert.pem");
+        await expect(Runtime.pickPath({ title: "Pick" })).resolves.toBe(
+          "/tmp/cert.pem",
+        );
+        expect(openMock).toHaveBeenCalledWith({
+          title: "Pick",
+          directory: false,
+          multiple: false,
+        });
+      });
+
+      it("should return null when cancelled", async () => {
+        openMock.mockResolvedValue(null);
+        await expect(Runtime.pickPath({ title: "Pick" })).resolves.toBeNull();
+      });
     });
   });
 });

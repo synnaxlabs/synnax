@@ -28,13 +28,14 @@ import {
   createSymbolPayload,
 } from "@/feature/schematic/testutil";
 import {
+  createFile,
   createJSONFile,
   fakeDirectoryEntry,
   fakeFileEntry,
   FileDragSource,
   fireFileDrop,
   startFileDrag,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
 import { Modals } from "@/platform/modals";
 import {
   createConsoleWrapper,
@@ -144,7 +145,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       const { statuses } = await renderModal();
       startFileDrag();
       fireFileDrop(screen.getByText(ZONE_TEXT), [
-        fakeFileEntry(new File([bytes], `${groupName}.zip`)),
+        fakeFileEntry(createFile(`${groupName}.zip`, bytes)),
       ]);
       await awaitStatus(statuses, "success", successMessage(groupName));
       const groups = await importedGroupsNamed(groupName);

@@ -8,26 +8,40 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { type Status } from "@synnaxlabs/pluto";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { Export } from "@/platform/export";
-import { renderWithConsole } from "@/testutil";
-
-const getID = () => log.ontologyID("k");
+import { CaptureStatuses, renderWithConsole } from "@/testutil";
 
 describe("Export.ToolbarButton", () => {
-  it("resolves the ID to export when clicked", async () => {
-    const resolve = vi.fn(getID);
-    await renderWithConsole(<Export.ToolbarButton getID={resolve} />);
+  it("starts the export flow for the given ID when clicked", async () => {
+    let statuses: Status.NotificationSpec[] = [];
+    await renderWithConsole(
+      <>
+        <Export.ToolbarButton id={log.ontologyID("k")} />
+        <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+      </>,
+    );
     fireEvent.click(screen.getByRole("button"));
-    expect(resolve).toHaveBeenCalledTimes(1);
+    // No Core is connected, so reaching the flow's disconnected error proves the
+    // click dispatched the export.
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Failed to export resource"),
+    );
   });
 
   it("forwards the disabled prop, suppressing the click", async () => {
-    const resolve = vi.fn(getID);
-    await renderWithConsole(<Export.ToolbarButton getID={resolve} disabled />);
+    let statuses: Status.NotificationSpec[] = [];
+    await renderWithConsole(
+      <>
+        <Export.ToolbarButton id={log.ontologyID("k")} disabled />
+        <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+      </>,
+    );
     fireEvent.click(screen.getByRole("button"));
-    expect(resolve).not.toHaveBeenCalled();
+    await act(async () => {});
+    expect(statuses).toHaveLength(0);
   });
 });

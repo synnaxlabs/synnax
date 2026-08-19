@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
+import { panel } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Haul, Icon, Panel as PPanel, Text, Triggers } from "@synnaxlabs/pluto";
@@ -29,7 +29,7 @@ import {
   FileDragSource,
   fireFileDrop,
   startFileDrag,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
 import { Panel } from "@/platform/panel";
 import { createServerPanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
@@ -110,6 +110,8 @@ const REGISTRY: Panel.Tabs = {
   triggerProbe: { Content: TriggerProbeContent, Name: ProbeName, Icon: ProbeIcon },
 };
 
+const noopFileDrop = vi.fn();
+
 const createTab = (): panel.NewTab => ({
   variant: "view",
   key: uuid.create(),
@@ -154,7 +156,7 @@ describe("Panel.Mosaic keep-alive", () => {
     const a = await probePanel();
     const b = await probePanel();
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     act(() => {
       store.dispatch(Session.Panel.select({ key: a.key }));
@@ -186,14 +188,14 @@ describe("Panel.Mosaic keep-alive", () => {
   it("should render a panel selected before a reload", async () => {
     const a = await probePanel();
     const { wrapper } = await setup(hydrated(a.key));
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     await waitFor(() => expect(screen.getByText(`content-${a.key}`)).toBeTruthy());
   });
 
-  // With no panel open there is no leaf to drop onto, so the empty state is the
-  // drop target itself. It reports no leaf, which opens the tabs in a new panel.
-  it("should report a file dropped on the empty state with no leaf", async () => {
+  // With no panel open there is no leaf to drop onto, so the empty state is the drop
+  // target itself, standing in with the root key and center.
+  it("should report a file dropped on the empty state at the root", async () => {
     const onFileDrop = vi.fn();
     const { wrapper } = await setup();
     render(
@@ -209,13 +211,16 @@ describe("Panel.Mosaic keep-alive", () => {
       fakeFileEntry(createJSONFile("widget.json", { type: "log" })),
     ]);
     await waitFor(() => expect(onFileDrop).toHaveBeenCalledTimes(1));
-    expect(onFileDrop.mock.calls[0][0]).not.toHaveProperty("nodeKey");
+    expect(onFileDrop.mock.calls[0][0]).toMatchObject({
+      nodeKey: panel.ROOT_NODE_KEY,
+      location: "center",
+    });
   });
 
   it("should show the empty state while keeping visited panels mounted", async () => {
     const a = await probePanel();
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     act(() => {
       store.dispatch(Session.Panel.select({ key: a.key }));
@@ -235,7 +240,7 @@ describe("Panel.Mosaic keep-alive", () => {
     const panels: panel.Panel[] = [];
     for (let i = 0; i < 6; i++) panels.push(await probePanel());
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     for (const { key } of panels) {
       act(() => {
@@ -254,7 +259,7 @@ describe("Panel.Mosaic keep-alive", () => {
     const a = await probePanel();
     const b = await probePanel();
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     act(() => {
       store.dispatch(Session.Panel.select({ key: a.key }));
@@ -277,7 +282,7 @@ describe("Panel.Mosaic not found", () => {
   it("should load the panel when retry is clicked after it exists again", async () => {
     const key = uuid.create();
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     // The suspending read must be awaited: a component that suspends inside a
     // synchronous act never resumes.
@@ -329,7 +334,7 @@ describe("Panel.Mosaic overlay", () => {
       last: { variant: "leaf", tabs: [tabB] },
     });
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     act(() => {
       store.dispatch(Session.Panel.select({ key: pan.key }));
@@ -377,7 +382,7 @@ describe("Panel.Mosaic overlay", () => {
     });
     const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
     const { wrapper, store } = await setup(withSelectedProject(proj.key));
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     act(() => {
       store.dispatch(Session.Panel.select({ key: pan.key }));
@@ -412,7 +417,7 @@ describe("Panel.Mosaic overlay", () => {
     const tabB = tabProbeTab();
     const b = await createServerPanel(client, { variant: "leaf", tabs: [tabB] });
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
 
     act(() => {
       store.dispatch(Session.Panel.select({ key: a.key }));
@@ -483,7 +488,7 @@ describe("Panel.Mosaic trigger scope", () => {
       last: { variant: "leaf", tabs: [tabB] },
     });
     const { wrapper, store } = await setup();
-    render(<Mosaic onCreateTab={createTab} />, { wrapper });
+    render(<Mosaic onCreateTab={createTab} onFileDrop={noopFileDrop} />, { wrapper });
     act(() => void store.dispatch(Session.Panel.select({ key: pan.key })));
     await waitFor(() => {
       expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();

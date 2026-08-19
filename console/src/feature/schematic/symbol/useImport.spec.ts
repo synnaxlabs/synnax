@@ -78,9 +78,7 @@ describe("Schematic.Symbol.useImport", () => {
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "error" &&
-            st.message === "Failed to import symbol from bad.json",
+          (st) => st.variant === "error" && st.message === "Failed to import bad.json",
         ),
       ).toBe(true),
     );

@@ -321,7 +321,7 @@ export const createConsoleWrapper = async ({
 
 /**
  * Warms the client's permission cache with a resolved grant for `action` on `id`, so
- * synchronous Access checks (createGranted, updateGranted) used by file ingesters pass
+ * synchronous Access checks (createGranted, updateGranted) used by file importers pass
  * exactly as they do in a running app.
  */
 export const awaitGranted = async (

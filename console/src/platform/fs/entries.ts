@@ -7,6 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/** A source file: a path relative to its root in forward-slash form, read lazily. */
+export interface SourceFile {
+  path: string;
+  /** Reads the file: the backing File in the browser, bytes on Tauri. */
+  read: () => Promise<Uint8Array<ArrayBuffer> | File>;
+}
+
 /**
  * Takes the file-system entries out of a drop's data transfer. Call it before anything
  * awaits: DataTransferItem handles stop resolving once the drop handler returns.
@@ -30,19 +37,20 @@ export const isDirectoryEntry = (
 export const readEntryFile = async (entry: FileSystemFileEntry): Promise<File> =>
   await new Promise((resolve, reject) => entry.file(resolve, reject));
 
-export interface DirectoryFile {
-  file: File;
-  /** The file's path relative to the dropped directory, forward-slash form. */
-  path: string;
-}
-
-/** Reads a dropped directory entry's files recursively, recording each file's path. */
+/**
+ * Reads a dropped directory entry's files recursively, each with its path relative to
+ * the dropped directory and lazily read bytes.
+ */
 export const readDirectoryFiles = async (
   entry: FileSystemDirectoryEntry,
-  prefix: string = "",
-): Promise<DirectoryFile[]> => {
+): Promise<SourceFile[]> => await walkDirectory(entry, "");
+
+const walkDirectory = async (
+  entry: FileSystemDirectoryEntry,
+  prefix: string,
+): Promise<SourceFile[]> => {
   const reader = entry.createReader();
-  const files: DirectoryFile[] = [];
+  const files: SourceFile[] = [];
   while (true) {
     const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
       reader.readEntries(resolve, reject);
@@ -50,10 +58,11 @@ export const readDirectoryFiles = async (
     if (entries.length === 0) break;
     for (const child of entries) {
       const path = prefix === "" ? child.name : `${prefix}/${child.name}`;
-      if (isDirectoryEntry(child))
-        files.push(...(await readDirectoryFiles(child, path)));
-      else if (isFileEntry(child))
-        files.push({ file: await readEntryFile(child), path });
+      if (isDirectoryEntry(child)) files.push(...(await walkDirectory(child, path)));
+      else if (isFileEntry(child)) {
+        const file = await readEntryFile(child);
+        files.push({ path, read: async () => file });
+      }
     }
   }
   return files;

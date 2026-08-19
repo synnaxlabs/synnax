@@ -9,7 +9,7 @@
 
 import "@/feature/panel/Mosaic.css";
 
-import { NotFoundError, ontology, type panel } from "@synnaxlabs/client";
+import { NotFoundError, ontology, panel } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Button,
@@ -237,7 +237,9 @@ const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
 
 // Same principle as the no-panel state: the watermark plus a link that opens a
 // tab in the scoped panel through the mosaic's regular create flow.
-const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
+const EmptyTabContent = ({
+  onCreateTab,
+}: Pick<MosaicProps, "onCreateTab">): ReactElement => {
   const openTab = PlatformPanel.useOpenTab();
   const handleCreate = useCallback(
     () => openTab(onCreateTab()),
@@ -302,10 +304,9 @@ interface EmptyContentProps extends Pick<MosaicProps, "onFileDrop"> {}
 const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
   const createPanel = useCreate();
   const [over, setOver] = useState(false);
-  const acceptsFiles = onFileDrop != null;
   const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) => acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0,
-    [acceptsFiles],
+    ({ items }) => Haul.filterByType(Haul.FILE_TYPE, items).length > 0,
+    [],
   );
   const handleDragOver = useCallback(() => setOver(true), []);
   const handleDragLeave = useCallback(() => setOver(false), []);
@@ -313,7 +314,9 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       setOver(false);
       if (event == null) return [];
-      onFileDrop?.({ event });
+      // No leaf exists to target, so the root key and center stand in; the handler
+      // creates a fresh panel and the placement never applies.
+      onFileDrop({ nodeKey: panel.ROOT_NODE_KEY, location: "center", event });
       return items;
     },
     [onFileDrop],
@@ -440,7 +443,7 @@ PortaledOutPanel.displayName = "PortaledOutPanel";
 export interface MosaicProps {
   onCreateTab: () => panel.NewTab;
   /** Handles an OS file drop. A drop with no leaf landed on the no-panel state. */
-  onFileDrop?: Import.FileDrop;
+  onFileDrop: Import.FileDrop;
 }
 
 export const Mosaic = (props: MosaicProps): ReactElement => (
