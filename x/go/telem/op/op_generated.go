@@ -5614,6 +5614,30 @@ func Not(input telem.Series, output *telem.Series) {
 	}
 }
 
+func AndScalar(series telem.Series, scalar bool, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := unsafe.CastSlice[uint8, bool](series.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] && scalar
+	}
+}
+
+func OrScalar(series telem.Series, scalar bool, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := unsafe.CastSlice[uint8, bool](series.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] || scalar
+	}
+}
+
 func BitAndI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()

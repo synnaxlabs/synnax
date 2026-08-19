@@ -295,29 +295,20 @@ func bindBool(
 	}
 	for _, entry := range []struct {
 		name string
-		or   bool
+		fn   func(telem.Series, bool, *telem.Series)
 	}{
-		{"and_scalar", false},
-		{"or_scalar", true},
+		{"and_scalar", op.AndScalar},
+		{"or_scalar", op.OrScalar},
 	} {
-		isOr := entry.or
+		fn := entry.fn
 		builder = builder.NewFunctionBuilder().
 			WithFunc(func(_ context.Context, handle, scalar uint32) uint32 {
 				ser, ok := s.Get(handle)
 				if !ok {
 					return 0
 				}
-				sv := scalar != 0
-				result := telem.MakeSeries(telem.BooleanT, int(ser.Len()))
-				for i := 0; i < int(ser.Len()); i++ {
-					v := telem.ValueAt[bool](ser, i)
-					if isOr {
-						v = v || sv
-					} else {
-						v = v && sv
-					}
-					telem.SetValueAt[bool](result, i, v)
-				}
+				result := telem.Series{DataType: telem.BooleanT}
+				fn(ser, scalar != 0, &result)
 				return s.Store(result)
 			}).Export(entry.name)
 	}

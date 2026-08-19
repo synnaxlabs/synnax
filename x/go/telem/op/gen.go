@@ -82,6 +82,12 @@ var boolLogicalOperations = []Operation{
 	{Name: "Or", Op: "||"},
 }
 
+// Scalar logical operations for the boolean type (series op scalar -> bool).
+var boolScalarLogicalOperations = []Operation{
+	{Name: "AndScalar", Op: "&&"},
+	{Name: "OrScalar", Op: "||"},
+}
+
 // Bitwise operations on integer element types (series op series -> same type).
 var bitwiseOperations = []Operation{
 	{Name: "BitAnd", Op: "&"},
@@ -594,6 +600,10 @@ func main() {
 	lo.Must0(unaryTmpl.Execute(&buf, map[string]any{
 		"Type":     boolType,
 		"UnaryOps": boolNotOp,
+	}))
+	lo.Must0(scalarArithTmpl.Execute(&buf, map[string]any{
+		"Type":       boolType,
+		"Operations": boolScalarLogicalOperations,
 	}))
 
 	// Generate bitwise operations for integer types only

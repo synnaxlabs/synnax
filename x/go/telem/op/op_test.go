@@ -429,6 +429,37 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 		})
 
+		Context("Scalar Logical Operations", func() {
+			DescribeTable("AndScalar",
+				func(scalar bool, expected []bool) {
+					series := telem.NewSeriesV[bool](true, false)
+					output := telem.Series{DataType: telem.BooleanT}
+					op.AndScalar(series, scalar, &output)
+					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				},
+				Entry("true is identity", true, []bool{true, false}),
+				Entry("false zeroes", false, []bool{false, false}),
+			)
+
+			DescribeTable("OrScalar",
+				func(scalar bool, expected []bool) {
+					series := telem.NewSeriesV[bool](true, false)
+					output := telem.Series{DataType: telem.BooleanT}
+					op.OrScalar(series, scalar, &output)
+					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				},
+				Entry("true fills", true, []bool{true, true}),
+				Entry("false is identity", false, []bool{true, false}),
+			)
+
+			It("should handle an empty series", func() {
+				series := telem.Series{DataType: telem.BooleanT}
+				output := telem.Series{DataType: telem.BooleanT}
+				op.AndScalar(series, true, &output)
+				Expect(output.Len()).To(Equal(int64(0)))
+			})
+		})
+
 		Context("Combined Logical Operations", func() {
 			It("should allow combining AND and OR operations", func() {
 				a := telem.NewSeriesV[bool](true, true, false, false)
