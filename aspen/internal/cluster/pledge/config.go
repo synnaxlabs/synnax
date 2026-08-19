@@ -62,7 +62,7 @@ type Config struct {
 	Candidates func() node.Group
 	// Peers is a set of addresses a pledge can contact.
 	//
-	// [OPTIONAL] - Defaults to an empty slice.
+	// [OPTIONAL] - Required when pledging.
 	Peers []address.Address
 	// RequestTimeout is the timeout for a peer to respond to a pledge or proposal
 	// request. If the request is not responded to before the timeout, a new jury will
@@ -80,9 +80,9 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 10.
 	MaxProposals uint
-	// PledgeInterval scale sets how quickly the time in-between retries will increase
-	// during a Pledge to a peer. For example, a value of 2 would result in a retry
-	// interval of 1,2, 4, 8, 16, 32, 64, ... seconds.
+	// RetryScale sets how quickly the time in-between retries will increase during a
+	// Pledge to a peer. For example, a value of 2 would result in a retry interval of
+	// 1, 2, 4, 8, 16, 32, 64, ... seconds.
 	//
 	// [OPTIONAL] - Defaults to 1.25.
 	RetryScale float64

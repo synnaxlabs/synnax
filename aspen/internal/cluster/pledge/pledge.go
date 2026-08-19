@@ -52,7 +52,6 @@ import (
 
 // errProposalRejected is an internal error returned when a juror rejects a pledge
 // proposal from a responsible node.
-
 var errProposalRejected = errors.New("proposal rejected")
 
 // Pledge pledges a new node to the cluster. This node, called the pledge, submits a
@@ -208,10 +207,12 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 			// so it makes progress. Only infrastructure failures count against
 			// MaxProposals: otherwise keys approved during failed proposals force every
 			// retry to burn its budget re-traversing them, a livelock.
-			if !errors.Is(err, errProposalRejected) {
+			if errors.Is(err, errProposalRejected) {
+				r.L.Debug("quorum rejected proposal. retrying.", zap.Error(err))
+			} else {
 				propC++
+				r.L.Error("quorum consultation failed. retrying.", zap.Error(err))
 			}
-			r.L.Error("quorum rejected proposal. retrying.", zap.Error(err))
 			continue
 		}
 
