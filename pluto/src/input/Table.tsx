@@ -130,6 +130,8 @@ export const Table = ({
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    // Enter on the add and remove buttons must reach their native activation.
+    if (!(e.target instanceof HTMLInputElement)) return;
     const move = MOVES[e.key];
     if (move == null) return;
     e.preventDefault();

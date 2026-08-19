@@ -174,6 +174,12 @@ describe("Input.Table", () => {
       expect(document.activeElement).toBe(cell("Raw", "1"));
     });
 
+    it("should leave a key pressed outside a cell alone", () => {
+      renderTable({ value: VALUE });
+      expect(fireEvent.keyDown(addButton(), { key: "Enter" })).toBe(true);
+      expect(fireEvent.keyDown(cell("Raw", "1"), { key: "Enter" })).toBe(false);
+    });
+
     it("should hold focus at the last cell", () => {
       renderTable({ value: VALUE });
       const from = cell("Scaled", "2");
