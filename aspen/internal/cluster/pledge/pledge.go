@@ -169,7 +169,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	res.ClusterKey = r.ClusterKey
 
 	var propC int
-	for propC = range r.MaxProposals {
+	for propC < r.MaxProposals {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			err = errors.Combine(err, ctxErr)
 			break
@@ -200,6 +200,13 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// If any node returns an error, it means we need to retry the responsible with
 		// a new Name.
 		if err = r.consultQuorum(ctx, res.Key, quorum); err != nil {
+			// A rejection means the key is stale, and the retry proposes a higher
+			// one, so it makes progress. Only infrastructure failures count against
+			// MaxProposals: otherwise keys approved during failed proposals force
+			// every retry to burn its budget re-traversing them, a livelock.
+			if !errors.Is(err, errProposalRejected) {
+				propC++
+			}
 			r.L.Error("quorum rejected proposal. retrying.", zap.Error(err))
 			continue
 		}
@@ -300,6 +307,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	if req.Key <= highestNodeID(j.Candidates()) {
 		j.L.Warn("juror rejected proposal. id out of range", logID)
 		err = errProposalRejected
+		return err
 	}
 	j.approvals = append(j.approvals, req.Key)
 	j.L.Debug("juror approved proposal", logID)

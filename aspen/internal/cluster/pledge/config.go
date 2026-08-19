@@ -55,8 +55,9 @@ type Config struct {
 	RequestTimeout time.Duration
 	// RetryInterval sets the initial retry interval for a Pledge to a peer.
 	RetryInterval time.Duration
-	// MaxProposals is the maximum number of proposals a responsible node will make
-	// to a quorum before giving up.
+	// MaxProposals is the maximum number of failed quorum consultations a
+	// responsible node will tolerate before giving up. Proposals rejected by a
+	// juror retry with a higher key and do not count against this limit.
 	MaxProposals int
 	// PledgeInterval scale sets how quickly the time in-between retries will
 	// increase during a Pledge to a peer. For example, a value of 2 would result
