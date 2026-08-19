@@ -32,7 +32,8 @@ import (
 // LegacyKeyKVPrefix is the KV key prefix under which the re-key migration stages the
 // mapping from a task's legacy uint64 key to its new UUID. The remainder of the key
 // is the legacy key's decimal string; the value is the UUID string. The panel
-// migration consumes these entries to re-key task references in converted layouts.
+// service's composition migration, which the service layer runs after every table is
+// open, consumes these entries to re-key task references in converted layouts.
 const LegacyKeyKVPrefix = "sy_task_legacy_key/"
 
 // LegacyKeyKVKey returns the staging KV key holding the UUID for the task with the
