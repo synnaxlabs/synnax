@@ -108,31 +108,33 @@ type stagedLayout struct {
 	slice     legacySlice
 }
 
-// migrateProjectLayouts returns a migration that converts the legacy layout blobs the
-// project migration stages under projectv1.LegacyLayoutKVPrefix into panels, deleting
-// each staged entry as it is consumed, so this migration never reads the project layout
-// field directly. Every window mosaic that references at least one live visualization
-// document becomes a panel parented under the project. Tabs whose layout entry is
-// missing, whose layout type has no backing document, or whose document no longer
-// exists are dropped; splits that lose a side collapse into the surviving child. Blobs
-// that cannot be parsed are skipped, since the Console wrote them best-effort and an
-// unreadable layout must not block the upgrade.
-func migrateProjectLayouts() func(context.Context, gorp.Tx, alamos.Instrumentation) error {
-	return func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-		staged, err := scanStagedLayouts(tx, ins)
-		if err != nil {
+// migrateProjectLayouts converts the legacy layout blobs the project migration stages
+// under projectv1.LegacyLayoutKVPrefix into panels, deleting each staged entry as it is
+// consumed, so this migration never reads the project layout field directly. Every
+// window mosaic that references at least one live visualization document becomes a
+// panel parented under the project. Tabs whose layout entry is missing, whose layout
+// type has no backing document, or whose document no longer exists are dropped; splits
+// that lose a side collapse into the surviving child. Blobs that cannot be parsed are
+// skipped, since the Console wrote them best-effort and an unreadable layout must not
+// block the upgrade.
+func migrateProjectLayouts(
+	ctx context.Context,
+	tx gorp.Tx,
+	ins alamos.Instrumentation,
+) error {
+	staged, err := scanStagedLayouts(tx, ins)
+	if err != nil {
+		return err
+	}
+	for _, s := range staged {
+		if err = createPanels(ctx, tx, s.projectID, s.slice); err != nil {
 			return err
 		}
-		for _, s := range staged {
-			if err = createPanels(ctx, tx, s.projectID, s.slice); err != nil {
-				return err
-			}
-			if err = tx.Delete(ctx, s.key); err != nil {
-				return err
-			}
+		if err = tx.Delete(ctx, s.key); err != nil {
+			return err
 		}
-		return nil
 	}
+	return nil
 }
 
 // scanStagedLayouts gathers every staged layout before any are converted, since writing
@@ -337,10 +339,10 @@ func convertTaskTab(ctx context.Context, tx gorp.Tx, tabKey string) (*Tab, error
 	}}, nil
 }
 
-// MigrateTaskTabKeys converts every panel view tab holding a legacy uint64 task key
+// migrateTaskTabKeys converts every panel view tab holding a legacy uint64 task key
 // into a resource tab pointing at the UUID minted by the task re-key migration, then
 // drains the staging map.
-func MigrateTaskTabKeys(
+func migrateTaskTabKeys(
 	ctx context.Context,
 	tx gorp.Tx,
 	_ alamos.Instrumentation,
@@ -522,14 +524,14 @@ func convertSize(s float64) float64 {
 // It runs in the composition pass, after the project chain has staged every layout and
 // the task chain has staged its re-key mapping.
 var projectLayoutsMigration = gorp.NewMigration(
-	"v56_migrate_project_layouts_to_panels", migrateProjectLayouts(),
+	"v56_migrate_project_layouts_to_panels", migrateProjectLayouts,
 )
 
 // taskTabKeysMigration re-keys task view tabs from the legacy-to-UUID mapping staged
 // by the task re-key migration. It runs after the project-layouts migration so
 // converted tabs are re-keyed in the same pass.
 var taskTabKeysMigration = gorp.NewMigration(
-	"v56_task_tab_uuid_keys", MigrateTaskTabKeys,
+	"v56_task_tab_uuid_keys", migrateTaskTabKeys,
 )
 
 // resourceTabTypesMigration strips resource tabs the type whitelist rejects. It runs
