@@ -23,6 +23,7 @@ const DEV_CONNECTION: ConnectionParams = {
 
 export const detectConnection = (): ConnectionParams | null => {
   if (Session.Runtime.ENGINE === "tauri") return null;
+  if (new URLSearchParams(window.location.search).has("select-cluster")) return null;
   if (IS_DEV) return DEV_CONNECTION;
   const url = new URL(window.location.origin);
   return {

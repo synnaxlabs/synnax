@@ -14,6 +14,7 @@ import synnax as sy
 from console.access import AccessClient
 from console.arc import ArcClient
 from console.channels import ChannelClient
+from console.cluster import ClusterClient
 from console.devices import DevicesClient
 from console.docs import DocsClient
 from console.labels import LabelClient
@@ -41,6 +42,7 @@ class Console:
     arc: ArcClient
     channels: ChannelClient
     client: sy.Synnax
+    cluster: ClusterClient
     docs: DocsClient
     labels: LabelClient
     layout: LayoutClient
@@ -65,6 +67,7 @@ class Console:
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
         self.channels = ChannelClient(self.layout, self.client)
+        self.cluster = ClusterClient(self.layout)
         self.project = ProjectClient(self.layout)
         self.pages = PagesClient(self.layout, self.client, self.project)
         self.panels = PanelsClient(self.layout)

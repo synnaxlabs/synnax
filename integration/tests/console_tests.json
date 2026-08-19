@@ -87,6 +87,16 @@
       ]
     },
     {
+      "sequence_name": "cluster",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        { "case": "console/cluster/connection_lifecycle" },
+        { "case": "console/cluster/cluster_switch" },
+        { "case": "console/cluster/login_forms" }
+      ]
+    },
+    {
       "sequence_name": "other",
       "sequence_order": "asynchronous",
       "pool_size": 6,
