@@ -162,7 +162,7 @@ var _ = Describe("AST Utilities", func() {
 			Entry("logical or", "a or b"),
 			Entry("logical and", "a and b"),
 			Entry("unary minus", "-1"),
-			Entry("power", "2 ** 3"),
+			Entry("power", "2 ^ 3"),
 		)
 	})
 

@@ -188,15 +188,15 @@ var _ = Describe("Parser", func() {
 			})
 
 			It("Should parse exponentiation with right associativity", func() {
-				expr := mustParseExpression("2 ** 3 ** 2")
-				// Should be parsed as 2 ** (3 ** 2)
+				expr := mustParseExpression("2 ^ 3 ^ 2")
+				// Should be parsed as 2 ^ (3 ^ 2)
 				power := getMultiplicativeExpression(expr).PowerExpression(0)
 				Expect(power).NotTo(BeNil())
-				Expect(power.STARSTAR()).NotTo(BeNil())
+				Expect(power.CARET()).NotTo(BeNil())
 				// The right side should be another power expression
 				rightPower := power.PowerExpression()
 				Expect(rightPower).NotTo(BeNil())
-				Expect(rightPower.STARSTAR()).NotTo(BeNil())
+				Expect(rightPower.CARET()).NotTo(BeNil())
 			})
 		})
 
@@ -907,21 +907,21 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		Context("Complex operator precedence", func() {
 			It("Should parse chained exponentials right-to-left", func() {
-				// 2 ** 3 ** 2 ** 1 should be 2 ** (3 ** (2 ** 1))
-				expr := mustParseExpression("2 ** 3 ** 2 ** 1")
+				// 2 ^ 3 ^ 2 ^ 1 should be 2 ^ (3 ^ (2 ^ 1))
+				expr := mustParseExpression("2 ^ 3 ^ 2 ^ 1")
 
 				power := getMultiplicativeExpression(expr).PowerExpression(0)
-				Expect(power.STARSTAR()).NotTo(BeNil())
+				Expect(power.CARET()).NotTo(BeNil())
 
 				// Right side should be another power expression
 				rightPower := power.PowerExpression()
 				Expect(rightPower).NotTo(BeNil())
-				Expect(rightPower.STARSTAR()).NotTo(BeNil())
+				Expect(rightPower.CARET()).NotTo(BeNil())
 
 				// And that should have another power expression
 				rightRightPower := rightPower.PowerExpression()
 				Expect(rightRightPower).NotTo(BeNil())
-				Expect(rightRightPower.STARSTAR()).NotTo(BeNil())
+				Expect(rightRightPower.CARET()).NotTo(BeNil())
 			})
 
 			It("Should parse complex logical expressions", func() {

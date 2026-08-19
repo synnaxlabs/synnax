@@ -1630,10 +1630,10 @@ var _ = Describe("Compiler", func() {
 			bindDefaultModules(ctx, r)
 		})
 
-		It("Should execute i32 power: 2**3 = 8", func(ctx SpecContext) {
+		It("Should execute i32 power: 2^3 = 8", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return i32(2) ** i32(3)
+				return i32(2) ^ i32(3)
 			}
 			`, nil))
 
@@ -1645,10 +1645,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(8)))
 		})
 
-		It("Should execute i64 power: 2**10 = 1024", func(ctx SpecContext) {
+		It("Should execute i64 power: 2^10 = 1024", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i64 {
-				return 2 ** 10
+				return 2 ^ 10
 			}
 			`, nil))
 
@@ -1660,10 +1660,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(1024)))
 		})
 
-		It("Should execute u32 power: 3**4 = 81", func(ctx SpecContext) {
+		It("Should execute u32 power: 3^4 = 81", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func power() u32 {
-				return u32(3) ** u32(4)
+				return u32(3) ^ u32(4)
 			}
 			`, nil))
 
@@ -1675,10 +1675,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(81)))
 		})
 
-		It("Should execute u64 power: 5**3 = 125", func(ctx SpecContext) {
+		It("Should execute u64 power: 5^3 = 125", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func power() u64 {
-				return u64(5) ** u64(3)
+				return u64(5) ^ u64(3)
 			}
 			`, nil))
 
@@ -1690,10 +1690,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(125)))
 		})
 
-		It("Should execute f32 power: 2.0**3.0 = 8.0", func(ctx SpecContext) {
+		It("Should execute f32 power: 2.0^3.0 = 8.0", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f32 {
-				return f32(2.0) ** f32(3.0)
+				return f32(2.0) ^ f32(3.0)
 			}
 			`, nil))
 
@@ -1705,10 +1705,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(math.Float32bits(8.0))))
 		})
 
-		It("Should execute f64 power: 2.5**2.0 = 6.25", func(ctx SpecContext) {
+		It("Should execute f64 power: 2.5^2.0 = 6.25", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f64 {
-				return 2.5 ** 2.0
+				return 2.5 ^ 2.0
 			}
 			`, nil))
 
@@ -1721,11 +1721,11 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It(
-			"Should execute right-associative power: 2**3**2 = 2**(3**2) = 2**9 = 512",
+			"Should execute right-associative power: 2^3^2 = 2^(3^2) = 2^9 = 512",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return i32(2) ** i32(3) ** i32(2)
+				return i32(2) ^ i32(3) ^ i32(2)
 			}
 			`, nil))
 
@@ -1739,11 +1739,11 @@ var _ = Describe("Compiler", func() {
 		)
 
 		It(
-			"Should execute power with higher precedence than addition: 2 + 3**2 = 2 + 9 = 11",
+			"Should execute power with higher precedence than addition: 2 + 3^2 = 2 + 9 = 11",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return i32(2) + i32(3) ** i32(2)
+				return i32(2) + i32(3) ^ i32(2)
 			}
 			`, nil))
 
@@ -1757,7 +1757,7 @@ var _ = Describe("Compiler", func() {
 		)
 
 		DescribeTable(
-			"unary minus binds to the base: -2 ** 2 is (-2) ** 2",
+			"unary minus binds to the base: -2 ^ 2 is (-2) ^ 2",
 			func(ctx SpecContext, returnType, body string, expected uint64) {
 				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
 			func power() %s {
@@ -1772,35 +1772,35 @@ var _ = Describe("Compiler", func() {
 				results := MustSucceed(power.Call(ctx))
 				Expect(results).To(ConsistOf(expected))
 			},
-			Entry("negative base", "i64", "-2 ** 2", uint64(4)),
+			Entry("negative base", "i64", "-2 ^ 2", uint64(4)),
 			Entry(
 				"negative base odd exponent",
 				"i64",
-				"-2 ** 3",
+				"-2 ^ 3",
 				uint64(18446744073709551608), // -8
 			),
 			Entry(
 				"negated power",
 				"i64",
-				"-(2 ** 2)",
+				"-(2 ^ 2)",
 				uint64(18446744073709551612), // -4
 			),
-			Entry("negative base i32", "i32", "-i32(2) ** i32(2)", uint64(4)),
-			Entry("negative base f64", "f64", "-2.0 ** 2.0", math.Float64bits(4.0)),
+			Entry("negative base i32", "i32", "-i32(2) ^ i32(2)", uint64(4)),
+			Entry("negative base f64", "f64", "-2.0 ^ 2.0", math.Float64bits(4.0)),
 			Entry(
 				"negative f64 exponent",
 				"f64",
-				"2.0 ** -1.0",
+				"2.0 ^ -1.0",
 				math.Float64bits(0.5),
 			),
 		)
 
 		It(
-			"Should execute power with parentheses: (2 + 3)**2 = 5**2 = 25",
+			"Should execute power with parentheses: (2 + 3)^2 = 5^2 = 25",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return (i32(2) + i32(3)) ** i32(2)
+				return (i32(2) + i32(3)) ^ i32(2)
 			}
 			`, nil))
 
@@ -1814,11 +1814,11 @@ var _ = Describe("Compiler", func() {
 		)
 
 		It(
-			"Should execute power with multiplication: 2 * 3**2 = 2 * 9 = 18",
+			"Should execute power with multiplication: 2 * 3^2 = 2 * 9 = 18",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return i32(2) * i32(3) ** i32(2)
+				return i32(2) * i32(3) ^ i32(2)
 			}
 			`, nil))
 
@@ -1836,7 +1836,7 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power(base i32, exp i32) i32 {
-				return base ** exp
+				return base ^ exp
 			}
 			`, nil))
 
@@ -1844,20 +1844,20 @@ var _ = Describe("Compiler", func() {
 				power := mod.ExportedFunction("power")
 				Expect(power).ToNot(BeNil())
 
-				// Test 4**3 = 64
+				// Test 4^3 = 64
 				results := MustSucceed(power.Call(ctx, 4, 3))
 				Expect(results).To(ConsistOf(uint64(64)))
 
-				// Test 10**2 = 100
+				// Test 10^2 = 100
 				results = MustSucceed(power.Call(ctx, 10, 2))
 				Expect(results).To(ConsistOf(uint64(100)))
 			},
 		)
 
-		It("Should execute power with zero exponent: 5**0 = 1", func(ctx SpecContext) {
+		It("Should execute power with zero exponent: 5^0 = 1", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return i32(5) ** i32(0)
+				return i32(5) ^ i32(0)
 			}
 			`, nil))
 
@@ -1869,10 +1869,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
-		It("Should execute power with exponent one: 42**1 = 42", func(ctx SpecContext) {
+		It("Should execute power with exponent one: 42^1 = 42", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return i32(42) ** i32(1)
+				return i32(42) ^ i32(1)
 			}
 			`, nil))
 
@@ -1885,11 +1885,11 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It(
-			"Should execute negative base with even exponent: (-2)**4 = 16",
+			"Should execute negative base with even exponent: (-2)^4 = 16",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return i32(-2) ** i32(4)
+				return i32(-2) ^ i32(4)
 			}
 			`, nil))
 
@@ -1898,17 +1898,17 @@ var _ = Describe("Compiler", func() {
 				Expect(power).ToNot(BeNil())
 
 				results := MustSucceed(power.Call(ctx))
-				// -2**4 = 16 (even exponent, positive result)
+				// -2^4 = 16 (even exponent, positive result)
 				Expect(results).To(ConsistOf(uint64(16)))
 			},
 		)
 
 		It(
-			"Should execute negative base with odd exponent: (-2)**3 = -8",
+			"Should execute negative base with odd exponent: (-2)^3 = -8",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
-				return i32(-2) ** i32(3)
+				return i32(-2) ^ i32(3)
 			}
 			`, nil))
 
@@ -1918,18 +1918,18 @@ var _ = Describe("Compiler", func() {
 
 				results := MustSucceed(power.Call(ctx))
 				Expect(results).To(HaveLen(1))
-				// -2**3 = -8 (odd exponent, negative result)
+				// -2^3 = -8 (odd exponent, negative result)
 				negEight := int32(-8)
 				Expect(results[0]).To(Equal(uint64(uint32(negEight))))
 			},
 		)
 
 		It(
-			"Should execute fractional f64 power: 27.0**(1.0/3.0) ≈ 3.0",
+			"Should execute fractional f64 power: 27.0^(1.0/3.0) ≈ 3.0",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f64 {
-				return 27.0 ** (1.0 / 3.0)
+				return 27.0 ^ (1.0 / 3.0)
 			}
 			`, nil))
 
@@ -1946,11 +1946,11 @@ var _ = Describe("Compiler", func() {
 		)
 
 		It(
-			"Should execute negative fractional f64 power: 0.5**(-1.0) = 2.0",
+			"Should execute negative fractional f64 power: 0.5^(-1.0) = 2.0",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f64 {
-				return 0.5 ** -1.0
+				return 0.5 ^ -1.0
 			}
 			`, nil))
 
@@ -1959,7 +1959,7 @@ var _ = Describe("Compiler", func() {
 				Expect(power).ToNot(BeNil())
 
 				results := MustSucceed(power.Call(ctx))
-				// 0.5**(-1) = 1/0.5 = 2.0
+				// 0.5^(-1) = 1/0.5 = 2.0
 				Expect(results).To(ConsistOf(math.Float64bits(2.0)))
 			},
 		)
@@ -1971,12 +1971,12 @@ var _ = Describe("Compiler", func() {
 		})
 
 		It(
-			"Should execute f32 variable with integer literal: x**2",
+			"Should execute f32 variable with integer literal: x^2",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f32 {
 				x f32 := 3.0
-				return x ** 2
+				return x ^ 2
 			}
 			`, nil))
 
@@ -1985,18 +1985,18 @@ var _ = Describe("Compiler", func() {
 				Expect(power).ToNot(BeNil())
 
 				results := MustSucceed(power.Call(ctx))
-				// 3.0**2 = 9.0
+				// 3.0^2 = 9.0
 				Expect(results).To(ConsistOf(uint64(math.Float32bits(9.0))))
 			},
 		)
 
 		It(
-			"Should execute f64 variable with integer literal: x**3",
+			"Should execute f64 variable with integer literal: x^3",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f64 {
 				x f64 := 2.0
-				return x ** 3
+				return x ^ 3
 			}
 			`, nil))
 
@@ -2005,18 +2005,18 @@ var _ = Describe("Compiler", func() {
 				Expect(power).ToNot(BeNil())
 
 				results := MustSucceed(power.Call(ctx))
-				// 2.0**3 = 8.0
+				// 2.0^3 = 8.0
 				Expect(results).To(ConsistOf(math.Float64bits(8.0)))
 			},
 		)
 
 		It(
-			"Should execute i32 variable with integer literal: x**2",
+			"Should execute i32 variable with integer literal: x^2",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() i32 {
 				x i32 := 5
-				return x ** 2
+				return x ^ 2
 			}
 			`, nil))
 
@@ -2026,18 +2026,18 @@ var _ = Describe("Compiler", func() {
 
 				results := MustSucceed(power.Call(ctx))
 				Expect(results).To(HaveLen(1))
-				// 5**2 = 25
+				// 5^2 = 25
 				Expect(int32(results[0])).To(Equal(int32(25)))
 			},
 		)
 
 		It(
-			"Should execute f32 with float literal exponent: x**2.5",
+			"Should execute f32 with float literal exponent: x^2.5",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f32 {
 				x f32 := 4.0
-				return x ** 2.5
+				return x ^ 2.5
 			}
 			`, nil))
 
@@ -2047,19 +2047,19 @@ var _ = Describe("Compiler", func() {
 
 				results := MustSucceed(power.Call(ctx))
 				Expect(results).To(HaveLen(1))
-				// 4.0**2.5 = 32.0
+				// 4.0^2.5 = 32.0
 				result := math.Float32frombits(uint32(results[0]))
 				Expect(result).To(BeNumerically("~", 32.0, 0.0001))
 			},
 		)
 
 		It(
-			"Should execute complex expression with power and literals: 2 * x**2 + 3",
+			"Should execute complex expression with power and literals: 2 * x^2 + 3",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f32 {
 				x f32 := 3.0
-				return 2 * x ** 2 + 3
+				return 2 * x ^ 2 + 3
 			}
 			`, nil))
 
@@ -2069,19 +2069,19 @@ var _ = Describe("Compiler", func() {
 
 				results := MustSucceed(power.Call(ctx))
 				Expect(results).To(HaveLen(1))
-				// 2 * 3.0**2 + 3 = 2 * 9.0 + 3 = 21.0
+				// 2 * 3.0^2 + 3 = 2 * 9.0 + 3 = 21.0
 				result := math.Float32frombits(uint32(results[0]))
 				Expect(result).To(BeNumerically("~", 21.0, 0.0001))
 			},
 		)
 
 		It(
-			"Should execute chained power with literals: x**2**3",
+			"Should execute chained power with literals: x^2^3",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f32 {
 				x f32 := 2.0
-				return x ** 2 ** 3
+				return x ^ 2 ^ 3
 			}
 			`, nil))
 
@@ -2091,7 +2091,7 @@ var _ = Describe("Compiler", func() {
 
 				results := MustSucceed(power.Call(ctx))
 				Expect(results).To(HaveLen(1))
-				// 2.0**(2**3) = 2.0**8 = 256.0
+				// 2.0^(2^3) = 2.0^8 = 256.0
 				result := math.Float32frombits(uint32(results[0]))
 				Expect(result).To(BeNumerically("~", 256.0, 0.0001))
 			},
@@ -2997,7 +2997,7 @@ var _ = Describe("Compiler", func() {
 			main := mod.ExportedFunction("main")
 			Expect(main).ToNot(BeNil())
 
-			// 3**2 + 4**2 = 9 + 16 = 25
+			// 3^2 + 4^2 = 9 + 16 = 25
 			results := MustSucceed(main.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(25)))
@@ -4374,7 +4374,7 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func square(val f32) f32 {
-				return val ** 2
+				return val ^ 2
 			}
 			`, nil))
 
@@ -4390,11 +4390,11 @@ var _ = Describe("Compiler", func() {
 		)
 
 		It(
-			"Should execute ** operator with literal integer arguments",
+			"Should execute ^ operator with literal integer arguments",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() i64 {
-				return 2 ** 3
+				return 2 ^ 3
 			}
 			`, nil))
 
@@ -4412,7 +4412,7 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() f64 {
-				return 2.5 ** 2.0
+				return 2.5 ^ 2.0
 			}
 			`, nil))
 

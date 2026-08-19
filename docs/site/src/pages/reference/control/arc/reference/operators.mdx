@@ -25,7 +25,7 @@ export const components = mdxOverrides;
 | `*`         | Multiplication | `3 * 4`  | `12`                                |
 | `/`         | Division       | `10 / 3` | `3` (integer) or `3.333...` (float) |
 | `%`         | Modulo         | `10 % 3` | `1`                                 |
-| `**`        | Exponentiation | `2 ** 8` | `256`                               |
+| `^`         | Exponentiation | `2 ^ 8`  | `256`                               |
 
 ### Division Behavior
 
@@ -45,15 +45,15 @@ result := 10.0 / 3.0 // 3.333...
 ### Exponentiation
 
 ```arc
-power := 2 ** 8 // 256
-square := 5 ** 2 // 25
-cube := 2.0 ** 3 // 8.0
+power := 2 ^ 8 // 256
+square := 5 ^ 2 // 25
+cube := 2.0 ^ 3 // 8.0
 ```
 
 Exponentiation is right-associative:
 
 ```arc
-result := 2 ** 3 ** 2 // 2 ** (3 ** 2) = 2 ** 9 = 512
+result := 2 ^ 3 ^ 2 // 2 ^ (3 ^ 2) = 2 ^ 9 = 512
 ```
 
 <Divider.Divider x />
@@ -127,7 +127,7 @@ Operators listed from highest to lowest precedence.
 | Precedence  | Operators            | Associativity |
 | ----------- | -------------------- | ------------- |
 | 1 (highest) | `-` (unary), `not`   | Right         |
-| 2           | `**`                 | Right         |
+| 2           | `^`                  | Right         |
 | 3           | `*`, `/`, `%`        | Left          |
 | 4           | `+`, `-`             | Left          |
 | 5           | `<`, `>`, `<=`, `>=` | Left          |
@@ -139,7 +139,7 @@ Operators listed from highest to lowest precedence.
 
 ```arc
 // Unary minus binds tighter than exponentiation
--2 ** 2 // (-2) ** 2 = 4; write -(2 ** 2) for -4
+-2 ^ 2 // (-2) ^ 2 = 4; write -(2 ^ 2) for -4
 
 // Multiplication before addition
 2 + 3 * 4 // 2 + (3 * 4) = 14

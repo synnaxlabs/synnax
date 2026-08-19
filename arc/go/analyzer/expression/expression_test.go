@@ -1351,26 +1351,26 @@ var _ = Describe("Expressions", func() {
 			Entry("literal integer exponent", `
 				func testFunc() {
 					x f64 m := 5m
-					y := x**2
+					y := x^2
 				}
 			`),
 			Entry("negative literal integer exponent", `
 				func testFunc() {
 					x f64 m := 5m
-					y := x**-2
+					y := x^-2
 				}
 			`),
 			Entry("zero exponent", `
 				func testFunc() {
 					x f64 m := 5m
-					y := x**0
+					y := x^0
 				}
 			`),
 			Entry("dimensionless base with any exponent", `
 				func testFunc() {
 					x f64 := 5.0
 					y i32 := 2
-					z := x**y
+					z := x^y
 				}
 			`),
 		)
@@ -1383,32 +1383,32 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					x f64 m := 5m
 					n i32 := 2
-					y := x**n
+					y := x^n
 				}
 			`, "literal integer exponent"),
 			Entry("dimensioned exponent", `
 				func testFunc() {
 					x f64 := 5.0
 					n f64 s := 2s
-					y := x**n
+					y := x^n
 				}
 			`, "dimensionless"),
 			Entry("dimensioned base with float literal exponent", `
 				func testFunc() {
 					x f64 m := 5m
-					y := x**2.0
+					y := x^2.0
 				}
 			`, "literal integer exponent"),
 			Entry("dimensioned base with unit-suffixed literal exponent", `
 				func testFunc() {
 					x f64 m := 5m
-					y := x**2s
+					y := x^2s
 				}
 			`, "dimensionless"),
 			Entry("dimensioned base with chained power exponent", `
 				func testFunc() {
 					x f64 m := 5m
-					y := x**2**2
+					y := x^2^2
 				}
 			`, "literal integer exponent"),
 		)
@@ -1719,7 +1719,7 @@ var _ = Describe("Expressions", func() {
 			func(ctx SpecContext) {
 				expectFailure(ctx, `
 				func testFunc() {
-					x := 2**undefinedVar
+					x := 2^undefinedVar
 				}
 			`, nil, "undefined symbol")
 			},
@@ -1747,7 +1747,7 @@ var _ = Describe("Expressions", func() {
 				expectFailure(ctx, `
 				func testFunc() {
 					x f64 := 2.0
-					y := x**2**undefinedVar
+					y := x^2^undefinedVar
 				}
 			`, nil, "undefined symbol")
 			},
@@ -1761,7 +1761,7 @@ var _ = Describe("Expressions", func() {
 				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
-					y := x**2
+					y := x^2
 				}
 			`))
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
@@ -1776,7 +1776,7 @@ var _ = Describe("Expressions", func() {
 				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
-					y := x**-2
+					y := x^-2
 				}
 			`))
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
@@ -1791,7 +1791,7 @@ var _ = Describe("Expressions", func() {
 				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
-					y := x**0
+					y := x^0
 				}
 			`))
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
@@ -1807,7 +1807,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					x f64 := 5.0
 					y i32 := 2
-					z := x**y
+					z := x^y
 				}
 			`))
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
@@ -1823,7 +1823,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					x f64 m := 5m
 					n i32 := 2
-					y := x**n
+					y := x^n
 				}
 			`))
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
@@ -1841,7 +1841,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					x f64 := 5.0
 					n f64 s := 2s
-					y := x**n
+					y := x^n
 				}
 			`))
 			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
@@ -1857,7 +1857,7 @@ var _ = Describe("Expressions", func() {
 				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
-					y := x**2.0
+					y := x^2.0
 				}
 			`))
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
@@ -1876,7 +1876,7 @@ var _ = Describe("Expressions", func() {
 				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
-					y := x**2s
+					y := x^2s
 				}
 			`))
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))

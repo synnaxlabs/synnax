@@ -12,14 +12,10 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ccontext "github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Binary Operations", func() {
@@ -1226,8 +1222,8 @@ var _ = Describe("Binary Operations", func() {
 		),
 		// Power Operations
 		Entry(
-			"i32 power - simple 2**3",
-			"i32(2) ** i32(3)",
+			"i32 power - simple 2^3",
+			"i32(2) ^ i32(3)",
 			types.I32(),
 			OpI32Const,
 			int32(2),
@@ -1237,8 +1233,8 @@ var _ = Describe("Binary Operations", func() {
 			uint32(0),
 		),
 		Entry(
-			"i64 power - 2**10",
-			"2 ** 10",
+			"i64 power - 2^10",
+			"2 ^ 10",
 			types.I64(),
 			OpI64Const,
 			int64(2),
@@ -1248,8 +1244,8 @@ var _ = Describe("Binary Operations", func() {
 			uint32(0),
 		),
 		Entry(
-			"u32 power - 3**4",
-			"u32(3) ** u32(4)",
+			"u32 power - 3^4",
+			"u32(3) ^ u32(4)",
 			types.U32(),
 			OpI32Const,
 			int32(3),
@@ -1259,8 +1255,8 @@ var _ = Describe("Binary Operations", func() {
 			uint32(0),
 		),
 		Entry(
-			"u64 power - 5**3",
-			"u64(5) ** u64(3)",
+			"u64 power - 5^3",
+			"u64(5) ^ u64(3)",
 			types.U64(),
 			OpI64Const,
 			int64(5),
@@ -1270,8 +1266,8 @@ var _ = Describe("Binary Operations", func() {
 			uint32(0),
 		),
 		Entry(
-			"f32 power - 2.0**3.0",
-			"f32(2.0) ** f32(3.0)",
+			"f32 power - 2.0^3.0",
+			"f32(2.0) ^ f32(3.0)",
 			types.F32(),
 			OpF32Const,
 			float32(2.0),
@@ -1281,8 +1277,8 @@ var _ = Describe("Binary Operations", func() {
 			uint32(0),
 		),
 		Entry(
-			"f64 power - 2.5**2.0",
-			"2.5 ** 2.0",
+			"f64 power - 2.5^2.0",
+			"2.5 ^ 2.0",
 			types.F64(),
 			OpF64Const,
 			2.5,
@@ -1292,8 +1288,8 @@ var _ = Describe("Binary Operations", func() {
 			uint32(0),
 		),
 		Entry(
-			"power right-associative - 2**3**2 = 2**(3**2) = 2**9",
-			"i32(2) ** i32(3) ** i32(2)",
+			"power right-associative - 2^3^2 = 2^(3^2) = 2^9",
+			"i32(2) ^ i32(3) ^ i32(2)",
 			types.I32(),
 			OpI32Const,
 			int32(2),
@@ -1307,8 +1303,8 @@ var _ = Describe("Binary Operations", func() {
 			uint32(0),
 		),
 		Entry(
-			"power with higher precedence than addition - 2 + 3**2",
-			"i32(2) + i32(3) ** i32(2)",
+			"power with higher precedence than addition - 2 + 3^2",
+			"i32(2) + i32(3) ^ i32(2)",
 			types.I32(),
 			OpI32Const,
 			int32(2),
@@ -1321,8 +1317,8 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Add,
 		),
 		Entry(
-			"power with parentheses - (2 + 3)**2",
-			"(i32(2) + i32(3)) ** i32(2)",
+			"power with parentheses - (2 + 3)^2",
+			"(i32(2) + i32(3)) ^ i32(2)",
 			types.I32(),
 			OpI32Const,
 			int32(2),

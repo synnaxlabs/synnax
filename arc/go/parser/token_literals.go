@@ -54,7 +54,7 @@ const (
 	LiteralSTAR          = "*"
 	LiteralSLASH         = "/"
 	LiteralPERCENT       = "%"
-	LiteralSTARSTAR      = "**"
+	LiteralCARET         = "^"
 	LiteralEQ            = "=="
 	LiteralNEQ           = "!="
 	LiteralLT            = "<"

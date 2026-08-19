@@ -1208,7 +1208,7 @@ func (p *printer) tokensAdjacent(prev, curr antlr.Token) bool {
 func (p *printer) isBinaryOperator(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerPLUS, parser.ArcLexerMINUS, parser.ArcLexerSTAR,
-		parser.ArcLexerSLASH, parser.ArcLexerPERCENT, parser.ArcLexerSTARSTAR,
+		parser.ArcLexerSLASH, parser.ArcLexerPERCENT, parser.ArcLexerCARET,
 		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,
 		parser.ArcLexerLEQ, parser.ArcLexerGEQ, parser.ArcLexerAND, parser.ArcLexerOR,
 		parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE, parser.ArcLexerASSIGN,

@@ -183,7 +183,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		It(
 			"should infer the correct type for channel and literal operations in power expressions",
 			func(bCtx SpecContext) {
-				block := MustSucceed(parser.ParseBlock(`{ return f32_chan ** 2 }`))
+				block := MustSucceed(parser.ParseBlock(`{ return f32_chan ^ 2 }`))
 				globalResolver := []symbol.Symbol{
 					{
 						Name: "f32_chan",

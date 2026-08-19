@@ -260,7 +260,7 @@ func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 		baseType := InferFromUnaryExpression(context.Child(ctx, unary))
 
 		// If no power operator, return base type
-		if ctx.AST.STARSTAR() == nil || ctx.AST.PowerExpression() == nil {
+		if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
 			return baseType
 		}
 
@@ -268,7 +268,7 @@ func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 		_ = InferPower(context.Child(ctx, ctx.AST.PowerExpression()))
 
 		// Power operation returns the unwrapped base type
-		// (e.g., chan f32 ** i32 = f32, f64 ** f64 = f64)
+		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64)
 		return baseType.Unwrap()
 	}
 	return types.Type{}

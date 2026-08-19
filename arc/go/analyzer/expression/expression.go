@@ -73,7 +73,7 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 		current = node
 	)
 	if power, ok := current.(parser.IPowerExpressionContext); ok {
-		if power.STARSTAR() != nil {
+		if power.CARET() != nil {
 			return 0, false
 		}
 		current = power.UnaryExpression()
@@ -220,7 +220,7 @@ func validateType[T, N antlr.ParserRuleContext](
 
 		// Check dimensional compatibility first if either operand has units This must
 		// be checked even for type variables since the unit is known at parse time
-		// Note: Power operations (**) are handled separately in analyzePower via
+		// Note: Power operations (^) are handled separately in analyzePower via
 		// ValidatePowerOp.
 		if firstType.Unit != nil || nextType.Unit != nil {
 			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
@@ -363,7 +363,7 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 		analyzePower(context.Child(ctx, power))
 	}
 
-	if ctx.AST.STARSTAR() != nil && power != nil {
+	if ctx.AST.CARET() != nil && power != nil {
 		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).
 			Unwrap()
 		expType := types.InferPower(context.Child(ctx, power)).Unwrap()

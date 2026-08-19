@@ -44,7 +44,7 @@ null
 '*'
 '/'
 '%'
-'**'
+'^'
 '=='
 '!='
 '<'
@@ -118,7 +118,7 @@ MINUS
 STAR
 SLASH
 PERCENT
-STARSTAR
+CARET
 EQ
 NEQ
 LT

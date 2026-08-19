@@ -261,7 +261,7 @@
         },
         {
           "name": "keyword.operator.arithmetic.arc",
-          "match": "\\*\\*|[+\\-*/%]"
+          "match": "[+\\-*/%^]"
         }
       ]
     },

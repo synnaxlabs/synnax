@@ -185,7 +185,7 @@ timestamp := now() // i64 ns from now() builtin
 distance f64 m := 10.0
 time f64 s := 2.0
 speed := distance / time // f64 m/s (dimensions combine)
-area := distance ** 2 // f64 m^2 (literal exponent required)
+area := distance ^ 2 // f64 m^2 (literal exponent required)
 ```
 
 ## Variables
@@ -248,7 +248,7 @@ Expression ::= UnaryExpression | BinaryExpression | PrimaryExpression
 
 UnaryOperator ::= '-' | 'not'
 BinaryOperator ::= ArithmeticOp | ComparisonOp | LogicalOp
-ArithmeticOp ::= '+' | '-' | '*' | '/' | '%' | '**'
+ArithmeticOp ::= '+' | '-' | '*' | '/' | '%' | '^'
 ComparisonOp ::= '==' | '!=' | '<' | '>' | '<=' | '>='
 LogicalOp ::= 'and' | 'or'
 ```
@@ -256,7 +256,7 @@ LogicalOp ::= 'and' | 'or'
 **Precedence** (highest to lowest):
 
 1. `-`, `not` (unary, right-associative)
-2. `**` (right-associative)
+2. `^` (right-associative)
 3. `*`, `/`, `%` (left-associative)
 4. `+`, `-` (left-associative)
 5. `<`, `>`, `<=`, `>=`
@@ -268,8 +268,8 @@ Examples:
 
 ```arc
 func example{}(){
-    power := 2 ** 8 // 256
-    neg := -2 ** 2 // 4: parses as (-2) ** 2
+    power := 2 ^ 8 // 256
+    neg := -2 ^ 2 // 4: parses as (-2) ^ 2
     remainder := 10 % 3 // 1
     in_range := temp >= 20 and temp <= 30 // bool
     ready := in_range and not fault

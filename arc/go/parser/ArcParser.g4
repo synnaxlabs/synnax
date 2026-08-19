@@ -403,9 +403,9 @@ multiplicativeExpression
     : powerExpression ((STAR | SLASH | PERCENT) powerExpression)*
     ;
 
-// ** is right-associative; the base is unary, so -2 ** 2 parses as (-2) ** 2
+// ^ is right-associative; the base is unary, so -2 ^ 2 parses as (-2) ^ 2
 powerExpression
-    : unaryExpression (STARSTAR powerExpression)?
+    : unaryExpression (CARET powerExpression)?
     ;
 
 unaryExpression

@@ -1465,21 +1465,21 @@ trigger_ch -> emit_period{period=1s}
 		)
 	})
 
-	Describe("** Operator (math.pow)", func() {
+	Describe("^ Operator (math.pow)", func() {
 		DescribeTable("const, const (i64)",
 			expectOutput[int32],
 			Entry("i64 literals", "pow_ii", types.I64(), `{
-				return 2 ** 10
+				return 2 ^ 10
 			}`, nil, int32(1024)),
 		)
 
 		DescribeTable("const, const (f64)",
 			expectOutput[float64],
 			Entry("f64 literals", "pow_ff64", types.F64(), `{
-				return 2.0 ** 3.0
+				return 2.0 ^ 3.0
 			}`, nil, float64(8.0)),
 			Entry("f64 fractional exp", "pow_ff64_frac", types.F64(), `{
-				return 9.0 ** 0.5
+				return 9.0 ^ 0.5
 			}`, nil, float64(3.0)),
 		)
 
@@ -1490,7 +1490,7 @@ trigger_ch -> emit_period{period=1s}
 				"exp_src",
 				types.I64(),
 				types.I64(),
-				`{ return lhs ** rhs }`,
+				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1522,7 +1522,7 @@ trigger_ch -> emit_period{period=1s}
 				"exp_src",
 				types.F64(),
 				types.F64(),
-				`{ return lhs ** rhs }`,
+				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1556,7 +1556,7 @@ trigger_ch -> emit_period{period=1s}
 				"exp_src",
 				types.I64(),
 				types.I64(),
-				`{ return lhs ** rhs }`,
+				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1588,7 +1588,7 @@ trigger_ch -> emit_period{period=1s}
 				"exp_src",
 				types.F64(),
 				types.F64(),
-				`{ return lhs ** rhs }`,
+				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1622,7 +1622,7 @@ trigger_ch -> emit_period{period=1s}
 				"exp_src",
 				types.I64(),
 				types.I64(),
-				`{ return lhs ** rhs }`,
+				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1654,7 +1654,7 @@ trigger_ch -> emit_period{period=1s}
 				"exp_src",
 				types.F64(),
 				types.F64(),
-				`{ return lhs ** rhs }`,
+				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)

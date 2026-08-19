@@ -2330,83 +2330,83 @@ func str_len() i64 { return len("hello") })arc");
     EXPECT_EQ(v, 5);
 }
 
-/// @brief ** operator (const, const) with i64 literals.
+/// @brief ^ operator (const, const) with i64 literals.
 TEST(BinaryOpTest, PowConstConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(client, R"arc(
-func pow_ii() i64 { return 2 ** 10 })arc");
+func pow_ii() i64 { return 2 ^ 10 })arc");
     EXPECT_EQ(v, 1024);
 }
 
-/// @brief ** operator (const, const) with f64 literals.
+/// @brief ^ operator (const, const) with f64 literals.
 TEST(BinaryOpTest, PowConstConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(client, R"arc(
-func pow_ff() f64 { return 2.0 ** 3.0 })arc");
+func pow_ff() f64 { return 2.0 ^ 3.0 })arc");
     EXPECT_DOUBLE_EQ(v, 8.0);
 }
 
-/// @brief ** operator (chan, const) with f64 channel base.
+/// @brief ^ operator (chan, const) with f64 channel base.
 TEST(BinaryOpTest, PowChanConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func squared(x f64) f64 { return x ** 2 })arc",
+        R"arc(func squared(x f64) f64 { return x ^ 2 })arc",
         {3.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
 }
 
-/// @brief ** operator (chan, const) with i64 channel base.
+/// @brief ^ operator (chan, const) with i64 channel base.
 TEST(BinaryOpTest, PowChanConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func cubed(x i64) i64 { return x ** 3 })arc",
+        R"arc(func cubed(x i64) i64 { return x ^ 3 })arc",
         {static_cast<int64_t>(5)}
     );
     EXPECT_EQ(v, 125);
 }
 
-/// @brief ** operator (const, chan) with f64 channel exponent.
+/// @brief ^ operator (const, chan) with f64 channel exponent.
 TEST(BinaryOpTest, PowConstChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func base3(exp f64) f64 { return 3.0 ** exp })arc",
+        R"arc(func base3(exp f64) f64 { return 3.0 ^ exp })arc",
         {2.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
 }
 
-/// @brief ** operator (const, chan) with i64 channel exponent.
+/// @brief ^ operator (const, chan) with i64 channel exponent.
 TEST(BinaryOpTest, PowConstChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func base2(exp i64) i64 { return 2 ** exp })arc",
+        R"arc(func base2(exp i64) i64 { return 2 ^ exp })arc",
         {static_cast<int64_t>(4)}
     );
     EXPECT_EQ(v, 16);
 }
 
-/// @brief ** operator (chan, chan) with f64 channels.
+/// @brief ^ operator (chan, chan) with f64 channels.
 TEST(BinaryOpTest, PowChanChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func pow_ff(base f64, exp f64) f64 { return base ** exp })arc",
+        R"arc(func pow_ff(base f64, exp f64) f64 { return base ^ exp })arc",
         {4.0, 0.5}
     );
     EXPECT_DOUBLE_EQ(v, 2.0);
 }
 
-/// @brief ** operator (chan, chan) with i64 channels.
+/// @brief ^ operator (chan, chan) with i64 channels.
 TEST(BinaryOpTest, PowChanChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func pow_ii(base i64, exp i64) i64 { return base ** exp })arc",
+        R"arc(func pow_ii(base i64, exp i64) i64 { return base ^ exp })arc",
         {static_cast<int64_t>(2), static_cast<int64_t>(10)}
     );
     EXPECT_EQ(v, 1024);

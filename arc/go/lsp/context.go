@@ -410,7 +410,7 @@ func isExpressionContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 		parser.ArcLexerSTAR,
 		parser.ArcLexerSLASH,
 		parser.ArcLexerPERCENT,
-		parser.ArcLexerSTARSTAR,
+		parser.ArcLexerCARET,
 		parser.ArcLexerEQ,
 		parser.ArcLexerNEQ,
 		parser.ArcLexerLT,

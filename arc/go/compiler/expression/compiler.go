@@ -113,7 +113,7 @@ func compilePower(
 		return types.Type{}, err
 	}
 
-	if ctx.AST.STARSTAR() == nil || ctx.AST.PowerExpression() == nil {
+	if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
 		return baseType, nil
 	}
 
