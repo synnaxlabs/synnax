@@ -1,10 +1,10 @@
-# 58 Control state service
+# 57 Control state service
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-08-14
 - **Related**: [RFC 0032 - Telemetry bypass](0032-telemetry-bypass.md),
   [RFC 0047 - Client cache, unified reads, and Console session state](0047-client-cache-unified-reads-session-state.md),
-  [RFC 0056 - Client telemetry layer](0056-client-telemetry-layer.md)
+  [RFC 0055 - Client telemetry layer](0055-client-telemetry-layer.md)
 
 ## 0 Summary
 
@@ -54,7 +54,7 @@ Three consequences follow.
   (`cesium/control.go:70-73`, `cesium/writer_stream.go:444`, `:961`). All three exist
   only because the reporter is also a writer.
 
-RFC 0056 §6 deferred "migrating the control controller, control state, and lineplot
+RFC 0055 §6 deferred "migrating the control controller, control state, and lineplot
 range provider off their raw `Synnax` streamers". This RFC is the control-state half of
 that follow-on.
 
@@ -286,12 +286,12 @@ Core.
   the need for republication in §4.2 and fix every signals channel at once, and it is
   probably the right long-term fix, but it changes the semantics of every metadata
   channel in the system.
-- Moving control state onto the RFC 0056 `framer.Feed`. Control state is metadata and
+- Moving control state onto the RFC 0055 `framer.Feed`. Control state is metadata and
   belongs on the query cache's socket, not the telemetry feed.
 - A live control-state mirror in Python. The retrieve ships (§4.5); streaming
   `sy_control` through the `Controller`'s receiver has no caller today.
 - The control controller and the lineplot range provider, the other two migrations RFC
-  0056 §6 deferred.
+  0055 §6 deferred.
 
 ## 7 Resolved decisions
 
