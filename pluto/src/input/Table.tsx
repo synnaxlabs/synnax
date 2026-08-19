@@ -9,7 +9,7 @@
 
 import "@/input/Table.css";
 
-import { csv, grid } from "@synnaxlabs/x";
+import { csv, type dimensions, grid, xy } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type ComponentPropsWithRef,
@@ -63,19 +63,15 @@ const parseBlock = (text: string): number[][] | null => {
   return block;
 };
 
-const cellID = ({ row, col }: grid.Position): string => `${row}:${col}`;
+const cellID = ({ x, y }: xy.XY): string => `${y}:${x}`;
 
-type Move = (
-  dims: grid.Dimensions,
-  from: grid.Position,
-  back: boolean,
-) => grid.Position | null;
+type Move = (dims: dimensions.Dimensions, from: xy.XY, back: boolean) => xy.XY | null;
 
 /** The cell each navigation key moves focus to. */
 const MOVES: Partial<Record<string, Move>> = {
   Enter: (dims, from, back) => grid.next(dims, from, back ? -1 : 1),
-  ArrowDown: (dims, from) => grid.move(dims, from, { row: 1 }),
-  ArrowUp: (dims, from) => grid.move(dims, from, { row: -1 }),
+  ArrowDown: (dims, from) => grid.move(dims, from, { x: 0, y: 1 }),
+  ArrowUp: (dims, from) => grid.move(dims, from, { x: 0, y: -1 }),
 };
 
 /**
@@ -102,14 +98,14 @@ export const Table = ({
   ...rest
 }: TableProps): ReactElement => {
   // Paste and keyboard moves land on the focused cell, so the last focus is the anchor.
-  const anchor = useRef<grid.Position>({ row: 0, col: 0 });
+  const anchor = useRef<xy.XY>(xy.ZERO);
   const cells = useRef(new Map<string, HTMLInputElement | null>());
-  const dims: grid.Dimensions = { rows: value.length, cols: columns.length };
+  const dims: dimensions.Dimensions = { width: columns.length, height: value.length };
 
-  const handleCellChange = (at: grid.Position, next: number) =>
+  const handleCellChange = (at: xy.XY, next: number) =>
     onChange(
       value.map((row, i) =>
-        i === at.row ? row.map((cell, j) => (j === at.col ? next : cell)) : row,
+        i === at.y ? row.map((cell, j) => (j === at.x ? next : cell)) : row,
       ),
     );
 
@@ -118,13 +114,13 @@ export const Table = ({
     const block = parseBlock(e.clipboardData.getData("text/plain"));
     if (block == null) return;
     e.preventDefault();
-    const { dimensions, writes } = grid.plan(dims, anchor.current, block);
+    const plan = grid.plan(dims, anchor.current, block);
     const next = value.map((row) => [...row]);
-    for (let row = dims.rows; row < dimensions.rows; row++)
+    for (let row = dims.height; row < plan.dimensions.height; row++)
       next.push(new Array<number>(columns.length).fill(0));
     // The column count is fixed, so a block wider than the table loses its tail.
-    writes.forEach(({ position: { row, col }, value }) => {
-      if (col < columns.length) next[row][col] = value;
+    plan.writes.forEach(({ position: { x, y }, value }) => {
+      if (x < columns.length) next[y][x] = value;
     });
     onChange(next);
   };
@@ -182,11 +178,11 @@ export const Table = ({
               <td key={j}>
                 <Numeric
                   ref={(el) => {
-                    cells.current.set(cellID({ row: i, col: j }), el);
+                    cells.current.set(cellID({ x: j, y: i }), el);
                   }}
                   value={row[j] ?? 0}
-                  onChange={(next) => handleCellChange({ row: i, col: j }, next)}
-                  onFocus={() => (anchor.current = { row: i, col: j })}
+                  onChange={(next) => handleCellChange({ x: j, y: i }, next)}
+                  onFocus={() => (anchor.current = { x: j, y: i })}
                   preview={preview}
                   showDragHandle={false}
                   aria-label={name == null ? rowLabel(i) : `${name} ${rowLabel(i)}`}

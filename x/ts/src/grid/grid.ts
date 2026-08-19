@@ -7,73 +7,68 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/** A cell's coordinates in a grid, both zero-based. */
-export interface Position {
-  row: number;
-  col: number;
-}
+import { bounds, type dimensions, xy } from "@/spatial";
 
-/** A grid's extent. */
-export interface Dimensions {
-  rows: number;
-  cols: number;
-}
-
-export const contains = ({ rows, cols }: Dimensions, { row, col }: Position): boolean =>
-  row >= 0 && row < rows && col >= 0 && col < cols;
+/** Reports whether a cell lies inside a grid of the given dimensions. */
+export const contains = (dims: dimensions.Dimensions, cell: xy.XY): boolean =>
+  cell.x >= 0 && cell.x < dims.width && cell.y >= 0 && cell.y < dims.height;
 
 /**
- * Steps one cell in a direction.
- * @returns The moved position, or null when the step leaves the grid.
+ * Steps a cell by a delta.
+ * @returns The moved cell, or null when the step leaves the grid.
  */
 export const move = (
-  dims: Dimensions,
-  { row, col }: Position,
-  delta: Partial<Position>,
-): Position | null => {
-  const next = { row: row + (delta.row ?? 0), col: col + (delta.col ?? 0) };
+  dims: dimensions.Dimensions,
+  cell: xy.XY,
+  delta: xy.XY,
+): xy.XY | null => {
+  const next = xy.translate(cell, delta);
   return contains(dims, next) ? next : null;
 };
 
 /**
  * Steps one cell forward (dir 1) or backward (dir -1) in row-major order, wrapping at a
  * row's end onto the next row.
- * @returns The next position, or null at the grid's first or last cell.
+ * @returns The next cell, or null at the grid's first or last cell.
  */
-export const next = (dims: Dimensions, pos: Position, dir: 1 | -1): Position | null => {
-  if (!contains(dims, pos)) return null;
-  const col = pos.col + dir;
-  if (col >= 0 && col < dims.cols) return { row: pos.row, col };
-  const row = pos.row + dir;
-  if (row < 0 || row >= dims.rows) return null;
-  return { row, col: dir === 1 ? 0 : dims.cols - 1 };
+export const next = (
+  dims: dimensions.Dimensions,
+  cell: xy.XY,
+  dir: 1 | -1,
+): xy.XY | null => {
+  if (!contains(dims, cell)) return null;
+  const x = cell.x + dir;
+  if (x >= 0 && x < dims.width) return { x, y: cell.y };
+  const y = cell.y + dir;
+  if (y < 0 || y >= dims.height) return null;
+  return { x: dir === 1 ? 0 : dims.width - 1, y };
 };
 
 /**
- * Lists the positions inside the inclusive rectangle the two corners define, in
- * row-major order.
+ * Lists the cells inside the inclusive rectangle the two corners define, in row-major
+ * order.
  */
-export const region = (start: Position, end: Position): Position[] => {
-  const positions: Position[] = [];
-  const minRow = Math.min(start.row, end.row);
-  const maxRow = Math.max(start.row, end.row);
-  const minCol = Math.min(start.col, end.col);
-  const maxCol = Math.max(start.col, end.col);
-  for (let row = minRow; row <= maxRow; row++)
-    for (let col = minCol; col <= maxCol; col++) positions.push({ row, col });
-  return positions;
+export const region = (start: xy.XY, end: xy.XY): xy.XY[] => {
+  const cells: xy.XY[] = [];
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+  for (let y = minY; y <= maxY; y++)
+    for (let x = minX; x <= maxX; x++) cells.push({ x, y });
+  return cells;
 };
 
-/** One value bound for a position by a {@link Plan}. */
+/** One value bound for a cell by a {@link Plan}. */
 export interface Write<V> {
-  position: Position;
+  position: xy.XY;
   value: V;
 }
 
 /** The result of {@link plan}: where a block lands and how big the grid must become. */
 export interface Plan<V> {
   /** The extent the grid needs to hold every write. Never smaller than the current. */
-  dimensions: Dimensions;
+  dimensions: dimensions.Dimensions;
   writes: Write<V>[];
 }
 
@@ -86,21 +81,24 @@ export interface Plan<V> {
  * array grows it and assigns, a caller backed by a document adds rows and columns first
  * and then writes each position.
  */
-export const plan = <V>(dims: Dimensions, anchor: Position, block: V[][]): Plan<V> => {
-  const start = {
-    row: Math.min(Math.max(anchor.row, 0), dims.rows),
-    col: Math.min(Math.max(anchor.col, 0), dims.cols),
+export const plan = <V>(
+  dims: dimensions.Dimensions,
+  anchor: xy.XY,
+  block: V[][],
+): Plan<V> => {
+  const start: xy.XY = {
+    x: bounds.clamp({ lower: 0, upper: dims.width }, anchor.x),
+    y: bounds.clamp({ lower: 0, upper: dims.height }, anchor.y),
   };
   const writes: Write<V>[] = [];
-  let rows = dims.rows;
-  let cols = dims.cols;
-  block.forEach((blockRow, i) =>
-    blockRow.forEach((value, j) => {
-      const position = { row: start.row + i, col: start.col + j };
-      rows = Math.max(rows, position.row + 1);
-      cols = Math.max(cols, position.col + 1);
+  let { width, height } = dims;
+  block.forEach((row, i) =>
+    row.forEach((value, j) => {
+      const position = { x: start.x + j, y: start.y + i };
+      width = Math.max(width, position.x + 1);
+      height = Math.max(height, position.y + 1);
       writes.push({ position, value });
     }),
   );
-  return { dimensions: { rows, cols }, writes };
+  return { dimensions: { width, height }, writes };
 };

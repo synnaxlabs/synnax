@@ -206,8 +206,8 @@ export const nextCellPosition = (
 // are skipped silently; ragged rows produce a sparse region.
 export const cellsInRegion = (rows: table.Row[], start: xy.XY, end: xy.XY): string[] =>
   grid
-    .region({ row: start.y, col: start.x }, { row: end.y, col: end.x })
-    .map(({ row, col }) => rows[row]?.cells[col])
+    .region(start, end)
+    .map(({ x, y }) => rows[y]?.cells[x])
     .filter((cellKey) => cellKey != null);
 
 export const useCellPosition = Scope.bindHook(
