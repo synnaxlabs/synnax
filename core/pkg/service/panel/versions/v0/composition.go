@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package v0
 
 import (
 	"bytes"
@@ -32,14 +32,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// CompositionMigrations is the panel service's contribution to the composition
-// migration pass the service layer runs after every service table is open. The
-// migrations here consume staging produced by the project and task table chains, so
-// they cannot run inside the panel table's own chain: panel opens before both
-// producers. Unlike table-chain migrations, which are frozen against versioned types,
-// these run at most once per cluster (tracked by the pass's applied set) at whatever
-// version the cluster first reaches, so they read frozen staging formats but must
-// always write current-format entries.
+// CompositionMigrations adopts other services' staged legacy data (project layouts,
+// task re-key mapping) into panels. The service layer runs them after every table is
+// open, since the producing services open after the panel table. Like the chain, they
+// are frozen at this version: they read frozen staging and write v0-shape panels, and
+// later versions must order their migrations after these.
 var CompositionMigrations = []migrate.Migration{
 	projectLayoutsMigration,
 	taskTabKeysMigration,

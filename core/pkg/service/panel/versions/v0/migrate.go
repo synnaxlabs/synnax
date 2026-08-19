@@ -17,8 +17,8 @@ import (
 // codecMigration re-encodes stored panels from MessagePack to Orc.
 var codecMigration = gorp.CodecMigration[Key, Panel]("msgpack_to_orc")
 
-// Migrations is the ordered set of migrations introduced at this version. The
-// migrations that adopt other services' staged legacy data (project layouts, task
-// re-key mapping) live in the parent versions package's CompositionMigrations: they
-// cannot run in this chain because the producing services open after the panel table.
+// Migrations is the ordered set of chain migrations introduced at this version. The
+// migrations that adopt other services' staged legacy data live in
+// CompositionMigrations: they cannot run in this chain because the producing services
+// open after the panel table.
 var Migrations = []migrate.Migration{codecMigration}
