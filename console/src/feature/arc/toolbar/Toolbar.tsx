@@ -22,6 +22,7 @@ import {
   Status,
   stopPropagation,
   Text,
+  Tooltip,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
@@ -171,6 +172,8 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
     onStartStop,
     taskStatus: status,
   } = Arc.useTaskControls(itemKey, arcItem?.name ?? "");
+  const drifted = Arc.useDrifted({ arcKey: itemKey });
+  const isLoading = status.variant === "loading";
   let statusMessage = "Stopped";
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";
@@ -195,6 +198,14 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
             overflow="ellipsis"
             weight={500}
           />
+          {drifted && (
+            <Tooltip.Dialog>
+              <Text.Text level="small">Configuration changed since deploy</Text.Text>
+              <Text.Text level="small" status="warning">
+                <Icon.Refresh />
+              </Text.Text>
+            </Tooltip.Dialog>
+          )}
         </Flex.Box>
         <Text.Text level="small" status={status?.variant}>
           {statusMessage}
@@ -203,11 +214,13 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
       {hasUpdatePermission && (
         <Button.Button
           variant="outlined"
+          size="small"
+          status={isLoading ? "loading" : running ? "error" : undefined}
           onClick={onStartStop}
           onDoubleClick={stopPropagation}
           tooltip={`${running ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
         >
-          {running ? <Icon.Pause /> : <Icon.Play />}
+          {running ? <Icon.Stop /> : <Icon.Play />}
         </Button.Button>
       )}
     </Select.ListItem>
